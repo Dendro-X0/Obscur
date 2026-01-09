@@ -1,0 +1,20 @@
+{
+  "name": "@dweb/nostr",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@dweb/core": "workspace:*",
+    "@dweb/crypto": "workspace:*",
+    "@noble/curves": "^1.6.0",
+    "@noble/secp256k1": "^2.2.3"
+  },
+  "exports": {
+    "./create-nostr-dm-event": "./src/create-nostr-dm-event.ts",
+    "./create-nostr-event": "./src/create-nostr-event.ts",
+    "./nip04-decrypt": "./src/nip04-decrypt.ts",
+    "./nip04-encrypt": "./src/nip04-encrypt.ts",
+    "./nostr-event": "./src/nostr-event.ts",
+    "./relay-set": "./src/relay-set.ts"
+  }
+}

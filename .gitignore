@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# builds
+**/dist/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# env
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Playwright
+apps/pwa/test-results/
+apps/pwa/playwright-report/
+
+# misc
+*.tsbuildinfo

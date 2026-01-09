@@ -1,0 +1,22 @@
+{
+  "name": "@dweb/crypto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@noble/secp256k1": "^2.2.3"
+  },
+  "exports": {
+    "./encrypted-string": "./src/encrypted-string.ts",
+    "./from-base64": "./src/from-base64.ts",
+    "./passphrase": "./src/passphrase.ts",
+    "./private-key-hex": "./src/private-key-hex.ts",
+    "./public-key-hex": "./src/public-key-hex.ts",
+    "./generate-private-key-hex": "./src/generate-private-key-hex.ts",
+    "./derive-public-key-hex": "./src/derive-public-key-hex.ts",
+    "./encrypt-private-key-hex": "./src/encrypt-private-key-hex.ts",
+    "./decrypt-private-key-hex": "./src/decrypt-private-key-hex.ts",
+    "./to-array-buffer": "./src/to-array-buffer.ts",
+    "./to-base64": "./src/to-base64.ts"
+  }
+}

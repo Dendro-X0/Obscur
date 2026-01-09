@@ -1,0 +1,15 @@
+{
+  "name": "dweb-messenger",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev:pwa": "pnpm -C apps/pwa dev",
+    "dev:api": "pnpm -C apps/api dev",
+    "build:pwa": "pnpm -C apps/pwa build",
+    "build:api": "pnpm -C apps/api build",
+    "lint:pwa": "pnpm -C apps/pwa lint"
+  }
+}

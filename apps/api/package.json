@@ -1,0 +1,20 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/dev.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/dev.js"
+  },
+  "dependencies": {
+    "hono": "^4.6.12"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.13.4",
+    "@types/node": "^20.17.14",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

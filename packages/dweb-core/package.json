@@ -1,0 +1,15 @@
+{
+  "name": "@dweb/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@dweb/crypto": "workspace:*"
+  },
+  "exports": {
+    "./user-id": "./src/user-id.ts",
+    "./relay-url": "./src/relay-url.ts",
+    "./bootstrap-config": "./src/bootstrap-config.ts",
+    "./identity-record": "./src/identity-record.ts"
+  }
+}
