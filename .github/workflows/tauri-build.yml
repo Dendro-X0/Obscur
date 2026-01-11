@@ -1,4 +1,4 @@
-name: Tauri Desktop Build
+name: Tauri Desktop Build & Release
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write  # Changed from 'read' to 'write' to allow creating releases
 
 jobs:
   build:
@@ -68,15 +68,49 @@ jobs:
       - name: Install desktop deps
         run: pnpm -C apps/desktop install
 
-      - name: Build desktop app
+      - name: Build desktop app with release
         uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "Obscur Desktop v${{ github.ref_name }}"
+          releaseBody: |
+            ## Obscur Desktop ${{ github.ref_name }}
+            
+            🎉 **New Release Available!**
+            
+            ### What's New
+            - Enhanced UI/UX with subtle gradients and smooth animations
+            - Improved user experience with loading states and feedback
+            - Cross-platform desktop app with native performance
+            - Secure, encrypted messaging on the Nostr protocol
+            
+            ### Download Instructions
+            - **Windows**: Download the `.msi` installer
+            - **macOS**: Download the `.dmg` file
+            - **Linux**: Download the `.AppImage` or `.deb` package
+            
+            ### Features
+            - 🔒 End-to-end encrypted messaging (NIP-04)
+            - 🌐 Decentralized Nostr protocol
+            - 👥 Invite-only micro-communities
+            - 🎨 Beautiful gradient UI with light/dark themes
+            - 📱 Progressive Web App features
+            - 🖥️ Native desktop performance
+            
+            See the [CHANGELOG](https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md) for detailed changes.
+          releaseDraft: false
+          prerelease: false
+          includeDebug: false
+          includeRelease: true
           args: >-
-            build
+            --verbose
 
-      - name: Upload artifacts
+      - name: Upload build artifacts (backup)
         uses: actions/upload-artifact@v4
         with:
           name: obscur-desktop-${{ matrix.os }}
           path: apps/desktop/src-tauri/target/release/bundle
+          retention-days: 30

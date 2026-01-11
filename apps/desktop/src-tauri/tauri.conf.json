@@ -2,19 +2,67 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Obscur",
   "identifier": "app.obscur.desktop",
+  "version": "0.1.0",
   "build": {
     "frontendDist": "../public"
   },
   "bundle": {
+    "active": true,
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "Obscur",
+    "copyright": "Copyright © 2026 Obscur. All rights reserved.",
+    "category": "SocialNetworking",
+    "shortDescription": "Secure, encrypted messaging for micro-communities",
+    "longDescription": "Obscur is a local-first Nostr messenger designed for small, invite-only micro-communities. Built with privacy, decentralization, and anti-censorship as core principles.",
+    "resources": [],
+    "externalBin": [],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.13",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": null
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    }
   },
   "app": {
-    "windows": []
-  }
+    "windows": [
+      {
+        "title": "Obscur",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "maximized": false,
+        "visible": true,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "fullscreen": false,
+        "transparent": false,
+        "url": "index.html"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {}
 }
