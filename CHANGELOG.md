@@ -6,6 +6,8 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-11
+
 ### Added
 
 - **Enhanced UI/UX System**: Complete visual overhaul with subtle gradients and smooth animations
@@ -21,6 +23,12 @@ The format is based on Keep a Changelog.
   - Cross-browser compatibility with CSS fallbacks
   - Consistent shadow and border system for visual hierarchy
 
+- **Automated Release System**: GitHub workflow for creating desktop app releases
+  - Automatic release creation when version tags are pushed
+  - Cross-platform builds (Windows MSI, macOS DMG, Linux AppImage/DEB)
+  - Comprehensive release notes with feature highlights
+  - Proper Tauri bundle configuration with metadata
+
 ### Improved
 
 - **Visual Polish**: Subtle warm gradients in light theme, deep rich gradients in dark theme
@@ -29,6 +37,12 @@ The format is based on Keep a Changelog.
 - **Component Library**: Enhanced Button, Input, Card, and other UI components with gradient backgrounds
 - **Performance**: Optimized animations for mobile devices and reduced motion preferences
 - **Code Quality**: Fixed all linting issues and improved component structure
+- **Repository Structure**: Cleaned up large files and improved .gitignore for better maintainability
+
+### Fixed
+
+- **Large File Issues**: Removed Rust build artifacts from Git history to enable GitHub pushes
+- **Missing Assets**: Recovered logos and UI enhancements that were lost during repository cleanup
 
 ## [0.1.0] - 2026-01-09
 
