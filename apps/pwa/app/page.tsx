@@ -9,12 +9,16 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { AlertTriangle, Check, CheckCheck, Clock } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
+import { EmptyState } from "./components/ui/empty-state";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Textarea } from "./components/ui/textarea";
 import { AppShell } from "./components/app-shell";
 import { IdentityCard } from "./components/identity-card";
 import { MessageLinkPreview } from "./components/message-link-preview";
+import { MessageContent } from "./components/message-content";
+import { SessionChip } from "./components/session-chip";
+import { UserAvatarMenu } from "./components/user-avatar-menu";
 import { cn } from "./lib/cn";
 import { parsePublicKeyInput } from "./lib/parse-public-key-input";
 import { useDmController } from "./lib/use-dm-controller";
@@ -915,12 +919,10 @@ function NostrMessengerContent() {
     }
   }, []);
 
-  const [profileUsername, setProfileUsername] = useState<string>(DEFAULT_PROFILE_USERNAME);
-
   useEffect((): void => {
     queueMicrotask((): void => {
       const publicKeyHex: string = getActiveProfilePublicKeyHex();
-      setProfileUsername(loadProfileUsername(publicKeyHex));
+      void loadProfileUsername(publicKeyHex);
     });
   }, [getActiveProfilePublicKeyHex, loadProfileUsername]);
 
@@ -949,6 +951,10 @@ function NostrMessengerContent() {
   const isIdentityUnlocked: boolean = identity.state.status === "unlocked";
   const isIdentityLocked: boolean = identity.state.status === "locked";
 
+  const isRelayConnected: boolean = relayStatus.openCount > 0;
+  const isStep1Done: boolean = isIdentityUnlocked;
+  const isStep2Done: boolean = isRelayConnected;
+
   const myPublicKeyHex: PublicKeyHex | null = identity.state.status === "unlocked" ? identity.state.publicKeyHex ?? null : null;
   const myPrivateKeyHex: PrivateKeyHex | null = identity.state.status === "unlocked" ? identity.state.privateKeyHex ?? null : null;
   const dmController = useDmController({ myPublicKeyHex, myPrivateKeyHex, pool: relayPool });
@@ -960,6 +966,21 @@ function NostrMessengerContent() {
       return;
     }
     setShowOnboarding(false);
+  };
+
+  const handleCopyMyPubkey = (): void => {
+    if (!myPublicKeyHex) {
+      return;
+    }
+    void navigator.clipboard.writeText(myPublicKeyHex);
+  };
+
+  const handleCopyChatLink = (): void => {
+    if (!myPublicKeyHex) {
+      return;
+    }
+    const url: string = `${window.location.origin}/?pubkey=${encodeURIComponent(myPublicKeyHex)}`;
+    void navigator.clipboard.writeText(url);
   };
 
   useEffect((): void => {
@@ -1197,14 +1218,20 @@ function NostrMessengerContent() {
   }, [hasHydrated, isIdentityLocked]);
 
   useEffect((): (() => void) => {
+    if (typeof window === "undefined") {
+      return (): void => {};
+    }
     const onStorage = (event: StorageEvent): void => {
+      if (event.storageArea !== localStorage) {
+        return;
+      }
+      const key: string | null = event.key;
       const publicKeyHex: string = getActiveProfilePublicKeyHex();
       const activeKey: string | null = publicKeyHex ? getProfileStorageKey(publicKeyHex) : null;
-      const key: string | null = event.key;
       if (key !== LEGACY_PROFILE_STORAGE_KEY && (!activeKey || key !== activeKey)) {
         return;
       }
-      setProfileUsername(loadProfileUsername(publicKeyHex));
+      void loadProfileUsername(publicKeyHex);
     };
     window.addEventListener("storage", onStorage);
     return (): void => {
@@ -1914,32 +1941,6 @@ function NostrMessengerContent() {
     };
   }, [flashMessageId]);
 
-  const getRelayStatusIcon = (): React.ReactNode => {
-    if (relayStatus.total === 0) {
-      return <span className="h-2 w-2 rounded-full bg-zinc-400" aria-hidden="true" />;
-    }
-    if (relayStatus.openCount === relayStatus.total) {
-      return <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />;
-    }
-    if (relayStatus.openCount > 0) {
-      return <span className="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true" />;
-    }
-    return <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />;
-  };
-
-  const getRelayStatusText = (): string => {
-    if (relayStatus.total === 0) {
-      return "No relays";
-    }
-    if (relayStatus.openCount === relayStatus.total) {
-      return "Connected";
-    }
-    if (relayStatus.openCount > 0) {
-      return "Degraded";
-    }
-    return "Offline";
-  };
-
   const formatTime = (date: Date, currentNowMs: number | null): string => {
     if (currentNowMs === null) {
       return "";
@@ -2037,7 +2038,14 @@ function NostrMessengerContent() {
                   <div className="border-t border-black/10 p-3 text-xs dark:border-white/10">
                     <div className="mb-2 font-medium text-zinc-700 dark:text-zinc-300">Messages</div>
                     {messageSearchResults.length === 0 ? (
-                      <div className="text-zinc-600 dark:text-zinc-400">No message matches.</div>
+                      <div className="py-8">
+                        <EmptyState
+                          type="search"
+                          title="No messages found"
+                          description="Try different keywords or check your spelling."
+                          className="min-h-[200px]"
+                        />
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         {messageSearchResults.map((result) => {
@@ -2076,16 +2084,8 @@ function NostrMessengerContent() {
       <header className="flex items-center justify-between border-b border-black/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-black">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold tracking-tight">Nostr Messenger</h1>
-          <div className="hidden items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 sm:flex">
-            <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-zinc-50 px-2 py-1 dark:border-white/10 dark:bg-zinc-950/60">
-              <span className={cn("h-2 w-2 rounded-full", isIdentityUnlocked ? "bg-emerald-500" : "bg-zinc-400")} aria-hidden="true" />
-              <span className="text-xs text-zinc-600 dark:text-zinc-400">{isIdentityUnlocked ? "Unlocked" : "Locked"}</span>
-            </div>
-
-            <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-zinc-50 px-2 py-1 dark:border-white/10 dark:bg-zinc-950/60">
-              {getRelayStatusIcon()}
-              <span className="text-xs text-zinc-600 dark:text-zinc-400">{getRelayStatusText()}</span>
-            </div>
+          <div className="hidden items-center gap-2 sm:flex">
+            <SessionChip identityUnlocked={isIdentityUnlocked} relayOpenCount={relayStatus.openCount} relayTotalCount={relayStatus.total} />
           </div>
         </div>
 
@@ -2093,14 +2093,9 @@ function NostrMessengerContent() {
           <Button type="button" variant="secondary" onClick={() => router.push("/settings")}>
             Settings
           </Button>
-          <button
-            type="button"
-            className="hidden items-center gap-2 rounded-full border border-black/10 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/50 sm:inline-flex"
-            onClick={() => router.push("/profile")}
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">N</span>
-            <span className="max-w-[18ch] truncate">{profileUsername}</span>
-          </button>
+          <div className="hidden sm:block">
+            <UserAvatarMenu />
+          </div>
         </div>
       </header>
 
@@ -2186,21 +2181,43 @@ function NostrMessengerContent() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main chat area */}
-        <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
+        <main className="page-transition flex flex-1 flex-col bg-zinc-50 dark:bg-black">
           {isIdentityLocked ? (
             <div className="flex flex-1 items-center justify-center p-6">
               <div className="w-full max-w-md space-y-4">
                 {showOnboarding ? (
-                  <Card title="Welcome" description="Invite-only, local identity, encrypted messaging." className="w-full">
-                    <div className="space-y-2 text-left">
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300">Start here:</div>
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300">1) Create/unlock an identity in Settings (stored locally).</div>
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300">2) Add a contact via Search (exact npub/hex) or accept a Request.</div>
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300">3) Use Invites to join micro-communities (NIP-29).</div>
-                      <div className="pt-2">
-                        <Button type="button" variant="secondary" onClick={dismissOnboarding}>
-                          Got it
-                        </Button>
+                  <Card title="Getting started" description="Local identity + relays. Share your chat link with a friend." className="w-full">
+                    <div className="space-y-3 text-left">
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <div className={isStep1Done ? "mt-0.5 h-5 w-5 flex-none rounded-full border border-emerald-500/30 bg-emerald-500/10 text-center text-xs leading-5 text-emerald-800 dark:text-emerald-200" : "mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60"}>
+                            {isStep1Done ? "✓" : "1"}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Unlock identity</div>
+                            <div className="text-xs text-zinc-600 dark:text-zinc-400">Required to send/receive encrypted messages.</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className={isStep2Done ? "mt-0.5 h-5 w-5 flex-none rounded-full border border-emerald-500/30 bg-emerald-500/10 text-center text-xs leading-5 text-emerald-800 dark:text-emerald-200" : "mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60"}>
+                            {isStep2Done ? "✓" : "2"}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Connect relays</div>
+                            <div className="text-xs text-zinc-600 dark:text-zinc-400">Relays deliver messages. Configure in Settings.</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60">3</div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Start a chat</div>
+                            <div className="text-xs text-zinc-600 dark:text-zinc-400">Share your pubkey or a chat link. Friends can paste yours in Search.</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" onClick={() => router.push("/settings")}>Open Settings</Button>
+                        <Button type="button" variant="secondary" onClick={dismissOnboarding}>Dismiss</Button>
                       </div>
                     </div>
                   </Card>
@@ -2208,7 +2225,7 @@ function NostrMessengerContent() {
                 <Card title="Identity locked" description="Unlock your local keypair to send and receive encrypted messages." className="w-full">
                   <div className="space-y-3">
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">Your passphrase protects your private key. Messages use NIP-04.</div>
-                    <IdentityCard />
+                    <IdentityCard embedded />
                   </div>
                 </Card>
               </div>
@@ -2223,6 +2240,20 @@ function NostrMessengerContent() {
                   <h2 className="mb-2 text-xl font-semibold">Select a conversation</h2>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">Choose a contact from the sidebar to start messaging</p>
                 </div>
+                {myPublicKeyHex ? (
+                  <Card title="Share" description="Let a friend start a DM with you." className="w-full">
+                    <div className="space-y-3">
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400">Your pubkey is safe to share.</div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="secondary" onClick={handleCopyMyPubkey}>Copy pubkey</Button>
+                        <Button type="button" variant="secondary" onClick={handleCopyChatLink}>Copy chat link</Button>
+                      </div>
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                        Relay status: {relayStatus.openCount}/{relayStatus.total} open
+                      </div>
+                    </div>
+                  </Card>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -2263,15 +2294,16 @@ function NostrMessengerContent() {
                     ))}
                   </div>
                 ) : selectedCombinedMessages.length === 0 ? (
-                  <div className="flex h-full items-center justify-center">
-                    <div className="max-w-sm text-center">
-                      <div className="mb-2 text-lg font-semibold">No messages yet</div>
-                      <div className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">Send the first message to start the conversation.</div>
-                      <Button type="button" onClick={(): void => composerTextareaRef.current?.focus()}>
-                        Write a message
-                      </Button>
-                    </div>
-                  </div>
+                  <EmptyState
+                    type="chats"
+                    actions={[
+                      {
+                        label: "Write a message",
+                        onClick: () => composerTextareaRef.current?.focus(),
+                        variant: "primary"
+                      }
+                    ]}
+                  />
                 ) : (
                   <>
                     {hasEarlierMessages ? (
@@ -2409,11 +2441,7 @@ function NostrMessengerContent() {
                               <video src={message.attachment.url} controls className="mb-2 max-h-64 w-auto rounded-lg" />
                             )
                           ) : null}
-                          {message.content ? (
-                            <p className="wrap-break-word whitespace-pre-wrap text-sm leading-relaxed">
-                              {message.content}
-                            </p>
-                          ) : null}
+                          <MessageContent content={message.content} isOutgoing={message.isOutgoing} />
                           {message.content ? <MessageLinkPreview content={message.content} isOutgoing={message.isOutgoing} /> : null}
                           <div
                             className={cn(
@@ -2533,7 +2561,8 @@ function NostrMessengerContent() {
                     {attachmentError}
                   </div>
                 ) : null}
-                <div className="flex items-end gap-2">
+                <div className="rounded-2xl border border-black/10 bg-white/80 p-2 shadow-sm ring-1 ring-black/3 focus-within:ring-2 focus-within:ring-zinc-400/50 dark:border-white/10 dark:bg-zinc-950/40 dark:ring-white/4 dark:shadow-black/40 dark:focus-within:ring-zinc-400/50">
+                  <div className="flex items-end gap-2">
                   <label htmlFor="composer-attachment">
                     <Button type="button" variant="secondary" disabled={isUploadingAttachment}>
                       Attach
@@ -2554,12 +2583,16 @@ function NostrMessengerContent() {
                         handleSendMessage();
                       }
                     }}
-                    className="min-h-11 max-h-32 resize-none"
+                    className="min-h-11 max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                     rows={1}
                   />
                   <Button type="button" onClick={handleSendMessage} disabled={(!messageInput.trim() && !pendingAttachment) || isUploadingAttachment} className="shrink-0">
                     {isUploadingAttachment ? "Uploading..." : "Send"}
                   </Button>
+                  </div>
+                  <div className="mt-1 px-1 text-[11px] leading-5 text-zinc-600 dark:text-zinc-400">
+                    Enter to send · Shift+Enter for newline
+                  </div>
                 </div>
                 <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">Connected to {relayStatus.openCount}/{relayStatus.total} relays</div>
                 <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">Messages are NIP-04 encrypted. Metadata visible to relays.</p>

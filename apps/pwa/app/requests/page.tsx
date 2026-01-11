@@ -7,6 +7,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PageShell } from "../components/page-shell";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { EmptyState } from "../components/ui/empty-state";
 import { cn } from "../lib/cn";
 import { useBlocklist } from "../lib/use-blocklist";
 import { useIdentity } from "../lib/use-identity";
@@ -52,9 +53,21 @@ export default function RequestsPage(): React.JSX.Element {
             </div>
           </Card>
         ) : sortedItems.length === 0 ? (
-          <Card title="No requests" description="Unknown inbound DMs will show up here." className="w-full">
-            <div className="text-sm text-zinc-700 dark:text-zinc-300">No requests yet.</div>
-          </Card>
+          <EmptyState
+            type="requests"
+            actions={[
+              {
+                label: "Back to chats",
+                onClick: () => router.push("/"),
+                variant: "primary"
+              },
+              {
+                label: "Open Settings",
+                onClick: () => router.push("/settings"),
+                variant: "secondary"
+              }
+            ]}
+          />
         ) : (
           <div className="space-y-3">
             {sortedItems.map((item) => {

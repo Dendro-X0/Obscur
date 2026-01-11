@@ -34,6 +34,19 @@ export default function GroupPage(props: GroupPageProps): React.JSX.Element {
   const group = useNip29Group({ pool, relayUrl, groupId, myPublicKeyHex, myPrivateKeyHex });
   const [outgoingMessage, setOutgoingMessage] = useState<string>("");
 
+  const handleCopyInviteLink = (params: Readonly<{ relayUrl: string; groupId: string; inviterPublicKeyHex?: string; name?: string }>): void => {
+    const nextUrl: URL = new URL("/invite", window.location.origin);
+    nextUrl.searchParams.set("relay", params.relayUrl);
+    nextUrl.searchParams.set("group", params.groupId);
+    if (params.inviterPublicKeyHex) {
+      nextUrl.searchParams.set("inviter", params.inviterPublicKeyHex);
+    }
+    if (params.name) {
+      nextUrl.searchParams.set("name", params.name);
+    }
+    void navigator.clipboard.writeText(nextUrl.toString());
+  };
+
   if (!parsed.ok) {
     return (
       <PageShell title="Group" navBadgeCounts={navBadges.navBadgeCounts}>
@@ -61,6 +74,20 @@ export default function GroupPage(props: GroupPageProps): React.JSX.Element {
             <div className="mt-1 font-mono text-xs wrap-break-word text-zinc-600 dark:text-zinc-400">{parsed.relayUrl}</div>
           </div>
           <div className="flex flex-col items-end gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                handleCopyInviteLink({
+                  relayUrl: parsed.relayUrl,
+                  groupId: parsed.groupId,
+                  inviterPublicKeyHex: myPublicKeyHex ?? undefined,
+                  name: title,
+                });
+              }}
+            >
+              Copy invite link
+            </Button>
             <Button type="button" variant="secondary" onClick={group.refresh}>
               Refresh
             </Button>

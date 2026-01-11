@@ -38,6 +38,19 @@ export default function InvitesPage(): React.JSX.Element {
     return [...invites.state.items].sort((a: Invite, b: Invite): number => b.createdAtUnixMs - a.createdAtUnixMs);
   }, [invites.state.items]);
 
+  const handleCopyInviteLink = (invite: Invite): void => {
+    const nextUrl: URL = new URL("/invite", window.location.origin);
+    nextUrl.searchParams.set("relay", invite.relayUrl);
+    nextUrl.searchParams.set("group", invite.groupId);
+    if (invite.inviterPublicKeyHex) {
+      nextUrl.searchParams.set("inviter", invite.inviterPublicKeyHex);
+    }
+    if (invite.label) {
+      nextUrl.searchParams.set("name", invite.label);
+    }
+    void navigator.clipboard.writeText(nextUrl.toString());
+  };
+
   return (
     <PageShell title="Invites" navBadgeCounts={navBadges.navBadgeCounts}>
       <div className="mx-auto w-full max-w-3xl p-4">
@@ -72,6 +85,15 @@ export default function InvitesPage(): React.JSX.Element {
                       }}
                     >
                       Open
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        handleCopyInviteLink(invite);
+                      }}
+                    >
+                      Copy link
                     </Button>
                     <Button
                       type="button"

@@ -55,7 +55,7 @@ const PageShell = (props: PageShellProps): React.JSX.Element => {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1">{props.children}</main>
+      <main className="page-transition min-h-0 flex-1">{props.children}</main>
     </div>
   );
 };

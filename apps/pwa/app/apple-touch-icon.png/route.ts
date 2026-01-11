@@ -14,14 +14,27 @@ const GET = (): GetResult => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#000000",
-          color: "#ffffff",
-          fontSize: 92,
-          fontWeight: 700,
-          borderRadius: 40,
+          background: "#050505",
         },
       },
-      "N"
+      React.createElement(
+        "svg",
+        { width: 180, height: 180, viewBox: "0 0 256 256", fill: "none", xmlns: "http://www.w3.org/2000/svg" },
+        React.createElement("rect", { x: 24, y: 24, width: 208, height: 208, rx: 52, fill: "#050505" }),
+        React.createElement("path", {
+          d: "M84 128c0-33.137 26.863-60 60-60 12.71 0 24.496 3.955 34.2 10.7",
+          stroke: "rgba(255,255,255,0.86)",
+          strokeWidth: 18,
+          strokeLinecap: "round",
+        }),
+        React.createElement("path", {
+          d: "M172 128c0 33.137-26.863 60-60 60-12.71 0-24.496-3.955-34.2-10.7",
+          stroke: "rgba(255,255,255,0.78)",
+          strokeWidth: 18,
+          strokeLinecap: "round",
+        }),
+        React.createElement("circle", { cx: 178, cy: 78, r: 8, fill: "rgba(255,255,255,0.9)" })
+      )
     ),
     { width: 180, height: 180 }
   );

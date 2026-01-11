@@ -18,7 +18,7 @@ const getToneClassName = (tone: CardTone): string => {
   if (tone === "danger") {
     return "border-red-500/30 bg-red-50 text-red-950 dark:border-red-500/35 dark:bg-red-950/25 dark:text-red-50";
   }
-  return "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100";
+  return "border-black/10 bg-gradient-card text-zinc-900 dark:border-white/10 dark:text-zinc-100";
 };
 
 export const Card = (props: CardProps) => {
@@ -27,17 +27,19 @@ export const Card = (props: CardProps) => {
     <section
       className={cn(
         "w-full rounded-2xl border p-5 shadow-sm backdrop-blur",
+        "shadow-black/[0.04] dark:shadow-black/40",
+        "ring-1 ring-black/[0.03] dark:ring-white/[0.04]",
         getToneClassName(tone),
         props.className
       )}
     >
       {props.title ? (
-        <div className="text-sm font-semibold tracking-tight">{props.title}</div>
+        <div className="text-sm font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">{props.title}</div>
       ) : null}
       {props.description ? (
-        <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{props.description}</div>
+        <div className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-400">{props.description}</div>
       ) : null}
-      <div className={cn(props.title || props.description ? "mt-4" : "", "text-sm")}>{props.children}</div>
+      <div className={cn(props.title || props.description ? "mt-4" : "", "text-sm leading-6")}>{props.children}</div>
     </section>
   );
 };

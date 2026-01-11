@@ -34,7 +34,7 @@ const ThemeToggle = (props: ThemeToggleProps): React.JSX.Element => {
             key={option.value}
             type="button"
             variant="secondary"
-            className={cn("px-3", isActive && "border-black/20 bg-zinc-50 dark:border-white/20 dark:bg-zinc-900/40")}
+            className={cn("toggle-transition px-3", isActive && "border-black/20 bg-zinc-50 dark:border-white/20 dark:bg-zinc-900/40")}
             aria-pressed={isActive}
             onClick={(): void => theme.setPreference(option.value)}
           >

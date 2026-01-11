@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeController } from "./components/theme-controller"
 import PwaServiceWorkerRegistrar from "./components/pwa-service-worker-registrar"
+import { ToastProvider } from "./components/toast-provider"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -14,7 +15,10 @@ export const metadata: Metadata = {
   generator: "v0.app",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/obscur-logo-light.svg", type: "image/svg+xml", media: "(prefers-color-scheme: light)" },
+      { url: "/obscur-logo-dark.svg", type: "image/svg+xml", media: "(prefers-color-scheme: dark)" },
+    ],
     apple: "/apple-touch-icon.png",
   },
 }
@@ -36,6 +40,7 @@ export default function RootLayout({
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
         <ThemeController />
         <PwaServiceWorkerRegistrar />
+        <ToastProvider />
         {children}
       </body>
     </html>

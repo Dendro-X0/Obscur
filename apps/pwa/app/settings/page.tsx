@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { EmptyState } from "../components/ui/empty-state";
 import { PageShell } from "../components/page-shell";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -22,6 +23,7 @@ import { useNotificationPreference } from "../lib/notifications/use-notification
 import { requestNotificationPermission } from "../lib/notifications/request-notification-permission";
 import { getApiBaseUrl } from "../lib/api-base-url";
 import { SettingsMobileMenu } from "./components/settings-mobile-menu";
+import { useProfile } from "../lib/use-profile";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -47,6 +49,7 @@ export default function SettingsPage(): React.JSX.Element {
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
+  const profile = useProfile();
   const notificationPreference = useNotificationPreference();
   const relayList = useRelayList({ publicKeyHex });
   const blocklist = useBlocklist({ publicKeyHex });
@@ -120,6 +123,35 @@ export default function SettingsPage(): React.JSX.Element {
     <PageShell title="Settings" navBadgeCounts={navBadges.navBadgeCounts} rightContent={<SettingsMobileMenu />}>
       <div className="mx-auto w-full max-w-4xl p-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Card title="Profile" description="Local profile shown on this device." className="w-full">
+            <div id="profile" className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="profile-username">Username</Label>
+                <Input
+                  id="profile-username"
+                  value={profile.state.profile.username}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setUsername({ username: e.target.value })}
+                  placeholder="Optional"
+                />
+                <div className="text-xs text-zinc-600 dark:text-zinc-400">Stored locally. Not published to relays.</div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-avatar">Avatar URL</Label>
+                <Input
+                  id="profile-avatar"
+                  value={profile.state.profile.avatarUrl}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setAvatarUrl({ avatarUrl: e.target.value })}
+                  placeholder="https://..."
+                />
+                <div className="text-xs text-zinc-600 dark:text-zinc-400">Tip: use a stable HTTPS URL. Leave blank for the default icon.</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={() => profile.reset()}>
+                  Reset
+                </Button>
+              </div>
+            </div>
+          </Card>
           <Card title="Health" description="Quick diagnostics for API, identity, and relays." className="w-full">
             <div className="space-y-3">
               <div className="space-y-1">
@@ -261,7 +293,17 @@ export default function SettingsPage(): React.JSX.Element {
                 </div>
 
                 <ul className="space-y-2">
-                  {relayList.state.relays.map((relay, index: number) => {
+                  {relayList.state.relays.length === 0 ? (
+                    <div className="py-4">
+                      <EmptyState
+                        type="relays"
+                        title="No relays configured"
+                        description="Add your first relay to connect to the network and start messaging."
+                        className="min-h-[200px]"
+                      />
+                    </div>
+                  ) : (
+                    relayList.state.relays.map((relay, index: number) => {
                     const status: RelayConnectionStatus = relayStatusByUrl[relay.url] ?? "closed";
                     return (
                       <li
@@ -306,7 +348,8 @@ export default function SettingsPage(): React.JSX.Element {
                         </div>
                       </li>
                     );
-                  })}
+                  })
+                  )}
                 </ul>
                 <div className="text-xs text-zinc-600 dark:text-zinc-400">Metadata is visible to relays; message content is encrypted.</div>
               </div>

@@ -7,6 +7,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --gradient-main: var(--gradient-main);
+  --gradient-sidebar: var(--gradient-sidebar);
+  --gradient-card: var(--gradient-card);
+  --gradient-button: var(--gradient-button);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -78,6 +82,18 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Light theme gradients - subtle and warm */
+  --gradient-main: linear-gradient(135deg, oklch(1 0 0) 0%, oklch(0.99 0.005 85) 50%, oklch(0.98 0.008 75) 100%);
+  --gradient-sidebar: linear-gradient(180deg, oklch(1 0 0) 0%, oklch(0.985 0.003 90) 100%);
+  --gradient-card: linear-gradient(145deg, oklch(1 0 0) 0%, oklch(0.995 0.002 80) 100%);
+  --gradient-button: linear-gradient(135deg, oklch(0.97 0 0) 0%, oklch(0.95 0.005 85) 100%);
+  
+  /* Fallbacks for browsers without OKLCH support */
+  --gradient-main-fallback: linear-gradient(135deg, #ffffff 0%, #fefefe 50%, #fdfdfd 100%);
+  --gradient-sidebar-fallback: linear-gradient(180deg, #ffffff 0%, #fefefe 100%);
+  --gradient-card-fallback: linear-gradient(145deg, #ffffff 0%, #fefefe 100%);
+  --gradient-button-fallback: linear-gradient(135deg, #f8f8f8 0%, #f3f3f3 100%);
 }
 
 .dark {
@@ -112,6 +128,18 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  
+  /* Dark theme gradients - deep and rich */
+  --gradient-main: linear-gradient(135deg, oklch(0.145 0 0) 0%, oklch(0.16 0.008 260) 50%, oklch(0.135 0.012 250) 100%);
+  --gradient-sidebar: linear-gradient(180deg, oklch(0.205 0 0) 0%, oklch(0.18 0.005 270) 100%);
+  --gradient-card: linear-gradient(145deg, oklch(0.22 0 0) 0%, oklch(0.19 0.006 265) 100%);
+  --gradient-button: linear-gradient(135deg, oklch(0.269 0 0) 0%, oklch(0.25 0.008 260) 100%);
+  
+  /* Fallbacks for browsers without OKLCH support */
+  --gradient-main-fallback: linear-gradient(135deg, #252525 0%, #2a2a2a 50%, #232323 100%);
+  --gradient-sidebar-fallback: linear-gradient(180deg, #343434 0%, #2e2e2e 100%);
+  --gradient-card-fallback: linear-gradient(145deg, #383838 0%, #303030 100%);
+  --gradient-button-fallback: linear-gradient(135deg, #454545 0%, #404040 100%);
 }
 
 @layer base {
@@ -120,5 +148,172 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Apply gradients to main areas */
+  .bg-gradient-main {
+    background: var(--gradient-main-fallback);
+    background: var(--gradient-main);
+  }
+  
+  .bg-gradient-sidebar {
+    background: var(--gradient-sidebar-fallback);
+    background: var(--gradient-sidebar);
+  }
+  
+  .bg-gradient-card {
+    background: var(--gradient-card-fallback);
+    background: var(--gradient-card);
+  }
+  
+  .bg-gradient-button {
+    background: var(--gradient-button-fallback);
+    background: var(--gradient-button);
+  }
+}
+
+@layer components {
+  /* Enhanced button animations */
+  .btn-enhanced {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0);
+  }
+  
+  .btn-enhanced:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  }
+  
+  .btn-enhanced:active {
+    transform: translateY(0);
+    transition-duration: 0.1s;
+  }
+  
+  /* Enhanced input animations */
+  .input-enhanced {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+  }
+  
+  .input-enhanced:focus {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px oklch(from var(--ring) l c h / 0.1);
+  }
+  
+  /* Navigation feedback animations */
+  .nav-link {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+  }
+  
+  .nav-link:hover {
+    transform: scale(1.02);
+  }
+  
+  .nav-link:active {
+    transform: scale(0.98);
+    transition-duration: 0.1s;
+  }
+  
+  .nav-link.active::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, oklch(0.7 0.1 240), oklch(0.6 0.15 280));
+    z-index: -1;
+    opacity: 0.1;
+  }
+  
+  /* Theme transition */
+  .theme-transition {
+    transition: background 0.2s ease-out, color 0.2s ease-out;
+  }
+  
+  /* Page transition animations */
+  .page-transition {
+    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .modal-transition {
+    animation: modalFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  @keyframes modalFadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* Toggle state animations */
+  .toggle-transition {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .toggle-transition[aria-pressed="true"] {
+    transform: scale(1.02);
+  }
+}
+
+@layer utilities {
+  /* Consistent shadow system */
+  .shadow-subtle {
+    box-shadow: 0 1px 3px oklch(0 0 0 / 0.05), 0 1px 2px oklch(0 0 0 / 0.1);
+  }
+  
+  .shadow-soft {
+    box-shadow: 0 4px 6px oklch(0 0 0 / 0.05), 0 2px 4px oklch(0 0 0 / 0.06);
+  }
+  
+  .shadow-elevated {
+    box-shadow: 0 10px 15px oklch(0 0 0 / 0.1), 0 4px 6px oklch(0 0 0 / 0.05);
+  }
+  
+  /* Consistent border system */
+  .border-subtle {
+    border: 1px solid oklch(0 0 0 / 0.08);
+  }
+  
+  .dark .border-subtle {
+    border-color: oklch(1 0 0 / 0.08);
+  }
+  
+  .border-soft {
+    border: 1px solid oklch(0 0 0 / 0.12);
+  }
+  
+  .dark .border-soft {
+    border-color: oklch(1 0 0 / 0.12);
+  }
+  
+  /* Reduced Motion Support */
+  @media (prefers-reduced-motion: reduce) {
+    .btn-enhanced,
+    .input-enhanced,
+    .nav-link,
+    .theme-transition {
+      transition: none;
+    }
+    
+    .btn-enhanced:hover,
+    .nav-link:hover {
+      transform: none;
+    }
   }
 }

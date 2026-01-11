@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, X } from "lucide-react";
 import { cn } from "../lib/cn";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
+import { UserAvatarMenu } from "./user-avatar-menu";
 
 type NavItem = Readonly<{ href: string; label: string }>;
 
@@ -72,7 +73,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, [props.navBadgeCounts]);
 
   return (
-    <div className="flex min-h-dvh overflow-hidden bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-100">
+    <div className="flex min-h-dvh overflow-hidden bg-gradient-main text-zinc-900 dark:text-zinc-100">
       {mobileSidebarOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">
           <button
@@ -81,12 +82,12 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             onClick={(): void => setMobileSidebarOpen(false)}
             aria-label="Close navigation"
           />
-          <div className="absolute left-0 top-0 flex h-full w-[86vw] max-w-sm flex-col border-r border-black/10 bg-white dark:border-white/10 dark:bg-black">
+          <div className="absolute left-0 top-0 flex h-full w-[86vw] max-w-sm flex-col border-r border-black/10 bg-gradient-sidebar dark:border-white/10">
             <div className="flex items-center justify-between border-b border-black/10 px-3 py-3 dark:border-white/10">
               <div className="text-sm font-semibold">Obscur</div>
               <button
                 type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
+                className="btn-enhanced inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
                 onClick={(): void => setMobileSidebarOpen(false)}
                 aria-label="Close menu"
               >
@@ -104,8 +105,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "relative flex flex-col items-center justify-center gap-1 rounded-xl border border-black/10 bg-zinc-50 px-2 py-2 text-xs text-zinc-700 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200",
-                        isActive && "bg-zinc-100 dark:bg-zinc-900/40"
+                        "nav-link relative flex flex-col items-center justify-center gap-1 rounded-xl border border-black/10 bg-zinc-50 px-2 py-2 text-xs text-zinc-700 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200",
+                        isActive && "active bg-zinc-100 dark:bg-zinc-900/40"
                       )}
                       onClick={(): void => setMobileSidebarOpen(false)}
                       aria-label={item.label}
@@ -131,11 +132,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       ) : null}
 
       <div className="relative hidden md:flex">
-        <div className="flex w-14 flex-col items-center justify-between border-r border-black/10 bg-white py-3 dark:border-white/10 dark:bg-black">
+        <div className="flex w-14 flex-col items-center justify-between border-r border-black/10 bg-gradient-sidebar py-3 dark:border-white/10">
           <div className="flex flex-col items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
+              className="btn-enhanced inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
               onClick={() => setExpanded((v: boolean): boolean => !v)}
               aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
             >
@@ -151,8 +152,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
-                    isActive && "border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60"
+                    "nav-link relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
+                    isActive && "active border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60"
                   )}
                   aria-label={item.label}
                 >
@@ -171,13 +172,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           </div>
 
           <div className="flex flex-col items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
-              O
-            </div>
+            <UserAvatarMenu compact preferUp alignStart />
           </div>
         </div>
 
-        <div className="w-80 border-r border-black/10 bg-white dark:border-white/10 dark:bg-black">
+        <div className="w-80 border-r border-black/10 bg-gradient-sidebar dark:border-white/10">
           {expanded ? (
             <div className="flex h-full flex-col">
               <div className="border-b border-black/10 p-3 dark:border-white/10">
@@ -190,8 +189,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          "flex items-center justify-between rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
-                          activeHref === item.href && "bg-zinc-100 dark:bg-zinc-900/40"
+                          "nav-link flex items-center justify-between rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
+                          activeHref === item.href && "active bg-zinc-100 dark:bg-zinc-900/40"
                         )}
                         onClick={() => setExpanded(false)}
                       >
@@ -215,10 +214,10 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-white/80 px-3 py-2 backdrop-blur dark:border-white/10 dark:bg-black/70 md:hidden">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 backdrop-blur dark:border-white/10 md:hidden">
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
+            className="btn-enhanced inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
             onClick={(): void => setMobileSidebarOpen(true)}
             aria-label="Open menu"
           >
@@ -227,9 +226,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           <div className="min-w-0 flex-1 px-3">
             <div className="truncate text-sm font-semibold">Obscur</div>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
-            O
-          </div>
+          <UserAvatarMenu compact />
         </header>
         {props.children}
       </div>

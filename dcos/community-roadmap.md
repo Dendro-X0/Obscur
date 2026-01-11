@@ -1,5 +1,7 @@
 # Community Roadmap (Invite-Only Micro-Communities)
 
+See also: ./README.md and ./project-overview.md
+
 ## Goals
 
 - Keep the product **invite-only** and **no-registration**.
@@ -15,20 +17,45 @@
 
 ## Current Foundation (already implemented)
 
-- Per-identity storage boundaries:
-  - Requests inbox keyed by identity public key.
-  - Relay list keyed by identity public key.
-  - Blocklist keyed by identity public key.
-  - Invites inbox keyed by identity public key.
-- Locked identity UX:
-  - Routes render safely in locked state.
-  - Inline unlock/create UX via the Identity UI.
-- Invites:
-  - Deep link handler route: `/invite?relay=...&group=...&inviter=...&name=...`.
-  - Safe parsing and validation.
-  - Save/open flows per identity.
+- **Per-identity storage boundaries:**
+  - Requests inbox keyed by identity public key
+  - Relay list keyed by identity public key
+  - Blocklist keyed by identity public key
+  - Invites inbox keyed by identity public key
+  - Theme preferences keyed by identity public key
+- **Enhanced UI/UX system:**
+  - Gradient system with theme-aware backgrounds
+  - Smooth animations and micro-interactions
+  - Enhanced empty states with illustrations and guidance
+  - Loading states (skeleton screens, progress indicators, toast notifications)
+  - Message status indicators and user feedback
+  - Responsive design for all screen sizes
+  - Accessibility support with reduced motion preferences
+- **Locked identity UX:**
+  - Routes render safely in locked state
+  - Inline unlock/create UX via the Identity UI
+  - Smooth theme transitions and visual feedback
+- **Invites:**
+  - Deep link handler route: `/invite?relay=...&group=...&inviter=...&name=...`
+  - Safe parsing and validation
+  - Save/open flows per identity
+  - Enhanced empty states with helpful guidance
 
-## Milestone 1: Invite UX hardening (release)
+## Milestone 1: UI/UX Enhancement & Polish ✅ COMPLETED
+
+### Deliverables ✅
+
+- ✅ **Enhanced Visual System:**
+  - Gradient system with theme-aware backgrounds
+  - Smooth animations and micro-interactions
+  - Enhanced empty states with illustrations
+  - Loading states and user feedback systems
+- ✅ **Consistent Empty States:**
+  - No identity: inline identity create/unlock
+  - No invites: clear guidance with illustrations
+  - Enhanced empty states for all major sections
+
+## Milestone 2: Invite UX hardening (next release)
 
 ### Deliverables
 
@@ -46,7 +73,7 @@
 - Do not store sensitive secrets in query params.
 - Do not auto-join or auto-post from an invite.
 
-## Milestone 2: Group roles and join flow (NIP-29)
+## Milestone 3: Group roles and join flow (NIP-29)
 
 ### Deliverables
 

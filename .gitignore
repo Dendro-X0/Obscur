@@ -1,32 +1,59 @@
-# dependencies
+# Dependencies
 node_modules/
+**/node_modules/
 
-# Next.js
+# Build outputs
+**/dist/
+**/build/
 .next/
 out/
 
-# builds
-**/dist/
+# Rust/Tauri build artifacts (CRITICAL - these caused the large file issue)
+**/target/
+.cargo-target/
+**/*.rlib
+**/*.pdb
+**/*.meta
+**/Cargo.lock
 
-# logs
+# Generated files
+**/gen/
+**/generated/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# env
+# Environment
 .env
 .env.*
+!.env.example
 
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+# Testing
+**/test-results/
+**/playwright-report/
+**/coverage/
 
-# Playwright
-apps/pwa/test-results/
-apps/pwa/playwright-report/
-
-# misc
+# Temporary files
+*.tmp
+*.temp
+.cache/
 *.tsbuildinfo
+
+# Package manager
+.pnpm-debug.log*
+.yarn/
+.pnp.*
+
+# Tauri specific
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
