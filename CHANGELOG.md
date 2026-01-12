@@ -6,6 +6,15 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-01-11
+
+### Fixed
+
+- **Desktop App Crash**: Fixed immediate crash on startup by resolving configuration conflicts
+  - Removed conflicting window creation in main.rs
+  - Updated Tauri configuration to properly load external PWA URL
+  - Configured build settings for external URL loading
+
 ## [0.2.2] - 2026-01-11
 
 ### Fixed
