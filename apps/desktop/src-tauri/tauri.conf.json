@@ -4,6 +4,9 @@
   "identifier": "app.obscur.desktop",
   "version": "0.2.2",
   "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devUrl": "https://obscur-lovat.vercel.app",
     "frontendDist": "../public"
   },
   "bundle": {
@@ -57,7 +60,7 @@
         "alwaysOnTop": false,
         "fullscreen": false,
         "transparent": false,
-        "url": "index.html"
+        "url": "https://obscur-lovat.vercel.app"
       }
     ],
     "security": {
