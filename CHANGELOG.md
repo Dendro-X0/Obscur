@@ -6,6 +6,12 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-01-11
+
+### Fixed
+
+- **GitHub Workflow**: Fixed pnpm version mismatch between workflow and package.json
+
 ## [0.2.1] - 2026-01-11
 
 ### Fixed
