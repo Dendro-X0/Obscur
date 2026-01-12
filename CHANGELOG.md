@@ -6,6 +6,12 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-01-11
+
+### Fixed
+
+- **GitHub Workflow**: Fixed pnpm installation order in release workflow to resolve build failures
+
 ## [0.2.0] - 2026-01-11
 
 ### Added
