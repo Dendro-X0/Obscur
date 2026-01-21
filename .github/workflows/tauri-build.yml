@@ -28,6 +28,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check signing configuration
+        run: |
+          echo "🔐 Code Signing Configuration Status:"
+          echo "======================================"
+          if [ -n "${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT }}" ]; then
+            echo "✅ Windows: Signing enabled"
+          else
+            echo "⚠️  Windows: Signing disabled (unsigned build)"
+          fi
+          if [ -n "${{ secrets.APPLE_SIGNING_IDENTITY }}" ]; then
+            echo "✅ macOS: Signing enabled"
+          else
+            echo "⚠️  macOS: Signing disabled (unsigned build)"
+          fi
+          if [ -n "${{ secrets.APPLE_ID }}" ] && [ -n "${{ secrets.APPLE_PASSWORD }}" ]; then
+            echo "✅ macOS: Notarization enabled"
+          else
+            echo "⚠️  macOS: Notarization disabled"
+          fi
+          echo "======================================"
+          echo "ℹ️  Builds will proceed regardless of signing status"
+          echo "ℹ️  See apps/desktop/GITHUB_SECRETS.md for setup instructions"
+        shell: bash
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -72,6 +96,15 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Windows code signing (optional - builds unsigned if not provided)
+          TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT }}
+          # macOS code signing and notarization (optional - builds unsigned if not provided)
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
@@ -99,6 +132,11 @@ jobs:
             - 🎨 Beautiful gradient UI with light/dark themes
             - 📱 Progressive Web App features
             - 🖥️ Native desktop performance
+            
+            ### Code Signing Status
+            - **Windows**: ${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT && '✅ Signed' || '⚠️ Unsigned (development build)' }}
+            - **macOS**: ${{ secrets.APPLE_SIGNING_IDENTITY && '✅ Signed & Notarized' || '⚠️ Unsigned (development build)' }}
+            - **Linux**: ℹ️ No signing required
             
             See the [CHANGELOG](https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md) for detailed changes.
           releaseDraft: false

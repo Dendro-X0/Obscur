@@ -6,6 +6,19 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+### Added
+
+- **Smart Invite System Core Services**: Complete implementation of foundational invite system
+  - Contact Store Service with full CRUD operations, group management, trust levels, and search/filtering
+  - Profile Manager Service with profile management, privacy settings, and shareable profiles
+  - QR Generator Service with QR generation, scanning, validation, and expiration handling
+  - Crypto Service Extensions with invite ID generation, data signing, and encryption/decryption
+  - Core Services Integration with end-to-end workflow validation
+  - Property-based testing framework with 100+ iterations per test for comprehensive validation
+  - 77+ unit tests covering all core functionality with high coverage
+  - IndexedDB integration for persistent contact and profile storage
+  - Comprehensive error handling with custom error classes for different failure scenarios
+
 ## [0.2.3] - 2026-01-11
 
 ### Fixed

@@ -2,6 +2,7 @@ import type { NavItem } from "./nav-item";
 
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: "/", label: "Chats" },
+  { href: "/invites", label: "Invites" },
   { href: "/search", label: "Search" },
   { href: "/settings", label: "Settings" },
 ];

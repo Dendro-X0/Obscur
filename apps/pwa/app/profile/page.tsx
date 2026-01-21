@@ -8,6 +8,7 @@ import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useIdentity } from "../lib/use-identity";
+import { ProfileSettings } from "../components/invites/profile-settings";
 
 type StoredProfile = Readonly<{ publicKey: string; username: string }>;
 
@@ -134,8 +135,21 @@ export default function ProfilePage(): React.JSX.Element {
           Settings
         </Link>
       </header>
-      <div className="mx-auto max-w-2xl p-4">
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
         {publicKey ? <ProfileForm key={publicKey} publicKey={publicKey} /> : <ProfileForm key="_" publicKey="" />}
+        
+        {/* Invite System Profile Settings */}
+        {publicKey && identity.state.status === "unlocked" && (
+          <div className="space-y-4">
+            <div className="border-t border-black/10 pt-4 dark:border-white/10">
+              <h2 className="mb-2 text-lg font-semibold">Invite System Profile</h2>
+              <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+                Manage your profile information and privacy settings for the invite system.
+              </p>
+            </div>
+            <ProfileSettings />
+          </div>
+        )}
       </div>
     </div>
   );

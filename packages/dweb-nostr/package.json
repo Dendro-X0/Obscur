@@ -15,6 +15,7 @@
     "./nip04-decrypt": "./src/nip04-decrypt.ts",
     "./nip04-encrypt": "./src/nip04-encrypt.ts",
     "./nostr-event": "./src/nostr-event.ts",
-    "./relay-set": "./src/relay-set.ts"
+    "./relay-set": "./src/relay-set.ts",
+    "./verify-nostr-event-signature": "./src/verify-nostr-event-signature.ts"
   }
 }

@@ -1,0 +1,1 @@
+export const inviteDbVersion: number = 1;

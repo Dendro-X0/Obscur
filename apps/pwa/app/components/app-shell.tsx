@@ -4,10 +4,13 @@ import type React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, X } from "lucide-react";
+import { Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, UserPlus, X } from "lucide-react";
 import { cn } from "../lib/cn";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { UserAvatarMenu } from "./user-avatar-menu";
+import { useIsDesktop } from "../lib/desktop/use-tauri";
+import { useKeyboardShortcuts } from "../lib/desktop/use-keyboard-shortcuts";
+import { useDesktopLayout } from "../lib/desktop/use-desktop-layout";
 
 type NavItem = Readonly<{ href: string; label: string }>;
 
@@ -23,6 +26,7 @@ const STORAGE_KEY: string = "dweb.nostr.pwa.ui.sidebarExpanded";
 
 const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
   "/": (props: Readonly<{ className?: string }>): React.JSX.Element => <MessageSquare className={props.className} />,
+  "/invites": (props: Readonly<{ className?: string }>): React.JSX.Element => <UserPlus className={props.className} />,
   "/search": (props: Readonly<{ className?: string }>): React.JSX.Element => <Search className={props.className} />,
   "/settings": (props: Readonly<{ className?: string }>): React.JSX.Element => <Settings className={props.className} />,
 };
@@ -54,6 +58,12 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const pathname: string = usePathname();
   const [expanded, setExpanded] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const isDesktop = useIsDesktop();
+  const { isCompact } = useDesktopLayout();
+  
+  // Register keyboard shortcuts for desktop
+  useKeyboardShortcuts();
+  
   useEffect((): void => {
     queueMicrotask((): void => {
       setExpanded(loadExpanded());
@@ -73,7 +83,10 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, [props.navBadgeCounts]);
 
   return (
-    <div className="flex min-h-dvh overflow-hidden bg-gradient-main text-zinc-900 dark:text-zinc-100">
+    <div className={cn(
+      "flex min-h-dvh overflow-hidden bg-gradient-main text-zinc-900 dark:text-zinc-100",
+      isDesktop && "desktop-mode"
+    )}>
       {mobileSidebarOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">
           <button

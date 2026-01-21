@@ -5,6 +5,10 @@ import "./globals.css"
 import { ThemeController } from "./components/theme-controller"
 import PwaServiceWorkerRegistrar from "./components/pwa-service-worker-registrar"
 import { ToastProvider } from "./components/toast-provider"
+import { DesktopUpdater } from "./components/desktop-updater"
+import { DesktopModeProvider } from "./components/desktop/desktop-mode-provider"
+import { OfflineIndicator } from "./components/desktop/offline-indicator"
+import { DeepLinkHandler } from "./components/desktop/deep-link-handler"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -38,10 +42,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
-        <ThemeController />
-        <PwaServiceWorkerRegistrar />
-        <ToastProvider />
-        {children}
+        <DesktopModeProvider>
+          <ThemeController />
+          <PwaServiceWorkerRegistrar />
+          <ToastProvider />
+          <DesktopUpdater />
+          <OfflineIndicator />
+          <DeepLinkHandler />
+          {children}
+        </DesktopModeProvider>
       </body>
     </html>
   )

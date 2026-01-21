@@ -21,7 +21,7 @@ import { SessionChip } from "./components/session-chip";
 import { UserAvatarMenu } from "./components/user-avatar-menu";
 import { cn } from "./lib/cn";
 import { parsePublicKeyInput } from "./lib/parse-public-key-input";
-import { useDmController } from "./lib/use-dm-controller";
+import { useEnhancedDmController } from "./lib/use-enhanced-dm-controller";
 import { useBlocklist } from "./lib/use-blocklist";
 import { useIdentity } from "./lib/use-identity";
 import { usePeerTrust } from "./lib/use-peer-trust";
@@ -957,7 +957,7 @@ function NostrMessengerContent() {
 
   const myPublicKeyHex: PublicKeyHex | null = identity.state.status === "unlocked" ? identity.state.publicKeyHex ?? null : null;
   const myPrivateKeyHex: PrivateKeyHex | null = identity.state.status === "unlocked" ? identity.state.privateKeyHex ?? null : null;
-  const dmController = useDmController({ myPublicKeyHex, myPrivateKeyHex, pool: relayPool });
+  const dmController = useEnhancedDmController({ myPublicKeyHex, myPrivateKeyHex, pool: relayPool });
 
   const dismissOnboarding = (): void => {
     try {
@@ -1689,10 +1689,12 @@ function NostrMessengerContent() {
           throw new Error("Recipient is blocked.");
         }
         const sent = await dmController.sendDm({ peerPublicKeyInput: selectedConversation.pubkey, plaintext: resolvedContent });
-        if (sent.id) {
-          resolvedMessageId = sent.id;
-          resolvedTimestamp = new Date(sent.createdAtUnixSeconds * 1000);
+        if (sent.success && sent.messageId) {
+          resolvedMessageId = sent.messageId;
+          resolvedTimestamp = new Date(); // Use current time since enhanced controller handles timing
           resolvedStatus = "sending";
+        } else {
+          throw new Error(sent.error || "Failed to send message");
         }
       }
       const message: Message = {
@@ -1750,15 +1752,15 @@ function NostrMessengerContent() {
     }
     dmController
       .sendDm({ peerPublicKeyInput: conversation.pubkey, plaintext })
-      .then((sent: Readonly<{ id: string; createdAtUnixSeconds: number }>): void => {
-        if (!sent.id) {
+      .then((sent): void => {
+        if (!sent.success || !sent.messageId) {
           return;
         }
         const outgoing: Message = {
-          id: sent.id,
+          id: sent.messageId,
           kind: "user",
           content: plaintext,
-          timestamp: new Date(sent.createdAtUnixSeconds * 1000),
+          timestamp: new Date(), // Use current time since enhanced controller handles timing
           isOutgoing: true,
           status: "sending",
         };

@@ -57,3 +57,7 @@ pnpm-debug.log*
 # Tauri specific
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
+
+# Tauri updater signing keys (CRITICAL - keep private keys secret!)
+**/updater-key.txt
+apps/desktop/src-tauri/updater-key.txt

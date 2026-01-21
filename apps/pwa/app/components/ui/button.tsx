@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "../../lib/cn";
 
-type ButtonVariant = "primary" | "secondary" | "danger";
+type ButtonVariant = "primary" | "secondary" | "danger" | "outline";
 
 type ButtonProps = Readonly<{
   variant?: ButtonVariant;
@@ -15,6 +15,9 @@ const getVariantClassName = (variant: ButtonVariant): string => {
   }
   if (variant === "danger") {
     return "border border-red-500/30 bg-red-600 text-white hover:bg-red-700 dark:border-red-500/40 dark:bg-red-600 dark:hover:bg-red-700";
+  }
+  if (variant === "outline") {
+    return "border border-zinc-300 bg-transparent text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800";
   }
   return "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white";
 };

@@ -24,6 +24,8 @@ import { requestNotificationPermission } from "../lib/notifications/request-noti
 import { getApiBaseUrl } from "../lib/api-base-url";
 import { SettingsMobileMenu } from "./components/settings-mobile-menu";
 import { useProfile } from "../lib/use-profile";
+import { DesktopUpdater } from "../components/desktop-updater";
+import { KeyboardShortcutsHelp } from "../components/desktop/keyboard-shortcuts-help";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -120,7 +122,12 @@ export default function SettingsPage(): React.JSX.Element {
   const canEnableNotifications: boolean = notificationPreference.state.permission !== "denied";
 
   return (
-    <PageShell title="Settings" navBadgeCounts={navBadges.navBadgeCounts} rightContent={<SettingsMobileMenu />}>
+    <PageShell title="Settings" navBadgeCounts={navBadges.navBadgeCounts} rightContent={
+      <div className="flex items-center gap-2">
+        <KeyboardShortcutsHelp />
+        <SettingsMobileMenu />
+      </div>
+    }>
       <div className="mx-auto w-full max-w-4xl p-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card title="Profile" description="Local profile shown on this device." className="w-full">
@@ -201,6 +208,14 @@ export default function SettingsPage(): React.JSX.Element {
               <Label>Theme</Label>
               <ThemeToggle />
               <div className="text-xs text-zinc-600 dark:text-zinc-400">System follows your OS setting.</div>
+            </div>
+          </Card>
+          <Card title="Desktop Updates" description="Check for and install desktop app updates." className="w-full">
+            <div className="space-y-3">
+              <DesktopUpdater />
+              <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                Updates are automatically checked on startup. You can also check manually here.
+              </div>
             </div>
           </Card>
           <Card title="Identity" description="Local-only identity used for encryption." className="w-full">
@@ -407,6 +422,43 @@ export default function SettingsPage(): React.JSX.Element {
                     ))}
                   </ul>
                 )}
+              </div>
+            )}
+          </Card>
+
+          <Card title="Invite System" description="Manage your invite and contact settings." className="w-full">
+            {identity.state.status !== "unlocked" ? (
+              <div className="text-sm text-zinc-700 dark:text-zinc-300">Unlock your identity to manage invite settings.</div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Quick Actions</div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => window.location.href = "/invites"}
+                    >
+                      Open Invite System
+                    </Button>
+                  </div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                    Generate QR codes, create invite links, and manage contacts.
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Privacy Settings</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                    Control what information is shared when you create invites. These settings are managed in the Profile section of the Invite System.
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Contact Requests</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                    Manage incoming and outgoing contact requests in the Invite System. You can accept, decline, or block requests.
+                  </div>
+                </div>
               </div>
             )}
           </Card>
