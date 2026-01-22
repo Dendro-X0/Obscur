@@ -92,6 +92,23 @@ jobs:
       - name: Install desktop deps
         run: pnpm -C apps/desktop install
 
+      - name: Build PWA (static export for desktop)
+        run: pnpm -C apps/pwa build
+        env:
+          NODE_ENV: production
+
+      - name: Verify PWA build output
+        run: |
+          echo "Checking PWA build output..."
+          ls -la apps/pwa/out || echo "⚠️ PWA out directory not found"
+          if [ -f "apps/pwa/out/index.html" ]; then
+            echo "✅ PWA build successful - index.html found"
+          else
+            echo "❌ PWA build failed - index.html not found"
+            exit 1
+          fi
+        shell: bash
+
       - name: Build desktop app with release
         uses: tauri-apps/tauri-action@v0
         env:
