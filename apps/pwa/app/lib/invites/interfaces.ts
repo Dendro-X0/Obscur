@@ -1,4 +1,5 @@
-import { PublicKeyHex, PrivateKeyHex } from '@dweb/crypto';
+import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
+import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import {
   QRInviteOptions,
   InviteLinkOptions,
@@ -15,7 +16,8 @@ import {
   ShareableProfile,
   InviteLink,
   ImportResult,
-  NostrContactList
+  NostrContactList,
+  ContactRequestStatus
 } from './types';
 import type { DeepLinkResult } from './deep-link-handler';
 
@@ -57,10 +59,18 @@ export interface InviteManager {
   acceptContactRequest(requestId: string): Promise<Contact>;
   declineContactRequest(requestId: string, block?: boolean): Promise<void>;
   cancelContactRequest(requestId: string): Promise<void>;
+  getPendingContactRequests(): Promise<ContactRequest[]>;
+  getIncomingContactRequests(): Promise<ContactRequest[]>;
+  getOutgoingContactRequests(): Promise<ContactRequest[]>;
+  getAllContactRequests(): Promise<ContactRequest[]>;
+  getContactRequestsByStatus(status: ContactRequestStatus): Promise<ContactRequest[]>;
   
   // Import/Export
   importContacts(contactData: NostrContactList): Promise<ImportResult>;
   exportContacts(): Promise<NostrContactList>;
+  validateContactListFormat(data: unknown): Promise<Readonly<{ isValid: boolean; errors: ReadonlyArray<string> }>>;
+  importContactsFromFile(fileContent: string): Promise<ImportResult>;
+  exportContactsToFile(): Promise<string>;
 }
 
 /**

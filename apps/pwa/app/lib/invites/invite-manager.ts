@@ -1,4 +1,5 @@
-import type { PublicKeyHex, PrivateKeyHex } from '@dweb/crypto';
+import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
+import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import type { 
   InviteManager,
   QRGenerator,

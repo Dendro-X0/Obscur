@@ -1,4 +1,4 @@
-import { PublicKeyHex } from '@dweb/crypto';
+import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 
 // Core invite system types
 export type TrustLevel = "trusted" | "neutral" | "blocked";

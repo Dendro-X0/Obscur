@@ -128,7 +128,11 @@ export const DesktopUpdater = () => {
   // Show manual check button in settings or menu
   return (
     <div className="flex items-center gap-2">
-      <Button onClick={checkForUpdates} variant="outline" size="sm">
+      <Button
+        onClick={checkForUpdates}
+        variant="outline"
+        className="min-h-8 rounded-lg px-3 py-1 text-xs"
+      >
         Check for Updates
       </Button>
       {updateInfo && !updateInfo.available && (

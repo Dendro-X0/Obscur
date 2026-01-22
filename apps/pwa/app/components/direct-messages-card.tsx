@@ -35,9 +35,7 @@ export const DirectMessagesCard = () => {
   const [isSending, setIsSending] = useState<boolean>(false);
   const [sendError, setSendError] = useState<string | undefined>();
   const [queueStatus, setQueueStatus] = useState<{
-    queuedCount: number;
-    processingCount: number;
-    failedCount: number;
+    totalQueued: number;
     isProcessing: boolean;
   } | null>(null);
   
@@ -51,6 +49,17 @@ export const DirectMessagesCard = () => {
     myPrivateKeyHex: myPrivateKeyHex || null,
     pool
   });
+
+  const formatErrorContext = (context: unknown): string | undefined => {
+    if (!context) {
+      return undefined;
+    }
+    try {
+      return JSON.stringify(context);
+    } catch {
+      return String(context);
+    }
+  };
 
   // Get messages for current conversation
   const conversationId = useMemo(() => {
@@ -69,9 +78,7 @@ export const DirectMessagesCard = () => {
   useEffect(() => {
     if (dmController.state.queueStatus) {
       setQueueStatus({
-        queuedCount: dmController.state.queueStatus.queuedCount,
-        processingCount: dmController.state.queueStatus.processingCount,
-        failedCount: dmController.state.queueStatus.failedCount,
+        totalQueued: dmController.state.queueStatus.totalQueued,
         isProcessing: dmController.state.queueStatus.isProcessing
       });
     }
@@ -226,8 +233,8 @@ export const DirectMessagesCard = () => {
         <ErrorDetails
           title="Failed to send message"
           message={sendError}
-          details={dmController.state.lastError.details}
-          technicalDetails={dmController.state.lastError.technicalDetails}
+          details={dmController.state.lastError.userMessage}
+          technicalDetails={formatErrorContext(dmController.state.lastError.context) ?? dmController.state.lastError.message}
           className="mt-3"
           onRetry={() => {
             setSendError(undefined);
@@ -256,11 +263,11 @@ export const DirectMessagesCard = () => {
       )}
 
       {/* Queue status */}
-      {queueStatus && (queueStatus.queuedCount > 0 || queueStatus.processingCount > 0 || queueStatus.failedCount > 0) && (
+      {queueStatus && queueStatus.totalQueued > 0 && (
         <QueueStatus
-          queuedCount={queueStatus.queuedCount}
-          processingCount={queueStatus.processingCount}
-          failedCount={queueStatus.failedCount}
+          queuedCount={queueStatus.totalQueued}
+          processingCount={0}
+          failedCount={0}
           isProcessing={queueStatus.isProcessing}
           className="mt-3"
           onProcessQueue={handleProcessQueue}

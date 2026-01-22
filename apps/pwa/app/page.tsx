@@ -1007,16 +1007,16 @@ function NostrMessengerContent() {
 
   useEffect((): void => {
     const accepted = dmController.state.messages
-      .filter((m: Readonly<{ direction: string }>): boolean => m.direction === "outgoing")
-      .filter((m: Readonly<{ deliveryStatus?: string }>): boolean => m.deliveryStatus === "accepted")
-      .filter((m: Readonly<{ id: string }>): boolean => !handledAcceptedOutgoingDmIdsRef.current.has(m.id));
+      .filter((m): boolean => m.isOutgoing)
+      .filter((m): boolean => m.status === "accepted")
+      .filter((m): boolean => !handledAcceptedOutgoingDmIdsRef.current.has(m.id));
     if (accepted.length === 0) {
       return;
     }
-    accepted.forEach((m: Readonly<{ id: string }>): void => {
+    accepted.forEach((m): void => {
       handledAcceptedOutgoingDmIdsRef.current.add(m.id);
     });
-    const acceptedIds: ReadonlySet<string> = new Set(accepted.map((m: Readonly<{ id: string }>): string => m.id));
+    const acceptedIds: ReadonlySet<string> = new Set(accepted.map((m): string => m.id));
     queueMicrotask((): void => {
       setMessagesByConversationId((prev: MessagesByConversationId): MessagesByConversationId => {
         const next: Record<string, ReadonlyArray<Message>> = {};
@@ -1039,16 +1039,16 @@ function NostrMessengerContent() {
 
   useEffect((): void => {
     const rejected = dmController.state.messages
-      .filter((m: Readonly<{ direction: string }>): boolean => m.direction === "outgoing")
-      .filter((m: Readonly<{ deliveryStatus?: string }>): boolean => m.deliveryStatus === "rejected")
-      .filter((m: Readonly<{ id: string }>): boolean => !handledRejectedOutgoingDmIdsRef.current.has(m.id));
+      .filter((m): boolean => m.isOutgoing)
+      .filter((m): boolean => m.status === "rejected")
+      .filter((m): boolean => !handledRejectedOutgoingDmIdsRef.current.has(m.id));
     if (rejected.length === 0) {
       return;
     }
-    rejected.forEach((m: Readonly<{ id: string }>): void => {
+    rejected.forEach((m): void => {
       handledRejectedOutgoingDmIdsRef.current.add(m.id);
     });
-    const rejectedIds: ReadonlySet<string> = new Set(rejected.map((m: Readonly<{ id: string }>): string => m.id));
+    const rejectedIds: ReadonlySet<string> = new Set(rejected.map((m): string => m.id));
     queueMicrotask((): void => {
       setMessagesByConversationId((prev: MessagesByConversationId): MessagesByConversationId => {
         const next: Record<string, ReadonlyArray<Message>> = {};
@@ -1077,21 +1077,27 @@ function NostrMessengerContent() {
       return;
     }
     const incoming = dmController.state.messages
-      .filter((m: Readonly<{ direction: string }>): boolean => m.direction === "incoming")
-      .filter((m: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): boolean => !isPeerBlocked({ publicKeyHex: m.peerPublicKeyHex }))
-      .filter((m: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): boolean => !isPeerMuted({ publicKeyHex: m.peerPublicKeyHex }))
-      .filter((m: Readonly<{ id: string }>): boolean => !handledIncomingDmIdsRef.current.has(m.id));
+      .filter((m): boolean => !m.isOutgoing)
+      .map((m): Readonly<{ id: string; peerPublicKeyHex: PublicKeyHex; plaintext: string; createdAtUnixSeconds: number }> => ({
+        id: m.id,
+        peerPublicKeyHex: m.senderPubkey,
+        plaintext: m.content,
+        createdAtUnixSeconds: Math.floor(m.timestamp.getTime() / 1000),
+      }))
+      .filter((m): boolean => !isPeerBlocked({ publicKeyHex: m.peerPublicKeyHex }))
+      .filter((m): boolean => !isPeerMuted({ publicKeyHex: m.peerPublicKeyHex }))
+      .filter((m): boolean => !handledIncomingDmIdsRef.current.has(m.id));
     if (incoming.length === 0) {
       return;
     }
-    incoming.forEach((dm: Readonly<{ id: string }>): void => {
+    incoming.forEach((dm): void => {
       handledIncomingDmIdsRef.current.add(dm.id);
     });
 
-    const acceptedIncoming = incoming.filter((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): boolean => isPeerAccepted({ publicKeyHex: dm.peerPublicKeyHex }));
-    const requestIncoming = incoming.filter((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): boolean => !isPeerAccepted({ publicKeyHex: dm.peerPublicKeyHex }));
+    const acceptedIncoming = incoming.filter((dm): boolean => isPeerAccepted({ publicKeyHex: dm.peerPublicKeyHex }));
+    const requestIncoming = incoming.filter((dm): boolean => !isPeerAccepted({ publicKeyHex: dm.peerPublicKeyHex }));
 
-    requestIncoming.forEach((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex; plaintext: string; createdAtUnixSeconds: number }>): void => {
+    requestIncoming.forEach((dm): void => {
       requestsInbox.upsertIncoming({ peerPublicKeyHex: dm.peerPublicKeyHex, plaintext: dm.plaintext, createdAtUnixSeconds: dm.createdAtUnixSeconds });
     });
 
@@ -1107,7 +1113,7 @@ function NostrMessengerContent() {
       typeof Notification !== "undefined" &&
       Notification.permission === "granted";
     if (shouldNotify) {
-      acceptedIncoming.forEach((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): void => {
+      acceptedIncoming.forEach((dm): void => {
         const peer: string = dm.peerPublicKeyHex;
         showDesktopNotification({ title: "New message", body: `From ${peer.slice(0, 8)}…`, tag: `dm-${peer}` });
       });
@@ -1118,7 +1124,7 @@ function NostrMessengerContent() {
       conversationIdByPeer.set(c.pubkey, c.id);
     });
     const newContacts: DmConversation[] = [];
-    acceptedIncoming.forEach((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex; plaintext: string; createdAtUnixSeconds: number }>): void => {
+    acceptedIncoming.forEach((dm): void => {
       if (conversationIdByPeer.has(dm.peerPublicKeyHex)) {
         return;
       }
@@ -1135,7 +1141,7 @@ function NostrMessengerContent() {
       }
       setMessagesByConversationId((prev: MessagesByConversationId): MessagesByConversationId => {
         const next: Record<string, ReadonlyArray<Message>> = { ...prev };
-        acceptedIncoming.forEach((dm: Readonly<{ id: string; peerPublicKeyHex: PublicKeyHex; plaintext: string; createdAtUnixSeconds: number }>): void => {
+        acceptedIncoming.forEach((dm): void => {
           const conversationId: string | undefined = conversationIdByPeer.get(dm.peerPublicKeyHex);
           if (!conversationId) {
             return;

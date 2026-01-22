@@ -57,7 +57,7 @@ export const QRCodeScanner = () => {
             const qrData = await qrGenerator.scanQR(imageData);
 
             // Process the QR invite
-            const contactRequest = await inviteManager.processQRInvite(qrData.rawData || JSON.stringify(qrData));
+            const contactRequest = await inviteManager.processQRInvite(JSON.stringify(qrData));
 
             setState({ status: "success", contactRequest });
           } catch (error) {

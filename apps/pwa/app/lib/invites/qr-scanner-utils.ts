@@ -2,6 +2,31 @@ import jsQR from 'jsqr';
 import type { QRInviteData } from './qr-generator';
 import { qrGenerator } from './qr-generator';
 
+type NavigatorLike = Readonly<{
+  mediaDevices?: Readonly<{
+    getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  }>;
+  clipboard?: Readonly<{
+    read?: () => Promise<ReadonlyArray<ClipboardItem>>;
+  }>;
+  permissions?: Readonly<{
+    query?: (permissionDesc: PermissionDescriptor) => Promise<PermissionStatus>;
+  }>;
+}>;
+
+const getNavigatorRef = (): NavigatorLike | undefined => {
+  const globalRef: unknown = typeof globalThis !== 'undefined' ? globalThis : undefined;
+  if (!globalRef || typeof globalRef !== 'object') {
+    return undefined;
+  }
+  const record = globalRef as Record<string, unknown>;
+  const navigatorCandidate = record['navigator'];
+  if (!navigatorCandidate || typeof navigatorCandidate !== 'object') {
+    return undefined;
+  }
+  return navigatorCandidate as NavigatorLike;
+};
+
 /**
  * QR Scanner utilities for processing QR codes from various sources
  */
@@ -62,8 +87,13 @@ export async function scanQRFromFile(file: File): Promise<QRInviteData> {
  */
 export async function scanQRFromCamera(): Promise<QRInviteData> {
   try {
+    const navigatorRef = getNavigatorRef();
+    const getUserMedia = navigatorRef?.mediaDevices?.getUserMedia;
+    if (!getUserMedia) {
+      throw new Error('Camera API not available');
+    }
     // Request camera access
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const stream = await getUserMedia({
       video: {
         facingMode: 'environment', // Use back camera if available
         width: { ideal: 1280 },
@@ -171,13 +201,14 @@ export async function scanQRFromImageData(imageData: ImageData): Promise<QRInvit
  */
 export async function scanQRFromClipboard(): Promise<QRInviteData> {
   try {
+    const navigatorRef = getNavigatorRef();
     // Check if clipboard API is available
-    if (!navigator.clipboard || !navigator.clipboard.read) {
+    if (!navigatorRef?.clipboard?.read) {
       throw new Error('Clipboard API not available');
     }
 
     // Read clipboard items
-    const clipboardItems = await navigator.clipboard.read();
+    const clipboardItems = await navigatorRef.clipboard.read();
     
     for (const item of clipboardItems) {
       // Look for image data
@@ -201,20 +232,22 @@ export async function scanQRFromClipboard(): Promise<QRInviteData> {
  */
 export async function checkCameraPermission(): Promise<boolean> {
   try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const navigatorRef = getNavigatorRef();
+    const getUserMedia = navigatorRef?.mediaDevices?.getUserMedia;
+    if (!getUserMedia) {
       return false;
     }
 
     // Check permission status if available
-    if ('permissions' in navigator) {
-      const permission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+    if (navigatorRef?.permissions?.query) {
+      const permission = await navigatorRef.permissions.query({ name: 'camera' as PermissionName });
       return permission.state === 'granted';
     }
 
     // Fallback: try to access camera briefly
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop());
+      const stream = await getUserMedia({ video: true });
+      stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
       return true;
     } catch {
       return false;
@@ -229,8 +262,13 @@ export async function checkCameraPermission(): Promise<boolean> {
  */
 export async function requestCameraPermission(): Promise<boolean> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    stream.getTracks().forEach(track => track.stop());
+    const navigatorRef = getNavigatorRef();
+    const getUserMedia = navigatorRef?.mediaDevices?.getUserMedia;
+    if (!getUserMedia) {
+      return false;
+    }
+    const stream = await getUserMedia({ video: true });
+    stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
     return true;
   } catch {
     return false;

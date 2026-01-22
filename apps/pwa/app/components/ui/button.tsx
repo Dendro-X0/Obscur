@@ -1,10 +1,13 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "../../lib/cn";
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "outline";
+type ButtonVariant = "primary" | "secondary" | "danger" | "outline" | "ghost";
+
+type ButtonSize = "sm" | "md" | "lg";
 
 type ButtonProps = Readonly<{
   variant?: ButtonVariant;
+  size?: ButtonSize;
   className?: string;
 }> &
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className">;
@@ -19,18 +22,33 @@ const getVariantClassName = (variant: ButtonVariant): string => {
   if (variant === "outline") {
     return "border border-zinc-300 bg-transparent text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800";
   }
+  if (variant === "ghost") {
+    return "bg-transparent text-zinc-900 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800";
+  }
   return "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white";
 };
 
+const getSizeClassName = (size: ButtonSize): string => {
+  if (size === "sm") {
+    return "min-h-8 rounded-lg px-3 py-1 text-xs";
+  }
+  if (size === "lg") {
+    return "min-h-12 rounded-xl px-6 py-3 text-base";
+  }
+  return "min-h-10 rounded-xl px-4 py-2 text-sm";
+};
+
 export const Button = (props: ButtonProps) => {
-  const { variant, className, disabled, ...rest } = props;
+  const { variant, size, className, disabled, ...rest } = props;
   const resolvedVariant: ButtonVariant = variant ?? "primary";
+  const resolvedSize: ButtonSize = size ?? "md";
   return (
     <button
       {...rest}
       disabled={disabled}
       className={cn(
-        "btn-enhanced inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium",
+        "btn-enhanced inline-flex items-center justify-center gap-2 font-medium",
+        getSizeClassName(resolvedSize),
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black",
         "disabled:pointer-events-none disabled:opacity-40",
         getVariantClassName(resolvedVariant),

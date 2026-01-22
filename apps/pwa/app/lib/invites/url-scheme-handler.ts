@@ -43,8 +43,7 @@ export class URLSchemeHandler {
         // Register Nostr protocol handler
         navigator.registerProtocolHandler(
           'nostr',
-          '/invite?nostr=%s',
-          'Obscur - Nostr Invites'
+          '/invite?nostr=%s'
         );
       } catch (error) {
         console.warn('Failed to register nostr protocol handler:', error);

@@ -1,4 +1,4 @@
-import QRCode from 'qrcode';
+import QRCodeLib from 'qrcode';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import { cryptoService } from '../crypto/crypto-service';
@@ -86,7 +86,7 @@ class QRGeneratorImpl implements QRGenerator {
       if (cachedDataUrl) {
         // Use cached data URL, but still generate SVG (lightweight)
         dataUrl = cachedDataUrl;
-        svgString = await QRCode.toString(rawData, {
+        svgString = await QRCodeLib.toString(rawData, {
           type: 'svg',
           errorCorrectionLevel: 'M',
           margin: 1,
@@ -95,10 +95,8 @@ class QRGeneratorImpl implements QRGenerator {
       } else {
         // Generate both formats
         [dataUrl, svgString] = await Promise.all([
-          QRCode.toDataURL(rawData, {
+          QRCodeLib.toDataURL(rawData, {
             errorCorrectionLevel: 'M',
-            type: 'image/png',
-            quality: 0.92,
             margin: 1,
             color: {
               dark: '#000000',
@@ -106,7 +104,7 @@ class QRGeneratorImpl implements QRGenerator {
             },
             width: 256
           }),
-          QRCode.toString(rawData, {
+          QRCodeLib.toString(rawData, {
             type: 'svg',
             errorCorrectionLevel: 'M',
             margin: 1,
@@ -281,18 +279,27 @@ class QRGeneratorImpl implements QRGenerator {
   /**
    * Check if parsed data has valid QR invite structure
    */
-  private isValidQRInviteData(data: any): boolean {
-    return (
-      data &&
-      typeof data === 'object' &&
-      typeof data.version === 'string' &&
-      typeof data.publicKey === 'string' &&
-      typeof data.timestamp === 'number' &&
-      typeof data.expirationTime === 'number' &&
-      typeof data.signature === 'string' &&
-      data.timestamp > 0 &&
-      data.expirationTime > data.timestamp
-    );
+  private isValidQRInviteData(data: unknown): data is QRInviteData {
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+    const candidate = data as Record<string, unknown>;
+    if (typeof candidate.version !== 'string') {
+      return false;
+    }
+    if (typeof candidate.publicKey !== 'string') {
+      return false;
+    }
+    if (typeof candidate.timestamp !== 'number' || candidate.timestamp <= 0) {
+      return false;
+    }
+    if (typeof candidate.expirationTime !== 'number' || candidate.expirationTime <= candidate.timestamp) {
+      return false;
+    }
+    if (typeof candidate.signature !== 'string') {
+      return false;
+    }
+    return true;
   }
 }
 

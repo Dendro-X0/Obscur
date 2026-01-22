@@ -181,9 +181,11 @@ class MessageFlowDebugger {
 
     // Limit total messages tracked
     if (this.events.size > this.maxMessages) {
-      const oldestMessageId = this.events.keys().next().value;
-      this.events.delete(oldestMessageId);
-      this.relayInteractions.delete(oldestMessageId);
+      const oldest = this.events.keys().next();
+      if (!oldest.done) {
+        this.events.delete(oldest.value);
+        this.relayInteractions.delete(oldest.value);
+      }
     }
 
     // Log event

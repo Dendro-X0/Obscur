@@ -1,4 +1,4 @@
-import type { PublicKeyHex } from '@dweb/crypto';
+import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { QRInviteData, ShareableProfile, InviteLink } from './types';
 import { cryptoService } from '../crypto/crypto-service';
 
@@ -244,10 +244,14 @@ export class NostrCompatibilityService {
 
     // Handle Amethyst-style invites
     if (data.npub && data.profile) {
+      const publicKey = this.npubToHex(data.npub);
+      if (!publicKey) {
+        return null;
+      }
       return {
         version: '1.0',
         type: 'qr',
-        publicKey: this.npubToHex(data.npub),
+        publicKey,
         profile: data.profile,
         signature: data.signature || ''
       };

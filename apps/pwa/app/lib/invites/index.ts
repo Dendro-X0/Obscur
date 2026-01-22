@@ -17,4 +17,4 @@ export * from './utils';
 export * from './invite-manager';
 export * from './contact-store';
 export * from './profile-manager';
-export * from './qr-generator';
+export { qrGenerator, useQRGenerator } from './qr-generator';

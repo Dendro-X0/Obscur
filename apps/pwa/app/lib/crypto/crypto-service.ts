@@ -48,8 +48,8 @@ export interface CryptoService {
   
   // Invite-specific Operations
   generateInviteId(): string;
-  signInviteData(data: InviteData, privateKey: PrivateKeyHex): Promise<string>;
-  verifyInviteSignature(data: InviteData, signature: string, publicKey: PublicKeyHex): Promise<boolean>;
+  signInviteData(data: InviteSignaturePayload, privateKey: PrivateKeyHex): Promise<string>;
+  verifyInviteSignature(data: InviteSignaturePayload, signature: string, publicKey: PublicKeyHex): Promise<boolean>;
   encryptInviteData(data: string, key: Uint8Array): Promise<string>;
   decryptInviteData(encryptedData: string, key: Uint8Array): Promise<string>;
   generateSecureRandom(length: number): Uint8Array;
@@ -73,6 +73,16 @@ export interface InviteData {
   timestamp: number;
   expirationTime: number;
   inviteId: string;
+}
+
+export interface InviteSignaturePayload {
+  publicKey: PublicKeyHex;
+  displayName?: string;
+  avatar?: string;
+  message?: string;
+  timestamp: number;
+  expirationTime?: number;
+  inviteId?: string;
 }
 
 /**
@@ -444,7 +454,7 @@ class CryptoServiceImpl implements CryptoService {
       const combined = privateKey + publicKey;
       const encoder = new TextEncoder();
       combinedBytes = encoder.encode(combined);
-      hashBuffer = await crypto.subtle.digest('SHA-256', combinedBytes);
+      hashBuffer = await crypto.subtle.digest('SHA-256', toArrayBuffer(combinedBytes));
       
       const result = new Uint8Array(hashBuffer);
       
@@ -473,7 +483,7 @@ class CryptoServiceImpl implements CryptoService {
   /**
    * Sign invite data with a private key
    */
-  async signInviteData(data: InviteData | any, privateKey: PrivateKeyHex): Promise<string> {
+  async signInviteData(data: InviteSignaturePayload, privateKey: PrivateKeyHex): Promise<string> {
     let dataBytes: Uint8Array | null = null;
     let hash: Uint8Array | null = null;
     
@@ -518,7 +528,7 @@ class CryptoServiceImpl implements CryptoService {
   /**
    * Verify invite data signature
    */
-  async verifyInviteSignature(data: InviteData | any, signature: string, publicKey: PublicKeyHex): Promise<boolean> {
+  async verifyInviteSignature(data: InviteSignaturePayload, signature: string, publicKey: PublicKeyHex): Promise<boolean> {
     let dataBytes: Uint8Array | null = null;
     let hash: Uint8Array | null = null;
     

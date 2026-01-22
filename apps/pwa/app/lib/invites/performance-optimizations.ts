@@ -40,8 +40,10 @@ export class LRUCache<K, V> {
 
     // Evict oldest if over capacity
     if (this.cache.size > this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      const first = this.cache.keys().next();
+      if (!first.done) {
+        this.cache.delete(first.value);
+      }
     }
   }
 
@@ -129,6 +131,10 @@ export class ContactSearchIndex {
   constructor() {
     this.root = new TrieNode();
     this.contactMap = new Map();
+  }
+
+  get size(): number {
+    return this.contactMap.size;
   }
 
   /**

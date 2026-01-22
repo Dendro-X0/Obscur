@@ -5,6 +5,8 @@ import { useTauri } from "./use-tauri";
 import { useNotificationPreference } from "../notifications/use-notification-preference";
 import { showDesktopNotification } from "../notifications/show-desktop-notification";
 
+const DESKTOP_NOTIFICATION_TAG: string = "obscur-notification";
+
 /**
  * Hook to integrate desktop notifications with PWA notification system
  * Automatically uses Tauri notifications when in desktop environment
@@ -39,7 +41,7 @@ export function useDesktopNotifications() {
         await api.notification.show({ title, body });
       } else {
         // Use web notifications
-        showDesktopNotification({ title, body });
+        showDesktopNotification({ title, body, tag: DESKTOP_NOTIFICATION_TAG });
       }
     },
     [state.enabled, isDesktop, api]

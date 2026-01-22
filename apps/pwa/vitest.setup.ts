@@ -20,11 +20,11 @@ const createMockObjectStore = (dbName: string, storeName: string) => {
   return {
     name: storeName,
     add: vi.fn((value) => {
-      const request = {
+      const request: { result: unknown; error: Error | null; onsuccess: (() => void) | null; onerror: (() => void) | null } = {
         result: undefined,
         error: null,
-        onsuccess: null as any,
-        onerror: null as any,
+        onsuccess: null,
+        onerror: null,
       };
       
       setTimeout(() => {
@@ -40,11 +40,11 @@ const createMockObjectStore = (dbName: string, storeName: string) => {
       return request;
     }),
     put: vi.fn((value) => {
-      const request = {
+      const request: { result: unknown; error: Error | null; onsuccess: (() => void) | null; onerror: (() => void) | null } = {
         result: undefined,
         error: null,
-        onsuccess: null as any,
-        onerror: null as any,
+        onsuccess: null,
+        onerror: null,
       };
       
       setTimeout(() => {
@@ -55,11 +55,11 @@ const createMockObjectStore = (dbName: string, storeName: string) => {
       return request;
     }),
     get: vi.fn((key) => {
-      const request = {
+      const request: { result: unknown; error: Error | null; onsuccess: (() => void) | null; onerror: (() => void) | null } = {
         result: data.get(key) || null,
         error: null,
-        onsuccess: null as any,
-        onerror: null as any,
+        onsuccess: null,
+        onerror: null,
       };
       
       setTimeout(() => {
@@ -69,11 +69,11 @@ const createMockObjectStore = (dbName: string, storeName: string) => {
       return request;
     }),
     getAll: vi.fn(() => {
-      const request = {
+      const request: { result: unknown; error: Error | null; onsuccess: (() => void) | null; onerror: (() => void) | null } = {
         result: Array.from(data.values()),
         error: null,
-        onsuccess: null as any,
-        onerror: null as any,
+        onsuccess: null,
+        onerror: null,
       };
       
       setTimeout(() => {
@@ -83,11 +83,11 @@ const createMockObjectStore = (dbName: string, storeName: string) => {
       return request;
     }),
     delete: vi.fn((key) => {
-      const request = {
+      const request: { result: unknown; error: Error | null; onsuccess: (() => void) | null; onerror: (() => void) | null } = {
         result: undefined,
         error: null,
-        onsuccess: null as any,
-        onerror: null as any,
+        onsuccess: null,
+        onerror: null,
       };
       
       setTimeout(() => {
