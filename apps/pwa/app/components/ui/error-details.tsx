@@ -30,7 +30,7 @@ export const ErrorDetails = (props: ErrorDetailsProps) => {
           <div className="text-sm text-red-600 dark:text-red-400 mt-1">
             {props.message}
           </div>
-          
+
           {hasDetails && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
@@ -58,7 +58,7 @@ export const ErrorDetails = (props: ErrorDetailsProps) => {
                 </div>
               )}
               {props.technicalDetails && (
-                <div className="text-xs font-mono text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/40 rounded px-2 py-1 overflow-x-auto">
+                <div className="text-xs font-mono text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/40 rounded px-2 py-1 overflow-x-auto scrollbar-immersive">
                   {props.technicalDetails}
                 </div>
               )}

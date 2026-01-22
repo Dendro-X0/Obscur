@@ -1,6 +1,6 @@
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
-import type { 
+import type {
   InviteManager,
   QRGenerator,
   ContactStore,
@@ -24,7 +24,8 @@ import { qrGenerator } from './qr-generator';
 import { contactStore } from './contact-store';
 import { profileManager } from './profile-manager';
 import { openInviteDb } from './db/open-invite-db';
-import { 
+import { getIdentitySnapshot } from '../identity/use-identity';
+import {
   CONTACT_REQUESTS_STORE,
   INVITE_LINKS_STORE,
   MAX_PENDING_REQUESTS,
@@ -38,31 +39,31 @@ import {
 import { generateRandomString, isExpired, delay } from './utils';
 import { NostrCompatibilityService, NostrRelayValidator } from './nostr-compatibility';
 import { DeepLinkHandler, type DeepLinkResult } from './deep-link-handler';
-import { 
-  InputValidator, 
-  SecureStorage, 
-  canGenerateQR, 
-  canGenerateInviteLink, 
-  canSendContactRequest, 
-  canProcessInvite 
+import {
+  InputValidator,
+  SecureStorage,
+  canGenerateQR,
+  canGenerateInviteLink,
+  canSendContactRequest,
+  canProcessInvite
 } from './security-enhancements';
 
 /**
  * Central orchestrator for all invite-related operations
  */
 class InviteManagerImpl implements InviteManager {
-  
+
   // QR Code Operations
   async generateQRInvite(options: QRInviteOptions): Promise<QRInviteData> {
     try {
       // Get current user's identity (this would come from the app's identity system)
       const identity = await this.getCurrentUserIdentity();
-      
+
       // Rate limiting check
       if (!canGenerateQR(identity.publicKey)) {
         throw new Error('Rate limit exceeded for QR code generation. Please try again later.');
       }
-      
+
       // Validate and sanitize input
       if (options.displayName) {
         const validation = InputValidator.validateDisplayName(options.displayName);
@@ -71,14 +72,14 @@ class InviteManagerImpl implements InviteManager {
         }
         options.displayName = validation.sanitized;
       }
-      
+
       if (options.avatar) {
         const validation = InputValidator.validateUrl(options.avatar);
         if (!validation.isValid) {
           throw new Error(`Invalid avatar URL: ${validation.error}`);
         }
       }
-      
+
       if (options.message) {
         const validation = InputValidator.validateMessage(options.message);
         if (!validation.isValid) {
@@ -127,20 +128,20 @@ class InviteManagerImpl implements InviteManager {
     try {
       // Get current user identity for rate limiting
       const identity = await this.getCurrentUserIdentity();
-      
+
       // Rate limiting check
       if (!canProcessInvite(identity.publicKey)) {
         throw new Error('Rate limit exceeded for invite processing. Please try again later.');
       }
-      
+
       // Try parsing with cross-platform compatibility
       let parsedData = NostrCompatibilityService.parseAnyFormat(qrData);
-      
+
       if (!parsedData) {
         // Fallback to legacy parsing
         parsedData = qrGenerator.parseQRData(qrData);
       }
-      
+
       if (!parsedData) {
         throw new Error(ERROR_MESSAGES.INVALID_QR_CODE);
       }
@@ -150,7 +151,7 @@ class InviteManagerImpl implements InviteManager {
       if (!pkValidation.isValid) {
         throw new Error(`Invalid public key in QR code: ${pkValidation.error}`);
       }
-      
+
       // Validate timestamp
       const tsValidation = InputValidator.validateTimestamp(parsedData.timestamp);
       if (!tsValidation.isValid) {
@@ -168,7 +169,7 @@ class InviteManagerImpl implements InviteManager {
         parsedData.signature,
         parsedData.publicKey
       );
-      
+
       if (!isValidSignature) {
         throw new Error(ERROR_MESSAGES.INVALID_SIGNATURE);
       }
@@ -209,12 +210,12 @@ class InviteManagerImpl implements InviteManager {
     try {
       // Get current user's identity
       const identity = await this.getCurrentUserIdentity();
-      
+
       // Rate limiting check
       if (!canGenerateInviteLink(identity.publicKey)) {
         throw new Error('Rate limit exceeded for invite link generation. Please try again later.');
       }
-      
+
       // Validate and sanitize message if provided
       if (options.message) {
         const validation = InputValidator.validateMessage(options.message);
@@ -223,7 +224,7 @@ class InviteManagerImpl implements InviteManager {
         }
         options.message = validation.sanitized;
       }
-      
+
       // Get shareable profile
       const shareableProfile = await profileManager.getShareableProfile(
         identity.publicKey,
@@ -232,10 +233,10 @@ class InviteManagerImpl implements InviteManager {
 
       const now = new Date();
       const expiresAt = options.expirationTime || new Date(now.getTime() + (DEFAULT_INVITE_EXPIRATION_HOURS * 60 * 60 * 1000));
-      
+
       // Generate unique short code
       const shortCode = await this.generateUniqueShortCode();
-      
+
       // Create invite link
       const inviteLink: InviteLink = {
         id: cryptoService.generateInviteId(),
@@ -253,7 +254,7 @@ class InviteManagerImpl implements InviteManager {
 
       // Store the invite link securely
       await this.storeInviteLink(inviteLink);
-      
+
       // Store sensitive invite data with encryption
       await SecureStorage.storeEncrypted(
         `invite-link-${inviteLink.id}`,
@@ -266,19 +267,19 @@ class InviteManagerImpl implements InviteManager {
     }
   }
 
-  async generateUniversalInviteLink(options: InviteLinkOptions): Promise<{ 
-    inviteLink: InviteLink; 
-    universalLink: string; 
-    fallbackUrl: string; 
-    appScheme: string; 
+  async generateUniversalInviteLink(options: InviteLinkOptions): Promise<{
+    inviteLink: InviteLink;
+    universalLink: string;
+    fallbackUrl: string;
+    appScheme: string;
   }> {
     try {
       // Generate standard invite link
       const inviteLink = await this.generateInviteLink(options);
-      
+
       // Generate universal link with cross-platform compatibility
       const universalLinkData = NostrCompatibilityService.generateUniversalLink(inviteLink);
-      
+
       return {
         inviteLink,
         universalLink: universalLinkData.url,
@@ -301,10 +302,10 @@ class InviteManagerImpl implements InviteManager {
     try {
       // Generate standard QR invite
       const qrData = await this.generateQRInvite(options);
-      
+
       // Generate multiple formats for compatibility
       const formats = NostrCompatibilityService.generateCompatibleQRData(qrData);
-      
+
       return { qrData, formats };
     } catch (error) {
       throw new Error(`Nostr-compatible QR generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -323,16 +324,16 @@ class InviteManagerImpl implements InviteManager {
   async handleUrlScheme(url: string): Promise<ContactRequest | null> {
     try {
       const result = await this.processDeepLink(url);
-      
+
       if (result.success && result.contactRequest) {
         return result.contactRequest;
       }
-      
+
       // Handle fallback cases
       if (result.fallbackAction) {
         throw new Error(`Deep link failed: ${result.error}. Fallback action: ${result.fallbackAction}`);
       }
-      
+
       return null;
     } catch (error) {
       throw new Error(`URL scheme handling failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -408,28 +409,28 @@ class InviteManagerImpl implements InviteManager {
   async revokeInviteLink(linkId: string): Promise<void> {
     try {
       const db = await openInviteDb();
-      
+
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([INVITE_LINKS_STORE], 'readwrite');
         const store = transaction.objectStore(INVITE_LINKS_STORE);
-        
+
         const getRequest = store.get(linkId);
-        
+
         getRequest.onsuccess = () => {
           const inviteLink = getRequest.result;
           if (!inviteLink) {
             reject(new Error('Invite link not found'));
             return;
           }
-          
+
           // Mark as inactive
           inviteLink.isActive = false;
-          
+
           const putRequest = store.put(inviteLink);
           putRequest.onsuccess = () => resolve();
           putRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
         };
-        
+
         getRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       });
     } catch (error) {
@@ -442,19 +443,19 @@ class InviteManagerImpl implements InviteManager {
     try {
       // Get current user identity
       const identity = await this.getCurrentUserIdentity();
-      
+
       // Rate limiting check
       if (!canSendContactRequest(identity.publicKey)) {
         throw new Error('Rate limit exceeded for contact requests. Please try again later.');
       }
-      
+
       // Validate recipient public key
       const pkValidation = InputValidator.validatePublicKey(request.recipientPublicKey);
       if (!pkValidation.isValid) {
         throw new Error(`Invalid recipient public key: ${pkValidation.error}`);
       }
       request.recipientPublicKey = pkValidation.normalized!;
-      
+
       // Validate and sanitize message if provided
       if (request.message) {
         const validation = InputValidator.validateMessage(request.message);
@@ -463,7 +464,7 @@ class InviteManagerImpl implements InviteManager {
         }
         request.message = validation.sanitized;
       }
-      
+
       // Get shareable profile if requested
       let shareableProfile: ShareableProfile;
       if (request.includeProfile) {
@@ -610,14 +611,14 @@ class InviteManagerImpl implements InviteManager {
   async getPendingContactRequests(): Promise<ContactRequest[]> {
     try {
       const db = await openInviteDb();
-      
+
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
         const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
         const index = store.index('status');
-        
+
         const request = index.getAll('pending');
-        
+
         request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       });
@@ -647,13 +648,13 @@ class InviteManagerImpl implements InviteManager {
   async getAllContactRequests(): Promise<ContactRequest[]> {
     try {
       const db = await openInviteDb();
-      
+
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
         const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
-        
+
         const request = store.getAll();
-        
+
         request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       });
@@ -665,14 +666,14 @@ class InviteManagerImpl implements InviteManager {
   async getContactRequestsByStatus(status: ContactRequestStatus): Promise<ContactRequest[]> {
     try {
       const db = await openInviteDb();
-      
+
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
         const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
         const index = store.index('status');
-        
+
         const request = index.getAll(status);
-        
+
         request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       });
@@ -711,7 +712,7 @@ class InviteManagerImpl implements InviteManager {
       try {
         await this.sendContactRequest(request);
         result.successful++;
-        
+
         // Rate limiting to avoid overwhelming the system
         await delay(IMPORT_RATE_LIMIT_MS);
       } catch (error) {
@@ -745,10 +746,10 @@ class InviteManagerImpl implements InviteManager {
 
       // Process contacts in batches to avoid overwhelming the system
       const batchSize = Math.min(MAX_IMPORT_BATCH_SIZE, contactData.contacts.length);
-      
+
       for (let i = 0; i < contactData.contacts.length; i += batchSize) {
         const batch = contactData.contacts.slice(i, i + batchSize);
-        
+
         for (const contactInfo of batch) {
           try {
             // Validate public key format using InputValidator
@@ -762,7 +763,7 @@ class InviteManagerImpl implements InviteManager {
               });
               continue;
             }
-            
+
             const normalizedPubkey = pkValidation.normalized!;
 
             // Check for duplicates
@@ -779,7 +780,7 @@ class InviteManagerImpl implements InviteManager {
                 displayName = nameValidation.sanitized;
               }
             }
-            
+
             let relayUrl: string | undefined;
             if (contactInfo.relayUrl) {
               const urlValidation = InputValidator.validateRelayUrl(contactInfo.relayUrl);
@@ -830,7 +831,7 @@ class InviteManagerImpl implements InviteManager {
   async exportContacts(): Promise<NostrContactList> {
     try {
       const contacts = await contactStore.getAllContacts();
-      
+
       const exportData: NostrContactList = {
         contacts: contacts
           .filter(contact => contact.trustLevel !== 'blocked') // Don't export blocked contacts
@@ -873,7 +874,7 @@ class InviteManagerImpl implements InviteManager {
     // Validate each contact
     for (let i = 0; i < data.contacts.length; i++) {
       const contact = data.contacts[i];
-      
+
       if (!contact || typeof contact !== 'object') {
         errors.push(`Contact at index ${i} must be an object`);
         continue;
@@ -934,28 +935,34 @@ class InviteManagerImpl implements InviteManager {
 
   // Private helper methods
   private async getCurrentUserIdentity(): Promise<{ publicKey: PublicKeyHex; privateKey: PrivateKeyHex }> {
-    // This is a placeholder - in the real app, this would get the current user's identity
-    // from the identity system (localStorage, IndexedDB, etc.)
-    // For now, we'll throw an error to indicate this needs to be implemented
-    throw new Error('getCurrentUserIdentity not implemented - needs integration with app identity system');
+    const identity = getIdentitySnapshot();
+
+    if (identity.status !== 'unlocked' || !identity.publicKeyHex || !identity.privateKeyHex) {
+      throw new Error('Identity is not unlocked. Please unlock your identity to continue.');
+    }
+
+    return {
+      publicKey: identity.publicKeyHex,
+      privateKey: identity.privateKeyHex
+    };
   }
 
   private async generateUniqueShortCode(): Promise<string> {
     let attempts = 0;
     const maxAttempts = 10;
-    
+
     while (attempts < maxAttempts) {
       const shortCode = generateRandomString(SHORT_CODE_LENGTH);
-      
+
       // Check if this short code already exists
       const existing = await this.getInviteLinkByShortCode(shortCode);
       if (!existing) {
         return shortCode;
       }
-      
+
       attempts++;
     }
-    
+
     throw new Error('Failed to generate unique short code');
   }
 
@@ -975,15 +982,15 @@ class InviteManagerImpl implements InviteManager {
   private async storeContactRequest(contactRequest: ContactRequest): Promise<void> {
     // Check pending request limits
     await this.enforcePendingRequestLimits();
-    
+
     const db = await openInviteDb();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readwrite');
       const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
-      
+
       const request = store.add(contactRequest);
-      
+
       request.onsuccess = () => resolve();
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
@@ -991,13 +998,13 @@ class InviteManagerImpl implements InviteManager {
 
   private async storeInviteLink(inviteLink: InviteLink): Promise<void> {
     const db = await openInviteDb();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([INVITE_LINKS_STORE], 'readwrite');
       const store = transaction.objectStore(INVITE_LINKS_STORE);
-      
+
       const request = store.add(inviteLink);
-      
+
       request.onsuccess = () => resolve();
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
@@ -1005,14 +1012,14 @@ class InviteManagerImpl implements InviteManager {
 
   private async getInviteLinkByShortCode(shortCode: string): Promise<InviteLink | null> {
     const db = await openInviteDb();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([INVITE_LINKS_STORE], 'readonly');
       const store = transaction.objectStore(INVITE_LINKS_STORE);
       const index = store.index('shortCode');
-      
+
       const request = index.get(shortCode);
-      
+
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
@@ -1020,18 +1027,18 @@ class InviteManagerImpl implements InviteManager {
 
   private async incrementInviteLinkUsage(linkId: string): Promise<void> {
     const db = await openInviteDb();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([INVITE_LINKS_STORE], 'readwrite');
       const store = transaction.objectStore(INVITE_LINKS_STORE);
-      
+
       const getRequest = store.get(linkId);
-      
+
       getRequest.onsuccess = () => {
         const inviteLink = getRequest.result;
         if (inviteLink) {
           inviteLink.currentUses++;
-          
+
           const putRequest = store.put(inviteLink);
           putRequest.onsuccess = () => resolve();
           putRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
@@ -1039,20 +1046,20 @@ class InviteManagerImpl implements InviteManager {
           resolve(); // Link not found, but don't error
         }
       };
-      
+
       getRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
   }
 
   private async getContactRequest(requestId: string): Promise<ContactRequest | null> {
     const db = await openInviteDb();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
       const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
-      
+
       const request = store.get(requestId);
-      
+
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
@@ -1060,27 +1067,27 @@ class InviteManagerImpl implements InviteManager {
 
   private async updateContactRequestStatus(requestId: string, status: ContactRequestStatus): Promise<void> {
     const db = await openInviteDb();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readwrite');
       const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
-      
+
       const getRequest = store.get(requestId);
-      
+
       getRequest.onsuccess = () => {
         const contactRequest = getRequest.result;
         if (!contactRequest) {
           reject(new Error('Contact request not found'));
           return;
         }
-        
+
         contactRequest.status = status;
-        
+
         const putRequest = store.put(contactRequest);
         putRequest.onsuccess = () => resolve();
         putRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       };
-      
+
       getRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
   }
@@ -1096,23 +1103,23 @@ class InviteManagerImpl implements InviteManager {
 
   private async enforcePendingRequestLimits(): Promise<void> {
     const db = await openInviteDb();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readwrite');
       const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
       const index = store.index('status');
-      
+
       const request = index.getAll('pending');
-      
+
       request.onsuccess = () => {
         const pendingRequests = request.result || [];
-        
+
         if (pendingRequests.length >= MAX_PENDING_REQUESTS) {
           // Sort by creation date and remove oldest
           pendingRequests.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-          
+
           const toRemove = pendingRequests.slice(0, pendingRequests.length - MAX_PENDING_REQUESTS + 1);
-          
+
           let completed = 0;
           for (const oldRequest of toRemove) {
             const deleteRequest = store.delete(oldRequest.id);
@@ -1124,7 +1131,7 @@ class InviteManagerImpl implements InviteManager {
             };
             deleteRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
           }
-          
+
           if (toRemove.length === 0) {
             resolve();
           }
@@ -1132,7 +1139,7 @@ class InviteManagerImpl implements InviteManager {
           resolve();
         }
       };
-      
+
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
   }
@@ -1141,12 +1148,12 @@ class InviteManagerImpl implements InviteManager {
     if (!name || typeof name !== 'string') {
       return undefined;
     }
-    
+
     const trimmed = name.trim();
     if (trimmed.length === 0 || trimmed.length > 100) {
       return undefined;
     }
-    
+
     // Basic sanitization - remove potentially harmful characters
     return trimmed.replace(/[<>]/g, '');
   }
@@ -1155,7 +1162,7 @@ class InviteManagerImpl implements InviteManager {
     if (!url || typeof url !== 'string') {
       return undefined;
     }
-    
+
     try {
       const parsed = new URL(url);
       if (parsed.protocol === 'ws:' || parsed.protocol === 'wss:') {
@@ -1164,7 +1171,7 @@ class InviteManagerImpl implements InviteManager {
     } catch {
       // Invalid URL
     }
-    
+
     return undefined;
   }
 }

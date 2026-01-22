@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { AlertTriangle, Check, CheckCheck, Clock } from "lucide-react";
+import { AlertTriangle, Check, CheckCheck, Clock, Search } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { EmptyState } from "./components/ui/empty-state";
@@ -257,14 +257,14 @@ type MessagesByConversationId = Readonly<Record<string, ReadonlyArray<Message>>>
 
 type UploadApiResponse = Readonly<
   | {
-      ok: true;
-      url: string;
-      contentType: string;
-    }
+    ok: true;
+    url: string;
+    contentType: string;
+  }
   | {
-      ok: false;
-      error: string;
-    }
+    ok: false;
+    error: string;
+  }
 >;
 
 type PersistedDmConversation = Readonly<{
@@ -600,8 +600,8 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
     .filter((c: PersistedDmConversation | null): c is PersistedDmConversation => c !== null);
   const parsedCreatedGroups: PersistedGroupConversation[] = Array.isArray(createdGroups)
     ? createdGroups
-        .map((g: unknown): PersistedGroupConversation | null => parsePersistedGroupConversation(g))
-        .filter((g: PersistedGroupConversation | null): g is PersistedGroupConversation => g !== null)
+      .map((g: unknown): PersistedGroupConversation | null => parsePersistedGroupConversation(g))
+      .filter((g: PersistedGroupConversation | null): g is PersistedGroupConversation => g !== null)
     : [];
   const parsedUnreadByConversationId: Record<string, number> = {};
   const unreadSource: unknown = version === 1 ? unreadByContactId : unreadByConversationId;
@@ -1225,7 +1225,7 @@ function NostrMessengerContent() {
 
   useEffect((): (() => void) => {
     if (typeof window === "undefined") {
-      return (): void => {};
+      return (): void => { };
     }
     const onStorage = (event: StorageEvent): void => {
       if (event.storageArea !== localStorage) {
@@ -1841,11 +1841,11 @@ function NostrMessengerContent() {
   const filteredConversations: ReadonlyArray<Conversation> = normalizedSearchQuery.length === 0
     ? allConversations
     : allConversations.filter((conversation: Conversation): boolean => {
-        const nameOrKeyMatch: boolean =
-          conversation.displayName.toLowerCase().includes(normalizedSearchQuery) ||
-          (conversation.kind === "dm" && conversation.pubkey.toLowerCase().includes(normalizedSearchQuery));
-        return nameOrKeyMatch || messageMatchConversationIds.has(conversation.id);
-      });
+      const nameOrKeyMatch: boolean =
+        conversation.displayName.toLowerCase().includes(normalizedSearchQuery) ||
+        (conversation.kind === "dm" && conversation.pubkey.toLowerCase().includes(normalizedSearchQuery));
+      return nameOrKeyMatch || messageMatchConversationIds.has(conversation.id);
+    });
 
   const selectedConversationId: string | null = selectedConversationView?.id ?? null;
 
@@ -2093,14 +2093,20 @@ function NostrMessengerContent() {
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold tracking-tight">Nostr Messenger</h1>
           <div className="hidden items-center gap-2 sm:flex">
-            <SessionChip identityUnlocked={isIdentityUnlocked} relayOpenCount={relayStatus.openCount} relayTotalCount={relayStatus.total} />
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-8 rounded-full border border-black/5 bg-black/5 px-3 text-xs font-medium text-zinc-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400"
+              onClick={() => searchInputRef.current?.focus()}
+            >
+              <Search className="mr-2 h-3 w-3" />
+              Search
+            </Button>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" onClick={() => router.push("/settings")}>
-            Settings
-          </Button>
+          <SessionChip identityUnlocked={isIdentityUnlocked} relayOpenCount={relayStatus.openCount} relayTotalCount={relayStatus.total} />
           <div className="hidden sm:block">
             <UserAvatarMenu />
           </div>
@@ -2571,32 +2577,32 @@ function NostrMessengerContent() {
                 ) : null}
                 <div className="rounded-2xl border border-black/10 bg-white/80 p-2 shadow-sm ring-1 ring-black/3 focus-within:ring-2 focus-within:ring-zinc-400/50 dark:border-white/10 dark:bg-zinc-950/40 dark:ring-white/4 dark:shadow-black/40 dark:focus-within:ring-zinc-400/50">
                   <div className="flex items-end gap-2">
-                  <label htmlFor="composer-attachment">
-                    <Button type="button" variant="secondary" disabled={isUploadingAttachment}>
-                      Attach
+                    <label htmlFor="composer-attachment">
+                      <Button type="button" variant="secondary" disabled={isUploadingAttachment}>
+                        Attach
+                      </Button>
+                    </label>
+                    <Textarea
+                      placeholder="Type a message..."
+                      ref={composerTextareaRef}
+                      value={messageInput}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      className="min-h-11 max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                      rows={1}
+                    />
+                    <Button type="button" onClick={handleSendMessage} disabled={(!messageInput.trim() && !pendingAttachment) || isUploadingAttachment} className="shrink-0">
+                      {isUploadingAttachment ? "Uploading..." : "Send"}
                     </Button>
-                  </label>
-                  <Textarea
-                    placeholder="Type a message..."
-                    ref={composerTextareaRef}
-                    value={messageInput}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    className="min-h-11 max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                    rows={1}
-                  />
-                  <Button type="button" onClick={handleSendMessage} disabled={(!messageInput.trim() && !pendingAttachment) || isUploadingAttachment} className="shrink-0">
-                    {isUploadingAttachment ? "Uploading..." : "Send"}
-                  </Button>
                   </div>
                   <div className="mt-1 px-1 text-[11px] leading-5 text-zinc-600 dark:text-zinc-400">
                     Enter to send · Shift+Enter for newline

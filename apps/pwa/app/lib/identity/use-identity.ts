@@ -11,7 +11,7 @@ import { clearStoredIdentity } from "./clear-stored-identity";
 import { getStoredIdentity } from "./get-stored-identity";
 import { saveStoredIdentity } from "./save-stored-identity";
 
-type IdentityState = Readonly<{
+export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
   stored?: IdentityRecord;
   publicKeyHex?: PublicKeyHex;
@@ -77,7 +77,7 @@ const subscribeToIdentity = (listener: () => void): (() => void) => {
   };
 };
 
-const getIdentitySnapshot = (): IdentityState => {
+export const getIdentitySnapshot = (): IdentityState => {
   return identityState;
 };
 

@@ -7,7 +7,7 @@
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
     "devUrl": "https://obscur-lovat.vercel.app",
-    "frontendDist": "../public"
+    "frontendDist": "../../pwa/out"
   },
   "bundle": {
     "active": true,
@@ -60,7 +60,7 @@
         "alwaysOnTop": false,
         "fullscreen": false,
         "transparent": false,
-        "url": "https://obscur-lovat.vercel.app"
+        "url": "index.html"
       }
     ],
     "security": {

@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+export const dynamic = 'force-static';
 
 type AppleIconResult = ImageResponse;
 

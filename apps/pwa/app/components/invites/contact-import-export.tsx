@@ -32,7 +32,7 @@ export const ContactImportExport = () => {
 
       // Validate format
       const validation = await inviteManager.validateContactListFormat(JSON.parse(fileContent));
-      
+
       if (!validation.isValid) {
         setImportState({
           status: "error",
@@ -242,8 +242,8 @@ export const ContactImportExport = () => {
             <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">
               Example Structure
             </div>
-            <pre className="mt-1 rounded-lg bg-zinc-100 dark:bg-zinc-900 p-3 text-xs overflow-x-auto">
-{`{
+            <pre className="mt-1 rounded-lg bg-zinc-100 dark:bg-zinc-900 p-3 text-xs overflow-x-auto scrollbar-immersive">
+              {`{
   "contacts": [
     {
       "publicKey": "npub1...",

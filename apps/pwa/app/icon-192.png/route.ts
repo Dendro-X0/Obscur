@@ -1,5 +1,6 @@
 import React from "react";
 import { ImageResponse } from "next/og";
+export const dynamic = 'force-static';
 
 type GetResult = ImageResponse;
 

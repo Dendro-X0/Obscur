@@ -90,7 +90,7 @@ const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
       {open ? (
         <div
           className={cn(
-            "absolute w-56 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-950",
+            "absolute z-50 w-56 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-950",
             props.alignStart ? "left-0" : "right-0",
             openUp ? "bottom-full mb-2" : "top-full mt-2"
           )}

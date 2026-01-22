@@ -1,5 +1,7 @@
 type GetResult = Response;
 
+export const dynamic = 'force-static';
+
 const SERVICE_WORKER_JS = "/* eslint-disable */\n" +
   "const CACHE_NAME = 'obscur-v1';\n" +
   "const RUNTIME_CACHE = 'obscur-runtime-v1';\n" +

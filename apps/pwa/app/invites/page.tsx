@@ -16,11 +16,12 @@ import { ContactRequestInbox } from "../components/invites/contact-request-inbox
 import { ContactList } from "../components/invites/contact-list";
 import { QRCodeScanner } from "../components/invites/qr-code-scanner";
 import { InviteLinkManager } from "../components/invites/invite-link-manager";
+import { useHorizontalScroll } from "../lib/use-horizontal-scroll";
 import { OutgoingContactRequests } from "../components/invites/outgoing-contact-requests";
 import { ContactImportExport } from "../components/invites/contact-import-export";
 import { ProfileSettings } from "../components/invites/profile-settings";
 
-type TabType = 
+type TabType =
   | "qr-generator"
   | "qr-scanner"
   | "invite-links"
@@ -37,6 +38,7 @@ export default function InvitesPage(): React.JSX.Element {
   const publicKeyHex: string | null = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
   const navBadges = useNavBadges({ publicKeyHex: (publicKeyHex as PublicKeyHex | null) ?? null });
   const [activeTab, setActiveTab] = useState<TabType>("qr-generator");
+  const tabRef = useHorizontalScroll<HTMLDivElement>();
 
   if (!publicKeyHex) {
     return (
@@ -60,7 +62,10 @@ export default function InvitesPage(): React.JSX.Element {
     <PageShell title="Invites" navBadgeCounts={navBadges.navBadgeCounts}>
       <div className="mx-auto w-full max-w-5xl p-4">
         {/* Tab Navigation */}
-        <div className="mb-6 overflow-x-auto">
+        <div
+          ref={tabRef}
+          className="mb-6 overflow-x-auto scrollbar-immersive"
+        >
           <div className="flex gap-2 min-w-max">
             <TabButton
               active={activeTab === "qr-generator"}
@@ -148,11 +153,10 @@ const TabButton = ({
   <button
     type="button"
     onClick={onClick}
-    className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${
-      active
-        ? "border-black/10 bg-zinc-100 text-zinc-900 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-100"
-        : "border-transparent text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900/20"
-    }`}
+    className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors flex-shrink-0 ${active
+      ? "border-black/10 bg-zinc-100 text-zinc-900 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-100"
+      : "border-transparent text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900/20"
+      }`}
   >
     {children}
   </button>
