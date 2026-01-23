@@ -9,6 +9,7 @@ import { DesktopUpdater } from "./components/desktop-updater"
 import { DesktopModeProvider } from "./components/desktop/desktop-mode-provider"
 import { OfflineIndicator } from "./components/desktop/offline-indicator"
 import { DeepLinkHandler } from "./components/desktop/deep-link-handler"
+import { I18nProvider } from "./components/i18n-provider"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -44,12 +45,14 @@ export default function RootLayout({
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
         <DesktopModeProvider>
           <ThemeController />
-          <PwaServiceWorkerRegistrar />
-          <ToastProvider />
-          <DesktopUpdater />
-          <OfflineIndicator />
-          <DeepLinkHandler />
-          {children}
+          <I18nProvider>
+            <PwaServiceWorkerRegistrar />
+            <ToastProvider />
+            <DesktopUpdater />
+            <OfflineIndicator />
+            <DeepLinkHandler />
+            {children}
+          </I18nProvider>
         </DesktopModeProvider>
       </body>
     </html>

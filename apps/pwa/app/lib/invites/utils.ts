@@ -65,11 +65,11 @@ export function generateRandomString(length: number): string {
   let result = '';
   const randomArray = new Uint8Array(length);
   crypto.getRandomValues(randomArray);
-  
+
   for (let i = 0; i < length; i++) {
     result += chars[randomArray[i] % chars.length];
   }
-  
+
   return result;
 }
 
@@ -81,7 +81,7 @@ export function debounce<T extends (...args: any[]) => any>(
   wait: number
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout;
-  
+
   return (...args: Parameters<T>) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
@@ -128,6 +128,11 @@ export function formatDate(date: Date): string {
 export function formatRelativeTime(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+
+  if (diffMs < 0) {
+    return 'just now';
+  }
+
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
@@ -136,6 +141,6 @@ export function formatRelativeTime(date: Date): string {
   if (diffMinutes < 60) return `${diffMinutes}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  
+
   return formatDate(date);
 }

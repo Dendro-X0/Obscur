@@ -15,6 +15,7 @@ import { Label } from "./components/ui/label";
 import { Textarea } from "./components/ui/textarea";
 import { AppShell } from "./components/app-shell";
 import { IdentityCard } from "./components/identity-card";
+import { OnboardingWizard } from "./components/onboarding-wizard";
 import { MessageLinkPreview } from "./components/message-link-preview";
 import { MessageContent } from "./components/message-content";
 import { SessionChip } from "./components/session-chip";
@@ -31,6 +32,7 @@ import { useRelayPool } from "./lib/use-relay-pool";
 import type { RelayConnection } from "./lib/relay-connection";
 import { getNotificationsEnabled } from "./lib/notifications/get-notifications-enabled";
 import { showDesktopNotification } from "./lib/notifications/show-desktop-notification";
+import { useTranslation } from "react-i18next";
 
 const ONE_MINUTE_MS: number = 60_000;
 
@@ -245,6 +247,12 @@ type Message = Readonly<{
   replyTo?: ReplyTo;
   reactions?: ReactionsByEmoji;
   deletedAt?: Date;
+  relayResults?: ReadonlyArray<{
+    relayUrl: string;
+    success: boolean;
+    error?: string;
+    latency?: number;
+  }>;
 }>;
 
 type UnreadByConversationId = Readonly<Record<string, number>>;
@@ -818,6 +826,7 @@ const applyContactOverrides = (
 };
 
 function NostrMessengerContent() {
+  const { t } = useTranslation();
   const didHydrateFromStorageRef = useRef<boolean>(false);
   const handledIncomingDmIdsRef = useRef<Set<string>>(new Set<string>());
   const handledAcceptedOutgoingDmIdsRef = useRef<Set<string>>(new Set<string>());
@@ -1800,6 +1809,14 @@ function NostrMessengerContent() {
     ? getMediaItemsForConversation({ conversationId: selectedConversationView.id })
     : [];
 
+  useEffect(() => {
+    if (selectedConversationView) {
+      document.title = `${selectedConversationView.displayName} | Obscur`;
+    } else {
+      document.title = `Obscur`;
+    }
+  }, [selectedConversationView]);
+
   const normalizedSearchQuery: string = searchQuery.trim().toLowerCase();
 
   const messageSearchResults: ReadonlyArray<Readonly<{ conversationId: string; messageId: string; timestamp: Date; preview: string }>> = (() => {
@@ -1954,6 +1971,12 @@ function NostrMessengerContent() {
       return "";
     }
     const diff: number = currentNowMs - date.getTime();
+
+    // Handle future timestamps (clock sync issues)
+    if (diff < 0) {
+      return "Just now";
+    }
+
     if (diff < ONE_HOUR_MS) {
       return `${Math.floor(diff / ONE_MINUTE_MS)}m ago`;
     }
@@ -1976,7 +1999,7 @@ function NostrMessengerContent() {
             <div className="relative mb-3">
               <Input
                 ref={searchInputRef}
-                placeholder="Search chats"
+                placeholder={t("messaging.searchChats")}
                 className="pl-9"
                 value={searchQuery}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
@@ -1985,10 +2008,10 @@ function NostrMessengerContent() {
             </div>
             <div className="flex gap-2">
               <Button type="button" className="flex-1" onClick={() => setIsNewChatOpen(true)}>
-                New chat
+                {t("messaging.newChat")}
               </Button>
               <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsNewGroupOpen(true)}>
-                New group
+                {t("messaging.newGroup")}
               </Button>
             </div>
           </div>
@@ -2091,17 +2114,9 @@ function NostrMessengerContent() {
     >
       <header className="flex items-center justify-between border-b border-black/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-black">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold tracking-tight">Nostr Messenger</h1>
+          <h1 className="text-lg font-semibold tracking-tight">{t("messaging.nostrMessenger")}</h1>
           <div className="hidden items-center gap-2 sm:flex">
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-8 rounded-full border border-black/5 bg-black/5 px-3 text-xs font-medium text-zinc-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400"
-              onClick={() => searchInputRef.current?.focus()}
-            >
-              <Search className="mr-2 h-3 w-3" />
-              Search
-            </Button>
+            {/* Search button removed as redundant */}
           </div>
         </div>
 
@@ -2115,10 +2130,10 @@ function NostrMessengerContent() {
 
       {isNewChatOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <Card title="New chat" description="Start a conversation by pubkey." className="w-full max-w-md">
+          <Card title={t("messaging.newChat")} description={t("messaging.startConvByPubkey")} className="w-full max-w-md">
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="new-chat-pubkey">Public key</Label>
+                <Label htmlFor="new-chat-pubkey">{t("messaging.publicKey")}</Label>
                 <Input
                   id="new-chat-pubkey"
                   value={newChatPubkey}
@@ -2127,7 +2142,7 @@ function NostrMessengerContent() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-chat-name">Display name</Label>
+                <Label htmlFor="new-chat-name">{t("messaging.displayName")}</Label>
                 <Input
                   id="new-chat-name"
                   value={newChatDisplayName}
@@ -2137,10 +2152,10 @@ function NostrMessengerContent() {
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="secondary" className="flex-1" onClick={closeNewChat}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button type="button" className="flex-1" onClick={createChat}>
-                  Create
+                  {t("common.create")}
                 </Button>
               </div>
             </div>
@@ -2150,10 +2165,10 @@ function NostrMessengerContent() {
 
       {isNewGroupOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <Card title="New group" description="Create a group by entering member pubkeys." className="w-full max-w-md">
+          <Card title={t("messaging.newGroup")} description={t("messaging.createGroupDesc")} className="w-full max-w-md">
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="new-group-name">Group name</Label>
+                <Label htmlFor="new-group-name">{t("messaging.groupName")}</Label>
                 <Input
                   id="new-group-name"
                   value={newGroupName}
@@ -2162,7 +2177,7 @@ function NostrMessengerContent() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-group-members">Member pubkeys</Label>
+                <Label htmlFor="new-group-members">{t("messaging.memberPubkeys")}</Label>
                 <Textarea
                   id="new-group-members"
                   value={newGroupMemberPubkeys}
@@ -2182,10 +2197,10 @@ function NostrMessengerContent() {
                     setNewGroupMemberPubkeys("");
                   }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button type="button" className="flex-1" onClick={createGroup}>
-                  Create
+                  {t("common.create")}
                 </Button>
               </div>
             </div>
@@ -2198,51 +2213,60 @@ function NostrMessengerContent() {
         <main className="page-transition flex flex-1 flex-col bg-zinc-50 dark:bg-black">
           {isIdentityLocked ? (
             <div className="flex flex-1 items-center justify-center p-6">
-              <div className="w-full max-w-md space-y-4">
-                {showOnboarding ? (
-                  <Card title="Getting started" description="Local identity + relays. Share your chat link with a friend." className="w-full">
-                    <div className="space-y-3 text-left">
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <div className={isStep1Done ? "mt-0.5 h-5 w-5 flex-none rounded-full border border-emerald-500/30 bg-emerald-500/10 text-center text-xs leading-5 text-emerald-800 dark:text-emerald-200" : "mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60"}>
-                            {isStep1Done ? "✓" : "1"}
+              {!identity.state.stored ? (
+                <OnboardingWizard
+                  onComplete={() => {
+                    dismissOnboarding();
+                    window.location.reload();
+                  }}
+                />
+              ) : (
+                <div className="w-full max-w-md space-y-4">
+                  {showOnboarding ? (
+                    <Card title={t("messaging.gettingStarted")} description={t("messaging.gettingStartedDesc")} className="w-full">
+                      <div className="space-y-3 text-left">
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <div className={isStep1Done ? "mt-0.5 h-5 w-5 flex-none rounded-full border border-emerald-500/30 bg-emerald-500/10 text-center text-xs leading-5 text-emerald-800 dark:text-emerald-200" : "mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60"}>
+                              {isStep1Done ? "✓" : "1"}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{t("messaging.unlockIdentity")}</div>
+                              <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.unlockIdentityDesc")}</div>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Unlock identity</div>
-                            <div className="text-xs text-zinc-600 dark:text-zinc-400">Required to send/receive encrypted messages.</div>
+                          <div className="flex items-start gap-2">
+                            <div className={isStep2Done ? "mt-0.5 h-5 w-5 flex-none rounded-full border border-emerald-500/30 bg-emerald-500/10 text-center text-xs leading-5 text-emerald-800 dark:text-emerald-200" : "mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60"}>
+                              {isStep2Done ? "✓" : "2"}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{t("messaging.connectRelays")}</div>
+                              <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.connectRelaysDesc")}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <div className="mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60">3</div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{t("messaging.startAChat")}</div>
+                              <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.startAChatDesc")}</div>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-start gap-2">
-                          <div className={isStep2Done ? "mt-0.5 h-5 w-5 flex-none rounded-full border border-emerald-500/30 bg-emerald-500/10 text-center text-xs leading-5 text-emerald-800 dark:text-emerald-200" : "mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60"}>
-                            {isStep2Done ? "✓" : "2"}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Connect relays</div>
-                            <div className="text-xs text-zinc-600 dark:text-zinc-400">Relays deliver messages. Configure in Settings.</div>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <div className="mt-0.5 h-5 w-5 flex-none rounded-full border border-black/20 bg-white text-center text-xs leading-5 dark:border-white/10 dark:bg-zinc-950/60">3</div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Start a chat</div>
-                            <div className="text-xs text-zinc-600 dark:text-zinc-400">Share your pubkey or a chat link. Friends can paste yours in Search.</div>
-                          </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" onClick={() => router.push("/settings")}>{t("messaging.openSettings")}</Button>
+                          <Button type="button" variant="secondary" onClick={dismissOnboarding}>{t("common.dismiss")}</Button>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button type="button" onClick={() => router.push("/settings")}>Open Settings</Button>
-                        <Button type="button" variant="secondary" onClick={dismissOnboarding}>Dismiss</Button>
-                      </div>
+                    </Card>
+                  ) : null}
+                  <Card title={t("messaging.identityLocked")} description={t("messaging.identityLockedDesc")} className="w-full">
+                    <div className="space-y-3">
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.passphraseProtectDesc")}</div>
+                      <IdentityCard embedded />
                     </div>
                   </Card>
-                ) : null}
-                <Card title="Identity locked" description="Unlock your local keypair to send and receive encrypted messages." className="w-full">
-                  <div className="space-y-3">
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">Your passphrase protects your private key. Messages use NIP-04.</div>
-                    <IdentityCard embedded />
-                  </div>
-                </Card>
-              </div>
+                </div>
+              )}
             </div>
           ) : !selectedConversationView ? (
             <div className="flex flex-1 items-center justify-center">
@@ -2251,16 +2275,16 @@ function NostrMessengerContent() {
                   <div className="mb-4 flex justify-center">
                     <div className="flex h-16 w-16 items-center justify-center rounded-full border border-black/10 bg-white text-2xl dark:border-white/10 dark:bg-zinc-950/60">+</div>
                   </div>
-                  <h2 className="mb-2 text-xl font-semibold">Select a conversation</h2>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Choose a contact from the sidebar to start messaging</p>
+                  <h2 className="mb-2 text-xl font-semibold">{t("messaging.selectConversation")}</h2>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">{t("messaging.selectConversationDesc")}</p>
                 </div>
                 {myPublicKeyHex ? (
-                  <Card title="Share" description="Let a friend start a DM with you." className="w-full">
+                  <Card title={t("messaging.share")} description={t("messaging.shareDesc")} className="w-full">
                     <div className="space-y-3">
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400">Your pubkey is safe to share.</div>
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.pubkeySafeShare")}</div>
                       <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="secondary" onClick={handleCopyMyPubkey}>Copy pubkey</Button>
-                        <Button type="button" variant="secondary" onClick={handleCopyChatLink}>Copy chat link</Button>
+                        <Button type="button" variant="secondary" onClick={handleCopyMyPubkey}>{t("messaging.copyPubkey")}</Button>
+                        <Button type="button" variant="secondary" onClick={handleCopyChatLink}>{t("messaging.copyChatLink")}</Button>
                       </div>
                       <div className="text-xs text-zinc-600 dark:text-zinc-400">
                         Relay status: {relayStatus.openCount}/{relayStatus.total} open
@@ -2283,14 +2307,14 @@ function NostrMessengerContent() {
                         <>
                           <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400">{selectedConversationView.pubkey.slice(0, 16)}...</p>
                           <Button type="button" variant="secondary" className="px-2 py-1" onClick={() => handleCopyPubkey(selectedConversationView.pubkey)}>
-                            Copy
+                            {t("common.copy")}
                           </Button>
                         </>
                       ) : (
                         <p className="text-xs text-zinc-600 dark:text-zinc-400">{selectedConversationView.memberPubkeys.length} members</p>
                       )}
                       <Button type="button" variant="secondary" className="px-2 py-1" onClick={() => setIsMediaGalleryOpen(true)}>
-                        Media
+                        {t("messaging.media")}
                       </Button>
                     </div>
                   </div>
@@ -2312,7 +2336,7 @@ function NostrMessengerContent() {
                     type="chats"
                     actions={[
                       {
-                        label: "Write a message",
+                        label: t("messaging.writeAMessage"),
                         onClick: () => composerTextareaRef.current?.focus(),
                         variant: "primary"
                       }
@@ -2338,7 +2362,7 @@ function NostrMessengerContent() {
                             );
                           }}
                         >
-                          Load earlier
+                          {t("messaging.loadEarlier")}
                         </Button>
                       </div>
                     ) : null}
@@ -2409,7 +2433,7 @@ function NostrMessengerContent() {
                                 ? "border-white/20 bg-white/10 text-white/80 dark:border-black/10 dark:bg-black/5 dark:text-zinc-900/80"
                                 : "border-black/10 bg-zinc-50 text-zinc-700 dark:border-white/10 dark:bg-black/20 dark:text-zinc-200"
                             )}>
-                              Message deleted
+                              {t("messaging.messageDeleted")}
                             </div>
                           ) : message.replyTo ? (
                             <div className={cn(
@@ -2500,10 +2524,15 @@ function NostrMessengerContent() {
                                   };
                                   const ui: StatusUi = uiByStatus[message.status];
                                   const Icon: StatusIcon = ui.icon;
+                                  const successes = message.relayResults?.filter(r => r.success).length ?? 0;
+                                  const label = message.status === 'accepted' && successes > 0
+                                    ? `Sent to ${successes} relay${successes > 1 ? 's' : ''}`
+                                    : ui.label;
+
                                   return (
-                                    <span className="inline-flex items-center gap-1">
+                                    <span className="inline-flex items-center gap-1" title={message.status === 'accepted' ? `${successes} relays confirmed receipt` : undefined}>
                                       <Icon className="h-3.5 w-3.5" />
-                                      <span>{ui.label}</span>
+                                      <span>{label}</span>
                                     </span>
                                   );
                                 })()}
@@ -2532,11 +2561,11 @@ function NostrMessengerContent() {
                   <div className="mb-3 rounded-xl border border-black/10 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-950/60">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Replying to</div>
+                        <div className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t("messaging.replyingTo")}</div>
                         <div className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-400">{replyTo.previewText}</div>
                       </div>
                       <Button type="button" variant="secondary" onClick={() => setReplyTo(null)}>
-                        Cancel
+                        {t("common.cancel")}
                       </Button>
                     </div>
                   </div>
@@ -2583,7 +2612,7 @@ function NostrMessengerContent() {
                       </Button>
                     </label>
                     <Textarea
-                      placeholder="Type a message..."
+                      placeholder={t("messaging.typeAMessage")}
                       ref={composerTextareaRef}
                       value={messageInput}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
@@ -2601,15 +2630,15 @@ function NostrMessengerContent() {
                       rows={1}
                     />
                     <Button type="button" onClick={handleSendMessage} disabled={(!messageInput.trim() && !pendingAttachment) || isUploadingAttachment} className="shrink-0">
-                      {isUploadingAttachment ? "Uploading..." : "Send"}
+                      {isUploadingAttachment ? t("messaging.uploading") : t("common.send")}
                     </Button>
                   </div>
                   <div className="mt-1 px-1 text-[11px] leading-5 text-zinc-600 dark:text-zinc-400">
-                    Enter to send · Shift+Enter for newline
+                    {t("messaging.enterToSend")}
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">Connected to {relayStatus.openCount}/{relayStatus.total} relays</div>
-                <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">Messages are NIP-04 encrypted. Metadata visible to relays.</p>
+                <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.connectedToRelays", { open: relayStatus.openCount, total: relayStatus.total })}</div>
+                <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</p>
               </div>
               {selectedConversationView && messageMenu ? (
                 <div
@@ -2724,7 +2753,7 @@ function NostrMessengerContent() {
                     </div>
                     {selectedConversationMediaItems.length === 0 ? (
                       <div className="mt-4 rounded-xl border border-black/10 bg-zinc-50 p-6 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-300">
-                        No media yet.
+                        {t("messaging.noMedia")}
                       </div>
                     ) : (
                       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">

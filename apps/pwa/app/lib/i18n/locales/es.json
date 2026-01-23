@@ -1,0 +1,248 @@
+{
+    "common": {
+        "appName": "Obscur",
+        "tagline": "Mensajería privada para tu micro-comunidad",
+        "getStarted": "Empezar",
+        "continue": "Continuar",
+        "skip": "Omitir por ahora",
+        "loading": "Cargando...",
+        "error": "Error",
+        "cancel": "Cancelar",
+        "create": "Crear",
+        "optional": "Opcional",
+        "copy": "Copiar",
+        "send": "Enviar",
+        "dismiss": "Descartar",
+        "welcome": "Bienvenido",
+        "welcomeBack": "Bienvenido de nuevo"
+    },
+    "identity": {
+        "title": "Identidad",
+        "description": "Tu par de claves Nostr, encriptado y almacenado localmente.",
+        "passphraseLabel": "Frase de contraseña (rango min 6 caracteres)",
+        "passphrasePlaceholder": "Introduce frase de contraseña",
+        "unlock": "Desbloquear",
+        "createNew": "Crear nueva",
+        "create": "Crear",
+        "advanced": "Avanzado",
+        "hide": "Ocultar",
+        "lock": "Bloquear",
+        "forget": "Olvidar",
+        "forgetWarning": "Olvidar elimina el par de claves de este dispositivo. Esto no se puede deshacer.",
+        "forgetConfirm": "¿Olvidar identidad local? Esto elimina el par de claves de este dispositivo.",
+        "status": "Estado",
+        "stored": "Almacenado",
+        "yes": "sí",
+        "no": "no",
+        "publicKeyHex": "Clave pública (hex)",
+        "loading": "Cargando..."
+    },
+    "profile": {
+        "title": "Perfil",
+        "description": "Perfil local mostrado en este dispositivo.",
+        "usernameLabel": "Nombre de usuario",
+        "usernamePlaceholder": "Opcional",
+        "usernameHelp": "Almacenado localmente. No publicado en relays.",
+        "avatarLabel": "URL del Avatar",
+        "avatarPlaceholder": "https://...",
+        "avatarHelp": "Consejo: usa una URL HTTPS estable. Deja en blanco para el icono predeterminado.",
+        "reset": "Restablecer"
+    },
+    "onboarding": {
+        "welcome": {
+            "title": "Obscur",
+            "subtitle": "Mensajería privada para tu micro-comunidad",
+            "features": {
+                "encrypted": {
+                    "title": "Cifrado de extremo a extremo",
+                    "desc": "Solo tú y el destinatario pueden leer los mensajes"
+                },
+                "decentralized": {
+                    "title": "Red descentralizada",
+                    "desc": "Infraestructura resiliente y resistente a la censura"
+                },
+                "localFirst": {
+                    "title": "Almacenamiento local",
+                    "desc": "Tus datos permanecen en tu dispositivo"
+                }
+            },
+            "passphrase": {
+                "label": "Frase de contraseña (opcional)",
+                "placeholder": "Ingresa para personalizar (blanco para auto)",
+                "help": "Se usa para cifrar tu clave de identidad local."
+            },
+            "disclaimer": "Al continuar, aceptas usar Obscur de manera responsable."
+        },
+        "creating": {
+            "title": "Creando tu identidad...",
+            "desc": "Generando tu par de claves seguras"
+        },
+        "username": {
+            "title": "Elige un nombre de usuario",
+            "subtitle": "Haz que sea fácil para tus amigos encontrarte",
+            "label": "Nombre de usuario (opcional)",
+            "placeholder": "alice",
+            "help": "Solo letras, números y guiones bajos"
+        },
+        "complete": {
+            "title": "¡Todo listo! 🎊",
+            "welcomeUser": "¡Bienvenido, @{{username}}!",
+            "welcomeGeneric": "¡Bienvenido a Obscur!",
+            "securityTitle": "Tu identidad es segura",
+            "securityDesc": "Cifrada y almacenada localmente en tu dispositivo",
+            "redirecting": "Redirigiendo a tus chats..."
+        }
+    },
+    "nav": {
+        "chats": "Chats",
+        "contacts": "Contactos",
+        "invites": "Invitaciones",
+        "search": "Buscar",
+        "settings": "Ajustes",
+        "menu": "Menú"
+    },
+    "messaging": {
+        "searchChats": "Buscar chats",
+        "newChat": "Nuevo chat",
+        "newGroup": "Nuevo grupo",
+        "search": "Buscar",
+        "nostrMessenger": "Obscur",
+        "startConvByPubkey": "Iniciar una conversación por clave pública.",
+        "publicKey": "Clave pública",
+        "displayName": "Nombre mostrado",
+        "createGroupDesc": "Crea un grupo ingresando las claves públicas de los miembros.",
+        "groupName": "Nombre del grupo",
+        "memberPubkeys": "Claves públicas de miembros",
+        "gettingStarted": "Empezando",
+        "gettingStartedDesc": "Identidad local + repetidores. Comparte tu enlace de chat con un amigo.",
+        "unlockIdentity": "Desbloquear identidad",
+        "unlockIdentityDesc": "Necesario para enviar/recibir mensajes cifrados.",
+        "connectRelays": "Conectar repetidores",
+        "connectRelaysDesc": "Los repetidores entregan mensajes. Configurar en Ajustes.",
+        "startAChat": "Iniciar un chat",
+        "startAChatDesc": "Comparte tu clave pública o un enlace de chat. Tus amigos pueden pegarla en Buscar.",
+        "openSettings": "Abrir Ajustes",
+        "identityLocked": "Identidad bloqueada",
+        "identityLockedDesc": "Desbloquea tu par de claves local para enviar y recibir mensajes cifrados.",
+        "passphraseProtectDesc": "Tu frase de contraseña protege tu clave privada. Los mensajes usan NIP-04.",
+        "selectConversation": "Selecciona una conversación",
+        "selectConversationDesc": "Elige un contacto de la barra lateral para empezar a chatear",
+        "share": "Compartir",
+        "shareDesc": "Deja que un amigo inicie un chat directo contigo.",
+        "pubkeySafeShare": "Es seguro compartir tu clave pública.",
+        "copyPubkey": "Copiar clave pública",
+        "copyChatLink": "Copiar enlace de chat",
+        "media": "Multimedia",
+        "writeAMessage": "Escribir un mensaje",
+        "loadEarlier": "Cargar anteriores",
+        "messageDeleted": "Mensaje eliminado",
+        "replyingTo": "Respondiendo a",
+        "typeAMessage": "Escribe un mensaje...",
+        "enterToSend": "Enter para enviar · Shift+Enter para nueva línea",
+        "uploading": "Subiendo...",
+        "connectedToRelays": "Conectado a {{open}}/{{total}} repetidores",
+        "nip04Desc": "Los mensajes están cifrados con NIP-04. Los metadatos son visibles para los repetidores.",
+        "noMedia": "No hay multimedia aún.",
+        "close": "Cerrar"
+    },
+    "settings": {
+        "tabs": {
+            "profile": "Perfil",
+            "identity": "Identidad",
+            "relays": "Repetidores",
+            "notifications": "Notificaciones",
+            "appearance": "Apariencia",
+            "blocklist": "Lista de bloqueados",
+            "invites": "Invitaciones",
+            "updates": "Actualizaciones",
+            "health": "Estado"
+        },
+        "title": "Ajustes",
+        "language": "Idioma",
+        "selectLanguage": "Seleccionar idioma",
+        "selectLanguageDesc": "Selecciona tu idioma preferido.",
+        "appearance": {
+            "title": "Apariencia",
+            "desc": "El tema afecta solo a este dispositivo.",
+            "theme": "Tema",
+            "themeDesc": "El sistema sigue la configuración de tu SO.",
+            "system": "Sistema",
+            "light": "Claro",
+            "dark": "Oscuro"
+        },
+        "health": {
+            "title": "Salud",
+            "desc": "Diagnósticos rápidos para API, identidad y relays.",
+            "api": "API",
+            "baseUrl": "URL base:",
+            "check": "Comprobar API",
+            "checking": "Comprobando...",
+            "notChecked": "No comprobado",
+            "serverTime": "Hora del servidor:",
+            "identity": "Identidad",
+            "relays": "Relays",
+            "open": "Abierto",
+            "connecting": "Conectando",
+            "error": "Error",
+            "closed": "Cerrado",
+            "noRelays": "No hay relays habilitados."
+        },
+        "notifications": {
+            "title": "Notificaciones",
+            "desc": "Notificaciones de escritorio para nuevos mensajes.",
+            "unsupported": "Tu navegador no soporta notificaciones.",
+            "blocked": "Las notificaciones están bloqueadas en la configuración de tu navegador.",
+            "backgroundDesc": "Las notificaciones solo se muestran cuando esta pestaña no está activa.",
+            "enable": "Habilitar",
+            "disable": "Deshabilitar",
+            "status": "Estado",
+            "permission": "Permiso",
+            "enabled": "habilitado",
+            "disabled": "deshabilitado"
+        },
+        "relays": {
+            "title": "Relays",
+            "desc": "Lista de relays por identidad y estado de conexión en vivo.",
+            "unlockToManage": "Desbloquea tu identidad para gestionar los relays.",
+            "addRelay": "Añadir relay",
+            "add": "Añadir",
+            "invalidUrl": "URL de relay inválida (debe ser wss:// y analizable)",
+            "supportOnlyWss": "Solo se soportan relays wss://.",
+            "noRelaysTitle": "No hay relays configurados",
+            "noRelaysDesc": "Añade tu primer relay para conectarte a la red y empezar a enviar mensajes.",
+            "disable": "Deshabilitar",
+            "enable": "Habilitar",
+            "up": "Arriba",
+            "down": "Abajo",
+            "remove": "Eliminar",
+            "metadataWarning": "Los metadatos son visibles para los relays; el contenido del mensaje está cifrado."
+        },
+        "blocklist": {
+            "title": "Lista de bloqueados",
+            "desc": "Ignorar DMs de estas claves públicas.",
+            "unlockToManage": "Desbloquea tu identidad para gestionar la lista de bloqueados.",
+            "addBlocked": "Añadir clave pública bloqueada",
+            "add": "Añadir",
+            "help": "Acepta npub o hex. Los cambios son locales en este dispositivo.",
+            "noBlocked": "No hay claves bloqueadas.",
+            "remove": "Eliminar"
+        },
+        "invites": {
+            "title": "Sistema de invitaciones",
+            "desc": "Gestiona tus ajustes de invitaciones y contactos.",
+            "unlockToManage": "Desbloquea tu identidad para gestionar los ajustes de invitación.",
+            "quickActions": "Acciones rápidas",
+            "openSystem": "Abrir sistema de invitaciones",
+            "quickActionsDesc": "Generar códigos QR, crear enlaces de invitación y gestionar contactos.",
+            "privacy": "Ajustes de privacidad",
+            "privacyDesc": "Controla qué información se comparte cuando creas invitaciones. Estos ajustes se gestionan en la sección Perfil del Sistema de invitaciones.",
+            "contactRequests": "Solicitudes de contacto",
+            "contactRequestsDesc": "Gestiona las solicitudes de contacto entrantes y salientes en el Sistema de invitaciones. Puedes aceptar, rechazar o bloquear solicitudes."
+        },
+        "updates": {
+            "title": "Actualizaciones de escritorio",
+            "desc": "Buscar e instalar actualizaciones de la aplicación de escritorio.",
+            "help": "Las actualizaciones se buscan automáticamente al iniciar. También puedes buscar manualmente aquí."
+        }
+    }
+}

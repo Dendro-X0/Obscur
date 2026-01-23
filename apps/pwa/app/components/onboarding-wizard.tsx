@@ -2,13 +2,17 @@
 
 import type React from "react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "../lib/use-identity";
+import { useProfile } from "../lib/use-profile";
 import { Button } from "./ui/button";
+import { ShareInviteCard } from "./share-invite-card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
-import { CheckCircle2, Loader2, User, Lock, Sparkles } from "lucide-react";
+import { CheckCircle2, Loader2, User, Lock } from "lucide-react";
+import { LanguageSelector } from "./language-selector";
 
 type OnboardingStep = "welcome" | "creating" | "username" | "complete";
 
@@ -21,11 +25,13 @@ type OnboardingWizardProps = Readonly<{
  * Guides through identity creation without overwhelming technical details
  */
 export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [username, setUsername] = useState<string>("");
   const [passphrase, setPassphrase] = useState<string>("");
   const [error, setError] = useState<string>("");
   const identity = useIdentity();
+  const profile = useProfile();
 
   const handleStart = async (): Promise<void> => {
     setStep("creating");
@@ -34,9 +40,9 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
     try {
       // Auto-generate a secure passphrase or use a simple default
       const autoPassphrase = passphrase.trim() || "obscur-default-passphrase";
-      
+
       await identity.createIdentity({ passphrase: autoPassphrase as Passphrase });
-      
+
       // Move to username step
       setStep("username");
     } catch (err) {
@@ -46,10 +52,12 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   };
 
   const handleSetUsername = async (): Promise<void> => {
-    // For now, just complete the onboarding
-    // Username will be stored in profile in next implementation
+    // Store username in local profile
+    if (username.trim()) {
+      profile.setUsername({ username: username.trim() });
+    }
     setStep("complete");
-    
+
     // Call completion callback after a short delay
     setTimeout(() => {
       props.onComplete?.();
@@ -66,103 +74,111 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   // Welcome Screen
   if (step === "welcome") {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <div className="space-y-6 p-6">
+      <div className="flex min-h-screen items-center justify-center p-4 bg-zinc-50 dark:bg-black relative">
+        <div className="absolute top-4 right-4 z-10">
+          <LanguageSelector variant="minimal" />
+        </div>
+
+        <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
+          <div className="space-y-8 py-8 md:py-12">
             {/* Logo/Icon */}
             <div className="flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500">
-                <Sparkles className="h-8 w-8 text-white" />
+              <div className="relative flex h-40 w-40 items-center justify-center">
+                <img src="/obscur-logo-light.svg" alt="Obscur Logo" className="h-40 w-40 drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] dark:hidden" />
+                <img src="/obscur-logo-dark.svg" alt="Obscur Logo" className="hidden h-40 w-40 drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] dark:block" />
               </div>
             </div>
 
             {/* Welcome Text */}
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-                Welcome to Obscur! 🎉
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-4xl">
+                {t("onboarding.welcome.title")}
               </h1>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                Secure, private messaging for your micro-community
+              <p className="text-lg font-medium text-zinc-600 dark:text-zinc-400">
+                {t("onboarding.welcome.subtitle")}
               </p>
             </div>
 
             {/* Features List */}
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="grid gap-4 px-4 sm:grid-cols-2">
+              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900/50 dark:ring-1 dark:ring-white/10 sm:flex-col sm:items-start sm:gap-2">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                  <Lock className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
                 <div>
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    End-to-end encrypted
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {t("onboarding.welcome.features.encrypted.title")}
                   </div>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                    Your messages are private and secure
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t("onboarding.welcome.features.encrypted.desc")}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <div>
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    Decentralized network
-                  </div>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                    No central server, no censorship
-                  </div>
+              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900/50 dark:ring-1 dark:ring-white/10 sm:flex-col sm:items-start sm:gap-2">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <div>
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    Local-first storage
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {t("onboarding.welcome.features.decentralized.title")}
                   </div>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                    Your data stays on your device
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t("onboarding.welcome.features.decentralized.desc")}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Optional Passphrase */}
-            <div className="rounded-xl border border-black/10 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-950/50">
-              <Label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Passphrase (optional)
-              </Label>
-              <Input
-                type="password"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-                placeholder="Leave empty for auto-generated"
-                className="mt-2"
-              />
-              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-                Used to encrypt your identity. You can set one later.
-              </p>
+            <div className="px-4">
+              <div className="group relative">
+                <div className="absolute inset-0 -inset-x-2 rounded-xl bg-zinc-100 opacity-0 transition group-hover:opacity-100 dark:bg-zinc-800/50"></div>
+                <div className="relative">
+                  <Label
+                    htmlFor="passphrase"
+                    className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                  >
+                    {t("onboarding.welcome.passphrase.label")}
+                  </Label>
+                  <Input
+                    id="passphrase"
+                    type="password"
+                    value={passphrase}
+                    onChange={(e) => setPassphrase(e.target.value)}
+                    placeholder={t("onboarding.welcome.passphrase.placeholder")}
+                    className="border-zinc-200 bg-white/50 backdrop-blur focus:bg-white dark:border-zinc-800 dark:bg-zinc-900/50 dark:focus:bg-zinc-900"
+                  />
+                  <p className="mt-1.5 text-[10px] text-zinc-400 dark:text-zinc-500">
+                    {t("onboarding.welcome.passphrase.help")}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
+              <div className="mx-4 rounded-xl border border-red-200 bg-red-50 p-3 text-center text-sm font-medium text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
                 {error}
               </div>
             )}
 
             {/* Start Button */}
-            <Button
-              type="button"
-              onClick={() => void handleStart()}
-              className="w-full"
-              size="lg"
-            >
-              Get Started
-            </Button>
+            <div className="px-4 pt-2">
+              <Button
+                type="button"
+                onClick={() => void handleStart()}
+                className="h-12 w-full rouned-xl text-base font-semibold shadow-lg shadow-purple-500/20 transition-all hover:scale-[1.02] hover:shadow-purple-500/30"
+                size="lg"
+              >
+                {t("common.getStarted")}
+              </Button>
 
-            <p className="text-center text-xs text-zinc-500 dark:text-zinc-500">
-              By continuing, you agree to use Obscur responsibly
-            </p>
+              <p className="mt-4 text-center text-xs text-zinc-400 dark:text-zinc-600">
+                {t("onboarding.welcome.disclaimer")}
+              </p>
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -178,10 +194,10 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
             </div>
             <div>
               <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-                Creating your identity...
+                {t("onboarding.creating.title")}
               </h2>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                Generating your secure keypair
+                {t("onboarding.creating.desc")}
               </p>
             </div>
           </div>
@@ -204,27 +220,27 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
 
             <div className="text-center">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-                Choose a username
+                {t("onboarding.username.title")}
               </h2>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                Make it easy for friends to find you
+                {t("onboarding.username.subtitle")}
               </p>
             </div>
 
             <div>
-              <Label>Username (optional)</Label>
+              <Label>{t("onboarding.username.label")}</Label>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-zinc-500 dark:text-zinc-400">@</span>
                 <Input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-                  placeholder="alice"
+                  placeholder={t("onboarding.username.placeholder")}
                   maxLength={20}
                 />
               </div>
               <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-                Letters, numbers, and underscores only
+                {t("onboarding.username.help")}
               </p>
             </div>
 
@@ -235,7 +251,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 onClick={handleSkipUsername}
                 className="flex-1"
               >
-                Skip for now
+                {t("common.skip")}
               </Button>
               <Button
                 type="button"
@@ -243,7 +259,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 disabled={username.length < 3}
                 className="flex-1"
               >
-                Continue
+                {t("common.continue")}
               </Button>
             </div>
           </div>
@@ -266,25 +282,29 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
 
             <div>
               <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-                You're all set! 🎊
+                {t("onboarding.complete.title")}
               </h2>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {username ? `Welcome, @${username}!` : "Welcome to Obscur!"}
+                {username
+                  ? t("onboarding.complete.welcomeUser", { username })
+                  : t("onboarding.complete.welcomeGeneric")}
               </p>
             </div>
 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
               <Lock className="mx-auto h-8 w-8 text-emerald-600 dark:text-emerald-400" />
               <p className="mt-2 text-sm font-medium text-emerald-900 dark:text-emerald-100">
-                Your identity is secure
+                {t("onboarding.complete.securityTitle")}
               </p>
               <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-                Encrypted and stored locally on your device
+                {t("onboarding.complete.securityDesc")}
               </p>
             </div>
 
+            <ShareInviteCard />
+
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Redirecting to your chats...
+              {t("onboarding.complete.redirecting")}
             </p>
           </div>
         </Card>

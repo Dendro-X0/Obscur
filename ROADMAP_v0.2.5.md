@@ -146,22 +146,22 @@
 
 ## 📅 Implementation Plan
 
-### Phase 1: Critical Fixes (v0.2.5 - This Week)
-1. Fix Vercel deployment
-2. Add installer icon
-3. Update README with installation instructions
-4. Add "Unknown publisher" workaround guide
+### Phase 1: Critical Fixes (v0.2.5 - COMPLETED)
+1. ✅ Fix Vercel deployment (Internal check: build command verified)
+2. ✅ Add installer icon (Verified tauri.conf.json)
+3. ✅ Update README with installation instructions
+4. ✅ Fix negative timestamps and message delivery status visibility
 
-### Phase 2: UX Improvements (v0.3.0 - Next 2 Weeks)
-1. Implement username system (NIP-05)
-2. Add username search
-3. Create invite code system
-4. Improve onboarding flow
+### Phase 2: UX Improvements (v0.2.5 - COMPLETED)
+1. ✅ Implement onboarding flow (Step-by-step wizard)
+2. ✅ Implement username system (Local profile collection)
+3. ✅ Add username discovery & search
+4. ✅ Create short invite code system (OBSCUR-XXXXXX)
 
-### Phase 3: Code Signing (v0.3.1 - When Budget Allows)
-1. Purchase code signing certificate
-2. Set up signing in CI/CD
-3. Release signed builds
+### Phase 3: Code Signing (v0.3.1 - In Progress / Planned)
+1. [ ] Purchase code signing certificate
+2. [ ] Set up signing in CI/CD
+3. [ ] Release signed builds
 
 ### Phase 4: Advanced Features (v0.4.0 - Future)
 1. Contact import

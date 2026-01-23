@@ -5,6 +5,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/cn";
 import { useTheme } from "../lib/use-theme";
+import { useTranslation } from "react-i18next";
 
 type ThemePreference = "system" | "light" | "dark";
 
@@ -13,16 +14,18 @@ type ThemeToggleProps = Readonly<{ className?: string }>;
 type ThemeOption = Readonly<{
   value: ThemePreference;
   label: string;
+  i18nKey: string;
   icon: (props: Readonly<{ className?: string }>) => React.JSX.Element;
 }>;
 
 const OPTIONS: ReadonlyArray<ThemeOption> = [
-  { value: "system", label: "System", icon: (props) => <Monitor className={props.className} /> },
-  { value: "light", label: "Light", icon: (props) => <Sun className={props.className} /> },
-  { value: "dark", label: "Dark", icon: (props) => <Moon className={props.className} /> },
+  { value: "system", label: "System", i18nKey: "settings.appearance.system", icon: (props) => <Monitor className={props.className} /> },
+  { value: "light", label: "Light", i18nKey: "settings.appearance.light", icon: (props) => <Sun className={props.className} /> },
+  { value: "dark", label: "Dark", i18nKey: "settings.appearance.dark", icon: (props) => <Moon className={props.className} /> },
 ];
 
 const ThemeToggle = (props: ThemeToggleProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const theme = useTheme();
   return (
     <div className={cn("inline-flex flex-wrap gap-2", props.className)}>
@@ -39,7 +42,7 @@ const ThemeToggle = (props: ThemeToggleProps): React.JSX.Element => {
             onClick={(): void => theme.setPreference(option.value)}
           >
             <Icon className="h-4 w-4" />
-            {option.label}
+            {t(option.i18nKey)}
           </Button>
         );
       })}

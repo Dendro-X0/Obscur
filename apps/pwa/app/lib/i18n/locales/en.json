@@ -1,0 +1,248 @@
+{
+    "common": {
+        "appName": "Obscur",
+        "tagline": "Private messaging for your micro-community",
+        "getStarted": "Get Started",
+        "continue": "Continue",
+        "skip": "Skip for now",
+        "loading": "Loading...",
+        "error": "Error",
+        "cancel": "Cancel",
+        "create": "Create",
+        "optional": "Optional",
+        "copy": "Copy",
+        "send": "Send",
+        "dismiss": "Dismiss",
+        "welcome": "Welcome",
+        "welcomeBack": "Welcome back"
+    },
+    "identity": {
+        "title": "Identity",
+        "description": "Your Nostr keypair, encrypted and stored locally.",
+        "passphraseLabel": "Passphrase (min 6 chars)",
+        "passphrasePlaceholder": "Enter passphrase",
+        "unlock": "Unlock",
+        "createNew": "Create new",
+        "create": "Create",
+        "advanced": "Advanced",
+        "hide": "Hide",
+        "lock": "Lock",
+        "forget": "Forget",
+        "forgetWarning": "Forgetting removes the keypair from this device. This cannot be undone.",
+        "forgetConfirm": "Forget local identity? This removes the keypair from this device.",
+        "status": "Status",
+        "stored": "Stored",
+        "yes": "yes",
+        "no": "no",
+        "publicKeyHex": "Public key (hex)",
+        "loading": "Loading..."
+    },
+    "profile": {
+        "title": "Profile",
+        "description": "Local profile shown on this device.",
+        "usernameLabel": "Username",
+        "usernamePlaceholder": "Optional",
+        "usernameHelp": "Stored locally. Not published to relays.",
+        "avatarLabel": "Avatar URL",
+        "avatarPlaceholder": "https://...",
+        "avatarHelp": "Tip: use a stable HTTPS URL. Leave blank for the default icon.",
+        "reset": "Reset"
+    },
+    "onboarding": {
+        "welcome": {
+            "title": "Obscur",
+            "subtitle": "Private messaging for your micro-community",
+            "features": {
+                "encrypted": {
+                    "title": "End-to-end encrypted",
+                    "desc": "Only you and the recipient can read messages"
+                },
+                "decentralized": {
+                    "title": "Decentralized network",
+                    "desc": "Resilient, censorship-resistant infrastructure"
+                },
+                "localFirst": {
+                    "title": "Local-first storage",
+                    "desc": "Your data stays on your device"
+                }
+            },
+            "passphrase": {
+                "label": "Passphrase (optional)",
+                "placeholder": "Enter to customize (blank for auto)",
+                "help": "Used to encrypt your local identity key."
+            },
+            "disclaimer": "By continuing, you agree to use Obscur responsibly."
+        },
+        "creating": {
+            "title": "Creating your identity...",
+            "desc": "Generating your secure keypair"
+        },
+        "username": {
+            "title": "Choose a username",
+            "subtitle": "Make it easy for friends to find you",
+            "label": "Username (optional)",
+            "placeholder": "alice",
+            "help": "Letters, numbers, and underscores only"
+        },
+        "complete": {
+            "title": "You're all set! 🎊",
+            "welcomeUser": "Welcome, @{{username}}!",
+            "welcomeGeneric": "Welcome to Obscur!",
+            "securityTitle": "Your identity is secure",
+            "securityDesc": "Encrypted and stored locally on your device",
+            "redirecting": "Redirecting to your chats..."
+        }
+    },
+    "nav": {
+        "chats": "Chats",
+        "contacts": "Contacts",
+        "invites": "Invites",
+        "search": "Search",
+        "settings": "Settings",
+        "menu": "Menu"
+    },
+    "messaging": {
+        "searchChats": "Search chats",
+        "newChat": "New chat",
+        "newGroup": "New group",
+        "search": "Search",
+        "nostrMessenger": "Obscur",
+        "startConvByPubkey": "Start a conversation by pubkey.",
+        "publicKey": "Public key",
+        "displayName": "Display name",
+        "createGroupDesc": "Create a group by entering member pubkeys.",
+        "groupName": "Group name",
+        "memberPubkeys": "Member pubkeys",
+        "gettingStarted": "Getting started",
+        "gettingStartedDesc": "Local identity + relays. Share your chat link with a friend.",
+        "unlockIdentity": "Unlock identity",
+        "unlockIdentityDesc": "Required to send/receive encrypted messages.",
+        "connectRelays": "Connect relays",
+        "connectRelaysDesc": "Relays deliver messages. Configure in Settings.",
+        "startAChat": "Start a chat",
+        "startAChatDesc": "Share your pubkey or a chat link. Friends can paste yours in Search.",
+        "openSettings": "Open Settings",
+        "identityLocked": "Identity locked",
+        "identityLockedDesc": "Unlock your local keypair to send and receive encrypted messages.",
+        "passphraseProtectDesc": "Your passphrase protects your private key. Messages use NIP-04.",
+        "selectConversation": "Select a conversation",
+        "selectConversationDesc": "Choose a contact from the sidebar to start messaging",
+        "share": "Share",
+        "shareDesc": "Let a friend start a DM with you.",
+        "pubkeySafeShare": "Your pubkey is safe to share.",
+        "copyPubkey": "Copy pubkey",
+        "copyChatLink": "Copy chat link",
+        "media": "Media",
+        "writeAMessage": "Write a message",
+        "loadEarlier": "Load earlier",
+        "messageDeleted": "Message deleted",
+        "replyingTo": "Replying to",
+        "typeAMessage": "Type a message...",
+        "enterToSend": "Enter to send · Shift+Enter for newline",
+        "uploading": "Uploading...",
+        "connectedToRelays": "Connected to {{open}}/{{total}} relays",
+        "nip04Desc": "Messages are NIP-04 encrypted. Metadata visible to relays.",
+        "noMedia": "No media yet.",
+        "close": "Close"
+    },
+    "settings": {
+        "tabs": {
+            "profile": "Profile",
+            "identity": "Identity",
+            "relays": "Relays",
+            "notifications": "Notifications",
+            "appearance": "Appearance",
+            "blocklist": "Blocklist",
+            "invites": "Invites",
+            "updates": "Updates",
+            "health": "Health"
+        },
+        "title": "Settings",
+        "language": "Language",
+        "selectLanguage": "Select Language",
+        "selectLanguageDesc": "Select your preferred language.",
+        "appearance": {
+            "title": "Appearance",
+            "desc": "Theme affects this device only.",
+            "theme": "Theme",
+            "themeDesc": "System follows your OS settings.",
+            "system": "System",
+            "light": "Light",
+            "dark": "Dark"
+        },
+        "health": {
+            "title": "Health",
+            "desc": "Quick diagnostics for API, identity, and relays.",
+            "api": "API",
+            "baseUrl": "Base URL:",
+            "check": "Check API",
+            "checking": "Checking…",
+            "notChecked": "Not checked",
+            "serverTime": "Server time:",
+            "identity": "Identity",
+            "relays": "Relays",
+            "open": "Open",
+            "connecting": "Connecting",
+            "error": "Error",
+            "closed": "Closed",
+            "noRelays": "No enabled relays."
+        },
+        "notifications": {
+            "title": "Notifications",
+            "desc": "Desktop notifications for new messages.",
+            "unsupported": "Your browser does not support notifications.",
+            "blocked": "Notifications are blocked in your browser settings.",
+            "backgroundDesc": "Notifications only show when this tab is not active.",
+            "enable": "Enable",
+            "disable": "Disable",
+            "status": "Status",
+            "permission": "Permission",
+            "enabled": "enabled",
+            "disabled": "disabled"
+        },
+        "relays": {
+            "title": "Relays",
+            "desc": "Per-identity relay list and live connection status.",
+            "unlockToManage": "Unlock your identity to manage relays.",
+            "addRelay": "Add relay",
+            "add": "Add",
+            "invalidUrl": "Invalid relay URL (must be wss:// and parseable)",
+            "supportOnlyWss": "Only wss:// relays are supported.",
+            "noRelaysTitle": "No relays configured",
+            "noRelaysDesc": "Add your first relay to connect to the network and start messaging.",
+            "disable": "Disable",
+            "enable": "Enable",
+            "up": "Up",
+            "down": "Down",
+            "remove": "Remove",
+            "metadataWarning": "Metadata is visible to relays; message content is encrypted."
+        },
+        "blocklist": {
+            "title": "Blocklist",
+            "desc": "Ignore DMs from these public keys.",
+            "unlockToManage": "Unlock your identity to manage the blocklist.",
+            "addBlocked": "Add blocked pubkey",
+            "add": "Add",
+            "help": "Accepts npub or hex. Changes are local to this device.",
+            "noBlocked": "No blocked keys.",
+            "remove": "Remove"
+        },
+        "invites": {
+            "title": "Invite System",
+            "desc": "Manage your invite and contact settings.",
+            "unlockToManage": "Unlock your identity to manage invite settings.",
+            "quickActions": "Quick Actions",
+            "openSystem": "Open Invite System",
+            "quickActionsDesc": "Generate QR codes, create invite links, and manage contacts.",
+            "privacy": "Privacy Settings",
+            "privacyDesc": "Control what information is shared when you create invites. These settings are managed in the Profile section of the Invite System.",
+            "contactRequests": "Contact Requests",
+            "contactRequestsDesc": "Manage incoming and outgoing contact requests in the Invite System. You can accept, decline, or block requests."
+        },
+        "updates": {
+            "title": "Desktop Updates",
+            "desc": "Check for and install desktop app updates.",
+            "help": "Updates are automatically checked on startup. You can also check manually here."
+        }
+    }
+}

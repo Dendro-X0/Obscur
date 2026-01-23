@@ -12,8 +12,11 @@ import { IdentityCard } from "../components/identity-card";
 import { parsePublicKeyInput } from "../lib/parse-public-key-input";
 import { parseNip29GroupIdentifier } from "../lib/parse-nip29-group-identifier";
 import { useIdentity } from "../lib/use-identity";
+import { useRelayList } from "../lib/use-relay-list";
+import { useRelayPool } from "../lib/use-relay-pool";
 import useNavBadges from "../lib/use-nav-badges";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { Loader2, Search, User as UserIcon } from "lucide-react";
 
 type SearchMode = "user" | "group";
 
@@ -22,13 +25,68 @@ export default function SearchPage(): React.JSX.Element {
   const identity = useIdentity();
   const publicKeyHex: PublicKeyHex | null = (identity.state.publicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
+  const relayList = useRelayList({ publicKeyHex });
+  const enabledRelayUrls = useMemo(() => relayList.state.relays.filter(r => r.enabled).map(r => r.url), [relayList.state.relays]);
+  const pool = useRelayPool(enabledRelayUrls);
+
   const [mode, setMode] = useState<SearchMode>("user");
   const [pubkeyInput, setPubkeyInput] = useState<string>("");
   const [groupInput, setGroupInput] = useState<string>("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Array<{ pubkey: string, name: string, display_name?: string, picture?: string }>>([]);
 
   const trimmedPubkeyInput: string = pubkeyInput.trim();
   const parsedPubkey = useMemo(() => parsePublicKeyInput(trimmedPubkeyInput), [trimmedPubkeyInput]);
-  const canOpenDm: boolean = parsedPubkey.ok;
+
+  const handleSearchByName = async (): Promise<void> => {
+    if (!trimmedPubkeyInput || parsedPubkey.ok) return;
+
+    setIsSearching(true);
+    setSearchResults([]);
+
+    const subId = Math.random().toString(36).substring(7);
+    const isInviteCode = trimmedPubkeyInput.startsWith("OBSCUR-");
+    const filter: any = { kinds: [0], limit: 10 };
+    if (isInviteCode) {
+      filter["#code"] = [trimmedPubkeyInput];
+    } else {
+      filter["search"] = trimmedPubkeyInput;
+    }
+    const req = JSON.stringify(["REQ", subId, filter]);
+
+    pool.sendToOpen(req);
+
+    const cleanup = pool.subscribeToMessages(({ message }) => {
+      try {
+        const parsed = JSON.parse(message);
+        if (parsed[0] === "EVENT" && parsed[1] === subId) {
+          const event = parsed[2];
+          const content = JSON.parse(event.content);
+          setSearchResults(prev => {
+            if (prev.some(r => r.pubkey === event.pubkey)) return prev;
+            return [...prev, {
+              pubkey: event.pubkey,
+              name: content.name || content.display_name || "Unknown",
+              display_name: content.display_name,
+              picture: content.picture
+            }];
+          });
+        }
+        if (parsed[0] === "EOSE" && parsed[1] === subId) {
+          setIsSearching(false);
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    });
+
+    // Auto-stop after 5 seconds
+    setTimeout(() => {
+      pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
+      cleanup();
+      setIsSearching(false);
+    }, 5000);
+  };
 
   const trimmedGroupInput: string = groupInput.trim();
   const parsedGroup = useMemo(() => parseNip29GroupIdentifier(trimmedGroupInput), [trimmedGroupInput]);
@@ -45,11 +103,12 @@ export default function SearchPage(): React.JSX.Element {
 
   const onSubmit = (): void => {
     if (mode === "user") {
-      if (!parsedPubkey.ok) {
-        return;
+      if (parsedPubkey.ok) {
+        const encoded: string = encodeURIComponent(parsedPubkey.publicKeyHex);
+        router.push(`/?pubkey=${encoded}`);
+      } else {
+        void handleSearchByName();
       }
-      const encoded: string = encodeURIComponent(parsedPubkey.publicKeyHex);
-      router.push(`/?pubkey=${encoded}`);
       return;
     }
     if (!parsedGroup.ok) {
@@ -58,6 +117,9 @@ export default function SearchPage(): React.JSX.Element {
     const encoded: string = encodeURIComponent(parsedGroup.identifier);
     router.push(`/groups/${encoded}`);
   };
+
+  const canOpenDm: boolean = parsedPubkey.ok;
+
 
   return (
     <PageShell title="Search" navBadgeCounts={navBadges.navBadgeCounts}>
@@ -135,6 +197,50 @@ export default function SearchPage(): React.JSX.Element {
                 <div className="break-all font-mono">{parsedPubkey.publicKeyHex}</div>
               </div>
             ) : null}
+
+            {mode === "user" && (searchResults.length > 0 || isSearching) && (
+              <div className="space-y-4 pt-4 border-t border-black/10 dark:border-white/10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Search Results</h3>
+                  {isSearching && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+                </div>
+
+                <div className="grid gap-2">
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.pubkey}
+                      onClick={() => router.push(`/?pubkey=${encodeURIComponent(result.pubkey)}`)}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-black/10 p-3 text-left hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-zinc-900"
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        {result.picture ? (
+                          <img src={result.picture} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">
+                            <UserIcon className="h-5 w-5 text-zinc-500" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">@{result.name}</div>
+                          {result.display_name && (
+                            <div className="truncate text-xs text-zinc-500">{result.display_name}</div>
+                          )}
+                          <div className="truncate font-mono text-[10px] text-zinc-400">
+                            {result.pubkey.slice(0, 16)}...
+                          </div>
+                        </div>
+                      </div>
+                      <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+                    </button>
+                  ))}
+                  {!isSearching && searchResults.length === 0 && (
+                    <div className="py-4 text-center text-sm text-zinc-500 font-medium">
+                      No users found. Try an exact match or npub.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       </div>

@@ -96,10 +96,37 @@ const SERVICE_WORKER_JS = "/* eslint-disable */\n" +
   "});\n";
 
 const GET = (): GetResult => {
+  const isDev = process.env.NODE_ENV === "development";
+
+  if (isDev) {
+    // In development, serve a service worker that just clears old caches and does nothing else
+    const DEV_SW = `
+      self.addEventListener('install', () => self.skipWaiting());
+      self.addEventListener('activate', (event) => {
+        event.waitUntil(
+          caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+        );
+        self.clients.claim();
+      });
+      self.addEventListener('fetch', (event) => {
+        // No-op: plain network requests
+      });
+    `;
+
+    return new Response(DEV_SW, {
+      headers: {
+        "content-type": "application/javascript; charset=utf-8",
+        "cache-control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "pragma": "no-cache",
+        "expires": "0",
+      },
+    });
+  }
+
   return new Response(SERVICE_WORKER_JS, {
     headers: {
       "content-type": "application/javascript; charset=utf-8",
-      "cache-control": "no-store",
+      "cache-control": "public, max-age=0, must-revalidate",
     },
   });
 };

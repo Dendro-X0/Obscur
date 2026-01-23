@@ -26,6 +26,9 @@ import { getApiBaseUrl } from "../lib/api-base-url";
 import { useProfile } from "../lib/use-profile";
 import { DesktopUpdater } from "../components/desktop-updater";
 import { KeyboardShortcutsHelp } from "../components/desktop/keyboard-shortcuts-help";
+import { ShareInviteCard } from "../components/share-invite-card";
+import { LanguageSelector } from "../components/language-selector";
+import { useTranslation } from "react-i18next";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -58,6 +61,7 @@ const getRelayStatusClassName = (status: RelayConnectionStatus): string => {
 };
 
 export default function SettingsPage(): React.JSX.Element {
+  const { t } = useTranslation();
   const identity = useIdentity();
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
@@ -136,7 +140,7 @@ export default function SettingsPage(): React.JSX.Element {
 
   return (
     <PageShell
-      title="Settings"
+      title={t("settings.title")}
       navBadgeCounts={navBadges.navBadgeCounts}
       rightContent={
         <div className="flex items-center gap-2">
@@ -151,123 +155,133 @@ export default function SettingsPage(): React.JSX.Element {
           className="mb-6 overflow-x-auto scrollbar-immersive pb-2"
         >
           <div className="flex gap-2 min-w-max">
-            <TabButton active={activeTab === "profile"} onClick={() => setActiveTab("profile")}>Profile</TabButton>
-            <TabButton active={activeTab === "identity"} onClick={() => setActiveTab("identity")}>Identity</TabButton>
-            <TabButton active={activeTab === "relays"} onClick={() => setActiveTab("relays")}>Relays</TabButton>
-            <TabButton active={activeTab === "notifications"} onClick={() => setActiveTab("notifications")}>Notifications</TabButton>
-            <TabButton active={activeTab === "appearance"} onClick={() => setActiveTab("appearance")}>Appearance</TabButton>
-            <TabButton active={activeTab === "blocklist"} onClick={() => setActiveTab("blocklist")}>Blocklist</TabButton>
-            <TabButton active={activeTab === "invites"} onClick={() => setActiveTab("invites")}>Invites</TabButton>
-            <TabButton active={activeTab === "updates"} onClick={() => setActiveTab("updates")}>Updates</TabButton>
-            <TabButton active={activeTab === "health"} onClick={() => setActiveTab("health")}>Health</TabButton>
+            <TabButton active={activeTab === "profile"} onClick={() => setActiveTab("profile")}>{t("settings.tabs.profile")}</TabButton>
+            <TabButton active={activeTab === "identity"} onClick={() => setActiveTab("identity")}>{t("settings.tabs.identity")}</TabButton>
+            <TabButton active={activeTab === "relays"} onClick={() => setActiveTab("relays")}>{t("settings.tabs.relays")}</TabButton>
+            <TabButton active={activeTab === "notifications"} onClick={() => setActiveTab("notifications")}>{t("settings.tabs.notifications")}</TabButton>
+            <TabButton active={activeTab === "appearance"} onClick={() => setActiveTab("appearance")}>{t("settings.tabs.appearance")}</TabButton>
+            <TabButton active={activeTab === "blocklist"} onClick={() => setActiveTab("blocklist")}>{t("settings.tabs.blocklist")}</TabButton>
+            <TabButton active={activeTab === "invites"} onClick={() => setActiveTab("invites")}>{t("settings.tabs.invites")}</TabButton>
+            <TabButton active={activeTab === "updates"} onClick={() => setActiveTab("updates")}>{t("settings.tabs.updates")}</TabButton>
+            <TabButton active={activeTab === "health"} onClick={() => setActiveTab("health")}>{t("settings.tabs.health")}</TabButton>
           </div>
         </div>
 
         {/* Tab Content */}
         <div className="grid grid-cols-1 gap-4">
           {activeTab === "profile" && (
-            <Card title="Profile" description="Local profile shown on this device." className="w-full">
-              <div id="profile" className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="profile-username">Username</Label>
-                  <Input
-                    id="profile-username"
-                    value={profile.state.profile.username}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setUsername({ username: e.target.value })}
-                    placeholder="Optional"
-                  />
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Stored locally. Not published to relays.</div>
+            <div className="space-y-4">
+              <Card title={t("profile.title")} description={t("profile.description")} className="w-full">
+                <div id="profile" className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-username">{t("profile.usernameLabel")}</Label>
+                    <Input
+                      id="profile-username"
+                      value={profile.state.profile.username}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setUsername({ username: e.target.value })}
+                      placeholder={t("profile.usernamePlaceholder")}
+                    />
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-avatar">{t("profile.avatarLabel")}</Label>
+                    <Input
+                      id="profile-avatar"
+                      value={profile.state.profile.avatarUrl}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setAvatarUrl({ avatarUrl: e.target.value })}
+                      placeholder={t("profile.avatarPlaceholder")}
+                    />
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.avatarHelp")}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="secondary" onClick={() => profile.reset()}>
+                      {t("profile.reset")}
+                    </Button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="profile-avatar">Avatar URL</Label>
-                  <Input
-                    id="profile-avatar"
-                    value={profile.state.profile.avatarUrl}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setAvatarUrl({ avatarUrl: e.target.value })}
-                    placeholder="https://..."
-                  />
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Tip: use a stable HTTPS URL. Leave blank for the default icon.</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="secondary" onClick={() => profile.reset()}>
-                    Reset
-                  </Button>
-                </div>
-              </div>
-            </Card>
+              </Card>
+              <ShareInviteCard />
+            </div>
           )}
 
           {activeTab === "health" && (
-            <Card title="Health" description="Quick diagnostics for API, identity, and relays." className="w-full">
+            <Card title={t("settings.health.title")} description={t("settings.health.desc")} className="w-full">
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <div className="text-sm font-medium">API</div>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Base URL: {getApiBaseUrl()}</div>
+                  <div className="text-sm font-medium">{t("settings.health.api")}</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.health.baseUrl")} {getApiBaseUrl()}</div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" variant="secondary" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
-                      {apiHealth.status === "checking" ? "Checking…" : "Check API"}
+                      {apiHealth.status === "checking" ? t("settings.health.checking") : t("settings.health.check")}
                     </Button>
                     {apiHealth.status === "ok" ? (
                       <div className="text-sm text-emerald-700 dark:text-emerald-300">
                         OK ({apiHealth.latencyMs}ms)
                       </div>
                     ) : apiHealth.status === "error" ? (
-                      <div className="text-sm text-red-700 dark:text-red-300">Error: {apiHealth.message}</div>
+                      <div className="text-sm text-red-700 dark:text-red-300">{t("settings.health.error")}: {apiHealth.message}</div>
                     ) : (
-                      <div className="text-sm text-zinc-600 dark:text-zinc-400">Not checked</div>
+                      <div className="text-sm text-zinc-600 dark:text-zinc-400">{t("settings.health.notChecked")}</div>
                     )}
                   </div>
                   {apiHealth.status === "ok" ? (
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">Server time: {apiHealth.timeIso}</div>
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.health.serverTime")} {apiHealth.timeIso}</div>
                   ) : null}
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-sm font-medium">Identity</div>
+                  <div className="text-sm font-medium">{t("settings.health.identity")}</div>
                   <div className="text-sm text-zinc-700 dark:text-zinc-300">
                     {identity.state.status === "unlocked" ? "Unlocked" : identity.state.status === "locked" ? "Locked" : identity.state.status}
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-sm font-medium">Relays</div>
+                  <div className="text-sm font-medium">{t("settings.health.relays")}</div>
                   <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                    Open: <span className={getRelayStatusClassName("open")}>{relayCounts.open}</span>, Connecting:{" "}
-                    <span className={getRelayStatusClassName("connecting")}>{relayCounts.connecting}</span>, Error:{" "}
-                    <span className={getRelayStatusClassName("error")}>{relayCounts.error}</span>, Closed:{" "}
+                    {t("settings.health.open")}: <span className={getRelayStatusClassName("open")}>{relayCounts.open}</span>, {t("settings.health.connecting")}:{" "}
+                    <span className={getRelayStatusClassName("connecting")}>{relayCounts.connecting}</span>, {t("settings.health.error")}:{" "}
+                    <span className={getRelayStatusClassName("error")}>{relayCounts.error}</span>, {t("settings.health.closed")}:{" "}
                     <span className={getRelayStatusClassName("closed")}>{relayCounts.closed}</span>
                   </div>
-                  {enabledRelayUrls.length === 0 ? <div className="text-xs text-zinc-600 dark:text-zinc-400">No enabled relays.</div> : null}
+                  {enabledRelayUrls.length === 0 ? <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.health.noRelays")}</div> : null}
                 </div>
               </div>
             </Card>
           )}
 
           {activeTab === "appearance" && (
-            <Card title="Appearance" description="Theme affects this device only." className="w-full">
-              <div className="space-y-2">
-                <Label>Theme</Label>
-                <ThemeToggle />
-                <div className="text-xs text-zinc-600 dark:text-zinc-400">System follows your OS setting.</div>
+            <Card title={t("settings.appearance.title")} description={t("settings.appearance.desc")} className="w-full">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t("settings.language")}</Label>
+                  <LanguageSelector />
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.selectLanguageDesc")}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("settings.appearance.theme")}</Label>
+                  <ThemeToggle />
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.appearance.themeDesc")}</div>
+                </div>
               </div>
             </Card>
           )}
 
           {activeTab === "updates" && (
-            <Card title="Desktop Updates" description="Check for and install desktop app updates." className="w-full">
+            <Card title={t("settings.updates.title")} description={t("settings.updates.desc")} className="w-full">
               <div className="space-y-3">
                 <DesktopUpdater />
                 <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Updates are automatically checked on startup. You can also check manually here.
+                  {t("settings.updates.help")}
                 </div>
               </div>
             </Card>
           )}
 
           {activeTab === "identity" && (
-            <Card title="Identity" description="Local-only identity used for encryption." className="w-full">
+            <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
               <div className="space-y-2">
-                <Label>Public Key</Label>
+                <Label>{t("identity.publicKeyHex")}</Label>
                 <Input value={displayPublicKeyHex} readOnly className="font-mono text-xs" />
                 <div className="flex gap-2">
                   <Button
@@ -276,23 +290,23 @@ export default function SettingsPage(): React.JSX.Element {
                     onClick={(): void => void navigator.clipboard.writeText(displayPublicKeyHex)}
                     disabled={!displayPublicKeyHex}
                   >
-                    Copy
+                    {t("common.copy")}
                   </Button>
                 </div>
-                <div className="text-xs text-zinc-600 dark:text-zinc-400">Your private key remains local. DMs use NIP-04 encryption.</div>
+                <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</div>
               </div>
             </Card>
           )}
 
           {activeTab === "notifications" && (
-            <Card title="Notifications" description="Desktop notifications for new messages." className="w-full">
+            <Card title={t("settings.notifications.title")} description={t("settings.notifications.desc")} className="w-full">
               <div className="space-y-3">
                 <div className="text-sm text-zinc-700 dark:text-zinc-300">
                   {notificationPreference.state.permission === "unsupported"
-                    ? "Your browser does not support notifications."
+                    ? t("settings.notifications.unsupported")
                     : notificationPreference.state.permission === "denied"
-                      ? "Notifications are blocked in your browser settings."
-                      : "Notifications only show when this tab is not active."}
+                      ? t("settings.notifications.blocked")
+                      : t("settings.notifications.backgroundDesc")}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -308,31 +322,33 @@ export default function SettingsPage(): React.JSX.Element {
                       });
                     }}
                   >
-                    Enable
+                    {t("settings.notifications.enable")}
                   </Button>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => notificationPreference.setEnabled({ enabled: false })}
                   >
-                    Disable
+                    {t("settings.notifications.disable")}
                   </Button>
                 </div>
                 <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Status: {notificationPreference.state.enabled ? "enabled" : "disabled"} · Permission: {notificationPreference.state.permission}
+                  {t("settings.notifications.status")}: {notificationPreference.state.enabled ? t("settings.notifications.enabled") : t("settings.notifications.disabled")} · {t("settings.notifications.permission")}: {notificationPreference.state.permission}
                 </div>
               </div>
             </Card>
           )}
 
           {activeTab === "relays" && (
-            <Card title="Relays" description="Per-identity relay list and live connection status." className="w-full">
-              {identity.state.status !== "unlocked" ? (
-                <div className="text-sm text-zinc-700 dark:text-zinc-300">Unlock your identity to manage relays.</div>
+            <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
+              {identity.state.status === "loading" ? (
+                <div className="p-4 text-sm text-zinc-500">{t("common.loading")}</div>
+              ) : identity.state.status !== "unlocked" ? (
+                <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.relays.unlockToManage")}</div>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="relay-url">Add relay</Label>
+                    <Label htmlFor="relay-url">{t("settings.relays.addRelay")}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="relay-url"
@@ -350,13 +366,13 @@ export default function SettingsPage(): React.JSX.Element {
                           setNewRelayUrl("");
                         }}
                       >
-                        Add
+                        {t("settings.relays.add")}
                       </Button>
                     </div>
                     {!canAddRelay && trimmedRelayUrl.length > 0 ? (
-                      <div className="text-xs text-red-600 dark:text-red-400">Invalid relay URL (must be wss:// and parseable)</div>
+                      <div className="text-xs text-red-600 dark:text-red-400">{t("settings.relays.invalidUrl")}</div>
                     ) : (
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400">Only wss:// relays are supported.</div>
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.relays.supportOnlyWss")}</div>
                     )}
                   </div>
 
@@ -365,8 +381,8 @@ export default function SettingsPage(): React.JSX.Element {
                       <div className="py-4">
                         <EmptyState
                           type="relays"
-                          title="No relays configured"
-                          description="Add your first relay to connect to the network and start messaging."
+                          title={t("settings.relays.noRelaysTitle")}
+                          description={t("settings.relays.noRelaysDesc")}
                           className="min-h-[200px]"
                         />
                       </div>
@@ -388,7 +404,7 @@ export default function SettingsPage(): React.JSX.Element {
                                 variant="secondary"
                                 onClick={() => relayList.setRelayEnabled({ url: relay.url, enabled: !relay.enabled })}
                               >
-                                {relay.enabled ? "Disable" : "Enable"}
+                                {relay.enabled ? t("settings.relays.disable") : t("settings.relays.enable")}
                               </Button>
                               <Button
                                 type="button"
@@ -396,7 +412,7 @@ export default function SettingsPage(): React.JSX.Element {
                                 disabled={index === 0}
                                 onClick={() => relayList.moveRelay({ url: relay.url, direction: "up" })}
                               >
-                                Up
+                                {t("settings.relays.up")}
                               </Button>
                               <Button
                                 type="button"
@@ -404,14 +420,14 @@ export default function SettingsPage(): React.JSX.Element {
                                 disabled={index === relayList.state.relays.length - 1}
                                 onClick={() => relayList.moveRelay({ url: relay.url, direction: "down" })}
                               >
-                                Down
+                                {t("settings.relays.down")}
                               </Button>
                               <Button
                                 type="button"
                                 variant="secondary"
                                 onClick={() => relayList.removeRelay({ url: relay.url })}
                               >
-                                Remove
+                                {t("settings.relays.remove")}
                               </Button>
                             </div>
                           </li>
@@ -419,20 +435,22 @@ export default function SettingsPage(): React.JSX.Element {
                       })
                     )}
                   </ul>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Metadata is visible to relays; message content is encrypted.</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.relays.metadataWarning")}</div>
                 </div>
               )}
             </Card>
           )}
 
           {activeTab === "blocklist" && (
-            <Card title="Blocklist" description="Ignore DMs from these public keys." className="w-full">
-              {identity.state.status !== "unlocked" ? (
-                <div className="text-sm text-zinc-700 dark:text-zinc-300">Unlock your identity to manage the blocklist.</div>
+            <Card title={t("settings.blocklist.title")} description={t("settings.blocklist.desc")} className="w-full">
+              {identity.state.status === "loading" ? (
+                <div className="p-4 text-sm text-zinc-500">{t("common.loading")}</div>
+              ) : identity.state.status !== "unlocked" ? (
+                <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.blocklist.unlockToManage")}</div>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="blocked-pubkey">Add blocked pubkey</Label>
+                    <Label htmlFor="blocked-pubkey">{t("settings.blocklist.addBlocked")}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="blocked-pubkey"
@@ -448,14 +466,14 @@ export default function SettingsPage(): React.JSX.Element {
                           setNewBlockedPubkey("");
                         }}
                       >
-                        Add
+                        {t("settings.blocklist.add")}
                       </Button>
                     </div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">Accepts npub or hex. Changes are local to this device.</div>
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.blocklist.help")}</div>
                   </div>
 
                   {blocklist.state.blockedPublicKeys.length === 0 ? (
-                    <div className="text-sm text-zinc-700 dark:text-zinc-300">No blocked keys.</div>
+                    <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.blocklist.noBlocked")}</div>
                   ) : (
                     <ul className="space-y-2">
                       {blocklist.state.blockedPublicKeys.map((pubkey: string) => (
@@ -470,7 +488,7 @@ export default function SettingsPage(): React.JSX.Element {
                               variant="secondary"
                               onClick={() => blocklist.removeBlocked({ publicKeyHex: pubkey as PublicKeyHex })}
                             >
-                              Remove
+                              {t("settings.blocklist.remove")}
                             </Button>
                           </div>
                         </li>
@@ -483,37 +501,39 @@ export default function SettingsPage(): React.JSX.Element {
           )}
 
           {activeTab === "invites" && (
-            <Card title="Invite System" description="Manage your invite and contact settings." className="w-full">
-              {identity.state.status !== "unlocked" ? (
-                <div className="text-sm text-zinc-700 dark:text-zinc-300">Unlock your identity to manage invite settings.</div>
+            <Card title={t("settings.invites.title")} description={t("settings.invites.desc")} className="w-full">
+              {identity.state.status === "loading" ? (
+                <div className="p-4 text-sm text-zinc-500">{t("common.loading")}</div>
+              ) : identity.state.status !== "unlocked" ? (
+                <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.invites.unlockToManage")}</div>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Quick Actions</div>
+                    <div className="text-sm font-medium">{t("settings.invites.quickActions")}</div>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
                         onClick={() => window.location.href = "/invites"}
                       >
-                        Open Invite System
+                        {t("settings.invites.openSystem")}
                       </Button>
                     </div>
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      Generate QR codes, create invite links, and manage contacts.
+                      {t("settings.invites.quickActionsDesc")}
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Privacy Settings</div>
+                    <div className="text-sm font-medium">{t("settings.invites.privacy")}</div>
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      Control what information is shared when you create invites. These settings are managed in the Profile section of the Invite System.
+                      {t("settings.invites.privacyDesc")}
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Contact Requests</div>
+                    <div className="text-sm font-medium">{t("settings.invites.contactRequests")}</div>
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      Manage incoming and outgoing contact requests in the Invite System. You can accept, decline, or block requests.
+                      {t("settings.invites.contactRequestsDesc")}
                     </div>
                   </div>
                 </div>

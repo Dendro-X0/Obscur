@@ -4,7 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
-## [Unreleased]
+## [0.2.5] - 2026-01-23
+
+### Added
+
+- **Localization**: Full support for English, Chinese (Simplified), and Spanish.
+  - Complete translation of Settings page (Identity, Relays, Notifications, Blocklist, etc.).
+  - Language selector with persistent preference.
+  - Dynamic app title localization.
+
+### Improved
+
+- **UI Polish**:
+  - Enlarged globe icon in language selector.
+  - Updated app title to "Obscur" consistently across the UI.
+  - Enhanced loading states for Settings tabs to prevent layout shifts.
+- **Stability**:
+  - Fixed hydration mismatches in navigation links and page titles.
+  - synchronized versioning across PWA and Desktop apps.
+
+## [0.2.4] - 2026-01-20
 
 ### Added
 

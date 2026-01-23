@@ -10,6 +10,7 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
 - **📱 Smart Invite System**: QR codes, shareable links, and intelligent contact management
 - **🎨 Modern UI**: Subtle gradients, smooth animations, and polished user experience
 - **🌙 Theme Support**: Beautiful light and dark themes with system preference detection
+- **🌍 Localized**: Available in English, Chinese (Simplified), and Spanish
 - **📱 Progressive Web App**: Installable with offline functionality and push notifications
 - **🖥️ Cross-Platform**: Web app with planned desktop and mobile versions
 

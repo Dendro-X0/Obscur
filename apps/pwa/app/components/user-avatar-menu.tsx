@@ -7,6 +7,8 @@ import { UserAvatar } from "./user-avatar";
 import { cn } from "../lib/cn";
 import { useProfile } from "../lib/use-profile";
 
+import { useTranslation } from "react-i18next";
+
 const MENU_APPROX_HEIGHT_PX: number = 176;
 
 type UserAvatarMenuProps = Readonly<{
@@ -16,6 +18,7 @@ type UserAvatarMenuProps = Readonly<{
 }>;
 
 const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const profile = useProfile();
   const [open, setOpen] = useState<boolean>(false);
   const [openUp, setOpenUp] = useState<boolean>(false);
@@ -95,20 +98,22 @@ const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
             openUp ? "bottom-full mb-2" : "top-full mt-2"
           )}
         >
-          <div className="border-b border-black/10 px-3 py-2 text-xs font-semibold text-zinc-600 dark:border-white/10 dark:text-zinc-300">Profile</div>
+          <div className="border-b border-black/10 px-3 py-2 text-xs font-semibold text-zinc-600 dark:border-white/10 dark:text-zinc-300">
+            {t("settings.tabs.profile")}
+          </div>
           <Link
             href="/settings#profile"
             className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/5"
             onClick={(): void => setOpen(false)}
           >
-            Edit profile
+            {t("settings.tabs.profile")}
           </Link>
           <Link
             href="/settings"
             className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/5"
             onClick={(): void => setOpen(false)}
           >
-            Settings
+            {t("settings.title")}
           </Link>
         </div>
       ) : null}

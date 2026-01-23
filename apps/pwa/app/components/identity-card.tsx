@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "../lib/use-identity";
 import { Button } from "./ui/button";
@@ -14,6 +15,7 @@ type IdentityCardProps = Readonly<{
 }>;
 
 export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const [passphrase, setPassphrase] = useState<string>("");
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
   const identity = useIdentity();
@@ -40,7 +42,7 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
   };
 
   const onForget = async (): Promise<void> => {
-    const confirmed: boolean = window.confirm("Forget local identity? This removes the keypair from this device.");
+    const confirmed: boolean = window.confirm(t("identity.forgetConfirm"));
     if (!confirmed) {
       return;
     }
@@ -50,27 +52,27 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
 
   if (state.status === "loading") {
     if (embedded) {
-      return <div className="text-sm text-zinc-700 dark:text-zinc-300">Loading…</div>;
+      return <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("identity.loading")}</div>;
     }
-    return <Card title="Identity" description="Your Nostr keypair, encrypted and stored locally."><div>Loading…</div></Card>;
+    return <Card title={t("identity.title")} description={t("identity.description")}><div>{t("identity.loading")}</div></Card>;
   }
 
   if (state.status === "error") {
     if (embedded) {
       return <div className="text-sm wrap-break-word text-red-700 dark:text-red-300">{state.error}</div>;
     }
-    return <Card tone="danger" title="Identity" description="Your Nostr keypair, encrypted and stored locally."><div className="wrap-break-word">{state.error}</div></Card>;
+    return <Card tone="danger" title={t("identity.title")} description={t("identity.description")}><div className="wrap-break-word">{state.error}</div></Card>;
   }
 
   const content: React.JSX.Element = (
     <>
       <div>
-        <Label className="mb-2 block">Passphrase (min 6 chars)</Label>
+        <Label className="mb-2 block">{t("identity.passphraseLabel")}</Label>
         <Input
           value={passphrase}
           onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setPassphrase(e.target.value)}
           type="password"
-          placeholder="Enter passphrase"
+          placeholder={t("identity.passphrasePlaceholder")}
           autoComplete="current-password"
         />
       </div>
@@ -78,19 +80,19 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
         {state.stored ? (
           <>
             <Button type="button" onClick={(): void => void onUnlock()} disabled={!canSubmit}>
-              Unlock
+              {t("identity.unlock")}
             </Button>
             <Button type="button" variant="secondary" onClick={(): void => void onCreate()} disabled={!canSubmit}>
-              Create new
+              {t("identity.createNew")}
             </Button>
           </>
         ) : (
           <>
             <Button type="button" onClick={(): void => void onCreate()} disabled={!canSubmit}>
-              Create
+              {t("identity.create")}
             </Button>
             <Button type="button" variant="secondary" onClick={(): void => void onUnlock()} disabled={!canSubmit}>
-              Unlock
+              {t("identity.unlock")}
             </Button>
           </>
         )}
@@ -100,38 +102,38 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
           className="sm:ml-auto"
           onClick={(): void => setAdvancedOpen((v: boolean): boolean => !v)}
         >
-          {advancedOpen ? "Hide" : "Advanced"}
+          {advancedOpen ? t("identity.hide") : t("identity.advanced")}
         </Button>
       </div>
       {advancedOpen ? (
         <div className="mt-3 rounded-xl border border-black/10 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-950/50">
-          <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">Advanced</div>
+          <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">{t("identity.advanced")}</div>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <Button type="button" variant="secondary" onClick={onLock} disabled={state.status !== "unlocked"}>
-              Lock
+              {t("identity.lock")}
             </Button>
             <Button type="button" variant="danger" onClick={(): void => void onForget()}>
-              Forget
+              {t("identity.forget")}
             </Button>
           </div>
           <div className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
-            Forgetting removes the keypair from this device. This cannot be undone.
+            {t("identity.forgetWarning")}
           </div>
         </div>
       ) : null}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Status</div>
+          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t("identity.status")}</div>
           <div className="mt-1 font-semibold tracking-tight">{state.status}</div>
         </div>
         <div>
-          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Stored</div>
-          <div className="mt-1 font-semibold tracking-tight">{state.stored ? "yes" : "no"}</div>
+          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t("identity.stored")}</div>
+          <div className="mt-1 font-semibold tracking-tight">{state.stored ? t("identity.yes") : t("identity.no")}</div>
         </div>
       </div>
       {state.publicKeyHex ? (
         <div className="mt-4">
-          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Public key (hex)</div>
+          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t("identity.publicKeyHex")}</div>
           <div className="mt-2 rounded-xl border border-black/10 bg-white px-3 py-2 font-mono text-xs wrap-break-word dark:border-white/10 dark:bg-zinc-950/60">
             {state.publicKeyHex}
           </div>
@@ -142,5 +144,5 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
   if (embedded) {
     return <>{content}</>;
   }
-  return <Card title="Identity" description="Your Nostr keypair, encrypted and stored locally.">{content}</Card>;
+  return <Card title={t("identity.title")} description={t("identity.description")}>{content}</Card>;
 };

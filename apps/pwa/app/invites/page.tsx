@@ -28,7 +28,6 @@ type TabType =
   | "link-manager"
   | "contact-requests"
   | "outgoing-requests"
-  | "contacts"
   | "import-export"
   | "profile";
 
@@ -103,12 +102,7 @@ export default function InvitesPage(): React.JSX.Element {
             >
               Sent Requests
             </TabButton>
-            <TabButton
-              active={activeTab === "contacts"}
-              onClick={() => setActiveTab("contacts")}
-            >
-              Contacts
-            </TabButton>
+
             <TabButton
               active={activeTab === "import-export"}
               onClick={() => setActiveTab("import-export")}
@@ -132,7 +126,7 @@ export default function InvitesPage(): React.JSX.Element {
           {activeTab === "link-manager" && <InviteLinkManager />}
           {activeTab === "contact-requests" && <ContactRequestInbox />}
           {activeTab === "outgoing-requests" && <OutgoingContactRequests />}
-          {activeTab === "contacts" && <ContactList />}
+
           {activeTab === "import-export" && <ContactImportExport />}
           {activeTab === "profile" && <ProfileSettings />}
         </div>

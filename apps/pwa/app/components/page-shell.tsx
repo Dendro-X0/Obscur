@@ -9,6 +9,8 @@ import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { useHorizontalScroll } from "../lib/use-horizontal-scroll";
 import { AppShell } from "./app-shell";
 
+import { useTranslation } from "react-i18next";
+
 type PageShellProps = Readonly<{
   title: string;
   children: React.ReactNode;
@@ -17,6 +19,7 @@ type PageShellProps = Readonly<{
 }>;
 
 const PageShell = (props: PageShellProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const pathname: string = usePathname();
   const navBadgeCounts: Readonly<Record<string, number>> = useMemo((): Readonly<Record<string, number>> => {
     return props.navBadgeCounts ?? {};
@@ -38,16 +41,18 @@ const PageShell = (props: PageShellProps): React.JSX.Element => {
                 {NAV_ITEMS.map((item): React.JSX.Element => {
                   const isActive: boolean = pathname === item.href;
                   const badgeCount: number = navBadgeCounts[item.href] ?? 0;
+                  const label = item.i18nKey ? t(item.i18nKey) : item.label;
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
+                      suppressHydrationWarning
                       className={cn(
                         "relative inline-flex flex-shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
                         isActive && "bg-zinc-100 text-zinc-900 dark:bg-zinc-900/40 dark:text-zinc-100"
                       )}
                     >
-                      <span className="font-medium">{item.label}</span>
+                      <span className="font-medium">{label}</span>
                       {badgeCount > 0 ? (
                         <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
                           {badgeCount > 99 ? "99+" : badgeCount}
