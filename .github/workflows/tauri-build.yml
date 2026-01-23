@@ -103,6 +103,13 @@ jobs:
           ls -la apps/pwa/out || echo "⚠️ PWA out directory not found"
           if [ -f "apps/pwa/out/index.html" ]; then
             echo "✅ PWA build successful - index.html found"
+            # Verify it contains "Obscur" not "Nostr Messenger"
+            if grep -q "Obscur" apps/pwa/out/index.html; then
+              echo "✅ PWA contains correct branding (Obscur)"
+            else
+              echo "❌ PWA still contains old branding"
+              exit 1
+            fi
           else
             echo "❌ PWA build failed - index.html not found"
             exit 1
