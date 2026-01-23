@@ -1,3 +1,4 @@
+import { Slot } from "@radix-ui/react-slot";
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "../../lib/cn";
 
@@ -9,8 +10,9 @@ type ButtonProps = Readonly<{
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
+  asChild?: boolean;
 }> &
-  Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className">;
+  ButtonHTMLAttributes<HTMLButtonElement>;
 
 const getVariantClassName = (variant: ButtonVariant): string => {
   if (variant === "secondary") {
@@ -39,15 +41,16 @@ const getSizeClassName = (size: ButtonSize): string => {
 };
 
 export const Button = (props: ButtonProps) => {
-  const { variant, size, className, disabled, ...rest } = props;
+  const { variant, size, className, asChild = false, ...rest } = props;
+  const Component = asChild ? Slot : "button";
   const resolvedVariant: ButtonVariant = variant ?? "primary";
   const resolvedSize: ButtonSize = size ?? "md";
+
   return (
-    <button
-      {...rest}
-      disabled={disabled}
+    <Component
+      {...(rest as any)}
       className={cn(
-        "btn-enhanced inline-flex items-center justify-center gap-2 font-medium",
+        "btn-enhanced inline-flex items-center justify-center gap-2 font-medium transition-all active:scale-95",
         getSizeClassName(resolvedSize),
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black",
         "disabled:pointer-events-none disabled:opacity-40",

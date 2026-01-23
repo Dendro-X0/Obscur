@@ -95,7 +95,7 @@ export default function DownloadPage() {
                                 {os === "mac" && <Apple className="w-6 h-6" />}
                                 {os === "linux" && <Terminal className="w-6 h-6" />}
                                 Download for {os === 'win' ? 'Windows' : os === 'mac' ? 'macOS' : 'Linux'}
-                                <span className="ml-2 text-xs opacity-70 font-normal">v{release.tag_name}</span>
+                                <span className="ml-2 text-xs opacity-70 font-normal">v{release?.tag_name}</span>
                             </a>
                         </Button>
                     ) : (
