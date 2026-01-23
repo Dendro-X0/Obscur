@@ -6,7 +6,6 @@
   "build": {
     "beforeDevCommand": "pnpm -C ../pwa dev",
     "beforeBuildCommand": "pnpm -C ../pwa build",
-    "devUrl": "http://localhost:3000",
     "frontendDist": "../../pwa/out"
   },
   "bundle": {

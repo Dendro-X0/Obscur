@@ -10,6 +10,7 @@ import { DesktopModeProvider } from "./components/desktop/desktop-mode-provider"
 import { OfflineIndicator } from "./components/desktop/offline-indicator"
 import { DeepLinkHandler } from "./components/desktop/deep-link-handler"
 import { I18nProvider } from "./components/i18n-provider"
+import { RootErrorBoundary } from "./components/root-error-boundary"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -41,19 +42,21 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
-        <DesktopModeProvider>
-          <ThemeController />
-          <I18nProvider>
-            <PwaServiceWorkerRegistrar />
-            <ToastProvider />
-            <DesktopUpdater />
-            <OfflineIndicator />
-            <DeepLinkHandler />
-            {children}
-          </I18nProvider>
-        </DesktopModeProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
+        <RootErrorBoundary>
+          <DesktopModeProvider>
+            <ThemeController />
+            <I18nProvider>
+              <PwaServiceWorkerRegistrar />
+              <ToastProvider />
+              <DesktopUpdater />
+              <OfflineIndicator />
+              <DeepLinkHandler />
+              {children}
+            </I18nProvider>
+          </DesktopModeProvider>
+        </RootErrorBoundary>
       </body>
     </html>
   )
