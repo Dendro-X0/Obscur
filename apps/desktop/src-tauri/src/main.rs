@@ -170,7 +170,7 @@ async fn get_system_theme() -> Result<String, String> {
                 return Ok("dark".to_string());
             }
         }
-        return Ok("light".to_string());
+        // Falls through to default if not dark or if command fails
     }
     
     #[cfg(target_os = "linux")]

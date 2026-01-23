@@ -115,14 +115,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Windows code signing (optional - builds unsigned if not provided)
           TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT }}
-          # macOS code signing and notarization (optional - builds unsigned if not provided)
-          # We only provide these if APPLE_CERTIFICATE is present to prevent 'invalid parameter' errors
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # macOS signing is disabled - to enable, add APPLE_* secrets to GitHub
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
