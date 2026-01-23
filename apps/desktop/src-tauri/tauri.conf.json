@@ -4,9 +4,9 @@
   "identifier": "app.obscur.desktop",
   "version": "0.2.5",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
-    "devUrl": "https://obscur-lovat.vercel.app",
+    "beforeDevCommand": "pnpm -C ../pwa dev",
+    "beforeBuildCommand": "pnpm -C ../pwa build",
+    "devUrl": "http://localhost:3000",
     "frontendDist": "../../pwa/out"
   },
   "bundle": {
