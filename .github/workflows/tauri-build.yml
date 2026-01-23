@@ -116,7 +116,8 @@ jobs:
           # Windows code signing (optional - builds unsigned if not provided)
           TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT }}
           # macOS code signing and notarization (optional - builds unsigned if not provided)
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # We only provide these if APPLE_CERTIFICATE is present to prevent 'invalid parameter' errors
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}

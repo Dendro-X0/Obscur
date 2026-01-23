@@ -6,8 +6,6 @@ use serde_json::json;
 use tauri_plugin_deep_link::DeepLinkExt;
 
 // Window state persistence
-const WINDOW_STATE_KEY: &str = "window_state";
-
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct WindowState {
     x: i32,
@@ -170,13 +168,9 @@ async fn get_system_theme() -> Result<String, String> {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if stdout.trim() == "Dark" {
                 return Ok("dark".to_string());
-            } else {
-                return Ok("light".to_string());
             }
-        } else {
-            // If the command fails, it means light mode is active
-            return Ok("light".to_string());
         }
+        return Ok("light".to_string());
     }
     
     #[cfg(target_os = "linux")]
@@ -192,8 +186,6 @@ async fn get_system_theme() -> Result<String, String> {
             let theme = stdout.trim().to_lowercase();
             if theme.contains("dark") {
                 return Ok("dark".to_string());
-            } else {
-                return Ok("light".to_string());
             }
         }
     }
