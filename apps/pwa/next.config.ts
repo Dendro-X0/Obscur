@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withPWA from "@ducanh2912/next-pwa";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,4 +26,18 @@ const nextConfig: NextConfig = {
   ]
 };
 
-export default nextConfig;
+const withPWAConfig = withPWA({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+  register: true,
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  workboxOptions: {
+    disableDevLogs: true,
+    skipWaiting: true,
+    clientsClaim: true,
+  },
+});
+
+export default withPWAConfig(nextConfig);
