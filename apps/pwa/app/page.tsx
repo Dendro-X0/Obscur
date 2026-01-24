@@ -98,6 +98,11 @@ import { Sidebar } from "./features/messaging/components/sidebar";
 import { ChatView } from "./features/messaging/components/chat-view";
 import { NewChatDialog } from "./features/messaging/components/new-chat-dialog";
 import { NewGroupDialog } from "./features/messaging/components/new-group-dialog";
+import { useAutoLock } from "./lib/use-auto-lock";
+import { LockScreen } from "./components/lock-screen";
+import type { Passphrase } from "@dweb/crypto/passphrase";
+
+const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 
 const ONE_MINUTE_MS: number = 60_000;
 const ONE_HOUR_MS: number = 60 * ONE_MINUTE_MS;
@@ -132,6 +137,29 @@ function NostrMessengerContent() {
   const blocklist = useBlocklist({ publicKeyHex: identity.state.publicKeyHex ?? null });
   const peerTrust = usePeerTrust({ publicKeyHex: identity.state.publicKeyHex ?? null });
   const requestsInbox = useRequestsInbox({ publicKeyHex: identity.state.publicKeyHex ?? null });
+  const { isLocked, lock, unlock, settings } = useAutoLock();
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  const handleUnlock = async (passphrase: string): Promise<boolean> => {
+    setIsUnlocking(true);
+    try {
+      await identity.unlockIdentity({ passphrase: passphrase as Passphrase });
+      // We don't check state immediately as identity hook might need a tick
+      return true;
+    } catch (error) {
+      console.error("Unlock failed:", error);
+      return false;
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
+
+  // Wrap setSidebarTab to track last page
+  const updateSidebarTab = useCallback((tab: "chats" | "requests") => {
+    setSidebarTab(tab);
+    localStorage.setItem(LAST_PAGE_STORAGE_KEY, JSON.stringify({ type: 'tab', id: tab }));
+  }, []);
   const isPeerBlocked = blocklist.isBlocked;
   const isPeerAccepted = peerTrust.isAccepted;
   const isPeerMuted = peerTrust.isMuted;
@@ -908,6 +936,7 @@ function NostrMessengerContent() {
 
   const selectConversation = (conversation: Conversation): void => {
     setSelectedConversation(conversation);
+    localStorage.setItem(LAST_PAGE_STORAGE_KEY, JSON.stringify({ type: 'conversation', id: conversation.id }));
     setUnreadByConversationId((prev: UnreadByConversationId): UnreadByConversationId => ({
       ...prev,
       [conversation.id]: 0,
@@ -1351,6 +1380,41 @@ function NostrMessengerContent() {
     return Object.values(unreadByConversationId).reduce((sum: number, count: number): number => sum + count, 0);
   }, [unreadByConversationId]);
 
+  // Handle last page restoration after unlocking
+  useEffect(() => {
+    if (!isLocked && isIdentityUnlocked && !selectedConversation) {
+      const stored = localStorage.getItem(LAST_PAGE_STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.type === 'conversation') {
+            const conv = allConversations.find(c => c.id === parsed.id);
+            if (conv) selectConversation(conv);
+          } else if (parsed.type === 'tab') {
+            setSidebarTab(parsed.id);
+          } else if (parsed.type === 'home') {
+            setShowWelcome(true);
+          }
+        } catch (e) {
+          console.error("Failed to restore last page", e);
+        }
+      } else {
+        setShowWelcome(true);
+        localStorage.setItem(LAST_PAGE_STORAGE_KEY, JSON.stringify({ type: 'home' }));
+      }
+    }
+  }, [isLocked, isIdentityUnlocked, allConversations, selectedConversation]);
+
+  if (isLocked && identity.state.stored) {
+    return (
+      <LockScreen
+        publicKeyHex={identity.state.publicKeyHex ?? undefined}
+        isUnlocking={isUnlocking}
+        onUnlock={handleUnlock}
+      />
+    );
+  }
+
   return (
     <AppShell
       navBadgeCounts={{ "/": chatsUnreadCount }}
@@ -1374,7 +1438,7 @@ function NostrMessengerContent() {
             allConversations={allConversations}
             setPendingScrollTarget={setPendingScrollTarget}
             activeTab={sidebarTab}
-            setActiveTab={setSidebarTab}
+            setActiveTab={updateSidebarTab}
             requests={requestsInbox.state.items}
             onAcceptRequest={handleAcceptRequest}
             onIgnoreRequest={handleIgnoreRequest}
@@ -1470,6 +1534,15 @@ function NostrMessengerContent() {
           ) : !selectedConversationView ? (
             <div className="flex flex-1 items-center justify-center">
               <div className="w-full max-w-lg space-y-4 px-6 text-center">
+                {showWelcome && (
+                  <div className="mb-8 p-8 rounded-[40px] bg-zinc-900/40 border border-white/[0.03] backdrop-blur-xl shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000 group">
+                    <div className="relative">
+                      <div className="absolute -inset-4 bg-white/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                      <h1 className="text-4xl font-bold bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent mb-3 tracking-tight">Welcome home</h1>
+                      <p className="text-zinc-400 text-lg font-medium tracking-tight opacity-80">Your sanctuary is secure and ready for you.</p>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div className="mb-4 flex justify-center">
                     <div className="flex h-16 w-16 items-center justify-center rounded-full border border-black/10 bg-white text-2xl dark:border-white/10 dark:bg-zinc-950/60">+</div>

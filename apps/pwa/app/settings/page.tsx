@@ -30,6 +30,7 @@ import { ShareInviteCard } from "../components/share-invite-card";
 import { LanguageSelector } from "../components/language-selector";
 import { useTranslation } from "react-i18next";
 import { TrustSettingsPanel } from "../features/messaging/components/trust-settings-panel";
+import { AutoLockSettingsPanel } from "../features/settings/components/auto-lock-settings-panel";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -48,6 +49,7 @@ type SettingsTabType =
   | "appearance"
   | "blocklist"
   | "privacy"
+  | "security"
   | "updates"
   | "health";
 
@@ -163,6 +165,7 @@ export default function SettingsPage(): React.JSX.Element {
             <TabButton active={activeTab === "appearance"} onClick={() => setActiveTab("appearance")}>{t("settings.tabs.appearance")}</TabButton>
             <TabButton active={activeTab === "blocklist"} onClick={() => setActiveTab("blocklist")}>{t("settings.tabs.blocklist")}</TabButton>
             <TabButton active={activeTab === "privacy"} onClick={() => setActiveTab("privacy")}>Privacy & Trust</TabButton>
+            <TabButton active={activeTab === "security"} onClick={() => setActiveTab("security")}>Security</TabButton>
             <TabButton active={activeTab === "updates"} onClick={() => setActiveTab("updates")}>{t("settings.tabs.updates")}</TabButton>
             <TabButton active={activeTab === "health"} onClick={() => setActiveTab("health")}>{t("settings.tabs.health")}</TabButton>
           </div>
@@ -505,6 +508,12 @@ export default function SettingsPage(): React.JSX.Element {
             <Card title="Privacy & Trust" description="Manage who you trust and who can reach you directly." className="w-full">
               <TrustSettingsPanel />
             </Card>
+          )}
+
+          {activeTab === "security" && (
+            <div className="max-w-xl mx-auto w-full">
+              <AutoLockSettingsPanel />
+            </div>
           )}
         </div>
       </div>
