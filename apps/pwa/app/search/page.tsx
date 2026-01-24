@@ -118,8 +118,7 @@ export default function SearchPage(): React.JSX.Element {
     router.push(`/groups/${encoded}`);
   };
 
-  const canOpenDm: boolean = parsedPubkey.ok;
-
+  const canOpenDm: boolean = trimmedPubkeyInput.length > 0;
 
   return (
     <PageShell title="Search" navBadgeCounts={navBadges.navBadgeCounts}>
@@ -147,19 +146,24 @@ export default function SearchPage(): React.JSX.Element {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="search-input">{mode === "user" ? "Public key" : "Group identifier"}</Label>
+              <Label htmlFor="search-input">{mode === "user" ? "Public key, Name or Code" : "Group identifier"}</Label>
               <Input
                 id="search-input"
                 value={activeInputValue}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setActiveInputValue(e.target.value)}
-                placeholder={mode === "user" ? "npub... or 64-hex" : "groups.example.com'abcdef"}
+                placeholder={mode === "user" ? "npub..., name, or OBSCUR-..." : "groups.example.com'abcdef"}
                 className={mode === "user" ? "font-mono" : "font-mono"}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    onSubmit();
+                  }
+                }}
               />
               {mode === "user" ? (
                 !parsedPubkey.ok && trimmedPubkeyInput.length > 0 ? (
-                  <div className="text-xs text-red-600 dark:text-red-400">Invalid public key (npub or 64-hex required).</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Search for users by name or invite code.</div>
                 ) : (
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Paste an exact key (no discovery yet).</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Paste an exact key or type a name.</div>
                 )
               ) : !parsedGroup.ok && trimmedGroupInput.length > 0 ? (
                 <div className="text-xs text-red-600 dark:text-red-400">{parsedGroup.error}</div>
@@ -172,7 +176,7 @@ export default function SearchPage(): React.JSX.Element {
 
             <div className="flex flex-wrap gap-2">
               <Button type="button" disabled={mode === "user" ? !canOpenDm : !canSearchGroup} onClick={onSubmit}>
-                {mode === "user" ? "Open DM" : "Open group"}
+                {mode === "user" ? (parsedPubkey.ok ? "Open DM" : "Search") : "Open group"}
               </Button>
               {mode === "user" ? (
                 <Button

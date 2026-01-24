@@ -11,6 +11,7 @@ import { OfflineIndicator } from "./components/desktop/offline-indicator"
 import { DeepLinkHandler } from "./components/desktop/deep-link-handler"
 import { I18nProvider } from "./components/i18n-provider"
 import { RootErrorBoundary } from "./components/root-error-boundary"
+import { Preloader } from "./components/preloader"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -44,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
+        <Preloader />
         <RootErrorBoundary>
           <DesktopModeProvider>
             <ThemeController />

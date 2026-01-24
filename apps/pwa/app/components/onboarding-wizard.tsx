@@ -11,10 +11,13 @@ import { ShareInviteCard } from "./share-invite-card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
-import { CheckCircle2, Loader2, User, Lock } from "lucide-react";
+import { CheckCircle2, Loader2, User, Lock, UserPlus, QrCode } from "lucide-react";
 import { LanguageSelector } from "./language-selector";
+import { useInviteResolver, type ResolvedInvite } from "../lib/invites/use-invite-resolver";
+import { isValidInviteCode } from "../lib/invites/invite-parser";
+import { QRScanner } from "./qr-scanner";
 
-type OnboardingStep = "welcome" | "creating" | "username" | "complete";
+type OnboardingStep = "welcome" | "creating" | "username" | "add-contact" | "complete";
 
 type OnboardingWizardProps = Readonly<{
   onComplete?: () => void;
@@ -29,9 +32,16 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [username, setUsername] = useState<string>("");
   const [passphrase, setPassphrase] = useState<string>("");
+  const [inviteCodeInput, setInviteCodeInput] = useState<string>("");
+  const [showScanner, setShowScanner] = useState(false);
+  const [resolvedProfile, setResolvedProfile] = useState<ResolvedInvite | null>(null);
   const [error, setError] = useState<string>("");
+
   const identity = useIdentity();
   const profile = useProfile();
+  const { resolveCode, isResolving, error: resolveError } = useInviteResolver({
+    myPublicKeyHex: identity.state.publicKeyHex as any
+  });
 
   const handleStart = async (): Promise<void> => {
     setStep("creating");
@@ -56,15 +66,35 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
     if (username.trim()) {
       profile.setUsername({ username: username.trim() });
     }
-    setStep("complete");
+    setStep("add-contact");
+  };
 
-    // Call completion callback after a short delay
+  const handleSkipUsername = (): void => {
+    setStep("add-contact");
+  };
+
+  const handleResolveInvite = async (): Promise<void> => {
+    if (!isValidInviteCode(inviteCodeInput)) {
+      setError("Invalid code format. Should be OBSCUR-XXXXXX");
+      return;
+    }
+    setError("");
+    const resolved = await resolveCode(inviteCodeInput);
+    if (resolved) {
+      setResolvedProfile(resolved);
+    }
+  };
+
+  const handleAddContact = (): void => {
+    // In a real app, we'd add them to peer trust here
+    // For now, we'll just move to complete
+    setStep("complete");
     setTimeout(() => {
       props.onComplete?.();
     }, 2000);
   };
 
-  const handleSkipUsername = (): void => {
+  const handleSkipContact = (): void => {
     setStep("complete");
     setTimeout(() => {
       props.onComplete?.();
@@ -260,6 +290,101 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 className="flex-1"
               >
                 {t("common.continue")}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Add First Contact Screen
+  if (step === "add-contact") {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        {showScanner && (
+          <QRScanner
+            onScan={(code) => {
+              setInviteCodeInput(code);
+              setShowScanner(false);
+              void resolveCode(code).then(setResolvedProfile);
+            }}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
+        <Card className="w-full max-w-md">
+          <div className="space-y-6 p-6">
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600">
+                <UserPlus className="h-7 w-7" />
+              </div>
+              <h2 className="mt-4 text-xl font-bold text-zinc-900 dark:text-zinc-50">
+                Add Your First Contact
+              </h2>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                Have a friend's invite code? Enter it below to start your first private conversation.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <Label htmlFor="invite-code">Invite Code</Label>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    id="invite-code"
+                    value={inviteCodeInput}
+                    onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
+                    placeholder="OBSCUR-XXXXXX"
+                    className="font-mono"
+                  />
+                  <Button variant="secondary" size="md" onClick={() => setShowScanner(true)}>
+                    <QrCode className="h-5 w-5" />
+                  </Button>
+                </div>
+                {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+                {resolveError && <p className="mt-1 text-xs text-red-500">{resolveError}</p>}
+              </div>
+
+              {resolvedProfile ? (
+                <div className="p-4 rounded-xl border border-purple-200 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="h-10 w-10 rounded-full bg-purple-200 dark:bg-purple-800 flex items-center justify-center overflow-hidden">
+                    {resolvedProfile.avatar ? (
+                      <img src={resolvedProfile.avatar} alt={resolvedProfile.displayName} className="h-full w-full object-cover" />
+                    ) : (
+                      <User className="h-5 w-5 text-purple-600 dark:text-purple-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                      {resolvedProfile.displayName}
+                    </p>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                      {resolvedProfile.publicKeyHex.slice(0, 16)}...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => void handleResolveInvite()}
+                  disabled={!isValidInviteCode(inviteCodeInput) || isResolving}
+                  className="w-full"
+                >
+                  {isResolving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resolving...</> : "Verify Code"}
+                </Button>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={handleSkipContact} className="flex-1">
+                Skip for now
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAddContact}
+                disabled={!resolvedProfile}
+                className="flex-1"
+              >
+                Connect & Setup
               </Button>
             </div>
           </div>

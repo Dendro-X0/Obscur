@@ -29,6 +29,7 @@ import { KeyboardShortcutsHelp } from "../components/desktop/keyboard-shortcuts-
 import { ShareInviteCard } from "../components/share-invite-card";
 import { LanguageSelector } from "../components/language-selector";
 import { useTranslation } from "react-i18next";
+import { TrustSettingsPanel } from "../features/messaging/components/trust-settings-panel";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -46,7 +47,7 @@ type SettingsTabType =
   | "notifications"
   | "appearance"
   | "blocklist"
-  | "invites"
+  | "privacy"
   | "updates"
   | "health";
 
@@ -161,7 +162,7 @@ export default function SettingsPage(): React.JSX.Element {
             <TabButton active={activeTab === "notifications"} onClick={() => setActiveTab("notifications")}>{t("settings.tabs.notifications")}</TabButton>
             <TabButton active={activeTab === "appearance"} onClick={() => setActiveTab("appearance")}>{t("settings.tabs.appearance")}</TabButton>
             <TabButton active={activeTab === "blocklist"} onClick={() => setActiveTab("blocklist")}>{t("settings.tabs.blocklist")}</TabButton>
-            <TabButton active={activeTab === "invites"} onClick={() => setActiveTab("invites")}>{t("settings.tabs.invites")}</TabButton>
+            <TabButton active={activeTab === "privacy"} onClick={() => setActiveTab("privacy")}>Privacy & Trust</TabButton>
             <TabButton active={activeTab === "updates"} onClick={() => setActiveTab("updates")}>{t("settings.tabs.updates")}</TabButton>
             <TabButton active={activeTab === "health"} onClick={() => setActiveTab("health")}>{t("settings.tabs.health")}</TabButton>
           </div>
@@ -500,44 +501,9 @@ export default function SettingsPage(): React.JSX.Element {
             </Card>
           )}
 
-          {activeTab === "invites" && (
-            <Card title={t("settings.invites.title")} description={t("settings.invites.desc")} className="w-full">
-              {identity.state.status === "loading" ? (
-                <div className="p-4 text-sm text-zinc-500">{t("common.loading")}</div>
-              ) : identity.state.status !== "unlocked" ? (
-                <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.invites.unlockToManage")}</div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">{t("settings.invites.quickActions")}</div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        onClick={() => window.location.href = "/invites"}
-                      >
-                        {t("settings.invites.openSystem")}
-                      </Button>
-                    </div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      {t("settings.invites.quickActionsDesc")}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">{t("settings.invites.privacy")}</div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      {t("settings.invites.privacyDesc")}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">{t("settings.invites.contactRequests")}</div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      {t("settings.invites.contactRequestsDesc")}
-                    </div>
-                  </div>
-                </div>
-              )}
+          {activeTab === "privacy" && (
+            <Card title="Privacy & Trust" description="Manage who you trust and who can reach you directly." className="w-full">
+              <TrustSettingsPanel />
             </Card>
           )}
         </div>
