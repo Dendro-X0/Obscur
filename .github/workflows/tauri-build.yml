@@ -89,6 +89,9 @@ jobs:
       - name: Install workspace deps
         run: pnpm install --frozen-lockfile
 
+      - name: Sync version across workspace
+        run: pnpm version:sync
+
       - name: Install desktop deps
         run: pnpm -C apps/desktop install
 

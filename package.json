@@ -12,6 +12,8 @@
     "build:pwa": "pnpm -C apps/pwa build",
     "build:api": "pnpm -C apps/api build",
     "build:desktop": "pnpm -C apps/desktop build",
-    "lint:pwa": "pnpm -C apps/pwa lint"
+    "lint:pwa": "pnpm -C apps/pwa lint",
+    "version:sync": "node scripts/sync-version.js",
+    "version:bump": "node scripts/bump-version.js"
   }
 }
