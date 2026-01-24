@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.2.6] - 2026-01-23
+
+### Fixed
+
+- **Vercel Deployment**: Fixed blank page issue on Vercel deployments
+  - Implemented conditional static export based on build context
+  - Vercel now uses dynamic rendering while desktop builds use static export
+  - Added `TAURI_BUILD` environment variable to distinguish build contexts
+  - Added `cross-env` dependency for cross-platform compatibility
+
+### Technical
+
+- Modified `next.config.ts` to conditionally enable `output: "export"`
+- Updated Tauri build command to set `TAURI_BUILD=true`
+- Updated GitHub Actions workflow to support both build modes
+
 ## [0.2.5] - 2026-01-23
 
 ### Added
