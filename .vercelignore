@@ -1,0 +1,12 @@
+apps/desktop
+apps/api
+packages
+scripts
+dcos
+desktop
+docs
+*.md
+!README.md
+!CHANGELOG.md
+build_log.txt
+clean-repository.sh
