@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.2.6] - 2026-01-23
+
+### Fixed
+- **PWA Caching**: Resolved "blank page" issue on new deployments by enforcing cache headers and adding auto-reload for stale chunks.
+- **Service Worker**: Added basic service worker to prevent 404 registration errors.
+
+### Changed
+- **Installers**: Streamlined release assets to only essential files (Windows .exe, macOS .dmg, Linux .AppImage).
+- **Navigation**: Added "Download" link to side navigation and Onboarding Wizard.
+- **Branding**: Updated Windows installer to use Obscur logo.
+
 ## [0.2.5] - 2026-01-23
 
 ### Added
