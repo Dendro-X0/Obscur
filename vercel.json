@@ -1,6 +1,4 @@
 {
-    "buildCommand": "pnpm build",
-    "outputDirectory": "apps/pwa/out",
-    "framework": null,
+    "buildCommand": "pnpm build:pwa",
     "installCommand": "pnpm install --frozen-lockfile"
 }
