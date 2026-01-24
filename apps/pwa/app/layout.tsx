@@ -44,6 +44,23 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('error', function(e) {
+                // Check if the error is a chunk load error
+                if (e.message && (e.message.includes('Loading chunk') || e.message.includes('ChunkLoadError'))) {
+                  // Prevent infinite reload loops
+                  if (!sessionStorage.getItem('chunk_retry_' + window.location.href)) {
+                    sessionStorage.setItem('chunk_retry_' + window.location.href, 'true');
+                    console.warn('Chunk load failed, reloading to fetch fresh chunks...');
+                    window.location.reload();
+                  }
+                }
+              });
+            `,
+          }}
+        />
         <RootErrorBoundary>
           <DesktopModeProvider>
             <ThemeController />
