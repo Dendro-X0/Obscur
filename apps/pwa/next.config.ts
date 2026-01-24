@@ -15,13 +15,10 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  // Only set turbopack.root for local development and Tauri builds
-  // Vercel needs to use the default root to correctly resolve chunk paths
-  ...(!process.env.VERCEL && {
-    turbopack: {
-      root: repoRoot
-    }
-  }),
+  // Ensure turbopack key is always present to satisfy Next.js 16 build requirements
+  turbopack: process.env.VERCEL ? {} : {
+    root: repoRoot
+  },
   transpilePackages: [
     "@dweb/core",
     "@dweb/crypto",
