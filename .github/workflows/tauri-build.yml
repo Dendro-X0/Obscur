@@ -96,6 +96,7 @@ jobs:
         run: pnpm -C apps/pwa build
         env:
           NODE_ENV: production
+          TAURI_BUILD: true
 
       - name: Verify PWA build output
         run: |

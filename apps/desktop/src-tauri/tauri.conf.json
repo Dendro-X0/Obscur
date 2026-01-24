@@ -2,10 +2,10 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Obscur",
   "identifier": "app.obscur.desktop",
-  "version": "0.2.6",
+  "version": "0.2.5",
   "build": {
     "beforeDevCommand": "pnpm -C ../pwa dev",
-    "beforeBuildCommand": "pnpm -C ../pwa build",
+    "beforeBuildCommand": "cross-env TAURI_BUILD=true pnpm -C ../pwa build",
     "frontendDist": "../../pwa/out"
   },
   "bundle": {
