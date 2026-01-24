@@ -6,6 +6,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: "/invites", label: "Invites", i18nKey: "nav.invites" },
   { href: "/search", label: "Search", i18nKey: "nav.search" },
   { href: "/settings", label: "Settings", i18nKey: "nav.settings" },
+  { href: "/download", label: "Download", i18nKey: "nav.download" },
 ];
 
 export { NAV_ITEMS };

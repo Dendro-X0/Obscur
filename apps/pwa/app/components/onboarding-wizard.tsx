@@ -173,6 +173,12 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 {t("common.getStarted")}
               </Button>
 
+              <div className="mt-6 flex justify-center">
+                <a href="/download" className="text-sm font-medium text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300 transition-colors underline-offset-4 hover:underline">
+                  Download Desktop App
+                </a>
+              </div>
+
               <p className="mt-4 text-center text-xs text-zinc-400 dark:text-zinc-600">
                 {t("onboarding.welcome.disclaimer")}
               </p>
