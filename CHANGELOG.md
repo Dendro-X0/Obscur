@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.2.7] - 2026-01-24
+
+### Added
+
+- **Auto-Lock Security System**: Comprehensive session protection for all users.
+  - Automatic identity locking after a configurable period of inactivity.
+  - Re-unlocking requires the user's passphrase, clearing private keys from memory while locked.
+  - **Smart Restoration**: App automatically remembers and restores the last visited conversation or tab after unlocking.
+  - **Premium UI**: New blurred-glass Lock Screen and a friendly "Welcome home" greeting for returning users.
+  - **Configurability**: New "Security" tab in settings to customize lock behavior.
+
+### Fixed
+
+- **Vercel Deployment**: Completely resolved persistent 404 errors and `ChunkLoadError` on cold starts.
+  - Fixed Turbopack path resolution for monorepo structure.
+  - Optimized Vercel build to include only necessary dependencies while preserving required internal packages.
+- **Version Management**: Unified the versioning system into a single source of truth (`version.json`) with automated synchronization.
+
 ## [0.2.6] - 2026-01-23
 
 ### Fixed
