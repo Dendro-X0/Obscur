@@ -45,13 +45,9 @@ export default function SearchPage(): React.JSX.Element {
     setSearchResults([]);
 
     const subId = Math.random().toString(36).substring(7);
-    const isInviteCode = trimmedPubkeyInput.startsWith("OBSCUR-");
-    const filter: any = { kinds: [0], limit: 10 };
-    if (isInviteCode) {
-      filter["#code"] = [trimmedPubkeyInput];
-    } else {
-      filter["search"] = trimmedPubkeyInput;
-    }
+    // Removed broken invite code search. "OBSCUR-" codes are local and not queryable on relays via #code.
+    // Use NIP-50 search for text.
+    const filter: any = { kinds: [0], limit: 10, search: trimmedPubkeyInput };
     const req = JSON.stringify(["REQ", subId, filter]);
 
     pool.sendToOpen(req);
@@ -146,12 +142,12 @@ export default function SearchPage(): React.JSX.Element {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="search-input">{mode === "user" ? "Public key, Name or Code" : "Group identifier"}</Label>
+              <Label htmlFor="search-input">{mode === "user" ? "Public key or Name" : "Group identifier"}</Label>
               <Input
                 id="search-input"
                 value={activeInputValue}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setActiveInputValue(e.target.value)}
-                placeholder={mode === "user" ? "npub..., name, or OBSCUR-..." : "groups.example.com'abcdef"}
+                placeholder={mode === "user" ? "npub... or name" : "groups.example.com'abcdef"}
                 className={mode === "user" ? "font-mono" : "font-mono"}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -161,7 +157,7 @@ export default function SearchPage(): React.JSX.Element {
               />
               {mode === "user" ? (
                 !parsedPubkey.ok && trimmedPubkeyInput.length > 0 ? (
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Search for users by name or invite code.</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Search for users by name.</div>
                 ) : (
                   <div className="text-xs text-zinc-600 dark:text-zinc-400">Paste an exact key or type a name.</div>
                 )
@@ -196,9 +192,14 @@ export default function SearchPage(): React.JSX.Element {
             </div>
 
             {mode === "user" && parsedPubkey.ok ? (
-              <div className="rounded-xl border border-black/10 bg-zinc-50 p-3 text-xs dark:border-white/10 dark:bg-zinc-950/60">
-                <div className="mb-1 font-medium">Normalized (hex)</div>
-                <div className="break-all font-mono">{parsedPubkey.publicKeyHex}</div>
+              <div className="space-y-2">
+                <div className="rounded-xl border border-black/10 bg-zinc-50 p-3 text-xs dark:border-white/10 dark:bg-zinc-950/60">
+                  <div className="mb-1 font-medium">Normalized (hex)</div>
+                  <div className="break-all font-mono">{parsedPubkey.publicKeyHex}</div>
+                </div>
+                <div className="p-3 text-xs text-amber-600 bg-amber-50 rounded-xl dark:text-amber-400 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+                  Note: If this user is new or hasn't published a profile, they might not appear in search results, but you can still start a chat.
+                </div>
               </div>
             ) : null}
 
