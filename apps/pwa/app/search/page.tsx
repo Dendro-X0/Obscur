@@ -50,7 +50,7 @@ export default function SearchPage(): React.JSX.Element {
     const filter: any = { kinds: [0], limit: 10, search: trimmedPubkeyInput };
     const req = JSON.stringify(["REQ", subId, filter]);
 
-    pool.sendToOpen(req);
+    void pool.broadcastEvent(req);
 
     const cleanup = pool.subscribeToMessages(({ message }) => {
       try {

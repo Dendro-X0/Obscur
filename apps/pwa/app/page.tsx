@@ -101,6 +101,7 @@ import { NewGroupDialog } from "./features/messaging/components/new-group-dialog
 import { useAutoLock } from "./lib/use-auto-lock";
 import { LockScreen } from "./components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
+import { useUploadService } from "./lib/services/upload-service";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 
@@ -195,6 +196,7 @@ function NostrMessengerContent() {
   const [sidebarTab, setSidebarTab] = useState<"chats" | "requests">("chats");
   const [createdContacts, setCreatedContacts] = useState<ReadonlyArray<DmConversation>>([]);
   const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
+  const [recipientVerificationStatus, setRecipientVerificationStatus] = useState<Readonly<Record<string, 'idle' | 'found' | 'not_found' | 'verifying'>>>({});
   const nowMs: number | null = useSyncExternalStore(
     subscribeNowMs,
     getNowMsSnapshot,
@@ -292,6 +294,8 @@ function NostrMessengerContent() {
     peerTrust,
     requestsInbox
   });
+
+  const uploadService = useUploadService();
 
   // Subscribe to incoming DMs when identity is unlocked and relays are connected
   useEffect((): void => {
@@ -897,26 +901,9 @@ function NostrMessengerContent() {
     setPendingAttachmentPreviewUrl(URL.createObjectURL(file));
   };
 
-  const uploadAttachment = async (file: File): Promise<Attachment> => {
-    const formData: FormData = new FormData();
-    formData.append("file", file);
-    const response: Response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-    const json: unknown = await response.json();
-    const parsed: UploadApiResponse = json as UploadApiResponse;
-    if (!parsed.ok) {
-      throw new Error(parsed.error);
-    }
-    const kind: AttachmentKind = parsed.contentType.startsWith("video/") ? "video" : "image";
-    return {
-      kind,
-      url: parsed.url,
-      contentType: parsed.contentType,
-      fileName: file.name,
-    };
-  };
+  const uploadAttachment = useCallback(async (file: File): Promise<Attachment> => {
+    return uploadService.uploadFile(file);
+  }, [uploadService]);
 
   const closeNewChat = (): void => {
     setIsNewChatOpen(false);
@@ -934,7 +921,7 @@ function NostrMessengerContent() {
     });
   };
 
-  const selectConversation = (conversation: Conversation): void => {
+  const selectConversation = useCallback((conversation: Conversation): void => {
     setSelectedConversation(conversation);
     localStorage.setItem(LAST_PAGE_STORAGE_KEY, JSON.stringify({ type: 'conversation', id: conversation.id }));
     setUnreadByConversationId((prev: UnreadByConversationId): UnreadByConversationId => ({
@@ -945,7 +932,18 @@ function NostrMessengerContent() {
       ...prev,
       [conversation.id]: prev[conversation.id] ?? DEFAULT_VISIBLE_MESSAGES,
     }));
-  };
+
+    // Auto-verify recipient for DMs if not already verified
+    if (conversation.kind === "dm" && (!recipientVerificationStatus[conversation.id] || recipientVerificationStatus[conversation.id] === 'idle')) {
+      setRecipientVerificationStatus(prev => ({ ...prev, [conversation.id]: 'verifying' }));
+      void dmController.verifyRecipient(conversation.pubkey as PublicKeyHex).then(result => {
+        setRecipientVerificationStatus(prev => ({
+          ...prev,
+          [conversation.id]: result.exists ? 'found' : 'not_found'
+        }));
+      });
+    }
+  }, [dmController, recipientVerificationStatus]);
 
   const createChat = (): void => {
     const pubkey: string = newChatPubkey.trim();
@@ -1456,6 +1454,7 @@ function NostrMessengerContent() {
         displayName={newChatDisplayName}
         setDisplayName={setNewChatDisplayName}
         onCreate={createChat}
+        verifyRecipient={dmController.verifyRecipient}
       />
 
       <NewGroupDialog
@@ -1614,6 +1613,7 @@ function NostrMessengerContent() {
               selectedConversationMediaItems={selectedConversationMediaItems}
               lightboxIndex={lightboxIndex}
               setLightboxIndex={setLightboxIndex}
+              recipientStatus={selectedConversationView.kind === 'dm' ? recipientVerificationStatus[selectedConversationView.id] : 'idle'}
             />
           )}
         </main>

@@ -27,6 +27,7 @@ type EnhancedRelayPoolResult = Readonly<{
   sendToOpen: (payload: string) => void;
   publishToRelay: (url: string, payload: string) => Promise<PublishResult>;
   publishToAll: (payload: string) => Promise<MultiRelayPublishResult>;
+  broadcastEvent: (payload: string) => Promise<MultiRelayPublishResult>;
   subscribeToMessages: (handler: (params: Readonly<{ url: string; message: string }>) => void) => () => void;
   getRelayHealth: (url: string) => RelayHealthMetrics | undefined;
   canConnectToRelay: (url: string) => boolean;
@@ -60,10 +61,10 @@ export interface MultiRelayPublishResult {
 
 const getUnixMs = (): number => Date.now();
 
-const createNextConnection = (params: Readonly<{ 
-  url: string; 
-  status: RelayConnectionStatus; 
-  errorMessage?: string 
+const createNextConnection = (params: Readonly<{
+  url: string;
+  status: RelayConnectionStatus;
+  errorMessage?: string
 }>): RelayConnection => ({
   url: params.url,
   status: params.status,
@@ -87,6 +88,18 @@ let notifyScheduled: boolean = false;
 
 // Retry timers for reconnection
 const retryTimers: Map<string, NodeJS.Timeout> = new Map();
+
+/**
+ * Pending OK response resolvers
+ * Key: relayUrl:eventId
+ */
+const pendingOkResolvers: Map<string, {
+  resolve: (result: PublishResult) => void;
+  timer: NodeJS.Timeout;
+  startTime: number;
+}> = new Map();
+
+const DEFAULT_PUBLISH_TIMEOUT_MS = 5000;
 
 const notifyListeners = (): void => {
   if (notifyScheduled) {
@@ -112,7 +125,7 @@ const recomputeSnapshot = (): void => {
     }
     return { url, status: "connecting", updatedAtUnixMs: 0 };
   });
-  
+
   // Get health metrics for all relays
   const healthMetrics: RelayHealthMetrics[] = [];
   urls.forEach(url => {
@@ -121,7 +134,7 @@ const recomputeSnapshot = (): void => {
       healthMetrics.push(metrics);
     }
   });
-  
+
   cachedSnapshot = { connections, healthMetrics };
 };
 
@@ -150,43 +163,43 @@ const connectToRelay = (url: string): WebSocket | null => {
   relayHealthMonitor.recordConnectionAttempt(url);
 
   const socket: WebSocket = createRelayWebSocket(url);
-  
+
   // Track connection start time for latency measurement
   const connectionStartTime = Date.now();
 
   socket.addEventListener("open", () => {
     // Record successful connection
     relayHealthMonitor.recordConnectionSuccess(url);
-    
+
     // Measure connection latency
     const latency = Date.now() - connectionStartTime;
     relayHealthMonitor.recordLatency(url, latency);
-    
+
     // Update status
     statusByUrl = upsertConnection(statusByUrl, createNextConnection({ url, status: "open" }));
     recomputeSnapshot();
     notifyListeners();
-    
+
     console.log(`Connected to relay ${url} (latency: ${latency}ms)`);
   });
 
   socket.addEventListener("error", (event) => {
     const errorMessage = "WebSocket error";
-    
+
     // Record connection failure
     relayHealthMonitor.recordConnectionFailure(url, errorMessage);
-    
+
     // Update status
-    statusByUrl = upsertConnection(statusByUrl, createNextConnection({ 
-      url, 
-      status: "error", 
-      errorMessage 
+    statusByUrl = upsertConnection(statusByUrl, createNextConnection({
+      url,
+      status: "error",
+      errorMessage
     }));
     recomputeSnapshot();
     notifyListeners();
-    
+
     console.error(`Relay error ${url}:`, errorMessage);
-    
+
     // Schedule retry with exponential backoff
     scheduleReconnect(url);
   });
@@ -194,14 +207,14 @@ const connectToRelay = (url: string): WebSocket | null => {
   socket.addEventListener("close", () => {
     // Record disconnection
     relayHealthMonitor.recordDisconnection(url);
-    
+
     // Update status
     statusByUrl = upsertConnection(statusByUrl, createNextConnection({ url, status: "closed" }));
     recomputeSnapshot();
     notifyListeners();
-    
+
     console.log(`Relay closed ${url}`);
-    
+
     // Schedule retry with exponential backoff
     scheduleReconnect(url);
   });
@@ -210,6 +223,36 @@ const connectToRelay = (url: string): WebSocket | null => {
     if (typeof evt.data !== "string") {
       return;
     }
+
+    // Intercept OK messages for internal resolvers
+    try {
+      const parsed = JSON.parse(evt.data);
+      if (Array.isArray(parsed) && parsed[0] === "OK") {
+        const eventId = parsed[1];
+        const ok = parsed[2];
+        const message = parsed[3] || "";
+        const resolverKey = `${url}:${eventId}`;
+        const pending = pendingOkResolvers.get(resolverKey);
+
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingOkResolvers.delete(resolverKey);
+
+          const latency = Date.now() - pending.startTime;
+          relayHealthMonitor.recordLatency(url, latency);
+
+          pending.resolve({
+            success: ok,
+            relayUrl: url,
+            error: ok ? undefined : message,
+            latency
+          });
+        }
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+
     notifyMessageListeners({ url, message: evt.data });
   });
 
@@ -249,12 +292,12 @@ const scheduleReconnect = (url: string): void => {
   const delay = metrics?.backoffDelay || 1000;
 
   console.log(`Scheduling reconnect to ${url} in ${Math.round(delay / 1000)}s`);
-  
+
   const timer = setTimeout(() => {
     retryTimers.delete(url);
     attemptReconnect(url);
   }, delay);
-  
+
   retryTimers.set(url, timer);
 };
 
@@ -277,7 +320,7 @@ const attemptReconnect = (url: string): void => {
   }
 
   console.log(`Attempting to reconnect to ${url}`);
-  
+
   // Close existing socket if any
   if (existingSocket) {
     try {
@@ -302,33 +345,33 @@ const setRelayUrls = (urls: ReadonlyArray<string>): void => {
   if (nextKey === relayUrlsKey) {
     return;
   }
-  
+
   relayUrlsKey = nextKey;
   const existingSockets: SocketByUrl = socketsByUrl;
   const nextSockets: Record<string, WebSocket> = {};
-  
+
   urls.forEach((url: string) => {
     // Initialize health monitoring for new relays
     relayHealthMonitor.initializeRelay(url);
-    
+
     const existing: WebSocket | undefined = existingSockets[url];
     if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) {
       nextSockets[url] = existing;
       return;
     }
-    
+
     // Attempt to connect
     const socket = connectToRelay(url);
     if (socket) {
       nextSockets[url] = socket;
     }
   });
-  
+
   // Close sockets for removed relays
   Object.entries(existingSockets).forEach(([url, socket]: [string, WebSocket]) => {
     if (!nextSockets[url] && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       socket.close();
-      
+
       // Clear retry timer
       const timer = retryTimers.get(url);
       if (timer) {
@@ -337,116 +380,146 @@ const setRelayUrls = (urls: ReadonlyArray<string>): void => {
       }
     }
   });
-  
+
   socketsByUrl = nextSockets;
   recomputeSnapshot();
   notifyListeners();
 };
 
 /**
- * Send message to all open relays
+ * Publish to a specific relay and wait for NIP-20 OK response
+ * Implements Requirements 1.4, 1.5, and reliable delivery
  */
-const sendToOpen = (payload: string): void => {
-  Object.values(socketsByUrl).forEach((socket: WebSocket) => {
-    if (socket.readyState === WebSocket.OPEN) {
+const publishToRelay = async (url: string, payload: string): Promise<PublishResult> => {
+  const socket = socketsByUrl[url];
+
+  if (!socket) {
+    return { success: false, relayUrl: url, error: 'Relay not found' };
+  }
+
+  if (socket.readyState !== WebSocket.OPEN) {
+    return { success: false, relayUrl: url, error: 'Relay not connected' };
+  }
+
+  // Extract event ID from payload if possible
+  let eventId: string | undefined;
+  try {
+    const parsed = JSON.parse(payload);
+    if (Array.isArray(parsed) && parsed[0] === "EVENT") {
+      eventId = parsed[1]?.id;
+    }
+  } catch (e) { }
+
+  if (!eventId) {
+    // If not an EVENT payload (e.g. REQ), just send it
+    socket.send(payload);
+    return { success: true, relayUrl: url };
+  }
+
+  const startTime = Date.now();
+  const resolverKey = `${url}:${eventId}`;
+
+  // If there's already a resolver for this, it might be a double-publish
+  if (pendingOkResolvers.has(resolverKey)) {
+    const existing = pendingOkResolvers.get(resolverKey);
+    if (existing) clearTimeout(existing.timer);
+  }
+
+  return new Promise<PublishResult>((resolve) => {
+    const timer = setTimeout(() => {
+      pendingOkResolvers.delete(resolverKey);
+      const latency = Date.now() - startTime;
+      relayHealthMonitor.recordConnectionFailure(url, "Publish timeout (NIP-20 OK not received)");
+      resolve({
+        success: false,
+        relayUrl: url,
+        error: "Timeout waiting for OK response",
+        latency
+      });
+    }, DEFAULT_PUBLISH_TIMEOUT_MS);
+
+    pendingOkResolvers.set(resolverKey, {
+      resolve,
+      timer,
+      startTime
+    });
+
+    try {
       socket.send(payload);
+    } catch (error) {
+      clearTimeout(timer);
+      pendingOkResolvers.delete(resolverKey);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      relayHealthMonitor.recordConnectionFailure(url, errorMessage);
+      resolve({
+        success: false,
+        relayUrl: url,
+        error: errorMessage
+      });
     }
   });
 };
 
 /**
- * Publish to a specific relay
- * Implements Requirements 1.4, 1.5
- */
-const publishToRelay = async (url: string, payload: string): Promise<PublishResult> => {
-  const socket = socketsByUrl[url];
-  
-  if (!socket) {
-    return {
-      success: false,
-      relayUrl: url,
-      error: 'Relay not found'
-    };
-  }
-  
-  if (socket.readyState !== WebSocket.OPEN) {
-    return {
-      success: false,
-      relayUrl: url,
-      error: 'Relay not connected'
-    };
-  }
-  
-  const startTime = Date.now();
-  
-  try {
-    socket.send(payload);
-    const latency = Date.now() - startTime;
-    
-    // Record latency
-    relayHealthMonitor.recordLatency(url, latency);
-    
-    return {
-      success: true,
-      relayUrl: url,
-      latency
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    // Record failure
-    relayHealthMonitor.recordConnectionFailure(url, errorMessage);
-    
-    return {
-      success: false,
-      relayUrl: url,
-      error: errorMessage
-    };
-  }
-};
-
-/**
- * Publish to all connected relays with failover
+ * Publish to all connected relays and return success if AT LEAST ONE relay accepts
  * Implements Requirements 1.4, 1.5, 4.8
  */
 const publishToAll = async (payload: string): Promise<MultiRelayPublishResult> => {
   const urls = relayUrlsKey ? relayUrlsKey.split("|") : [];
-  const results: PublishResult[] = [];
-  
-  // Get all relays sorted by health (prioritize healthy relays)
-  const sortedUrls = urls.sort((a, b) => {
+
+  // Get all relays sorted by health
+  const sortedUrls = urls.filter(url => {
+    const socket = socketsByUrl[url];
+    return socket && socket.readyState === WebSocket.OPEN;
+  }).sort((a, b) => {
     const healthA = relayHealthMonitor.getHealthStatus(a);
     const healthB = relayHealthMonitor.getHealthStatus(b);
-    
-    const healthScore = { healthy: 3, degraded: 2, unhealthy: 1, unknown: 0 };
+    const healthScore = { healthy: 4, degraded: 3, unhealthy: 2, unknown: 1 };
     return healthScore[healthB] - healthScore[healthA];
   });
-  
-  // Publish to all relays in parallel
-  const publishPromises = sortedUrls.map(url => publishToRelay(url, payload));
-  const publishResults = await Promise.all(publishPromises);
-  
-  results.push(...publishResults);
-  
-  // Calculate overall result
-  const successCount = results.filter(r => r.success).length;
-  const totalRelays = results.length;
-  const success = successCount > 0; // Success if at least one relay accepted
-  
-  let overallError: string | undefined;
-  if (successCount === 0) {
-    overallError = 'All relays failed to accept the message';
-  } else if (successCount < totalRelays) {
-    overallError = `${totalRelays - successCount} of ${totalRelays} relays failed`;
+
+  if (sortedUrls.length === 0) {
+    return {
+      success: false,
+      successCount: 0,
+      totalRelays: urls.length,
+      results: [],
+      overallError: 'No relays are currently connected'
+    };
   }
-  
+
+  // Publish to all in parallel and wait for their OKs
+  const results = await Promise.all(sortedUrls.map(url => publishToRelay(url, payload)));
+
+  const successCount = results.filter(r => r.success).length;
+  const success = successCount > 0;
+
+  let overallError: string | undefined;
+  if (!success) {
+    overallError = results.length > 0 ? results[0].error : "Unknown failure";
+  }
+
   return {
     success,
     successCount,
-    totalRelays,
+    totalRelays: urls.length,
     results,
     overallError
   };
+};
+
+/**
+ * @deprecated Use broadcastEvent
+ */
+const sendToOpen = (payload: string): void => {
+  void broadcastEvent(payload);
+};
+
+/**
+ * Modern alias for publishToAll
+ */
+const broadcastEvent = (payload: string): Promise<MultiRelayPublishResult> => {
+  return publishToAll(payload);
 };
 
 /**
@@ -481,29 +554,30 @@ const serverSnapshot: RelayPoolState = { connections: [], healthMetrics: [] };
 export const useEnhancedRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResult => {
   const urlsKey: string = urls.join("|");
   const urlsFromKey: ReadonlyArray<string> = useMemo(() => (urlsKey ? urlsKey.split("|") : []), [urlsKey]);
-  
+
   useEffect(() => {
     setRelayUrls(urlsFromKey);
   }, [urlsKey, urlsFromKey]);
-  
+
   // Subscribe to health monitor changes
   useEffect(() => {
     const unsubscribe = relayHealthMonitor.subscribe(() => {
       recomputeSnapshot();
       notifyListeners();
     });
-    
+
     return unsubscribe;
   }, []);
-  
+
   const snapshot: RelayPoolState = useSyncExternalStore(subscribe, getStateSnapshot, () => serverSnapshot);
-  
-  return { 
+
+  return {
     connections: snapshot.connections,
     healthMetrics: snapshot.healthMetrics,
-    sendToOpen, 
+    sendToOpen,
     publishToRelay,
     publishToAll,
+    broadcastEvent,
     subscribeToMessages,
     getRelayHealth,
     canConnectToRelay

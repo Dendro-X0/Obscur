@@ -62,6 +62,7 @@ export interface ChatViewProps {
     selectedConversationMediaItems: ReadonlyArray<MediaItem>;
     lightboxIndex: number | null;
     setLightboxIndex: (val: number | null) => void;
+    recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
 }
 
 export function ChatView(props: ChatViewProps) {
@@ -108,6 +109,7 @@ export function ChatView(props: ChatViewProps) {
                 clearPendingAttachment={props.clearPendingAttachment}
                 relayStatus={props.relayStatus}
                 textareaRef={props.composerTextareaRef}
+                recipientStatus={props.recipientStatus}
             />
 
             {props.messageMenu && activeMessage && (

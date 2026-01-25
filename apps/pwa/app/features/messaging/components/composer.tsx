@@ -20,6 +20,7 @@ interface ComposerProps {
     clearPendingAttachment: () => void;
     relayStatus: RelayStatusSummary;
     textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+    recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
 }
 
 export function Composer({
@@ -35,12 +36,24 @@ export function Composer({
     onPickAttachment,
     clearPendingAttachment,
     relayStatus,
-    textareaRef
+    textareaRef,
+    recipientStatus
 }: ComposerProps) {
     const { t } = useTranslation();
 
     return (
         <div className="border-t border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
+            {recipientStatus === 'not_found' && (
+                <div className="mb-3 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300">
+                    <div className="mt-0.5 h-4 w-4 shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                    </div>
+                    <div>
+                        <p className="font-semibold">Recipient profile not found.</p>
+                        <p>This user hasn't published a profile on your connected relays. Delivery might be unreliable.</p>
+                    </div>
+                </div>
+            )}
             {replyTo ? (
                 <div className="mb-3 rounded-xl border border-black/10 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-950/60">
                     <div className="flex items-start justify-between gap-3">

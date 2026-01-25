@@ -122,10 +122,10 @@ type UseEnhancedDMControllerParams = Readonly<{
     isAccepted: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => boolean;
   };
   requestsInbox?: {
-    upsertIncoming: (params: Readonly<{ 
-      peerPublicKeyHex: PublicKeyHex; 
-      plaintext: string; 
-      createdAtUnixSeconds: number 
+    upsertIncoming: (params: Readonly<{
+      peerPublicKeyHex: PublicKeyHex;
+      plaintext: string;
+      createdAtUnixSeconds: number
     }>) => void;
   };
 }>;
@@ -135,8 +135,8 @@ type UseEnhancedDMControllerParams = Readonly<{
  */
 type UseEnhancedDMControllerResult = Readonly<{
   state: EnhancedDMControllerState;
-  sendDm: (params: Readonly<{ 
-    peerPublicKeyInput: string; 
+  sendDm: (params: Readonly<{
+    peerPublicKeyInput: string;
     plaintext: string;
     replyTo?: string;
   }>) => Promise<SendResult>;
@@ -148,6 +148,7 @@ type UseEnhancedDMControllerResult = Readonly<{
   syncMissedMessages: (since?: Date) => Promise<void>;
   processOfflineQueue: () => Promise<void>;
   getOfflineQueueStatus: () => Promise<QueueStatus | null>;
+  verifyRecipient: (pubkeyHex: PublicKeyHex) => Promise<{ exists: boolean; profile?: any }>;
 }>;
 
 /**
@@ -250,7 +251,7 @@ const parseRelayOkMessage = (payload: string): RelayOkMessage | null => {
     if (!Array.isArray(parsed) || parsed.length < 3 || parsed[0] !== 'OK') {
       return null;
     }
-    
+
     return {
       eventId: parsed[1],
       ok: parsed[2],
@@ -268,7 +269,7 @@ export const useEnhancedDMController = (
   params: UseEnhancedDMControllerParams
 ): UseEnhancedDMControllerResult => {
   const [state, setState] = useState<EnhancedDMControllerState>(createInitialState);
-  
+
   // Initialize message queue
   const messageQueue = useMemo(() => {
     if (!params.myPublicKeyHex) return null;
@@ -277,16 +278,16 @@ export const useEnhancedDMController = (
 
   // Track pending messages for status updates
   const pendingMessages = useRef<Map<string, Message>>(new Map());
-  
+
   // Track relay response times for latency calculation
   const relayRequestTimes = useRef<Map<string, number>>(new Map());
 
   // Track active subscriptions
   const activeSubscriptions = useRef<Map<string, Subscription>>(new Map());
-  
+
   // Track if subscription has been requested
   const hasSubscribedRef = useRef<boolean>(false);
-  
+
   // Track sync state
   const syncStateRef = useRef<{
     isSyncing: boolean;
@@ -296,7 +297,7 @@ export const useEnhancedDMController = (
     isSyncing: false,
     conversationTimestamps: new Map()
   });
-  
+
   // Track events being processed to prevent race conditions in deduplication
   const processingEvents = useRef<Set<string>>(new Set());
 
@@ -330,7 +331,7 @@ export const useEnhancedDMController = (
   useEffect(() => {
     const unsubscribe = errorHandler.subscribeToNetworkChanges((networkState) => {
       console.log('Network state changed:', networkState);
-      
+
       setState(prev => ({
         ...prev,
         networkState
@@ -368,7 +369,7 @@ export const useEnhancedDMController = (
       if (connection.status === 'open') {
         // Register activity for newly opened connections
         webSocketOptimizer.registerActivity(connection.url);
-        
+
         // Start heartbeat to keep connection alive efficiently
         webSocketOptimizer.startHeartbeat(connection.url, () => {
           // Send a ping to keep connection alive
@@ -405,15 +406,15 @@ export const useEnhancedDMController = (
 
       try {
         const eventPayload = JSON.stringify(['EVENT', message.signedEvent]);
-        
+
         // Use enhanced publishToAll if available
         if (params.pool.publishToAll) {
           const result = await params.pool.publishToAll(eventPayload);
-          
+
           // Update message status based on result
           if (result.success) {
             await messageQueue.updateMessageStatus(message.id, 'accepted');
-            
+
             // Update UI
             setState(prev => {
               const updatedMessages = prev.messages.map(m =>
@@ -421,7 +422,7 @@ export const useEnhancedDMController = (
               );
               return createReadyState(updatedMessages);
             });
-            
+
             return true;
           } else {
             await messageQueue.updateMessageStatus(message.id, 'rejected');
@@ -502,14 +503,14 @@ export const useEnhancedDMController = (
         // sending -> rejected (all relays rejected)
         // sending -> sending (still waiting for responses)
         let newStatus = updatedMessage.status;
-        
+
         if (hasSuccess) {
           newStatus = 'accepted';
           retryManager.recordRelaySuccess(evt.url);
         } else if (hasFailure && allResponded) {
           newStatus = 'rejected';
           retryManager.recordRelayFailure(evt.url, ok.message);
-          
+
           // Queue for retry if not exceeded max retries
           if (messageQueue && updatedMessage.retryCount !== undefined) {
             const retryResult = retryManager.shouldRetry({
@@ -525,7 +526,7 @@ export const useEnhancedDMController = (
             if (retryResult.shouldRetry && retryResult.nextRetryAt) {
               newStatus = 'queued';
               updatedMessage.retryCount = (updatedMessage.retryCount || 0) + 1;
-              
+
               // Queue the message for retry
               void messageQueue.queueOutgoingMessage({
                 id: updatedMessage.id,
@@ -559,7 +560,7 @@ export const useEnhancedDMController = (
 
         // Update UI
         setState(prev => {
-          const updatedMessages = prev.messages.map(m => 
+          const updatedMessages = prev.messages.map(m =>
             m.eventId === ok.eventId ? updatedMessage : m
           );
           return createReadyState(updatedMessages);
@@ -586,19 +587,19 @@ export const useEnhancedDMController = (
       if (!Array.isArray(parsed) || parsed.length < 3 || parsed[0] !== 'EVENT') {
         return null;
       }
-      
+
       const event = parsed[2];
-      
+
       // Validate it's a kind 4 (DM) event
       if (!event || typeof event !== 'object' || event.kind !== 4) {
         return null;
       }
-      
+
       // Validate required fields
       if (!event.id || !event.pubkey || !event.content || !event.sig) {
         return null;
       }
-      
+
       return event as NostrEvent;
     } catch {
       return null;
@@ -613,7 +614,7 @@ export const useEnhancedDMController = (
   const handleIncomingEvent = async (event: NostrEvent): Promise<void> => {
     // Start performance tracking
     const endTracking = uiPerformanceMonitor.startTracking();
-    
+
     if (!params.myPrivateKeyHex || !params.myPublicKeyHex) {
       console.warn('Cannot process incoming message: identity not available');
       endTracking();
@@ -699,7 +700,7 @@ export const useEnhancedDMController = (
 
       // Step 7: Create message object for accepted contacts (Requirement 2.4)
       const conversationId = [params.myPublicKeyHex, senderPubkey].sort().join(':');
-      
+
       const message: Message = {
         id: event.id,
         conversationId,
@@ -756,20 +757,20 @@ export const useEnhancedDMController = (
 
           // Add new message to the list
           const updatedMessages = [message, ...prev.messages];
-          
+
           // Sort messages by timestamp (newest first for UI display)
           // This ensures out-of-order messages are displayed correctly
-          const sortedMessages = updatedMessages.sort((a, b) => 
+          const sortedMessages = updatedMessages.sort((a, b) =>
             b.timestamp.getTime() - a.timestamp.getTime()
           );
-          
+
           // Use memory manager to limit messages in memory (Requirement 8.5)
           // This prevents memory bloat with large conversations
           const limitedMessages = sortedMessages.slice(0, MAX_MESSAGES_IN_MEMORY);
-          
+
           // Update memory manager cache
           messageMemoryManager.addMessages(conversationId, limitedMessages);
-          
+
           return {
             ...createReadyState(limitedMessages),
             subscriptions: Array.from(activeSubscriptions.current.values())
@@ -778,7 +779,7 @@ export const useEnhancedDMController = (
       });
 
       console.log('Processed incoming message from accepted contact:', event.id);
-      
+
       // Track performance metric
       const metric = endTracking();
       if (metric.totalTime > 100) {
@@ -820,14 +821,14 @@ export const useEnhancedDMController = (
     const networkCheck = errorHandler.canAttemptOperation();
     if (!networkCheck.canAttempt) {
       console.log('Cannot send message:', networkCheck.reason);
-      
+
       // Queue message for later if offline
       if (!errorHandler.getNetworkState().isOnline) {
         errorHandler.handleNetworkOffline({ operation: 'sendMessage' });
       } else {
         errorHandler.handleAllRelaysFailed({ operation: 'sendMessage' });
       }
-      
+
       // Continue with queuing logic below
     }
 
@@ -893,7 +894,7 @@ export const useEnhancedDMController = (
       // Step 2: Create Nostr event
       const createdAt = Math.floor(Date.now() / 1000);
       const tags: string[][] = [['p', parsed.publicKeyHex]];
-      
+
       if (sendParams.replyTo) {
         tags.push(['e', sendParams.replyTo, '', 'reply']);
       }
@@ -915,7 +916,7 @@ export const useEnhancedDMController = (
       // Step 4: Create message object
       const messageId = signedEvent.id;
       const conversationId = [params.myPublicKeyHex, parsed.publicKeyHex].sort().join(':');
-      
+
       const message: Message = {
         id: messageId,
         conversationId,
@@ -954,10 +955,10 @@ export const useEnhancedDMController = (
       // This provides instant feedback to the user (Requirement 8.1)
       setState(prev => {
         const updatedMessages = [message, ...prev.messages].slice(0, MAX_MESSAGES_IN_MEMORY);
-        
+
         // Update memory manager cache (Requirement 8.5)
         messageMemoryManager.addMessages(conversationId, updatedMessages);
-        
+
         return createReadyState(updatedMessages);
       });
 
@@ -967,11 +968,11 @@ export const useEnhancedDMController = (
 
       // Step 7: Publish to relays with multi-relay failover
       const openRelays = params.pool.connections.filter(c => c.status === 'open');
-      
+
       if (openRelays.length === 0) {
         // No relays available - queue for retry
         const allRelaysError = errorHandler.handleAllRelaysFailed({ messageId });
-        
+
         if (messageQueue) {
           const outgoingMessage: OutgoingMessage = {
             id: messageId,
@@ -983,7 +984,7 @@ export const useEnhancedDMController = (
             nextRetryAt: retryManager.calculateNextRetry(0),
             signedEvent
           };
-          
+
           try {
             await messageQueue.queueOutgoingMessage(outgoingMessage);
             await messageQueue.updateMessageStatus(messageId, 'queued');
@@ -1005,15 +1006,15 @@ export const useEnhancedDMController = (
 
       // Publish event to all relays with failover support
       const eventPayload = JSON.stringify(['EVENT', signedEvent]);
-      
+
       // Use enhanced publishToAll if available, otherwise fall back to sendToOpen
       if (params.pool.publishToAll) {
         try {
           const publishResult = await params.pool.publishToAll(eventPayload);
-          
+
           // Update message with relay results
           message.relayResults = publishResult.results;
-          
+
           // Determine status based on results
           if (publishResult.successCount > 0) {
             message.status = 'accepted';
@@ -1024,7 +1025,7 @@ export const useEnhancedDMController = (
             message.status = 'rejected';
             if (messageQueue) {
               await messageQueue.updateMessageStatus(messageId, 'rejected');
-              
+
               // Queue for retry
               const outgoingMessage: OutgoingMessage = {
                 id: messageId,
@@ -1039,7 +1040,7 @@ export const useEnhancedDMController = (
               await messageQueue.queueOutgoingMessage(outgoingMessage);
             }
           }
-          
+
           // Update UI with final status
           setState(prev => {
             const updatedMessages = prev.messages.map(m =>
@@ -1047,7 +1048,7 @@ export const useEnhancedDMController = (
             );
             return createReadyState(updatedMessages);
           });
-          
+
           return {
             success: publishResult.success,
             messageId,
@@ -1056,10 +1057,10 @@ export const useEnhancedDMController = (
           };
         } catch (error) {
           console.error('Failed to publish to relays:', error);
-          
+
           // Fall back to basic sendToOpen
           params.pool.sendToOpen(eventPayload);
-          
+
           return {
             success: true,
             messageId,
@@ -1088,16 +1089,16 @@ export const useEnhancedDMController = (
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to send message:', error);
-      
+
       const messageError = errorHandler.handleUnknownError(
         error instanceof Error ? error : new Error(errorMessage),
         { operation: 'sendMessage', recipient: parsed.publicKeyHex }
       );
-      
+
       setState(prev => ({
         ...createErrorState(errorMessage, prev.messages, messageError)
       }));
-      
+
       return {
         success: false,
         messageId: '',
@@ -1125,7 +1126,7 @@ export const useEnhancedDMController = (
 
       // Update status to sending
       await messageQueue.updateMessageStatus(messageId, 'sending');
-      
+
       setState(prev => {
         const updatedMessages = prev.messages.map(m =>
           m.id === messageId ? { ...m, status: 'sending' as MessageStatus } : m
@@ -1164,7 +1165,7 @@ export const useEnhancedDMController = (
     if (cachedMessages) {
       return cachedMessages;
     }
-    
+
     // Fall back to state
     return state.messages.filter(m => m.conversationId === conversationId);
   }, [state.messages]);
@@ -1312,21 +1313,21 @@ export const useEnhancedDMController = (
 
       // Determine sync timestamp
       let syncTimestamp: number;
-      
+
       if (since) {
         // Use provided timestamp
         syncTimestamp = Math.floor(since.getTime() / 1000);
       } else {
         // Get the most recent message timestamp across all conversations
         let mostRecentTimestamp: Date | null = null;
-        
+
         // Check all known conversations
         for (const [conversationId, lastTimestamp] of syncStateRef.current.conversationTimestamps.entries()) {
           if (!mostRecentTimestamp || lastTimestamp > mostRecentTimestamp) {
             mostRecentTimestamp = lastTimestamp;
           }
         }
-        
+
         // If we have a recent timestamp, use it; otherwise sync from 24 hours ago
         if (mostRecentTimestamp) {
           syncTimestamp = Math.floor(mostRecentTimestamp.getTime() / 1000);
@@ -1384,14 +1385,14 @@ export const useEnhancedDMController = (
 
       // Update sync progress periodically
       const progressInterval = setInterval(() => {
-        const progress = syncedCount + errorCount > 0 
-          ? (syncedCount / (syncedCount + errorCount)) * 100 
+        const progress = syncedCount + errorCount > 0
+          ? (syncedCount / (syncedCount + errorCount)) * 100
           : 0;
-        
+
         // Update loading state with progress
-        loadingStateManager.updateProgress('messageSync', progress, 
+        loadingStateManager.updateProgress('messageSync', progress,
           `Synced ${syncedCount} messages...`);
-        
+
         setState(prev => {
           if (!prev.syncProgress) return prev;
           return {
@@ -1414,10 +1415,10 @@ export const useEnhancedDMController = (
     } catch (error) {
       console.error('Failed to sync missed messages:', error);
       syncStateRef.current.isSyncing = false;
-      
+
       // Complete loading state with error
       loadingStateManager.complete('messageSync');
-      
+
       setState(prev => ({
         ...prev,
         syncProgress: undefined
@@ -1426,14 +1427,59 @@ export const useEnhancedDMController = (
   }, [params.myPublicKeyHex, params.pool, messageQueue]);
 
   /**
+   * Verify if a recipient exists on the network by checking for metadata (Kind 0)
+   * Requirement: Prevents messaging 'ghost' accounts
+   */
+  const verifyRecipient = useCallback(async (pubkeyHex: PublicKeyHex): Promise<{ exists: boolean; profile?: any }> => {
+    return new Promise((resolve) => {
+      const subId = `verify-${Math.random().toString(36).substring(7)}`;
+      let found = false;
+      let profile: any = undefined;
+
+      const filter = {
+        kinds: [0],
+        authors: [pubkeyHex],
+        limit: 1
+      };
+
+      const cleanup = params.pool.subscribeToMessages(({ message }) => {
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed[0] === "EVENT" && parsed[1] === subId) {
+            const event = parsed[2];
+            if (event.pubkey === pubkeyHex && event.kind === 0) {
+              found = true;
+              profile = JSON.parse(event.content);
+              cleanup();
+              resolve({ exists: true, profile });
+            }
+          }
+          if (parsed[0] === "EOSE" && parsed[1] === subId) {
+            cleanup();
+            if (!found) resolve({ exists: false });
+          }
+        } catch (e) { }
+      });
+
+      params.pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
+
+      // Timeout after 3 seconds for verification
+      setTimeout(() => {
+        cleanup();
+        if (!found) resolve({ exists: false });
+      }, 3000);
+    });
+  }, [params.pool]);
+
+  /**
    * Monitor relay connection changes and trigger sync when coming online
    */
   useEffect(() => {
     if (!params.myPublicKeyHex) return;
 
     const hasOpenRelay = params.pool.connections.some(c => c.status === 'open');
-    const hadOpenRelay = params.pool.connections.some(c => 
-      c.status === 'open' && 
+    const hadOpenRelay = params.pool.connections.some(c =>
+      c.status === 'open' &&
       c.updatedAtUnixMs < Date.now() - 1000 // Was open at least 1 second ago
     );
 
@@ -1458,10 +1504,10 @@ export const useEnhancedDMController = (
 
       try {
         const eventPayload = JSON.stringify(['EVENT', message.signedEvent]);
-        
+
         if (params.pool.publishToAll) {
           const result = await params.pool.publishToAll(eventPayload);
-          
+
           if (result.success) {
             await messageQueue.updateMessageStatus(message.id, 'accepted');
             setState(prev => {
@@ -1511,6 +1557,7 @@ export const useEnhancedDMController = (
     unsubscribeFromDMs,
     syncMissedMessages,
     processOfflineQueue,
-    getOfflineQueueStatus
+    getOfflineQueueStatus,
+    verifyRecipient
   };
 };
