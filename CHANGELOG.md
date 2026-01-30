@@ -39,7 +39,7 @@ The format is based on Keep a Changelog.
 
 - **UI & Aesthetics**:
   - **Critical Rendering Fixes**: Resolved "Element type is invalid" error in `AppShell` and fixed invisible buttons by adding missing `.bg-gradient-primary` utility.
-  - **Build Stability**: Fixed a TypeScript error in `useMainShellState` (duplicate property name) and a `Message` type mismatch (missing `kind` property) that were blocking production builds.
+  - **Build Stability**: Fixed a TypeScript error in `useMainShellState` (duplicate property name) and a `Message` type mismatch (missing `kind` and `status` variants) that were blocking production builds.
   - **Premium Design System**: Implemented vibrant gradients and glassmorphism for Identity Cards, Empty States, and the Messaging Sidebar.
   - **Settings Page Polish**: Fixed visual bugs in Light Mode (white text on white background) and removed duplicate page titles in the header.
 - **Internationalization (i18n)**:
