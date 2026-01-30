@@ -107,7 +107,6 @@ export function useMainShellState() {
             setIsNewChatOpen,
             setNewChatPubkey,
             setNewChatDisplayName,
-            setIsNewChatOpen,
             setIsNewGroupOpen,
             setNewGroupName,
             setNewGroupMemberPubkeys,
