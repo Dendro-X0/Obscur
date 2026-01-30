@@ -30,7 +30,7 @@ export type GroupConversation = Readonly<{
 
 export type Conversation = DmConversation | GroupConversation;
 
-export type MessageStatus = "delivered" | "sending" | "accepted" | "rejected";
+export type MessageStatus = "delivered" | "sending" | "accepted" | "rejected" | "queued" | "failed";
 
 export type StatusIcon = (props: Readonly<{ className?: string }>) => React.JSX.Element;
 
