@@ -10,6 +10,7 @@ export interface Message {
   id: string;
   conversationId: string;
   content: string;
+  kind: 'user' | 'command';
   timestamp: Date;
   isOutgoing: boolean;
   status: MessageStatus;
