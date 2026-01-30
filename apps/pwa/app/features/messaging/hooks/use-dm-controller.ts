@@ -1,1 +1,1 @@
-export { useDmController } from "./dms/use-dm-controller";
+export { useDmController } from "../lib/dms/use-dm-controller";

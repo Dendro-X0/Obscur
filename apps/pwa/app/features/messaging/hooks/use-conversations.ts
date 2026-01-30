@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import type { Conversation, DmConversation, GroupConversation, ContactOverridesByConversationId } from "@/app/features/messaging/types";
-import { usePeerTrust } from "./use-peer-trust";
+import type { Conversation, DmConversation, GroupConversation, ContactOverridesByContactId } from "@/app/features/messaging/types";
+import { usePeerTrust } from "../../contacts/hooks/use-peer-trust";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 // Storage keys (matching page.tsx for compatibility)
@@ -11,7 +11,7 @@ const PERSISTED_CHAT_STATE_STORAGE_KEY: string = "dweb.nostr.pwa.chatState";
 export function useConversations(params: { publicKeyHex: PublicKeyHex | null }) {
     const [createdContacts, setCreatedContacts] = useState<ReadonlyArray<DmConversation>>([]);
     const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
-    const [contactOverridesByContactId, setContactOverridesByContactId] = useState<ContactOverridesByConversationId>({});
+    const [contactOverridesByContactId, setContactOverridesByContactId] = useState<ContactOverridesByContactId>({});
     const { isAccepted } = usePeerTrust({ publicKeyHex: params.publicKeyHex });
 
     // Persistence logic (Simplified version of page.tsx logic for now)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { parsePublicKeyInput } from "../parse-public-key-input";
+import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 
 type BlocklistState = Readonly<{
   blockedPublicKeys: ReadonlyArray<PublicKeyHex>;

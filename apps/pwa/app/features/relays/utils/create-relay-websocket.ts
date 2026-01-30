@@ -1,1 +1,1 @@
-export { createRelayWebSocket } from "./relays/create-relay-websocket";
+export { createRelayWebSocket } from "../hooks/create-relay-websocket";

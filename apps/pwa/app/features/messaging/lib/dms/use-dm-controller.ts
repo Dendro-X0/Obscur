@@ -5,7 +5,7 @@ import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayConnection } from "../relay-connection";
-import { parsePublicKeyInput } from "../parse-public-key-input";
+import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { NOSTR_SAFETY_LIMITS } from "../nostr-safety-limits";
 
 type RelayPool = Readonly<{

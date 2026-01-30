@@ -266,6 +266,18 @@ export function MessageList({
                                                                     <CheckCheck className={iconProps.className} />
                                                                 ),
                                                             },
+                                                            queued: {
+                                                                label: "Queued",
+                                                                icon: (iconProps) => (
+                                                                    <Clock className={iconProps.className} />
+                                                                ),
+                                                            },
+                                                            failed: {
+                                                                label: "Failed",
+                                                                icon: (iconProps) => (
+                                                                    <AlertTriangle className={iconProps.className} />
+                                                                ),
+                                                            },
                                                         };
                                                         const ui = uiByStatus[message.status];
                                                         const Icon = ui.icon;

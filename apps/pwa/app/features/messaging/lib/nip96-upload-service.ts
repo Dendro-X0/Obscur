@@ -1,4 +1,4 @@
-import { Attachment, AttachmentKind } from "../../features/messaging/types";
+import { Attachment, AttachmentKind } from "../types";
 import { UploadService } from "./upload-service";
 import { cryptoService } from "../../crypto/crypto-service";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";

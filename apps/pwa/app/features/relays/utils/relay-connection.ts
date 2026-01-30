@@ -1,1 +1,1 @@
-export type { RelayConnection } from "./relays/relay-connection";
+export type { RelayConnection } from "../hooks/relay-connection";

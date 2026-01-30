@@ -1,12 +1,12 @@
-import { getApiBaseUrl } from "./api-base-url";
+import { getApiBaseUrl } from "../../relays/utils/api-base-url";
 import type { LinkPreview } from "./link-preview";
 
 type LinkPreviewApiResponse = Readonly<
   | ({ ok: true } & LinkPreview)
   | {
-      ok: false;
-      message: string;
-    }
+    ok: false;
+    message: string;
+  }
 >;
 
 const fetchLinkPreview = async (url: string): Promise<LinkPreview> => {

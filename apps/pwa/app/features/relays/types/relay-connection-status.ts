@@ -1,1 +1,1 @@
-export type { RelayConnectionStatus } from "./relays/relay-connection-status";
+export type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
