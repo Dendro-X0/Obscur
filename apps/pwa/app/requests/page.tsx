@@ -8,11 +8,11 @@ import { PageShell } from "../components/page-shell";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { EmptyState } from "../components/ui/empty-state";
-import { cn } from "../lib/cn";
-import { useBlocklist } from "../lib/use-blocklist";
-import { useIdentity } from "../lib/use-identity";
-import { usePeerTrust } from "../lib/use-peer-trust";
-import { useRequestsInbox } from "../lib/use-requests-inbox";
+import { cn } from "@/app/lib/utils";
+import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { usePeerTrust } from "@/app/features/contacts/hooks/use-peer-trust";
+import { useRequestsInbox } from "@/app/features/messaging/hooks/use-requests-inbox";
 import { IdentityCard } from "../components/identity-card";
 
 export default function RequestsPage(): React.JSX.Element {

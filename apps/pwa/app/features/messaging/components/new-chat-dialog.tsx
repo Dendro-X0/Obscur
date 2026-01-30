@@ -4,8 +4,8 @@ import { Card } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { useTranslation } from "react-i18next";
-import { Loader2, UserCheck, UserX, AlertCircle } from "lucide-react";
-import { parsePublicKeyInput } from "../../../lib/parse-public-key-input";
+import { Loader2, UserCheck, UserX } from "lucide-react";
+import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 
 interface NewChatDialogProps {
     isOpen: boolean;
@@ -101,7 +101,7 @@ export function NewChatDialog({
                                 <UserX className="h-3.5 w-3.5 mt-0.5" />
                                 <div>
                                     <p className="font-semibold">User not found on relays.</p>
-                                    <p>They might be new or haven't published a profile. You can still create the chat, but delivery isn't guaranteed.</p>
+                                    <p>They might be new or haven&apos;t published a profile. You can still create the chat, but delivery isn&apos;t guaranteed.</p>
                                 </div>
                             </div>
                         )}

@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
-import { cn } from "../../../lib/cn";
+import { cn } from "@/app/lib/utils";
 import { formatTime, highlightText } from "../utils/formatting";
 import type { Conversation } from "../types";
 import { RequestsInboxPanel } from "./requests-inbox-panel";
@@ -62,44 +62,48 @@ export function Sidebar({
     onSelectRequest
 }: SidebarProps) {
     const { t } = useTranslation();
+    const [initialNowMs] = useState<number>(() => Date.now());
+    const resolvedNowMs: number = nowMs ?? initialNowMs;
 
     const chatsUnreadTotal = Object.values(unreadByConversationId).reduce((a, b) => a + b, 0);
     const requestsUnreadTotal = requests.reduce((sum, r) => sum + r.unreadCount, 0);
 
     return (
         <div className="flex h-full flex-col">
-            <div className="border-b border-black/5 p-3 dark:border-white/5 space-y-3">
-                <div className="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
+            <div className="border-b border-black/[0.03] p-4 dark:border-white/[0.03] space-y-4">
+                <div className="flex p-1 bg-black/[0.03] dark:bg-white/5 rounded-2xl ring-1 ring-black/[0.02] dark:ring-white/[0.02]">
                     <button
                         onClick={() => setActiveTab("chats")}
+                        suppressHydrationWarning
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all",
+                            "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
                             activeTab === "chats"
-                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm shadow-black/5 ring-1 ring-black/[0.02]"
                                 : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                         )}
                     >
                         Chats
                         {chatsUnreadTotal > 0 && (
-                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-purple-600 px-1 text-[10px] text-white">
+                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] font-bold text-white shadow-sm shadow-purple-600/30">
                                 {chatsUnreadTotal}
                             </span>
                         )}
                     </button>
                     <button
                         onClick={() => setActiveTab("requests")}
+                        suppressHydrationWarning
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all",
+                            "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
                             activeTab === "requests"
-                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm shadow-black/5 ring-1 ring-black/[0.02]"
                                 : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                         )}
                     >
                         Requests
                         {requests.length > 0 && (
                             <span className={cn(
-                                "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] text-white",
-                                requestsUnreadTotal > 0 ? "bg-purple-600" : "bg-zinc-400 dark:bg-zinc-600"
+                                "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white shadow-sm",
+                                requestsUnreadTotal > 0 ? "bg-purple-600 shadow-purple-600/30" : "bg-zinc-400 dark:bg-zinc-600 shadow-black/10"
                             )}>
                                 {requests.length}
                             </span>
@@ -107,24 +111,27 @@ export function Sidebar({
                     </button>
                 </div>
 
-                <div className="relative">
+                <div className="relative group">
                     <Input
                         ref={searchInputRef}
                         placeholder={t("messaging.searchChats")}
-                        className="pl-9 h-10 bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5"
+                        className="pl-9 h-11 bg-black/[0.02] dark:bg-white/[0.02] border-transparent focus-visible:bg-white dark:focus-visible:bg-zinc-900 transition-all rounded-2xl"
                         value={searchQuery}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                        suppressHydrationWarning
                     />
-                    <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500 dark:text-zinc-400">⌕</div>
+                    <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 transition-colors group-focus-within:text-purple-500">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
                 </div>
 
                 {activeTab === "chats" && (
-                    <div className="flex gap-2">
-                        <Button type="button" className="flex-1 h-9 shadow-sm" onClick={() => setIsNewChatOpen(true)}>
-                            {t("messaging.newChat")}
+                    <div className="flex gap-3">
+                        <Button type="button" className="flex-1 h-10 shadow-sm py-0 rounded-2xl" onClick={() => setIsNewChatOpen(true)} suppressHydrationWarning>
+                            <span className="text-xs font-bold tracking-tight">{t("messaging.newChat")}</span>
                         </Button>
-                        <Button type="button" variant="secondary" className="flex-1 h-9 border-black/5 dark:border-white/5" onClick={() => setIsNewGroupOpen(true)}>
-                            {t("messaging.newGroup")}
+                        <Button type="button" variant="secondary" className="flex-1 h-10 border-black/[0.03] dark:border-white/[0.03] py-0 rounded-2xl" onClick={() => setIsNewGroupOpen(true)} suppressHydrationWarning>
+                            <span className="text-xs font-bold tracking-tight">{t("messaging.newGroup")}</span>
                         </Button>
                     </div>
                 )}
@@ -134,7 +141,7 @@ export function Sidebar({
                 {activeTab === "requests" ? (
                     <RequestsInboxPanel
                         requests={requests}
-                        nowMs={nowMs ?? Date.now()}
+                        nowMs={resolvedNowMs}
                         onAccept={onAcceptRequest}
                         onIgnore={onIgnoreRequest}
                         onBlock={onBlockRequest}
@@ -172,8 +179,8 @@ export function Sidebar({
                                         <div className="min-w-0 flex-1 py-0.5">
                                             <div className="mb-1 flex items-center justify-between">
                                                 <span className="font-bold text-sm tracking-tight text-zinc-900 dark:text-zinc-100">{conversation.displayName}</span>
-                                                {formatTime(conversation.lastMessageTime, nowMs) ? (
-                                                    <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">{formatTime(conversation.lastMessageTime, nowMs)}</span>
+                                                {formatTime(conversation.lastMessageTime, resolvedNowMs) ? (
+                                                    <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">{formatTime(conversation.lastMessageTime, resolvedNowMs)}</span>
                                                 ) : null}
                                             </div>
                                             <div className="flex items-start justify-between gap-2 overflow-hidden">
@@ -214,10 +221,10 @@ export function Sidebar({
                                                         >
                                                             <div className="flex items-center justify-between gap-2 mb-1">
                                                                 <div className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">{conversation.displayName}</div>
-                                                                <div className="shrink-0 text-[10px] font-medium text-zinc-500">{formatTime(result.timestamp, nowMs) ?? ""}</div>
+                                                                <div className="shrink-0 text-[10px] font-medium text-zinc-500">{formatTime(result.timestamp, resolvedNowMs) ?? ""}</div>
                                                             </div>
                                                             <div className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400 italic">
-                                                                "{highlightText({ text: result.preview, query: searchQuery })}"
+                                                                &quot;{highlightText({ text: result.preview, query: searchQuery })}&quot;
                                                             </div>
                                                         </button>
                                                     );

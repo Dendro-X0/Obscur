@@ -50,7 +50,7 @@ export function Composer({
                     </div>
                     <div>
                         <p className="font-semibold">Recipient profile not found.</p>
-                        <p>This user hasn't published a profile on your connected relays. Delivery might be unreliable.</p>
+                        <p>This user hasn&apos;t published a profile on your connected relays. Delivery might be unreliable.</p>
                     </div>
                 </div>
             )}

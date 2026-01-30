@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useIdentity } from "../../lib/use-identity";
-import { inviteManager } from "../../lib/invites/invite-manager";
-import type { InviteLink, InviteLinkOptions } from "../../lib/invites/types";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { inviteManager } from "@/app/features/invites/utils/invite-manager";
+import type { InviteLink, InviteLinkOptions } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";

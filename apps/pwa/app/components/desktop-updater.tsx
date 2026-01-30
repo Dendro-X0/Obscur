@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { useTranslation } from "react-i18next";
 
 interface UpdateInfo {
   available: boolean;
@@ -12,17 +13,19 @@ interface UpdateInfo {
 }
 
 export const DesktopUpdater = () => {
+  const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isInstalling, setIsInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
     // Check if running in Tauri desktop app
     const checkDesktop = async () => {
       try {
-        // @ts-ignore - Tauri global is only available in desktop
-        if (window.__TAURI__) {
+        const tauriWindow = window as Window & { __TAURI__?: unknown };
+        if (tauriWindow.__TAURI__) {
           setIsDesktop(true);
         }
       } catch {
@@ -37,25 +40,28 @@ export const DesktopUpdater = () => {
     if (!isDesktop) return;
 
     try {
+      setIsChecking(true);
       setError(null);
       const result = await invoke<string>("check_for_updates");
-      
+
       if (result.includes("Update available")) {
         const version = result.replace("Update available: ", "");
         setUpdateInfo({
           available: true,
           version,
-          message: `Version ${version} is available`,
+          message: t("settings.updates.versionAvailable", { version }),
         });
       } else {
         setUpdateInfo({
           available: false,
-          message: "You're running the latest version",
+          message: t("settings.updates.latest"),
         });
       }
     } catch (err) {
       setError(err as string);
       console.error("Failed to check for updates:", err);
+    } finally {
+      setIsChecking(false);
     }
   };
 
@@ -88,10 +94,10 @@ export const DesktopUpdater = () => {
   if (updateInfo?.available) {
     return (
       <div className="fixed bottom-4 right-4 z-50 max-w-md">
-        <Card className="p-4 shadow-lg border-2 border-blue-500">
+        <Card className="p-4 shadow-lg border-2 border-purple-500">
           <div className="flex flex-col gap-3">
             <div>
-              <h3 className="font-semibold text-lg">Update Available</h3>
+              <h3 className="font-semibold text-lg">{t("settings.updates.available")}</h3>
               <p className="text-sm text-muted-foreground">
                 {updateInfo.message}
               </p>
@@ -109,14 +115,14 @@ export const DesktopUpdater = () => {
                 disabled={isInstalling}
                 className="flex-1"
               >
-                {isInstalling ? "Installing..." : "Install Update"}
+                {isInstalling ? t("settings.updates.installing") : t("settings.updates.install")}
               </Button>
               <Button
                 onClick={dismissUpdate}
                 variant="outline"
                 disabled={isInstalling}
               >
-                Later
+                {t("settings.updates.later")}
               </Button>
             </div>
           </div>
@@ -131,9 +137,10 @@ export const DesktopUpdater = () => {
       <Button
         onClick={checkForUpdates}
         variant="outline"
+        disabled={isChecking}
         className="min-h-8 rounded-lg px-3 py-1 text-xs"
       >
-        Check for Updates
+        {isChecking ? t("settings.updates.checking") : t("settings.updates.check")}
       </Button>
       {updateInfo && !updateInfo.available && (
         <span className="text-sm text-muted-foreground">

@@ -4,14 +4,14 @@ import type React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, UserPlus, Users, X } from "lucide-react";
-import { cn } from "../lib/cn";
+import { Bell, Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, UserPlus, Users, X } from "lucide-react";
+import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import type { NavItem } from "../lib/navigation/nav-item";
 import { UserAvatarMenu } from "./user-avatar-menu";
-import { useIsDesktop } from "../lib/desktop/use-tauri";
-import { useKeyboardShortcuts } from "../lib/desktop/use-keyboard-shortcuts";
-import { useDesktopLayout } from "../lib/desktop/use-desktop-layout";
+import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
+import { useKeyboardShortcuts } from "@/app/features/desktop/hooks/use-keyboard-shortcuts";
+import { useDesktopLayout } from "@/app/features/desktop/hooks/use-desktop-layout";
 import { RelayStatusBadge } from "./relay-status-badge";
 import { useTranslation } from "react-i18next";
 
@@ -25,12 +25,13 @@ type AppShellProps = Readonly<{
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.sidebarExpanded";
 
-const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
-  "/": (props: Readonly<{ className?: string }>): React.JSX.Element => <MessageSquare className={props.className} />,
-  "/contacts": (props: Readonly<{ className?: string }>): React.JSX.Element => <Users className={props.className} />,
-  "/invites": (props: Readonly<{ className?: string }>): React.JSX.Element => <UserPlus className={props.className} />,
-  "/search": (props: Readonly<{ className?: string }>): React.JSX.Element => <Search className={props.className} />,
-  "/settings": (props: Readonly<{ className?: string }>): React.JSX.Element => <Settings className={props.className} />,
+const ICON_BY_HREF: Readonly<Record<string, any>> = {
+  "/": MessageSquare,
+  "/contacts": Users,
+  "/invites": UserPlus,
+  "/search": Search,
+  "/requests": Bell,
+  "/settings": Settings,
 };
 
 const loadExpanded = (): boolean => {
@@ -124,17 +125,23 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                       href={item.href}
                       suppressHydrationWarning
                       className={cn(
-                        "nav-link relative flex items-center gap-3 rounded-xl border border-black/10 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200",
-                        isActive && "active bg-zinc-100 dark:bg-zinc-900/40"
+                        "nav-link relative flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-sm font-semibold transition-all",
+                        isActive
+                          ? "border-purple-500/20 bg-purple-500/10 text-purple-600 dark:border-purple-400/20 dark:bg-purple-400/10 dark:text-purple-400 shadow-sm shadow-purple-500/10"
+                          : "border-black/5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 dark:border-white/5 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:bg-zinc-900/60"
                       )}
                       onClick={(): void => setMobileSidebarOpen(false)}
                       aria-label={label}
                     >
-                      {Icon ? <Icon className="h-5 w-5" /> : null}
+                      {Icon ? (
+                        <div className={cn("transition-transform group-hover:scale-110", isActive ? "scale-110" : "")}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                      ) : null}
                       <span className="flex-1">{label}</span>
                       {badgeCount > 0 ? (
                         <span
-                          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white"
+                          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white shadow-lg shadow-red-600/20"
                           aria-label={`${label} unread count ${badgeCount}`}
                         >
                           {badgeCount > 99 ? "99+" : badgeCount}
@@ -174,15 +181,19 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                   href={item.href}
                   suppressHydrationWarning
                   className={cn(
-                    "nav-link relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
-                    isActive && "active border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60"
+                    "nav-link group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent transition-all",
+                    isActive
+                      ? "border-purple-500/20 bg-purple-500/10 text-purple-600 dark:border-purple-400/20 dark:bg-purple-400/10 dark:text-purple-400 shadow-[0_0_10px_oklch(0.6_0.2_270_/_0.15)]"
+                      : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900/60"
                   )}
                   aria-label={label}
                 >
-                  {Icon ? <Icon className="h-4 w-4" /> : null}
+                  {Icon ? (
+                    <Icon className={cn("h-4 w-4 transition-transform group-hover:scale-110", isActive ? "scale-110" : "")} />
+                  ) : null}
                   {badgeCount > 0 ? (
                     <span
-                      className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white"
+                      className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-600 px-0.5 text-[9px] font-bold text-white shadow-lg shadow-red-600/30"
                       aria-label={`${label} unread count ${badgeCount}`}
                     >
                       {badgeCount > 99 ? "99+" : badgeCount}
@@ -265,3 +276,4 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
 };
 
 export { AppShell };
+export default AppShell;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchBootstrapConfig } from "../lib/fetch-bootstrap-config";
-import { useRelayPool } from "../lib/use-relay-pool";
+import { fetchBootstrapConfig } from "@/app/features/onboarding/utils/fetch-bootstrap-config";
+import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
 import { Card } from "./ui/card";
 
 type RelayConnectivityViewState = Readonly<{

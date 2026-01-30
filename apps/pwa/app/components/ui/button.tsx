@@ -22,12 +22,12 @@ const getVariantClassName = (variant: ButtonVariant): string => {
     return "border border-red-500/30 bg-red-600 text-white hover:bg-red-700 dark:border-red-500/40 dark:bg-red-600 dark:hover:bg-red-700";
   }
   if (variant === "outline") {
-    return "border border-zinc-300 bg-transparent text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800";
+    return "border border-black/10 bg-transparent text-zinc-900 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-100 dark:hover:bg-zinc-900/50";
   }
   if (variant === "ghost") {
-    return "bg-transparent text-zinc-900 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800";
+    return "bg-transparent text-zinc-900 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-900/50";
   }
-  return "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white";
+  return "bg-gradient-primary text-white shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30 dark:shadow-purple-900/20";
 };
 
 const getSizeClassName = (size: ButtonSize): string => {
@@ -50,9 +50,9 @@ export const Button = (props: ButtonProps) => {
     <Component
       {...(rest as any)}
       className={cn(
-        "btn-enhanced inline-flex items-center justify-center gap-2 font-medium transition-all active:scale-95",
+        "btn-enhanced inline-flex items-center justify-center gap-2 font-semibold transition-all active:scale-95",
         getSizeClassName(resolvedSize),
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black",
         "disabled:pointer-events-none disabled:opacity-40",
         getVariantClassName(resolvedVariant),
         className

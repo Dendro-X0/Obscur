@@ -1,7 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri_plugin_updater::UpdaterExt;
-use tauri::{Manager, PhysicalPosition, PhysicalSize, Window, Emitter, WebviewWindow};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, Window,
+};
 use serde_json::json;
 use tauri_plugin_deep_link::DeepLinkExt;
 
@@ -73,7 +77,8 @@ async fn window_unmaximize(window: Window) -> Result<(), String> {
 
 #[tauri::command]
 async fn window_close(window: Window) -> Result<(), String> {
-    window.close().map_err(|e| e.to_string())
+    // For background mode, we might want this to just hide the window
+    window.hide().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -245,6 +250,48 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
+            // System Tray Setup
+            let show_i = MenuItem::with_id(app, "show", "Show Obscur", true, None::<&str>)?;
+            let hide_i = MenuItem::with_id(app, "hide", "Hide to Tray", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
+
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             // Get the main window
             let window = app.get_webview_window("main").expect("Failed to get main window");
             
@@ -253,14 +300,24 @@ fn main() {
                 apply_window_state(&window, state);
             }
 
-            // Save window state on close
+            // Save window state and intercept close
             let app_handle = app.handle().clone();
             let window_clone = window.clone();
             window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { .. } = event {
-                    let _ = tauri::async_runtime::block_on(async {
-                        save_window_state(window_clone.clone(), app_handle.clone()).await
-                    });
+                match event {
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        // Prevent the window from closing and hide it instead
+                        api.prevent_close();
+                        let _ = window_clone.hide();
+                        
+                        // Save state asynchronously
+                        let wh = window_clone.clone();
+                        let ah = app_handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = save_window_state(wh, ah).await;
+                        });
+                    }
+                    _ => {}
                 }
             });
 
@@ -270,24 +327,15 @@ fn main() {
             app.deep_link().on_open_url(move |event| {
                 let urls = event.urls();
                 let url = urls.first().map(|u| u.as_str()).unwrap_or("").to_string();
-                println!("Deep link opened: {}", url);
                 
                 // Emit event to frontend
                 if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
                     let _ = window.emit("deep-link", json!({ "url": url }));
                 }
             });
 
-            // Check for updates on startup
-            let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                if let Ok(updater) = app_handle.updater_builder().build() {
-                    if let Ok(Some(update)) = updater.check().await {
-                        println!("Update available: {}", update.version);
-                        // The dialog is enabled in tauri.conf.json, so it will show automatically
-                    }
-                }
-            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -3,7 +3,7 @@
 import type React from "react";
 import { Minus, Square, X, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "../ui/button";
-import { useTauri } from "../../lib/desktop/use-tauri";
+import { useTauri } from "@/app/features/desktop/hooks/use-tauri";
 import { useState, useEffect } from "react";
 
 /**

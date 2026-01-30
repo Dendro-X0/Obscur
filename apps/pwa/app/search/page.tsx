@@ -9,12 +9,12 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { PageShell } from "../components/page-shell";
 import { IdentityCard } from "../components/identity-card";
-import { parsePublicKeyInput } from "../lib/parse-public-key-input";
-import { parseNip29GroupIdentifier } from "../lib/parse-nip29-group-identifier";
-import { useIdentity } from "../lib/use-identity";
-import { useRelayList } from "../lib/use-relay-list";
-import { useRelayPool } from "../lib/use-relay-pool";
-import useNavBadges from "../lib/use-nav-badges";
+import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
+import { parseNip29GroupIdentifier } from "@/app/features/groups/utils/parse-nip29-group-identifier";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
+import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { Loader2, Search, User as UserIcon } from "lucide-react";
 
@@ -26,7 +26,7 @@ export default function SearchPage(): React.JSX.Element {
   const publicKeyHex: PublicKeyHex | null = (identity.state.publicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
   const relayList = useRelayList({ publicKeyHex });
-  const enabledRelayUrls = useMemo(() => relayList.state.relays.filter(r => r.enabled).map(r => r.url), [relayList.state.relays]);
+  const enabledRelayUrls = useMemo(() => relayList.state.relays.filter((r: { enabled: boolean }) => r.enabled).map((r: { url: string }) => r.url), [relayList.state.relays]);
   const pool = useRelayPool(enabledRelayUrls);
 
   const [mode, setMode] = useState<SearchMode>("user");
@@ -47,12 +47,12 @@ export default function SearchPage(): React.JSX.Element {
     const subId = Math.random().toString(36).substring(7);
     // Removed broken invite code search. "OBSCUR-" codes are local and not queryable on relays via #code.
     // Use NIP-50 search for text.
-    const filter: any = { kinds: [0], limit: 10, search: trimmedPubkeyInput };
+    const filter: Readonly<{ kinds: number[]; limit: number; search: string }> = { kinds: [0], limit: 10, search: trimmedPubkeyInput };
     const req = JSON.stringify(["REQ", subId, filter]);
 
     void pool.broadcastEvent(req);
 
-    const cleanup = pool.subscribeToMessages(({ message }) => {
+    const cleanup = pool.subscribeToMessages(({ message }: { message: string }) => {
       try {
         const parsed = JSON.parse(message);
         if (parsed[0] === "EVENT" && parsed[1] === subId) {
@@ -198,7 +198,7 @@ export default function SearchPage(): React.JSX.Element {
                   <div className="break-all font-mono">{parsedPubkey.publicKeyHex}</div>
                 </div>
                 <div className="p-3 text-xs text-amber-600 bg-amber-50 rounded-xl dark:text-amber-400 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
-                  Note: If this user is new or hasn't published a profile, they might not appear in search results, but you can still start a chat.
+                  Note: If this user is new or hasn&apos;t published a profile, they might not appear in search results, but you can still start a chat.
                 </div>
               </div>
             ) : null}

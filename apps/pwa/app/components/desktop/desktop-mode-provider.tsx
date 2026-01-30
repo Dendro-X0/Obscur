@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useIsDesktop } from "../../lib/desktop/use-tauri";
+import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 
 /**
  * Provider that adds desktop-mode class to body and manages desktop-specific behavior

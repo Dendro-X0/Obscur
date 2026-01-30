@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useRelayList } from "../lib/use-relay-list";
-import { useRelayPool } from "../lib/use-relay-pool";
-import { useIdentity } from "../lib/use-identity";
-import { cn } from "../lib/cn";
+import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
+import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { cn } from "@/app/lib/utils";
 import { Wifi, WifiOff } from "lucide-react";
 
 /**

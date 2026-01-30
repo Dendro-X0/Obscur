@@ -2,9 +2,9 @@
 
 import type React from "react";
 import { TitleBar } from "./title-bar";
-import { useDesktopNotifications } from "../../lib/desktop/use-desktop-notifications";
-import { useDesktopTheme } from "../../lib/desktop/use-desktop-theme";
-import { useIsDesktop } from "../../lib/desktop/use-tauri";
+import { useDesktopNotifications } from "@/app/features/desktop/hooks/use-desktop-notifications";
+import { useDesktopTheme } from "@/app/features/desktop/hooks/use-desktop-theme";
+import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 
 /**
  * Example component demonstrating desktop feature integration

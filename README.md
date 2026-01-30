@@ -14,6 +14,17 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
 - **📱 Progressive Web App**: Installable with offline functionality and push notifications
 - **🖥️ Cross-Platform**: Web app with planned desktop and mobile versions
 
+## 🛡️ Privacy & Security
+
+Obscur is built with a "Privacy by Design" philosophy, ensuring that your communications remain secure and metadata-private.
+
+- **Metadata Privacy (NIP-17)**: Messages are triple-wrapped (Rumor → Seal → Gift Wrap) to hide sender and recipient identities from relays.
+- **End-to-End Encryption**: All direct messages are encrypted using NIP-04/NIP-44 standards.
+- **At-Rest Encryption**: Your local message database is encrypted with AES-GCM using a key derived from your passphrase.
+- **Network Anonymity**: Native support for Tor Network (SOCKS5 proxy) to mask your IP address.
+- **Session Protection**: Configurable auto-lock timers and clipboard wiping to protect your session when you step away.
+- **No Private Key Sharing**: Your private keys never leave your device.
+
 ## 🏗️ Architecture
 
 This repository is a PNPM workspace with:

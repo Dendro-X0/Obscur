@@ -4,21 +4,28 @@ import type React from "react";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PageShell } from "../../components/page-shell";
-import { Button } from "../../components/ui/button";
-import { Card } from "../../components/ui/card";
-import { Textarea } from "../../components/ui/textarea";
-import { IdentityCard } from "../../components/identity-card";
-import { useRelayPool } from "../../lib/use-relay-pool";
-import { parseNip29GroupIdentifier } from "../../lib/parse-nip29-group-identifier";
-import { useNip29Group } from "../../lib/use-nip29-group";
-import { useIdentity } from "../../lib/use-identity";
-import useNavBadges from "../../lib/use-nav-badges";
+import { PageShell } from "@/app/components/page-shell";
+import { Button } from "@/app/components/ui/button";
+import { Card } from "@/app/components/ui/card";
+import { Textarea } from "@/app/components/ui/textarea";
+import { IdentityCard } from "@/app/components/identity-card";
+import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import { parseNip29GroupIdentifier } from "@/app/features/groups/utils/parse-nip29-group-identifier";
+import { useNip29Group } from "@/app/features/groups/hooks/use-nip29-group";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type GroupPageClientProps = Readonly<{
     groupId: string;
+}>;
+
+type GroupMessageEvent = Readonly<{
+    id: string;
+    pubkey: string;
+    created_at: number;
+    content: string;
 }>;
 
 export default function GroupPageClient(props: GroupPageClientProps): React.JSX.Element {
@@ -199,7 +206,7 @@ export default function GroupPageClient(props: GroupPageClientProps): React.JSX.
                         </div>
                         {group.state.messages.length === 0 ? <div className="text-sm text-zinc-600 dark:text-zinc-400">No messages yet.</div> : null}
                         <ul className="mt-2 space-y-2">
-                            {group.state.messages.slice(0, 30).map((event) => (
+                            {group.state.messages.slice(0, 30).map((event: GroupMessageEvent) => (
                                 <li key={event.id} className="rounded-xl border border-black/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-950/60">
                                     <div className="flex items-center justify-between gap-2">
                                         <div className="min-w-0 font-mono text-[11px] text-zinc-600 wrap-break-word dark:text-zinc-400">{event.pubkey}</div>

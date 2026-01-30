@@ -7,10 +7,10 @@ import { PageShell } from "../components/page-shell";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { IdentityCard } from "../components/identity-card";
-import { useIdentity } from "../lib/use-identity";
-import { parseInviteParams } from "../lib/parse-invite-params";
-import { useInvites } from "../lib/use-invites";
-import useNavBadges from "../lib/use-nav-badges";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { parseInviteParams } from "@/app/features/invites/utils/parse-invite-params";
+import { useInvites } from "@/app/features/invites/hooks/use-invites";
+import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type InviteDraft = Readonly<{

@@ -4,9 +4,9 @@ import type React from "react";
 import Image from "next/image";
 import { useMemo } from "react";
 import { ExternalLink } from "lucide-react";
-import { cn } from "../lib/cn";
-import { extractFirstUrl } from "../lib/extract-first-url";
-import { useLinkPreview } from "../lib/use-link-preview";
+import { cn } from "@/app/lib/utils";
+import { extractFirstUrl } from "@/app/features/messaging/utils/extract-first-url";
+import { useLinkPreview } from "@/app/features/messaging/hooks/use-link-preview";
 
 type MessageLinkPreviewProps = Readonly<{
   content: string;

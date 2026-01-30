@@ -24,18 +24,17 @@ const ESSENTIAL_EXTENSIONS = ['.exe', '.dmg', '.AppImage'];
 export default function DownloadPage() {
   const { t } = useTranslation();
   const [release, setRelease] = useState<Release | null>(null);
-  const [os, setOs] = useState<"win" | "mac" | "linux" | "unknown">("unknown");
+  const [os] = useState<"win" | "mac" | "linux" | "unknown">(() => {
+    if (typeof window === "undefined") return "unknown";
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    if (userAgent.includes("win")) return "win";
+    if (userAgent.includes("mac")) return "mac";
+    if (userAgent.includes("linux")) return "linux";
+    return "unknown";
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Detect OS
-    if (typeof window !== "undefined") {
-      const userAgent = window.navigator.userAgent.toLowerCase();
-      if (userAgent.includes("win")) setOs("win");
-      else if (userAgent.includes("mac")) setOs("mac");
-      else if (userAgent.includes("linux")) setOs("linux");
-    }
-
     // Fetch release
     fetch("https://api.github.com/repos/Dendro-X0/Obscur/releases/latest")
       .then(res => {

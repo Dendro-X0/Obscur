@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "@/app/lib/utils";
 
 type TextToken = Readonly<
   | { kind: "text"; value: string }

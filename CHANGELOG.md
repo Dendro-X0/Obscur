@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [Unreleased]
+
+### Added
+
+- **Performance Optimization (Phase 8)**:
+  - **Worker-Based Crypto Architecture**: Moved heavy cryptographic operations (event signing, NIP-04 encryption/decryption) to a Web Worker using `Comlink`. This ensures the main UI thread remains responsive during intensive tasks.
+  - **Crypto Service Refactoring**: Decoupled core logic into `CryptoServiceImpl` and introduced `crypto-interfaces.ts` to break circular dependencies.
+  - **Async Test Suite**: Updated `crypto-service.test.ts` to handle asynchronous worker communication (Work in Progress: some property-based tests are failing due to mock timing/determinism issues).
+
+### Fixed
+
+- **Internationalization (i18n)**: Restored missing English translation keys causing UI labels to display as "messaging.searchChats" etc.
+  - Created dedicated `en.ts` locale file.
+  - Updated i18n configuration to load translations correctly.
+- **Relay Testing**: Resolved "stuck" testing state for relay features.
+  - Fixed Vitest configuration alias issues (`@/` not resolving).
+  - Updated integration tests to support NIP-17 "Gift Wrap" encryption (Kind 1059).
+  - Verified multi-relay failover and real-time subscription logic.
+
+### Changed
+
+- **Codebase Refactoring (Pre-Phase 8)**:
+  - **Feature-Based Architecture**: Migrated messaging controllers and hooks to `app/features/messaging` and `app/features/relays` for better modularity.
+  - **Import Cleanup**: Updated codebase to use absolute `@/` imports consistently, eliminating fragile relative paths.
+  - **Relay Hooks Standardization**: Consolidated relay connection logic into `useEnhancedRelayPool`, ensuring consistent behavior across the app.
+  - **Testing Infrastructure**: Fixed integration tests for multi-relay failover to work with the new architecture.
+
+
+
+## [0.2.9] - 2026-01-30
+
+### Fixed
+
+- **UI & Aesthetics**:
+  - **Critical Rendering Fixes**: Resolved "Element type is invalid" error in `AppShell` and fixed invisible buttons by adding missing `.bg-gradient-primary` utility.
+  - **Premium Design System**: Implemented vibrant gradients and glassmorphism for Identity Cards, Empty States, and the Messaging Sidebar.
+  - **Settings Page Polish**: Fixed visual bugs in Light Mode (white text on white background) and removed duplicate page titles in the header.
+- **Internationalization (i18n)**:
+  - **Complete Translations**: Added missing keys for Security, Health, and Appearance settings, replacing raw function names with human-readable labels.
+  - **Desktop Updater**: Integrated translations for update notifications and buttons.
+  - **Keyboard Shortcuts**: Localized the help modal and invite sharing components.
+
+## [0.2.8] - 2026-01-24
+
+### Added
+
+- **Privacy & Security Hardening (Phase 7)**:
+  - **Metadata Privacy (NIP-17)**: Implemented "Gift Wrap" messaging. Messages are now triple-layered (Rumor → Seal → Gift Wrap) to cryptographically hide sender and recipient identities from relays.
+  - **Data-at-Rest Encryption**: Local message storage (IndexedDB) is now encrypted with AES-GCM using a key derived from your passphrase.
+  - **Tor Network Support**: Native SOCKS5 proxy configuration for routing traffic through Tor (masked IP).
+  - **Privacy Dashboard**: New "Privacy & Safety" settings panel to manage encryption, auto-lock, and anonymity settings.
+  - **Clipboard Safety**: Optional setting to automatically clear the clipboard when the identity locks.
+
+### Fixed
+
+- **Relay Stability**: Switched default relay from `relay.nostr.band` (unstable) to `relay.primal.net` (stable) for improved connection reliability.
+- **Hydration Mismatches**: Resolved React hydration errors in localized UI components (Sidebar search, tabs, buttons) caused by language switching.
+- **Desktop UX**: Restored visibility of scrollbars in the Settings tab bar to fix accessibility issues on non-touch desktop devices.
+
 ## [0.2.7] - 2026-01-24
 
 ### Added

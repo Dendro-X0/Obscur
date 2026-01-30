@@ -4,8 +4,9 @@ import type React from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Passphrase } from "@dweb/crypto/passphrase";
-import { useIdentity } from "../lib/use-identity";
-import { useProfile } from "../lib/use-profile";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useProfile } from "@/app/features/profile/hooks/use-profile";
+import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { Button } from "./ui/button";
 import { ShareInviteCard } from "./share-invite-card";
 import { Input } from "./ui/input";
@@ -13,8 +14,8 @@ import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import { CheckCircle2, Loader2, User, Lock, UserPlus, QrCode } from "lucide-react";
 import { LanguageSelector } from "./language-selector";
-import { useInviteResolver, type ResolvedInvite } from "../lib/invites/use-invite-resolver";
-import { isValidInviteCode } from "../lib/invites/invite-parser";
+import { useInviteResolver, type ResolvedInvite } from "@/app/features/invites/utils/use-invite-resolver";
+import { isValidInviteCode } from "@/app/features/invites/utils/invite-parser";
 import { QRScanner } from "./qr-scanner";
 
 type OnboardingStep = "welcome" | "creating" | "username" | "add-contact" | "complete";
@@ -42,6 +43,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   const { resolveCode, isResolving, error: resolveError } = useInviteResolver({
     myPublicKeyHex: identity.state.publicKeyHex as any
   });
+  const { publishProfile, isPublishing: isPublishingProfile } = useProfilePublisher();
 
   const handleStart = async (): Promise<void> => {
     setStep("creating");
@@ -64,7 +66,16 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   const handleSetUsername = async (): Promise<void> => {
     // Store username in local profile
     if (username.trim()) {
-      profile.setUsername({ username: username.trim() });
+      const cleanUsername = username.trim();
+      profile.setUsername({ username: cleanUsername });
+
+      // Publish to relays so others can find us
+      try {
+        await publishProfile({ username: cleanUsername });
+      } catch (e) {
+        console.error("Failed to publish profile during onboarding:", e);
+        // Continue anyway, don't block user
+      }
     }
     setStep("add-contact");
   };
@@ -286,10 +297,10 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
               <Button
                 type="button"
                 onClick={() => void handleSetUsername()}
-                disabled={username.length < 3}
+                disabled={username.length < 3 || isPublishingProfile}
                 className="flex-1"
               >
-                {t("common.continue")}
+                {isPublishingProfile ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.saving")}</> : t("common.continue")}
               </Button>
             </div>
           </div>
@@ -322,7 +333,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 Add Your First Contact
               </h2>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                Have a friend's invite code? Enter it below to start your first private conversation.
+                {"Have a friend's invite code? Enter it below to start your first private conversation."}
               </p>
             </div>
 

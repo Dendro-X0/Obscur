@@ -1,5 +1,5 @@
 
-import { parsePublicKeyInput } from "../../../lib/parse-public-key-input";
+import { parsePublicKeyInput } from "../../profile/utils/parse-public-key-input";
 import type {
     PersistedChatState,
     PersistedDmConversation,

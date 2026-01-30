@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { inviteManager } from "../../lib/invites/invite-manager";
-import type { InviteLink } from "../../lib/invites/types";
+import { inviteManager } from "@/app/features/invites/utils/invite-manager";
+import type { InviteLink } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useTheme } from "../lib/use-theme";
+import { useTheme } from "@/app/features/settings/hooks/use-theme";
 
 type ThemePreference = "system" | "light" | "dark";
 

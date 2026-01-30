@@ -1,0 +1,12 @@
+services:
+  nostr-relay:
+    image: scsibug/nostr-rs-relay:latest
+    ports:
+      - "7000:8080"
+    volumes:
+      - ./infra/nostr/nostr-rs-relay.toml:/config.toml:ro
+      - nostr-relay-data:/usr/src/app/db
+    command: ["--config", "/config.toml"]
+
+volumes:
+  nostr-relay-data:

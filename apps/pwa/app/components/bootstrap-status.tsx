@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { BootstrapConfig } from "@dweb/core/bootstrap-config";
-import { fetchBootstrapConfig } from "../lib/fetch-bootstrap-config";
+import { fetchBootstrapConfig } from "@/app/features/onboarding/utils/fetch-bootstrap-config";
 import { Card } from "./ui/card";
 
 type BootstrapStatusState = Readonly<{

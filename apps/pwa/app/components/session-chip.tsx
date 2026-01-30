@@ -3,7 +3,7 @@
 import type React from "react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "@/app/lib/utils";
 
 const MENU_APPROX_HEIGHT_PX: number = 220;
 

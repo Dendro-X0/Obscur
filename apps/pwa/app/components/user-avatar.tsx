@@ -3,7 +3,7 @@
 import type React from "react";
 import Image from "next/image";
 import { User } from "lucide-react";
-import { cn } from "../lib/cn";
+import { cn } from "@/app/lib/utils";
 
 type UserAvatarProps = Readonly<{
   username: string;

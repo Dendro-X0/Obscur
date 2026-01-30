@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchBootstrapConfig } from "../lib/fetch-bootstrap-config";
-import { useIdentity } from "../lib/use-identity";
-import { useRelayPool } from "../lib/use-relay-pool";
-import { useEnhancedDMController, type Message } from "../lib/use-enhanced-dm-controller";
+import { fetchBootstrapConfig } from "@/app/features/onboarding/utils/fetch-bootstrap-config";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import { useEnhancedDMController, type Message } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -257,7 +257,7 @@ export const DirectMessagesCard = () => {
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
           <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <span className="text-sm text-amber-700 dark:text-amber-300">
-            You're offline. Messages will be sent when connection is restored.
+            {"You're offline. Messages will be sent when connection is restored."}
           </span>
         </div>
       )}

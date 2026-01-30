@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { qrGenerator } from "../../lib/invites/qr-generator";
-import { inviteManager } from "../../lib/invites/invite-manager";
-import type { ContactRequest } from "../../lib/invites/types";
+import { qrGenerator } from "@/app/features/invites/utils/qr-generator";
+import { inviteManager } from "@/app/features/invites/utils/invite-manager";
+import type { ContactRequest } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 

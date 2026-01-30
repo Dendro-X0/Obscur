@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeepLink } from "../../lib/desktop/use-deep-link";
+import { useDeepLink } from "@/app/features/desktop/hooks/use-deep-link";
 
 /**
  * Component that handles deep links in desktop mode

@@ -1,0 +1,144 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.17 [39m[90mE:/Web Project/experimental-workspace/newstart/apps/pwa[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mMulti-Relay Publishing[2m > [22m[2mshould publish to all connected relays
+[22m[39mNetwork state changed: { isOnline: [33mtrue[39m, hasRelayConnection: [33mtrue[39m }
+Subscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mMulti-Relay Publishing[2m > [22m[2mshould succeed if at least one relay accepts
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mIndividual Relay Failures[2m > [22m[2mshould continue with other relays when one fails
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mIndividual Relay Failures[2m > [22m[2mshould track relay-specific failures
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mAll Relays Fail[2m > [22m[2mshould queue message when all relays fail
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mRelay Recovery[2m > [22m[2mshould handle relay coming back online
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mRelay Recovery[2m > [22m[2mshould handle relay coming back online
+[22m[39mRelay connection established, triggering initial sync
+Sync already in progress, skipping
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mRelay Performance Tracking[2m > [22m[2mshould track relay latency
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mSubscription Management Across Relays[2m > [22m[2mshould subscribe to all open relays
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mSubscription Management Across Relays[2m > [22m[2mshould receive messages from any connected relay
+[22m[39mSubscribed to incoming DMs with filter: {
+  kinds: [ [33m4[39m, [33m1059[39m ],
+  [32m'#p'[39m: [
+    [32m'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc'[39m
+  ],
+  limit: [33m50[39m
+}
+Relay connection established, triggering initial sync
+Starting message sync from timestamp: [35m2026-01-29T11:06:25.000Z[39m
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mSubscription Management Across Relays[2m > [22m[2mshould receive messages from any connected relay
+[22m[39mProcessed incoming message from accepted contact: msg_from_relay1
+
+[90mstdout[2m | app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22m[2mIntegration: Multi-Relay Failover and Recovery[2m > [22m[2mSubscription Management Across Relays[2m > [22m[2mshould receive messages from any connected relay
+[22m[39mProcessed incoming message from accepted contact: msg_from_relay2
+
+ [31m❯[39m app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 216[2mms[22m[39m
+       [32m✓[39m should publish to all connected relays[32m 36[2mms[22m[39m
+       [32m✓[39m should succeed if at least one relay accepts[32m 22[2mms[22m[39m
+       [32m✓[39m should continue with other relays when one fails[32m 6[2mms[22m[39m
+       [32m✓[39m should track relay-specific failures[32m 6[2mms[22m[39m
+       [32m✓[39m should queue message when all relays fail[32m 25[2mms[22m[39m
+       [32m✓[39m should handle relay coming back online[32m 16[2mms[22m[39m
+       [32m✓[39m should track relay latency[32m 15[2mms[22m[39m
+[31m       [31m×[31m should subscribe to all open relays[39m[32m 18[2mms[22m[39m
+       [32m✓[39m should receive messages from any connected relay[32m 70[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts[2m > [22mIntegration: Multi-Relay Failover and Recovery[2m > [22mSubscription Management Across Relays[2m > [22mshould subscribe to all open relays
+[31m[1mAssertionError[22m: expected undefined to be defined[39m
+[36m [2m❯[22m app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts:[2m547:23[22m[39m
+    [90m545| [39m        return message.includes('REQ') && message.includes('"kinds":[4…
+    [90m546| [39m      })[33m;[39m
+    [90m547| [39m      [34mexpect[39m(reqCall)[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m   | [39m                      [31m^[39m
+    [90m548| [39m    })[33m;[39m
+    [90m549| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 23:06:24
+[2m   Duration [22m 1.68s[2m (transform 191ms, setup 130ms, import 366ms, tests 216ms, environment 678ms)[22m
+

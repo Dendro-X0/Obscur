@@ -1,8 +1,8 @@
 "use client";
 
 import { WifiOff, Wifi } from "lucide-react";
-import { useOfflineState } from "../../lib/desktop/use-offline-state";
-import { useIsDesktop } from "../../lib/desktop/use-tauri";
+import { useOfflineState } from "@/app/features/desktop/hooks/use-offline-state";
+import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 
 /**
  * Indicator showing online/offline status in desktop mode

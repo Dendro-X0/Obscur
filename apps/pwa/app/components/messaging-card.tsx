@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { createNostrEvent } from "@dweb/nostr/create-nostr-event";
-import { fetchBootstrapConfig } from "../lib/fetch-bootstrap-config";
-import { useIdentity } from "../lib/use-identity";
-import { useRelayPool } from "../lib/use-relay-pool";
+import { fetchBootstrapConfig } from "@/app/features/onboarding/utils/fetch-bootstrap-config";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";

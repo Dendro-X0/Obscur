@@ -4,8 +4,8 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { UserAvatar } from "./user-avatar";
-import { cn } from "../lib/cn";
-import { useProfile } from "../lib/use-profile";
+import { cn } from "@/app/lib/utils";
+import { useProfile } from "@/app/features/profile/hooks/use-profile";
 
 import { useTranslation } from "react-i18next";
 

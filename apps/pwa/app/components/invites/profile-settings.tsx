@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { profileManager } from "../../lib/invites/profile-manager";
-import type { UserProfile, PrivacySettings } from "../../lib/invites/types";
+import { profileManager } from "@/app/features/invites/utils/profile-manager";
+import type { UserProfile, PrivacySettings } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useIdentity } from "../../lib/use-identity";
-import { qrGenerator } from "../../lib/invites/qr-generator";
-import type { QRCode, QRInviteOptions } from "../../lib/invites/types";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { qrGenerator } from "@/app/features/invites/utils/qr-generator";
+import type { QRCode, QRInviteOptions } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";

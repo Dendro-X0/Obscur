@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { WindowControls } from "./window-controls";
-import { useIsDesktop } from "../../lib/desktop/use-tauri";
+import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 
 interface TitleBarProps {
   title?: string;

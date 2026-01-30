@@ -2,34 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { Keyboard, X } from "lucide-react";
-import { useIsDesktop } from "../../lib/desktop/use-tauri";
-import { getKeyboardShortcutManager, formatShortcut, type KeyboardShortcut } from "../../lib/desktop/keyboard-shortcuts";
+import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
+import { getKeyboardShortcutManager, formatShortcut, type KeyboardShortcut } from "@/app/features/desktop/utils/keyboard-shortcuts";
+import { useTranslation } from "react-i18next";
 
 export function KeyboardShortcutsHelp() {
+  const { t } = useTranslation();
   const isDesktop = useIsDesktop();
   const [isOpen, setIsOpen] = useState(false);
-  const [shortcuts, setShortcuts] = useState<KeyboardShortcut[]>([]);
+  const manager = isDesktop ? getKeyboardShortcutManager() : null;
+  const shortcuts: KeyboardShortcut[] = manager ? manager.getShortcuts() : [];
 
   useEffect(() => {
     if (!isDesktop) return;
 
     const manager = getKeyboardShortcutManager();
-    
+
     // Register help shortcut
     manager.register("show-shortcuts", {
       key: "?",
       shift: true,
-      description: "Show keyboard shortcuts",
+      description: t("shortcuts.show"),
       action: () => setIsOpen(true),
     });
-
-    // Update shortcuts list
-    setShortcuts(manager.getShortcuts());
 
     return () => {
       manager.unregister("show-shortcuts");
     };
-  }, [isDesktop]);
+  }, [isDesktop, t]);
 
   if (!isDesktop) return null;
 
@@ -40,8 +40,8 @@ export function KeyboardShortcutsHelp() {
         type="button"
         onClick={() => setIsOpen(true)}
         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
-        aria-label="Show keyboard shortcuts"
-        title="Keyboard shortcuts (Shift+?)"
+        aria-label={t("shortcuts.show")}
+        title={`${t("shortcuts.show")} (Shift+?)`}
       >
         <Keyboard className="h-4 w-4" />
       </button>
@@ -51,12 +51,12 @@ export function KeyboardShortcutsHelp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-xl border border-black/10 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-zinc-900">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
+              <h2 className="text-lg font-semibold">{t("shortcuts.title")}</h2>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
-                aria-label="Close"
+                aria-label={t("shortcuts.close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -79,7 +79,7 @@ export function KeyboardShortcutsHelp() {
             </div>
 
             <div className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
-              Press <kbd className="rounded border border-black/10 bg-zinc-50 px-1 dark:border-white/10 dark:bg-zinc-950/60">Shift+?</kbd> to toggle this help
+              {t("shortcuts.toggleHelp")}
             </div>
           </div>
         </div>

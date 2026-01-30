@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { contactStore } from "../../lib/invites/contact-store";
-import type { Contact, ContactGroup, TrustLevel } from "../../lib/invites/types";
+import { contactStore } from "@/app/features/invites/utils/contact-store";
+import type { Contact, ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
 import { ContactCard } from "./contact-card";
 import { ContactFilters } from "./contact-filters";
 import { Sparkles, Users, UserPlus } from "lucide-react";

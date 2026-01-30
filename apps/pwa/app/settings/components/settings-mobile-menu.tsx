@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/app/lib/utils";
 
 type SettingsNavItem = Readonly<{ href: string; label: string }>;
 

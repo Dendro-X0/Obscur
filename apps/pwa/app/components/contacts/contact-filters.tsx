@@ -4,7 +4,7 @@ import type React from "react";
 import { Search, Filter, Users } from "lucide-react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import type { ContactGroup, TrustLevel } from "../../lib/invites/types";
+import type { ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
 
 interface ContactFiltersProps {
     searchQuery: string;

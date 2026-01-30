@@ -12,6 +12,7 @@ import { DeepLinkHandler } from "./components/desktop/deep-link-handler"
 import { I18nProvider } from "./components/i18n-provider"
 import { RootErrorBoundary } from "./components/root-error-boundary"
 import { Preloader } from "./components/preloader"
+import { DesktopNotificationHandler } from "./components/desktop-notification-handler"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -55,6 +56,7 @@ export default function RootLayout({
               <DesktopUpdater />
               <OfflineIndicator />
               <DeepLinkHandler />
+              <DesktopNotificationHandler />
               {children}
             </I18nProvider>
           </DesktopModeProvider>

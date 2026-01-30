@@ -3,8 +3,8 @@
 import type React from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "./ui/button";
-import { cn } from "../lib/cn";
-import { useTheme } from "../lib/use-theme";
+import { cn } from "@/app/lib/utils";
+import { useTheme } from "@/app/features/settings/hooks/use-theme";
 import { useTranslation } from "react-i18next";
 
 type ThemePreference = "system" | "light" | "dark";

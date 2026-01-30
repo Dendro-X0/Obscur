@@ -1,37 +1,26 @@
-"use client";
-
-import i18n from "i18next";
+import i18next, { type i18n } from "i18next";
 import { initReactI18next } from "react-i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 
-import en from "./locales/en.json";
-import zh from "./locales/zh.json";
-import es from "./locales/es.json";
+import { en } from "./locales/en";
 
-// Resources object
-export const resources = {
-    en: { translation: en },
-    zh: { translation: zh },
-    es: { translation: es }
+type TranslationResources = typeof en;
+
+type I18nResources = Readonly<Record<string, TranslationResources>>;
+
+const RESOURCES: I18nResources = {
+  en,
 } as const;
 
-// Initialize i18next
-i18n
-    .use(LanguageDetector)
-    .use(initReactI18next)
-    .init({
-        resources,
-        fallbackLng: "en",
-        debug: process.env.NODE_ENV === "development",
+const createInstance = (): i18n => {
+  const instance: i18n = i18next.createInstance();
+  void instance.use(initReactI18next).init({
+    resources: RESOURCES,
+    lng: "en",
+    fallbackLng: "en",
+    interpolation: { escapeValue: false },
+    returnNull: false,
+  });
+  return instance;
+};
 
-        interpolation: {
-            escapeValue: false, // React already safe from XSS
-        },
-
-        detection: {
-            order: ['queryString', 'cookie', 'localStorage', 'navigator', 'htmlTag'],
-            caches: ['localStorage', 'cookie'],
-        }
-    });
-
-export default i18n;
+export const i18nInstance: i18n = i18next.isInitialized ? i18next : createInstance();

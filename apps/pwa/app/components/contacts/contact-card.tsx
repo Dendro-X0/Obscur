@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import type { Contact, ContactGroup } from "../../lib/invites/types";
+import type { Contact, ContactGroup } from "@/app/features/invites/utils/types";
 import { MessageSquare, MoreVertical, Shield, ShieldCheck, ShieldOff, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";

@@ -32,7 +32,7 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                 </div>
                 <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">No Pending Requests</h3>
                 <p className="mt-2 text-xs text-zinc-400 max-w-[200px]">
-                    New conversations from people you haven't accepted yet will appear here.
+                    New conversations from people you haven&apos;t accepted yet will appear here.
                 </p>
             </div>
         );
@@ -47,7 +47,7 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                 <div className="group relative">
                     <BadgeInfo className="h-4 w-4 text-zinc-400 cursor-help" />
                     <div className="absolute top-6 right-0 w-48 p-2 rounded-lg bg-white dark:bg-zinc-800 shadow-xl border border-black/5 dark:border-white/5 text-[10px] text-zinc-500 dark:text-zinc-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
-                        Requests are messages from users you haven't approved yet. They cannot see your online status until you accept.
+                        Requests are messages from users you haven&apos;t approved yet. They cannot see your online status until you accept.
                     </div>
                 </div>
             </div>

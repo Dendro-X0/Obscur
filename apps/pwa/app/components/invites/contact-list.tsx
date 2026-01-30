@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { contactStore } from "../../lib/invites/contact-store";
-import type { Contact, ContactGroup, TrustLevel } from "../../lib/invites/types";
+import { contactStore } from "@/app/features/invites/utils/contact-store";
+import type { Contact, ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
