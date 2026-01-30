@@ -330,16 +330,16 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 <UserPlus className="h-7 w-7" />
               </div>
               <h2 className="mt-4 text-xl font-bold text-zinc-900 dark:text-zinc-50">
-                Add Your First Contact
+                {t("onboarding.contact.title")}
               </h2>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {"Have a friend's invite code? Enter it below to start your first private conversation."}
+                {t("onboarding.contact.desc")}
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="relative">
-                <Label htmlFor="invite-code">Invite Code</Label>
+                <Label htmlFor="invite-code">{t("onboarding.contact.inviteCode")}</Label>
                 <div className="flex gap-2 mt-2">
                   <Input
                     id="invite-code"
@@ -380,14 +380,14 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                   disabled={!isValidInviteCode(inviteCodeInput) || isResolving}
                   className="w-full"
                 >
-                  {isResolving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resolving...</> : "Verify Code"}
+                  {isResolving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("onboarding.contact.verifying")}</> : t("onboarding.contact.verify")}
                 </Button>
               )}
             </div>
 
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={handleSkipContact} className="flex-1">
-                Skip for now
+                {t("onboarding.contact.skip")}
               </Button>
               <Button
                 type="button"
@@ -395,7 +395,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 disabled={!resolvedProfile}
                 className="flex-1"
               >
-                Connect & Setup
+                {t("onboarding.contact.connect")}
               </Button>
             </div>
           </div>
