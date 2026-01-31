@@ -73,11 +73,21 @@ export const en = {
         "messaging.copyChatLink": "Copy Chat Link",
         "messaging.pubkeySafeShare": "Public keys are safe to share!",
         "messaging.typeAMessage": "Type a message...",
+
+        // NIP-05 Errors
+        "messaging.error.nip05.fetch_failed": "Failed to connect to the domain's server.",
+        "messaging.error.nip05.invalid_json": "The domain returned invalid data.",
+        "messaging.error.nip05.not_found": "Identifier not found on this domain.",
+        "messaging.error.nip05.invalid_identifier": "Please enter a valid identifier (name@domain.com).",
         "messaging.enterToSend": "Press Enter to send",
         "messaging.connectedToRelays": "Connected to Relays",
         "messaging.media": "Media",
-        "common.send": "Send",
         "messaging.userFound": "User found:",
+        "messaging.strangerWarningTitle": "Message from a stranger: {{name}}",
+        "messaging.strangerWarningDesc": "You haven't accepted this person yet. Exercise caution before opening attachments or clicking links.",
+        "common.ignore": "Ignore",
+        "common.block": "Block",
+        "common.send": "Send",
 
         // Identity
         "identity.passphraseLabel": "Passphrase",

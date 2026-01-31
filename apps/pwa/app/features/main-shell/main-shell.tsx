@@ -28,6 +28,8 @@ import type { RelayConnection } from "@/app/features/relays/utils/relay-connecti
 import { getNotificationsEnabled } from "@/app/features/notifications/utils/get-notifications-enabled";
 import { showDesktopNotification } from "@/app/features/notifications/utils/show-desktop-notification";
 import { useTranslation } from "react-i18next";
+import { ProfileSearchService } from "../search/services/profile-search-service";
+import { SocialGraphService } from "../social-graph/services/social-graph-service";
 
 import type {
   Conversation,
@@ -296,6 +298,12 @@ function NostrMessengerContent() {
     peerTrust,
     requestsInbox
   });
+  const socialGraphService = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
+  const profileSearchService = useMemo(() => new ProfileSearchService(relayPool, socialGraphService, identity.state.publicKeyHex ?? undefined), [relayPool, socialGraphService, identity.state.publicKeyHex]);
+
+  const handleSearchProfiles = useCallback(async (query: string) => {
+    return await profileSearchService.searchByName(query);
+  }, [profileSearchService]);
 
   const uploadService = useUploadService();
 
@@ -961,20 +969,35 @@ function NostrMessengerContent() {
     }
   }, [dmController, recipientVerificationStatus]);
 
-  const createChat = (): void => {
+  const createChat = async (): Promise<void> => {
     const pubkey: string = newChatPubkey.trim();
     const displayName: string = (newChatDisplayName.trim() || pubkey.slice(0, 8)).trim();
     if (!pubkey) {
       return;
     }
+
+    let resolvedPubkey: PublicKeyHex | null = null;
+    let relayHints: string[] = [];
+
     const parsed = parsePublicKeyInput(pubkey);
-    if (!parsed.ok) {
+    if (parsed.ok) {
+      resolvedPubkey = parsed.publicKeyHex;
+      relayHints = parsed.relays || [];
+    } else if (pubkey.includes('@')) {
+      // Resolve NIP-05
+      const nip05 = await import("@/app/features/profile/utils/nip05-resolver").then(m => m.resolveNip05(pubkey));
+      if (nip05.ok) {
+        resolvedPubkey = nip05.publicKeyHex;
+      }
+    }
+
+    if (!resolvedPubkey) {
       return;
     }
 
-    // Handle relay hints from nprofile
-    if (parsed.relays && parsed.relays.length > 0) {
-      parsed.relays.forEach(url => {
+    // Handle relay hints
+    if (relayHints.length > 0) {
+      relayHints.forEach(url => {
         try {
           relayList.addRelay({ url });
         } catch (e) {
@@ -989,7 +1012,7 @@ function NostrMessengerContent() {
       kind: "dm",
       id,
       displayName,
-      pubkey: parsed.publicKeyHex,
+      pubkey: resolvedPubkey,
       lastMessage: "",
       unreadCount: 0,
       lastMessageTime: new Date(baseNowMs),
@@ -1286,6 +1309,7 @@ function NostrMessengerContent() {
 
   const handleAcceptRequest = useCallback((peerPublicKeyHex: PublicKeyHex) => {
     peerTrust.acceptPeer({ publicKeyHex: peerPublicKeyHex });
+    requestsInbox.setStatus({ peerPublicKeyHex, status: 'accepted' });
 
     // Create conversation if it doesn't exist
     const exists = createdContacts.some(c => c.pubkey === peerPublicKeyHex);
@@ -1306,7 +1330,7 @@ function NostrMessengerContent() {
 
     // Switch to chats tab
     setSidebarTab("chats");
-  }, [peerTrust, createdContacts, selectConversation]);
+  }, [peerTrust, createdContacts, selectConversation, requestsInbox]);
 
   const handleIgnoreRequest = useCallback((peerPublicKeyHex: PublicKeyHex) => {
     requestsInbox.remove({ peerPublicKeyHex });
@@ -1483,6 +1507,9 @@ function NostrMessengerContent() {
         setDisplayName={setNewChatDisplayName}
         onCreate={createChat}
         verifyRecipient={dmController.verifyRecipient}
+        searchProfiles={handleSearchProfiles}
+        isAccepted={(pub) => peerTrust.isAccepted({ publicKeyHex: pub as PublicKeyHex })}
+        sendConnectionRequest={dmController.sendConnectionRequest}
       />
 
       <NewGroupDialog
@@ -1577,6 +1604,9 @@ function NostrMessengerContent() {
               lightboxIndex={lightboxIndex}
               setLightboxIndex={setLightboxIndex}
               recipientStatus={selectedConversationView.kind === 'dm' ? recipientVerificationStatus[selectedConversationView.id] : 'idle'}
+              isPeerAccepted={selectedConversationView.kind === 'dm' ? peerTrust.isAccepted({ publicKeyHex: selectedConversationView.pubkey }) : true}
+              onAcceptPeer={() => selectedConversationView.kind === 'dm' && handleAcceptRequest(selectedConversationView.pubkey)}
+              onBlockPeer={() => selectedConversationView.kind === 'dm' && handleBlockRequest(selectedConversationView.pubkey)}
             />
           )}
         </main>

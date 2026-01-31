@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cryptoService, type UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { MessageQueue, type Message, type MessageStatus, type OutgoingMessage } from "../lib/message-queue";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
+import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
 import { retryManager } from "../lib/retry-manager";
 import { errorHandler, type MessageError, type NetworkState } from "../lib/error-handler";
 import { offlineQueueManager, type QueueStatus } from "../lib/offline-queue-manager";
@@ -101,7 +102,7 @@ type EnhancedDMControllerState = Readonly<{
 /**
  * Send result with detailed relay information
  */
-interface SendResult {
+export interface SendResult {
   success: boolean;
   messageId: string;
   relayResults: Array<{
@@ -130,7 +131,9 @@ type UseEnhancedDMControllerParams = Readonly<{
     upsertIncoming: (params: Readonly<{
       peerPublicKeyHex: PublicKeyHex;
       plaintext: string;
-      createdAtUnixSeconds: number
+      createdAtUnixSeconds: number;
+      isRequest?: boolean;
+      status?: ConnectionRequestStatusValue;
     }>) => void;
   };
   onNewMessage?: (message: Message) => void;
@@ -155,6 +158,10 @@ type UseEnhancedDMControllerResult = Readonly<{
   processOfflineQueue: () => Promise<void>;
   getOfflineQueueStatus: () => Promise<QueueStatus | null>;
   verifyRecipient: (pubkeyHex: PublicKeyHex) => Promise<{ exists: boolean; profile?: any }>;
+  sendConnectionRequest: (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    introMessage?: string;
+  }>) => Promise<SendResult>;
 }>;
 
 /**
@@ -703,13 +710,17 @@ export const useEnhancedDMController = (
       const isAcceptedContact = params.peerTrust?.isAccepted({ publicKeyHex: actualSenderPubkey }) || false;
 
       // Step 6: Route message based on sender status
+      const isConnectionRequest = event.tags?.some(tag => tag[0] === 't' && tag[1] === 'connection-request');
+
       if (!isAcceptedContact) {
         // Route unknown sender messages to requests inbox (Requirement 2.8)
         if (params.requestsInbox) {
           params.requestsInbox.upsertIncoming({
             peerPublicKeyHex: actualSenderPubkey,
             plaintext,
-            createdAtUnixSeconds: usedCreatedAt
+            createdAtUnixSeconds: usedCreatedAt,
+            isRequest: isConnectionRequest,
+            status: isConnectionRequest ? 'pending' : undefined
           });
           console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey);
         }
@@ -827,6 +838,7 @@ export const useEnhancedDMController = (
     peerPublicKeyInput: string;
     plaintext: string;
     replyTo?: string;
+    customTags?: string[][];
   }>): Promise<SendResult> => {
     // Validate identity
     if (!params.myPrivateKeyHex || !params.myPublicKeyHex) {
@@ -930,7 +942,7 @@ export const useEnhancedDMController = (
         const rumor: UnsignedNostrEvent = {
           kind: 14,
           created_at: usedCreatedAt,
-          tags,
+          tags: [...tags, ...(sendParams.customTags || [])],
           content: plaintext,
           pubkey: params.myPublicKeyHex
         };
@@ -968,7 +980,7 @@ export const useEnhancedDMController = (
         const unsignedEvent = {
           kind: 4,
           created_at: usedCreatedAt,
-          tags,
+          tags: [...tags, ...(sendParams.customTags || [])],
           content: encryptedContent,
           pubkey: params.myPublicKeyHex
         };
@@ -1586,6 +1598,34 @@ export const useEnhancedDMController = (
     return offlineQueueManager.getQueueStatus(() => messageQueue.getQueuedMessages());
   }, [messageQueue]);
 
+  /**
+   * Send a connection request
+   */
+  const sendConnectionRequest = useCallback(async (paramsReq: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    introMessage?: string;
+  }>): Promise<SendResult> => {
+    // Phase 6.1: Include write relays in the request (Automatic Relay Hints)
+    const myWriteRelays = params.myPublicKeyHex
+      ? nip65Service.getWriteRelays(params.myPublicKeyHex)
+      : [];
+
+    const customTags: string[][] = [['t', 'connection-request']];
+
+    if (myWriteRelays.length > 0) {
+      customTags.push(['relays', ...myWriteRelays]);
+    }
+
+    // Send a DM with a special tag
+    const result = await sendDm({
+      peerPublicKeyInput: paramsReq.peerPublicKeyHex,
+      plaintext: paramsReq.introMessage || "Hello, I'd like to connect with you!",
+      customTags
+    });
+
+    return result;
+  }, [sendDm, params.myPublicKeyHex]);
+
   return {
     state,
     sendDm,
@@ -1597,6 +1637,7 @@ export const useEnhancedDMController = (
     syncMissedMessages,
     processOfflineQueue,
     getOfflineQueueStatus,
-    verifyRecipient
+    verifyRecipient,
+    sendConnectionRequest
   };
 };

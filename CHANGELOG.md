@@ -4,7 +4,43 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
-## [Unreleased]
+## [0.3.0] - 2026-01-31
+
+### Added
+
+- **User Search & Invitation System (Phases 1 & 2)**:
+  - **Enhanced User Discovery**:
+    - Supported **NIP-05 identifier verification** for trusted user discovery.
+    - Implemented **Profile Metadata Search** to find users by display name or username across relays.
+    - Added **QR Code Sharing and Scanning** for instant, in-person connections.
+  - **Connection Request Flow**:
+    - Implemented **ConnectionRequestService** for persistent invitation lifecycle management.
+    - Created a **Personalized Connection Request** dialog, allowing users to introduce themselves before connecting.
+    - Enhanced the **Requests Inbox** with clear connection labels, status indicators (`pending`, `accepted`), and peer avatars.
+    - Updated the messaging controller to distinguish between regular DMs and connection requests using custom Nostr tags.
+  - **Enhanced Trust & Privacy (Phase 3)**:
+    - Added a **Stranger Message Warning** banner for non-accepted peers, ensuring safe first interactions.
+    - Overhauled **Privacy & Trust Settings** with a unified view of accepted, muted, and blocked peers.
+    - Implemented a **Privacy & Trust Guide** and internal search within the settings panel.
+  - **Improved Search UX (Phase 4)**:
+    - Implemented a **Unified Search Interface** that intelligently handles NIP-05, aliases, npubs, and hex pubkeys in a single input.
+    - Enhanced **Search Results** with rich profile metadata, including user bios (`about`) and a **"Trusted"** badge for already accepted contacts.
+    - Streamlined the search UX by combining separate "Verify" and "Search" actions into one seamless workflow.
+  - **Web of Trust & Mutual Connections (Phase 5)**:
+    - Implemented **Social Graph Service** to manage contact lists (Kind 3 events) and build a local social graph.
+    - Added **Mutual Connection** calculation in search results to show shared contacts.
+    - Introduced **Trust Score** algorithm (+20 for NIP-05, +20 per mutual connection) to highlight trusted users.
+    - Added UI indicators for "Trusted" status and mutual count in profile cards.
+  - **Relay Improvements & Discovery (Phase 6)**:
+    - **Automatic Relay Hints**: Connection requests now include sender's write relays (NIP-65) to ensure reliable reply delivery.
+    - **Relay Suggestions**: Empty search results now suggest popular relays to connect to, helping users find people on different networks.
+
+### Fixed
+
+- **Message Persistence**: Fixed a synchronization issue in the requests inbox where unread counts were not accurately tracked during state updates.
+- **Type Safety**: Resolved multiple TypeScript errors related to message status variants and shorthand property initializers in hooks.
+
+### [Unreleased]
 
 ### Added
 

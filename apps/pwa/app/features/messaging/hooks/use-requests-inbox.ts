@@ -3,11 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
+import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
+
 type RequestsInboxItem = Readonly<{
   peerPublicKeyHex: PublicKeyHex;
   lastMessagePreview: string;
   lastReceivedAtUnixSeconds: number;
   unreadCount: number;
+  status?: ConnectionRequestStatusValue;
+  isRequest?: boolean;
 }>;
 
 type RequestsInboxState = Readonly<{
@@ -20,9 +24,16 @@ type UseRequestsInboxParams = Readonly<{
 
 type UseRequestsInboxResult = Readonly<{
   state: RequestsInboxState;
-  upsertIncoming: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; plaintext: string; createdAtUnixSeconds: number }>) => void;
+  upsertIncoming: (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    plaintext: string;
+    createdAtUnixSeconds: number;
+    isRequest?: boolean;
+    status?: ConnectionRequestStatusValue;
+  }>) => void;
   remove: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => void;
   markRead: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => void;
+  setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue }>) => void;
 }>;
 
 type StoredRequestsInbox = Readonly<{
@@ -65,10 +76,12 @@ const loadFromStorage = (publicKeyHex: PublicKeyHex): StoredRequestsInbox => {
         const lastMessagePreview = typeof c.lastMessagePreview === "string" ? c.lastMessagePreview : "";
         const lastReceivedAtUnixSeconds = typeof c.lastReceivedAtUnixSeconds === "number" ? c.lastReceivedAtUnixSeconds : 0;
         const unreadCount = typeof c.unreadCount === "number" ? c.unreadCount : 0;
+        const status = typeof c.status === "string" ? (c.status as ConnectionRequestStatusValue) : undefined;
+        const isRequest = typeof c.isRequest === "boolean" ? c.isRequest : false;
         if (!peer) {
           return null;
         }
-        return { peerPublicKeyHex: peer, lastMessagePreview, lastReceivedAtUnixSeconds, unreadCount };
+        return { peerPublicKeyHex: peer, lastMessagePreview, lastReceivedAtUnixSeconds, unreadCount, status, isRequest };
       })
       .filter((v: RequestsInboxItem | null): v is RequestsInboxItem => v !== null);
     return { items };
@@ -115,7 +128,13 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     }
     saveToStorage(params.publicKeyHex, stored);
   }, [params.publicKeyHex, stored]);
-  const upsertIncoming = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; plaintext: string; createdAtUnixSeconds: number }>): void => {
+  const upsertIncoming = useCallback((p: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    plaintext: string;
+    createdAtUnixSeconds: number;
+    isRequest?: boolean;
+    status?: ConnectionRequestStatusValue;
+  }>): void => {
     const preview: string = createPreview(p.plaintext);
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       const existing: RequestsInboxItem | undefined = prev.items.find((i: RequestsInboxItem): boolean => i.peerPublicKeyHex === p.peerPublicKeyHex);
@@ -125,6 +144,8 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
           lastMessagePreview: preview,
           lastReceivedAtUnixSeconds: p.createdAtUnixSeconds,
           unreadCount: 1,
+          isRequest: p.isRequest,
+          status: p.status
         };
         return { items: [nextItem, ...prev.items] };
       }
@@ -134,6 +155,8 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         lastMessagePreview: preview,
         lastReceivedAtUnixSeconds: Math.max(existing.lastReceivedAtUnixSeconds, p.createdAtUnixSeconds),
         unreadCount: nextUnread,
+        isRequest: p.isRequest ?? existing.isRequest,
+        status: p.status ?? existing.status
       };
       const nextItems: RequestsInboxItem[] = [updated, ...prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex)];
       return { items: nextItems };
@@ -156,8 +179,20 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       };
     });
   }, []);
+  const setStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue }>): void => {
+    setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
+      return {
+        items: prev.items.map((i: RequestsInboxItem): RequestsInboxItem => {
+          if (i.peerPublicKeyHex !== p.peerPublicKeyHex) {
+            return i;
+          }
+          return { ...i, status: p.status };
+        })
+      };
+    });
+  }, []);
   const state: RequestsInboxState = useMemo((): RequestsInboxState => {
     return { items: stored.items };
   }, [stored.items]);
-  return { state, upsertIncoming, remove, markRead };
+  return { state, upsertIncoming, remove, markRead, setStatus };
 };

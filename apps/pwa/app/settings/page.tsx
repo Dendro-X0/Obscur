@@ -101,7 +101,6 @@ const GROUPS = [
     id: "moderation",
     labelKey: "settings.groups.moderation",
     items: [
-      { id: "blocklist", labelKey: "settings.tabs.blocklist", icon: EyeOff },
       { id: "privacy", labelKey: "settings.tabs.privacy", icon: ShieldAlert },
     ]
   },
@@ -142,7 +141,6 @@ export default function SettingsPage(): React.JSX.Element {
   }, [relayList.state.relays]);
   const pool = useRelayPool(enabledRelayUrls);
   const [newRelayUrl, setNewRelayUrl] = useState<string>("");
-  const [newBlockedPubkey, setNewBlockedPubkey] = useState<string>("");
   const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
   const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
   const [nip96Config, setNip96Config] = useState<Nip96Config>(() => {
@@ -225,10 +223,6 @@ export default function SettingsPage(): React.JSX.Element {
   const trimmedRelayUrl: string = newRelayUrl.trim();
   const validatedRelayUrl: Readonly<{ normalizedUrl: string }> | null = validateRelayUrl(trimmedRelayUrl);
   const canAddRelay: boolean = validatedRelayUrl !== null;
-
-  const trimmedBlockedPubkey: string = newBlockedPubkey.trim();
-  const parsedBlocked = parsePublicKeyInput(trimmedBlockedPubkey);
-  const canAddBlocked: boolean = parsedBlocked.ok;
 
   const canEnableNotifications: boolean = notificationPreference.state.permission !== "denied";
 
@@ -566,64 +560,6 @@ export default function SettingsPage(): React.JSX.Element {
                   </Card>
                 )}
 
-                {activeTab === "blocklist" && (
-                  <Card title={t("settings.blocklist.title")} description={t("settings.blocklist.desc")} className="w-full">
-                    {identity.state.status === "loading" ? (
-                      <div className="p-4 text-sm text-zinc-500">{t("common.loading")}</div>
-                    ) : identity.state.status !== "unlocked" ? (
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.blocklist.unlockToManage")}</div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="blocked-pubkey">{t("settings.blocklist.addBlocked")}</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              id="blocked-pubkey"
-                              value={newBlockedPubkey}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBlockedPubkey(e.target.value)}
-                              placeholder="npub... or 64-hex"
-                            />
-                            <Button
-                              type="button"
-                              disabled={!canAddBlocked}
-                              onClick={() => {
-                                blocklist.addBlocked({ publicKeyInput: trimmedBlockedPubkey });
-                                setNewBlockedPubkey("");
-                              }}
-                            >
-                              {t("settings.blocklist.add")}
-                            </Button>
-                          </div>
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.blocklist.help")}</div>
-                        </div>
-
-                        {blocklist.state.blockedPublicKeys.length === 0 ? (
-                          <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.blocklist.noBlocked")}</div>
-                        ) : (
-                          <ul className="space-y-2">
-                            {blocklist.state.blockedPublicKeys.map((pubkey: string) => (
-                              <li
-                                key={pubkey}
-                                className="rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-zinc-950/60"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{pubkey}</span>
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={() => blocklist.removeBlocked({ publicKeyHex: pubkey as PublicKeyHex })}
-                                  >
-                                    {t("settings.blocklist.remove")}
-                                  </Button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
-                  </Card>
-                )}
 
                 {activeTab === "privacy" && (
                   <Card title="Privacy & Trust" description="Manage who you trust and who can reach you directly." className="w-full">

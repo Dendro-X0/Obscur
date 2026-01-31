@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { nip19 } from "nostr-tools";
+import { ProfileQRCode } from "@/app/features/invites/components/profile-qr-code";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -21,6 +23,18 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
   const identity = useIdentity();
   const state = identity.state;
   const embedded: boolean = props.embedded ?? false;
+
+  const nprofile = useMemo(() => {
+    if (!state.publicKeyHex) return "";
+    try {
+      return nip19.nprofileEncode({
+        pubkey: state.publicKeyHex,
+        relays: [] // Could add default relays here
+      });
+    } catch (e) {
+      return "";
+    }
+  }, [state.publicKeyHex]);
   const canSubmit: boolean = useMemo((): boolean => passphrase.trim().length >= 6, [passphrase]);
   const onCreate = async (): Promise<void> => {
     if (!canSubmit) {
@@ -145,10 +159,19 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
         </div>
 
         {state.publicKeyHex ? (
-          <div className="space-y-1.5 pt-2">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{t("identity.publicKeyHex")}</div>
-            <div className="rounded-xl border border-black/5 bg-white/50 px-3 py-2.5 font-mono text-[10px] break-all dark:border-white/5 dark:bg-zinc-950/60 text-zinc-600 dark:text-zinc-400 leading-relaxed shadow-inner">
-              {state.publicKeyHex}
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{t("identity.publicKeyHex")}</div>
+              <div className="rounded-xl border border-black/5 bg-white/50 px-3 py-2.5 font-mono text-[10px] break-all dark:border-white/5 dark:bg-zinc-950/60 text-zinc-600 dark:text-zinc-400 leading-relaxed shadow-inner">
+                {state.publicKeyHex}
+              </div>
+            </div>
+
+            <div className="border-t border-black/5 pt-4 dark:border-white/5">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-3 text-center">Your QR Profile</div>
+              <div className="bg-white/50 dark:bg-white/[0.03] rounded-2xl p-2 border border-black/5 dark:border-white/5 shadow-inner">
+                <ProfileQRCode nprofile={nprofile} />
+              </div>
             </div>
           </div>
         ) : null}

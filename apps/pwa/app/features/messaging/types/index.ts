@@ -148,6 +148,24 @@ export type DeleteCommandMessage = Readonly<{ type: "delete"; targetMessageId: s
 
 export type PersistedContactOverride = Readonly<{ lastMessage: string; lastMessageTimeMs: number }>;
 
+export type ConnectionRequestStatusValue = "pending" | "accepted" | "declined" | "canceled";
+
+export type ConnectionRequest = Readonly<{
+    id: string; // Peer pubkey
+    status: ConnectionRequestStatusValue;
+    isOutgoing: boolean;
+    introMessage?: string;
+    timestamp: Date;
+}>;
+
+export type PersistedConnectionRequest = Readonly<{
+    id: string;
+    status: ConnectionRequestStatusValue;
+    isOutgoing: boolean;
+    introMessage?: string;
+    timestampMs: number;
+}>;
+
 export type PersistedChatState = Readonly<{
     version: number;
     createdContacts: ReadonlyArray<PersistedDmConversation>;
@@ -155,4 +173,5 @@ export type PersistedChatState = Readonly<{
     unreadByConversationId: Readonly<Record<string, number>>;
     contactOverridesByContactId: Readonly<Record<string, PersistedContactOverride>>;
     messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>;
+    connectionRequests?: ReadonlyArray<PersistedConnectionRequest>;
 }>;

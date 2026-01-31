@@ -3,15 +3,21 @@
 import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
-import { User, MessageSquare, Check, X, ShieldAlert, BadgeInfo } from "lucide-react";
+import { User, MessageSquare, Check, X, ShieldAlert, BadgeInfo, UserPlus } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
+import { cn } from "@/app/lib/utils";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { formatTime } from "../utils/formatting";
+
+import type { ConnectionRequestStatusValue } from "../../messaging/types";
 
 type RequestItem = Readonly<{
     peerPublicKeyHex: PublicKeyHex;
     lastMessagePreview: string;
     lastReceivedAtUnixSeconds: number;
     unreadCount: number;
+    status?: ConnectionRequestStatusValue;
+    isRequest?: boolean;
 }>;
 
 interface RequestsInboxPanelProps {
@@ -56,20 +62,30 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                 {requests.map((request) => (
                     <Card key={request.peerPublicKeyHex} className="p-3 bg-white dark:bg-zinc-900 border-black/5 dark:border-white/5 hover:border-purple-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                            <div className="h-10 w-10 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                                <User className="h-5 w-5 text-zinc-400" />
-                            </div>
+                            <Avatar className="h-10 w-10 shrink-0 rounded-xl">
+                                <AvatarFallback className="rounded-xl">
+                                    <User className="h-5 w-5 text-zinc-400" />
+                                </AvatarFallback>
+                            </Avatar>
 
                             <div className="flex-1 min-w-0" onClick={() => onSelect(request.peerPublicKeyHex)}>
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
-                                        Unknown Peer
-                                    </span>
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                                            {request.isRequest ? "New Connection" : "Unknown Peer"}
+                                        </span>
+                                        {request.isRequest && (
+                                            <span className="shrink-0 flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tight">
+                                                <UserPlus className="h-2.5 w-2.5" />
+                                                Request
+                                            </span>
+                                        )}
+                                    </div>
                                     <span className="text-[10px] text-zinc-400 whitespace-nowrap">
                                         {formatTime(new Date(request.lastReceivedAtUnixSeconds * 1000), nowMs)}
                                     </span>
                                 </div>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed">
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed italic">
                                     {request.lastMessagePreview}
                                 </p>
                                 <p className="text-[10px] text-zinc-400 mt-1 font-mono opacity-50">
@@ -84,34 +100,43 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                             )}
                         </div>
 
-                        <div className="mt-4 flex gap-2">
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                className="flex-1 h-8 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border-none text-[10px] font-bold"
-                                onClick={() => onAccept(request.peerPublicKeyHex)}
-                            >
-                                <Check className="mr-1 h-3 w-3" /> Accept
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                                onClick={() => onIgnore(request.peerPublicKeyHex)}
-                                title="Ignore"
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500"
-                                onClick={() => onBlock(request.peerPublicKeyHex)}
-                                title="Block & Report"
-                            >
-                                <ShieldAlert className="h-4 w-4" />
-                            </Button>
-                        </div>
+                        {request.status && request.status !== 'pending' ? (
+                            <div className={cn(
+                                "mt-4 p-2 rounded-lg text-center text-[10px] font-bold uppercase tracking-widest",
+                                request.status === 'accepted' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" : "bg-rose-50 text-rose-600 dark:bg-rose-950/30"
+                            )}>
+                                {request.status}
+                            </div>
+                        ) : (
+                            <div className="mt-4 flex gap-2">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="flex-1 h-8 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border-none text-[10px] font-bold"
+                                    onClick={() => onAccept(request.peerPublicKeyHex)}
+                                >
+                                    <Check className="mr-1 h-3 w-3" /> Accept
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                    onClick={() => onIgnore(request.peerPublicKeyHex)}
+                                    title="Ignore"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500"
+                                    onClick={() => onBlock(request.peerPublicKeyHex)}
+                                    title="Block & Report"
+                                >
+                                    <ShieldAlert className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
                     </Card>
                 ))}
             </div>
