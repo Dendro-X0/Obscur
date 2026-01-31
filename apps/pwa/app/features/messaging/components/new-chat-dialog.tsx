@@ -49,8 +49,9 @@ export function NewChatDialog({
             if (result.exists) {
                 setVerificationStatus('found');
                 setFoundProfile(result.profile);
-                if (result.profile?.display_name || result.profile?.name) {
-                    setDisplayName(result.profile.display_name || result.profile.name);
+                const name = result.profile?.display_name || result.profile?.name;
+                if (name && !name.startsWith('nprofile')) {
+                    setDisplayName(name);
                 }
             } else {
                 setVerificationStatus('not_found');
@@ -92,7 +93,7 @@ export function NewChatDialog({
                         {verificationStatus === 'found' && (
                             <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 p-2 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
                                 <UserCheck className="h-3.5 w-3.5" />
-                                <span>User found: @{foundProfile?.name || foundProfile?.display_name || "Unknown"}</span>
+                                <span>User found: @{((foundProfile?.name && !foundProfile.name.startsWith('nprofile')) || (foundProfile?.display_name && !foundProfile.display_name.startsWith('nprofile'))) ? (foundProfile.name || foundProfile.display_name) : "Unknown"}</span>
                             </div>
                         )}
 

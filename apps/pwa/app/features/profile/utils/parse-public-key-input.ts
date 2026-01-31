@@ -1,7 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type ParsePublicKeyInputResult =
-  | Readonly<{ ok: true; publicKeyHex: PublicKeyHex; format: "hex" | "npub" }>
+  | Readonly<{ ok: true; publicKeyHex: PublicKeyHex; format: "hex" | "npub"; relays?: string[] }>
   | Readonly<{ ok: false; reason: "empty" | "invalid_format" | "invalid_hex" | "invalid_npub" }>;
 
 const HEX_PUBLIC_KEY_LENGTH: number = 64;
@@ -142,7 +142,12 @@ export const parsePublicKeyInput = (value: string): ParsePublicKeyInputResult =>
     try {
       const decoded = nip19.decode(input);
       if (decoded.type === "nprofile") {
-        return { ok: true, publicKeyHex: toPublicKeyHex(decoded.data.pubkey), format: "npub" };
+        return {
+          ok: true,
+          publicKeyHex: toPublicKeyHex(decoded.data.pubkey),
+          format: "npub",
+          relays: decoded.data.relays
+        };
       }
     } catch (e) {
       return { ok: false, reason: "invalid_npub" };

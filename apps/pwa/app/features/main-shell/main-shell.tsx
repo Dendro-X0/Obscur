@@ -971,6 +971,18 @@ function NostrMessengerContent() {
     if (!parsed.ok) {
       return;
     }
+
+    // Handle relay hints from nprofile
+    if (parsed.relays && parsed.relays.length > 0) {
+      parsed.relays.forEach(url => {
+        try {
+          relayList.addRelay({ url });
+        } catch (e) {
+          console.warn("Failed to add relay hint:", url, e);
+        }
+      });
+    }
+
     const id: string = createContactId();
     const baseNowMs: number = nowMs ?? 0;
     const contact: DmConversation = {
