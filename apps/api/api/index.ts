@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { cors } from "hono/cors";
+import { handle } from "hono/vercel";
 
 type RelayUrl = string;
 
@@ -318,4 +319,7 @@ app.get("/v1/relays/recommended", (context: Context) => {
   return context.json(response);
 });
 
+export const GET = handle(app);
+export const POST = handle(app);
+export const OPTIONS = handle(app);
 export default app;
