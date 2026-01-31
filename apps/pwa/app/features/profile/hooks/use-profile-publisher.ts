@@ -56,6 +56,16 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
         setError(null);
 
         try {
+            // Wait for at least one relay to be connected (max 5s)
+            let attempts = 0;
+            const maxAttempts = 10;
+            while (attempts < maxAttempts) {
+                const openCount = pool.connections.filter(c => c.status === "open").length;
+                if (openCount > 0) break;
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
+
             // Construct Kind 0 Event content
             const content = JSON.stringify({
                 name: params.username,
@@ -84,7 +94,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             if (pool.publishToAll) {
                 const result = await pool.publishToAll(payload);
                 if (!result.success && result.successCount === 0) {
-                    throw new Error("Failed to publish to any relay");
+                    throw new Error(result.overallError || "Failed to publish to any relay");
                 }
             } else {
                 // Fallback if generic pool doesn't have publishToAll (though enhanced one does)

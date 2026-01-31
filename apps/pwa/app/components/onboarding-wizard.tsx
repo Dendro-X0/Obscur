@@ -43,7 +43,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   const { resolveCode, isResolving, error: resolveError } = useInviteResolver({
     myPublicKeyHex: identity.state.publicKeyHex as any
   });
-  const { publishProfile, isPublishing: isPublishingProfile } = useProfilePublisher();
+  const { publishProfile, isPublishing: isPublishingProfile, error: publishError } = useProfilePublisher();
 
   const handleStart = async (): Promise<void> => {
     setStep("creating");
@@ -71,10 +71,18 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
 
       // Publish to relays so others can find us
       try {
-        await publishProfile({ username: cleanUsername });
+        const success = await publishProfile({ username: cleanUsername });
+        if (!success) {
+          // Error is set in the hook state, which we should display
+          // We don't advance step if publishing failed, unless user retries and it works
+          // Or we could offer a "Skip publishing" button? 
+          // For now, let's block and show error so they know something is wrong.
+          return;
+        }
       } catch (e) {
         console.error("Failed to publish profile during onboarding:", e);
-        // Continue anyway, don't block user
+        // If it threw (unexpected), stop
+        return;
       }
     }
     setStep("add-contact");
@@ -267,6 +275,12 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 {t("onboarding.username.subtitle")}
               </p>
             </div>
+
+            {publishError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-center text-sm font-medium text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
+                {publishError}
+              </div>
+            )}
 
             <div>
               <Label>{t("onboarding.username.label")}</Label>

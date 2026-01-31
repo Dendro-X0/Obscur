@@ -1467,35 +1467,38 @@ function NostrMessengerContent() {
 
   return (
     <AppShell
+      hideSidebar={!isIdentityUnlocked}
       navBadgeCounts={{ "/": chatsUnreadCount }}
       sidebarContent={
-        <div className="w-full h-full bg-white dark:bg-black">
-          <Sidebar
-            isNewChatOpen={isNewChatOpen}
-            setIsNewChatOpen={setIsNewChatOpen}
-            isNewGroupOpen={isNewGroupOpen}
-            setIsNewGroupOpen={setIsNewGroupOpen}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchInputRef={searchInputRef}
-            hasHydrated={hasHydrated}
-            filteredConversations={filteredConversations}
-            selectConversation={selectConversation}
-            selectedConversation={selectedConversation}
-            unreadByConversationId={unreadByConversationId}
-            nowMs={nowMs}
-            messageSearchResults={messageSearchResults}
-            allConversations={allConversations}
-            setPendingScrollTarget={setPendingScrollTarget}
-            activeTab={sidebarTab}
-            setActiveTab={updateSidebarTab}
-            requests={requestsInbox.state.items}
-            onAcceptRequest={handleAcceptRequest}
-            onIgnoreRequest={handleIgnoreRequest}
-            onBlockRequest={handleBlockRequest}
-            onSelectRequest={handleSelectRequest}
-          />
-        </div>
+        isIdentityUnlocked ? (
+          <div className="w-full h-full bg-white dark:bg-black">
+            <Sidebar
+              isNewChatOpen={isNewChatOpen}
+              setIsNewChatOpen={setIsNewChatOpen}
+              isNewGroupOpen={isNewGroupOpen}
+              setIsNewGroupOpen={setIsNewGroupOpen}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              searchInputRef={searchInputRef}
+              hasHydrated={hasHydrated}
+              filteredConversations={filteredConversations}
+              selectConversation={selectConversation}
+              selectedConversation={selectedConversation}
+              unreadByConversationId={unreadByConversationId}
+              nowMs={nowMs}
+              messageSearchResults={messageSearchResults}
+              allConversations={allConversations}
+              setPendingScrollTarget={setPendingScrollTarget}
+              activeTab={sidebarTab}
+              setActiveTab={updateSidebarTab}
+              requests={requestsInbox.state.items}
+              onAcceptRequest={handleAcceptRequest}
+              onIgnoreRequest={handleIgnoreRequest}
+              onBlockRequest={handleBlockRequest}
+              onSelectRequest={handleSelectRequest}
+            />
+          </div>
+        ) : null
       }
     >
       <NewChatDialog
