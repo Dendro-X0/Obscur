@@ -413,6 +413,28 @@ export default function SettingsPage(): React.JSX.Element {
                         </div>
                         <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</div>
                       </div>
+
+                      <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/10">
+                        <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.dangerZone", "Danger Zone")}</h3>
+                        <p className="mt-1 text-xs text-red-700 dark:text-red-300">
+                          {t("settings.deleteAccountDesc", "This will permanently remove your account key from this device and reset all local data. This action cannot be undone.")}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          className="mt-4"
+                          onClick={() => {
+                            if (window.confirm(t("settings.deleteAccountConfirm", "Are you sure you want to delete your account and reset all data? This cannot be undone."))) {
+                              void identity.forgetIdentity().then(() => {
+                                localStorage.clear();
+                                window.location.reload();
+                              });
+                            }
+                          }}
+                        >
+                          {t("settings.deleteAccount", "Delete Account & Reset Data")}
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 )}

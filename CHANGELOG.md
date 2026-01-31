@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.3.1] - 2026-01-31
+
+### Added
+
+- **Account Management**:
+  - **Reset & Delete Data**: Added a "Danger Zone" to Identity Settings, allowing users to completely wipe their local account and data for testing or privacy purposes.
+- **Onboarding UX**:
+  - **Relay Connection Check**: The profile publishing step during onboarding now waits for a healthy relay connection before attempting to save, preventing "User not found" errors for new accounts.
+  - **Publishing Error Feedback**: Users are now notified if their profile fails to save during onboarding.
+- **Search UX**:
+  - **Clearer Instructions**: Updated the "New Chat" dialog to explicitly mention support for Name and NIP-05 searches.
+
 ## [0.3.0] - 2026-01-31
 
 ### Added

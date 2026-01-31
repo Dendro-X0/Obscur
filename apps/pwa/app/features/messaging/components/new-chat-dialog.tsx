@@ -180,7 +180,7 @@ export function NewChatDialog({
             <Card title={t("messaging.newChat")} description={t("messaging.startConvByPubkey")} className="w-full max-w-md shadow-2xl">
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="new-chat-pubkey">{t("messaging.publicKey")}</Label>
+                        <Label htmlFor="new-chat-pubkey">{t("messaging.searchLabel", "Recipient (Name, @NIP-05, or Public Key)")}</Label>
                         <div className="flex gap-2">
                             <Input
                                 id="new-chat-pubkey"
