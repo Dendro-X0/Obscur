@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.3.2] - 2026-01-31
+
+### Added
+
+- **Custom UI Feedback System**:
+  - **Toast Notifications**: Implemented a non-intrusive toast system in the bottom-right corner for success/info actions (save, delete, copy, block).
+  - **Custom Confirmation Dialogs**: Replaced system `window.confirm` with a premium, theme-aware `ConfirmDialog` component.
+- **Settings Enhancements**:
+  - **Interactive Blocklist**: Finished the Blocklist tab implementation, allowing users to view and manage blocked public keys.
+  - **Danger Zone Re-design**: Moved account deletion to a dedicated, high-visibility card in Identity Settings with a clear warning system.
+- **Bug Fixes**:
+  - Fixed a visibility issue where some settings tabs would appear empty or were missing from the navigation groups.
+
 ## [0.3.1] - 2026-01-31
 
 ### Added

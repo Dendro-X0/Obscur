@@ -15,9 +15,12 @@ import {
   Activity,
   Bell,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { toast } from "../components/ui/toast";
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { Card } from "../components/ui/card";
 import { EmptyState } from "../components/ui/empty-state";
 import { PageShell } from "../components/page-shell";
@@ -101,6 +104,7 @@ const GROUPS = [
     id: "moderation",
     labelKey: "settings.groups.moderation",
     items: [
+      { id: "blocklist", labelKey: "settings.tabs.blocklist", icon: EyeOff },
       { id: "privacy", labelKey: "settings.tabs.privacy", icon: ShieldAlert },
     ]
   },
@@ -143,6 +147,7 @@ export default function SettingsPage(): React.JSX.Element {
   const [newRelayUrl, setNewRelayUrl] = useState<string>("");
   const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
   const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [nip96Config, setNip96Config] = useState<Nip96Config>(() => {
     const fallback: Nip96Config = { apiUrl: "", enabled: false };
     if (typeof window === "undefined") {
@@ -303,15 +308,27 @@ export default function SettingsPage(): React.JSX.Element {
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
-                            onClick={() => void publishProfile({
-                              username: profile.state.profile.username,
-                              avatarUrl: profile.state.profile.avatarUrl
-                            })}
+                            onClick={async () => {
+                              const success = await publishProfile({
+                                username: profile.state.profile.username,
+                                avatarUrl: profile.state.profile.avatarUrl
+                              });
+                              if (success) {
+                                toast.success(t("settings.profileSaved", "Profile saved successfully!"));
+                              }
+                            }}
                             disabled={isPublishing}
                           >
                             {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.saving")}</> : t("common.save")}
                           </Button>
-                          <Button type="button" variant="secondary" onClick={() => profile.reset()}>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                              profile.reset();
+                              toast.info(t("settings.changesReset", "Changes reset"));
+                            }}
+                          >
                             {t("profile.reset")}
                           </Button>
                         </div>
@@ -396,47 +413,71 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
 
                 {activeTab === "identity" && (
-                  <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>{t("identity.publicKeyHex")}</Label>
-                        <Input value={displayPublicKeyHex} readOnly className="font-mono text-xs" />
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={(): void => void navigator.clipboard.writeText(displayPublicKeyHex)}
-                            disabled={!displayPublicKeyHex}
-                          >
-                            {t("common.copy")}
-                          </Button>
+                  <>
+                    <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="profile-pubkey">{t("identity.publicKeyHex") || "Public Key (Hex)"}</Label>
+                          <Input id="profile-pubkey" value={displayPublicKeyHex} readOnly className="font-mono text-xs" />
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={(): void => {
+                                void navigator.clipboard.writeText(displayPublicKeyHex);
+                                toast.success(t("common.copied", "Copied to clipboard"));
+                              }}
+                              disabled={!displayPublicKeyHex}
+                            >
+                              {t("common.copy")}
+                            </Button>
+                          </div>
+                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</div>
                         </div>
-                        <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</div>
                       </div>
+                    </Card>
 
-                      <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/10">
-                        <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.dangerZone", "Danger Zone")}</h3>
-                        <p className="mt-1 text-xs text-red-700 dark:text-red-300">
-                          {t("settings.deleteAccountDesc", "This will permanently remove your account key from this device and reset all local data. This action cannot be undone.")}
-                        </p>
+                    <Card title={t("settings.dangerZone", "Danger Zone")} tone="danger" className="mt-8 border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/10">
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                            <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.deleteAccount", "Delete Account")}</h3>
+                            <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
+                              {t("settings.deleteAccountDesc", "This will permanently remove your account key from this device and reset all local data. This action cannot be undone.")}
+                            </p>
+                          </div>
+                        </div>
                         <Button
                           type="button"
                           variant="danger"
-                          className="mt-4"
-                          onClick={() => {
-                            if (window.confirm(t("settings.deleteAccountConfirm", "Are you sure you want to delete your account and reset all data? This cannot be undone."))) {
-                              void identity.forgetIdentity().then(() => {
-                                localStorage.clear();
-                                window.location.reload();
-                              });
-                            }
-                          }}
+                          className="w-full sm:w-auto px-8"
+                          onClick={() => setIsDeleteDialogOpen(true)}
                         >
                           {t("settings.deleteAccount", "Delete Account & Reset Data")}
                         </Button>
                       </div>
-                    </div>
-                  </Card>
+
+                      <ConfirmDialog
+                        isOpen={isDeleteDialogOpen}
+                        onClose={() => setIsDeleteDialogOpen(false)}
+                        onConfirm={async () => {
+                          await identity.forgetIdentity();
+                          localStorage.clear();
+                          toast.success(t("settings.accountDeleted", "Account deleted successfully"));
+                          setTimeout(() => {
+                            window.location.href = "/";
+                          }, 1000);
+                        }}
+                        title={t("settings.deleteAccountConfirmTitle", "Delete Account?")}
+                        description={t("settings.deleteAccountConfirm", "Are you sure you want to delete your account and reset all data? This cannot be undone.")}
+                        confirmLabel={t("settings.deleteConfirm", "Yes, delete everything")}
+                        variant="danger"
+                      />
+                    </Card>
+                  </>
                 )}
 
                 {activeTab === "notifications" && (
@@ -583,6 +624,59 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
 
 
+                {activeTab === "blocklist" && (
+                  <Card title={t("settings.tabs.blocklist", "Blocklist")} description={t("settings.blocklist.desc", "Managing blocked users. You won't receive messages from anyone on this list.")} className="w-full">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="block-pubkey">{t("settings.blocklist.addLabel", "Block a Public Key")}</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="block-pubkey"
+                            placeholder="npub... or hex"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const val = (e.target as HTMLInputElement).value;
+                                if (val) {
+                                  blocklist.addBlocked({ publicKeyInput: val });
+                                  (e.target as HTMLInputElement).value = "";
+                                  toast.success(t("settings.blocklist.added", "User blocked"));
+                                }
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium">{t("settings.blocklist.blockedUsers", "Blocked Users")} ({blocklist.state.blockedPublicKeys.length})</h4>
+                        {blocklist.state.blockedPublicKeys.length === 0 ? (
+                          <p className="text-xs text-zinc-500 italic">{t("settings.blocklist.empty", "No users blocked yet.")}</p>
+                        ) : (
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {blocklist.state.blockedPublicKeys.map((pubkey) => (
+                              <div key={pubkey} className="flex items-center justify-between p-3 rounded-xl border border-black/5 bg-zinc-50 dark:bg-zinc-900/40 dark:border-white/5">
+                                <span className="font-mono text-[10px] truncate flex-1">{pubkey}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                  onClick={() => {
+                                    blocklist.removeBlocked({ publicKeyHex: pubkey });
+                                    toast.info(t("settings.blocklist.removed", "User unblocked"));
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+
                 {activeTab === "privacy" && (
                   <Card title="Privacy & Trust" description="Manage who you trust and who can reach you directly." className="w-full">
                     <TrustSettingsPanel />
@@ -662,7 +756,7 @@ export default function SettingsPage(): React.JSX.Element {
             </div>
           </main>
         </div>
-      </div>
-    </PageShell>
+      </div >
+    </PageShell >
   );
 }

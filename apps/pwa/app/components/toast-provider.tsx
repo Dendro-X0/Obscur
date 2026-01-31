@@ -9,7 +9,7 @@ export const ToastProvider = () => {
     <ToastContainer
       toasts={toasts}
       onDismiss={removeToast}
-      position="top-right"
+      position="bottom-right"
     />
   );
 };
