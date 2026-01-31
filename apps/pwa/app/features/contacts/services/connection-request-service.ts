@@ -7,6 +7,51 @@ export type StoredConnectionRequests = Readonly<{
 
 const STORAGE_KEY_PREFIX = "obscur.connection_requests.v1.";
 
+type StoredConnectionRequestRecord = Readonly<{
+    id: string;
+    status: ConnectionRequestStatusValue;
+    isOutgoing: boolean;
+    introMessage?: string;
+    timestamp: string;
+}>;
+
+const isStoredConnectionRequestRecord = (value: unknown): value is StoredConnectionRequestRecord => {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+    const v = value as Record<string, unknown>;
+    if (typeof v.id !== "string") {
+        return false;
+    }
+    if (typeof v.status !== "string") {
+        return false;
+    }
+    if (typeof v.isOutgoing !== "boolean") {
+        return false;
+    }
+    if (typeof v.timestamp !== "string") {
+        return false;
+    }
+    return true;
+};
+
+const parseStoredRequest = (value: unknown): ConnectionRequest | null => {
+    if (!isStoredConnectionRequestRecord(value)) {
+        return null;
+    }
+    const parsedDate: Date = new Date(value.timestamp);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return null;
+    }
+    return {
+        id: value.id as PublicKeyHex,
+        status: value.status,
+        isOutgoing: value.isOutgoing,
+        introMessage: typeof value.introMessage === "string" ? value.introMessage : undefined,
+        timestamp: parsedDate
+    };
+};
+
 export class ConnectionRequestService {
     private static getStorageKey(myPubkey: string): string {
         return `${STORAGE_KEY_PREFIX}${myPubkey}`;
@@ -17,12 +62,19 @@ export class ConnectionRequestService {
         const raw = localStorage.getItem(this.getStorageKey(myPubkey));
         if (!raw) return [];
         try {
-            const parsed = JSON.parse(raw);
-            return (parsed.requests || []).map((r: any) => ({
-                ...r,
-                timestamp: new Date(r.timestamp)
-            }));
-        } catch (e) {
+            const parsed: unknown = JSON.parse(raw);
+            if (!parsed || typeof parsed !== "object") {
+                return [];
+            }
+            const record = parsed as Record<string, unknown>;
+            const requestsRaw: unknown = record.requests;
+            if (!Array.isArray(requestsRaw)) {
+                return [];
+            }
+            return requestsRaw
+                .map((candidate: unknown): ConnectionRequest | null => parseStoredRequest(candidate))
+                .filter((v: ConnectionRequest | null): v is ConnectionRequest => v !== null);
+        } catch {
             return [];
         }
     }

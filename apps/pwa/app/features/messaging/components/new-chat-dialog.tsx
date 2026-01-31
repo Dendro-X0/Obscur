@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
@@ -15,6 +15,38 @@ import type { ProfileSearchResult } from "../../search/services/profile-search-s
 import type { SendResult } from "../controllers/enhanced-dm-controller";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
+type NostrProfileMetadata = Readonly<{
+    name?: string;
+    display_name?: string;
+    picture?: string;
+    about?: string;
+    nip05?: string;
+}>;
+
+type Nip05FallbackProfile = Readonly<{
+    name?: string;
+    nip05?: string;
+}>;
+
+type FoundProfile = NostrProfileMetadata | ProfileSearchResult | Nip05FallbackProfile;
+
+const isProfileSearchResult = (value: FoundProfile): value is ProfileSearchResult => {
+    return (value as ProfileSearchResult).pubkey !== undefined;
+};
+
+const getFoundProfileName = (value: FoundProfile | null): string => {
+    if (!value) {
+        return "";
+    }
+    if (isProfileSearchResult(value)) {
+        return value.displayName || value.name || "";
+    }
+    const record = value as Record<string, unknown>;
+    const displayName = typeof record.display_name === "string" ? record.display_name : "";
+    const name = typeof record.name === "string" ? record.name : "";
+    return displayName || name;
+};
+
 interface NewChatDialogProps {
     isOpen: boolean;
     onClose: () => void;
@@ -23,7 +55,7 @@ interface NewChatDialogProps {
     displayName: string;
     setDisplayName: (val: string) => void;
     onCreate: () => void;
-    verifyRecipient: (pubkeyHex: string) => Promise<{ exists: boolean; profile?: any }>;
+    verifyRecipient: (pubkeyHex: string) => Promise<{ exists: boolean; profile?: NostrProfileMetadata }>;
     searchProfiles: (query: string) => Promise<ProfileSearchResult[]>;
     isAccepted: (pubkeyHex: string) => boolean;
     sendConnectionRequest: (params: { peerPublicKeyHex: PublicKeyHex; introMessage?: string }) => Promise<SendResult>;
@@ -45,20 +77,75 @@ export function NewChatDialog({
     const { t } = useTranslation();
     const [isSearching, setIsSearching] = useState(false);
     const [verificationStatus, setVerificationStatus] = useState<'idle' | 'found' | 'not_found'>('idle');
-    const [foundProfile, setFoundProfile] = useState<any>(null);
+    const [foundProfile, setFoundProfile] = useState<FoundProfile | null>(null);
+    const [resolvedPubkeyHex, setResolvedPubkeyHex] = useState<PublicKeyHex | null>(null);
 
     const trimmedPubkey = pubkey.trim();
     const parsed = parsePublicKeyInput(trimmedPubkey);
 
     useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+        if (!parsed.ok) {
+            return;
+        }
+        if (resolvedPubkeyHex) {
+            return;
+        }
+        setIsSearching(true);
+        setResolvedPubkeyHex(parsed.publicKeyHex);
+        void verifyRecipient(parsed.publicKeyHex)
+            .then((result) => {
+                if (!result.exists) {
+                    setVerificationStatus("not_found");
+                    return;
+                }
+                setVerificationStatus("found");
+                setFoundProfile(result.profile ?? null);
+                const name = result.profile?.display_name || result.profile?.name;
+                if (name) {
+                    setDisplayName(name);
+                }
+            })
+            .catch((e: unknown) => {
+                console.error("Auto-verify recipient failed:", e);
+            })
+            .finally(() => {
+                setIsSearching(false);
+            });
+    }, [isOpen, parsed.ok, resolvedPubkeyHex, setDisplayName, verifyRecipient]);
+
+    useEffect(() => {
         setVerificationStatus('idle');
         setFoundProfile(null);
+        setResolvedPubkeyHex(null);
     }, [pubkey]);
 
     const [nip05Error, setNip05Error] = useState<string | null>(null);
     const [searchResults, setSearchResults] = useState<ProfileSearchResult[]>([]);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+
+    const shouldBlockChatCreation: boolean = useMemo((): boolean => {
+        if (!resolvedPubkeyHex) {
+            return false;
+        }
+        return !isAccepted(resolvedPubkeyHex);
+    }, [isAccepted, resolvedPubkeyHex]);
+
+    useEffect(() => {
+        if (!resolvedPubkeyHex) {
+            return;
+        }
+        if (verificationStatus !== "found" && verificationStatus !== "not_found") {
+            return;
+        }
+        if (isAccepted(resolvedPubkeyHex)) {
+            return;
+        }
+        setIsRequestDialogOpen(true);
+    }, [isAccepted, resolvedPubkeyHex, verificationStatus]);
 
     const handleScan = (data: string) => {
         let scannnedPubkey = data.trim();
@@ -92,6 +179,7 @@ export function NewChatDialog({
         setIsSearching(true);
         setVerificationStatus('idle');
         setFoundProfile(null);
+        setResolvedPubkeyHex(null);
         setNip05Error(null);
         setSearchResults([]);
 
@@ -100,20 +188,17 @@ export function NewChatDialog({
             if (query.includes('@')) {
                 const nip05 = await import("@/app/features/profile/utils/nip05-resolver").then(m => m.resolveNip05(query));
                 if (nip05.ok) {
+                    setResolvedPubkeyHex(nip05.publicKeyHex);
                     const result = await verifyRecipient(nip05.publicKeyHex);
                     if (result.exists) {
                         setVerificationStatus('found');
-                        setFoundProfile(result.profile);
+                        setFoundProfile(result.profile ?? null);
                         const name = result.profile?.display_name || result.profile?.name;
                         if (name) setDisplayName(name);
                     } else {
                         // Fallback result if recipient service doesn't have it yet, but NIP-05 is valid
                         setVerificationStatus('found');
-                        setFoundProfile({
-                            pubkey: nip05.publicKeyHex,
-                            name: query.split('@')[0],
-                            nip05: query
-                        });
+                        setFoundProfile({ name: query.split('@')[0], nip05: query });
                     }
                 } else {
                     setVerificationStatus('not_found');
@@ -124,10 +209,11 @@ export function NewChatDialog({
 
             // Case 2: Pubkey (npub, nprofile, hex)
             if (parsed.ok) {
+                setResolvedPubkeyHex(parsed.publicKeyHex);
                 const result = await verifyRecipient(parsed.publicKeyHex);
                 if (result.exists) {
                     setVerificationStatus('found');
-                    setFoundProfile(result.profile);
+                    setFoundProfile(result.profile ?? null);
                     const name = result.profile?.display_name || result.profile?.name;
                     if (name) setDisplayName(name);
                 } else {
@@ -152,6 +238,7 @@ export function NewChatDialog({
         setSearchResults([]);
         setVerificationStatus('found');
         setFoundProfile(profile);
+        setResolvedPubkeyHex(profile.pubkey);
 
         // If not accepted, show request dialog instead of immediately creating
         if (!isAccepted(profile.pubkey)) {
@@ -160,11 +247,12 @@ export function NewChatDialog({
     };
 
     const handleSendRequest = async (introMessage: string) => {
-        const pubkeyToUse = parsed.ok ? parsed.publicKeyHex : '';
-        if (!pubkeyToUse) return;
+        if (!resolvedPubkeyHex) {
+            return;
+        }
 
         const result = await sendConnectionRequest({
-            peerPublicKeyHex: pubkeyToUse as PublicKeyHex,
+            peerPublicKeyHex: resolvedPubkeyHex,
             introMessage
         });
 
@@ -244,7 +332,13 @@ export function NewChatDialog({
                                 <UserCheck className="h-3.5 w-3.5" />
                                 <span>
                                     {trimmedPubkey.includes('@') ? `Verified ${trimmedPubkey}: ` : 'User found: '}
-                                    @{((foundProfile?.name && !foundProfile.name.startsWith('nprofile')) || (foundProfile?.display_name && !foundProfile.display_name.startsWith('nprofile'))) ? (foundProfile.name || foundProfile.display_name) : "Unknown"}
+                                    @{((): string => {
+                                        const name: string = getFoundProfileName(foundProfile);
+                                        if (!name) {
+                                            return "Unknown";
+                                        }
+                                        return name.startsWith("nprofile") ? "Unknown" : name;
+                                    })()}
                                 </span>
                             </div>
                         )}
@@ -278,7 +372,7 @@ export function NewChatDialog({
                             type="button"
                             className="flex-1"
                             onClick={onCreate}
-                            disabled={!parsed.ok && !trimmedPubkey.includes('@')}
+                            disabled={!resolvedPubkeyHex || shouldBlockChatCreation}
                         >
                             {t("common.create")}
                         </Button>

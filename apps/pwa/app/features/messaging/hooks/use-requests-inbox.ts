@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
+import { ConnectionRequestService } from "@/app/features/contacts/services/connection-request-service";
 
 type RequestsInboxItem = Readonly<{
   peerPublicKeyHex: PublicKeyHex;
@@ -39,6 +40,8 @@ type UseRequestsInboxResult = Readonly<{
 type StoredRequestsInbox = Readonly<{
   items: ReadonlyArray<RequestsInboxItem>;
 }>;
+
+type RequestsStatusByPeer = Readonly<Record<string, ConnectionRequestStatusValue>>;
 
 const createDefaultState = (): StoredRequestsInbox => {
   return { items: [] };
@@ -113,14 +116,35 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     }
     return loadFromStorage(params.publicKeyHex);
   });
+  const [statusByPeer, setStatusByPeer] = useState<RequestsStatusByPeer>({});
   useEffect((): void => {
     queueMicrotask((): void => {
       if (!params.publicKeyHex) {
         setStored(createDefaultState());
+        setStatusByPeer({});
         return;
       }
       setStored(loadFromStorage(params.publicKeyHex));
     });
+  }, [params.publicKeyHex]);
+  useEffect(() => {
+    if (!params.publicKeyHex) {
+      return;
+    }
+    let isAlive = true;
+    void ConnectionRequestService.getRequests(params.publicKeyHex).then((requests) => {
+      if (!isAlive) {
+        return;
+      }
+      const next: Record<string, ConnectionRequestStatusValue> = {};
+      requests.forEach((r) => {
+        next[r.id] = r.status;
+      });
+      setStatusByPeer(next);
+    });
+    return (): void => {
+      isAlive = false;
+    };
   }, [params.publicKeyHex]);
   useEffect((): void => {
     if (!params.publicKeyHex) {
@@ -136,6 +160,16 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     status?: ConnectionRequestStatusValue;
   }>): void => {
     const preview: string = createPreview(p.plaintext);
+    if (params.publicKeyHex && p.status) {
+      void ConnectionRequestService.addRequest(params.publicKeyHex, {
+        id: p.peerPublicKeyHex,
+        status: p.status,
+        isOutgoing: false,
+        introMessage: undefined,
+        timestamp: new Date(p.createdAtUnixSeconds * 1000)
+      });
+      setStatusByPeer((prev: RequestsStatusByPeer): RequestsStatusByPeer => ({ ...prev, [p.peerPublicKeyHex]: p.status as ConnectionRequestStatusValue }));
+    }
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       const existing: RequestsInboxItem | undefined = prev.items.find((i: RequestsInboxItem): boolean => i.peerPublicKeyHex === p.peerPublicKeyHex);
       if (!existing) {
@@ -161,12 +195,16 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       const nextItems: RequestsInboxItem[] = [updated, ...prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex)];
       return { items: nextItems };
     });
-  }, []);
+  }, [params.publicKeyHex]);
   const remove = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): void => {
+    if (params.publicKeyHex) {
+      void ConnectionRequestService.updateRequestStatus(params.publicKeyHex, p.peerPublicKeyHex, "declined");
+      setStatusByPeer((prev: RequestsStatusByPeer): RequestsStatusByPeer => ({ ...prev, [p.peerPublicKeyHex]: "declined" }));
+    }
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       return { items: prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex) };
     });
-  }, []);
+  }, [params.publicKeyHex]);
   const markRead = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): void => {
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       return {
@@ -180,6 +218,10 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     });
   }, []);
   const setStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue }>): void => {
+    if (params.publicKeyHex) {
+      void ConnectionRequestService.updateRequestStatus(params.publicKeyHex, p.peerPublicKeyHex, p.status);
+      setStatusByPeer((prev: RequestsStatusByPeer): RequestsStatusByPeer => ({ ...prev, [p.peerPublicKeyHex]: p.status }));
+    }
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       return {
         items: prev.items.map((i: RequestsInboxItem): RequestsInboxItem => {
@@ -190,9 +232,16 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         })
       };
     });
-  }, []);
+  }, [params.publicKeyHex]);
   const state: RequestsInboxState = useMemo((): RequestsInboxState => {
-    return { items: stored.items };
-  }, [stored.items]);
+    const items: RequestsInboxItem[] = stored.items.map((i: RequestsInboxItem): RequestsInboxItem => {
+      const status: ConnectionRequestStatusValue | undefined = statusByPeer[i.peerPublicKeyHex];
+      if (!status) {
+        return i;
+      }
+      return { ...i, status };
+    });
+    return { items };
+  }, [statusByPeer, stored.items]);
   return { state, upsertIncoming, remove, markRead, setStatus };
 };

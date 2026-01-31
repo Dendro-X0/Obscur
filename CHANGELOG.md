@@ -17,6 +17,14 @@ The format is based on Keep a Changelog.
 - **Bug Fixes**:
   - Fixed a visibility issue where some settings tabs would appear empty or were missing from the navigation groups.
 
+### Fixed
+
+- **Connection Requests**:
+  - Made `ConnectionRequestService` the canonical source of truth for connection request status/lifecycle.
+  - Requests inbox now hydrates and persists request status through `ConnectionRequestService`.
+  - Sending a connection request now persists an outgoing `pending` request record.
+  - Request-first enforcement now blocks DM sends to unaccepted peers (must send a connection request first).
+
 ## [0.3.1] - 2026-01-31
 
 ### Added

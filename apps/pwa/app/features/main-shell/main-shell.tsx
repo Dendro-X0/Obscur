@@ -1,21 +1,12 @@
 "use client";
 
 import type React from "react";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { Button } from "@/app/components/ui/button";
-import { Card } from "@/app/components/ui/card";
-import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
-import { Textarea } from "@/app/components/ui/textarea";
 import { AppShell } from "@/app/components/app-shell";
-import { IdentityCard } from "@/app/components/identity-card";
 import { OnboardingWizard } from "@/app/components/onboarding-wizard";
-import { SessionChip } from "@/app/components/session-chip";
-import { UserAvatarMenu } from "@/app/components/user-avatar-menu";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
@@ -995,6 +986,10 @@ function NostrMessengerContent() {
       return;
     }
 
+    if (!peerTrust.isAccepted({ publicKeyHex: resolvedPubkey })) {
+      return;
+    }
+
     // Handle relay hints
     if (relayHints.length > 0) {
       relayHints.forEach(url => {
@@ -1092,6 +1087,9 @@ function NostrMessengerContent() {
         }
         if (blocklist.isBlocked({ publicKeyHex: selectedConversation.pubkey })) {
           throw new Error("Recipient is blocked.");
+        }
+        if (!isPeerAccepted({ publicKeyHex: selectedConversation.pubkey })) {
+          throw new Error("Peer is not accepted. Send a connection request first.");
         }
         const sent = await dmController.sendDm({ peerPublicKeyInput: selectedConversation.pubkey, plaintext: resolvedContent });
         if (sent.success && sent.messageId) {

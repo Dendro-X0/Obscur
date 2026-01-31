@@ -26,6 +26,7 @@ import type { RelayConnection } from "@/app/features/relays/utils/relay-connecti
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { NOSTR_SAFETY_LIMITS } from "@/app/features/relays/utils/nostr-safety-limits";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
+import { ConnectionRequestService } from "@/app/features/contacts/services/connection-request-service";
 import { nip19 } from "nostr-tools";
 
 /**
@@ -1622,6 +1623,16 @@ export const useEnhancedDMController = (
       plaintext: paramsReq.introMessage || "Hello, I'd like to connect with you!",
       customTags
     });
+
+    if (params.myPublicKeyHex && result.success) {
+      await ConnectionRequestService.addRequest(params.myPublicKeyHex, {
+        id: paramsReq.peerPublicKeyHex,
+        status: "pending",
+        isOutgoing: true,
+        introMessage: paramsReq.introMessage,
+        timestamp: new Date()
+      });
+    }
 
     return result;
   }, [sendDm, params.myPublicKeyHex]);
