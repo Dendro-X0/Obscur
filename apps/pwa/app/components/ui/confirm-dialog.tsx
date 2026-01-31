@@ -39,9 +39,14 @@ export function ConfirmDialog({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] grid place-items-center p-4 sm:p-0">
+            <div
+                className="fixed inset-0 bg-black/40 backdrop-blur-xl transition-all animate-in fade-in duration-300"
+                aria-hidden="true"
+                onClick={onClose}
+            />
             <Card
-                className="w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 border-white/10"
+                className="relative w-full max-w-sm z-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 border-white/10"
             >
                 <div className="space-y-6">
                     <div className="flex flex-col items-center text-center space-y-3">
@@ -62,7 +67,7 @@ export function ConfirmDialog({
                     <div className="flex gap-3 pt-2">
                         <Button
                             variant="secondary"
-                            className="flex-1 rounded-2xl h-12"
+                            className="flex-1 rounded-2xl h-12 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                             onClick={onClose}
                             disabled={isLoading}
                         >
@@ -70,7 +75,7 @@ export function ConfirmDialog({
                         </Button>
                         <Button
                             variant={variant === "danger" ? "danger" : "primary"}
-                            className="flex-1 rounded-2xl h-12 gap-2"
+                            className="flex-1 rounded-2xl h-12 gap-2 shadow-lg shadow-red-500/20"
                             onClick={handleConfirm}
                             disabled={isLoading}
                         >
