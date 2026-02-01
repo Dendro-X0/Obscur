@@ -8,6 +8,15 @@ importers:
 
   .: {}
 
+  apps/coordination:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      wrangler:
+        specifier: ^3.106.0
+        version: 3.114.17
+
   apps/desktop:
     dependencies:
       '@tauri-apps/cli':
@@ -150,15 +159,6 @@ importers:
       vitest:
         specifier: ^4.0.17
         version: 4.0.17(@types/node@20.19.27)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)
-
-  dcos/coordination:
-    devDependencies:
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      wrangler:
-        specifier: ^3.106.0
-        version: 3.114.17
 
   packages/dweb-core:
     dependencies:
