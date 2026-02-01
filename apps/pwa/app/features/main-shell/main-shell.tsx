@@ -1814,7 +1814,7 @@ function NostrMessengerContent() {
           const result = await dmController.sendConnectionRequest(params);
           if (result.success) {
             // 1. Locally trust the user we just invited
-            peerTrust.accept({ publicKeyHex: params.peerPublicKeyHex });
+            peerTrust.acceptPeer({ publicKeyHex: params.peerPublicKeyHex });
 
             // 2. Create the conversation object immediately
             const id = createContactId();
