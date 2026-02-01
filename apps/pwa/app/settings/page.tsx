@@ -315,12 +315,14 @@ export default function SettingsPage(): React.JSX.Element {
                                 avatarUrl: profile.state.profile.avatarUrl
                               });
                               if (success) {
-                                toast.success(t("settings.profileSaved", "Profile saved successfully!"));
+                                toast.success(t("settings.profileSaved", "Profile published to network!"));
+                              } else {
+                                toast.error(t("settings.profilePublishFailed", "Failed to publish. Check relay connections."));
                               }
                             }}
                             disabled={isPublishing}
                           >
-                            {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.saving")}</> : t("common.save")}
+                            {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.publishing", "Publishing...")}</> : t("settings.saveAndPublish", "Save & Publish")}
                           </Button>
                           <Button
                             type="button"
@@ -332,6 +334,10 @@ export default function SettingsPage(): React.JSX.Element {
                           >
                             {t("profile.reset")}
                           </Button>
+                        </div>
+                        <div className="mt-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                          <p className="font-semibold mb-1">Tip: Ghost Account?</p>
+                          <p>If others can't find you, click <strong>Save & Publish</strong> to broadcast your profile to all connected relays.</p>
                         </div>
                       </div>
                     </Card>
@@ -628,6 +634,24 @@ export default function SettingsPage(): React.JSX.Element {
                           )}
                         </ul>
                         <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.relays.metadataWarning")}</div>
+
+                        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="w-full sm:w-auto"
+                            onClick={() => {
+                              relayList.resetRelays();
+                              toast.success(t("settings.relays.resetSuccess", "Relays reset to defaults"));
+                            }}
+                          >
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                            {t("settings.relays.resetToDefaults", "Reset to Recommended Relays")}
+                          </Button>
+                          <p className="mt-2 text-[10px] text-zinc-500">
+                            {t("settings.relays.resetHelp", "Use this if you are having trouble connecting or finding users.")}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </Card>

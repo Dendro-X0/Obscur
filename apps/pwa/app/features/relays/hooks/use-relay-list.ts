@@ -24,6 +24,7 @@ type UseRelayListResult = Readonly<{
   removeRelay: (params: Readonly<{ url: string }>) => void;
   setRelayEnabled: (params: Readonly<{ url: string; enabled: boolean }>) => void;
   moveRelay: (params: Readonly<{ url: string; direction: MoveRelayDirection }>) => void;
+  resetRelays: () => void;
 }>;
 
 const getE2eRelayOverride = (): ReadonlyArray<RelayListItem> | null => {
@@ -192,8 +193,11 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
       return next;
     });
   }, []);
+  const resetRelays = useCallback((): void => {
+    setRelays(DEFAULT_RELAYS);
+  }, []);
   const state: RelayListState = useMemo((): RelayListState => {
     return { relays };
   }, [relays]);
-  return { state, addRelay, removeRelay, setRelayEnabled, moveRelay };
+  return { state, addRelay, removeRelay, setRelayEnabled, moveRelay, resetRelays };
 };
