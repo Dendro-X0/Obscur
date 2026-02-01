@@ -928,6 +928,7 @@ export const useEnhancedDMController = (
     const recipientPubkey = parsedRecipient.publicKeyHex;
 
     // Phase 6: NIP-65 Gossip Relay Discovery
+    await ensureConnectedToRecipientRelays(recipientPubkey);
     if (sendParams.peerPublicKeyInput.startsWith("nprofile")) {
       try {
         const decoded = nip19.decode(sendParams.peerPublicKeyInput);
@@ -1589,11 +1590,105 @@ export const useEnhancedDMController = (
     });
   }, [params.pool]);
 
+  // Cache to track which recipients we've already discovered relays for
+  const recipientRelayCheckCache = useRef<Set<string>>(new Set());
+
+  /**
+   * Discover and connect to a recipient's read relays (NIP-65)
+   * This ensures messages are delivered to where the user is listening
+   */
+  const ensureConnectedToRecipientRelays = useCallback(async (pubkey: string): Promise<void> => {
+    if (recipientRelayCheckCache.current.has(pubkey)) {
+      return;
+    }
+
+    console.log(`Discovering relays for recipient: ${pubkey.slice(0, 8)}...`);
+
+    return new Promise<void>((resolve) => {
+      const subId = `relays-${Math.random().toString(36).substring(7)}`;
+      const discoveredRelays = new Set<string>();
+      let found = false;
+      let cleanup: () => void = () => { };
+
+      // NIP-65 (10002) and Legacy (3)
+      const filter = {
+        kinds: [10002, 3],
+        authors: [pubkey],
+        limit: 2
+      };
+
+      const finish = () => {
+        cleanup();
+        if (discoveredRelays.size > 0) {
+          console.log(`Found ${discoveredRelays.size} relays for ${pubkey.slice(0, 8)}`);
+          discoveredRelays.forEach(url => {
+            // Connect to them temporarily
+            params.pool.addTransientRelay?.(url);
+          });
+        }
+        recipientRelayCheckCache.current.add(pubkey);
+        resolve();
+      };
+
+      cleanup = params.pool.subscribeToMessages(({ message }: { message: string }) => {
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed[0] === "EVENT" && parsed[1] === subId) {
+            const event = parsed[2] as NostrEvent;
+
+            // Handle NIP-65 (Kind 10002)
+            if (event.kind === 10002) {
+              event.tags.forEach((tag: readonly string[]) => {
+                if (tag[0] === 'r' && tag[1]) {
+                  const url = tag[1];
+                  const marker = tag[2];
+                  if (!marker || marker === 'read') {
+                    discoveredRelays.add(url);
+                  }
+                }
+              });
+              found = true;
+            }
+            // Handle Legacy Kind 3
+            else if (event.kind === 3) {
+              try {
+                const relays = JSON.parse(event.content);
+                Object.entries(relays).forEach(([url, permissions]: [string, any]) => {
+                  if (permissions.read) {
+                    discoveredRelays.add(url);
+                  }
+                });
+                found = true;
+              } catch (e) { }
+            }
+          }
+          if (parsed[0] === "EOSE" && parsed[1] === subId) {
+            finish();
+          }
+        } catch (e) { }
+      });
+
+      try {
+        params.pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
+      } catch (e) {
+        resolve();
+      }
+
+      // Timeout after 2 seconds - don't block too long
+      setTimeout(() => {
+        finish();
+      }, 2000);
+    });
+  }, [params.pool]);
+
   /**
    * Monitor relay connection changes and trigger sync when coming online
    */
   useEffect(() => {
     if (!params.myPublicKeyHex) return;
+
+    // Reset cache on account switch
+    recipientRelayCheckCache.current.clear();
 
     const hasOpenRelay = params.pool.connections.some(c => c.status === 'open');
     const hadOpenRelay = params.pool.connections.some(c =>

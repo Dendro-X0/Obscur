@@ -474,6 +474,16 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
     return { success: false, relayUrl: url, error: 'Relay not found' };
   }
 
+  if (socket.readyState === WebSocket.CONNECTING) {
+    await new Promise<void>(resolve => {
+      const timeout = setTimeout(resolve, 2000);
+      socket.addEventListener('open', () => {
+        clearTimeout(timeout);
+        resolve();
+      }, { once: true });
+    });
+  }
+
   if (socket.readyState !== WebSocket.OPEN) {
     return { success: false, relayUrl: url, error: 'Relay not connected' };
   }
