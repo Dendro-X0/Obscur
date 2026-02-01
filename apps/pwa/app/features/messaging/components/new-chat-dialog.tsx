@@ -127,12 +127,7 @@ export function NewChatDialog({
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
 
-    const shouldBlockChatCreation: boolean = useMemo((): boolean => {
-        if (!resolvedPubkeyHex) {
-            return false;
-        }
-        return !isAccepted(resolvedPubkeyHex);
-    }, [isAccepted, resolvedPubkeyHex]);
+
 
     // Removed auto-opening of request dialog to prevent "fire-hose" experience
     // User must explicitly click "Connect" or "Create" now.
@@ -368,7 +363,7 @@ export function NewChatDialog({
                                     onCreate();
                                 }
                             }}
-                            disabled={!resolvedPubkeyHex || shouldBlockChatCreation}
+                            disabled={!resolvedPubkeyHex}
                         >
                             {resolvedPubkeyHex && !isAccepted(resolvedPubkeyHex) ? t("contacts.connect", "Connect") : t("common.create")}
                         </Button>
