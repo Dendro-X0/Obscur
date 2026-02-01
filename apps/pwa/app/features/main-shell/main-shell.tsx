@@ -1846,6 +1846,9 @@ function NostrMessengerContent() {
             // Optional, but for now the 'lastMessage' update in controller might handle it?
             // controller sends a DM. If successful, it persists it.
             // But we need to make sure the UI sees it.
+          } else {
+            toast.error(result.error || "Failed to send request");
+            throw new Error(result.error || "Failed to send request");
           }
           return result;
         }}
