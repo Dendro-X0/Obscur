@@ -26,6 +26,8 @@ export const InviteLinkCreator = () => {
   const [maxUses, setMaxUses] = useState("");
   const [includeProfile, setIncludeProfile] = useState(true);
 
+  const coordinationConfigured: boolean = (process.env.NEXT_PUBLIC_COORDINATION_URL ?? "").trim().length > 0;
+
   const canCreate = identity.state.status === "unlocked";
 
   const getExpirationTime = (): Date | undefined => {
@@ -147,6 +149,14 @@ export const InviteLinkCreator = () => {
   return (
     <Card title="Create Invite Link" description="Generate a shareable link to connect with others">
       <div className="space-y-4">
+        {!coordinationConfigured ? (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/25 dark:text-amber-100">
+            <div className="font-semibold">Invite server is not configured.</div>
+            <div className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+              Links created here will be local-only and may not redeem on other devices until <span className="font-mono">NEXT_PUBLIC_COORDINATION_URL</span> is set.
+            </div>
+          </div>
+        ) : null}
         {state.status !== "success" && (
           <>
             <div>
@@ -238,6 +248,11 @@ export const InviteLinkCreator = () => {
               <div className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
                 Invite Link Created!
               </div>
+              {!coordinationConfigured ? (
+                <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                  Warning: coordination is not configured, so this link may be local-only.
+                </div>
+              ) : null}
               <div className="mt-2 break-all font-mono text-xs text-emerald-700 dark:text-emerald-300">
                 {state.inviteLink.url}
               </div>

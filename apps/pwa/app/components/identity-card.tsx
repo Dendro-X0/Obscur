@@ -40,6 +40,14 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
     if (!canSubmit) {
       return;
     }
+    if (state.stored) {
+      const confirmed: boolean = window.confirm("Creating a new identity will overwrite your current local identity and reset local data for this account. Continue?");
+      if (!confirmed) {
+        return;
+      }
+      await identity.forgetIdentity();
+      setPassphrase("");
+    }
     await identity.createIdentity({ passphrase: passphrase as Passphrase });
   };
 

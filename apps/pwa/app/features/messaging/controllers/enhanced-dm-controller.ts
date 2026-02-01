@@ -28,6 +28,7 @@ import { NOSTR_SAFETY_LIMITS } from "@/app/features/relays/utils/nostr-safety-li
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
 import { ConnectionRequestService } from "@/app/features/contacts/services/connection-request-service";
 import { nip19 } from "nostr-tools";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 /**
  * Relay pool interface
@@ -114,6 +115,50 @@ export interface SendResult {
   }>;
   error?: string;
 }
+
+type DmFormat = "nip17" | "nip04";
+
+type DmEventBuildResult = Readonly<{
+  format: DmFormat;
+  signedEvent: NostrEvent;
+  encryptedContent: string;
+}>;
+
+const buildDmEvent = async (params: Readonly<{
+  format: DmFormat;
+  plaintext: string;
+  recipientPubkey: PublicKeyHex;
+  senderPubkey: PublicKeyHex;
+  senderPrivateKeyHex: PrivateKeyHex;
+  createdAtUnixSeconds: number;
+  tags: ReadonlyArray<ReadonlyArray<string>>;
+}>): Promise<DmEventBuildResult> => {
+  if (params.format === "nip17") {
+    const rumor: UnsignedNostrEvent = {
+      kind: 14,
+      created_at: params.createdAtUnixSeconds,
+      tags: params.tags.map((t: ReadonlyArray<string>) => [...t]),
+      content: params.plaintext,
+      pubkey: params.senderPubkey
+    };
+    const signedEvent: NostrEvent = await cryptoService.encryptGiftWrap(rumor, params.senderPrivateKeyHex, params.recipientPubkey);
+    return { format: "nip17", signedEvent, encryptedContent: signedEvent.content };
+  }
+  const encryptedContent: string = await cryptoService.encryptDM(params.plaintext, params.recipientPubkey, params.senderPrivateKeyHex);
+  const unsignedEvent: UnsignedNostrEvent = {
+    kind: 4,
+    created_at: params.createdAtUnixSeconds,
+    tags: params.tags.map((t: ReadonlyArray<string>) => [...t]),
+    content: encryptedContent,
+    pubkey: params.senderPubkey
+  };
+  const signedEvent: NostrEvent = await cryptoService.signEvent(unsignedEvent, params.senderPrivateKeyHex);
+  return { format: "nip04", signedEvent, encryptedContent };
+};
+
+const countRelayFailures = (results: ReadonlyArray<{ success: boolean }>): number => {
+  return results.reduce((acc: number, r: { success: boolean }): number => acc + (r.success ? 0 : 1), 0);
+};
 
 /**
  * Controller parameters
@@ -927,9 +972,6 @@ export const useEnhancedDMController = (
 
     try {
       const privacySettings = PrivacySettingsService.getSettings();
-      let signedEvent: NostrEvent;
-      let encryptedContent: string;
-      let usedEventId: string;
       const usedCreatedAt = Math.floor(Date.now() / 1000);
 
       // Add p-tags and reply-tags
@@ -938,63 +980,31 @@ export const useEnhancedDMController = (
         tags.push(['e', sendParams.replyTo, '', 'reply']);
       }
 
-      if (privacySettings.useModernDMs) {
-        // Step 1: Create the Rumor (Kind 14)
-        const rumor: UnsignedNostrEvent = {
-          kind: 14,
-          created_at: usedCreatedAt,
-          tags: [...tags, ...(sendParams.customTags || [])],
-          content: plaintext,
-          pubkey: params.myPublicKeyHex
-        };
+      const combinedTags: ReadonlyArray<ReadonlyArray<string>> = [...tags, ...(sendParams.customTags || [])];
+      const openRelays = params.pool.connections.filter(c => c.status === 'open');
+      const canDetectPublishAcceptance: boolean = typeof params.pool.publishToAll === "function";
 
-        // Step 2: Encrypt into Gift Wrap (Kind 1059)
-        signedEvent = await cryptoService.encryptGiftWrap(
-          rumor,
-          params.myPrivateKeyHex,
-          recipientPubkey
-        );
+      const preferredFormat: DmFormat = privacySettings.useModernDMs && canDetectPublishAcceptance ? "nip17" : "nip04";
 
-        // For the local Message object, we still want to store the plaintext
-        encryptedContent = signedEvent.content; // This is the encrypted layer
-        usedEventId = signedEvent.id;
-      } else {
-        // Legacy NIP-04 (Kind 4)
-        try {
-          encryptedContent = await cryptoService.encryptDM(
-            plaintext,
-            recipientPubkey,
-            params.myPrivateKeyHex
-          );
-        } catch (encryptError) {
-          const messageError = errorHandler.handleEncryptionError(
-            encryptError instanceof Error ? encryptError : new Error('Encryption failed'),
-            { recipient: recipientPubkey }
-          );
-          setState(prev => ({
-            ...prev,
-            lastError: messageError
-          }));
-          throw encryptError;
-        }
+      logAppEvent({
+        name: "messaging.dm.send.attempt",
+        level: "info",
+        scope: { feature: "messaging", action: "send_dm" },
+        context: { format: preferredFormat, openRelays: openRelays.length }
+      });
 
-        const unsignedEvent = {
-          kind: 4,
-          created_at: usedCreatedAt,
-          tags: [...tags, ...(sendParams.customTags || [])],
-          content: encryptedContent,
-          pubkey: params.myPublicKeyHex
-        };
-
-        signedEvent = await cryptoService.signEvent(
-          unsignedEvent,
-          params.myPrivateKeyHex
-        );
-        usedEventId = signedEvent.id;
-      }
+      let build: DmEventBuildResult = await buildDmEvent({
+        format: preferredFormat,
+        plaintext,
+        recipientPubkey,
+        senderPubkey: params.myPublicKeyHex,
+        senderPrivateKeyHex: params.myPrivateKeyHex,
+        createdAtUnixSeconds: usedCreatedAt,
+        tags: combinedTags
+      });
 
       // Step 4: Create message object
-      const messageId = usedEventId;
+      const messageId = build.signedEvent.id;
       const conversationId = [params.myPublicKeyHex, recipientPubkey].sort().join(':');
 
       const message: Message = {
@@ -1005,11 +1015,12 @@ export const useEnhancedDMController = (
         timestamp: new Date(usedCreatedAt * 1000),
         isOutgoing: true,
         status: 'sending',
-        eventId: usedEventId,
+        dmFormat: build.format,
+        eventId: build.signedEvent.id,
         eventCreatedAt: new Date(usedCreatedAt * 1000),
         senderPubkey: params.myPublicKeyHex as PublicKeyHex,
         recipientPubkey,
-        encryptedContent,
+        encryptedContent: build.encryptedContent,
         relayResults: [],
         retryCount: 0,
         replyTo: sendParams.replyTo ? {
@@ -1040,8 +1051,6 @@ export const useEnhancedDMController = (
       relayRequestTimes.current.set(messageId, Date.now());
 
       // Step 7: Publish to relays
-      const openRelays = params.pool.connections.filter(c => c.status === 'open');
-
       if (openRelays.length === 0) {
         const allRelaysError = errorHandler.handleAllRelaysFailed({ messageId });
 
@@ -1054,7 +1063,7 @@ export const useEnhancedDMController = (
             createdAt: new Date(),
             retryCount: 0,
             nextRetryAt: retryManager.calculateNextRetry(0),
-            signedEvent
+            signedEvent: build.signedEvent
           };
 
           try {
@@ -1073,51 +1082,105 @@ export const useEnhancedDMController = (
         };
       }
 
-      const eventPayload = JSON.stringify(['EVENT', signedEvent]);
+      const publishOnce = async (signedEvent: NostrEvent): Promise<MultiRelayPublishResult> => {
+        const eventPayload = JSON.stringify(['EVENT', signedEvent]);
+        if (!params.pool.publishToAll) {
+          params.pool.sendToOpen(eventPayload);
+          return { success: true, successCount: openRelays.length, totalRelays: openRelays.length, results: openRelays.map(relay => ({ relayUrl: relay.url, success: true })) };
+        }
+        return params.pool.publishToAll(eventPayload);
+      };
+
+      if (!params.pool.publishToAll && privacySettings.useModernDMs) {
+        logAppEvent({
+          name: "messaging.dm.send.publish_to_all_missing",
+          level: "warn",
+          scope: { feature: "messaging", action: "send_dm" },
+          context: { forcedFormat: "nip04" }
+        });
+      }
 
       if (params.pool.publishToAll) {
         try {
-          const publishResult = await params.pool.publishToAll(eventPayload);
-          message.relayResults = publishResult.results;
+          let publishResult: MultiRelayPublishResult = await publishOnce(build.signedEvent);
+          let finalMessage: Message = message;
 
-          if (publishResult.successCount > 0) {
-            message.status = 'accepted';
+          if (build.format === "nip17" && publishResult.successCount === 0) {
+            logAppEvent({
+              name: "messaging.dm.send.fallback_start",
+              level: "warn",
+              scope: { feature: "messaging", action: "send_dm" },
+              context: { from: "nip17", to: "nip04", failures: countRelayFailures(publishResult.results) }
+            });
+            const fallbackBuild: DmEventBuildResult = await buildDmEvent({
+              format: "nip04",
+              plaintext,
+              recipientPubkey,
+              senderPubkey: params.myPublicKeyHex,
+              senderPrivateKeyHex: params.myPrivateKeyHex,
+              createdAtUnixSeconds: usedCreatedAt,
+              tags: combinedTags
+            });
+            publishResult = await publishOnce(fallbackBuild.signedEvent);
+            finalMessage = { ...finalMessage, id: fallbackBuild.signedEvent.id, eventId: fallbackBuild.signedEvent.id, encryptedContent: fallbackBuild.encryptedContent, dmFormat: fallbackBuild.format, relayResults: [] };
+            pendingMessages.current.delete(messageId);
+            relayRequestTimes.current.delete(messageId);
+            pendingMessages.current.set(finalMessage.id, finalMessage);
+            relayRequestTimes.current.set(finalMessage.id, Date.now());
             if (messageQueue) {
-              await messageQueue.updateMessageStatus(messageId, 'accepted');
+              await messageQueue.persistMessage(finalMessage);
+            }
+            setState(prev => {
+              const updatedMessages = prev.messages.map(m => (m.id === messageId ? finalMessage : m));
+              return createReadyState(updatedMessages);
+            });
+          }
+
+          finalMessage = { ...finalMessage, relayResults: publishResult.results };
+          if (publishResult.successCount > 0) {
+            finalMessage.status = 'accepted';
+            if (messageQueue) {
+              await messageQueue.updateMessageStatus(finalMessage.id, 'accepted');
             }
           } else {
-            message.status = 'rejected';
+            finalMessage.status = 'rejected';
             if (messageQueue) {
-              await messageQueue.updateMessageStatus(messageId, 'rejected');
+              await messageQueue.updateMessageStatus(finalMessage.id, 'rejected');
               const outgoingMessage: OutgoingMessage = {
-                id: messageId,
+                id: finalMessage.id,
                 conversationId,
                 content: plaintext,
                 recipientPubkey,
                 createdAt: new Date(),
                 retryCount: 0,
                 nextRetryAt: retryManager.calculateNextRetry(0),
-                signedEvent
+                signedEvent: finalMessage.eventId === build.signedEvent.id ? build.signedEvent : undefined
               };
               await messageQueue.queueOutgoingMessage(outgoingMessage);
             }
           }
 
+          logAppEvent({
+            name: "messaging.dm.send.publish_result",
+            level: publishResult.successCount > 0 ? "info" : "warn",
+            scope: { feature: "messaging", action: "send_dm" },
+            context: { format: finalMessage.dmFormat ?? "unknown", successCount: publishResult.successCount, totalRelays: publishResult.totalRelays }
+          });
+
           setState(prev => {
-            const updatedMessages = prev.messages.map(m =>
-              m.id === messageId ? message : m
-            );
+            const updatedMessages = prev.messages.map(m => (m.id === finalMessage.id ? finalMessage : m));
             return createReadyState(updatedMessages);
           });
 
           return {
             success: publishResult.success,
-            messageId,
+            messageId: finalMessage.id,
             relayResults: publishResult.results,
             error: publishResult.overallError
           };
         } catch (error) {
           console.error('Failed to publish to relays:', error);
+          const eventPayload = JSON.stringify(['EVENT', build.signedEvent]);
           params.pool.sendToOpen(eventPayload);
           return {
             success: true,
@@ -1130,6 +1193,7 @@ export const useEnhancedDMController = (
           };
         }
       } else {
+        const eventPayload = JSON.stringify(['EVENT', build.signedEvent]);
         params.pool.sendToOpen(eventPayload);
         return {
           success: true,

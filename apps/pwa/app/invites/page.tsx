@@ -39,6 +39,7 @@ export default function InvitesPage(): React.JSX.Element {
   const publicKeyHex: string | null = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
   const navBadges = useNavBadges({ publicKeyHex: (publicKeyHex as PublicKeyHex | null) ?? null });
   const [activeTab, setActiveTab] = useState<MainTabType>("my-card");
+  const coordinationConfigured: boolean = (process.env.NEXT_PUBLIC_COORDINATION_URL ?? "").trim().length > 0;
 
   if (!publicKeyHex) {
     return (
@@ -63,6 +64,14 @@ export default function InvitesPage(): React.JSX.Element {
   return (
     <PageShell title={t("invites.title")} navBadgeCounts={navBadges.navBadgeCounts}>
       <div className="mx-auto w-full max-w-5xl p-4">
+        {!coordinationConfigured ? (
+          <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100">
+            <div className="font-semibold">Invite server is not configured.</div>
+            <div className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+              Set <span className="font-mono">NEXT_PUBLIC_COORDINATION_URL</span> in Vercel to enable cross-device invite redemption. Without it, invite links are local-only.
+            </div>
+          </div>
+        ) : null}
         {/* Main Categories */}
         <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <CategoryButton

@@ -2,7 +2,7 @@
 
 import type React from "react";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/app/components/page-shell";
 import { Button } from "@/app/components/ui/button";
@@ -28,6 +28,32 @@ type GroupMessageEvent = Readonly<{
     content: string;
 }>;
 
+type GroupRole = "owner" | "moderator" | "member" | "guest";
+
+const buildLocalLabelKey = (params: Readonly<{ identityPublicKeyHex: string | null; groupIdentifier: string }>): string => {
+    const identityKey: string = params.identityPublicKeyHex ?? "anonymous";
+    return `obscur:groups:label:${identityKey}:${params.groupIdentifier}`;
+};
+
+const readLocalGroupLabel = (params: Readonly<{ identityPublicKeyHex: string | null; groupIdentifier: string }>): string => {
+    try {
+        const key: string = buildLocalLabelKey(params);
+        const raw: string | null = window.localStorage.getItem(key);
+        return raw ?? "";
+    } catch {
+        return "";
+    }
+};
+
+const writeLocalGroupLabel = (params: Readonly<{ identityPublicKeyHex: string | null; groupIdentifier: string; label: string }>): void => {
+    try {
+        const key: string = buildLocalLabelKey(params);
+        window.localStorage.setItem(key, params.label);
+    } catch {
+        return;
+    }
+};
+
 export default function GroupPageClient(props: GroupPageClientProps): React.JSX.Element {
     const router = useRouter();
     const parsed = useMemo(() => parseNip29GroupIdentifier(props.groupId), [props.groupId]);
@@ -40,6 +66,18 @@ export default function GroupPageClient(props: GroupPageClientProps): React.JSX.
     const myPrivateKeyHex: PrivateKeyHex | null = identity.state.status === "unlocked" ? identity.state.privateKeyHex ?? null : null;
     const group = useNip29Group({ pool, relayUrl, groupId, myPublicKeyHex, myPrivateKeyHex });
     const [outgoingMessage, setOutgoingMessage] = useState<string>("");
+    const [localLabel, setLocalLabel] = useState<string>("");
+    const [isEditingLabel, setIsEditingLabel] = useState<boolean>(false);
+
+    useEffect((): void => {
+        if (!parsed.ok) {
+            return;
+        }
+        const next: string = readLocalGroupLabel({ identityPublicKeyHex: myPublicKeyHex, groupIdentifier: parsed.identifier });
+        queueMicrotask((): void => {
+            setLocalLabel(next);
+        });
+    }, [myPublicKeyHex, parsed]);
 
     const handleCopyInviteLink = (params: Readonly<{ relayUrl: string; groupId: string; inviterPublicKeyHex?: string; name?: string }>): void => {
         const nextUrl: URL = new URL("/invite", window.location.origin);
@@ -66,10 +104,13 @@ export default function GroupPageClient(props: GroupPageClientProps): React.JSX.
         );
     }
 
-    const title: string = group.state.metadata?.name ?? parsed.identifier;
+    const title: string = localLabel.trim() || group.state.metadata?.name || parsed.identifier;
     const isIdentityUnlocked: boolean = identity.state.status === "unlocked";
     const isMember: boolean = group.state.membership.status === "member";
-    const canRequestJoin: boolean = isIdentityUnlocked && !isMember;
+    const isRequested: boolean = group.state.membership.status === "requested";
+    const myRole: GroupRole = group.state.membership.role as GroupRole;
+    const canModerate: boolean = myRole === "owner" || myRole === "moderator";
+    const canRequestJoin: boolean = isIdentityUnlocked && !isMember && !isRequested;
     const canSend: boolean = isIdentityUnlocked && outgoingMessage.trim().length > 0 && (!group.state.metadata?.isRestricted || isMember);
 
     return (
@@ -105,7 +146,7 @@ export default function GroupPageClient(props: GroupPageClientProps): React.JSX.
                                 void group.requestJoin();
                             }}
                         >
-                            {isMember ? "Member" : "Join"}
+                            {isMember ? "Member" : isRequested ? "Requested" : "Join"}
                         </Button>
                     </div>
                 </div>
@@ -169,11 +210,94 @@ export default function GroupPageClient(props: GroupPageClientProps): React.JSX.
                                 <div className="text-xs text-zinc-600 dark:text-zinc-400">
                                     Membership: <span className="font-medium text-zinc-900 dark:text-zinc-100">{group.state.membership.status}</span>
                                 </div>
+                                <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                                    Role: <span className="font-medium text-zinc-900 dark:text-zinc-100">{group.state.membership.role}</span>
+                                </div>
+                                <div className="pt-2">
+                                    <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Local label</div>
+                                    {isEditingLabel ? (
+                                        <div className="mt-2 space-y-2">
+                                            <Textarea value={localLabel} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLocalLabel(e.target.value)} rows={2} />
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        writeLocalGroupLabel({ identityPublicKeyHex: myPublicKeyHex, groupIdentifier: parsed.identifier, label: localLabel });
+                                                        setIsEditingLabel(false);
+                                                    }}
+                                                >
+                                                    Save
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    onClick={() => {
+                                                        const next: string = readLocalGroupLabel({ identityPublicKeyHex: myPublicKeyHex, groupIdentifier: parsed.identifier });
+                                                        setLocalLabel(next);
+                                                        setIsEditingLabel(false);
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-2 flex items-center justify-between gap-2">
+                                            <div className="min-w-0 text-xs text-zinc-700 wrap-break-word dark:text-zinc-300">{localLabel.trim() ? localLabel : "(not set)"}</div>
+                                            <Button type="button" variant="secondary" onClick={() => setIsEditingLabel(true)}>
+                                                Edit
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div className="text-sm text-zinc-600 dark:text-zinc-400">No metadata yet (could be unmanaged).</div>
                         )}
                     </Card>
+
+                    {canModerate ? (
+                        <Card title="Moderation" description="Join approvals + local safety" className="md:col-span-1">
+                            <div className="space-y-3">
+                                <div className="text-xs text-zinc-600 dark:text-zinc-400">Join requests</div>
+                                {group.state.joinRequests.length === 0 ? <div className="text-sm text-zinc-600 dark:text-zinc-400">No join requests.</div> : null}
+                                <ul className="space-y-2">
+                                    {group.state.joinRequests.slice(0, 20).map((req) => (
+                                        <li key={req.pubkey} className="rounded-xl border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-zinc-950/60">
+                                            <div className="font-mono text-[11px] text-zinc-600 wrap-break-word dark:text-zinc-400">{req.pubkey}</div>
+                                            {req.content ? <div className="mt-1 text-xs text-zinc-700 wrap-break-word dark:text-zinc-300">{req.content}</div> : null}
+                                            <div className="mt-2 flex gap-2">
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        void group.approveJoin({ publicKeyHex: req.pubkey, role: "member" });
+                                                    }}
+                                                >
+                                                    Approve
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    onClick={() => {
+                                                        void group.denyJoin({ publicKeyHex: req.pubkey });
+                                                    }}
+                                                >
+                                                    Deny
+                                                </Button>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="border-t border-black/10 pt-3 dark:border-white/10">
+                                    <div className="text-xs text-zinc-600 dark:text-zinc-400">Local safety</div>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <Button type="button" variant="secondary" onClick={() => router.push("/contacts")}>Local mute/block</Button>
+                                        <Button type="button" variant="secondary" onClick={() => router.push("/settings")}>Privacy settings</Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    ) : null}
 
                     <Card title="Timeline" description="Recent kind:1 events tagged with h" className="md:col-span-2">
                         {group.state.status === "loading" ? <div className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</div> : null}

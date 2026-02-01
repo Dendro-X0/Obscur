@@ -15,6 +15,8 @@ export interface Message {
   isOutgoing: boolean;
   status: MessageStatus;
 
+  dmFormat?: 'nip17' | 'nip04';
+
   // Nostr-specific fields
   eventId?: string;
   eventCreatedAt?: Date;
