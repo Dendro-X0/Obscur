@@ -1,4 +1,4 @@
-name = "obscur-coordination"
+name = "obscur"
 main = "src/index.ts"
 compatibility_date = "2026-01-31"
 
@@ -7,5 +7,5 @@ ENVIRONMENT = "local"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "obscur_coordination"
-database_id = "REPLACE_ME"
+database_name = "obscur"
+database_id = "dcdc27ea-5159-49cc-95c8-cc1c12b9b19e"
