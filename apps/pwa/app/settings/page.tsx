@@ -541,7 +541,7 @@ export default function SettingsPage(): React.JSX.Element {
                   <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
                     {identity.state.status === "loading" ? (
                       <div className="p-4 text-sm text-zinc-500">{t("common.loading")}</div>
-                    ) : identity.state.status !== "unlocked" ? (
+                    ) : !displayPublicKeyHex ? (
                       <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.relays.unlockToManage")}</div>
                     ) : (
                       <div className="space-y-3">

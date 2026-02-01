@@ -208,6 +208,7 @@ type UseEnhancedDMControllerResult = Readonly<{
     peerPublicKeyHex: PublicKeyHex;
     introMessage?: string;
   }>) => Promise<SendResult>;
+  watchConversation: (peerPubkey: string) => Promise<void>;
 }>;
 
 /**
@@ -1797,6 +1798,24 @@ export const useEnhancedDMController = (
 
     return result;
   }, [sendDm, params.myPublicKeyHex]);
+  /**
+   * Watch a conversation for real-time updates
+   * Ensures we are connected to the peer's relays and listening
+   */
+  const watchConversation = useCallback(async (peerPubkey: string) => {
+    // 1. Connect to their relays (Gossip)
+    await ensureConnectedToRecipientRelays(peerPubkey);
+
+    // 2. Re-broadcast subscriptions to ensure new transient relays receive the REQ
+    // This is critical because 'sendToOpen' only hit the relays available at start time
+    if (hasSubscribedRef.current) {
+      activeSubscriptions.current.forEach(sub => {
+        const req = JSON.stringify(['REQ', sub.id, sub.filter]);
+        params.pool.sendToOpen(req);
+      });
+      console.log(`Refreshed subscriptions for gossip relays of ${peerPubkey.slice(0, 8)}`);
+    }
+  }, [ensureConnectedToRecipientRelays, params.pool]);
 
   return {
     state,
@@ -1810,6 +1829,7 @@ export const useEnhancedDMController = (
     processOfflineQueue,
     getOfflineQueueStatus,
     verifyRecipient,
-    sendConnectionRequest
+    sendConnectionRequest,
+    watchConversation
   };
 };

@@ -1579,6 +1579,13 @@ function NostrMessengerContent() {
       return m;
     });
 
+  // Real-time Gossip: Watch the active conversation's relays
+  useEffect(() => {
+    if (selectedConversationView?.kind === 'dm' && selectedConversationView.pubkey) {
+      void dmController.watchConversation(selectedConversationView.pubkey);
+    }
+  }, [selectedConversationView, dmController]);
+
   useEffect((): void => {
     if (identity.state.status !== "unlocked") {
       return;
