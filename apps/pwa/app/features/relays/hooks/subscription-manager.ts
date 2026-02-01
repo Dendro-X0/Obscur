@@ -1,13 +1,38 @@
-import type { NostrFilter } from "../../messaging/controllers/enhanced-dm-controller";
+import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import type { NostrFilter } from "../types/nostr-filter";
 
-type RelayPayload = string;
 type MessageListener = (params: Readonly<{ url: string; message: string }>) => void;
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+const isNostrEvent = (value: unknown): value is NostrEvent => {
+    if (!isRecord(value)) {
+        return false;
+    }
+    const kind: unknown = value.kind;
+    const pubkey: unknown = value.pubkey;
+    const tags: unknown = value.tags;
+    if (typeof kind !== "number" || typeof pubkey !== "string" || !Array.isArray(tags)) {
+        return false;
+    }
+    return true;
+};
 
 interface SubscriptionRequest {
     id: string;
-    filters: NostrFilter[];
-    onEvent: (event: any) => void;
+    filters: ReadonlyArray<NostrFilter>;
+    onEvent: (event: NostrEvent) => void;
 }
+
+type WireNostrFilter = {
+    kinds?: ReadonlyArray<number>;
+    authors?: ReadonlyArray<string>;
+    since?: number;
+    limit?: number;
+    "#p"?: ReadonlyArray<string>;
+    "#h"?: ReadonlyArray<string>;
+    "#d"?: ReadonlyArray<string>;
+};
 
 /**
  * Manages Nostr relay subscriptions with request coalescing and batching.
@@ -29,7 +54,7 @@ export class SubscriptionManager {
     /**
      * Request a new subscription with coalescing
      */
-    public subscribe(filters: NostrFilter[], onEvent: (event: any) => void): string {
+    public subscribe(filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent) => void): string {
         const id = crypto.randomUUID();
         const request: SubscriptionRequest = { id, filters, onEvent };
 
@@ -72,36 +97,44 @@ export class SubscriptionManager {
         // For simplicity, we'll group filters that have the same 'kinds'
         const groupedByKinds: Map<string, NostrFilter[]> = new Map();
 
-        requestsToProcess.forEach(req => {
-            req.filters.forEach(filter => {
-                const key = (filter.kinds || []).sort().join(",");
-                if (!groupedByKinds.has(key)) groupedByKinds.set(key, []);
-                groupedByKinds.get(key)!.push(filter);
+        requestsToProcess.forEach((req: SubscriptionRequest) => {
+            req.filters.forEach((filter: NostrFilter) => {
+                const kindKey: string = [...(filter.kinds ?? [])].sort((a: number, b: number) => a - b).join(",");
+                if (!groupedByKinds.has(kindKey)) {
+                    groupedByKinds.set(kindKey, []);
+                }
+                groupedByKinds.get(kindKey)!.push(filter);
             });
         });
 
         // Merge filters in each group
-        groupedByKinds.forEach((filters, kindKey) => {
+        groupedByKinds.forEach((filters: ReadonlyArray<NostrFilter>, kindKey: string) => {
             if (filters.length === 0) return;
 
             // Create a merged filter
-            const mergedFilter: NostrFilter = {
-                kinds: filters[0].kinds,
+            const mergedFilter: WireNostrFilter = {
+                kinds: filters[0]?.kinds,
             };
 
             // Merge authors
             const authors = new Set<string>();
             filters.forEach(f => (f.authors || []).forEach((a: string) => authors.add(a)));
-            if (authors.size > 0) mergedFilter.authors = Array.from(authors);
+            if (authors.size > 0) {
+                mergedFilter.authors = Array.from(authors);
+            }
 
             // Merge #p tags (recipients)
             const pTags = new Set<string>();
             filters.forEach(f => (f['#p'] || []).forEach((p: string) => pTags.add(p)));
-            if (pTags.size > 0) mergedFilter['#p'] = Array.from(pTags);
+            if (pTags.size > 0) {
+                mergedFilter["#p"] = Array.from(pTags);
+            }
 
             // Take the minimum 'since' to ensure all data is covered
             const sinceValues = filters.map(f => f.since).filter((s): s is number => s !== undefined);
-            if (sinceValues.length > 0) mergedFilter.since = Math.min(...sinceValues);
+            if (sinceValues.length > 0) {
+                mergedFilter.since = Math.min(...sinceValues);
+            }
 
             // We use a internal sub ID for the coalesced request
             const combinedSubId = `coalesced-${kindKey || 'all'}-${Date.now()}`;
@@ -115,28 +148,41 @@ export class SubscriptionManager {
 
     private handleIncomingMessage(params: { url: string; message: string }): void {
         try {
-            const parsed = JSON.parse(params.message);
-            if (!Array.isArray(parsed) || parsed[0] !== "EVENT") return;
-
-            const subId = parsed[1];
-            const event = parsed[2];
+            const parsed: unknown = JSON.parse(params.message);
+            if (!Array.isArray(parsed) || parsed[0] !== "EVENT") {
+                return;
+            }
+            const eventCandidate: unknown = parsed[2];
+            if (!isNostrEvent(eventCandidate)) {
+                return;
+            }
+            const event: NostrEvent = eventCandidate;
 
             // Route event to all applicable active subscriptions
-            this.activeSubscriptions.forEach(sub => {
-                if (this.matchesFilter(event, sub.filters)) {
-                    sub.onEvent(event);
+            this.activeSubscriptions.forEach((sub: SubscriptionRequest) => {
+                if (!this.matchesFilter(event, sub.filters)) {
+                    return;
                 }
+                sub.onEvent(event);
             });
-        } catch (e) { }
+        } catch {
+            return;
+        }
     }
 
-    private matchesFilter(event: any, filters: NostrFilter[]): boolean {
-        return filters.some(filter => {
-            if (filter.kinds && !filter.kinds.includes(event.kind)) return false;
-            if (filter.authors && !filter.authors.includes(event.pubkey)) return false;
-            if (filter['#p']) {
-                const pTags = event.tags.filter((t: any[]) => t[0] === 'p').map((t: any[]) => t[1]);
-                if (!filter['#p'].some((p: string) => pTags.includes(p))) return false;
+    private matchesFilter(event: NostrEvent, filters: ReadonlyArray<NostrFilter>): boolean {
+        return filters.some((filter: NostrFilter) => {
+            if (filter.kinds && !filter.kinds.includes(event.kind)) {
+                return false;
+            }
+            if (filter.authors && !filter.authors.includes(event.pubkey)) {
+                return false;
+            }
+            if (filter["#p"]) {
+                const pTags: string[] = event.tags.filter((t: ReadonlyArray<string>) => t[0] === "p").map((t: ReadonlyArray<string>) => t[1] ?? "");
+                if (!filter["#p"].some((p: string) => pTags.includes(p))) {
+                    return false;
+                }
             }
             return true;
         });

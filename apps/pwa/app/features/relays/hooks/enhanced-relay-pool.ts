@@ -11,11 +11,13 @@
  */
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
+import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { createRelayWebSocket } from "./create-relay-websocket";
 import type { RelayConnection } from "./relay-connection";
 import type { RelayConnectionStatus } from "./relay-connection-status";
 import { relayHealthMonitor, type RelayHealthMetrics } from "./relay-health-monitor";
 import { SubscriptionManager } from "./subscription-manager";
+import type { NostrFilter } from "../types/nostr-filter";
 
 type RelayPoolState = Readonly<{
   connections: ReadonlyArray<RelayConnection>;
@@ -30,7 +32,7 @@ type EnhancedRelayPoolResult = Readonly<{
   publishToAll: (payload: string) => Promise<MultiRelayPublishResult>;
   broadcastEvent: (payload: string) => Promise<MultiRelayPublishResult>;
   subscribeToMessages: (handler: (params: Readonly<{ url: string; message: string }>) => void) => () => void;
-  subscribe: (filters: any[], onEvent: (event: any) => void) => string;
+  subscribe: (filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent) => void) => string;
   unsubscribe: (id: string) => void;
   getRelayHealth: (url: string) => RelayHealthMetrics | undefined;
   canConnectToRelay: (url: string) => boolean;

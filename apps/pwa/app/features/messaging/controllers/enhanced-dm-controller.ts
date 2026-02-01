@@ -993,7 +993,7 @@ export const useEnhancedDMController = (
         context: { format: preferredFormat, openRelays: openRelays.length }
       });
 
-      let build: DmEventBuildResult = await buildDmEvent({
+      const build: DmEventBuildResult = await buildDmEvent({
         format: preferredFormat,
         plaintext,
         recipientPubkey,

@@ -191,7 +191,7 @@ export function TrustSettingsPanel() {
                         <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">Privacy & Trust Guide</h4>
                         <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-sm">
                             **Accepted** peers can see your presence and bypass the request inbox.
-                            **Muted** peers can still message you, but you won't receive notifications.
+                            **Muted** peers can still message you, but you won&apos;t receive notifications.
                             **Blocked** peers are completely invisible and cannot reach you.
                         </p>
                     </div>

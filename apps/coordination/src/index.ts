@@ -3,7 +3,7 @@ type Env = Readonly<{
   ENVIRONMENT: string;
 }>;
 
-type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type JsonValue = null | boolean | number | string | ReadonlyArray<JsonValue> | { [key: string]: JsonValue };
 
 type JsonObject = Readonly<Record<string, JsonValue>>;
 
@@ -100,7 +100,12 @@ const parseInviteCreateBody = (value: JsonObject): InviteCreateBody | null => {
   }
   const normalizedLabel: string | undefined = isString(communityLabel) && communityLabel.trim().length > 0 ? communityLabel.trim() : undefined;
   const normalizedTtl: number | undefined = typeof ttlSeconds === "number" && Number.isFinite(ttlSeconds) ? ttlSeconds : undefined;
-  return { inviterPubkey: inviterPubkey.trim(), relays: normalizedRelays, communityLabel: normalizedLabel, ttlSeconds: normalizedTtl };
+  return {
+    inviterPubkey: inviterPubkey.trim(),
+    relays: normalizedRelays,
+    ...(normalizedLabel !== undefined ? { communityLabel: normalizedLabel } : {}),
+    ...(normalizedTtl !== undefined ? { ttlSeconds: normalizedTtl } : {})
+  };
 };
 
 const parseInviteRedeemBody = (value: JsonObject): InviteRedeemBody | null => {
