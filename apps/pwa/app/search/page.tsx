@@ -180,8 +180,9 @@ export default function SearchPage(): React.JSX.Element {
   const onSubmit = (): void => {
     if (mode === "user") {
       if (parsedPubkey.ok) {
-        // Instead of redirecting immediately, check profile
-        void checkHexKeyProfile(parsedPubkey.publicKeyHex);
+        // Navigate to the chat page with the pubkey
+        const encoded: string = encodeURIComponent(parsedPubkey.publicKeyHex);
+        router.push(`/?pubkey=${encoded}`);
       } else {
         void handleSearchByName();
       }
