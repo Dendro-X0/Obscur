@@ -756,7 +756,9 @@ export const useEnhancedDMController = (
       const isAcceptedContact = params.peerTrust?.isAccepted({ publicKeyHex: actualSenderPubkey }) || false;
 
       // Step 6: Route message based on sender status
-      const isConnectionRequest = event.tags?.some(tag => tag[0] === 't' && tag[1] === 'connection-request');
+      // CRITICAL FIX: For NIP-17, we must check the RUMOR tags, not the outer event tags
+      const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, params.myPrivateKeyHex)).tags : event.tags;
+      const isConnectionRequest = effectiveTags?.some(tag => tag[0] === 't' && tag[1] === 'connection-request');
 
       if (!isAcceptedContact) {
         // Route unknown sender messages to requests inbox (Requirement 2.8)
@@ -768,7 +770,7 @@ export const useEnhancedDMController = (
             isRequest: isConnectionRequest,
             status: isConnectionRequest ? 'pending' : undefined
           });
-          console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey);
+          console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey, { isRequest: isConnectionRequest });
         }
         // Don't add to main conversation view for unknown senders
         return;
