@@ -1809,7 +1809,46 @@ function NostrMessengerContent() {
         verifyRecipient={dmController.verifyRecipient}
         searchProfiles={handleSearchProfiles}
         isAccepted={(pub) => peerTrust.isAccepted({ publicKeyHex: pub as PublicKeyHex })}
-        sendConnectionRequest={dmController.sendConnectionRequest}
+        sendConnectionRequest={async (params) => {
+          // Wrap request sending to auto-create the chat
+          const result = await dmController.sendConnectionRequest(params);
+          if (result.success) {
+            // 1. Locally trust the user we just invited
+            peerTrust.accept({ publicKeyHex: params.peerPublicKeyHex });
+
+            // 2. Create the conversation object immediately
+            const id = createContactId();
+            const baseNowMs = nowMs ?? Date.now();
+            const displayName = (newChatDisplayName.trim() || params.peerPublicKeyHex.slice(0, 8)).trim();
+
+            const contact: DmConversation = {
+              kind: "dm",
+              id,
+              displayName,
+              pubkey: params.peerPublicKeyHex,
+              lastMessage: params.introMessage || "Connection request sent",
+              unreadCount: 0,
+              lastMessageTime: new Date(baseNowMs),
+            };
+
+            // 3. Update state to show the chat
+            upsertCreatedContact(contact);
+            setUnreadByConversationId((prev) => ({
+              ...prev,
+              [id]: 0,
+            }));
+
+            // 4. Open the chat
+            closeNewChat();
+            selectConversation(contact);
+
+            // 5. Add a system message (fake) to show the request in chat?
+            // Optional, but for now the 'lastMessage' update in controller might handle it?
+            // controller sends a DM. If successful, it persists it.
+            // But we need to make sure the UI sees it.
+          }
+          return result;
+        }}
       />
 
       <NewGroupDialog
