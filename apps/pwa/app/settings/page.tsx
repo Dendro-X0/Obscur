@@ -16,7 +16,8 @@ import {
   Bell,
   ShieldAlert,
   Loader2,
-  Trash2
+  Trash2,
+  LogOut
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "../components/ui/toast";
@@ -430,6 +431,15 @@ export default function SettingsPage(): React.JSX.Element {
                               disabled={!displayPublicKeyHex}
                             >
                               {t("common.copy")}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              onClick={() => setIsDeleteDialogOpen(true)}
+                            >
+                              <LogOut className="mr-2 h-4 w-4" />
+                              {t("common.disconnect", "Disconnect")}
                             </Button>
                           </div>
                           <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</div>
