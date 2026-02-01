@@ -97,11 +97,91 @@ export default function SearchPage(): React.JSX.Element {
     setGroupInput(value);
   };
 
+  const checkHexKeyProfile = async (hex: string): Promise<void> => {
+    setIsSearching(true);
+    setSearchResults([]);
+
+    // Verify connection
+    if (pool.connections.length === 0) {
+      // Just redirect if offline, let main shell handle it/warn
+      const encoded: string = encodeURIComponent(hex);
+      router.push(`/?pubkey=${encoded}`);
+      return;
+    }
+
+    const subId = Math.random().toString(36).substring(7);
+    // Fetch kind 0 (metadata) for this pubkey
+    const filter: Readonly<{ kinds: number[]; authors: string[]; limit: number }> = { kinds: [0], authors: [hex], limit: 1 };
+    const req = JSON.stringify(["REQ", subId, filter]);
+
+    let found = false;
+
+    void pool.broadcastEvent(req);
+
+    return new Promise<void>((resolve) => {
+      const cleanup = pool.subscribeToMessages(({ message }) => {
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed[0] === "EVENT" && parsed[1] === subId) {
+            const event = parsed[2];
+            const content = JSON.parse(event.content);
+            setSearchResults([{
+              pubkey: event.pubkey,
+              name: content.name || content.display_name || "Unknown",
+              display_name: content.display_name,
+              picture: content.picture
+            }]);
+            found = true;
+            setIsSearching(false);
+            cleanup();
+            // Don't redirect automatically, let user see the result and click it
+            resolve();
+          }
+          if (parsed[0] === "EOSE" && parsed[1] === subId) {
+            setIsSearching(false);
+            if (!found) {
+              // Not found on relays, but valid key.
+              // We should tell the user.
+              setSearchResults([{
+                pubkey: hex,
+                name: "Unknown (Not found on relays)",
+                display_name: "Offline or New User",
+                picture: undefined
+              }]);
+            }
+            cleanup();
+            resolve();
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      });
+
+      // Auto-stop after 3 seconds
+      setTimeout(() => {
+        if (!found) {
+          pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
+          setIsSearching(false);
+          if (searchResults.length === 0) {
+            setSearchResults([{
+              pubkey: hex,
+              name: "Unknown (Timeout)",
+              display_name: "Offline or New User",
+              picture: undefined
+            }]);
+          }
+        }
+        cleanup();
+        resolve();
+      }, 3000);
+    });
+  };
+
   const onSubmit = (): void => {
     if (mode === "user") {
       if (parsedPubkey.ok) {
-        const encoded: string = encodeURIComponent(parsedPubkey.publicKeyHex);
-        router.push(`/?pubkey=${encoded}`);
+        // Instead of redirecting immediately, check profile
+        void checkHexKeyProfile(parsedPubkey.publicKeyHex);
       } else {
         void handleSearchByName();
       }

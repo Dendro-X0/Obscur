@@ -134,18 +134,8 @@ export function NewChatDialog({
         return !isAccepted(resolvedPubkeyHex);
     }, [isAccepted, resolvedPubkeyHex]);
 
-    useEffect(() => {
-        if (!resolvedPubkeyHex) {
-            return;
-        }
-        if (verificationStatus !== "found" && verificationStatus !== "not_found") {
-            return;
-        }
-        if (isAccepted(resolvedPubkeyHex)) {
-            return;
-        }
-        setIsRequestDialogOpen(true);
-    }, [isAccepted, resolvedPubkeyHex, verificationStatus]);
+    // Removed auto-opening of request dialog to prevent "fire-hose" experience
+    // User must explicitly click "Connect" or "Create" now.
 
     const handleScan = (data: string) => {
         let scannnedPubkey = data.trim();
@@ -371,10 +361,16 @@ export function NewChatDialog({
                         <Button
                             type="button"
                             className="flex-1"
-                            onClick={onCreate}
+                            onClick={() => {
+                                if (resolvedPubkeyHex && !isAccepted(resolvedPubkeyHex)) {
+                                    setIsRequestDialogOpen(true);
+                                } else {
+                                    onCreate();
+                                }
+                            }}
                             disabled={!resolvedPubkeyHex || shouldBlockChatCreation}
                         >
-                            {t("common.create")}
+                            {resolvedPubkeyHex && !isAccepted(resolvedPubkeyHex) ? t("contacts.connect", "Connect") : t("common.create")}
                         </Button>
                     </div>
                 </div>
