@@ -585,7 +585,7 @@ export const useEnhancedDMController = (
       // Handle incoming EVENT messages
       const incomingEvent = parseRelayEventByKind(evt.message);
       if (incomingEvent) {
-        if (incomingEvent.kind === 4) {
+        if (incomingEvent.kind === 4 || incomingEvent.kind === 1059) {
           void handleIncomingEvent(incomingEvent);
         } else if (incomingEvent.kind === 10002) {
           nip65Service.updateFromEvent(incomingEvent);

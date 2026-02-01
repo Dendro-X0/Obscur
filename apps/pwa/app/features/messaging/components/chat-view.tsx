@@ -128,6 +128,7 @@ export function ChatView(props: ChatViewProps) {
                 relayStatus={props.relayStatus}
                 textareaRef={props.composerTextareaRef}
                 recipientStatus={props.recipientStatus}
+                isPeerAccepted={props.isPeerAccepted}
             />
 
             {props.messageMenu && activeMessage && (

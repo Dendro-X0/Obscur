@@ -31,11 +31,19 @@ Open `http://localhost:3000`.
   - Optional.
   - Default: `http://localhost:8787`
 
+- `NEXT_PUBLIC_COORDINATION_URL`
+  - Optional.
+  - Used for invite token create/redeem via the coordination Worker.
+  - Example (local Wrangler dev): `http://127.0.0.1:8787`
+
 For local development, create `apps/pwa/.env.local`:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8787
+NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787
 ```
+
+You can also copy `apps/pwa/env.example` as a starting point.
 
 ## Build
 

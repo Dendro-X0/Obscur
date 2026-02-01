@@ -21,6 +21,7 @@ interface ComposerProps {
     relayStatus: RelayStatusSummary;
     textareaRef: React.RefObject<HTMLTextAreaElement | null>;
     recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
+    isPeerAccepted?: boolean;
 }
 
 export function Composer({
@@ -37,12 +38,22 @@ export function Composer({
     clearPendingAttachment,
     relayStatus,
     textareaRef,
-    recipientStatus
+    recipientStatus,
+    isPeerAccepted = true
 }: ComposerProps) {
     const { t } = useTranslation();
+    const isGated: boolean = isPeerAccepted === false;
 
     return (
         <div className="border-t border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
+            {isGated ? (
+                <div className="mb-3 flex items-start gap-3 rounded-xl border border-purple-500/30 bg-purple-50 p-3 text-xs text-purple-700 dark:border-purple-500/40 dark:bg-purple-950/40 dark:text-purple-300">
+                    <div>
+                        <p className="font-semibold">Connection request pending.</p>
+                        <p>Accept this user to enable messaging.</p>
+                    </div>
+                </div>
+            ) : null}
             {recipientStatus === 'not_found' && (
                 <div className="mb-3 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300">
                     <div className="mt-0.5 h-4 w-4 shrink-0">
@@ -114,6 +125,10 @@ export function Composer({
                         value={messageInput}
                         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
                         onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                            if (isGated) {
+                                e.preventDefault();
+                                return;
+                            }
                             if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();
                                 handleSendMessage();
@@ -123,10 +138,11 @@ export function Composer({
                                 handleSendMessage();
                             }
                         }}
+                        disabled={isGated}
                         className="min-h-11 max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                         rows={1}
                     />
-                    <Button type="button" onClick={handleSendMessage} disabled={(!messageInput.trim() && !pendingAttachment) || isUploadingAttachment} className="shrink-0">
+                    <Button type="button" onClick={handleSendMessage} disabled={isGated || (!messageInput.trim() && !pendingAttachment) || isUploadingAttachment} className="shrink-0">
                         {isUploadingAttachment ? t("messaging.uploading") : t("common.send")}
                     </Button>
                 </div>

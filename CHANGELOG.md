@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [Unreleased]
+
+### Added
+
+- **Invite redemption UX states**: explicit user-visible states for loading, invalid, expired, and server-down redemption.
+- **Invite → Request-first onboarding**:
+  - After successful invite redemption, the joiner auto-sends a connection request to the inviter (idempotent per invite).
+  - Unknown inbound messages are routed to the Requests inbox.
+  - DM composer is disabled until the peer is accepted.
+- **Coordination Worker package location**: Worker package is now available under `apps/coordination`.
+
 ## [0.3.2] - 2026-01-31
 
 ### Added

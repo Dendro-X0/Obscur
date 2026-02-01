@@ -2,9 +2,6 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import type {
   InviteManager,
-  QRGenerator,
-  ContactStore,
-  ProfileManager
 } from './interfaces';
 
 import type {
@@ -38,8 +35,8 @@ import {
   ERROR_MESSAGES
 } from './constants';
 import { generateRandomString, isExpired, delay } from './utils';
-import { NostrCompatibilityService, NostrRelayValidator } from './nostr-compatibility';
-import { DeepLinkHandler, type DeepLinkResult } from './deep-link-handler';
+import { NostrCompatibilityService } from './nostr-compatibility';
+import { DeepLinkHandler } from './deep-link-handler';
 import {
   InputValidator,
   SecureStorage,
@@ -48,6 +45,222 @@ import {
   canSendContactRequest,
   canProcessInvite
 } from './security-enhancements';
+import { logAppEvent } from '@/app/shared/log-app-event';
+
+type CoordinationInviteCreateResponse = Readonly<{
+  inviteId: string;
+  token: string;
+  relays: ReadonlyArray<string>;
+  expiresAtUnixSeconds: number | null;
+}>;
+
+type CoordinationInviteRedeemResponse = Readonly<{
+  inviteId: string;
+  inviterPubkey: string;
+  communityLabel: string | null;
+  relays: ReadonlyArray<string>;
+  expiresAtUnixSeconds: number | null;
+}>;
+
+type CoordinationOkResponse<T> = Readonly<{
+  ok: true;
+  data: T;
+}>;
+
+type CoordinationErrorResponse = Readonly<{
+  ok: false;
+  error: string;
+}>;
+
+type CoordinationResponse<T> = CoordinationOkResponse<T> | CoordinationErrorResponse;
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+const isString = (value: unknown): value is string => typeof value === "string";
+
+const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+const parseNostrContactList = (value: unknown): NostrContactList | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const contacts: unknown = value.contacts;
+  const version: unknown = value.version;
+  const createdAt: unknown = value.createdAt;
+  if (!Array.isArray(contacts) || !isNumber(version) || !isNumber(createdAt)) {
+    return null;
+  }
+
+  const parsedContacts: Array<{ publicKey: PublicKeyHex; relayUrl?: string; petname?: string }> = contacts
+    .map((candidate: unknown): { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } | null => {
+      if (!isRecord(candidate)) {
+        return null;
+      }
+      const publicKey: unknown = candidate.publicKey;
+      const relayUrl: unknown = candidate.relayUrl;
+      const petname: unknown = candidate.petname;
+      if (!isString(publicKey) || !cryptoService.isValidPubkey(publicKey)) {
+        return null;
+      }
+      const relayUrlOut: string | undefined = isString(relayUrl) && relayUrl.trim().length > 0 ? relayUrl.trim() : undefined;
+      const petnameOut: string | undefined = isString(petname) && petname.trim().length > 0 ? petname.trim() : undefined;
+      return { publicKey: publicKey as PublicKeyHex, relayUrl: relayUrlOut, petname: petnameOut };
+    })
+    .filter((c: { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } | null): c is { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } => c !== null);
+  return { contacts: parsedContacts, version: version as number, createdAt: createdAt as number };
+};
+
+const getCoordinationBaseUrl = (): string | null => {
+  const raw: string = (process.env.NEXT_PUBLIC_COORDINATION_URL ?? "").trim();
+  if (raw) {
+    return raw.replace(/\/+$/, "");
+  }
+  return null;
+};
+
+const getRelayListStorageKey = (publicKeyHex: string): string => {
+  return `obscur.relay_list.v1.${publicKeyHex}`;
+};
+
+const getEnabledRelayUrlsForIdentity = (publicKeyHex: string): ReadonlyArray<string> => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw: string | null = window.localStorage.getItem(getRelayListStorageKey(publicKeyHex));
+    if (!raw) {
+      return [];
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    const urls: string[] = parsed
+      .map((item: unknown): string | null => {
+        if (!isRecord(item)) {
+          return null;
+        }
+        const url: unknown = item.url;
+        const enabled: unknown = item.enabled;
+        if (typeof url !== "string") {
+          return null;
+        }
+        if (enabled === false) {
+          return null;
+        }
+        const normalized: string = url.trim();
+        return normalized.length > 0 ? normalized : null;
+      })
+      .filter((u: string | null): u is string => u !== null);
+    return Array.from(new Set(urls));
+  } catch {
+    return [];
+  }
+};
+
+const parseCoordinationResponse = <T>(value: unknown): CoordinationResponse<T> | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const ok: unknown = value.ok;
+  if (ok === true) {
+    return value as CoordinationOkResponse<T>;
+  }
+  if (ok === false) {
+    return value as CoordinationErrorResponse;
+  }
+  return null;
+};
+
+const coordinationCreateInvite = async (params: Readonly<{ inviterPubkey: string; relays: ReadonlyArray<string>; ttlSeconds?: number }>): Promise<CoordinationInviteCreateResponse> => {
+  const baseUrl: string | null = getCoordinationBaseUrl();
+  if (!baseUrl) {
+    throw new Error("coordination_not_configured");
+  }
+  logAppEvent({
+    name: "coordination.invite.create.start",
+    level: "info",
+    scope: { feature: "invites", action: "create" },
+    context: { relaysCount: params.relays.length, hasTtlSeconds: params.ttlSeconds !== undefined }
+  });
+  const response = await fetch(`${baseUrl}/invites/create`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ inviterPubkey: params.inviterPubkey, relays: params.relays, ttlSeconds: params.ttlSeconds })
+  });
+  const raw: unknown = await response.json().catch((): null => null);
+  const parsed: CoordinationResponse<CoordinationInviteCreateResponse> | null = parseCoordinationResponse<CoordinationInviteCreateResponse>(raw);
+  if (!parsed) {
+    logAppEvent({
+      name: "coordination.invite.create.failure",
+      level: "error",
+      scope: { feature: "invites", action: "create" },
+      context: { relaysCount: params.relays.length, hasTtlSeconds: params.ttlSeconds !== undefined }
+    });
+    throw new Error("coordination_invalid_response");
+  }
+  if (!parsed.ok) {
+    logAppEvent({
+      name: "coordination.invite.create.failure",
+      level: "error",
+      scope: { feature: "invites", action: "create" },
+      context: { relaysCount: params.relays.length, hasTtlSeconds: params.ttlSeconds !== undefined, error: parsed.error }
+    });
+    throw new Error(parsed.error);
+  }
+  logAppEvent({
+    name: "coordination.invite.create.success",
+    level: "info",
+    scope: { feature: "invites", action: "create" },
+    context: { relaysCount: parsed.data.relays.length, hasExpiresAt: parsed.data.expiresAtUnixSeconds !== null }
+  });
+  return parsed.data;
+};
+
+const coordinationRedeemInvite = async (params: Readonly<{ token: string; redeemerPubkey: string }>): Promise<CoordinationInviteRedeemResponse> => {
+  const baseUrl: string | null = getCoordinationBaseUrl();
+  if (!baseUrl) {
+    throw new Error("coordination_not_configured");
+  }
+  logAppEvent({
+    name: "coordination.invite.redeem.start",
+    level: "info",
+    scope: { feature: "invites", action: "redeem" },
+    context: { hasBaseUrl: true }
+  });
+  const response = await fetch(`${baseUrl}/invites/redeem`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token: params.token, redeemerPubkey: params.redeemerPubkey })
+  });
+  const raw: unknown = await response.json().catch((): null => null);
+  const parsed: CoordinationResponse<CoordinationInviteRedeemResponse> | null = parseCoordinationResponse<CoordinationInviteRedeemResponse>(raw);
+  if (!parsed) {
+    logAppEvent({
+      name: "coordination.invite.redeem.failure",
+      level: "error",
+      scope: { feature: "invites", action: "redeem" },
+      context: { hasBaseUrl: true }
+    });
+    throw new Error("coordination_invalid_response");
+  }
+  if (!parsed.ok) {
+    logAppEvent({
+      name: "coordination.invite.redeem.failure",
+      level: "error",
+      scope: { feature: "invites", action: "redeem" },
+      context: { hasBaseUrl: true, error: parsed.error }
+    });
+    throw new Error(parsed.error);
+  }
+  logAppEvent({
+    name: "coordination.invite.redeem.success",
+    level: "info",
+    scope: { feature: "invites", action: "redeem" },
+    context: { relaysCount: parsed.data.relays.length }
+  });
+  return parsed.data;
+};
 
 /**
  * Central orchestrator for all invite-related operations
@@ -237,8 +450,23 @@ class InviteManagerImpl implements InviteManager {
       const now = new Date();
       const expiresAt = options.expirationTime || new Date(now.getTime() + (DEFAULT_INVITE_EXPIRATION_HOURS * 60 * 60 * 1000));
 
-      // Generate unique short code
-      const shortCode = await this.generateUniqueShortCode();
+      const enabledRelayUrls: ReadonlyArray<string> = getEnabledRelayUrlsForIdentity(identity.publicKey);
+      const ttlSeconds: number | undefined = options.expirationTime ? Math.max(60, Math.floor((expiresAt.getTime() - now.getTime()) / 1000)) : undefined;
+      let shortCode: string;
+      try {
+        const created = await coordinationCreateInvite({ inviterPubkey: identity.publicKey, relays: enabledRelayUrls, ttlSeconds });
+        shortCode = created.token;
+      } catch (error) {
+        const message: string = error instanceof Error ? error.message : "coordination_create_failed";
+        logAppEvent({
+          name: "coordination.invite.create.fallback_used",
+          level: "warn",
+          scope: { feature: "invites", action: "create" },
+          context: { relaysCount: enabledRelayUrls.length, error: message }
+        });
+        // Generate unique short code (legacy local-only flow)
+        shortCode = await this.generateUniqueShortCode();
+      }
 
       // Create invite link
       const inviteLink: InviteLink = {
@@ -277,12 +505,8 @@ class InviteManagerImpl implements InviteManager {
     appScheme: string;
   }> {
     try {
-      // Generate standard invite link
       const inviteLink = await this.generateInviteLink(options);
-
-      // Generate universal link with cross-platform compatibility
       const universalLinkData = NostrCompatibilityService.generateUniversalLink(inviteLink);
-
       return {
         inviteLink,
         universalLink: universalLinkData.url,
@@ -303,43 +527,11 @@ class InviteManagerImpl implements InviteManager {
     };
   }> {
     try {
-      // Generate standard QR invite
       const qrData = await this.generateQRInvite(options);
-
-      // Generate multiple formats for compatibility
       const formats = NostrCompatibilityService.generateCompatibleQRData(qrData);
-
       return { qrData, formats };
     } catch (error) {
       throw new Error(`Nostr-compatible QR generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // Deep Link Processing
-  async processDeepLink(url: string): Promise<DeepLinkResult> {
-    try {
-      return await DeepLinkHandler.processDeepLink(url);
-    } catch (error) {
-      throw new Error(`Deep link processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async handleUrlScheme(url: string): Promise<ContactRequest | null> {
-    try {
-      const result = await this.processDeepLink(url);
-
-      if (result.success && result.contactRequest) {
-        return result.contactRequest;
-      }
-
-      // Handle fallback cases
-      if (result.fallbackAction) {
-        throw new Error(`Deep link failed: ${result.error}. Fallback action: ${result.fallbackAction}`);
-      }
-
-      return null;
-    } catch (error) {
-      throw new Error(`URL scheme handling failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -363,7 +555,25 @@ class InviteManagerImpl implements InviteManager {
       // Retrieve invite link from storage
       const inviteLink = await this.getInviteLinkByShortCode(shortCode);
       if (!inviteLink) {
-        throw new Error('Invite link not found');
+        const identity = await this.getCurrentUserIdentity();
+        const redeemed = await coordinationRedeemInvite({ token: shortCode, redeemerPubkey: identity.publicKey });
+        const senderPublicKey: string = redeemed.inviterPubkey;
+        const contactRequest: ContactRequest = {
+          id: await cryptoService.generateInviteId(),
+          type: 'incoming',
+          senderPublicKey: senderPublicKey as PublicKeyHex,
+          recipientPublicKey: identity.publicKey,
+          profile: {
+            publicKey: senderPublicKey as PublicKeyHex,
+            timestamp: Date.now(),
+            signature: ""
+          },
+          status: 'pending',
+          createdAt: new Date(),
+          expiresAt: redeemed.expiresAtUnixSeconds ? new Date(redeemed.expiresAtUnixSeconds * 1000) : undefined
+        };
+        await this.storeContactRequest(contactRequest);
+        return contactRequest;
       }
 
       // Check if link is active
@@ -406,6 +616,29 @@ class InviteManagerImpl implements InviteManager {
       return contactRequest;
     } catch (error) {
       throw new Error(`Invite link processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async processDeepLink(url: string): Promise<import('./deep-link-handler').DeepLinkResult> {
+    try {
+      return await DeepLinkHandler.processDeepLink(url);
+    } catch (error) {
+      throw new Error(`Deep link processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async handleUrlScheme(url: string): Promise<ContactRequest | null> {
+    try {
+      const result = await this.processDeepLink(url);
+      if (result.success && result.contactRequest) {
+        return result.contactRequest;
+      }
+      if (result.fallbackAction) {
+        throw new Error(`Deep link failed: ${result.error}. Fallback action: ${result.fallbackAction}`);
+      }
+      return null;
+    } catch (error) {
+      throw new Error(`URL scheme handling failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -730,11 +963,6 @@ class InviteManagerImpl implements InviteManager {
   // Import/Export
   async importContacts(contactData: NostrContactList): Promise<ImportResult> {
     try {
-      // Validate input
-      if (!contactData || !Array.isArray(contactData.contacts)) {
-        throw new Error('Invalid contact data format');
-      }
-
       const result: ImportResult = {
         totalContacts: contactData.contacts.length,
         successfulImports: 0,
@@ -853,50 +1081,54 @@ class InviteManagerImpl implements InviteManager {
     }
   }
 
-  async validateContactListFormat(data: any): Promise<{ isValid: boolean; errors: string[] }> {
+  async validateContactListFormat(data: unknown): Promise<{ isValid: boolean; errors: string[] }> {
     const errors: string[] = [];
 
-    if (!data || typeof data !== 'object') {
+    if (!isRecord(data)) {
       errors.push('Data must be an object');
       return { isValid: false, errors };
     }
 
-    if (!Array.isArray(data.contacts)) {
+    const contactsRaw: unknown = data.contacts;
+    if (!Array.isArray(contactsRaw)) {
       errors.push('contacts field must be an array');
       return { isValid: false, errors };
     }
 
-    if (typeof data.version !== 'number') {
+    if (!isNumber(data.version)) {
       errors.push('version field must be a number');
     }
 
-    if (typeof data.createdAt !== 'number') {
+    if (!isNumber(data.createdAt)) {
       errors.push('createdAt field must be a number');
     }
 
     // Validate each contact
-    for (let i = 0; i < data.contacts.length; i++) {
-      const contact = data.contacts[i];
+    for (let i = 0; i < contactsRaw.length; i++) {
+      const contact: unknown = contactsRaw[i];
 
-      if (!contact || typeof contact !== 'object') {
+      if (!isRecord(contact)) {
         errors.push(`Contact at index ${i} must be an object`);
         continue;
       }
 
-      if (!contact.publicKey || typeof contact.publicKey !== 'string') {
+      const publicKey: unknown = contact.publicKey;
+      if (!isString(publicKey) || publicKey.length === 0) {
         errors.push(`Contact at index ${i} missing valid publicKey`);
         continue;
       }
 
-      if (!cryptoService.isValidPubkey(contact.publicKey)) {
+      if (!cryptoService.isValidPubkey(publicKey)) {
         errors.push(`Contact at index ${i} has invalid publicKey format`);
       }
 
-      if (contact.petname && typeof contact.petname !== 'string') {
+      const petname: unknown = contact.petname;
+      if (petname !== undefined && petname !== null && !isString(petname)) {
         errors.push(`Contact at index ${i} petname must be a string`);
       }
 
-      if (contact.relayUrl && typeof contact.relayUrl !== 'string') {
+      const relayUrl: unknown = contact.relayUrl;
+      if (relayUrl !== undefined && relayUrl !== null && !isString(relayUrl)) {
         errors.push(`Contact at index ${i} relayUrl must be a string`);
       }
     }
@@ -907,11 +1139,16 @@ class InviteManagerImpl implements InviteManager {
   async importContactsFromFile(fileContent: string): Promise<ImportResult> {
     try {
       // Parse JSON
-      let contactData: any;
+      let contactData: unknown;
       try {
         contactData = JSON.parse(fileContent);
-      } catch (error) {
+      } catch {
         throw new Error('Invalid JSON format');
+      }
+
+      const parsed: NostrContactList | null = parseNostrContactList(contactData);
+      if (!parsed) {
+        throw new Error('Invalid contact list format');
       }
 
       // Validate format
@@ -921,7 +1158,7 @@ class InviteManagerImpl implements InviteManager {
       }
 
       // Import contacts
-      return await this.importContacts(contactData as NostrContactList);
+      return await this.importContacts(parsed);
     } catch (error) {
       throw new Error(`File import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

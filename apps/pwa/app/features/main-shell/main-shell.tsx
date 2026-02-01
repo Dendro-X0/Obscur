@@ -18,6 +18,9 @@ import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
 import type { RelayConnection } from "@/app/features/relays/utils/relay-connection";
 import { getNotificationsEnabled } from "@/app/features/notifications/utils/get-notifications-enabled";
 import { showDesktopNotification } from "@/app/features/notifications/utils/show-desktop-notification";
+import { toast } from "@/app/components/ui/toast";
+import { logAppEvent } from "@/app/shared/log-app-event";
+import { useAppStatusSnapshot } from "@/app/shared/hooks/use-app-status-snapshot";
 import { useTranslation } from "react-i18next";
 import { ProfileSearchService } from "../search/services/profile-search-service";
 import { SocialGraphService } from "../social-graph/services/social-graph-service";
@@ -110,14 +113,138 @@ const LOAD_EARLIER_STEP: number = 50;
 const DEFAULT_PROFILE_USERNAME: string = "Anon";
 const ONBOARDING_DISMISSED_STORAGE_KEY: string = "dweb.nostr.pwa.ui.onboardingDismissed";
 const PERSISTED_CHAT_STATE_VERSION: number = 2;
+const INVITE_REQUEST_SENT_PREFIX: string = "obscur.invites.request_sent.v1";
+
+type CoordinationInviteRedeemResponse = Readonly<{
+  inviteId: string;
+  inviterPubkey: string;
+  communityLabel: string | null;
+  relays: ReadonlyArray<string>;
+  expiresAtUnixSeconds: number | null;
+}>;
+
+type InviteRedemptionStatus = "idle" | "needs_unlock" | "redeeming" | "success" | "invalid" | "expired" | "server_down" | "error";
+
+type InviteRedemptionState = Readonly<{
+  status: InviteRedemptionStatus;
+  token: string | null;
+  message: string | null;
+}>;
+
+const createInviteRedemptionState = (params: Readonly<{ status: InviteRedemptionStatus; token?: string | null; message?: string | null }>): InviteRedemptionState => {
+  return { status: params.status, token: params.token ?? null, message: params.message ?? null };
+};
+
+const classifyInviteRedeemError = (message: string): InviteRedemptionStatus => {
+  const normalized: string = message.toLowerCase();
+  if (normalized.includes("coordination_not_configured") || normalized.includes("network") || normalized.includes("failed to fetch") || normalized.includes("timeout")) {
+    return "server_down";
+  }
+  if (normalized.includes("expired")) {
+    return "expired";
+  }
+  if (normalized.includes("invalid") || normalized.includes("not_found") || normalized.includes("already_redeemed")) {
+    return "invalid";
+  }
+  return "error";
+};
+
+type CoordinationOkResponse<T> = Readonly<{ ok: true; data: T }>;
+
+type CoordinationErrorResponse = Readonly<{ ok: false; error: string }>;
+
+type CoordinationResponse<T> = CoordinationOkResponse<T> | CoordinationErrorResponse;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isString = (value: unknown): value is string => typeof value === "string";
+
+const getInviteRequestSentKey = (params: Readonly<{ redeemerPubkeyHex: string; inviteId: string }>): string => {
+  return `${INVITE_REQUEST_SENT_PREFIX}.${params.redeemerPubkeyHex}.${params.inviteId}`;
+};
+
+const wasInviteRequestSent = (params: Readonly<{ redeemerPubkeyHex: string; inviteId: string }>): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(getInviteRequestSentKey(params)) === "1";
+  } catch {
+    return false;
+  }
+};
+
+const markInviteRequestSent = (params: Readonly<{ redeemerPubkeyHex: string; inviteId: string }>): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(getInviteRequestSentKey(params), "1");
+  } catch {
+    return;
+  }
+};
+
+const getCoordinationBaseUrl = (): string | null => {
+  const raw: string = (process.env.NEXT_PUBLIC_COORDINATION_URL ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+  return raw.replace(/\/+$/, "");
+};
+
+const parseCoordinationResponse = <T,>(value: unknown): CoordinationResponse<T> | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const ok: unknown = value.ok;
+  if (ok === true) {
+    return value as CoordinationOkResponse<T>;
+  }
+  if (ok === false) {
+    return value as CoordinationErrorResponse;
+  }
+  return null;
+};
+
+const redeemInviteToken = async (params: Readonly<{ token: string; redeemerPubkey: string }>): Promise<CoordinationInviteRedeemResponse> => {
+  const baseUrl: string | null = getCoordinationBaseUrl();
+  if (!baseUrl) {
+    throw new Error("coordination_not_configured");
+  }
+  logAppEvent({
+    name: "coordination.invite.redeem.start",
+    level: "info",
+    scope: { feature: "invites", action: "redeem" },
+    context: { hasBaseUrl: true }
+  });
+  const response: Response = await fetch(`${baseUrl}/invites/redeem`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token: params.token, redeemerPubkey: params.redeemerPubkey })
+  });
+  const raw: unknown = await response.json().catch((): null => null);
+  const parsed: CoordinationResponse<CoordinationInviteRedeemResponse> | null = parseCoordinationResponse<CoordinationInviteRedeemResponse>(raw);
+  if (!parsed) {
+    throw new Error("coordination_invalid_response");
+  }
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  logAppEvent({
+    name: "coordination.invite.redeem.success",
+    level: "info",
+    scope: { feature: "invites", action: "redeem" },
+    context: { relaysCount: parsed.data.relays.length }
+  });
+  return parsed.data;
+};
 
 const getProfileStorageKey = (publicKeyHex: string): string => `${PROFILE_STORAGE_PREFIX}.${publicKeyHex}`;
 function NostrMessengerContent() {
   const { t } = useTranslation();
   const didHydrateFromStorageRef = useRef<boolean>(false);
+  const lastRelayStatusRef = useRef<"offline" | "connecting" | "connected" | "degraded" | null>(null);
+  const lastInviteRedemptionStatusRef = useRef<InviteRedemptionStatus | null>(null);
   const handledIncomingDmIdsRef = useRef<Set<string>>(new Set<string>());
   const handledAcceptedOutgoingDmIdsRef = useRef<Set<string>>(new Set<string>());
   const handledRejectedOutgoingDmIdsRef = useRef<Set<string>>(new Set<string>());
@@ -272,6 +399,47 @@ function NostrMessengerContent() {
     return { total, openCount, errorCount };
   }, [relayPool.connections]);
 
+  const appStatusSnapshot = useAppStatusSnapshot({
+    identity: identity.state,
+    relayConnections: relayPool.connections
+  });
+
+  useEffect((): void => {
+    if (appStatusSnapshot.identity.status !== "unlocked") {
+      lastRelayStatusRef.current = null;
+      return;
+    }
+    const next: "offline" | "connecting" | "connected" | "degraded" = appStatusSnapshot.relay.status;
+    const previous: "offline" | "connecting" | "connected" | "degraded" | null = lastRelayStatusRef.current;
+    if (previous === next) {
+      return;
+    }
+    lastRelayStatusRef.current = next;
+    logAppEvent({
+      name: "relays.status.changed",
+      level: "info",
+      scope: { feature: "relays", action: "status" },
+      context: {
+        from: previous ?? "unknown",
+        to: next,
+        openCount: relayStatus.openCount,
+        total: relayStatus.total,
+        errorCount: relayStatus.errorCount
+      }
+    });
+    if (next === "offline") {
+      toast.warning("Relays are offline. Messaging may not work.");
+      return;
+    }
+    if (next === "degraded") {
+      toast.warning("Relay connectivity is degraded.");
+      return;
+    }
+    if (next === "connected" && previous !== null) {
+      toast.success("Relays connected.");
+    }
+  }, [appStatusSnapshot.identity.status, appStatusSnapshot.relay.status, relayStatus.errorCount, relayStatus.openCount, relayStatus.total]);
+
   const isIdentityUnlocked: boolean = identity.state.status === "unlocked";
   const isIdentityLocked: boolean = identity.state.status === "locked";
 
@@ -297,6 +465,8 @@ function NostrMessengerContent() {
   }, [profileSearchService]);
 
   const uploadService = useUploadService();
+
+  const [inviteRedemption, setInviteRedemption] = useState<InviteRedemptionState>(() => createInviteRedemptionState({ status: "idle" }));
 
   // Subscribe to incoming DMs when identity is unlocked and relays are connected
   useEffect((): void => {
@@ -340,16 +510,103 @@ function NostrMessengerContent() {
   useEffect((): void => {
     const pubkey: string = (searchParams.get("chat") || searchParams.get("pubkey") || "").trim();
     const relays: string = (searchParams.get("relays") || "").trim();
+    const inviteToken: string = (searchParams.get("inviteToken") || "").trim();
 
-    if (!pubkey && !relays) {
+    if (!pubkey && !relays && !inviteToken) {
       return;
     }
 
-    const cacheKey = `${pubkey}:${relays}`;
+    const identityKey: string = (identity.state.publicKeyHex ?? "").trim();
+    const cacheKey = `${pubkey}:${relays}:${inviteToken}:${identityKey}`;
     if (handledSearchParamPubkeyRef.current === cacheKey) {
       return;
     }
     handledSearchParamPubkeyRef.current = cacheKey;
+
+    if (inviteToken) {
+      if (!identity.state.publicKeyHex) {
+        setInviteRedemption(createInviteRedemptionState({ status: "needs_unlock", token: inviteToken }));
+        return;
+      }
+      setInviteRedemption(createInviteRedemptionState({ status: "redeeming", token: inviteToken }));
+      void (async (): Promise<void> => {
+        try {
+          const redeemed = await redeemInviteToken({ token: inviteToken, redeemerPubkey: identity.state.publicKeyHex as string });
+          redeemed.relays.forEach((url: string): void => {
+            relayList.addRelay({ url });
+          });
+          logAppEvent({
+            name: "invites.inviteToken.redeemed",
+            level: "info",
+            scope: { feature: "invites", action: "redeem" },
+            context: { relaysCount: redeemed.relays.length }
+          });
+          setInviteRedemption(createInviteRedemptionState({ status: "success", token: inviteToken }));
+          const parsed = parsePublicKeyInput(redeemed.inviterPubkey);
+          if (parsed.ok) {
+            const myPk: string = identity.state.publicKeyHex as string;
+            if (!wasInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId })) {
+              logAppEvent({
+                name: "requests.invite_auto_send.start",
+                level: "info",
+                scope: { feature: "requests", action: "invite_auto_send" },
+                context: { inviteId: redeemed.inviteId }
+              });
+              try {
+                const sent = await dmController.sendConnectionRequest({ peerPublicKeyHex: parsed.publicKeyHex as PublicKeyHex });
+                if (sent.success) {
+                  markInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId });
+                  logAppEvent({
+                    name: "requests.invite_auto_send.success",
+                    level: "info",
+                    scope: { feature: "requests", action: "invite_auto_send" },
+                    context: { inviteId: redeemed.inviteId }
+                  });
+                  toast.success("Connection request sent.");
+                } else {
+                  logAppEvent({
+                    name: "requests.invite_auto_send.failure",
+                    level: "warn",
+                    scope: { feature: "requests", action: "invite_auto_send" },
+                    context: { inviteId: redeemed.inviteId, error: sent.error ?? "unknown" }
+                  });
+                  toast.warning("Invite redeemed, but sending the connection request failed.");
+                }
+              } catch (e: unknown) {
+                const message: string = e instanceof Error ? e.message : "unknown";
+                logAppEvent({
+                  name: "requests.invite_auto_send.failure",
+                  level: "warn",
+                  scope: { feature: "requests", action: "invite_auto_send" },
+                  context: { inviteId: redeemed.inviteId, error: message }
+                });
+                toast.warning("Invite redeemed, but sending the connection request failed.");
+              }
+            }
+            queueMicrotask((): void => {
+              setNewChatPubkey(parsed.publicKeyHex);
+              setNewChatDisplayName("");
+              setIsNewChatOpen(true);
+              router.replace("/");
+            });
+            return;
+          }
+          router.replace("/");
+        } catch (error: unknown) {
+          const message: string = error instanceof Error ? error.message : "Invite redeem failed";
+          const status: InviteRedemptionStatus = classifyInviteRedeemError(message);
+          logAppEvent({
+            name: "invites.inviteToken.redeem_failed",
+            level: "error",
+            scope: { feature: "invites", action: "redeem" },
+            context: { error: message, classifiedAs: status }
+          });
+          setInviteRedemption(createInviteRedemptionState({ status, token: inviteToken, message }));
+          router.replace("/");
+        }
+      })();
+      return;
+    }
 
     // Handle relay hints
     if (relays) {
@@ -371,7 +628,49 @@ function NostrMessengerContent() {
         });
       }
     }
-  }, [router, searchParams, relayList]);
+  }, [router, searchParams, relayList, identity.state.publicKeyHex, dmController]);
+
+  useEffect((): void => {
+    const previous: InviteRedemptionStatus | null = lastInviteRedemptionStatusRef.current;
+    if (previous === inviteRedemption.status) {
+      return;
+    }
+    lastInviteRedemptionStatusRef.current = inviteRedemption.status;
+    if (inviteRedemption.status === "idle") {
+      return;
+    }
+    logAppEvent({
+      name: "invites.redeem.status",
+      level: "info",
+      scope: { feature: "invites", action: "redeem" },
+      context: { status: inviteRedemption.status }
+    });
+    if (inviteRedemption.status === "needs_unlock") {
+      toast.info("Unlock to redeem invite.");
+      return;
+    }
+    if (inviteRedemption.status === "redeeming") {
+      toast.info("Redeeming invite...");
+      return;
+    }
+    if (inviteRedemption.status === "success") {
+      toast.success("Invite redeemed. Relay hints applied.");
+      return;
+    }
+    if (inviteRedemption.status === "expired") {
+      toast.error("Invite is expired.");
+      return;
+    }
+    if (inviteRedemption.status === "invalid") {
+      toast.error("Invite is invalid.");
+      return;
+    }
+    if (inviteRedemption.status === "server_down") {
+      toast.error("Invite server is unavailable. Try again later.");
+      return;
+    }
+    toast.error(inviteRedemption.message ? `Invite redeem failed: ${inviteRedemption.message}` : "Invite redeem failed.");
+  }, [inviteRedemption.message, inviteRedemption.status]);
 
   useEffect((): void => {
     const accepted = dmController.state.messages
@@ -463,11 +762,6 @@ function NostrMessengerContent() {
     });
 
     const acceptedIncoming = incoming.filter((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): boolean => isPeerAccepted({ publicKeyHex: dm.peerPublicKeyHex }));
-    const requestIncoming = incoming.filter((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): boolean => !isPeerAccepted({ publicKeyHex: dm.peerPublicKeyHex }));
-
-    requestIncoming.forEach((dm: Readonly<{ peerPublicKeyHex: PublicKeyHex; plaintext: string; createdAtUnixSeconds: number }>): void => {
-      requestsInbox.upsertIncoming({ peerPublicKeyHex: dm.peerPublicKeyHex, plaintext: dm.plaintext, createdAtUnixSeconds: dm.createdAtUnixSeconds });
-    });
 
     if (acceptedIncoming.length === 0) {
       return;
@@ -1331,12 +1625,17 @@ function NostrMessengerContent() {
   }, [peerTrust, createdContacts, selectConversation, requestsInbox]);
 
   const handleIgnoreRequest = useCallback((peerPublicKeyHex: PublicKeyHex) => {
+    requestsInbox.setStatus({ peerPublicKeyHex, status: "declined" });
     requestsInbox.remove({ peerPublicKeyHex });
   }, [requestsInbox]);
 
   const handleBlockRequest = useCallback((peerPublicKeyHex: PublicKeyHex) => {
     blocklist.addBlocked({ publicKeyInput: peerPublicKeyHex });
-  }, [blocklist]);
+    peerTrust.unacceptPeer({ publicKeyHex: peerPublicKeyHex });
+    peerTrust.unmutePeer({ publicKeyHex: peerPublicKeyHex });
+    requestsInbox.setStatus({ peerPublicKeyHex, status: "declined" });
+    requestsInbox.remove({ peerPublicKeyHex });
+  }, [blocklist, peerTrust, requestsInbox]);
 
   const handleSelectRequest = useCallback((peerPublicKeyHex: PublicKeyHex) => {
     // Show the chat history even if not accepted yet

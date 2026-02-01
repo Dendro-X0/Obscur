@@ -29,12 +29,12 @@ export default function InvitePage() {
                 router.replace(`/?chat=${decoded.data}`);
             } else {
                 // Fallback for raw hex or other types
-                router.replace(`/?chat=${code}`);
+                router.replace(`/?inviteToken=${encodeURIComponent(code)}`);
             }
         } catch (err) {
             console.error("Invalid invite code:", err);
             // If it's not a valid nip19, maybe it's a raw hex
-            router.replace(`/?chat=${code}`);
+            router.replace(`/?inviteToken=${encodeURIComponent(code)}`);
         }
     }, [code, router]);
 

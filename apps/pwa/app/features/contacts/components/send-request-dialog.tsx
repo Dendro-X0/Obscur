@@ -24,6 +24,9 @@ export function SendRequestDialog({
     const { t } = useTranslation();
     const [introMessage, setIntroMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const recipientLabel: string = recipientName.length > 48
+        ? `${recipientName.slice(0, 20)}…${recipientName.slice(-12)}`
+        : recipientName;
 
     if (!isOpen) return null;
 
@@ -43,7 +46,7 @@ export function SendRequestDialog({
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
             <Card
                 title={t("contacts.sendRequestTitle", "Send Connection Request")}
-                description={t("contacts.sendRequestDesc", `Introduce yourself to ${recipientName}`)}
+                description={t("contacts.sendRequestDesc", `Introduce yourself to ${recipientLabel}`)}
                 className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             >
                 <div className="space-y-4">

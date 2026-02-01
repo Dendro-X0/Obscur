@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { inviteManager } from "@/app/features/invites/utils/invite-manager";
 import type { InviteLink, InviteLinkOptions } from "@/app/features/invites/utils/types";
+import { toast } from "../ui/toast";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
@@ -46,6 +48,11 @@ export const InviteLinkCreator = () => {
     setState({ status: "creating" });
 
     try {
+      logAppEvent({
+        name: "invites.link.create.start",
+        level: "info",
+        scope: { feature: "invites", action: "create_link" }
+      });
       const options: InviteLinkOptions = {
         displayName: displayName.trim() || undefined,
         message: message.trim() || undefined,
@@ -57,11 +64,26 @@ export const InviteLinkCreator = () => {
       const inviteLink = await inviteManager.generateInviteLink(options);
 
       setState({ status: "success", inviteLink });
+      logAppEvent({
+        name: "invites.link.create.success",
+        level: "info",
+        scope: { feature: "invites", action: "create_link" },
+        context: { hasUrl: true }
+      });
+      toast.success("Invite link created.");
     } catch (error) {
+      const message: string = error instanceof Error ? error.message : "Failed to create invite link";
+      logAppEvent({
+        name: "invites.link.create.failed",
+        level: "error",
+        scope: { feature: "invites", action: "create_link" },
+        context: { error: message }
+      });
       setState({
         status: "error",
-        error: error instanceof Error ? error.message : "Failed to create invite link"
+        error: message
       });
+      toast.error(`Invite link creation failed: ${message}`);
     }
   };
 
@@ -70,9 +92,16 @@ export const InviteLinkCreator = () => {
 
     try {
       await navigator.clipboard.writeText(state.inviteLink.url);
-      // TODO: Show toast notification
+      toast.success("Invite link copied.");
     } catch (error) {
-      console.error("Failed to copy link:", error);
+      const message: string = error instanceof Error ? error.message : "Failed to copy link";
+      logAppEvent({
+        name: "invites.link.copy.failed",
+        level: "error",
+        scope: { feature: "invites", action: "copy_link" },
+        context: { error: message }
+      });
+      toast.error(`Copy failed: ${message}`);
     }
   };
 
@@ -87,7 +116,13 @@ export const InviteLinkCreator = () => {
           url: state.inviteLink.url
         });
       } catch (error) {
-        console.error("Failed to share:", error);
+        const message: string = error instanceof Error ? error.message : "Failed to share";
+        logAppEvent({
+          name: "invites.link.share.failed",
+          level: "warn",
+          scope: { feature: "invites", action: "share_link" },
+          context: { error: message }
+        });
       }
     } else {
       // Fallback to copy

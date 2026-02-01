@@ -18,7 +18,7 @@ export const QR_CODE_SIZE = 256;
 export const QR_CODE_ERROR_CORRECTION = 'M';
 
 // Invite link configuration
-export const INVITE_LINK_BASE_URL = 'https://obscur.app/invite';
+export const INVITE_LINK_BASE_URL = typeof window !== "undefined" ? `${window.location.origin}/invite` : 'https://obscur.app/invite';
 export const SHORT_CODE_LENGTH = 8;
 export const DEFAULT_INVITE_EXPIRATION_HOURS = 24;
 

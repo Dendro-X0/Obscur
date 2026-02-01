@@ -1,0 +1,14 @@
+{
+  "name": "@obscur/coordination",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 execute obscur_coordination --local --file=./schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^3.106.0",
+    "typescript": "^5.6.3"
+  }
+}
