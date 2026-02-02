@@ -1765,6 +1765,7 @@ function NostrMessengerContent() {
         publicKeyHex={identity.state.publicKeyHex ?? undefined}
         isUnlocking={isUnlocking}
         onUnlock={handleUnlock}
+        onForget={identity.forgetIdentity}
       />
     );
   }
@@ -1893,6 +1894,7 @@ function NostrMessengerContent() {
                   isStep2Done={isStep2Done}
                   onOpenSettings={() => router.push("/settings")}
                   onDismissOnboarding={dismissOnboarding}
+                  onForget={identity.forgetIdentity}
                 />
               )}
             </div>

@@ -3,12 +3,14 @@ import { Lock, Shield, User } from 'lucide-react';
 
 interface LockScreenProps {
     onUnlock: (passphrase: string) => Promise<boolean>;
+    onForget?: () => Promise<void>;
     publicKeyHex?: string;
     isUnlocking?: boolean;
 }
 
 export const LockScreen: React.FC<LockScreenProps> = ({
     onUnlock,
+    onForget,
     publicKeyHex,
     isUnlocking = false
 }) => {
@@ -89,6 +91,22 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                             )}
                         </button>
                     </form>
+
+                    {onForget && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (window.confirm("Are you sure you want to reset your identity? This will permanently delete your local keys and you will need to start over.")) {
+                                    void onForget().then(() => {
+                                        window.location.reload();
+                                    });
+                                }
+                            }}
+                            className="text-zinc-500 hover:text-red-400 text-xs font-medium transition-colors"
+                        >
+                            Forgot passphrase? Reset account
+                        </button>
+                    )}
 
                     <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-[0.1em]">
                         Secured by Nostr Protocol

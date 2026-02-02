@@ -14,6 +14,7 @@ interface LockedIdentityViewProps {
     isStep2Done: boolean;
     onOpenSettings: () => void;
     onDismissOnboarding: () => void;
+    onForget?: () => Promise<void>;
 }
 
 export const LockedIdentityView: React.FC<LockedIdentityViewProps> = ({
@@ -22,6 +23,7 @@ export const LockedIdentityView: React.FC<LockedIdentityViewProps> = ({
     isStep2Done,
     onOpenSettings,
     onDismissOnboarding,
+    onForget,
 }) => {
     const { t } = useTranslation();
     return (
@@ -84,6 +86,24 @@ export const LockedIdentityView: React.FC<LockedIdentityViewProps> = ({
                         <div className="relative rounded-2xl border border-black/5 bg-black/[0.02] p-4 dark:border-white/5 dark:bg-white/[0.02]">
                             <IdentityCard embedded />
                         </div>
+                        {onForget && (
+                            <div className="pt-2 text-center">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (window.confirm("Are you sure you want to reset your identity? This will permanently delete your local keys and you will need to start over.")) {
+                                            void onForget().then(() => {
+                                                window.location.reload();
+                                            });
+                                        }
+                                    }}
+                                    className="text-[10px] text-zinc-500 hover:text-red-500 uppercase tracking-widest font-bold"
+                                >
+                                    Forgot Passphrase? Reset Account
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </Card>
             </div>
