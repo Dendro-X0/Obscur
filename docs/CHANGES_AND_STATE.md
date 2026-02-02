@@ -53,3 +53,22 @@ Note:
 ## Recommended next technical cleanup (optional)
 - Remove obsolete root scripts referencing `apps/api` if the API app has been merged into the PWA.
 - Reduce lint warnings over time (unused vars, `any` usage, and rule-specific React hooks warnings).
+
+### 4) Search & Messaging Reliability Improvements
+**Problem**: Users reported "Ghost" profiles (unsearchable), messaging failures where messages were sent but not received (due to missing relay overlap), and UI issues preventing connection requests.
+
+**Fixes**:
+- **Robust Profile Search**: Implemented HTTP fallback to `nostr.band` API in `profile-search-service.ts`. If relays don't support NIP-50, search now gracefully degrades to the API, merging results.
+- **Receiver Gossip (Relay Discovery)**: Updated `enhanced-dm-controller.ts` to implement NIP-65 "Gossip" for the *receiver*. When sending a message or viewing a chat, the app now actively queries and connects to the *recipient's* read relays.
+- **Real-time Chat Watching**: Added `watchConversation` method. When a user selects a chat in `MainShell`, the app dynamically connects to that peer's relays and re-broadcasts subscriptions, ensuring real-time message arrival.
+- **Connection Request Reliability**: Added proper error handling to `sendConnectionRequest` (preventing silent failures) and fixed the disabled state of the "Connect" button in `NewChatDialog` to allow initiating requests with found users.
+- **Relay Settings Access**: Updated `settings/page.tsx` to allow access to the **Relays** tab even when the identity is "Locked" (safe mode), provided the public key is known.
+- **Transient Relay Fix**: Patched `enhanced-relay-pool.ts` to wait (up to 2s) for a socket to transition from `CONNECTING` to `OPEN` before giving up, fixing race conditions when adding new relays.
+
+**Files Updated**:
+- `apps/pwa/app/features/search/services/profile-search-service.ts`
+- `apps/pwa/app/features/messaging/controllers/enhanced-dm-controller.ts`
+- `apps/pwa/app/features/main-shell/main-shell.tsx`
+- `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
+- `apps/pwa/app/settings/page.tsx`
+- `apps/pwa/app/features/messaging/components/new-chat-dialog.tsx`

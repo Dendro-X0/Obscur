@@ -95,6 +95,31 @@ jobs:
       - name: Install desktop deps
         run: pnpm -C apps/desktop install
 
+      - name: Prepare PWA for Static Export
+        shell: bash
+        run: |
+          echo "Disabling dynamic routes/APIs for static export..."
+          # Hide API directory
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
+          
+          # Disable specific route files
+          for file in \
+            apps/pwa/app/api-backup/upload/route.ts \
+            apps/pwa/app/icon-192.png/route.ts \
+            apps/pwa/app/icon-512.png/route.ts \
+            apps/pwa/app/sw.js/route.ts \
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invite/page.tsx \
+            apps/pwa/app/invite/[code]/page.tsx \
+            apps/pwa/app/groups/[groupId]/page.tsx
+          do
+            if [ -f "$file" ]; then
+              mv "$file" "$file.ignored"
+            fi
+          done
+
       - name: Build PWA (static export for desktop)
         run: pnpm -C apps/pwa build
         env:

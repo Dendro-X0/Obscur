@@ -55,6 +55,17 @@ If this project is resumed, the following steps are recommended:
 3.  **Fix the Happy Path:** Ensure 1 User can send 1 Message to another User and have it appear reliably. Do not move on until this basic primitive works.
 4.  **Simplify:** Remove unused "experimental" features causing friction.
 
+- `apps/pwa/app/settings/page.tsx`
+- `apps/pwa/app/features/messaging/components/new-chat-dialog.tsx`
+
+### 5. Desktop App Packaging (v0.3.2)
+**Status:** SUCCESS
+**Build:** `Obscur_0.3.2_x64-setup.exe`
+**Notes:** 
+- Synced with PWA v0.3.2 features (Messaging reliability fixes).
+- Configured as a standalone offline-first app (Server-side API routes disabled for desktop build to ensure true local-only operation).
+- Browser-independent execution via Tauri/WebView2.
+
 ---
 
 **Status:** Archived / Experimental
