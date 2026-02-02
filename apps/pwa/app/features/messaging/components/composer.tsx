@@ -5,7 +5,8 @@ import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
 import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
-import { Paperclip, Send, X, FileText, Loader2 } from "lucide-react";
+import { Paperclip, Send, X, FileText, Loader2, Smile } from "lucide-react";
+import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import type { ReplyTo, RelayStatusSummary } from "../types";
 
 interface ComposerProps {
@@ -45,6 +46,53 @@ export function Composer({
 }: ComposerProps) {
     const { t } = useTranslation();
     const isGated: boolean = isPeerAccepted === false;
+    const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+    const emojiPickerRef = React.useRef<HTMLDivElement>(null);
+
+    // Auto-resize logic
+    React.useEffect(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        // Reset height to calculate correctly
+        textarea.style.height = "auto";
+        const newHeight = Math.min(textarea.scrollHeight, 192); // Max height 192px (~8 lines)
+        textarea.style.height = `${newHeight}px`;
+    }, [messageInput, textareaRef]);
+
+    // Close emoji picker when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        };
+
+        if (showEmojiPicker) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [showEmojiPicker]);
+
+    const onEmojiClick = (emojiData: EmojiClickData) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = messageInput;
+        const before = text.substring(0, start);
+        const after = text.substring(end);
+
+        setMessageInput(before + emojiData.emoji + after);
+
+        // Focus back after state update
+        setTimeout(() => {
+            textarea.focus();
+            const newPos = start + emojiData.emoji.length;
+            textarea.setSelectionRange(newPos, newPos);
+        }, 0);
+    };
 
     return (
         <div className="border-t border-black/[0.03] bg-white/80 p-4 pb-safe dark:border-white/[0.03] dark:bg-black/80 backdrop-blur-xl">
@@ -179,9 +227,42 @@ export function Composer({
                         }
                     }}
                     disabled={isGated}
-                    className="min-h-[40px] max-h-48 flex-1 resize-none border-0 bg-transparent py-2.5 text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-400"
+                    className="min-h-[40px] flex-1 resize-none border-0 bg-transparent py-2.5 text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-400 overflow-y-auto"
                     rows={1}
                 />
+
+                <div className="relative flex items-center">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-10 w-10 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 transition-colors",
+                            showEmojiPicker && "bg-black/5 dark:bg-white/5 text-purple-600"
+                        )}
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        disabled={isGated}
+                    >
+                        <Smile className="h-5 w-5 text-zinc-500" />
+                    </Button>
+
+                    {showEmojiPicker && (
+                        <div
+                            ref={emojiPickerRef}
+                            className="absolute bottom-full right-0 mb-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                        >
+                            <EmojiPicker
+                                onEmojiClick={onEmojiClick}
+                                autoFocusSearch={false}
+                                theme={Theme.AUTO}
+                                width={320}
+                                height={400}
+                                skinTonesDisabled
+                                searchPlaceHolder="Search emojis..."
+                            />
+                        </div>
+                    )}
+                </div>
 
                 <Button
                     type="button"

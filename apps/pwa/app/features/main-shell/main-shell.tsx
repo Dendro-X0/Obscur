@@ -1376,9 +1376,9 @@ function NostrMessengerContent() {
       let resolvedTimestamp: Date = timestamp;
       let resolvedStatus: MessageStatus = "delivered";
       if (selectedConversation.kind === "dm") {
-        if (attachment) {
-          throw new Error("Attachments are not supported for DMs yet.");
-        }
+        // if (attachment) {
+        //   throw new Error("Attachments are not supported for DMs yet.");
+        // }
         if (blocklist.isBlocked({ publicKeyHex: selectedConversation.pubkey })) {
           throw new Error("Recipient is blocked.");
         }
