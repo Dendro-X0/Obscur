@@ -1,8 +1,8 @@
 # Project Status & Handover Report
-**Date:** 2026-01-31
-**Last Version:** v0.3.2
+**Date:** 2026-02-01
+**Last Version:** v0.3.3
 
-## 1. Recent Modifications (v0.3.1 - v0.3.2)
+## 1. Recent Modifications (v0.3.2 - v0.3.3)
 The following features were recently implemented to improve the core user experience and address critical usability gaps:
 
 ### Account & Data Management
@@ -58,11 +58,11 @@ If this project is resumed, the following steps are recommended:
 - `apps/pwa/app/settings/page.tsx`
 - `apps/pwa/app/features/messaging/components/new-chat-dialog.tsx`
 
-### 5. Desktop App Packaging (v0.3.2)
+### 5. Desktop App Packaging (v0.3.3)
 **Status:** SUCCESS
-**Build:** `Obscur_0.3.2_x64-setup.exe`
+**Build:** `Obscur_0.3.3_x64-setup.exe`
 **Notes:** 
-- Synced with PWA v0.3.2 features (Messaging reliability fixes).
+- Synced with PWA v0.3.3 features (Messaging reliability fixes).
 - Configured as a standalone offline-first app (Server-side API routes disabled for desktop build to ensure true local-only operation).
 - Browser-independent execution via Tauri/WebView2.
 
