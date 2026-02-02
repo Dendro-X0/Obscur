@@ -19,7 +19,9 @@ export type {
 // Internal implementation placeholder to allow type inference
 let instance: Comlink.Remote<CryptoService> | CryptoService;
 
-if (typeof window !== "undefined" && typeof Worker !== "undefined") {
+const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+
+if (typeof window !== "undefined" && typeof Worker !== "undefined" && !isTauri) {
   try {
     const worker = new Worker(new URL("./crypto.worker.ts", import.meta.url));
     instance = Comlink.wrap<CryptoService>(worker);
@@ -28,7 +30,10 @@ if (typeof window !== "undefined" && typeof Worker !== "undefined") {
     instance = new CryptoServiceImpl();
   }
 } else {
-  // SSR or non-browser environment (or during Vitest tests)
+  // SSR, non-browser environment, or Tauri (where workers might hang during initial load)
+  if (isTauri) {
+    console.info("Running in Tauri: forcing crypto service to main thread for compatibility.");
+  }
   instance = new CryptoServiceImpl();
 }
 

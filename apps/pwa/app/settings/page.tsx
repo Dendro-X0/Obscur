@@ -236,11 +236,6 @@ export default function SettingsPage(): React.JSX.Element {
     <PageShell
       title={t("settings.title")}
       navBadgeCounts={navBadges.navBadgeCounts}
-      rightContent={
-        <div className="flex items-center gap-2">
-          <KeyboardShortcutsHelp />
-        </div>
-      }
     >
       <div className="mx-auto w-full max-w-6xl p-4">
         <div className="flex flex-col gap-8 md:flex-row">

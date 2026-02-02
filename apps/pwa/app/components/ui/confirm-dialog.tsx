@@ -1,6 +1,5 @@
-"use client";
-
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Card } from "./card";
 import { Button } from "./button";
 import { useTranslation } from "react-i18next";
@@ -31,14 +30,20 @@ export function ConfirmDialog({
     isLoading = false,
 }: ConfirmDialogProps) {
     const { t } = useTranslation();
+    const [mounted, setMounted] = useState(false);
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!isOpen || !mounted) return null;
 
     const handleConfirm = async () => {
         await onConfirm();
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] grid place-items-center p-4 sm:p-0">
             <div
                 className="fixed inset-0 bg-black/40 backdrop-blur-xl transition-all animate-in fade-in duration-300"
@@ -85,6 +90,7 @@ export function ConfirmDialog({
                     </div>
                 </div>
             </Card>
-        </div>
+        </div>,
+        document.body
     );
 }

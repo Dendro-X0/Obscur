@@ -56,9 +56,9 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
         setError(null);
 
         try {
-            // Wait for at least one relay to be connected (max 5s)
+            // Wait for at least one relay to be connected (max 15s)
             let attempts = 0;
-            const maxAttempts = 10;
+            const maxAttempts = 30;
             while (attempts < maxAttempts) {
                 const openCount = pool.connections.filter(c => c.status === "open").length;
                 if (openCount > 0) break;
