@@ -202,17 +202,16 @@ export function Composer({
                     id="composer-attachment"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPickAttachment(e.target.files?.[0] ?? null)}
                 />
-                <label htmlFor="composer-attachment">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0"
-                        disabled={isUploadingAttachment || isGated}
-                    >
-                        <Paperclip className="h-5 w-5 text-zinc-500" />
-                    </Button>
-                </label>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0"
+                    disabled={isUploadingAttachment || isGated}
+                    onClick={() => document.getElementById("composer-attachment")?.click()}
+                >
+                    <Paperclip className="h-5 w-5 text-zinc-500" />
+                </Button>
 
                 <Textarea
                     placeholder={isGated ? "Connection pending..." : t("messaging.typeAMessage")}
@@ -293,7 +292,7 @@ export function Composer({
                     </span>
                 </div>
                 <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight">
-                    {t("messaging.nip04Desc", "E2E Encrypted")}
+                    {t("messaging.nip04Desc", "E2E Encrypted")} • Ver. 0.3.6.1
                 </div>
             </div>
         </div>
