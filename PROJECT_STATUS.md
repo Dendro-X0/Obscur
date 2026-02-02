@@ -1,9 +1,13 @@
 # Project Status & Handover Report
 **Date:** 2026-02-01
-**Last Version:** v0.3.3
+**Last Version:** v0.3.4
 
-## 1. Recent Modifications (v0.3.2 - v0.3.3)
+## 1. Recent Modifications (v0.3.3 - v0.3.4)
 The following features were recently implemented to improve the core user experience and address critical usability gaps:
+
+### Build & Reliability
+- **CI Build Fix:** Updated `tsconfig.json` to exclude `out` and `.next` directories. This prevents the TypeScript compiler from checking files in the build output, resolving a critical failure where Web Workers were incorrectly validated during static export.
+- **Version Synchronization:** Aligned `version.json` with workspace packages to ensure consistent releases across PWA and Desktop.
 
 ### Account & Data Management
 - **Account Deletion (Danger Zone):** Added a feature in *Settings > Identity* to permanently delete the local account and wipe all data (IndexedDB, LocalStorage).
@@ -58,13 +62,14 @@ If this project is resumed, the following steps are recommended:
 - `apps/pwa/app/settings/page.tsx`
 - `apps/pwa/app/features/messaging/components/new-chat-dialog.tsx`
 
-### 5. Desktop App Packaging (v0.3.3)
+### 5. Desktop App Packaging (v0.3.4)
 **Status:** SUCCESS
-**Build:** `Obscur_0.3.3_x64-setup.exe`
+**Build:** `Obscur_0.3.4_x64-setup.exe`
 **Notes:** 
-- Synced with PWA v0.3.3 features (Messaging reliability fixes).
+- Synced with PWA v0.3.4 features (Messaging reliability fixes).
 - Configured as a standalone offline-first app (Server-side API routes disabled for desktop build to ensure true local-only operation).
 - Browser-independent execution via Tauri/WebView2.
+- **CI Fixed:** Resolved TypeScript error during static export of Web Workers.
 
 ---
 
