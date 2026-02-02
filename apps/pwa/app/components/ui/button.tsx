@@ -4,7 +4,7 @@ import { cn } from "../../lib/cn";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "outline" | "ghost";
 
-type ButtonSize = "sm" | "md" | "lg";
+type ButtonSize = "sm" | "md" | "lg" | "icon";
 
 type ButtonProps = Readonly<{
   variant?: ButtonVariant;
@@ -36,6 +36,9 @@ const getSizeClassName = (size: ButtonSize): string => {
   }
   if (size === "lg") {
     return "min-h-12 rounded-xl px-6 py-3 text-base";
+  }
+  if (size === "icon") {
+    return "h-10 w-10 p-0 rounded-xl flex items-center justify-center";
   }
   return "min-h-10 rounded-xl px-4 py-2 text-sm";
 };

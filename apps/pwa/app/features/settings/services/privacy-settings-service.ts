@@ -12,7 +12,7 @@ export const defaultPrivacySettings: PrivacySettings = {
     clearClipboardOnLock: true,
     enableTorProxy: false,
     torProxyUrl: "socks5://127.0.0.1:9050",
-    autoLockTimeout: 15,
+    autoLockTimeout: 0,
     useModernDMs: true
 };
 

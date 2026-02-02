@@ -27,19 +27,30 @@ interface RequestsInboxPanelProps {
     onIgnore: (pubkey: PublicKeyHex) => void;
     onBlock: (pubkey: PublicKeyHex) => void;
     onSelect: (pubkey: PublicKeyHex) => void;
+    onFindSomeone?: () => void;
 }
 
-export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBlock, onSelect }: RequestsInboxPanelProps) {
+export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBlock, onSelect, onFindSomeone }: RequestsInboxPanelProps) {
     if (requests.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center opacity-60">
-                <div className="mb-4 rounded-full bg-zinc-100 dark:bg-zinc-800 p-4">
+                <div className="mb-4 rounded-full bg-zinc-100 dark:bg-zinc-800 p-4 ring-1 ring-black/5 dark:ring-white/5">
                     <MessageSquare className="h-8 w-8 text-zinc-400" />
                 </div>
                 <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">No Pending Requests</h3>
-                <p className="mt-2 text-xs text-zinc-400 max-w-[200px]">
+                <p className="mt-2 text-xs text-zinc-400 max-w-[200px] leading-relaxed">
                     New conversations from people you haven&apos;t accepted yet will appear here.
                 </p>
+                {onFindSomeone && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="mt-6 dark:bg-zinc-800"
+                        onClick={onFindSomeone}
+                    >
+                        Find Someone
+                    </Button>
+                )}
             </div>
         );
     }

@@ -3,7 +3,9 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
+import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
+import { Paperclip, Send, X, FileText, Loader2 } from "lucide-react";
 import type { ReplyTo, RelayStatusSummary } from "../types";
 
 interface ComposerProps {
@@ -45,113 +47,174 @@ export function Composer({
     const isGated: boolean = isPeerAccepted === false;
 
     return (
-        <div className="border-t border-black/10 bg-white p-4 dark:border-white/10 dark:bg-black">
-            {isGated ? (
-                <div className="mb-3 flex items-start gap-3 rounded-xl border border-purple-500/30 bg-purple-50 p-3 text-xs text-purple-700 dark:border-purple-500/40 dark:bg-purple-950/40 dark:text-purple-300">
-                    <div>
-                        <p className="font-semibold">Connection request pending.</p>
-                        <p>Accept this user to enable messaging.</p>
-                    </div>
+        <div className="border-t border-black/[0.03] bg-white/80 p-4 pb-safe dark:border-white/[0.03] dark:bg-black/80 backdrop-blur-xl">
+            {/* Connection Pending Gated State */}
+            {isGated && (
+                <div className="mb-4 flex items-center gap-3 rounded-2xl border border-purple-500/20 bg-purple-50/50 p-4 text-[11px] font-medium text-purple-700 dark:border-purple-500/30 dark:bg-purple-900/20 dark:text-purple-300 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                    <p>Connection request pending. Accept to start messaging.</p>
                 </div>
-            ) : null}
-            {recipientStatus === 'not_found' && (
-                <div className="mb-3 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300">
-                    <div className="mt-0.5 h-4 w-4 shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            )}
+
+            {/* Recipient Not Found Warning */}
+            {recipientStatus === 'not_found' && !isGated && (
+                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-50/50 p-4 text-[11px] font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-900/20 dark:text-amber-300 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="mt-0.5 h-4 w-4 shrink-0 text-amber-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                     </div>
-                    <div>
-                        <p className="font-semibold">Recipient profile not found.</p>
-                        <p>This user hasn&apos;t published a profile on your connected relays. Delivery might be unreliable.</p>
+                    <p>Recipient profile not found on your relays. Delivery might be unreliable.</p>
+                </div>
+            )}
+
+            {/* Reply Panel */}
+            {replyTo && (
+                <div className="mb-3 overflow-hidden rounded-2xl border border-black/5 bg-zinc-50/80 dark:border-white/5 dark:bg-zinc-900/80 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between gap-3 p-3">
+                        <div className="min-w-0 flex-1 flex items-center gap-2 border-l-2 border-purple-500 pl-3">
+                            <div className="truncate">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">{t("messaging.replyingTo")}</div>
+                                <div className="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400 italic">{replyTo.previewText}</div>
+                            </div>
+                        </div>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
+                            onClick={() => setReplyTo(null)}
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </Button>
                     </div>
                 </div>
             )}
-            {replyTo ? (
-                <div className="mb-3 rounded-xl border border-black/10 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-950/60">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                            <div className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t("messaging.replyingTo")}</div>
-                            <div className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-400">{replyTo.previewText}</div>
+
+            {/* Attachment Preview */}
+            {pendingAttachment && (
+                <div className="mb-3 overflow-hidden rounded-2xl border border-black/5 bg-zinc-50/80 dark:border-white/5 dark:bg-zinc-900/80 animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-3">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-800 flex items-center justify-center border border-black/5 dark:border-white/5 shrink-0">
+                                    <FileText className="h-4 w-4 text-zinc-400" />
+                                </div>
+                                <div className="truncate">
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Attachment</div>
+                                    <div className="text-xs font-mono text-zinc-600 dark:text-zinc-400 truncate">{pendingAttachment.name}</div>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="danger"
+                                size="sm"
+                                className="h-8 px-3 rounded-xl text-[10px] font-bold"
+                                onClick={clearPendingAttachment}
+                            >
+                                {t("common.remove", "Remove")}
+                            </Button>
                         </div>
-                        <Button type="button" variant="secondary" onClick={() => setReplyTo(null)}>
-                            {t("common.cancel")}
-                        </Button>
-                    </div>
-                </div>
-            ) : null}
-            <input
-                type="file"
-                accept="image/*,video/*"
-                className="hidden"
-                id="composer-attachment"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPickAttachment(e.target.files?.[0] ?? null)}
-            />
-            {pendingAttachment ? (
-                <div className="mb-3 rounded-xl border border-black/10 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-950/60">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                            <div className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Attachment</div>
-                            <div className="mt-1 truncate text-xs font-mono text-zinc-600 dark:text-zinc-400">{pendingAttachment.name}</div>
-                            {pendingAttachmentPreviewUrl ? (
-                                pendingAttachment.type.startsWith("image/") ? (
-                                    <Image src={pendingAttachmentPreviewUrl} alt={pendingAttachment.name} width={640} height={480} unoptimized className="mt-2 max-h-40 w-auto rounded-lg" />
+
+                        {pendingAttachmentPreviewUrl && (
+                            <div className="relative rounded-xl overflow-hidden border border-black/5 dark:border-white/5 bg-black/5">
+                                {pendingAttachment.type.startsWith("image/") ? (
+                                    <Image
+                                        src={pendingAttachmentPreviewUrl}
+                                        alt={pendingAttachment.name}
+                                        width={800}
+                                        height={600}
+                                        unoptimized
+                                        className="max-h-60 w-full object-contain"
+                                    />
                                 ) : (
-                                    <video src={pendingAttachmentPreviewUrl} controls className="mt-2 max-h-40 w-auto rounded-lg" />
-                                )
-                            ) : null}
-                        </div>
-                        <Button type="button" variant="secondary" onClick={clearPendingAttachment}>
-                            Remove
-                        </Button>
+                                    <video src={pendingAttachmentPreviewUrl} controls className="max-h-60 w-full" />
+                                )}
+                            </div>
+                        )}
+
+                        {attachmentError && (
+                            <div className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 uppercase tracking-wide">
+                                <div className="h-1 w-1 rounded-full bg-current" />
+                                {attachmentError}
+                            </div>
+                        )}
                     </div>
-                    {attachmentError ? (
-                        <div className="mt-2 text-xs text-red-600 dark:text-red-400">{attachmentError}</div>
-                    ) : null}
                 </div>
-            ) : attachmentError ? (
-                <div className="mb-3 rounded-xl border border-red-500/30 bg-red-50 p-3 text-xs text-red-700 dark:border-red-500/40 dark:bg-red-950/40 dark:text-red-300">
-                    {attachmentError}
-                </div>
-            ) : null}
-            <div className="rounded-2xl border border-black/10 bg-white/80 p-2 shadow-sm ring-1 ring-black/3 focus-within:ring-2 focus-within:ring-zinc-400/50 dark:border-white/10 dark:bg-zinc-950/40 dark:ring-white/4 dark:shadow-black/40 dark:focus-within:ring-zinc-400/50">
-                <div className="flex items-end gap-2">
-                    <label htmlFor="composer-attachment">
-                        <Button type="button" variant="secondary" disabled={isUploadingAttachment}>
-                            Attach
-                        </Button>
-                    </label>
-                    <Textarea
-                        placeholder={t("messaging.typeAMessage")}
-                        ref={textareaRef}
-                        value={messageInput}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
-                        onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                            if (isGated) {
-                                e.preventDefault();
-                                return;
-                            }
-                            if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage();
-                            }
-                            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                                e.preventDefault();
-                                handleSendMessage();
-                            }
-                        }}
-                        disabled={isGated}
-                        className="min-h-11 max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                        rows={1}
-                    />
-                    <Button type="button" onClick={handleSendMessage} disabled={isGated || (!messageInput.trim() && !pendingAttachment) || isUploadingAttachment} className="shrink-0">
-                        {isUploadingAttachment ? t("messaging.uploading") : t("common.send")}
+            )}
+
+            {/* Main Input Area */}
+            <div className={cn(
+                "relative flex items-end gap-2 p-1.5 bg-zinc-100/80 dark:bg-zinc-900/80 rounded-[28px] ring-1 ring-black/[0.03] dark:ring-white/[0.03] transition-all duration-300",
+                "focus-within:bg-white dark:focus-within:bg-zinc-900 focus-within:ring-purple-500/20 focus-within:shadow-xl focus-within:shadow-purple-500/5",
+                isGated && "opacity-50 grayscale pointer-events-none"
+            )}>
+                <input
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    id="composer-attachment"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPickAttachment(e.target.files?.[0] ?? null)}
+                />
+                <label htmlFor="composer-attachment">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0"
+                        disabled={isUploadingAttachment || isGated}
+                    >
+                        <Paperclip className="h-5 w-5 text-zinc-500" />
                     </Button>
+                </label>
+
+                <Textarea
+                    placeholder={isGated ? "Connection pending..." : t("messaging.typeAMessage")}
+                    ref={textareaRef}
+                    value={messageInput}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                        if (isGated) return;
+                        if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                        }
+                    }}
+                    disabled={isGated}
+                    className="min-h-[40px] max-h-48 flex-1 resize-none border-0 bg-transparent py-2.5 text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-400"
+                    rows={1}
+                />
+
+                <Button
+                    type="button"
+                    onClick={handleSendMessage}
+                    disabled={isGated || (!messageInput.trim() && !pendingAttachment) || isUploadingAttachment}
+                    size="icon"
+                    className={cn(
+                        "h-10 w-10 rounded-full shrink-0 transition-transform active:scale-90",
+                        (messageInput.trim() || pendingAttachment) && !isUploadingAttachment
+                            ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
+                            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                    )}
+                >
+                    {isUploadingAttachment ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                        <Send className="h-5 w-5" />
+                    )}
+                </Button>
+            </div>
+
+            {/* Footer Status */}
+            <div className="mt-3 flex items-center justify-between px-2 opacity-50">
+                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    <span className="flex items-center gap-1.5">
+                        <div className={cn("h-1.5 w-1.5 rounded-full", relayStatus.openCount > 0 ? "bg-emerald-500" : "bg-rose-500")} />
+                        {t("messaging.connectedToRelays", { open: relayStatus.openCount, total: relayStatus.total })}
+                    </span>
                 </div>
-                <div className="mt-1 px-1 text-[11px] leading-5 text-zinc-600 dark:text-zinc-400">
-                    {t("messaging.enterToSend")}
+                <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight">
+                    {t("messaging.nip04Desc", "E2E Encrypted")}
                 </div>
             </div>
-            <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.connectedToRelays", { open: relayStatus.openCount, total: relayStatus.total })}</div>
-            <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</p>
         </div>
     );
 }

@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
 import { MessageList } from "./message-list";
@@ -8,6 +8,7 @@ import { MediaGallery } from "./media-gallery";
 import { Lightbox } from "./lightbox";
 import { MessageMenu } from "./message-menu";
 import { ReactionPicker } from "./reaction-picker";
+import { Lock, UploadCloud } from "lucide-react";
 import type { Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary } from "../types";
 
 export interface ChatViewProps {
@@ -70,14 +71,46 @@ export interface ChatViewProps {
 }
 
 export function ChatView(props: ChatViewProps) {
+    const [isDragging, setIsDragging] = useState(false);
+
     const getMessageById = (messageId: string): Message | undefined => {
         return props.messages.find(m => m.id === messageId);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer.types.includes("Files")) {
+            setIsDragging(true);
+        }
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            props.onPickAttachment(file);
+        }
     };
 
     const activeMessage = props.messageMenu && getMessageById(props.messageMenu.messageId);
 
     return (
-        <>
+        <div
+            className="flex flex-col h-full relative"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
             <ChatHeader
                 conversation={props.conversation}
                 onCopyPubkey={props.onCopyPubkey}
@@ -98,20 +131,49 @@ export function ChatView(props: ChatViewProps) {
                 />
             )}
 
-            <MessageList
-                hasHydrated={props.hasHydrated}
-                messages={props.messages}
-                rawMessagesCount={props.rawMessagesCount}
-                hasEarlierMessages={props.hasEarlierMessages}
-                onLoadEarlier={props.onLoadEarlier}
-                nowMs={props.nowMs}
-                flashMessageId={props.flashMessageId}
-                onOpenMessageMenu={(params) => props.setMessageMenu(params)}
-                onOpenReactionPicker={(params) => props.setReactionPicker(params)}
-                onToggleReaction={props.onToggleReaction}
-                onRetryMessage={props.onRetryMessage}
-                onComposerFocus={() => props.composerTextareaRef.current?.focus()}
-            />
+            {props.messages.length === 0 && props.hasHydrated ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6 text-center opacity-0 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-forwards delay-200">
+                    <div className="relative">
+                        <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center shadow-2xl shadow-purple-500/10 ring-1 ring-black/5 dark:ring-white/5">
+                            <span className="text-4xl font-black text-zinc-300 dark:text-zinc-600 select-none">
+                                {props.conversation.displayName?.[0]?.toUpperCase()}
+                            </span>
+                        </div>
+                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1.5 rounded-full ring-4 ring-white dark:ring-black">
+                            <Lock className="h-4 w-4" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 max-w-sm">
+                        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                            {props.conversation.displayName}
+                        </h2>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                            This is the start of your encrypted conversation.
+                            {props.conversation.kind === 'dm' && !props.isPeerAccepted && (
+                                <span className="block mt-1 text-purple-600 dark:text-purple-400 font-medium">
+                                    Messages will be sent as connection requests until accepted.
+                                </span>
+                            )}
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                <MessageList
+                    hasHydrated={props.hasHydrated}
+                    messages={props.messages}
+                    rawMessagesCount={props.rawMessagesCount}
+                    hasEarlierMessages={props.hasEarlierMessages}
+                    onLoadEarlier={props.onLoadEarlier}
+                    nowMs={props.nowMs}
+                    flashMessageId={props.flashMessageId}
+                    onOpenMessageMenu={(params) => props.setMessageMenu(params)}
+                    onOpenReactionPicker={(params) => props.setReactionPicker(params)}
+                    onToggleReaction={props.onToggleReaction}
+                    onRetryMessage={props.onRetryMessage}
+                    onComposerFocus={() => props.composerTextareaRef.current?.focus()}
+                />
+            )}
 
             <Composer
                 messageInput={props.messageInput}
@@ -184,6 +246,20 @@ export function ChatView(props: ChatViewProps) {
                     onClose={() => props.setLightboxIndex(null)}
                 />
             )}
-        </>
+
+            {isDragging && (
+                <div className="absolute inset-0 z-[100] bg-purple-600/10 backdrop-blur-sm flex items-center justify-center p-8 animate-in fade-in duration-200 pointer-events-none">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-12 border-2 border-dashed border-purple-500 flex flex-col items-center gap-4 shadow-2xl scale-110 transition-transform">
+                        <div className="h-20 w-20 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                            <UploadCloud className="h-10 w-10" />
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Drop to upload</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Images or videos will be attached to your message</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

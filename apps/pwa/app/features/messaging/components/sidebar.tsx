@@ -71,20 +71,21 @@ export function Sidebar({
     return (
         <div className="flex h-full flex-col">
             <div className="border-b border-black/[0.03] p-4 dark:border-white/[0.03] space-y-4">
-                <div className="flex p-1 bg-black/[0.03] dark:bg-white/5 rounded-2xl ring-1 ring-black/[0.02] dark:ring-white/[0.02]">
+                <div className="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
+                    {/* Animated background segment could be added here with framer-motion, but using CSS classes for simplicity now */}
                     <button
                         onClick={() => setActiveTab("chats")}
                         suppressHydrationWarning
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                            "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
                             activeTab === "chats"
-                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm shadow-black/5 ring-1 ring-black/[0.02]"
+                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
                                 : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                         )}
                     >
                         Chats
                         {chatsUnreadTotal > 0 && (
-                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] font-bold text-white shadow-sm shadow-purple-600/30">
+                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] text-white shadow-sm">
                                 {chatsUnreadTotal}
                             </span>
                         )}
@@ -93,17 +94,17 @@ export function Sidebar({
                         onClick={() => setActiveTab("requests")}
                         suppressHydrationWarning
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                            "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
                             activeTab === "requests"
-                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm shadow-black/5 ring-1 ring-black/[0.02]"
+                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
                                 : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                         )}
                     >
                         Requests
                         {requests.length > 0 && (
                             <span className={cn(
-                                "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white shadow-sm",
-                                requestsUnreadTotal > 0 ? "bg-purple-600 shadow-purple-600/30" : "bg-zinc-400 dark:bg-zinc-600 shadow-black/10"
+                                "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] text-white shadow-sm",
+                                requestsUnreadTotal > 0 ? "bg-rose-500" : "bg-zinc-400 dark:bg-zinc-600"
                             )}>
                                 {requests.length}
                             </span>
@@ -146,6 +147,7 @@ export function Sidebar({
                         onIgnore={onIgnoreRequest}
                         onBlock={onBlockRequest}
                         onSelect={onSelectRequest}
+                        onFindSomeone={() => setIsNewChatOpen(true)}
                     />
                 ) : (
                     <>

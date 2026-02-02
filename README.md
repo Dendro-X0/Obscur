@@ -31,7 +31,7 @@ This repository is a PNPM workspace with:
 
 - **PWA**: `apps/pwa` (Next.js) - Main web application
 - **API (optional, local dev)**: `apps/api` (Hono on Node) - Development API server
-- **Desktop (planned)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app
+- **Desktop (Alpha)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app
 - **Packages**: Shared libraries for crypto, storage, and Nostr functionality
 
 ### Smart Invite System
@@ -111,7 +111,7 @@ pnpm build
 
 - **PWA**: Deploy `apps/pwa` to Vercel, Netlify, or any static hosting service
 - **API**: Optional - the PWA can function without the API server
-- **Desktop**: Coming soon with Tauri v2 packaging
+- **Desktop**: Built with Tauri v2. Releases managed via GitHub Actions.
 
 ### Pre-deployment Checklist
 
