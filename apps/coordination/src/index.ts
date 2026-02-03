@@ -1,4 +1,4 @@
-import { schnorr } from '@noble/secp256k1';
+import { schnorr } from '@noble/curves/secp256k1';
 
 type Env = Readonly<{
   DB: D1Database;
@@ -287,7 +287,7 @@ const verifyNip98 = async (request: Request): Promise<{ pubkey: string } | null>
 
     // Basic validation
     if (event.kind !== 27235) return null;
-    
+
     // Time validation ( +/- 60 seconds )
     const now = Math.floor(Date.now() / 1000);
     if (Math.abs(now - event.created_at) > 60) return null;
@@ -310,9 +310,9 @@ const verifyNip98 = async (request: Request): Promise<{ pubkey: string } | null>
       event.content
     ]);
     const eventHash = await sha256Hex(serialized);
-    
+
     // Verify signature
-    if (await schnorr.verify(event.sig, eventHash, event.pubkey)) {
+    if (schnorr.verify(event.sig, eventHash, event.pubkey)) {
       return { pubkey: event.pubkey };
     }
   } catch (e) {
@@ -325,14 +325,14 @@ const handleUpload = async (request: Request, env: Env): Promise<Response> => {
   // 1. Auth Check (NIP-98)
   const auth = await verifyNip98(request);
   if (!auth) {
-      return json({ status: 401, body: { ok: false, error: "unauthorized" } });
+    return json({ status: 401, body: { ok: false, error: "unauthorized" } });
   }
 
   // 2. Parse Form Data
   const formData = await request.formData();
   const file = formData.get("file") as File;
   if (!file) {
-      return badRequest("no_file");
+    return badRequest("no_file");
   }
 
   // 3. Generate Filename
@@ -340,12 +340,12 @@ const handleUpload = async (request: Request, env: Env): Promise<Response> => {
   const hash = await sha256Hex(file.name + Date.now().toString());
   const ext = file.name.split('.').pop() || 'bin';
   const objectKey = `${hash}.${ext}`;
-  
+
   // 4. Upload to R2
   await env.MEDIA_BUCKET.put(objectKey, buffer, {
-      httpMetadata: {
-          contentType: file.type,
-      }
+    httpMetadata: {
+      contentType: file.type,
+    }
   });
 
   // 5. Construct URL
@@ -355,36 +355,36 @@ const handleUpload = async (request: Request, env: Env): Promise<Response> => {
   const publicUrl = `${baseUrl}/files/${objectKey}`;
 
   return json({
-      status: 200,
-      body: {
-          status: "success",
-          message: "Upload successful",
-          url: publicUrl,
-          nip94_event: {
-              tags: [
-                  ["url", publicUrl],
-                  ["m", file.type],
-                  ["x", await sha256Hex(bytesToHex(buffer))], // NIP-94 x tag is hex(sha256(content))
-                  ["size", buffer.byteLength.toString()],
-              ]
-          }
+    status: 200,
+    body: {
+      status: "success",
+      message: "Upload successful",
+      url: publicUrl,
+      nip94_event: {
+        tags: [
+          ["url", publicUrl],
+          ["m", file.type],
+          ["x", await sha256Hex(bytesToHex(buffer))], // NIP-94 x tag is hex(sha256(content))
+          ["size", buffer.byteLength.toString()],
+        ]
       }
+    }
   });
 }
 
 const handleGetFile = async (request: Request, env: Env): Promise<Response> => {
-    const url = new URL(request.url);
-    const key = url.pathname.replace("/files/", "");
-    
-    const object = await env.MEDIA_BUCKET.get(key);
-    if (!object) return notFound();
-    
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set("etag", object.httpEtag);
-    headers.set("access-control-allow-origin", "*");
-    
-    return new Response(object.body, { headers });
+  const url = new URL(request.url);
+  const key = url.pathname.replace("/files/", "");
+
+  const object = await env.MEDIA_BUCKET.get(key);
+  if (!object) return notFound();
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("access-control-allow-origin", "*");
+
+  return new Response(object.body, { headers });
 }
 
 export default {
@@ -394,7 +394,7 @@ export default {
     }
     const url = new URL(request.url);
     const path = url.pathname;
-    
+
     // Health Check
     if (request.method === "GET" && path === "/health") {
       return json({ status: 200, body: { ok: true, environment: env.ENVIRONMENT } });
@@ -410,10 +410,10 @@ export default {
 
     // Media
     if (request.method === "POST" && (path === "/api/upload" || path === "/nip96/upload")) {
-        return await handleUpload(request, env);
+      return await handleUpload(request, env);
     }
     if (request.method === "GET" && path.startsWith("/files/")) {
-        return await handleGetFile(request, env);
+      return await handleGetFile(request, env);
     }
 
     return notFound();
