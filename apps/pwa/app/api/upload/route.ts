@@ -18,8 +18,10 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
 
         // Create unique filename
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 12);
         const extension = file.name.split(".").pop() || "bin";
-        const fileName = `${crypto.randomUUID()}.${extension}`;
+        const fileName = `${timestamp}-${randomString}.${extension}`;
 
         // Use absolute path from process.cwd()
         const uploadDir = join(process.cwd(), "public", "uploads");

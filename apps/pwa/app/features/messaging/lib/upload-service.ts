@@ -20,7 +20,16 @@ export class LocalUploadService implements UploadService {
         });
 
         if (!response.ok) {
-            throw new Error(`Upload failed with status ${response.status}`);
+            let errorMessage = `Upload failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData && errorData.message) {
+                    errorMessage = errorData.message;
+                }
+            } catch (e) {
+                // Could not parse error JSON, fall back to status text
+            }
+            throw new Error(errorMessage);
         }
 
         const result: UploadApiResponse = await response.json();
