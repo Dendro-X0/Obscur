@@ -6,7 +6,7 @@ import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
 import { cn } from "@/app/lib/utils";
 import { formatTime, highlightText } from "../utils/formatting";
-import type { Conversation } from "../types";
+import type { Conversation, RequestsInboxItem } from "../types";
 import { RequestsInboxPanel } from "./requests-inbox-panel";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
@@ -31,7 +31,7 @@ export interface SidebarProps {
     // Requests Inbox Props
     activeTab: "chats" | "requests";
     setActiveTab: (tab: "chats" | "requests") => void;
-    requests: ReadonlyArray<any>;
+    requests: ReadonlyArray<RequestsInboxItem>;
     onAcceptRequest: (pubkey: PublicKeyHex) => void;
     onIgnoreRequest: (pubkey: PublicKeyHex) => void;
     onBlockRequest: (pubkey: PublicKeyHex) => void;
@@ -65,8 +65,8 @@ export function Sidebar({
     const [initialNowMs] = useState<number>(() => Date.now());
     const resolvedNowMs: number = nowMs ?? initialNowMs;
 
-    const chatsUnreadTotal = Object.values(unreadByConversationId).reduce((a, b) => a + b, 0);
-    const requestsUnreadTotal = requests.reduce((sum, r) => sum + r.unreadCount, 0);
+    const chatsUnreadTotal = Object.values(unreadByConversationId).reduce((a: number, b: number) => a + b, 0);
+    const requestsUnreadTotal = requests.reduce((sum: number, r: RequestsInboxItem) => sum + r.unreadCount, 0);
 
     return (
         <div className="flex h-full flex-col">
@@ -106,7 +106,7 @@ export function Sidebar({
                                 "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] text-white shadow-sm",
                                 requestsUnreadTotal > 0 ? "bg-rose-500" : "bg-zinc-400 dark:bg-zinc-600"
                             )}>
-                                {requests.length}
+                                {requestsUnreadTotal > 0 ? requestsUnreadTotal : requests.length}
                             </span>
                         )}
                     </button>

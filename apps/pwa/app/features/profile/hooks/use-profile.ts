@@ -3,6 +3,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 export type UserProfile = Readonly<{
   username: string;
   avatarUrl: string;
+  nip05: string;
 }>;
 
 type ProfileState = Readonly<{
@@ -13,6 +14,7 @@ type UseProfileResult = Readonly<{
   state: ProfileState;
   setUsername: (params: Readonly<{ username: string }>) => void;
   setAvatarUrl: (params: Readonly<{ avatarUrl: string }>) => void;
+  setNip05: (params: Readonly<{ nip05: string }>) => void;
   reset: () => void;
 }>;
 
@@ -23,7 +25,7 @@ type PersistedProfileV1 = Readonly<{
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.profile";
 
-const defaultProfile: UserProfile = { username: "", avatarUrl: "" };
+const defaultProfile: UserProfile = { username: "", avatarUrl: "", nip05: "" };
 
 const defaultState: ProfileState = { profile: defaultProfile };
 
@@ -35,7 +37,7 @@ const isProfile = (value: unknown): value is UserProfile => {
   if (!isRecord(value)) {
     return false;
   }
-  return isString(value.username) && isString(value.avatarUrl);
+  return isString(value.username) && isString(value.avatarUrl) && (value.nip05 === undefined || isString(value.nip05));
 };
 
 const parsePersisted = (value: unknown): PersistedProfileV1 | null => {
@@ -149,6 +151,11 @@ export const useProfile = (): UseProfileResult => {
       setAvatarUrl: (params: Readonly<{ avatarUrl: string }>): void => {
         updateAndPersist((prev: ProfileState): ProfileState => ({
           profile: { ...prev.profile, avatarUrl: params.avatarUrl },
+        }));
+      },
+      setNip05: (params: Readonly<{ nip05: string }>): void => {
+        updateAndPersist((prev: ProfileState): ProfileState => ({
+          profile: { ...prev.profile, nip05: params.nip05 },
         }));
       },
       reset: (): void => {

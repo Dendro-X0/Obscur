@@ -14,12 +14,13 @@ interface ComposerProps {
     setMessageInput: (val: string) => void;
     handleSendMessage: () => void;
     isUploadingAttachment: boolean;
-    pendingAttachment: File | null;
-    pendingAttachmentPreviewUrl: string | null;
+    pendingAttachments: ReadonlyArray<File>;
+    pendingAttachmentPreviewUrls: ReadonlyArray<string>;
     attachmentError: string | null;
     replyTo: ReplyTo | null;
     setReplyTo: (val: ReplyTo | null) => void;
-    onPickAttachment: (file: File | null) => void;
+    onPickAttachments: (files: FileList | null) => void;
+    removePendingAttachment: (index: number) => void;
     clearPendingAttachment: () => void;
     relayStatus: RelayStatusSummary;
     textareaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -32,12 +33,13 @@ export function Composer({
     setMessageInput,
     handleSendMessage,
     isUploadingAttachment,
-    pendingAttachment,
-    pendingAttachmentPreviewUrl,
+    pendingAttachments,
+    pendingAttachmentPreviewUrls,
     attachmentError,
     replyTo,
     setReplyTo,
-    onPickAttachment,
+    onPickAttachments,
+    removePendingAttachment,
     clearPendingAttachment,
     relayStatus,
     textareaRef,
@@ -137,55 +139,60 @@ export function Composer({
                 </div>
             )}
 
-            {/* Attachment Preview */}
-            {pendingAttachment && (
-                <div className="mb-3 overflow-hidden rounded-2xl border border-black/5 bg-zinc-50/80 dark:border-white/5 dark:bg-zinc-900/80 animate-in slide-in-from-bottom-4 duration-500">
-                    <div className="p-3">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-800 flex items-center justify-center border border-black/5 dark:border-white/5 shrink-0">
-                                    <FileText className="h-4 w-4 text-zinc-400" />
-                                </div>
-                                <div className="truncate">
-                                    <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Attachment</div>
-                                    <div className="text-xs font-mono text-zinc-600 dark:text-zinc-400 truncate">{pendingAttachment.name}</div>
-                                </div>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="danger"
-                                size="sm"
-                                className="h-8 px-3 rounded-xl text-[10px] font-bold"
-                                onClick={clearPendingAttachment}
-                            >
-                                {t("common.remove", "Remove")}
-                            </Button>
-                        </div>
-
-                        {pendingAttachmentPreviewUrl && (
-                            <div className="relative rounded-xl overflow-hidden border border-black/5 dark:border-white/5 bg-black/5">
-                                {pendingAttachment.type.startsWith("image/") ? (
+            {/* Attachment Preview (Multiple) */}
+            {pendingAttachments.length > 0 && (
+                <div className="mb-3 flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+                    {pendingAttachments.map((file, index) => (
+                        <div key={index} className="relative shrink-0 w-32 group animate-in zoom-in-95 duration-200">
+                            <div className="relative rounded-xl overflow-hidden aspect-square border border-black/5 dark:border-white/5 bg-black/5">
+                                {file.type.startsWith("image/") ? (
                                     <Image
-                                        src={pendingAttachmentPreviewUrl}
-                                        alt={pendingAttachment.name}
-                                        width={800}
-                                        height={600}
+                                        src={pendingAttachmentPreviewUrls[index]}
+                                        alt={file.name}
+                                        fill
                                         unoptimized
-                                        className="max-h-60 w-full object-contain"
+                                        className="object-cover transition-transform group-hover:scale-110 duration-500"
                                     />
                                 ) : (
-                                    <video src={pendingAttachmentPreviewUrl} controls className="max-h-60 w-full" />
+                                    <div className="h-full w-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
+                                        <FileText className="h-8 w-8 text-zinc-400" />
+                                    </div>
                                 )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Button
+                                        type="button"
+                                        variant="danger"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-full shadow-lg"
+                                        onClick={() => removePendingAttachment(index)}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
-                        )}
+                            <div className="mt-1 text-[9px] font-medium text-zinc-500 truncate px-1">
+                                {file.name}
+                            </div>
+                        </div>
+                    ))}
 
-                        {attachmentError && (
-                            <div className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 uppercase tracking-wide">
-                                <div className="h-1 w-1 rounded-full bg-current" />
-                                {attachmentError}
-                            </div>
-                        )}
-                    </div>
+                    {/* Add More Button */}
+                    <button
+                        type="button"
+                        onClick={() => document.getElementById("composer-attachment")?.click()}
+                        className="shrink-0 w-32 aspect-square rounded-xl border-2 border-dashed border-black/5 dark:border-white/10 flex flex-col items-center justify-center hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-zinc-400 hover:text-purple-500 group"
+                    >
+                        <Paperclip className="h-6 w-6 mb-1 transition-transform group-hover:rotate-12" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{t("common.addMore", "Add More")}</span>
+                    </button>
+                </div>
+            )}
+
+            {attachmentError && (
+                <div className="mb-3 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 uppercase tracking-wide bg-rose-500/10 p-2 rounded-lg">
+                    <div className="h-1 w-1 rounded-full bg-current" />
+                    {attachmentError}
+                    <button onClick={clearPendingAttachment} className="ml-auto underline">Clear All</button>
                 </div>
             )}
 
@@ -198,9 +205,10 @@ export function Composer({
                 <input
                     type="file"
                     accept="image/*,video/*"
+                    multiple
                     className="hidden"
                     id="composer-attachment"
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPickAttachment(e.target.files?.[0] ?? null)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPickAttachments(e.target.files)}
                 />
                 <Button
                     type="button"
@@ -266,11 +274,11 @@ export function Composer({
                 <Button
                     type="button"
                     onClick={handleSendMessage}
-                    disabled={isGated || (!messageInput.trim() && !pendingAttachment) || isUploadingAttachment}
+                    disabled={isGated || (!messageInput.trim() && pendingAttachments.length === 0) || isUploadingAttachment}
                     size="icon"
                     className={cn(
                         "h-10 w-10 rounded-full shrink-0 transition-transform active:scale-90",
-                        (messageInput.trim() || pendingAttachment) && !isUploadingAttachment
+                        (messageInput.trim() || pendingAttachments.length > 0) && !isUploadingAttachment
                             ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
                             : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
                     )}

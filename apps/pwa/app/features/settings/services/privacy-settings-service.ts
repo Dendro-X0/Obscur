@@ -5,6 +5,7 @@ export interface PrivacySettings {
     torProxyUrl: string; // e.g. socks5://127.0.0.1:9050
     autoLockTimeout: number; // minutes
     useModernDMs: boolean; // NIP-17 Gift Wraps
+    dmPrivacy: 'everyone' | 'contacts-only';
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -13,7 +14,8 @@ export const defaultPrivacySettings: PrivacySettings = {
     enableTorProxy: false,
     torProxyUrl: "socks5://127.0.0.1:9050",
     autoLockTimeout: 0,
-    useModernDMs: true
+    useModernDMs: true,
+    dmPrivacy: 'everyone'
 };
 
 export class PrivacySettingsService {

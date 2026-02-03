@@ -3,17 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
-import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
+import type { ConnectionRequestStatusValue, RequestsInboxItem } from "@/app/features/messaging/types";
 import { ConnectionRequestService } from "@/app/features/contacts/services/connection-request-service";
 
-type RequestsInboxItem = Readonly<{
-  peerPublicKeyHex: PublicKeyHex;
-  lastMessagePreview: string;
-  lastReceivedAtUnixSeconds: number;
-  unreadCount: number;
-  status?: ConnectionRequestStatusValue;
-  isRequest?: boolean;
-}>;
+
 
 type RequestsInboxState = Readonly<{
   items: ReadonlyArray<RequestsInboxItem>;
@@ -152,13 +145,24 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     }
     saveToStorage(params.publicKeyHex, stored);
   }, [params.publicKeyHex, stored]);
+  const [processedEventIds] = useState<Set<string>>(() => new Set());
+
   const upsertIncoming = useCallback((p: Readonly<{
     peerPublicKeyHex: PublicKeyHex;
     plaintext: string;
     createdAtUnixSeconds: number;
     isRequest?: boolean;
     status?: ConnectionRequestStatusValue;
+    eventId?: string;
   }>): void => {
+    // Basic deduplication if eventId is provided
+    if (p.eventId) {
+      if (processedEventIds.has(p.eventId)) {
+        return;
+      }
+      processedEventIds.add(p.eventId);
+    }
+
     const preview: string = createPreview(p.plaintext);
     if (params.publicKeyHex && p.status) {
       void ConnectionRequestService.addRequest(params.publicKeyHex, {
@@ -183,10 +187,15 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         };
         return { items: [nextItem, ...prev.items] };
       }
+
+      // If we've seen a more recent message, update preview and increment count
+      // If same message (matched by eventId earlier) or older, we might want to skip incrementing unread
+      const isNewer = p.createdAtUnixSeconds > existing.lastReceivedAtUnixSeconds;
       const nextUnread: number = existing.unreadCount + 1;
+
       const updated: RequestsInboxItem = {
         peerPublicKeyHex: existing.peerPublicKeyHex,
-        lastMessagePreview: preview,
+        lastMessagePreview: isNewer ? preview : existing.lastMessagePreview,
         lastReceivedAtUnixSeconds: Math.max(existing.lastReceivedAtUnixSeconds, p.createdAtUnixSeconds),
         unreadCount: nextUnread,
         isRequest: p.isRequest ?? existing.isRequest,
@@ -195,7 +204,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       const nextItems: RequestsInboxItem[] = [updated, ...prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex)];
       return { items: nextItems };
     });
-  }, [params.publicKeyHex]);
+  }, [params.publicKeyHex, processedEventIds]);
   const remove = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): void => {
     if (params.publicKeyHex) {
       void ConnectionRequestService.updateRequestStatus(params.publicKeyHex, p.peerPublicKeyHex, "declined");

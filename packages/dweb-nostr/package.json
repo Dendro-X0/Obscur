@@ -12,6 +12,7 @@
   "exports": {
     "./create-nostr-dm-event": "./src/create-nostr-dm-event.ts",
     "./create-nostr-event": "./src/create-nostr-event.ts",
+    "./create-nostr-group-event": "./src/create-nostr-group-event.ts",
     "./nip04-decrypt": "./src/nip04-decrypt.ts",
     "./nip04-encrypt": "./src/nip04-encrypt.ts",
     "./nostr-event": "./src/nostr-event.ts",

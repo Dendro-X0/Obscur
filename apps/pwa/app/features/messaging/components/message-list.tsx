@@ -25,6 +25,7 @@ interface MessageListProps {
     onToggleReaction: (messageId: string, emoji: ReactionEmoji) => void;
     onRetryMessage: (message: Message) => void;
     onComposerFocus: () => void;
+    isGroup?: boolean;
 }
 
 export function MessageList({
@@ -39,7 +40,8 @@ export function MessageList({
     onOpenReactionPicker,
     onToggleReaction,
     onRetryMessage,
-    onComposerFocus
+    onComposerFocus,
+    isGroup
 }: MessageListProps) {
     const { t } = useTranslation();
 
@@ -164,13 +166,21 @@ export function MessageList({
                                     >
                                         {/* Interaction Hover Menu */}
                                         <div className={cn(
-                                            "absolute opacity-0 group-hover:opacity-100 transition-opacity z-20 top-1",
+                                            "absolute opacity-0 group-hover:opacity-100 transition-opacity z-20 top-1 flex flex-col gap-1.5",
                                             message.isOutgoing ? "-left-12" : "-right-12"
                                         )}>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 rounded-full bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5"
+                                                className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
+                                                onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
+                                            >
+                                                <span className="text-sm leading-none">☺</span>
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
                                                 onClick={(e) => onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY })}
                                             >
                                                 <span className="text-lg leading-none mt-[-4px]">⋯</span>
@@ -178,6 +188,16 @@ export function MessageList({
                                         </div>
 
                                         <div className="px-4 py-2.5">
+                                            {isGroup && !message.isOutgoing && isGroupStart && (
+                                                <div className="flex items-center gap-2 mb-1.5 px-0.5">
+                                                    <div className="h-5 w-5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 shadow-sm overflow-hidden">
+                                                        <span className="text-[10px] font-bold text-zinc-400">?</span>
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
+                                                        {message.senderPubkey?.slice(0, 8) || "Unknown"}
+                                                    </span>
+                                                </div>
+                                            )}
                                             {message.deletedAt ? (
                                                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
                                                     <X className="h-3 w-3" /> {t("messaging.messageDeleted")}

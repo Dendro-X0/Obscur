@@ -180,6 +180,7 @@ type UseEnhancedDMControllerParams = Readonly<{
       createdAtUnixSeconds: number;
       isRequest?: boolean;
       status?: ConnectionRequestStatusValue;
+      eventId?: string;
     }>) => void;
   };
   onNewMessage?: (message: Message) => void;
@@ -756,6 +757,13 @@ export const useEnhancedDMController = (
       // Step 5: Check if sender is an accepted contact
       const isAcceptedContact = params.peerTrust?.isAccepted({ publicKeyHex: actualSenderPubkey }) || false;
 
+      // Step 5.1: Apply global Privacy Filter (Requirement: Contacts Only)
+      const privacySettings = PrivacySettingsService.getSettings();
+      if (privacySettings.dmPrivacy === 'contacts-only' && !isAcceptedContact) {
+        console.log('Filtered message from stranger due to "Contacts Only" privacy setting:', actualSenderPubkey);
+        return;
+      }
+
       // Step 6: Route message based on sender status
       // CRITICAL FIX: For NIP-17, we must check the RUMOR tags, not the outer event tags
       const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, params.myPrivateKeyHex)).tags : event.tags;
@@ -769,7 +777,8 @@ export const useEnhancedDMController = (
             plaintext,
             createdAtUnixSeconds: usedCreatedAt,
             isRequest: isConnectionRequest,
-            status: isConnectionRequest ? 'pending' : undefined
+            status: isConnectionRequest ? 'pending' : undefined,
+            eventId: usedEventId
           });
           console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey, { isRequest: isConnectionRequest });
         }

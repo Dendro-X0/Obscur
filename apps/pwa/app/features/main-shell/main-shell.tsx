@@ -24,6 +24,7 @@ import { useAppStatusSnapshot } from "@/app/shared/hooks/use-app-status-snapshot
 import { useTranslation } from "react-i18next";
 import { ProfileSearchService } from "../search/services/profile-search-service";
 import { SocialGraphService } from "../social-graph/services/social-graph-service";
+import { cryptoService, type UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 
 import type {
   Conversation,
@@ -93,7 +94,9 @@ import {
 import { Sidebar } from "@/app/features/messaging/components/sidebar";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
 import { NewChatDialog } from "@/app/features/messaging/components/new-chat-dialog";
-import { NewGroupDialog } from "@/app/features/messaging/components/new-group-dialog";
+import { CreateGroupDialog } from "@/app/features/groups/components/create-group-dialog";
+import { GroupSettingsSheet } from "@/app/features/groups/components/group-settings-sheet";
+import { GroupService } from "@/app/features/groups/services/group-service";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { LockScreen } from "@/app/components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
@@ -296,6 +299,7 @@ function NostrMessengerContent() {
   const [isNewGroupOpen, setIsNewGroupOpen] = useState<boolean>(false);
   const [newGroupName, setNewGroupName] = useState<string>("");
   const [newGroupMemberPubkeys, setNewGroupMemberPubkeys] = useState<string>("");
+  const [isCreatingGroup, setIsCreatingGroup] = useState<boolean>(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
   const [contactOverridesByContactId, setContactOverridesByContactId] =
@@ -304,8 +308,8 @@ function NostrMessengerContent() {
     useState<MessagesByConversationId>({});
   const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] =
     useState<Readonly<Record<string, number>>>({});
-  const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
-  const [pendingAttachmentPreviewUrl, setPendingAttachmentPreviewUrl] = useState<string | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<ReadonlyArray<File>>([]);
+  const [pendingAttachmentPreviewUrls, setPendingAttachmentPreviewUrls] = useState<ReadonlyArray<string>>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState<boolean>(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
@@ -316,6 +320,7 @@ function NostrMessengerContent() {
   const [isMediaGalleryOpen, setIsMediaGalleryOpen] = useState<boolean>(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [sidebarTab, setSidebarTab] = useState<"chats" | "requests">("chats");
+  const [isGroupInfoOpen, setIsGroupInfoOpen] = useState<boolean>(false);
   const [createdContacts, setCreatedContacts] = useState<ReadonlyArray<DmConversation>>([]);
   const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
   const [recipientVerificationStatus, setRecipientVerificationStatus] = useState<Readonly<Record<string, 'idle' | 'found' | 'not_found' | 'verifying'>>>({});
@@ -459,6 +464,7 @@ function NostrMessengerContent() {
   });
   const socialGraphService = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
   const profileSearchService = useMemo(() => new ProfileSearchService(relayPool, socialGraphService, identity.state.publicKeyHex ?? undefined), [relayPool, socialGraphService, identity.state.publicKeyHex]);
+  const groupService = useMemo(() => (myPublicKeyHex && myPrivateKeyHex) ? new GroupService(myPublicKeyHex, myPrivateKeyHex) : null, [myPublicKeyHex, myPrivateKeyHex]);
 
   const handleSearchProfiles = useCallback(async (query: string) => {
     return await profileSearchService.searchByName(query);
@@ -1167,47 +1173,80 @@ function NostrMessengerContent() {
   }, [messageMenu, reactionPicker]);
 
   const toggleReaction = (params: Readonly<{ conversationId: string; messageId: string; emoji: ReactionEmoji }>): void => {
-    setMessagesByConversationId((prev: MessagesByConversationId): MessagesByConversationId => {
-      const existing: ReadonlyArray<Message> = prev[params.conversationId] ?? [];
-      const nextMessages: ReadonlyArray<Message> = existing.map((m: Message): Message => {
-        if (m.id !== params.messageId) {
-          return m;
-        }
-        const currentCount: number = m.reactions?.[params.emoji] ?? 0;
-        const nextCount: number = currentCount > 0 ? 0 : 1;
-        if (nextCount === 0) {
-          const { reactions, ...rest }: Message & Readonly<{ reactions?: ReactionsByEmoji }> = m;
-          void reactions;
-          return rest;
-        }
-        const base: Record<ReactionEmoji, number> = createEmptyReactions();
-        base[params.emoji] = nextCount;
-        return { ...m, reactions: toReactionsByEmoji(base) };
-      });
-      return { ...prev, [params.conversationId]: nextMessages };
-    });
+    if (!isIdentityUnlocked || !myPrivateKeyHex || !myPublicKeyHex) {
+      return;
+    }
+    const message = messagesByConversationId[params.conversationId]?.find(m => m.id === params.messageId);
+    if (!message) return;
+
+    const performReaction = async () => {
+      try {
+        const event: UnsignedNostrEvent = {
+          kind: 7,
+          created_at: Math.floor(Date.now() / 1000),
+          content: params.emoji,
+          tags: [
+            ["e", params.messageId],
+            ["p", message.senderPubkey || params.conversationId],
+          ],
+          pubkey: myPublicKeyHex
+        };
+        const signed = await cryptoService.signEvent(event, myPrivateKeyHex);
+        relayPool.sendToOpen(JSON.stringify(["EVENT", signed]));
+
+        setMessagesByConversationId(prev => {
+          const msgs = prev[params.conversationId] || [];
+          return {
+            ...prev,
+            [params.conversationId]: msgs.map(m => {
+              if (m.id !== params.messageId) return m;
+              const nextReactions: Record<string, number> = { ...(m.reactions || {}) };
+              const current = nextReactions[params.emoji] ?? 0;
+              if (current > 0) {
+                delete nextReactions[params.emoji];
+              } else {
+                nextReactions[params.emoji] = 1;
+              }
+              return { ...m, reactions: nextReactions as ReactionsByEmoji };
+            })
+          };
+        });
+      } catch (e) {
+        console.error("Failed to send reaction:", e);
+      }
+    };
+    void performReaction();
   };
 
   const clearPendingAttachment = (): void => {
-    setPendingAttachment(null);
-    if (pendingAttachmentPreviewUrl) {
-      URL.revokeObjectURL(pendingAttachmentPreviewUrl);
-    }
-    setPendingAttachmentPreviewUrl(null);
+    pendingAttachmentPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    setPendingAttachments([]);
+    setPendingAttachmentPreviewUrls([]);
     setAttachmentError(null);
   };
 
-  const onPickAttachment = (file: File | null): void => {
-    clearPendingAttachment();
-    if (!file) {
-      return;
+  const removePendingAttachment = (index: number): void => {
+    const url = pendingAttachmentPreviewUrls[index];
+    if (url) URL.revokeObjectURL(url);
+    setPendingAttachments(prev => prev.filter((_, i) => i !== index));
+    setPendingAttachmentPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const onPickAttachments = (files: FileList | null): void => {
+    if (!files || files.length === 0) return;
+    const newFiles: File[] = [];
+    const newUrls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+        setAttachmentError("Only image/video files are supported.");
+        continue;
+      }
+      newFiles.push(file);
+      newUrls.push(URL.createObjectURL(file));
     }
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-      setAttachmentError("Only image/video files are supported.");
-      return;
-    }
-    setPendingAttachment(file);
-    setPendingAttachmentPreviewUrl(URL.createObjectURL(file));
+    setPendingAttachments(prev => [...prev, ...newFiles]);
+    setPendingAttachmentPreviewUrls(prev => [...prev, ...newUrls]);
   };
 
   const uploadAttachment = useCallback(async (file: File): Promise<Attachment> => {
@@ -1242,7 +1281,6 @@ function NostrMessengerContent() {
       [conversation.id]: prev[conversation.id] ?? DEFAULT_VISIBLE_MESSAGES,
     }));
 
-    // Auto-verify recipient for DMs if not already verified
     if (conversation.kind === "dm" && (!recipientVerificationStatus[conversation.id] || recipientVerificationStatus[conversation.id] === 'idle')) {
       setRecipientVerificationStatus(prev => ({ ...prev, [conversation.id]: 'verifying' }));
       void dmController.verifyRecipient(conversation.pubkey as PublicKeyHex).then((result: { exists: boolean; profile?: any }) => {
@@ -1257,44 +1295,24 @@ function NostrMessengerContent() {
   const createChat = async (): Promise<void> => {
     const pubkey: string = newChatPubkey.trim();
     const displayName: string = (newChatDisplayName.trim() || pubkey.slice(0, 8)).trim();
-    if (!pubkey) {
-      return;
-    }
-
+    if (!pubkey) return;
     let resolvedPubkey: PublicKeyHex | null = null;
     let relayHints: string[] = [];
-
     const parsed = parsePublicKeyInput(pubkey);
     if (parsed.ok) {
       resolvedPubkey = parsed.publicKeyHex;
       relayHints = parsed.relays || [];
     } else if (pubkey.includes('@')) {
-      // Resolve NIP-05
       const nip05 = await import("@/app/features/profile/utils/nip05-resolver").then(m => m.resolveNip05(pubkey));
-      if (nip05.ok) {
-        resolvedPubkey = nip05.publicKeyHex;
-      }
+      if (nip05.ok) resolvedPubkey = nip05.publicKeyHex;
     }
-
-    if (!resolvedPubkey) {
-      return;
-    }
-
-    if (!peerTrust.isAccepted({ publicKeyHex: resolvedPubkey })) {
-      return;
-    }
-
-    // Handle relay hints
+    if (!resolvedPubkey) return;
+    if (!peerTrust.isAccepted({ publicKeyHex: resolvedPubkey })) return;
     if (relayHints.length > 0) {
       relayHints.forEach(url => {
-        try {
-          relayList.addRelay({ url });
-        } catch (e) {
-          console.warn("Failed to add relay hint:", url, e);
-        }
+        try { relayList.addRelay({ url }); } catch (e) { console.warn("Failed to add relay hint:", url, e); }
       });
     }
-
     const id: string = createContactId();
     const baseNowMs: number = nowMs ?? 0;
     const contact: DmConversation = {
@@ -1315,119 +1333,178 @@ function NostrMessengerContent() {
     selectConversation(contact);
   };
 
-  const createGroup = (): void => {
-    const rawName: string = newGroupName.trim();
-    const baseNowMs: number = nowMs ?? 0;
-    const memberPubkeys: ReadonlyArray<string> = Array.from(
-      new Set(
-        newGroupMemberPubkeys
-          .split(/\s+/)
-          .map((v: string): string => v.trim())
-          .filter((v: string): boolean => v.length > 0)
-      )
-    );
-    if (memberPubkeys.length === 0) {
+  const createGroup = async (info: { host: string; groupId: string; name: string; about: string }): Promise<void> => {
+    if (!groupService || !isIdentityUnlocked) {
+      toast.error("You must be logged in to create a group.");
       return;
     }
-    const id: string = createGroupId();
-    const displayName: string = rawName || `Group ${id}`;
-    const group: GroupConversation = {
-      kind: "group",
-      id,
-      displayName,
-      memberPubkeys,
-      lastMessage: "",
-      unreadCount: 0,
-      lastMessageTime: new Date(baseNowMs),
-    };
-    setCreatedGroups((prev: ReadonlyArray<GroupConversation>): ReadonlyArray<GroupConversation> => [group, ...prev]);
-    setUnreadByConversationId((prev: UnreadByConversationId): UnreadByConversationId => ({
-      ...prev,
-      [id]: 0,
-    }));
+
     setIsNewGroupOpen(false);
-    setNewGroupName("");
-    setNewGroupMemberPubkeys("");
-    selectConversation(group);
+    setIsCreatingGroup(true);
+
+    try {
+      const creationEvent = await groupService.createGroup({
+        groupId: info.groupId,
+        relayUrl: `wss://${info.host}`
+      });
+
+      // Publish to the specific relay
+      relayPool.sendToOpen(JSON.stringify(["EVENT", creationEvent]));
+
+      // Also potentially update metadata immediately
+      const metadataEvent = await groupService.updateMetadata({
+        groupId: info.groupId,
+        metadata: { name: info.name, about: info.about }
+      });
+      relayPool.sendToOpen(JSON.stringify(["EVENT", metadataEvent]));
+
+      const id = createGroupId();
+      const baseNowMs: number = nowMs ?? Date.now();
+      const group: GroupConversation = {
+        kind: "group",
+        id,
+        groupId: info.groupId,
+        relayUrl: `wss://${info.host}`,
+        displayName: info.name || info.groupId,
+        memberPubkeys: [myPublicKeyHex as string],
+        lastMessage: "Group created",
+        unreadCount: 0,
+        lastMessageTime: new Date(baseNowMs),
+      };
+
+      setCreatedGroups((prev: ReadonlyArray<GroupConversation>): ReadonlyArray<GroupConversation> => [group, ...prev]);
+      setUnreadByConversationId((prev: UnreadByConversationId): UnreadByConversationId => ({
+        ...prev,
+        [id]: 0,
+      }));
+
+      selectConversation(group);
+      toast.success(`Group "${info.name}" created on ${info.host}`);
+    } catch (e: any) {
+      console.error("Failed to create group:", e);
+      toast.error(e.message || "Failed to create group.");
+    } finally {
+      setIsCreatingGroup(false);
+    }
   };
 
   const handleSendMessage = (): void => {
-    if (!isIdentityUnlocked) {
-      return;
-    }
+    if (!isIdentityUnlocked || !selectedConversation) return;
     const content: string = messageInput.trim();
-    if ((!content && !pendingAttachment) || !selectedConversation) {
-      return;
-    }
-    if (isUploadingAttachment) {
-      return;
-    }
+    if (!content && pendingAttachments.length === 0) return;
+    if (isUploadingAttachment) return;
+
     const baseNowMs: number = nowMs ?? 0;
     setIsUploadingAttachment(true);
     setAttachmentError(null);
-    const send = async (): Promise<void> => {
-      const timestamp: Date = new Date(baseNowMs);
-      let attachment: Attachment | undefined;
-      if (pendingAttachment) {
-        attachment = await uploadAttachment(pendingAttachment);
-      }
-      const resolvedContent: string = content;
+
+    const performSendMessage = async (params: {
+      content: string,
+      attachment?: Attachment,
+      conversation: Conversation,
+      timestamp: Date
+    }) => {
       let resolvedMessageId: string = createMessageId();
-      let resolvedTimestamp: Date = timestamp;
       let resolvedStatus: MessageStatus = "delivered";
-      if (selectedConversation.kind === "dm") {
-        // if (attachment) {
-        //   throw new Error("Attachments are not supported for DMs yet.");
-        // }
-        if (blocklist.isBlocked({ publicKeyHex: selectedConversation.pubkey })) {
+
+      if (params.conversation.kind === "dm") {
+        if (blocklist.isBlocked({ publicKeyHex: params.conversation.pubkey })) {
           throw new Error("Recipient is blocked.");
         }
-        if (!isPeerAccepted({ publicKeyHex: selectedConversation.pubkey })) {
-          throw new Error("Peer is not accepted. Send a connection request first.");
-        }
-        const sent = await dmController.sendDm({ peerPublicKeyInput: selectedConversation.pubkey, plaintext: resolvedContent });
-        if (sent.success && sent.messageId) {
-          resolvedMessageId = sent.messageId;
-          resolvedTimestamp = new Date(); // Use current time since enhanced controller handles timing
+
+        const isAccepted = peerTrust.isAccepted({ publicKeyHex: params.conversation.pubkey });
+        const plaintext = params.content || (params.attachment ? `Shared a file: ${params.attachment.fileName}` : "");
+
+        const result = isAccepted
+          ? await dmController.sendDm({ peerPublicKeyInput: params.conversation.pubkey, plaintext })
+          : await dmController.sendConnectionRequest({ peerPublicKeyHex: params.conversation.pubkey, introMessage: plaintext });
+
+        if (result.success && result.messageId) {
+          resolvedMessageId = result.messageId;
           resolvedStatus = "sending";
+          if (!isAccepted) {
+            toast.success("Connection request sent!");
+          }
         } else {
-          throw new Error(sent.error || "Failed to send message");
+          throw new Error(result.error || "Failed to send message");
+        }
+      } else if (params.conversation.kind === "group" && groupService) {
+        try {
+          const groupEvent = await groupService.sendMessage({
+            groupId: params.conversation.groupId,
+            content: params.content,
+          });
+          relayPool.sendToOpen(JSON.stringify(["EVENT", groupEvent]));
+          resolvedMessageId = groupEvent.id;
+          resolvedStatus = "sending";
+        } catch (e: any) {
+          throw new Error(e.message || "Failed to send group message");
         }
       }
+
       const message: Message = {
         id: resolvedMessageId,
         kind: "user",
-        content: resolvedContent,
-        timestamp: resolvedTimestamp,
+        content: params.content,
+        timestamp: params.timestamp,
         isOutgoing: true,
         status: resolvedStatus,
-        ...(attachment ? { attachment } : {}),
+        ...(params.attachment ? { attachment: params.attachment } : {}),
         ...(replyTo ? { replyTo } : {}),
       };
+
       setMessagesByConversationId((prev: MessagesByConversationId): MessagesByConversationId => {
-        const existing: ReadonlyArray<Message> = prev[selectedConversation.id] ?? [];
-        return {
-          ...prev,
-          [selectedConversation.id]: [...existing, message],
-        };
+        const existing: ReadonlyArray<Message> = prev[params.conversation.id] ?? [];
+        return { ...prev, [params.conversation.id]: [...existing, message] };
       });
-      setContactOverridesByContactId(
-        (prev: ContactOverridesByContactId): ContactOverridesByContactId => ({
-          ...prev,
-          [selectedConversation.id]: {
-            lastMessage: attachment ? attachment.fileName : resolvedContent,
-            lastMessageTime: message.timestamp,
-          },
-        })
-      );
-      setMessageInput("");
-      clearPendingAttachment();
-      setReplyTo(null);
+
+      setContactOverridesByContactId((prev: ContactOverridesByContactId): ContactOverridesByContactId => ({
+        ...prev,
+        [params.conversation.id]: {
+          lastMessage: params.attachment ? params.attachment.fileName : params.content,
+          lastMessageTime: message.timestamp,
+        },
+      }));
     };
+
+    const send = async (): Promise<void> => {
+      const filesToUpload = [...pendingAttachments];
+      const textToSend = content;
+      setMessageInput("");
+      setPendingAttachments([]);
+      setPendingAttachmentPreviewUrls([]);
+      setReplyTo(null);
+
+      try {
+        if (filesToUpload.length > 0) {
+          for (let i = 0; i < filesToUpload.length; i++) {
+            const file = filesToUpload[i];
+            const attachment = await uploadAttachment(file);
+            const messageContent = (i === 0) ? textToSend : "";
+            await performSendMessage({
+              content: messageContent,
+              attachment,
+              conversation: selectedConversation,
+              timestamp: new Date(baseNowMs + i)
+            });
+          }
+        } else {
+          await performSendMessage({
+            content: textToSend,
+            conversation: selectedConversation,
+            timestamp: new Date(baseNowMs)
+          });
+        }
+      } catch (error) {
+        throw error;
+      }
+    };
+
     send()
       .catch((error: unknown): void => {
         const message: string = error instanceof Error ? error.message : "Upload failed";
         setAttachmentError(message);
+        toast.error(`Failed to send: ${message}`);
       })
       .finally((): void => {
         setIsUploadingAttachment(false);
@@ -1849,6 +1926,7 @@ function NostrMessengerContent() {
             // 4. Open the chat
             closeNewChat();
             selectConversation(contact);
+            toast.success("Connection request sent!");
 
             // 5. Add a system message (fake) to show the request in chat?
             // Optional, but for now the 'lastMessage' update in controller might handle it?
@@ -1862,19 +1940,25 @@ function NostrMessengerContent() {
         }}
       />
 
-      <NewGroupDialog
+      <CreateGroupDialog
         isOpen={isNewGroupOpen}
         onClose={() => {
           setIsNewGroupOpen(false);
-          setNewGroupName("");
-          setNewGroupMemberPubkeys("");
         }}
-        name={newGroupName}
-        setName={setNewGroupName}
-        memberPubkeys={newGroupMemberPubkeys}
-        setMemberPubkeys={setNewGroupMemberPubkeys}
         onCreate={createGroup}
+        isCreating={isCreatingGroup}
       />
+
+      {isGroupInfoOpen && selectedConversationView?.kind === "group" && (
+        <GroupSettingsSheet
+          isOpen={isGroupInfoOpen}
+          onClose={() => setIsGroupInfoOpen(false)}
+          group={selectedConversationView}
+          pool={relayPool}
+          myPublicKeyHex={myPublicKeyHex}
+          myPrivateKeyHex={myPrivateKeyHex}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <main className="page-transition flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -1924,6 +2008,7 @@ function NostrMessengerContent() {
               flashMessageId={flashMessageId}
               onCopyPubkey={handleCopyPubkey}
               onOpenMedia={() => setIsMediaGalleryOpen(true)}
+              onOpenInfo={() => setIsGroupInfoOpen(true)}
               messageMenu={messageMenu}
               setMessageMenu={setMessageMenu}
               messageMenuRef={messageMenuRef}
@@ -1940,12 +2025,13 @@ function NostrMessengerContent() {
               setMessageInput={setMessageInput}
               handleSendMessage={handleSendMessage}
               isUploadingAttachment={isUploadingAttachment}
-              pendingAttachment={pendingAttachment}
-              pendingAttachmentPreviewUrl={pendingAttachmentPreviewUrl}
+              pendingAttachments={pendingAttachments}
+              pendingAttachmentPreviewUrls={pendingAttachmentPreviewUrls}
               attachmentError={attachmentError}
               replyTo={replyTo}
               setReplyTo={setReplyTo}
-              onPickAttachment={onPickAttachment}
+              onPickAttachments={onPickAttachments}
+              removePendingAttachment={removePendingAttachment}
               clearPendingAttachment={clearPendingAttachment}
               relayStatus={relayStatus}
               composerTextareaRef={composerTextareaRef}

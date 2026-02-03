@@ -8,9 +8,10 @@ export interface ChatHeaderProps {
     conversation: Conversation;
     onCopyPubkey: (pubkey: string) => void;
     onOpenMedia: () => void;
+    onOpenInfo?: () => void;
 }
 
-export function ChatHeader({ conversation, onCopyPubkey, onOpenMedia }: ChatHeaderProps) {
+export function ChatHeader({ conversation, onCopyPubkey, onOpenMedia, onOpenInfo }: ChatHeaderProps) {
     const { t } = useTranslation();
 
     return (
@@ -35,6 +36,11 @@ export function ChatHeader({ conversation, onCopyPubkey, onOpenMedia }: ChatHead
                         <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenMedia}>
                             {t("messaging.media")}
                         </Button>
+                        {conversation.kind === "group" && (
+                            <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenInfo}>
+                                {t("common.info", "Info")}
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>

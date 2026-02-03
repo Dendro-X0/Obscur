@@ -24,6 +24,7 @@ export interface ChatViewProps {
     // Header Props
     onCopyPubkey: (pubkey: string) => void;
     onOpenMedia: () => void;
+    onOpenInfo?: () => void;
 
     // Message Menu & Interactions
     messageMenu: { messageId: string; x: number; y: number } | null;
@@ -48,12 +49,13 @@ export interface ChatViewProps {
     setMessageInput: (val: string) => void;
     handleSendMessage: () => void;
     isUploadingAttachment: boolean;
-    pendingAttachment: File | null;
-    pendingAttachmentPreviewUrl: string | null;
+    pendingAttachments: ReadonlyArray<File>;
+    pendingAttachmentPreviewUrls: ReadonlyArray<string>;
     attachmentError: string | null;
     replyTo: ReplyTo | null;
     setReplyTo: (val: ReplyTo | null) => void;
-    onPickAttachment: (file: File | null) => void;
+    onPickAttachments: (files: FileList | null) => void;
+    removePendingAttachment: (index: number) => void;
     clearPendingAttachment: () => void;
     relayStatus: RelayStatusSummary;
     composerTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -96,9 +98,8 @@ export function ChatView(props: ChatViewProps) {
         e.stopPropagation();
         setIsDragging(false);
 
-        const file = e.dataTransfer.files?.[0];
-        if (file) {
-            props.onPickAttachment(file);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            props.onPickAttachments(e.dataTransfer.files);
         }
     };
 
@@ -115,6 +116,7 @@ export function ChatView(props: ChatViewProps) {
                 conversation={props.conversation}
                 onCopyPubkey={props.onCopyPubkey}
                 onOpenMedia={props.onOpenMedia}
+                onOpenInfo={props.onOpenInfo}
             />
 
             {props.conversation.kind === 'dm' && props.isPeerAccepted === false && (
@@ -172,6 +174,7 @@ export function ChatView(props: ChatViewProps) {
                     onToggleReaction={props.onToggleReaction}
                     onRetryMessage={props.onRetryMessage}
                     onComposerFocus={() => props.composerTextareaRef.current?.focus()}
+                    isGroup={props.conversation.kind === "group"}
                 />
             )}
 
@@ -180,12 +183,13 @@ export function ChatView(props: ChatViewProps) {
                 setMessageInput={props.setMessageInput}
                 handleSendMessage={props.handleSendMessage}
                 isUploadingAttachment={props.isUploadingAttachment}
-                pendingAttachment={props.pendingAttachment}
-                pendingAttachmentPreviewUrl={props.pendingAttachmentPreviewUrl}
+                pendingAttachments={props.pendingAttachments}
+                pendingAttachmentPreviewUrls={props.pendingAttachmentPreviewUrls}
                 attachmentError={props.attachmentError}
                 replyTo={props.replyTo}
                 setReplyTo={props.setReplyTo}
-                onPickAttachment={props.onPickAttachment}
+                onPickAttachments={props.onPickAttachments}
+                removePendingAttachment={props.removePendingAttachment}
                 clearPendingAttachment={props.clearPendingAttachment}
                 relayStatus={props.relayStatus}
                 textareaRef={props.composerTextareaRef}

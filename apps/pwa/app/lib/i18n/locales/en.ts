@@ -128,6 +128,9 @@ export const en = {
         "profile.avatarLabel": "Avatar URL",
         "profile.avatarPlaceholder": "https://example.com/avatar.jpg",
         "profile.avatarHelp": "Link to your public profile picture.",
+        "profile.nip05Label": "NIP-05 Identifier",
+        "profile.verifyNip05": "Verify",
+        "profile.nip05Help": "Connect your identity to a domain (e.g. alice@example.com).",
         "profile.reset": "Reset Changes",
         "profile.save": "Save Changes",
 

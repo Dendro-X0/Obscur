@@ -20,12 +20,16 @@ export type DmConversation = Readonly<{
 
 export type GroupConversation = Readonly<{
     kind: "group";
-    id: string;
+    id: string; // Internal UUID or similar
+    groupId: string; // NIP-29 groupId
+    relayUrl: string; // NIP-29 host relay
     displayName: string;
     memberPubkeys: ReadonlyArray<string>;
     lastMessage: string;
     unreadCount: number;
     lastMessageTime: Date;
+    about?: string;
+    picture?: string;
 }>;
 
 export type Conversation = DmConversation | GroupConversation;
@@ -65,7 +69,7 @@ export type LastSeenByConversationId = Readonly<Record<string, number>>;
 
 export type ReactionEmoji = "👍" | "❤️" | "😂" | "🔥" | "👏";
 
-export type ReactionsByEmoji = Readonly<Record<ReactionEmoji, number>>;
+export type ReactionsByEmoji = Readonly<Partial<Record<ReactionEmoji, number>>>;
 
 export type Message = Readonly<{
     id: string;
@@ -124,6 +128,8 @@ export type PersistedDmConversation = Readonly<{
 
 export type PersistedGroupConversation = Readonly<{
     id: string;
+    groupId: string;
+    relayUrl: string;
     displayName: string;
     memberPubkeys: ReadonlyArray<string>;
     lastMessage: string;
@@ -164,6 +170,15 @@ export type PersistedConnectionRequest = Readonly<{
     isOutgoing: boolean;
     introMessage?: string;
     timestampMs: number;
+}>;
+
+export type RequestsInboxItem = Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    lastMessagePreview: string;
+    lastReceivedAtUnixSeconds: number;
+    unreadCount: number;
+    status?: ConnectionRequestStatusValue;
+    isRequest?: boolean;
 }>;
 
 export type PersistedChatState = Readonly<{

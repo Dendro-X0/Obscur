@@ -2,10 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v0.4.0] - 2026-02-02
+
+### Added
+- **Native Avatar Upload**: Support for NIP-96 file uploads. Users can now upload profile pictures directly to Nostr storage providers or local storage.
+- **NIP-05 Verification**: Built-in verification flow for NIP-05 identifiers (e.g., alice@domain.com). Displays verification status in settings.
+- **DM Privacy Controls**: New granular privacy settings in "Privacy & Trust" tab. Users can now choose to Receive DMs from "Everyone" or "Contacts Only".
+- **Enhanced DM Filtering**: Client-side filtering of direct messages from strangers when "Contacts Only" is enabled.
 
 ### Changed
+- **Profile Management**: Refactored profile settings with immediate local previews and NIP-05 integration.
 - **Auto-Lock**: Changed default auto-lock timeout from `15m` to `Never` (0) for new accounts to improve initial user experience.
+
+## [v0.3.7] - 2026-02-02
+
+### Added
+- **Message Reactions**: Support for NIP-25 reactions. Hover over a message to react with emojis. UI updates optimistically.
+- **Multiple File Uploads**: Users can now select and upload multiple images/videos at once in the composer.
+- **Automated Connection Requests**: Messaging an unaccepted peer now automatically triggers a formal connection request, improving the first-contact experience.
+- **Request Notifications**: Visual feedback (Toasts and Sidebar Badges) for connection request status.
+
+### Fixed
+- **Desktop Uploads**: Fixed a 500 error in the desktop app by replacing `uuid` with `crypto.randomUUID()` to resolve bundling issues.
+- **Inbox Deduplication**: Fixed a bug where the unread request count would increment infinitely by implementing event ID deduplication.
+- **Sidebar Badges**: Fixed incorrect unread counts in the Sidebar "Requests" tab.
+
+### Changed
+- **Type Safety**: Refactored `ReactionsByEmoji` and `RequestsInboxItem` for better type safety and cleaner code.
 
 ## [v0.3.6] - 2026-02-01
 

@@ -51,6 +51,9 @@ import { useTranslation } from "react-i18next";
 import { TrustSettingsPanel } from "../features/messaging/components/trust-settings-panel";
 import { AutoLockSettingsPanel } from "../features/settings/components/auto-lock-settings-panel";
 import { STORAGE_KEY_NIP96, Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
+import { AvatarUpload } from "../components/avatar-upload";
+import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
+import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -149,6 +152,8 @@ export default function SettingsPage(): React.JSX.Element {
   const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
   const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isVerifyingNip05, setIsVerifyingNip05] = useState(false);
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => PrivacySettingsService.getSettings());
   const [nip96Config, setNip96Config] = useState<Nip96Config>(() => {
     const fallback: Nip96Config = { apiUrl: "", enabled: false };
     if (typeof window === "undefined") {
@@ -178,6 +183,37 @@ export default function SettingsPage(): React.JSX.Element {
   const saveNip96Config = (newConfig: Nip96Config) => {
     setNip96Config(newConfig);
     localStorage.setItem(STORAGE_KEY_NIP96, JSON.stringify(newConfig));
+  };
+
+  const handleSavePrivacy = (newSettings: PrivacySettings) => {
+    setPrivacySettings(newSettings);
+    PrivacySettingsService.saveSettings(newSettings);
+  };
+
+  const handleVerifyNip05 = async () => {
+    const identifier = profile.state.profile.nip05;
+    if (!identifier || !identifier.includes('@')) {
+      toast.error("Please enter a valid identifier (name@domain.tld)");
+      return;
+    }
+
+    setIsVerifyingNip05(true);
+    try {
+      const result = await resolveNip05(identifier);
+      if (result.ok) {
+        if (result.publicKeyHex === displayPublicKeyHex) {
+          toast.success("NIP-05 identifier verified successfully!");
+        } else {
+          toast.warning("NIP-05 verified, but it belongs to a different public key!");
+        }
+      } else {
+        toast.error(`Verification failed: ${result.reason}`);
+      }
+    } catch (error) {
+      toast.error("An error occurred during verification");
+    } finally {
+      setIsVerifyingNip05(false);
+    }
   };
 
   const relayStatusByUrl = useMemo((): Readonly<Record<string, RelayConnectionStatus>> => {
@@ -291,15 +327,35 @@ export default function SettingsPage(): React.JSX.Element {
                           />
                           <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="profile-avatar">{t("profile.avatarLabel")}</Label>
-                          <Input
-                            id="profile-avatar"
-                            value={profile.state.profile.avatarUrl}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setAvatarUrl({ avatarUrl: e.target.value })}
-                            placeholder={t("profile.avatarPlaceholder")}
+                        <div className="space-y-4">
+                          <Label className="text-sm font-semibold">{t("profile.avatarLabel")}</Label>
+                          <AvatarUpload
+                            currentAvatarUrl={profile.state.profile.avatarUrl}
+                            onUploadSuccess={(url) => profile.setAvatarUrl({ avatarUrl: url })}
+                            className="items-start"
                           />
                           <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.avatarHelp")}</div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="profile-nip05">{t("profile.nip05Label", "NIP-05 Identifier")}</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="profile-nip05"
+                              value={profile.state.profile.nip05 || ""}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setNip05({ nip05: e.target.value })}
+                              placeholder="name@domain.tld"
+                            />
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={handleVerifyNip05}
+                              disabled={isVerifyingNip05 || !profile.state.profile.nip05}
+                            >
+                              {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05", "Verify")}
+                            </Button>
+                          </div>
+                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help", "Connect your identity to a domain.")}</div>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -307,7 +363,8 @@ export default function SettingsPage(): React.JSX.Element {
                             onClick={async () => {
                               const success = await publishProfile({
                                 username: profile.state.profile.username,
-                                avatarUrl: profile.state.profile.avatarUrl
+                                avatarUrl: profile.state.profile.avatarUrl,
+                                nip05: profile.state.profile.nip05
                               });
                               if (success) {
                                 toast.success(t("settings.profileSaved", "Profile published to network!"));
@@ -706,11 +763,45 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
 
 
-                {activeTab === "privacy" && (
-                  <Card title="Privacy & Trust" description="Manage who you trust and who can reach you directly." className="w-full">
-                    <TrustSettingsPanel />
-                  </Card>
-                )}
+                <Card title="Privacy & Trust" description="Manage who you trust and who can reach you directly." className="w-full">
+                  <div className="mb-6 pb-6 border-b border-zinc-100 dark:border-zinc-800">
+                    <Label className="text-sm font-semibold mb-3 block">Direct Message Privacy</Label>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs text-zinc-500 mb-2">Control who can send you direct messages.</p>
+                      <div className="flex gap-2 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl w-fit">
+                        <button
+                          onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: 'everyone' })}
+                          className={cn(
+                            "px-4 py-1.5 rounded-lg text-xs font-medium transition-all",
+                            privacySettings.dmPrivacy === 'everyone'
+                              ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm"
+                              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                          )}
+                        >
+                          Everyone
+                        </button>
+                        <button
+                          onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: 'contacts-only' })}
+                          className={cn(
+                            "px-4 py-1.5 rounded-lg text-xs font-medium transition-all",
+                            privacySettings.dmPrivacy === 'contacts-only'
+                              ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm"
+                              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                          )}
+                        >
+                          Contacts Only
+                        </button>
+                      </div>
+                      {privacySettings.dmPrivacy === 'contacts-only' && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-1 flex items-center gap-1">
+                          <ShieldAlert className="h-3 w-3" />
+                          Stranger messages will be filtered out.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <TrustSettingsPanel />
+                </Card>
 
                 {activeTab === "security" && (
                   <div className="max-w-3xl w-full">

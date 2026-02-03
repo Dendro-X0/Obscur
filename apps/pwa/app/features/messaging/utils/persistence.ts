@@ -97,9 +97,8 @@ const parsePersistedDmConversation = (value: unknown): PersistedDmConversation |
 
 const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversation | null => {
     if (!isRecord(value)) return null;
-    const { id, displayName, memberPubkeys, lastMessage, unreadCount, lastMessageTimeMs } = value;
-
-    if (!isString(id) || !isString(displayName) || !Array.isArray(memberPubkeys) || !isString(lastMessage)) return null;
+    const { id, groupId, relayUrl, displayName, memberPubkeys, lastMessage, unreadCount, lastMessageTimeMs } = value;
+    if (!isString(id) || !isString(groupId) || !isString(relayUrl) || !isString(displayName) || !Array.isArray(memberPubkeys) || !isString(lastMessage)) return null;
 
     const parsedMemberPubkeys: string[] = memberPubkeys
         .filter((v): v is string => isString(v) && v.trim().length > 0)
@@ -107,8 +106,7 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
 
     if (parsedMemberPubkeys.length === 0) return null;
     if (!isNumber(unreadCount) || !isNumber(lastMessageTimeMs)) return null;
-
-    return { id, displayName, memberPubkeys: parsedMemberPubkeys, lastMessage, unreadCount, lastMessageTimeMs };
+    return { id, groupId, relayUrl, displayName, memberPubkeys: parsedMemberPubkeys, lastMessage, unreadCount, lastMessageTimeMs };
 };
 
 const parsePersistedContactOverride = (value: unknown): PersistedContactOverride | null => {
@@ -247,6 +245,8 @@ export const fromPersistedDmConversation = (contact: PersistedDmConversation): D
 
 export const toPersistedGroupConversation = (group: GroupConversation): PersistedGroupConversation => ({
     id: group.id,
+    groupId: group.groupId,
+    relayUrl: group.relayUrl,
     displayName: group.displayName,
     memberPubkeys: [...group.memberPubkeys],
     lastMessage: group.lastMessage,
@@ -257,6 +257,8 @@ export const toPersistedGroupConversation = (group: GroupConversation): Persiste
 export const fromPersistedGroupConversation = (group: PersistedGroupConversation): GroupConversation => ({
     kind: "group",
     id: group.id,
+    groupId: group.groupId,
+    relayUrl: group.relayUrl,
     displayName: group.displayName,
     memberPubkeys: [...group.memberPubkeys],
     lastMessage: group.lastMessage,
