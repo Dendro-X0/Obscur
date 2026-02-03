@@ -9,3 +9,7 @@ ENVIRONMENT = "local"
 binding = "DB"
 database_name = "obscur"
 database_id = "dcdc27ea-5159-49cc-95c8-cc1c12b9b19e"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "obscur-media"

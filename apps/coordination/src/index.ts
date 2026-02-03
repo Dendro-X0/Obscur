@@ -1,6 +1,10 @@
+import { schnorr } from '@noble/secp256k1';
+
 type Env = Readonly<{
   DB: D1Database;
+  MEDIA_BUCKET: R2Bucket;
   ENVIRONMENT: string;
+  PUBLIC_BASE_URL?: string;
 }>;
 
 type JsonValue = null | boolean | number | string | ReadonlyArray<JsonValue> | { [key: string]: JsonValue };
@@ -48,12 +52,15 @@ const MAX_TTL_SECONDS: number = 60 * 60 * 24 * 14;
 
 const DEFAULT_TTL_SECONDS: number = 60 * 60 * 24 * 3;
 
+/**
+ * Basic Response Helpers
+ */
 const json = (params: Readonly<{ status: number; body: JsonObject; extraHeaders?: Readonly<Record<string, string>> }>): Response => {
   const headers = new Headers({
     "content-type": "application/json; charset=utf-8",
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type, authorization, x-requested-with",
     ...(params.extraHeaders ?? {})
   });
   return new Response(JSON.stringify(params.body), { status: params.status, headers });
@@ -81,6 +88,9 @@ const parseJsonBody = async (request: Request): Promise<JsonObject | null> => {
   }
 };
 
+/**
+ * Invite Logic Parsing
+ */
 const parseInviteCreateBody = (value: JsonObject): InviteCreateBody | null => {
   const inviterPubkey: unknown = value.inviterPubkey;
   const relays: unknown = value.relays;
@@ -178,6 +188,9 @@ const isExpired = (row: InviteRow, now: number): boolean => {
   return now >= row.expires_at_unix_seconds;
 };
 
+/**
+ * Invite Handlers
+ */
 const handleInviteCreate = async (request: Request, env: Env): Promise<Response> => {
   const body: JsonObject | null = await parseJsonBody(request);
   if (!body) {
@@ -260,6 +273,120 @@ const handleInviteRedeem = async (request: Request, env: Env): Promise<Response>
   return json({ status: 200, body: { ok: true, data: response } });
 };
 
+/**
+ * NIP-98 & NIP-96 implementation
+ */
+const verifyNip98 = async (request: Request): Promise<{ pubkey: string } | null> => {
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Nostr ")) return null;
+
+  try {
+    const token = authHeader.slice(6).trim();
+    const jsonStr = atob(token);
+    const event = JSON.parse(jsonStr);
+
+    // Basic validation
+    if (event.kind !== 27235) return null;
+    
+    // Time validation ( +/- 60 seconds )
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - event.created_at) > 60) return null;
+
+    // URL validation
+    const uTag = event.tags.find((t: string[]) => t[0] === 'u')?.[1];
+    if (uTag !== request.url) return null;
+
+    // Method validation
+    const methodTag = event.tags.find((t: string[]) => t[0] === 'method')?.[1];
+    if (methodTag !== request.method) return null;
+
+    // Serialization for signature verification
+    const serialized = JSON.stringify([
+      0,
+      event.pubkey,
+      event.created_at,
+      event.kind,
+      event.tags,
+      event.content
+    ]);
+    const eventHash = await sha256Hex(serialized);
+    
+    // Verify signature
+    if (await schnorr.verify(event.sig, eventHash, event.pubkey)) {
+      return { pubkey: event.pubkey };
+    }
+  } catch (e) {
+    // console.error("NIP-98 verification error", e);
+  }
+  return null;
+}
+
+const handleUpload = async (request: Request, env: Env): Promise<Response> => {
+  // 1. Auth Check (NIP-98)
+  const auth = await verifyNip98(request);
+  if (!auth) {
+      return json({ status: 401, body: { ok: false, error: "unauthorized" } });
+  }
+
+  // 2. Parse Form Data
+  const formData = await request.formData();
+  const file = formData.get("file") as File;
+  if (!file) {
+      return badRequest("no_file");
+  }
+
+  // 3. Generate Filename
+  const buffer = await file.arrayBuffer();
+  const hash = await sha256Hex(file.name + Date.now().toString());
+  const ext = file.name.split('.').pop() || 'bin';
+  const objectKey = `${hash}.${ext}`;
+  
+  // 4. Upload to R2
+  await env.MEDIA_BUCKET.put(objectKey, buffer, {
+      httpMetadata: {
+          contentType: file.type,
+      }
+  });
+
+  // 5. Construct URL
+  // Use worker's origin if PUBLIC_BASE_URL is not set
+  const urlObj = new URL(request.url);
+  const baseUrl = env.PUBLIC_BASE_URL || urlObj.origin;
+  const publicUrl = `${baseUrl}/files/${objectKey}`;
+
+  return json({
+      status: 200,
+      body: {
+          status: "success",
+          message: "Upload successful",
+          url: publicUrl,
+          nip94_event: {
+              tags: [
+                  ["url", publicUrl],
+                  ["m", file.type],
+                  ["x", await sha256Hex(bytesToHex(buffer))], // NIP-94 x tag is hex(sha256(content))
+                  ["size", buffer.byteLength.toString()],
+              ]
+          }
+      }
+  });
+}
+
+const handleGetFile = async (request: Request, env: Env): Promise<Response> => {
+    const url = new URL(request.url);
+    const key = url.pathname.replace("/files/", "");
+    
+    const object = await env.MEDIA_BUCKET.get(key);
+    if (!object) return notFound();
+    
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("etag", object.httpEtag);
+    headers.set("access-control-allow-origin", "*");
+    
+    return new Response(object.body, { headers });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") {
@@ -267,15 +394,28 @@ export default {
     }
     const url = new URL(request.url);
     const path = url.pathname;
+    
+    // Health Check
     if (request.method === "GET" && path === "/health") {
       return json({ status: 200, body: { ok: true, environment: env.ENVIRONMENT } });
     }
+
+    // Invites
     if (request.method === "POST" && path === "/invites/create") {
       return await handleInviteCreate(request, env);
     }
     if (request.method === "POST" && path === "/invites/redeem") {
       return await handleInviteRedeem(request, env);
     }
+
+    // Media
+    if (request.method === "POST" && (path === "/api/upload" || path === "/nip96/upload")) {
+        return await handleUpload(request, env);
+    }
+    if (request.method === "GET" && path.startsWith("/files/")) {
+        return await handleGetFile(request, env);
+    }
+
     return notFound();
   }
 };

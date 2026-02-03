@@ -248,6 +248,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                     </div>
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto">{props.sidebarContent}</div>
+                  <div className="border-t border-black/5 p-3 dark:border-white/5">
+                    <div className="px-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+                      Obscur v0.4.0
+                    </div>
+                  </div>
                 </div>
               ) : (
                 props.sidebarContent

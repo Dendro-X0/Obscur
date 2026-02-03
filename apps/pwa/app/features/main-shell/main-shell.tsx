@@ -1413,7 +1413,11 @@ function NostrMessengerContent() {
         }
 
         const isAccepted = peerTrust.isAccepted({ publicKeyHex: params.conversation.pubkey });
-        const plaintext = params.content || (params.attachment ? `Shared a file: ${params.attachment.fileName}` : "");
+        let plaintext = params.content || "";
+        if (params.attachment) {
+          plaintext = plaintext ? `${plaintext} ${params.attachment.url}` : params.attachment.url;
+        }
+
 
         const result = isAccepted
           ? await dmController.sendDm({ peerPublicKeyInput: params.conversation.pubkey, plaintext })

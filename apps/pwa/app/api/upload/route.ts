@@ -7,6 +7,15 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const file = formData.get("file") as File;
 
+        // Vercel / serverless environment check - local filesystem is read-only
+        if (process.env.VERCEL || process.env.NETLIFY) {
+            console.warn("[Upload] Local upload requested in serverless environment (blocked)");
+            return NextResponse.json({
+                ok: false,
+                message: "Local file uploads are not supported in the web-hosted version due to serverless storage limitations. Please configure a NIP-96 storage provider in Settings > Storage, or use the Desktop version."
+            }, { status: 403 });
+        }
+
         if (!file) {
             console.error("[Upload] No file found in FormData");
             return NextResponse.json({ ok: false, message: "No file uploaded" }, { status: 400 });

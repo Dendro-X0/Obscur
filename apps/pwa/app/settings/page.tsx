@@ -841,32 +841,44 @@ export default function SettingsPage(): React.JSX.Element {
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-xs">Presets</Label>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="text-[10px] h-7"
-                                onClick={() => saveNip96Config({ ...nip96Config, apiUrl: "https://nostr.build/api/v2/upload/files" })}
-                              >
-                                nostr.build
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="text-[10px] h-7"
-                                onClick={() => saveNip96Config({ ...nip96Config, apiUrl: "https://void.cat/api/v1/nip96" })}
-                              >
-                                void.cat
-                              </Button>
+                            <Label className="text-xs font-semibold">Recommended Providers</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { name: "nostr.build", url: "https://nostr.build/api/v2/upload/files" },
+                                { name: "void.cat", url: "https://void.cat/api/v1/nip96" },
+                                { name: "pixel.fed", url: "https://pixel.fed/api/v1/media" },
+                                { name: "sovbit", url: "https://sovbit.host/api/v2/upload/files" }
+                              ].map((provider) => (
+                                <Button
+                                  key={provider.name}
+                                  variant="secondary"
+                                  size="sm"
+                                  className={cn(
+                                    "text-[10px] h-7 px-2",
+                                    nip96Config.apiUrl === provider.url && "border-purple-500 bg-purple-500/5 text-purple-600"
+                                  )}
+                                  onClick={() => saveNip96Config({ ...nip96Config, apiUrl: provider.url })}
+                                >
+                                  {provider.name}
+                                </Button>
+                              ))}
                             </div>
                           </div>
                         </div>
                       )}
 
                       {!nip96Config.enabled && (
-                        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400">
-                          Currently using **Local API**. On some hosting platforms (like Vercel), uploaded files may not persist and could disappear after the server restarts.
+                        <div className="space-y-3">
+                          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                            <p className="font-bold mb-1 flex items-center gap-1">
+                              <ShieldAlert className="h-3 w-3" />
+                              Local Upload Limitations
+                            </p>
+                            Currently using <strong>Local API</strong>. On serverless platforms like Vercel, local file uploads are <strong>permanently disabled</strong> because there is no persistent disk.
+                          </div>
+                          <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-400">
+                            <strong>Desktop User?</strong> The desktop version will soon support true local persistence. For now, we recommend using a NIP-96 provider for the best experience across all devices.
+                          </div>
                         </div>
                       )}
                     </div>

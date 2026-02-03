@@ -9,6 +9,10 @@ importers:
   .: {}
 
   apps/coordination:
+    dependencies:
+      '@noble/secp256k1':
+        specifier: ^2.2.3
+        version: 2.3.0
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260131.0

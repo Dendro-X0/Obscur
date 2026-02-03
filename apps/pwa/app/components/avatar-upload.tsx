@@ -49,7 +49,8 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, className }: A
         } catch (error) {
             console.error("Upload failed:", error);
             setStatus('error');
-            toast.error("Failed to upload avatar. Please try again.");
+            const message = error instanceof Error ? error.message : "Failed to upload avatar. Please try again.";
+            toast.error(message);
         } finally {
             setIsUploading(false);
         }
