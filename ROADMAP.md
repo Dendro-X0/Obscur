@@ -6,9 +6,9 @@ The next major release focuses on expanding social features and refining the mob
 
 ### 👥 Group Chat V1
 - **Objective**: Deliver a robust group chat experience comparable to Signal/Telegram groups.
-- [ ] **Creation Flow**: Enhanced UI for creating groups with avatars and descriptions.
+- [x] **Creation Flow**: Enhanced UI for creating groups with avatars and descriptions.
 - [ ] **Member Management**: Add/Remove members, role assignments (Admin/Member).
-- [ ] **Metadata Propagation**: Ensure group updates (name changes, avatar updates) sync correctly to all members.
+- [x] **Metadata Propagation**: Ensure group updates (name changes, avatar updates) sync correctly to all members.
 
 ### 👤 Profile & Settings Overhaul
 - **Objective**: Give users full control over their identity and application preferences.

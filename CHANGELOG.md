@@ -2,9 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.4.0] - 2026-02-02
+## [v0.4.0] - 2026-02-03
 
 ### Added
+- **Group Chat Avatar Upload**: Support for uploading a group avatar during the creation process.
+- **Group Metadata Editing**: Admins can now edit group name, description, and picture from the group settings sheet.
+- **Group Invite ID**: Added "Copy Invite ID" functionality to easily share group joining information.
 - **Native Avatar Upload**: Support for NIP-96 file uploads. Users can now upload profile pictures directly to Nostr storage providers or local storage.
 - **NIP-05 Verification**: Built-in verification flow for NIP-05 identifiers (e.g., alice@domain.com). Displays verification status in settings.
 - **DM Privacy Controls**: New granular privacy settings in "Privacy & Trust" tab. Users can now choose to Receive DMs from "Everyone" or "Contacts Only".

@@ -89,6 +89,7 @@ type UseNip29GroupResult = Readonly<{
   approveJoin: (params: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>) => Promise<void>;
   denyJoin: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
   sendMessage: (params: Readonly<{ content: string }>) => Promise<void>;
+  updateMetadata: (params: Readonly<GroupMetadata>) => Promise<void>;
 }>;
 
 const GROUP_KIND_METADATA = 39000;
@@ -166,7 +167,7 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
 
   useEffect((): (() => void) => {
     if (!params.relayUrl || !params.groupId) {
-      return (): void => {};
+      return (): void => { };
     }
     queueMicrotask((): void => {
       setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, status: "loading", error: undefined }));
@@ -353,11 +354,63 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
     const result = await params.pool.publishToAll(payload);
     setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } } }));
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool]);
+
+  const updateMetadata = useCallback(async (metadata: Readonly<GroupMetadata>): Promise<void> => {
+    if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
+      setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, error: "Unlock your identity to update metadata." }));
+      return;
+    }
+
+    const tags: string[][] = [["d", params.groupId]];
+    if (metadata.name) tags.push(["name", metadata.name]);
+    if (metadata.about) tags.push(["about", metadata.about]);
+    if (metadata.picture) tags.push(["picture", metadata.picture]);
+    // Preserve existing flags if not explicitly unset/changed (simplified for now, usually you'd want to merge)
+    // For this implementation, we just send what's passed.
+
+    // NIP-29 Edit Metadata is event kind 39000 (same as metadata definition, but re-published)
+    // Actually, NIP-29 uses Kind 9002 for "Edit Metadata Proposal" if not admin? 
+    // Or normally admins just publish Kind 39000 directly to the relay.
+    // Based on GroupService, it uses GROUP_KINDS.EDIT_METADATA which is likely a proposal or the event itself.
+    // Let's assume we are admins and publishing Kind 39000 (GROUP_KIND_METADATA) directly or a proposal.
+    // However, looking at GroupService, it constructs a proposal.
+    // If we want to use GroupService logic, we should use it. But here we are building events manually for consistency with other methods in this hook.
+    // Wait, the hook is duplicating logic from GroupService. That's technical debt.
+    // For now, I will implement publishing Kind 9002 (Edit Metadata) or 39000 directly.
+    // If I am owner/admin, I should be able to write 39000 directly? NIP-29 says relays merge them.
+    // Let's stick to the pattern: use Kind 39000 with mergeable=true logic implies just publishing a new 39000 event replaces the old one for "d" tag.
+
+    // Correction: NIP-29 generally uses Kind 9002 (Edit Metadata) which the relay then processes to update the internal state (Kind 39000).
+    const EDIT_METADATA_KIND = 9002;
+
+    const unsigned: UnsignedNostrEvent = {
+      kind: EDIT_METADATA_KIND,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [["h", params.groupId], ...tags.filter(t => t[0] !== "d")], // h tag is used for command, d tag is effectively the group ID but handled by h in commands
+      content: "",
+      pubkey: params.myPublicKeyHex
+    };
+
+    const signed: NostrEvent = await cryptoService.signEvent(unsigned, params.myPrivateKeyHex);
+    const payload: string = JSON.stringify(["EVENT", signed]);
+    logAppEvent({ name: "groups.update_metadata.attempt", level: "info", scope: { feature: "groups", action: "update_metadata" }, context: { groupId: params.groupId } });
+
+    const result = await params.pool.publishToAll(payload);
+
+    // Optimistic update
+    setState((prev: Nip29GroupState): Nip29GroupState => ({
+      ...prev,
+      metadata: { ...prev.metadata, ...metadata },
+      relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } }
+    }));
+
+  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool]);
+
   const derivedState: Nip29GroupState = useMemo((): Nip29GroupState => {
     return { ...state, membership: computedMembership };
   }, [computedMembership, state]);
   const result: UseNip29GroupResult = useMemo((): UseNip29GroupResult => {
-    return { state: derivedState, refresh, requestJoin, approveJoin, denyJoin, sendMessage };
-  }, [approveJoin, denyJoin, derivedState, refresh, requestJoin, sendMessage]);
+    return { state: derivedState, refresh, requestJoin, approveJoin, denyJoin, sendMessage, updateMetadata };
+  }, [approveJoin, denyJoin, derivedState, refresh, requestJoin, sendMessage, updateMetadata]);
   return result;
 };

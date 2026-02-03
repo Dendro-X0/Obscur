@@ -1333,7 +1333,7 @@ function NostrMessengerContent() {
     selectConversation(contact);
   };
 
-  const createGroup = async (info: { host: string; groupId: string; name: string; about: string }): Promise<void> => {
+  const createGroup = async (info: { host: string; groupId: string; name: string; about: string; picture?: string }): Promise<void> => {
     if (!groupService || !isIdentityUnlocked) {
       toast.error("You must be logged in to create a group.");
       return;
@@ -1354,7 +1354,7 @@ function NostrMessengerContent() {
       // Also potentially update metadata immediately
       const metadataEvent = await groupService.updateMetadata({
         groupId: info.groupId,
-        metadata: { name: info.name, about: info.about }
+        metadata: { name: info.name, about: info.about, picture: info.picture }
       });
       relayPool.sendToOpen(JSON.stringify(["EVENT", metadataEvent]));
 
