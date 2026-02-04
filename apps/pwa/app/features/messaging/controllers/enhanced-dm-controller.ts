@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cryptoService, type UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { MessageQueue, type Message, type MessageStatus, type OutgoingMessage } from "../lib/message-queue";
-import { extractAttachmentFromContent } from "../utils/logic";
+import { extractAttachmentsFromContent } from "../utils/logic";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
 import { retryManager } from "../lib/retry-manager";
@@ -803,7 +803,7 @@ export const useEnhancedDMController = (
         senderPubkey: actualSenderPubkey,
         recipientPubkey: params.myPublicKeyHex,
         encryptedContent: event.content,
-        attachment: extractAttachmentFromContent(plaintext)
+        attachments: extractAttachmentsFromContent(plaintext)
       };
 
       // Step 8: Check for duplicates in storage (Requirement 6.3)
@@ -1041,7 +1041,8 @@ export const useEnhancedDMController = (
         replyTo: sendParams.replyTo ? {
           messageId: sendParams.replyTo,
           previewText: ''
-        } : undefined
+        } : undefined,
+        attachments: extractAttachmentsFromContent(plaintext)
       };
 
       // Step 5: Persist message to storage

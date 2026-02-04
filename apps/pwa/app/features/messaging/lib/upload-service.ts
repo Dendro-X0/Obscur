@@ -78,9 +78,11 @@ export const useUploadService = (): UploadService => {
                 }
             }
 
-            // If no config found, and we are on Vercel, auto-enable a default
+            // If no config found, and we are on Vercel or Tauri (Desktop), auto-enable a default
             const isVercel = window.location.hostname.includes("vercel.app");
-            if (isVercel) {
+            const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+            if (isVercel || isTauri) {
                 const defaultConfig = {
                     apiUrl: "https://nostr.build/api/v2/upload/files",
                     enabled: true

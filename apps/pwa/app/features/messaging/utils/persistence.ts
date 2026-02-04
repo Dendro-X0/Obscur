@@ -124,8 +124,13 @@ const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
     if (kind !== undefined && !isMessageKind(kind)) return null;
     if (status !== "delivered" && status !== "accepted" && status !== "rejected") return null;
 
-    const parsedAttachment = attachment === undefined ? null : parseAttachment(attachment);
-    if (attachment !== undefined && !parsedAttachment) return null;
+    const parsedAttachments = Array.isArray(value.attachments)
+        ? value.attachments
+            .map(a => parseAttachment(a))
+            .filter((a): a is Attachment => a !== null)
+        : attachment !== undefined
+            ? [parseAttachment(attachment)].filter((a): a is Attachment => a !== null)
+            : [];
 
     const parsedReplyTo = replyTo === undefined ? null : parseReplyTo(replyTo);
     if (replyTo !== undefined && !parsedReplyTo) return null;
@@ -142,7 +147,7 @@ const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
         timestampMs,
         isOutgoing,
         status,
-        ...(parsedAttachment ? { attachment: parsedAttachment } : {}),
+        ...(parsedAttachments.length > 0 ? { attachments: parsedAttachments } : {}),
         ...(parsedReplyTo ? { replyTo: parsedReplyTo } : {}),
         ...(parsedReactions ? { reactions: parsedReactions } : {}),
         ...(parsedDeletedAtMs ? { deletedAtMs: parsedDeletedAtMs } : {}),
@@ -298,7 +303,7 @@ export const toPersistedMessagesByConversationId = (messagesByConversationId: Me
             timestampMs: m.timestamp.getTime(),
             isOutgoing: m.isOutgoing,
             status: m.status,
-            ...(m.attachment ? { attachment: m.attachment } : {}),
+            ...(m.attachments ? { attachments: m.attachments } : {}),
             ...(m.replyTo ? { replyTo: m.replyTo } : {}),
             ...(m.reactions ? { reactions: m.reactions } : {}),
             ...(m.deletedAt ? { deletedAtMs: m.deletedAt.getTime() } : {}),
@@ -310,18 +315,26 @@ export const toPersistedMessagesByConversationId = (messagesByConversationId: Me
 export const fromPersistedMessagesByConversationId = (messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>): MessagesByConversationId => {
     const result: Record<string, ReadonlyArray<Message>> = {};
     Object.entries(messagesByConversationId).forEach(([conversationId, messages]) => {
-        const parsed = messages.map((m): Message => ({
-            id: m.id,
-            kind: m.kind ?? "user",
-            content: m.content,
-            timestamp: new Date(m.timestampMs),
-            isOutgoing: m.isOutgoing,
-            status: m.status,
-            ...(m.attachment ? { attachment: m.attachment } : {}),
-            ...(m.replyTo ? { replyTo: m.replyTo } : {}),
-            ...(m.reactions ? { reactions: m.reactions } : {}),
-            ...(m.deletedAtMs ? { deletedAt: new Date(m.deletedAtMs) } : {}),
-        }));
+        const parsed = messages.map((m): Message => {
+            // Handle legacy data where 'attachment' might exist instead of 'attachments'
+            const legacyMessage = m as unknown as { attachment?: Attachment };
+            const attachments = m.attachments && m.attachments.length > 0
+                ? m.attachments
+                : (legacyMessage.attachment ? [legacyMessage.attachment] : undefined);
+
+            return {
+                id: m.id,
+                kind: m.kind ?? "user",
+                content: m.content,
+                timestamp: new Date(m.timestampMs),
+                isOutgoing: m.isOutgoing,
+                status: m.status,
+                ...(attachments ? { attachments } : {}),
+                ...(m.replyTo ? { replyTo: m.replyTo } : {}),
+                ...(m.reactions ? { reactions: m.reactions } : {}),
+                ...(m.deletedAtMs ? { deletedAt: new Date(m.deletedAtMs) } : {}),
+            };
+        });
         result[conversationId] = [...parsed]
             .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
             .slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);

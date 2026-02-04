@@ -30,7 +30,7 @@ export interface Message {
   retryCount?: number;
 
   // Optional features
-  attachment?: Attachment;
+  attachments?: Attachment[];
   replyTo?: ReplyTo;
   reactions?: ReactionsByEmoji;
   deletedAt?: Date;
@@ -203,21 +203,21 @@ export class MessageQueue implements IMessageQueue {
     const sensitive = {
       content: message.content,
       encryptedContent: message.encryptedContent,
-      attachment: message.attachment,
+      attachments: message.attachments,
       replyTo: message.replyTo
     };
 
     let encryptedData: string | undefined;
     let storedContent = message.content;
     let storedEncryptedContent = message.encryptedContent;
-    let storedAttachment = message.attachment;
+    let storedAttachments = message.attachments;
     let storedReplyTo = message.replyTo;
 
     if (shouldEncrypt) {
       encryptedData = await this.encryptData(JSON.stringify(sensitive));
       storedContent = "[ENCRYPTED]";
       storedEncryptedContent = undefined;
-      storedAttachment = undefined;
+      storedAttachments = undefined;
       storedReplyTo = undefined;
     }
 
@@ -226,7 +226,7 @@ export class MessageQueue implements IMessageQueue {
       ...message,
       content: storedContent,
       encryptedContent: storedEncryptedContent,
-      attachment: storedAttachment,
+      attachments: storedAttachments,
       replyTo: storedReplyTo,
       encryptedData,
       isEncrypted: shouldEncrypt,
@@ -273,6 +273,12 @@ export class MessageQueue implements IMessageQueue {
             const decryptedJson = await this.decryptData(stored.encryptedData);
             const decrypted = JSON.parse(decryptedJson);
             messageData = { ...messageData, ...decrypted };
+          }
+
+          // Migrate legacy attachment to attachments
+          if ((messageData as any).attachment && !messageData.attachments) {
+            messageData.attachments = [(messageData as any).attachment];
+            delete (messageData as any).attachment;
           }
 
           resolve({
@@ -324,6 +330,12 @@ export class MessageQueue implements IMessageQueue {
               } catch (e) {
                 console.error("Failed to decrypt message in list:", e);
               }
+            }
+
+            // Migrate legacy attachment to attachments
+            if ((messageData as any).attachment && !messageData.attachments) {
+              messageData.attachments = [(messageData as any).attachment];
+              delete (messageData as any).attachment;
             }
 
             return {

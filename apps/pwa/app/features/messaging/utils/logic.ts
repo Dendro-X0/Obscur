@@ -41,11 +41,13 @@ export const isVisibleUserMessage = (message: Message): boolean => message.kind 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
 
-export const extractAttachmentFromContent = (content: string): Attachment | undefined => {
+export const extractAttachmentsFromContent = (content: string): Attachment[] => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const matches = content.match(urlRegex);
 
-    if (!matches) return undefined;
+    if (!matches) return [];
+
+    const attachments: Attachment[] = [];
 
     for (const url of matches) {
         const lowerUrl = url.toLowerCase();
@@ -53,24 +55,25 @@ export const extractAttachmentFromContent = (content: string): Attachment | unde
         // Simple extension check
         const isImage = IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
         if (isImage) {
-            return {
+            attachments.push({
                 kind: 'image',
                 url: url,
                 contentType: 'image/*',
                 fileName: url.split('/').pop()?.split('?')[0] || 'image'
-            };
+            });
+            continue;
         }
 
         const isVideo = VIDEO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
         if (isVideo) {
-            return {
+            attachments.push({
                 kind: 'video',
                 url: url,
                 contentType: 'video/*',
                 fileName: url.split('/').pop()?.split('?')[0] || 'video'
-            };
+            });
         }
     }
 
-    return undefined;
+    return attachments;
 };

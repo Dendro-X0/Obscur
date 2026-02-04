@@ -78,7 +78,7 @@ export type Message = Readonly<{
     timestamp: Date;
     isOutgoing: boolean;
     status: MessageStatus;
-    attachment?: Attachment;
+    attachments?: ReadonlyArray<Attachment>;
     replyTo?: ReplyTo;
     reactions?: ReactionsByEmoji;
     deletedAt?: Date;
@@ -144,7 +144,7 @@ export type PersistedMessage = Readonly<{
     timestampMs: number;
     isOutgoing: boolean;
     status: MessageStatus;
-    attachment?: Attachment;
+    attachments?: ReadonlyArray<Attachment>;
     replyTo?: ReplyTo;
     reactions?: ReactionsByEmoji;
     deletedAtMs?: number;

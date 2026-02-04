@@ -1,7 +1,6 @@
-
 import React from "react";
 import { OptimizedImage } from "../../../components/optimized-image";
-import { AlertTriangle, Check, CheckCheck, Clock, X, Reply } from "lucide-react";
+import { AlertTriangle, Check, CheckCheck, Clock, X, UploadCloud, Reply } from "lucide-react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Button } from "../../../components/ui/button";
 import { EmptyState } from "../../../components/ui/empty-state";
@@ -9,7 +8,7 @@ import { MessageContent } from "../../../components/message-content";
 import { MessageLinkPreview } from "../../../components/message-link-preview";
 import { cn } from "../../../lib/cn";
 import { formatTime } from "../utils/formatting";
-import type { Message, ReactionEmoji, MessageStatus, StatusUi } from "../types";
+import type { Message, ReactionEmoji, MessageStatus, StatusUi, StatusIcon } from "../types";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
@@ -53,12 +52,19 @@ export function MessageList({
         return true;
     };
 
+    const toAbsoluteUrl = (url: string): string => {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+        }
+        return `${window.location.origin}${url}`;
+    };
+
     const parentRef = React.useRef<HTMLDivElement>(null);
 
     const virtualizer = useVirtualizer({
         count: messages.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 140, // Realistic average height with media
+        estimateSize: () => 140, // More realistic average height with media
         overscan: 10,
     });
 
@@ -127,7 +133,7 @@ export function MessageList({
                                     className={cn(
                                         "flex relative",
                                         message.isOutgoing ? "justify-end" : "justify-start",
-                                        isGroupEnd ? "mb-6" : "mb-1"
+                                        isGroupEnd ? "mb-4" : "mb-0.5"
                                     )}
                                 >
                                     <SwipeReplyWrapper
@@ -215,6 +221,7 @@ export function MessageList({
                                                                 onClick={() => {
                                                                     const el = document.getElementById(`msg-${message.replyTo?.messageId}`);
                                                                     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                    // Could trigger flash here too
                                                                 }}
                                                             >
                                                                 <div className="flex items-center gap-2 mb-1">
@@ -248,35 +255,17 @@ export function MessageList({
                                                             </div>
                                                         )}
 
-                                                        {(message.attachments && message.attachments.length > 0) && (
-                                                            <div className="mb-2 grid gap-1 grid-cols-2">
-                                                                {message.attachments.map((attachment, index) => (
-                                                                    <div
-                                                                        key={`${attachment.url}-${index}`}
-                                                                        className={cn(
-                                                                            "relative bg-black/5 dark:bg-white/5",
-                                                                            // Full width if single item or last item in odd-numbered list
-                                                                            (message.attachments!.length === 1 || (index === message.attachments!.length - 1 && message.attachments!.length % 2 !== 0))
-                                                                                ? "col-span-2 aspect-video max-h-80"
-                                                                                : "aspect-square"
-                                                                        )}
-                                                                    >
-                                                                        {attachment.kind === "image" ? (
-                                                                            <OptimizedImage
-                                                                                src={attachment.url}
-                                                                                alt={attachment.fileName}
-                                                                                containerClassName="h-full w-full rounded-xl"
-                                                                                className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
-                                                                            />
-                                                                        ) : (
-                                                                            <video
-                                                                                src={attachment.url}
-                                                                                controls
-                                                                                className="h-full w-full object-cover rounded-xl"
-                                                                            />
-                                                                        )}
-                                                                    </div>
-                                                                ))}
+                                                        {message.attachment && (
+                                                            <div className="mb-2 relative rounded-xl overflow-hidden shadow-sm">
+                                                                {message.attachment.kind === "image" ? (
+                                                                    <OptimizedImage
+                                                                        src={message.attachment.url}
+                                                                        alt={message.attachment.fileName}
+                                                                        className="max-h-80 w-auto object-contain cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
+                                                                    />
+                                                                ) : (
+                                                                    <video src={message.attachment.url} controls className="max-h-80 w-auto" />
+                                                                )}
                                                             </div>
                                                         )}
 
@@ -358,6 +347,7 @@ function SwipeReplyWrapper({
 }) {
     const x = useMotionValue(0);
     // When swiping right (x > 0), the icon appears on the left.
+    // We'll use dragConstraints to limit the swipe.
     const opacity = useTransform(x, [0, 60], [0, 1]);
     const scale = useTransform(x, [0, 60], [0.5, 1.2]);
 

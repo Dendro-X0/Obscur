@@ -991,8 +991,10 @@ function NostrMessengerContent() {
     if (message.content.trim()) {
       return message.content.trim().slice(0, 140);
     }
-    if (message.attachment) {
-      return message.attachment.fileName;
+    if (message.attachments && message.attachments.length > 0) {
+      return message.attachments.length === 1
+        ? "📷 Attachment"
+        : `📷 ${message.attachments.length} Attachments`;
     }
     return "(message)";
   };
@@ -1003,7 +1005,9 @@ function NostrMessengerContent() {
     if (!last) {
       return null;
     }
-    const lastMessage: string = last.deletedAt ? "Message deleted" : last.attachment ? last.attachment.fileName : last.content;
+    const lastMessage: string = last.deletedAt
+      ? "Message deleted"
+      : (last.attachments && last.attachments.length > 0 ? "📷 Attachment" : last.content);
     return { lastMessage, lastMessageTime: last.timestamp };
   };
 
@@ -1064,12 +1068,14 @@ function NostrMessengerContent() {
   const getMediaItemsForConversation = (params: Readonly<{ conversationId: string }>): ReadonlyArray<MediaItem> => {
     const list: ReadonlyArray<Message> = messagesByConversationId[params.conversationId] ?? [];
     return list
-      .filter((m: Message): m is Message & Readonly<{ attachment: Attachment }> => m.kind === "user" && Boolean(m.attachment))
-      .map((m: Message & Readonly<{ attachment: Attachment }>): MediaItem => ({
-        messageId: m.id,
-        attachment: m.attachment,
-        timestamp: m.timestamp,
-      }));
+      .filter((m: Message): boolean => m.kind === "user" && Boolean(m.attachments && m.attachments.length > 0))
+      .flatMap((m: Message): ReadonlyArray<MediaItem> => {
+        return (m.attachments || []).map(attachment => ({
+          messageId: m.id,
+          attachment,
+          timestamp: m.timestamp
+        }));
+      });
   };
 
   const isDeletableMessageId = (messageId: string): boolean => {
@@ -1404,7 +1410,7 @@ function NostrMessengerContent() {
 
     const performSendMessage = async (params: {
       content: string,
-      attachment?: Attachment,
+      attachments?: ReadonlyArray<Attachment>,
       conversation: Conversation,
       timestamp: Date
     }) => {
@@ -1418,8 +1424,9 @@ function NostrMessengerContent() {
 
         const isAccepted = peerTrust.isAccepted({ publicKeyHex: params.conversation.pubkey });
         let plaintext = params.content || "";
-        if (params.attachment) {
-          plaintext = plaintext ? `${plaintext} ${params.attachment.url}` : params.attachment.url;
+        if (params.attachments && params.attachments.length > 0) {
+          const urls = params.attachments.map(a => a.url).join("\n");
+          plaintext = plaintext ? `${plaintext}\n${urls}` : urls;
         }
 
 
@@ -1457,7 +1464,7 @@ function NostrMessengerContent() {
         timestamp: params.timestamp,
         isOutgoing: true,
         status: resolvedStatus,
-        ...(params.attachment ? { attachment: params.attachment } : {}),
+        ...(params.attachments ? { attachments: params.attachments } : {}),
         ...(replyTo ? { replyTo } : {}),
       };
 
@@ -1469,7 +1476,7 @@ function NostrMessengerContent() {
       setContactOverridesByContactId((prev: ContactOverridesByContactId): ContactOverridesByContactId => ({
         ...prev,
         [params.conversation.id]: {
-          lastMessage: params.attachment ? params.attachment.fileName : params.content,
+          lastMessage: params.attachments && params.attachments.length > 0 ? "📷 Attachment" : params.content,
           lastMessageTime: message.timestamp,
         },
       }));
@@ -1485,15 +1492,19 @@ function NostrMessengerContent() {
 
       try {
         if (filesToUpload.length > 0) {
-          for (let i = 0; i < filesToUpload.length; i++) {
-            const file = filesToUpload[i];
+          const uploadedAttachments: Attachment[] = [];
+
+          for (const file of filesToUpload) {
             const attachment = await uploadAttachment(file);
-            const messageContent = (i === 0) ? textToSend : "";
+            uploadedAttachments.push(attachment);
+          }
+
+          if (uploadedAttachments.length > 0) {
             await performSendMessage({
-              content: messageContent,
-              attachment,
+              content: textToSend,
+              attachments: uploadedAttachments,
               conversation: selectedConversation,
-              timestamp: new Date(baseNowMs + i)
+              timestamp: new Date(baseNowMs)
             });
           }
         } else {
@@ -1607,9 +1618,10 @@ function NostrMessengerContent() {
           if (m.deletedAt || commandDeletedIds.has(m.id)) {
             return;
           }
-          const haystack: string = (m.attachment?.fileName ?? "") + " " + m.content;
+          const attachmentNames = m.attachments ? m.attachments.map(a => a.fileName).join(" ") : "";
+          const haystack: string = attachmentNames + " " + m.content;
           if (haystack.toLowerCase().includes(normalizedSearchQuery)) {
-            const preview: string = m.attachment ? m.attachment.fileName : m.content;
+            const preview: string = m.attachments && m.attachments.length > 0 ? "📷 Attachment" : m.content;
             results.push({ conversationId, messageId: m.id, timestamp: m.timestamp, preview });
           }
         });
