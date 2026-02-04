@@ -1242,6 +1242,10 @@ function NostrMessengerContent() {
         setAttachmentError("Only image/video files are supported.");
         continue;
       }
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        setAttachmentError(`File "${file.name}" is too large. Max size is 50MB.`);
+        continue;
+      }
       newFiles.push(file);
       newUrls.push(URL.createObjectURL(file));
     }

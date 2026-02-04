@@ -875,6 +875,8 @@ export default function SettingsPage(): React.JSX.Element {
                               Local Upload Limitations
                             </p>
                             Currently using <strong>Local API</strong>. On serverless platforms like Vercel, local file uploads are <strong>permanently disabled</strong> because there is no persistent disk.
+                            <br /><br />
+                            <strong>Solution:</strong> Enable <i>External Storage (NIP-96)</i> above and select a provider like <u>nostr.build</u> to enable file sharing in this browser.
                           </div>
                           <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-400">
                             <strong>Desktop User?</strong> The desktop version will soon support true local persistence. For now, we recommend using a NIP-96 provider for the best experience across all devices.
