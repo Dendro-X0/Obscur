@@ -64,6 +64,11 @@ export class Nip96UploadService implements UploadService {
         const result = await response.json();
         console.log("NIP-96 Response:", result);
 
+        // Check for application-level errors even if HTTP status was 200
+        if (result.status === 'error' || result.error) {
+            throw new Error(result.message || result.error || "Unknown API error");
+        }
+
         // NIP-96 successful response contains a 'nip94_event' or 'url'
         // Some providers might wrap it in 'data' or use 'link'
         const url =
@@ -78,6 +83,11 @@ export class Nip96UploadService implements UploadService {
             if (result.processing_url) {
                 throw new Error("File is processing significantly. Please try a different provider or smaller file.");
             }
+            // If we have a message but no URL, it might be a soft error or warning we missed above
+            if (result.message) {
+                throw new Error(`Upload returned message: ${result.message}`);
+            }
+
             const keys = Object.keys(result).join(", ");
             throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
         }
