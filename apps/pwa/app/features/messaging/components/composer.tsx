@@ -300,7 +300,7 @@ export function Composer({
                     </span>
                 </div>
                 <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight">
-                    {t("messaging.nip04Desc", "E2E Encrypted")} • Ver. 0.3.6.1
+                    {t("messaging.nip04Desc", "E2E Encrypted")} • Ver. 0.4.0
                 </div>
             </div>
         </div>

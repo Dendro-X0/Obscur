@@ -163,20 +163,28 @@ export default function SettingsPage(): React.JSX.Element {
     }
     try {
       const stored: string | null = localStorage.getItem(STORAGE_KEY_NIP96);
-      if (!stored) {
-        return fallback;
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored);
+        if (parsed && typeof parsed === "object") {
+          const record = parsed as Readonly<Record<string, unknown>>;
+          const apiUrl: unknown = record.apiUrl;
+          const enabled: unknown = record.enabled;
+          return {
+            apiUrl: typeof apiUrl === "string" ? apiUrl : "",
+            enabled: typeof enabled === "boolean" ? enabled : false,
+          };
+        }
       }
-      const parsed: unknown = JSON.parse(stored);
-      if (!parsed || typeof parsed !== "object") {
-        return fallback;
+
+      // Auto-enable on Vercel
+      if (window.location.hostname.includes("vercel.app")) {
+        return {
+          apiUrl: "https://nostr.build/api/v2/upload/files",
+          enabled: true
+        };
       }
-      const record = parsed as Readonly<Record<string, unknown>>;
-      const apiUrl: unknown = record.apiUrl;
-      const enabled: unknown = record.enabled;
-      return {
-        apiUrl: typeof apiUrl === "string" ? apiUrl : "",
-        enabled: typeof enabled === "boolean" ? enabled : false,
-      };
+
+      return fallback;
     } catch {
       return fallback;
     }
@@ -827,85 +835,82 @@ export default function SettingsPage(): React.JSX.Element {
                         </Button>
                       </div>
 
-                      {nip96Config.enabled && (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                          <div className="space-y-2">
-                            <Label htmlFor="nip96-url">NIP-96 API URL</Label>
-                            <Input
-                              id="nip96-url"
-                              placeholder="https://nostr.build/api/v2/upload/files"
-                              value={nip96Config.apiUrl}
-                              onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
-                            />
-                            <p className="text-[10px] text-zinc-500">
-                              The endpoint where files will be POSTed. Requires NIP-98 support for auth.
-                            </p>
-                          </div>
-
-                          <div className="space-y-3">
-                            <Label className="text-xs font-semibold flex items-center gap-1.5">
-                              <Check className="h-3 w-3 text-emerald-500" />
-                              Recommended Providers
-                            </Label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {RECOMMENDED_STORAGE_PROVIDERS.map((provider) => (
-                                <button
-                                  key={provider.name}
-                                  type="button"
-                                  onClick={() => saveNip96Config({ ...nip96Config, apiUrl: provider.url })}
-                                  className={cn(
-                                    "text-left p-3 rounded-xl border transition-all hover:bg-zinc-50 dark:hover:bg-white/5",
-                                    nip96Config.apiUrl === provider.url
-                                      ? "border-purple-500 bg-purple-500/5 ring-1 ring-purple-500/20"
-                                      : "border-black/5 dark:border-white/5 bg-white dark:bg-zinc-900/40"
-                                  )}
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-bold">{provider.name}</span>
-                                    {provider.maxSize && (
-                                      <span className="text-[9px] font-medium text-zinc-500 uppercase px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10">
-                                        {provider.maxSize}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">
-                                    {provider.description}
-                                  </p>
-                                </button>
-                              ))}
-                            </div>
-
-                            <div className="mt-4 p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-2">
-                              <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                                <Info className="h-3.5 w-3.5" />
-                                How to choose?
-                              </div>
-                              <ul className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-2 list-disc pl-4">
-                                <li><strong>Privacy</strong>: Providers like <i>void.cat</i> prioritize no-logging policies.</li>
-                                <li><strong>Reliability</strong>: <i>nostr.build</i> is the most widely supported community standard.</li>
-                                <li><strong>Ownership</strong>: You can host your own NIP-96 server to have total control over your data.</li>
-                              </ul>
-                            </div>
-                          </div>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="nip96-url">NIP-96 API URL</Label>
+                          <Input
+                            id="nip96-url"
+                            placeholder="https://nostr.build/api/v2/upload/files"
+                            value={nip96Config.apiUrl}
+                            onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
+                          />
+                          <p className="text-[10px] text-zinc-500">
+                            The endpoint where files will be POSTed. Requires NIP-98 support for auth.
+                          </p>
                         </div>
-                      )}
 
-                      {!nip96Config.enabled && (
                         <div className="space-y-3">
-                          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                            <p className="font-bold mb-1 flex items-center gap-1">
-                              <ShieldAlert className="h-3 w-3" />
-                              Local Upload Limitations
-                            </p>
-                            Currently using <strong>Local API</strong>. On serverless platforms like Vercel, local file uploads are <strong>permanently disabled</strong> because there is no persistent disk.
-                            <br /><br />
-                            <strong>Solution:</strong> Enable <i>External Storage (NIP-96)</i> above and select a provider like <u>nostr.build</u> to enable file sharing in this browser.
-                          </div>
-                          <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-400">
-                            <strong>Desktop User?</strong> The desktop version will soon support true local persistence. For now, we recommend using a NIP-96 provider for the best experience across all devices.
+                          <Label className="text-xs font-semibold flex items-center gap-1.5">
+                            <Check className="h-3 w-3 text-emerald-500" />
+                            Recommended Providers
+                          </Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {RECOMMENDED_STORAGE_PROVIDERS.map((provider) => (
+                              <button
+                                key={provider.name}
+                                type="button"
+                                onClick={() => {
+                                  saveNip96Config({ apiUrl: provider.url, enabled: true });
+                                  toast.success(`${provider.name} selected and enabled`);
+                                }}
+                                className={cn(
+                                  "text-left p-3 rounded-xl border transition-all hover:bg-zinc-50 dark:hover:bg-white/5",
+                                  nip96Config.apiUrl === provider.url
+                                    ? "border-purple-500 bg-purple-500/5 ring-1 ring-purple-500/20"
+                                    : "border-black/5 dark:border-white/5 bg-white dark:bg-zinc-900/40"
+                                )}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-bold">{provider.name}</span>
+                                  {provider.maxSize && (
+                                    <span className="text-[9px] font-medium text-zinc-500 uppercase px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10">
+                                      {provider.maxSize}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">
+                                  {provider.description}
+                                </p>
+                              </button>
+                            ))}
                           </div>
                         </div>
-                      )}
+
+                        {!nip96Config.enabled && (
+                          <div className="space-y-3 pt-2">
+                            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                              <p className="font-bold mb-1 flex items-center gap-1">
+                                <ShieldAlert className="h-3 w-3" />
+                                Current Mode: Local Uploads
+                              </p>
+                              Local uploads are strictly for the Desktop app or private local relays.
+                              <strong> On Vercel, you must select an External Provider above.</strong>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
+                            <Info className="h-3.5 w-3.5" />
+                            Storage Guidance
+                          </div>
+                          <ul className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-2 list-disc pl-4">
+                            <li><strong>Why External?</strong> Web browsers cannot save files to servers directly without a dedicated storage layer like NIP-96.</li>
+                            <li><strong>Privacy</strong>: Providers like <i>void.cat</i> prioritize no-logging policies and encryption headers.</li>
+                            <li><strong>Capacity</strong>: <i>nostr.build</i> provides the most stable multi-device experience.</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </Card>
                 )}

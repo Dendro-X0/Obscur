@@ -6,7 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Mobile Experience Polish**: Added Swipe-to-Reply gestures, larger touch targets for better accessibility, and fixed virtual keyboard occlusion with `100dvh`.
-- **Performance Optimization**: Introduced `OptimizedImage` for lazy loading with blur-up effects and tuned message list virtualization.
+- **Core Refinements**: Theme synchronization fix (FOUC), message deduplication, and v0.4.0 versioning.
+- **Auto-Storage Configuration**: Automatically enables NIP-96 storage with `nostr.build` as default when hosted on Vercel to resolve "Local upload" errors out-of-the-box.
+- **Improved Settings UI**: Recommended storage providers are now always visible with clear descriptions and one-tap selection.
 - **Group Management Extensions**: Admins can now add members via public key, remove members from the settings sheet, and see role-based badges (Owner/Mod).
 - **Group Chat Avatar Upload**: Support for uploading a group avatar during the creation process.
 - **Group Metadata Editing**: Admins can now edit group name, description, and picture from the group settings sheet.

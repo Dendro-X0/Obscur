@@ -66,20 +66,30 @@ export const useUploadService = (): UploadService => {
         }
         try {
             const stored: string | null = localStorage.getItem(STORAGE_KEY_NIP96);
-            if (!stored) {
-                return null;
+            if (stored) {
+                const parsed: unknown = JSON.parse(stored);
+                if (parsed && typeof parsed === "object") {
+                    const record = parsed as Readonly<Record<string, unknown>>;
+                    const apiUrl: unknown = record.apiUrl;
+                    const enabled: unknown = record.enabled;
+                    if (typeof apiUrl === "string" && typeof enabled === "boolean") {
+                        return { apiUrl, enabled };
+                    }
+                }
             }
-            const parsed: unknown = JSON.parse(stored);
-            if (!parsed || typeof parsed !== "object") {
-                return null;
+
+            // If no config found, and we are on Vercel, auto-enable a default
+            const isVercel = window.location.hostname.includes("vercel.app");
+            if (isVercel) {
+                const defaultConfig = {
+                    apiUrl: "https://nostr.build/api/v2/upload/files",
+                    enabled: true
+                };
+                localStorage.setItem(STORAGE_KEY_NIP96, JSON.stringify(defaultConfig));
+                return defaultConfig;
             }
-            const record = parsed as Readonly<Record<string, unknown>>;
-            const apiUrl: unknown = record.apiUrl;
-            const enabled: unknown = record.enabled;
-            if (typeof apiUrl !== "string" || typeof enabled !== "boolean") {
-                return null;
-            }
-            return { apiUrl, enabled };
+
+            return null;
         } catch {
             return null;
         }
