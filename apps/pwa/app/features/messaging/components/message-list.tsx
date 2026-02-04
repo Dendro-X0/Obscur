@@ -1,7 +1,7 @@
-
 import React from "react";
-import Image from "next/image";
-import { AlertTriangle, Check, CheckCheck, Clock, X, UploadCloud } from "lucide-react";
+import { OptimizedImage } from "../../../components/optimized-image";
+import { AlertTriangle, Check, CheckCheck, Clock, X, UploadCloud, Reply } from "lucide-react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Button } from "../../../components/ui/button";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { MessageContent } from "../../../components/message-content";
@@ -25,6 +25,7 @@ interface MessageListProps {
     onToggleReaction: (messageId: string, emoji: ReactionEmoji) => void;
     onRetryMessage: (message: Message) => void;
     onComposerFocus: () => void;
+    onReply?: (message: Message) => void;
     isGroup?: boolean;
 }
 
@@ -41,6 +42,7 @@ export function MessageList({
     onToggleReaction,
     onRetryMessage,
     onComposerFocus,
+    onReply,
     isGroup
 }: MessageListProps) {
     const { t } = useTranslation();
@@ -62,8 +64,8 @@ export function MessageList({
     const virtualizer = useVirtualizer({
         count: messages.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 100, // Average message height
-        overscan: 5,
+        estimateSize: () => 140, // More realistic average height with media
+        overscan: 10,
     });
 
     return (
@@ -129,202 +131,254 @@ export function MessageList({
                                         transform: `translateY(${virtualItem.start}px)`,
                                     }}
                                     className={cn(
-                                        "flex",
+                                        "flex relative",
                                         message.isOutgoing ? "justify-end" : "justify-start",
                                         isGroupEnd ? "mb-4" : "mb-0.5"
                                     )}
                                 >
-                                    <div
-                                        id={`msg-${message.id}`}
-                                        onContextMenu={(e) => {
-                                            e.preventDefault();
-                                            onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY });
-                                        }}
-                                        className={cn(
-                                            "relative max-w-[85%] sm:max-w-[70%] group transition-all duration-200",
-                                            message.isOutgoing
-                                                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                                                : "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100 shadow-sm border border-black/[0.03] dark:border-white/[0.03]",
-                                            // Dynamic Border Radius for grouping
-                                            message.isOutgoing
-                                                ? cn(
-                                                    "rounded-[20px]",
-                                                    isGroupStart && isGroupEnd ? "rounded-br-md" : "",
-                                                    isGroupStart && !isGroupEnd ? "rounded-br-md rounded-bl-[20px]" : "",
-                                                    !isGroupStart && isGroupEnd ? "rounded-tr-md rounded-br-md" : "",
-                                                    isMiddle ? "rounded-tr-md rounded-br-md" : ""
-                                                )
-                                                : cn(
-                                                    "rounded-[20px]",
-                                                    isGroupStart && isGroupEnd ? "rounded-bl-md" : "",
-                                                    isGroupStart && !isGroupEnd ? "rounded-bl-md rounded-br-[20px]" : "",
-                                                    !isGroupStart && isGroupEnd ? "rounded-tl-md rounded-bl-md" : "",
-                                                    isMiddle ? "rounded-tl-md rounded-bl-md" : ""
-                                                ),
-                                            flashMessageId === message.id && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse"
-                                        )}
+                                    <SwipeReplyWrapper
+                                        message={message}
+                                        onReply={onReply}
+                                        isOutgoing={message.isOutgoing}
                                     >
-                                        {/* Interaction Hover Menu */}
-                                        <div className={cn(
-                                            "absolute opacity-0 group-hover:opacity-100 transition-opacity z-20 top-1 flex flex-col gap-1.5",
-                                            message.isOutgoing ? "-left-12" : "-right-12"
-                                        )}>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
-                                                onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
-                                            >
-                                                <span className="text-sm leading-none">☺</span>
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
-                                                onClick={(e) => onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY })}
-                                            >
-                                                <span className="text-lg leading-none mt-[-4px]">⋯</span>
-                                            </Button>
-                                        </div>
-
-                                        <div className="px-4 py-2.5">
-                                            {isGroup && !message.isOutgoing && isGroupStart && (
-                                                <div className="flex items-center gap-2 mb-1.5 px-0.5">
-                                                    <div className="h-5 w-5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 shadow-sm overflow-hidden">
-                                                        <span className="text-[10px] font-bold text-zinc-400">?</span>
-                                                    </div>
-                                                    <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
-                                                        {message.senderPubkey?.slice(0, 8) || "Unknown"}
-                                                    </span>
-                                                </div>
+                                        <div
+                                            id={`msg-${message.id}`}
+                                            onContextMenu={(e) => {
+                                                e.preventDefault();
+                                                onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY });
+                                            }}
+                                            className={cn(
+                                                "relative max-w-[85%] sm:max-w-[70%] group transition-all duration-200",
+                                                message.isOutgoing
+                                                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                                                    : "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100 shadow-sm border border-black/[0.03] dark:border-white/[0.03]",
+                                                // Dynamic Border Radius for grouping
+                                                message.isOutgoing
+                                                    ? cn(
+                                                        "rounded-[20px]",
+                                                        isGroupStart && isGroupEnd ? "rounded-br-md" : "",
+                                                        isGroupStart && !isGroupEnd ? "rounded-br-md rounded-bl-[20px]" : "",
+                                                        !isGroupStart && isGroupEnd ? "rounded-tr-md rounded-br-md" : "",
+                                                        isMiddle ? "rounded-tr-md rounded-br-md" : ""
+                                                    )
+                                                    : cn(
+                                                        "rounded-[20px]",
+                                                        isGroupStart && isGroupEnd ? "rounded-bl-md" : "",
+                                                        isGroupStart && !isGroupEnd ? "rounded-bl-md rounded-br-[20px]" : "",
+                                                        !isGroupStart && isGroupEnd ? "rounded-tl-md rounded-bl-md" : "",
+                                                        isMiddle ? "rounded-tl-md rounded-bl-md" : ""
+                                                    ),
+                                                flashMessageId === message.id && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse"
                                             )}
-                                            {message.deletedAt ? (
-                                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                                                    <X className="h-3 w-3" /> {t("messaging.messageDeleted")}
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    {message.replyTo && (
-                                                        <div className={cn(
-                                                            "mb-2 rounded-xl border p-2.5 text-xs transition-colors cursor-pointer",
-                                                            message.isOutgoing
-                                                                ? "border-white/10 bg-white/5 hover:bg-white/10"
-                                                                : "border-black/5 bg-black/5 hover:bg-black/10"
-                                                        )}
-                                                            onClick={() => {
-                                                                const el = document.getElementById(`msg-${message.replyTo?.messageId}`);
-                                                                el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                // Could trigger flash here too
-                                                            }}
-                                                        >
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <div className="w-0.5 h-3 bg-purple-500 rounded-full" />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Reply</span>
-                                                            </div>
-                                                            <div className="truncate opacity-80 italic">{message.replyTo.previewText}</div>
-                                                        </div>
-                                                    )}
-
-                                                    {!message.deletedAt && message.reactions && (
-                                                        <div className="absolute -bottom-3 left-2 flex flex-wrap gap-1 z-10">
-                                                            {(Object.entries(message.reactions) as ReadonlyArray<readonly [ReactionEmoji, number]>)
-                                                                .filter(([, count]) => count > 0)
-                                                                .map(([emoji, count]) => (
-                                                                    <button
-                                                                        key={emoji}
-                                                                        type="button"
-                                                                        className={cn(
-                                                                            "rounded-full border px-1.5 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-sm transition-transform active:scale-90",
-                                                                            message.isOutgoing
-                                                                                ? "border-white/20 bg-zinc-800 text-white dark:border-black/10 dark:bg-white dark:text-zinc-900"
-                                                                                : "border-black/5 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100"
-                                                                        )}
-                                                                        onClick={() => onToggleReaction(message.id, emoji)}
-                                                                    >
-                                                                        <span>{emoji}</span>
-                                                                        <span className="opacity-70">{count}</span>
-                                                                    </button>
-                                                                ))}
-                                                        </div>
-                                                    )}
-
-                                                    {message.attachment && (
-                                                        <div className="mb-2 relative rounded-xl overflow-hidden shadow-sm">
-                                                            {message.attachment.kind === "image" ? (
-                                                                <Image
-                                                                    src={message.attachment.url}
-                                                                    alt={message.attachment.fileName}
-                                                                    width={800}
-                                                                    height={600}
-                                                                    unoptimized
-                                                                    className="max-h-80 w-auto object-contain cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
-                                                                />
-                                                            ) : (
-                                                                <video src={message.attachment.url} controls className="max-h-80 w-auto" />
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="text-[15px] leading-relaxed break-words">
-                                                        <MessageContent content={message.content} isOutgoing={message.isOutgoing} />
-                                                    </div>
-
-                                                    {message.content && <MessageLinkPreview content={message.content} isOutgoing={message.isOutgoing} />}
-                                                </>
-                                            )}
-
-                                            <div
-                                                className={cn(
-                                                    "mt-1.5 flex items-center justify-end gap-1.5 text-[10px] font-medium select-none",
-                                                    message.isOutgoing
-                                                        ? "text-white/60 dark:text-zinc-900/60"
-                                                        : "text-zinc-500 dark:text-zinc-500"
-                                                )}
-                                            >
-                                                {formatTime(message.timestamp, nowMs) && (
-                                                    <span>{formatTime(message.timestamp, nowMs)}</span>
-                                                )}
-
-                                                {message.isOutgoing && (
-                                                    <div className="flex items-center gap-1">
-                                                        {((): React.JSX.Element | null => {
-                                                            const uiByStatus: Readonly<Record<MessageStatus, StatusUi>> = {
-                                                                sending: { label: "Sending", icon: (p) => <Clock className={cn("animate-pulse", p.className)} /> },
-                                                                accepted: { label: "Sent", icon: (p) => <Check className={p.className} /> },
-                                                                rejected: { label: "Failed", icon: (p) => <AlertTriangle className={p.className} /> },
-                                                                delivered: { label: "Delivered", icon: (p) => <CheckCheck className={p.className} /> },
-                                                                queued: { label: "Queued", icon: (p) => <Clock className={p.className} /> },
-                                                                failed: { label: "Failed", icon: (p) => <AlertTriangle className={p.className} /> },
-                                                            };
-                                                            const ui = uiByStatus[message.status];
-                                                            const Icon = ui.icon;
-                                                            return <Icon className="h-3 w-3" />;
-                                                        })()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {message.status === "rejected" && (
-                                            <div className="absolute -right-16 top-1/2 -translate-y-1/2">
+                                        >
+                                            {/* Interaction Hover Menu */}
+                                            <div className={cn(
+                                                "absolute opacity-0 group-hover:opacity-100 transition-opacity z-20 top-1 flex flex-col gap-1.5",
+                                                message.isOutgoing ? "-left-12" : "-right-12"
+                                            )}>
                                                 <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    className="h-8 px-3 rounded-full bg-rose-500 text-white border-none text-[10px] font-bold"
-                                                    onClick={() => onRetryMessage(message)}
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
+                                                    onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
                                                 >
-                                                    Retry
+                                                    <span className="text-sm leading-none">☺</span>
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
+                                                    onClick={(e) => onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY })}
+                                                >
+                                                    <span className="text-lg leading-none mt-[-4px]">⋯</span>
                                                 </Button>
                                             </div>
-                                        )}
-                                    </div>
+
+                                            <div className="px-4 py-2.5">
+                                                {isGroup && !message.isOutgoing && isGroupStart && (
+                                                    <div className="flex items-center gap-2 mb-1.5 px-0.5">
+                                                        <div className="h-5 w-5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 shadow-sm overflow-hidden">
+                                                            <span className="text-[10px] font-bold text-zinc-400">?</span>
+                                                        </div>
+                                                        <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
+                                                            {message.senderPubkey?.slice(0, 8) || "Unknown"}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {message.deletedAt ? (
+                                                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
+                                                        <X className="h-3 w-3" /> {t("messaging.messageDeleted")}
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        {message.replyTo && (
+                                                            <div className={cn(
+                                                                "mb-2 rounded-xl border p-2.5 text-xs transition-colors cursor-pointer",
+                                                                message.isOutgoing
+                                                                    ? "border-white/10 bg-white/5 hover:bg-white/10"
+                                                                    : "border-black/5 bg-black/5 hover:bg-black/10"
+                                                            )}
+                                                                onClick={() => {
+                                                                    const el = document.getElementById(`msg-${message.replyTo?.messageId}`);
+                                                                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                    // Could trigger flash here too
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <div className="w-0.5 h-3 bg-purple-500 rounded-full" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Reply</span>
+                                                                </div>
+                                                                <div className="truncate opacity-80 italic">{message.replyTo.previewText}</div>
+                                                            </div>
+                                                        )}
+
+                                                        {!message.deletedAt && message.reactions && (
+                                                            <div className="absolute -bottom-3 left-2 flex flex-wrap gap-1 z-10">
+                                                                {(Object.entries(message.reactions) as ReadonlyArray<readonly [ReactionEmoji, number]>)
+                                                                    .filter(([, count]) => count > 0)
+                                                                    .map(([emoji, count]) => (
+                                                                        <button
+                                                                            key={emoji}
+                                                                            type="button"
+                                                                            className={cn(
+                                                                                "rounded-full border px-1.5 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-sm transition-transform active:scale-90",
+                                                                                message.isOutgoing
+                                                                                    ? "border-white/20 bg-zinc-800 text-white dark:border-black/10 dark:bg-white dark:text-zinc-900"
+                                                                                    : "border-black/5 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100"
+                                                                            )}
+                                                                            onClick={() => onToggleReaction(message.id, emoji)}
+                                                                        >
+                                                                            <span>{emoji}</span>
+                                                                            <span className="opacity-70">{count}</span>
+                                                                        </button>
+                                                                    ))}
+                                                            </div>
+                                                        )}
+
+                                                        {message.attachment && (
+                                                            <div className="mb-2 relative rounded-xl overflow-hidden shadow-sm">
+                                                                {message.attachment.kind === "image" ? (
+                                                                    <OptimizedImage
+                                                                        src={message.attachment.url}
+                                                                        alt={message.attachment.fileName}
+                                                                        className="max-h-80 w-auto object-contain cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
+                                                                    />
+                                                                ) : (
+                                                                    <video src={message.attachment.url} controls className="max-h-80 w-auto" />
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        <div className="text-[15px] leading-relaxed break-words">
+                                                            <MessageContent content={message.content} isOutgoing={message.isOutgoing} />
+                                                        </div>
+
+                                                        {message.content && <MessageLinkPreview content={message.content} isOutgoing={message.isOutgoing} />}
+                                                    </>
+                                                )}
+
+                                                <div
+                                                    className={cn(
+                                                        "mt-1.5 flex items-center justify-end gap-1.5 text-[10px] font-medium select-none",
+                                                        message.isOutgoing
+                                                            ? "text-white/60 dark:text-zinc-900/60"
+                                                            : "text-zinc-500 dark:text-zinc-500"
+                                                    )}
+                                                >
+                                                    {formatTime(message.timestamp, nowMs) && (
+                                                        <span>{formatTime(message.timestamp, nowMs)}</span>
+                                                    )}
+
+                                                    {message.isOutgoing && (
+                                                        <div className="flex items-center gap-1">
+                                                            {((): React.JSX.Element | null => {
+                                                                const uiByStatus: Readonly<Record<MessageStatus, StatusUi>> = {
+                                                                    sending: { label: "Sending", icon: (p) => <Clock className={cn("animate-pulse", p.className)} /> },
+                                                                    accepted: { label: "Sent", icon: (p) => <Check className={p.className} /> },
+                                                                    rejected: { label: "Failed", icon: (p) => <AlertTriangle className={p.className} /> },
+                                                                    delivered: { label: "Delivered", icon: (p) => <CheckCheck className={p.className} /> },
+                                                                    queued: { label: "Queued", icon: (p) => <Clock className={p.className} /> },
+                                                                    failed: { label: "Failed", icon: (p) => <AlertTriangle className={p.className} /> },
+                                                                };
+                                                                const ui = uiByStatus[message.status];
+                                                                const Icon = ui.icon;
+                                                                return <Icon className="h-3 w-3" />;
+                                                            })()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {message.status === "rejected" && (
+                                                <div className="absolute -right-16 top-1/2 -translate-y-1/2">
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        className="h-8 px-3 rounded-full bg-rose-500 text-white border-none text-[10px] font-bold"
+                                                        onClick={() => onRetryMessage(message)}
+                                                    >
+                                                        Retry
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </SwipeReplyWrapper>
                                 </div>
                             );
                         })}
                     </div>
                 </>
             )}
+        </div>
+    );
+}
+
+function SwipeReplyWrapper({
+    message,
+    onReply,
+    isOutgoing,
+    children
+}: {
+    message: Message;
+    onReply?: (message: Message) => void;
+    isOutgoing: boolean;
+    children: React.ReactNode;
+}) {
+    const x = useMotionValue(0);
+    // When swiping right (x > 0), the icon appears on the left.
+    // We'll use dragConstraints to limit the swipe.
+    const opacity = useTransform(x, [0, 60], [0, 1]);
+    const scale = useTransform(x, [0, 60], [0.5, 1.2]);
+
+    const handleDragEnd = () => {
+        if (x.get() > 60) {
+            onReply?.(message);
+        }
+        // Snap back
+        x.set(0);
+    };
+
+    return (
+        <div className="relative flex-1 flex w-full" style={{ justifyContent: isOutgoing ? 'flex-end' : 'flex-start' }}>
+            <motion.div
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-600 dark:text-purple-400"
+                style={{ opacity, scale }}
+            >
+                <Reply className="h-6 w-6" />
+            </motion.div>
+            <motion.div
+                drag="x"
+                dragConstraints={{ left: 0, right: 100 }}
+                dragElastic={0.1}
+                onDragEnd={handleDragEnd}
+                style={{ x }}
+                className="flex-1 flex"
+            >
+                <div className="flex-1 flex" style={{ justifyContent: isOutgoing ? 'flex-end' : 'flex-start' }}>
+                    {children}
+                </div>
+            </motion.div>
         </div>
     );
 }

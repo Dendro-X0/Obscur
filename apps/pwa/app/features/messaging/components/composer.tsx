@@ -214,7 +214,7 @@ export function Composer({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0"
+                    className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 flex items-center justify-center p-0"
                     disabled={isUploadingAttachment || isGated}
                     onClick={() => document.getElementById("composer-attachment")?.click()}
                 >
@@ -244,7 +244,7 @@ export function Composer({
                         variant="ghost"
                         size="icon"
                         className={cn(
-                            "h-10 w-10 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 transition-colors",
+                            "h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 transition-colors flex items-center justify-center p-0",
                             showEmojiPicker && "bg-black/5 dark:bg-white/5 text-purple-600"
                         )}
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -277,7 +277,7 @@ export function Composer({
                     disabled={isGated || (!messageInput.trim() && pendingAttachments.length === 0) || isUploadingAttachment}
                     size="icon"
                     className={cn(
-                        "h-10 w-10 rounded-full shrink-0 transition-transform active:scale-90",
+                        "h-11 w-11 rounded-full shrink-0 transition-transform active:scale-95 flex items-center justify-center p-0",
                         (messageInput.trim() || pendingAttachments.length > 0) && !isUploadingAttachment
                             ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
                             : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
@@ -286,7 +286,7 @@ export function Composer({
                     {isUploadingAttachment ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                        <Send className="h-5 w-5" />
+                        <Send className="h-5 w-5 translate-x-0.5 mt-[-1px]" />
                     )}
                 </Button>
             </div>

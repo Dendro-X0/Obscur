@@ -107,7 +107,7 @@ export function ChatView(props: ChatViewProps) {
 
     return (
         <div
-            className="flex flex-col h-full relative"
+            className="flex flex-col h-full h-[100dvh] relative overflow-hidden"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -174,6 +174,7 @@ export function ChatView(props: ChatViewProps) {
                     onToggleReaction={props.onToggleReaction}
                     onRetryMessage={props.onRetryMessage}
                     onComposerFocus={() => props.composerTextareaRef.current?.focus()}
+                    onReply={props.onReferenceMessage}
                     isGroup={props.conversation.kind === "group"}
                 />
             )}

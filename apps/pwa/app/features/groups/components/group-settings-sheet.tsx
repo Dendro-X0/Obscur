@@ -13,6 +13,7 @@ import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { toast } from "../../../components/ui/toast";
+import { cn } from "../../../lib/cn";
 
 interface GroupSettingsSheetProps {
     isOpen: boolean;
@@ -25,7 +26,7 @@ interface GroupSettingsSheetProps {
 
 export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHex, myPrivateKeyHex }: GroupSettingsSheetProps) {
     const { t } = useTranslation();
-    const { state, approveJoin, denyJoin, updateMetadata } = useNip29Group({
+    const { state, approveJoin, denyJoin, updateMetadata, putUser, removeUser, admins } = useNip29Group({
         groupId: group.groupId,
         relayUrl: group.relayUrl,
         pool,
@@ -40,6 +41,8 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
     const [editAbout, setEditAbout] = useState("");
     const [editPicture, setEditPicture] = useState("");
     const [isUploading, setIsUploading] = useState(false);
+    const [newMemberPubkey, setNewMemberPubkey] = useState("");
+    const [isAddingMember, setIsAddingMember] = useState(false);
 
     if (!isOpen) return null;
 
@@ -83,6 +86,29 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
             toast.error("Failed to upload image");
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    const handleAddMember = async () => {
+        if (!newMemberPubkey.trim()) return;
+        try {
+            await putUser({ publicKeyHex: newMemberPubkey.trim() as PublicKeyHex });
+            setNewMemberPubkey("");
+            setIsAddingMember(false);
+            toast.success("Member added to group");
+        } catch (error) {
+            console.error("Failed to add member:", error);
+            toast.error("Failed to add member");
+        }
+    };
+
+    const handleRemoveMember = async (pubkey: string) => {
+        try {
+            await removeUser({ publicKeyHex: pubkey as PublicKeyHex });
+            toast.success("Member removed from group");
+        } catch (error) {
+            console.error("Failed to remove member:", error);
+            toast.error("Failed to remove member");
         }
     };
 
@@ -216,46 +242,96 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
                     )}
 
                     {/* Member List */}
-                    <div className="space-y-3 pb-8">
-                        <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500 px-1">
+                    <div className="flex items-center justify-between px-1">
+                        <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                             {t("groups.members", "Members")}
                         </Label>
-                        <div className="space-y-1">
-                            {group.memberPubkeys.map((pubkey) => (
-                                <div key={pubkey} className="flex items-center gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-xl transition-colors">
-                                    <div className="h-8 w-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
-                                        <Shield className="h-3 w-3 text-zinc-500" />
+                        {isAdmin && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[10px] font-black uppercase tracking-widest text-purple-600 hover:text-purple-700 p-0"
+                                onClick={() => setIsAddingMember(!isAddingMember)}
+                            >
+                                {isAddingMember ? "Cancel" : "Add Member"}
+                            </Button>
+                        )}
+                    </div>
+
+                    {isAddingMember && (
+                        <div className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-black/5 dark:border-white/5 space-y-2 animate-in zoom-in-95 duration-200">
+                            <Input
+                                value={newMemberPubkey}
+                                onChange={(e) => setNewMemberPubkey(e.target.value)}
+                                placeholder="Enter public key (hex)"
+                                className="text-xs font-mono"
+                            />
+                            <Button className="w-full h-8 text-[10px] font-black uppercase tracking-widest" onClick={handleAddMember}>
+                                Confirm Add
+                            </Button>
+                        </div>
+                    )}
+
+                    <div className="space-y-1">
+                        {group.memberPubkeys.map((pubkey) => {
+                            const admin = admins.find(a => a.pubkey === pubkey);
+                            const isOwner = admin?.roles.some(r => r.toLowerCase() === "owner" || r.toLowerCase() === "admin");
+                            const isModerator = admin && !isOwner;
+
+                            return (
+                                <div key={pubkey} className="flex items-center gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-xl transition-colors group/member">
+                                    <div className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 relative shadow-sm">
+                                        <Shield className={cn("h-3.5 w-3.5", isOwner ? "text-purple-600" : isModerator ? "text-emerald-600" : "text-zinc-400")} />
+                                        {isOwner && <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-purple-600 border border-white dark:border-zinc-950 shadow-sm" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-mono truncate">{pubkey}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xs font-mono truncate">{pubkey}</p>
+                                            {isOwner && (
+                                                <span className="text-[8px] font-black uppercase tracking-tighter bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm">Owner</span>
+                                            )}
+                                            {isModerator && (
+                                                <span className="text-[8px] font-black uppercase tracking-tighter bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-sm">Mod</span>
+                                            )}
+                                        </div>
                                     </div>
+                                    {isAdmin && pubkey !== myPublicKeyHex && !isOwner && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 rounded-full opacity-0 group-hover/member:opacity-100 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                            onClick={() => handleRemoveMember(pubkey)}
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </Button>
+                                    )}
                                 </div>
-                            ))}
-                            {group.memberPubkeys.length === 0 && (
-                                <p className="text-xs text-zinc-400 text-center py-4 italic">No members listed yet.</p>
-                            )}
-                        </div>
+                            );
+                        })}
+                        {group.memberPubkeys.length === 0 && (
+                            <p className="text-xs text-zinc-400 text-center py-4 italic">No members listed yet.</p>
+                        )}
                     </div>
                 </div>
+            </div>
 
-                {/* Footer Actions */}
-                <div className="p-4 border-t border-black/5 dark:border-white/5 space-y-3">
-                    <Button
-                        variant="secondary"
-                        className="w-full rounded-xl gap-2 font-bold"
-                        onClick={() => {
-                            navigator.clipboard.writeText(`${group.groupId}@${new URL(group.relayUrl).hostname}`);
-                            toast.success("Group ID copied to clipboard");
-                        }}
-                    >
-                        <UserPlus className="h-4 w-4" />
-                        {t("groups.inviteMembers", "Copy Invite ID")}
-                    </Button>
-                    <Button variant="secondary" className="w-full rounded-xl gap-2 font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30">
-                        <UserMinus className="h-4 w-4" />
-                        {t("groups.leaveGroup", "Leave Group")}
-                    </Button>
-                </div>
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-black/5 dark:border-white/5 space-y-3">
+                <Button
+                    variant="secondary"
+                    className="w-full rounded-xl gap-2 font-bold"
+                    onClick={() => {
+                        navigator.clipboard.writeText(`${group.groupId}@${new URL(group.relayUrl).hostname}`);
+                        toast.success("Group ID copied to clipboard");
+                    }}
+                >
+                    <UserPlus className="h-4 w-4" />
+                    {t("groups.inviteMembers", "Copy Invite ID")}
+                </Button>
+                <Button variant="secondary" className="w-full rounded-xl gap-2 font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                    <UserMinus className="h-4 w-4" />
+                    {t("groups.leaveGroup", "Leave Group")}
+                </Button>
             </div>
         </div>
     );

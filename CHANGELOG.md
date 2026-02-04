@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [v0.4.0] - 2026-02-03
 
 ### Added
+- **Mobile Experience Polish**: Added Swipe-to-Reply gestures, larger touch targets for better accessibility, and fixed virtual keyboard occlusion with `100dvh`.
+- **Performance Optimization**: Introduced `OptimizedImage` for lazy loading with blur-up effects and tuned message list virtualization.
+- **Group Management Extensions**: Admins can now add members via public key, remove members from the settings sheet, and see role-based badges (Owner/Mod).
 - **Group Chat Avatar Upload**: Support for uploading a group avatar during the creation process.
 - **Group Metadata Editing**: Admins can now edit group name, description, and picture from the group settings sheet.
 - **Group Invite ID**: Added "Copy Invite ID" functionality to easily share group joining information.
@@ -12,6 +15,11 @@ All notable changes to this project will be documented in this file.
 - **NIP-05 Verification**: Built-in verification flow for NIP-05 identifiers (e.g., alice@domain.com). Displays verification status in settings.
 - **DM Privacy Controls**: New granular privacy settings in "Privacy & Trust" tab. Users can now choose to Receive DMs from "Everyone" or "Contacts Only".
 - **Enhanced DM Filtering**: Client-side filtering of direct messages from strangers when "Contacts Only" is enabled.
+
+### Fixed
+- **Theme Sync**: Resolved the "white flash" (FOUC) on initial load by implementing a blocking theme script in the root layout.
+- **Message Deduplication**: Fixed a bug where duplicate group messages were rendered by implementing event ID filtering.
+- **Profile Save Timeout**: Fixed an issue where saving the profile on Desktop would hang indefinitely.
 
 ### Changed
 - **Profile Management**: Refactored profile settings with immediate local previews and NIP-05 integration.

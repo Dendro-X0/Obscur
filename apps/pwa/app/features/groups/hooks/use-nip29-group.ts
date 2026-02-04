@@ -71,6 +71,7 @@ type Nip29GroupState = Readonly<{
   membership: Readonly<{ status: GroupMembershipStatus; role: GroupRole }>;
   messages: ReadonlyArray<GroupMessageEvent>;
   joinRequests: ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; createdAt: number; content: string }>>;
+  admins: ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; roles: ReadonlyArray<string> }>>;
   relayFeedback: RelayFeedback;
 }>;
 
@@ -90,6 +91,9 @@ type UseNip29GroupResult = Readonly<{
   denyJoin: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
   sendMessage: (params: Readonly<{ content: string }>) => Promise<void>;
   updateMetadata: (params: Readonly<GroupMetadata>) => Promise<void>;
+  putUser: (params: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>) => Promise<void>;
+  removeUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
+  admins: ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; roles: ReadonlyArray<string> }>>;
 }>;
 
 const GROUP_KIND_METADATA = 39000;
@@ -107,6 +111,7 @@ const createInitialState = (): Nip29GroupState => {
     membership: { status: "unknown", role: "guest" },
     messages: [],
     joinRequests: [],
+    admins: [],
     relayFeedback: {},
   };
 };
@@ -226,6 +231,13 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
           }
           return { ...prev, messages: [nextMsg, ...prev.messages].slice(0, 200), status: "ready" };
         });
+        return;
+      }
+      if (event.kind === GROUP_KIND_ADMINS) {
+        const nextAdmins = event.tags.filter((t: ReadonlyArray<string>): boolean => t[0] === "p" && typeof t[1] === "string").map((t: ReadonlyArray<string>): Readonly<{ pubkey: PublicKeyHex; roles: ReadonlyArray<string> }> => ({ pubkey: t[1] as PublicKeyHex, roles: t.slice(2) }));
+        setAdmins(nextAdmins);
+        setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, admins: nextAdmins }));
+        return;
       }
     };
 
@@ -373,13 +385,7 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
     // Or normally admins just publish Kind 39000 directly to the relay.
     // Based on GroupService, it uses GROUP_KINDS.EDIT_METADATA which is likely a proposal or the event itself.
     // Let's assume we are admins and publishing Kind 39000 (GROUP_KIND_METADATA) directly or a proposal.
-    // However, looking at GroupService, it constructs a proposal.
     // If we want to use GroupService logic, we should use it. But here we are building events manually for consistency with other methods in this hook.
-    // Wait, the hook is duplicating logic from GroupService. That's technical debt.
-    // For now, I will implement publishing Kind 9002 (Edit Metadata) or 39000 directly.
-    // If I am owner/admin, I should be able to write 39000 directly? NIP-29 says relays merge them.
-    // Let's stick to the pattern: use Kind 39000 with mergeable=true logic implies just publishing a new 39000 event replaces the old one for "d" tag.
-
     // Correction: NIP-29 generally uses Kind 9002 (Edit Metadata) which the relay then processes to update the internal state (Kind 39000).
     const EDIT_METADATA_KIND = 9002;
 
@@ -410,7 +416,18 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
     return { ...state, membership: computedMembership };
   }, [computedMembership, state]);
   const result: UseNip29GroupResult = useMemo((): UseNip29GroupResult => {
-    return { state: derivedState, refresh, requestJoin, approveJoin, denyJoin, sendMessage, updateMetadata };
-  }, [approveJoin, denyJoin, derivedState, refresh, requestJoin, sendMessage, updateMetadata]);
+    return {
+      state: derivedState,
+      refresh,
+      requestJoin,
+      approveJoin,
+      denyJoin,
+      sendMessage,
+      updateMetadata,
+      putUser: approveJoin,
+      removeUser: denyJoin,
+      admins: admins
+    };
+  }, [admins, approveJoin, denyJoin, derivedState, refresh, requestJoin, sendMessage, updateMetadata]);
   return result;
 };

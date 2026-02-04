@@ -97,11 +97,12 @@ type UseThemeResult = Readonly<{
 }>;
 
 const useTheme = (): UseThemeResult => {
+  const getServerSnapshot = (): ThemeSnapshot => SERVER_SNAPSHOT;
+  const snapshot: ThemeSnapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerSnapshot);
+
   useEffect((): void => {
     store.initializeFromStorage();
   }, []);
-  const getServerSnapshot = (): ThemeSnapshot => SERVER_SNAPSHOT;
-  const snapshot: ThemeSnapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerSnapshot);
   const setPreference = useCallback((preference: ThemePreference): void => {
     store.setPreference(preference);
   }, []);
