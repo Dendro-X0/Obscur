@@ -62,12 +62,24 @@ export class Nip96UploadService implements UploadService {
         }
 
         const result = await response.json();
+        console.log("NIP-96 Response:", result);
 
         // NIP-96 successful response contains a 'nip94_event' or 'url'
-        const url = result.url || (result.nip94_event?.tags?.find((t: string[]) => t[0] === 'url')?.[1]);
+        // Some providers might wrap it in 'data' or use 'link'
+        const url =
+            result.url ||
+            (result.nip94_event?.tags?.find((t: string[]) => t[0] === 'url')?.[1]) ||
+            result.data?.url ||
+            result.data?.[0]?.url ||
+            result.link;
 
         if (!url) {
-            throw new Error("NIP-96 response missing URL");
+            // Check for processing_url (async processing)
+            if (result.processing_url) {
+                throw new Error("File is processing significantly. Please try a different provider or smaller file.");
+            }
+            const keys = Object.keys(result).join(", ");
+            throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
         }
 
         const kind: AttachmentKind = file.type.startsWith("video/") ? "video" : "image";
