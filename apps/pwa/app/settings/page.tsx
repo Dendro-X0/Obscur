@@ -51,6 +51,8 @@ import { useTranslation } from "react-i18next";
 import { TrustSettingsPanel } from "../features/messaging/components/trust-settings-panel";
 import { AutoLockSettingsPanel } from "../features/settings/components/auto-lock-settings-panel";
 import { STORAGE_KEY_NIP96, Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
+import { RECOMMENDED_STORAGE_PROVIDERS } from "@/app/features/messaging/lib/storage-providers";
+import { Check, Info } from "lucide-react";
 import { AvatarUpload } from "../components/avatar-upload";
 import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
@@ -840,28 +842,49 @@ export default function SettingsPage(): React.JSX.Element {
                             </p>
                           </div>
 
-                          <div className="space-y-2">
-                            <Label className="text-xs font-semibold">Recommended Providers</Label>
-                            <div className="flex flex-wrap gap-2">
-                              {[
-                                { name: "nostr.build", url: "https://nostr.build/api/v2/upload/files" },
-                                { name: "void.cat", url: "https://void.cat/api/v1/nip96" },
-                                { name: "pixel.fed", url: "https://pixel.fed/api/v1/media" },
-                                { name: "sovbit", url: "https://sovbit.host/api/v2/upload/files" }
-                              ].map((provider) => (
-                                <Button
+                          <div className="space-y-3">
+                            <Label className="text-xs font-semibold flex items-center gap-1.5">
+                              <Check className="h-3 w-3 text-emerald-500" />
+                              Recommended Providers
+                            </Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {RECOMMENDED_STORAGE_PROVIDERS.map((provider) => (
+                                <button
                                   key={provider.name}
-                                  variant="secondary"
-                                  size="sm"
-                                  className={cn(
-                                    "text-[10px] h-7 px-2",
-                                    nip96Config.apiUrl === provider.url && "border-purple-500 bg-purple-500/5 text-purple-600"
-                                  )}
+                                  type="button"
                                   onClick={() => saveNip96Config({ ...nip96Config, apiUrl: provider.url })}
+                                  className={cn(
+                                    "text-left p-3 rounded-xl border transition-all hover:bg-zinc-50 dark:hover:bg-white/5",
+                                    nip96Config.apiUrl === provider.url
+                                      ? "border-purple-500 bg-purple-500/5 ring-1 ring-purple-500/20"
+                                      : "border-black/5 dark:border-white/5 bg-white dark:bg-zinc-900/40"
+                                  )}
                                 >
-                                  {provider.name}
-                                </Button>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-bold">{provider.name}</span>
+                                    {provider.maxSize && (
+                                      <span className="text-[9px] font-medium text-zinc-500 uppercase px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10">
+                                        {provider.maxSize}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">
+                                    {provider.description}
+                                  </p>
+                                </button>
                               ))}
+                            </div>
+
+                            <div className="mt-4 p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-2">
+                              <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
+                                <Info className="h-3.5 w-3.5" />
+                                How to choose?
+                              </div>
+                              <ul className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-2 list-disc pl-4">
+                                <li><strong>Privacy</strong>: Providers like <i>void.cat</i> prioritize no-logging policies.</li>
+                                <li><strong>Reliability</strong>: <i>nostr.build</i> is the most widely supported community standard.</li>
+                                <li><strong>Ownership</strong>: You can host your own NIP-96 server to have total control over your data.</li>
+                              </ul>
                             </div>
                           </div>
                         </div>
