@@ -29,6 +29,9 @@ export class Nip96UploadService implements UploadService {
 
         const headers: Record<string, string> = {};
 
+        // Sanitize URL
+        const endpoint = this.apiUrl.trim();
+
         // If we have keys, use NIP-98 Authorization
         if (this.publicKeyHex && this.privateKeyHex) {
             try {
@@ -37,7 +40,7 @@ export class Nip96UploadService implements UploadService {
                     content: "",
                     created_at: Math.floor(Date.now() / 1000),
                     tags: [
-                        ["u", this.apiUrl],
+                        ["u", endpoint],
                         ["method", "POST"]
                     ],
                     pubkey: this.publicKeyHex
@@ -50,7 +53,7 @@ export class Nip96UploadService implements UploadService {
             }
         }
 
-        const response = await fetch(this.apiUrl, {
+        const response = await fetch(endpoint, {
             method: "POST",
             body: formData,
             headers
@@ -89,7 +92,7 @@ export class Nip96UploadService implements UploadService {
             }
 
             const keys = Object.keys(result).join(", ");
-            throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
+            throw new Error(`DEBUG_V2: NIP-96 response missing URL. Keys received: [${keys}]`);
         }
 
         const kind: AttachmentKind = file.type.startsWith("video/") ? "video" : "image";
