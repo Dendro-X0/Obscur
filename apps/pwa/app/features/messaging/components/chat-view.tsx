@@ -208,8 +208,9 @@ export function ChatView(props: ChatViewProps) {
                         props.setMessageMenu(null);
                     }}
                     onCopyAttachmentUrl={() => {
-                        if (activeMessage.attachment) {
-                            props.onCopyAttachmentUrl(activeMessage.attachment.url);
+                        const firstAttachment = activeMessage.attachments?.[0];
+                        if (firstAttachment) {
+                            props.onCopyAttachmentUrl(firstAttachment.url);
                         }
                         props.setMessageMenu(null);
                     }}

@@ -23,7 +23,7 @@ interface MessageMenuProps {
 export function MessageMenu({ x, y, activeMessage, onCopyText, onCopyAttachmentUrl, onReply, onDelete, menuRef }: MessageMenuProps) {
     const canDelete: boolean = isDeletableMessageId(activeMessage.id);
     const hasText: boolean = Boolean(activeMessage.content.trim());
-    const hasAttachment: boolean = Boolean(activeMessage.attachment);
+    const hasAttachment: boolean = Boolean(activeMessage.attachments && activeMessage.attachments.length > 0);
 
     return (
         <div

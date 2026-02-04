@@ -1,0 +1,23 @@
+
+> pwa@0.4.0 build
+> next build
+
+▲ Next.js 16.1.1 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 6.2s
+  Running TypeScript ...
+Failed to compile.
+
+./app/features/messaging/components/message-list.legacy.tsx:258:66
+Type error: Property 'attachment' does not exist on type 'Readonly<{ id: string; kind: MessageKind; content: string; timestamp: Date; isOutgoing: boolean; status: MessageStatus; attachments?: readonly Readonly<{ kind: AttachmentKind; url: string; contentType: string; fileName: string; }>[] | undefined; ... 10 more ...; conversationId?: string | undefined; }>'. Did you mean 'attachments'?
+
+[0m [90m 256 |[39m                                                         )}
+ [90m 257 |[39m
+[31m[1m>[22m[39m[90m 258 |[39m                                                         {message[33m.[39mattachment [33m&&[39m (
+ [90m     |[39m                                                                  [31m[1m^[22m[39m
+ [90m 259 |[39m                                                             [33m<[39m[33mdiv[39m className[33m=[39m[32m"mb-2 relative rounded-xl overflow-hidden shadow-sm"[39m[33m>[39m
+ [90m 260 |[39m                                                                 {message[33m.[39mattachment[33m.[39mkind [33m===[39m [32m"image"[39m [33m?[39m (
+ [90m 261 |[39m                                                                     [33m<[39m[33mOptimizedImage[39m[0m
+Next.js build worker exited with code: 1 and signal: null

@@ -1,0 +1,48 @@
+
+> pwa@0.4.0 build
+> next build
+
+▲ Next.js 16.1.1 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 6.0s
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+⚠ Using edge runtime on a page currently disables static generation for that page
+  Generating static pages using 11 workers (0/21) ...
+  Generating static pages using 11 workers (5/21) 
+  Generating static pages using 11 workers (10/21) 
+  Generating static pages using 11 workers (15/21) 
+✓ Generating static pages using 11 workers (21/21) in 879.1ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api-backup/upload
+├ ƒ /api/[[...route]]
+├ ƒ /api/upload
+├ ○ /apple-icon
+├ ○ /apple-touch-icon.png
+├ ○ /contacts
+├ ○ /download
+├ ● /groups/[groupId]
+│ └ /groups/placeholder
+├ ○ /icon
+├ ○ /icon-192.png
+├ ○ /icon-512.png
+├ ○ /invite
+├ ƒ /invite/[code]
+├ ○ /invites
+├ ○ /profile
+├ ○ /requests
+├ ○ /search
+├ ○ /settings
+└ ○ /sw.js
+
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+
