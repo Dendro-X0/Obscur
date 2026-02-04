@@ -11,6 +11,7 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
 - **🎨 Modern UI**: Subtle gradients, smooth animations, and polished user experience
 - **🌙 Theme Support**: Beautiful light and dark themes with system preference detection
 - **🌍 Localized**: Available in English, Chinese (Simplified), and Spanish
+- **🖼️ Media Storage**: Native NIP-96 support for file uploads via external providers (nostr.build, etc.)
 - **📱 Progressive Web App**: Installable with offline functionality and push notifications
 - **🖥️ Cross-Platform**: Web app with planned desktop and mobile versions
 
@@ -31,7 +32,7 @@ This repository is a PNPM workspace with:
 
 - **PWA**: `apps/pwa` (Next.js) - Main web application
 - **API (optional, local dev)**: `apps/api` (Hono on Node) - Development API server
-- **Desktop (Alpha)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app
+- **Desktop (Alpha)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app with static PWA bundling
 - **Packages**: Shared libraries for crypto, storage, and Nostr functionality
 
 ### Smart Invite System

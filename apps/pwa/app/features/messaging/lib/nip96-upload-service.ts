@@ -92,7 +92,7 @@ export class Nip96UploadService implements UploadService {
             }
 
             const keys = Object.keys(result).join(", ");
-            throw new Error(`DEBUG_V2: NIP-96 response missing URL. Keys received: [${keys}]`);
+            throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
         }
 
         const kind: AttachmentKind = file.type.startsWith("video/") ? "video" : "image";
