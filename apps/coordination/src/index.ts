@@ -2,7 +2,6 @@ import { schnorr } from '@noble/curves/secp256k1';
 
 type Env = Readonly<{
   DB: D1Database;
-  MEDIA_BUCKET: R2Bucket;
   ENVIRONMENT: string;
   PUBLIC_BASE_URL?: string;
 }>;
@@ -322,69 +321,11 @@ const verifyNip98 = async (request: Request): Promise<{ pubkey: string } | null>
 }
 
 const handleUpload = async (request: Request, env: Env): Promise<Response> => {
-  // 1. Auth Check (NIP-98)
-  const auth = await verifyNip98(request);
-  if (!auth) {
-    return json({ status: 401, body: { ok: false, error: "unauthorized" } });
-  }
-
-  // 2. Parse Form Data
-  const formData = await request.formData();
-  const file = formData.get("file") as File;
-  if (!file) {
-    return badRequest("no_file");
-  }
-
-  // 3. Generate Filename
-  const buffer = await file.arrayBuffer();
-  const hash = await sha256Hex(file.name + Date.now().toString());
-  const ext = file.name.split('.').pop() || 'bin';
-  const objectKey = `${hash}.${ext}`;
-
-  // 4. Upload to R2
-  await env.MEDIA_BUCKET.put(objectKey, buffer, {
-    httpMetadata: {
-      contentType: file.type,
-    }
-  });
-
-  // 5. Construct URL
-  // Use worker's origin if PUBLIC_BASE_URL is not set
-  const urlObj = new URL(request.url);
-  const baseUrl = env.PUBLIC_BASE_URL || urlObj.origin;
-  const publicUrl = `${baseUrl}/files/${objectKey}`;
-
-  return json({
-    status: 200,
-    body: {
-      status: "success",
-      message: "Upload successful",
-      url: publicUrl,
-      nip94_event: {
-        tags: [
-          ["url", publicUrl],
-          ["m", file.type],
-          ["x", await sha256Hex(bytesToHex(buffer))], // NIP-94 x tag is hex(sha256(content))
-          ["size", buffer.byteLength.toString()],
-        ]
-      }
-    }
-  });
+  return json({ status: 501, body: { ok: false, error: "storage_disabled", message: "R2 storage is not configured for this worker." } });
 }
 
 const handleGetFile = async (request: Request, env: Env): Promise<Response> => {
-  const url = new URL(request.url);
-  const key = url.pathname.replace("/files/", "");
-
-  const object = await env.MEDIA_BUCKET.get(key);
-  if (!object) return notFound();
-
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("etag", object.httpEtag);
-  headers.set("access-control-allow-origin", "*");
-
-  return new Response(object.body, { headers });
+  return json({ status: 501, body: { ok: false, error: "storage_disabled" } });
 }
 
 export default {
