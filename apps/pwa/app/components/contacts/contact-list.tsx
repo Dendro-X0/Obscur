@@ -5,11 +5,13 @@ import { contactStore } from "@/app/features/invites/utils/contact-store";
 import type { Contact, ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
 import { ContactCard } from "./contact-card";
 import { ContactFilters } from "./contact-filters";
-import { Sparkles, Users, UserPlus } from "lucide-react";
+import { Users } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 
 export const ContactList = () => {
+    const { t } = useTranslation();
     const router = useRouter();
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [groups, setGroups] = useState<ContactGroup[]>([]);
@@ -69,8 +71,6 @@ export const ContactList = () => {
 
     return (
         <div className="space-y-6">
-
-
             <ContactFilters
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -86,10 +86,10 @@ export const ContactList = () => {
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50 dark:bg-zinc-900">
                         <Users className="h-6 w-6 text-zinc-400" />
                     </div>
-                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">No contacts found</h3>
-                    <p className="mt-1 text-xs text-zinc-500">Try changing your filters or add a new contact.</p>
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{t("invites.noContactsFound")}</h3>
+                    <p className="mt-1 text-xs text-zinc-500">{t("invites.noContactsDesc")}</p>
                     <Button variant="secondary" size="sm" className="mt-4" onClick={() => router.push("/search")}>
-                        Find People
+                        {t("invites.findPeople")}
                     </Button>
                 </div>
             ) : (
@@ -100,8 +100,6 @@ export const ContactList = () => {
                             contact={contact}
                             groups={groups}
                             onSelect={(c) => {
-                                // For now, just show a console log. 
-                                // We could add a side panel for contact details later.
                                 console.log("Selected contact:", c);
                             }}
                         />

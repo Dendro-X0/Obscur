@@ -72,7 +72,6 @@ export function Sidebar({
         <div className="flex h-full flex-col">
             <div className="border-b border-black/[0.03] p-4 dark:border-white/[0.03] space-y-4">
                 <div className="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
-                    {/* Animated background segment could be added here with framer-motion, but using CSS classes for simplicity now */}
                     <button
                         onClick={() => setActiveTab("chats")}
                         suppressHydrationWarning
@@ -83,7 +82,7 @@ export function Sidebar({
                                 : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                         )}
                     >
-                        Chats
+                        {t("nav.chats")}
                         {chatsUnreadTotal > 0 && (
                             <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] text-white shadow-sm">
                                 {chatsUnreadTotal}
@@ -100,7 +99,7 @@ export function Sidebar({
                                 : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                         )}
                     >
-                        Requests
+                        {t("nav.requests")}
                         {requests.length > 0 && (
                             <span className={cn(
                                 "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] text-white shadow-sm",
@@ -187,7 +186,7 @@ export function Sidebar({
                                             </div>
                                             <div className="flex items-start justify-between gap-2 overflow-hidden">
                                                 <p className="truncate text-xs text-zinc-600 dark:text-zinc-400 leading-normal flex-1">
-                                                    {conversation.lastMessage || "No messages yet"}
+                                                    {conversation.lastMessage || t("messaging.noMessagesYet")}
                                                 </p>
                                                 {(unreadByConversationId[conversation.id] ?? conversation.unreadCount) > 0 ? (
                                                     <span className="shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-black">
@@ -201,10 +200,10 @@ export function Sidebar({
 
                                 {searchQuery.trim().length > 0 && (
                                     <div className="p-3">
-                                        <div className="mb-3 px-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">Message Results</div>
+                                        <div className="mb-3 px-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">{t("messaging.messageResults")}</div>
                                         {messageSearchResults.length === 0 ? (
                                             <div className="py-4">
-                                                <p className="text-center text-xs text-zinc-500">No matching messages</p>
+                                                <p className="text-center text-xs text-zinc-500">{t("messaging.noMatchingMessages")}</p>
                                             </div>
                                         ) : (
                                             <div className="space-y-2">

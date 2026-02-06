@@ -36,7 +36,7 @@ export function TrustSettingsPanel() {
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                 <Input
-                    placeholder="Search peers by public key..."
+                    placeholder={t("settings.security.searchPeers")}
                     className="pl-9 h-11 bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:ring-purple-500/20"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -47,17 +47,17 @@ export function TrustSettingsPanel() {
             <section className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                        Accepted Contacts ({acceptedPeers.length})
+                        {t("settings.security.acceptedContacts")} ({acceptedPeers.length})
                     </h3>
                     <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-full uppercase tracking-tight">
                         <ShieldCheck className="h-3 w-3" />
-                        Trusted
+                        {t("invites.trusted")}
                     </div>
                 </div>
 
                 {filteredAccepted.length === 0 ? (
                     <Card className="p-8 text-center text-zinc-400 bg-zinc-50/30 dark:bg-zinc-900/30 border-dashed border-zinc-200 dark:border-zinc-800">
-                        <p className="text-xs italic">No trusted contacts found.</p>
+                        <p className="text-xs italic">{t("settings.security.noTrustedFound")}</p>
                     </Card>
                 ) : (
                     <div className="grid gap-2">
@@ -79,7 +79,7 @@ export function TrustSettingsPanel() {
                                         size="sm"
                                         className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
                                         onClick={() => peerTrust.mutePeer({ publicKeyHex: pk })}
-                                        title="Mute Peer"
+                                        title={t("settings.security.mutePeer")}
                                     >
                                         <VolumeX className="h-4 w-4" />
                                     </Button>
@@ -88,7 +88,7 @@ export function TrustSettingsPanel() {
                                         size="sm"
                                         className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
                                         onClick={() => peerTrust.unacceptPeer({ publicKeyHex: pk })}
-                                        title="Revoke Trust"
+                                        title={t("settings.security.revokeTrust")}
                                     >
                                         <ShieldOff className="h-4 w-4" />
                                     </Button>
@@ -103,7 +103,7 @@ export function TrustSettingsPanel() {
             {mutedPeers.length > 0 && (
                 <section className="space-y-3 pt-2">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 px-1">
-                        Muted Peers ({mutedPeers.length})
+                        {t("settings.security.mutedPeers")} ({mutedPeers.length})
                     </h3>
 
                     <div className="grid gap-2">
@@ -125,7 +125,7 @@ export function TrustSettingsPanel() {
                                         size="sm"
                                         className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
                                         onClick={() => peerTrust.unmutePeer({ publicKeyHex: pk })}
-                                        title="Unmute Peer"
+                                        title={t("settings.security.unmutePeer")}
                                     >
                                         <Volume2 className="h-4 w-4" />
                                     </Button>
@@ -141,16 +141,16 @@ export function TrustSettingsPanel() {
                 <section className="space-y-3 pt-2">
                     <div className="flex items-center justify-between px-1">
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                            Blocked Peers ({blockedPeers.length})
+                            {t("settings.blocklist.title")} ({blockedPeers.length})
                         </h3>
                         <div className="flex items-center gap-1.5 text-[10px] text-red-600 dark:text-red-400 font-bold bg-red-500/10 px-2 py-1 rounded-full uppercase tracking-tight">
                             <EyeOff className="h-3 w-3" />
-                            Invisible
+                            {t("settings.security.invisible")}
                         </div>
                     </div>
 
                     {filteredBlocked.length === 0 && blockedPeers.length > 0 ? (
-                        <p className="text-[10px] italic text-zinc-400 text-center py-2">No blocked users matching your search.</p>
+                        <p className="text-[10px] italic text-zinc-400 text-center py-2">{t("settings.security.noBlockedFound")}</p>
                     ) : (
                         <div className="grid gap-2">
                             {filteredBlocked.map((pk) => (
@@ -172,7 +172,7 @@ export function TrustSettingsPanel() {
                                             className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 px-3 h-8 rounded-lg transition-colors"
                                             onClick={() => blocklist.removeBlocked({ publicKeyHex: pk as any })}
                                         >
-                                            {t("settings.blocklist.remove")}
+                                            {t("settings.blocklist.unblock")}
                                         </Button>
                                     </div>
                                 </div>
@@ -188,11 +188,11 @@ export function TrustSettingsPanel() {
                         <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div className="space-y-1">
-                        <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">Privacy & Trust Guide</h4>
-                        <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-sm">
-                            **Accepted** peers can see your presence and bypass the request inbox.
-                            **Muted** peers can still message you, but you won&apos;t receive notifications.
-                            **Blocked** peers are completely invisible and cannot reach you.
+                        <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">{t("settings.security.guideTitle")}</h4>
+                        <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-sm space-y-1">
+                            <span className="block">{t("settings.security.acceptedDesc")}</span>
+                            <span className="block">{t("settings.security.mutedDesc")}</span>
+                            <span className="block">{t("settings.security.blockedDesc")}</span>
                         </p>
                     </div>
                 </div>

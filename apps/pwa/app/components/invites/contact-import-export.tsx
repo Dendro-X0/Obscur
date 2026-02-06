@@ -6,6 +6,7 @@ import type { ImportResult } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Label } from "../ui/label";
+import { useTranslation } from "react-i18next";
 
 type ImportState =
   | { status: "idle" }
@@ -15,6 +16,7 @@ type ImportState =
   | { status: "error"; error: string };
 
 export const ContactImportExport = () => {
+  const { t } = useTranslation();
   const [importState, setImportState] = useState<ImportState>({ status: "idle" });
   const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -23,38 +25,30 @@ export const ContactImportExport = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Reset state
     setImportState({ status: "validating" });
 
     try {
-      // Read file content
       const fileContent = await file.text();
-
-      // Validate format
       const validation = await inviteManager.validateContactListFormat(JSON.parse(fileContent));
 
       if (!validation.isValid) {
         setImportState({
           status: "error",
-          error: `Invalid file format: ${validation.errors.join(", ")}`
+          error: `${t("common.invalid")} ${t("invites.fileFormat")}: ${validation.errors.join(", ")}`
         });
         return;
       }
 
-      // Start import
       setImportState({ status: "importing", progress: 0, total: 0 });
-
       const result = await inviteManager.importContactsFromFile(fileContent);
-
       setImportState({ status: "completed", result });
     } catch (error) {
       setImportState({
         status: "error",
-        error: error instanceof Error ? error.message : "Failed to import contacts"
+        error: error instanceof Error ? error.message : t("invites.importFailed")
       });
     }
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -64,8 +58,6 @@ export const ContactImportExport = () => {
     setIsExporting(true);
     try {
       const exportData = await inviteManager.exportContactsToFile();
-
-      // Create blob and download
       const blob = new Blob([exportData], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -75,11 +67,8 @@ export const ContactImportExport = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
-      // TODO: Show success toast
     } catch (error) {
       console.error("Export failed:", error);
-      // TODO: Show error toast
     } finally {
       setIsExporting(false);
     }
@@ -92,16 +81,16 @@ export const ContactImportExport = () => {
   return (
     <div className="space-y-4">
       {/* Import Section */}
-      <Card title="Import Contacts" description="Import contacts from a JSON file">
+      <Card title={t("invites.importContacts")} description={t("invites.importContactsDesc")}>
         <div className="space-y-4">
           {importState.status === "idle" && (
             <>
               <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                Import contacts from a Nostr contact list (NIP-02 format) or an Obscur export file.
+                {t("invites.importSourceDesc")}
               </div>
 
               <div>
-                <Label htmlFor="fileInput">Select File</Label>
+                <Label htmlFor="fileInput">{t("invites.selectFile")}</Label>
                 <input
                   ref={fileInputRef}
                   id="fileInput"
@@ -113,7 +102,7 @@ export const ContactImportExport = () => {
               </div>
 
               <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-3 text-xs text-blue-900 dark:text-blue-100">
-                <div className="font-medium mb-1">Supported Formats</div>
+                <div className="font-medium mb-1">{t("invites.supportedFormats")}</div>
                 <ul className="list-disc list-inside space-y-1">
                   <li>Nostr contact lists (NIP-02)</li>
                   <li>Obscur contact exports</li>
@@ -126,7 +115,7 @@ export const ContactImportExport = () => {
           {importState.status === "validating" && (
             <div className="text-center py-8">
               <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                Validating file format...
+                {t("invites.validating")}
               </div>
             </div>
           )}
@@ -134,10 +123,10 @@ export const ContactImportExport = () => {
           {importState.status === "importing" && (
             <div className="text-center py-8">
               <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
-                Importing contacts...
+                {t("invites.importing")}
               </div>
               <div className="text-xs text-zinc-500 dark:text-zinc-500">
-                This may take a moment for large contact lists
+                {t("invites.importLargeListNote")}
               </div>
             </div>
           )}
@@ -146,20 +135,20 @@ export const ContactImportExport = () => {
             <div className="space-y-4">
               <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-4">
                 <div className="text-sm font-medium text-emerald-900 dark:text-emerald-100 mb-2">
-                  Import Completed
+                  {t("invites.importCompleted")}
                 </div>
                 <div className="space-y-1 text-xs text-emerald-800 dark:text-emerald-200">
-                  <div>Total contacts: {importState.result.totalContacts}</div>
-                  <div>Successfully imported: {importState.result.successfulImports}</div>
-                  <div>Duplicates skipped: {importState.result.duplicates}</div>
-                  <div>Failed: {importState.result.failedImports}</div>
+                  <div>{t("invites.totalContacts")}: {importState.result.totalContacts}</div>
+                  <div>{t("invites.successfulImports")}: {importState.result.successfulImports}</div>
+                  <div>{t("invites.duplicatesSkipped")}: {importState.result.duplicates}</div>
+                  <div>{t("invites.failed")}: {importState.result.failedImports}</div>
                 </div>
               </div>
 
               {importState.result.errors.length > 0 && (
                 <div className="rounded-lg bg-red-50 dark:bg-red-950/20 p-4">
                   <div className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">
-                    Import Errors ({importState.result.errors.length})
+                    {t("invites.importErrors")} ({importState.result.errors.length})
                   </div>
                   <div className="max-h-40 overflow-y-auto space-y-2">
                     {importState.result.errors.slice(0, 10).map((error, index) => (
@@ -178,7 +167,7 @@ export const ContactImportExport = () => {
               )}
 
               <Button onClick={handleReset} variant="secondary" className="w-full">
-                Import Another File
+                {t("invites.importAnother")}
               </Button>
             </div>
           )}
@@ -187,7 +176,7 @@ export const ContactImportExport = () => {
             <div className="space-y-4">
               <div className="rounded-lg bg-red-50 dark:bg-red-950/20 p-4">
                 <div className="text-sm font-medium text-red-900 dark:text-red-100 mb-1">
-                  Import Failed
+                  {t("invites.importFailed")}
                 </div>
                 <div className="text-xs text-red-800 dark:text-red-200">
                   {importState.error}
@@ -195,7 +184,7 @@ export const ContactImportExport = () => {
               </div>
 
               <Button onClick={handleReset} variant="secondary" className="w-full">
-                Try Again
+                {t("common.tryAgain")}
               </Button>
             </div>
           )}
@@ -203,16 +192,16 @@ export const ContactImportExport = () => {
       </Card>
 
       {/* Export Section */}
-      <Card title="Export Contacts" description="Export your contacts to a JSON file">
+      <Card title={t("invites.exportContacts")} description={t("invites.exportContactsDesc")}>
         <div className="space-y-4">
           <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            Export all your contacts (except blocked ones) to a JSON file that can be imported later or shared with other Nostr clients.
+            {t("invites.exportSourceDesc")}
           </div>
 
           <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-3 text-xs text-blue-900 dark:text-blue-100">
-            <div className="font-medium mb-1">Export Format</div>
+            <div className="font-medium mb-1">{t("invites.exportFormat")}</div>
             <div>
-              Contacts are exported in NIP-02 compatible format, which can be imported by most Nostr clients.
+              {t("invites.exportFormatDesc")}
             </div>
           </div>
 
@@ -221,26 +210,26 @@ export const ContactImportExport = () => {
             disabled={isExporting}
             className="w-full"
           >
-            {isExporting ? "Exporting..." : "Export Contacts"}
+            {isExporting ? t("invites.exporting") : t("invites.exportContacts")}
           </Button>
         </div>
       </Card>
 
       {/* Import Instructions */}
-      <Card title="Import Instructions" description="How to prepare your contact list">
+      <Card title={t("invites.importInstructions")} description={t("invites.howToPrepare")}>
         <div className="space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
           <div>
             <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">
-              File Format
+              {t("invites.fileFormat")}
             </div>
             <div className="text-xs">
-              Your JSON file should contain a contacts array with public keys and optional metadata.
+              {t("invites.fileFormatDesc")}
             </div>
           </div>
 
           <div>
             <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">
-              Example Structure
+              {t("invites.exampleStructure")}
             </div>
             <pre className="mt-1 rounded-lg bg-zinc-100 dark:bg-zinc-900 p-3 text-xs overflow-x-auto scrollbar-immersive">
               {`{
@@ -259,22 +248,22 @@ export const ContactImportExport = () => {
 
           <div>
             <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">
-              Validation
+              {t("invites.validation")}
             </div>
             <ul className="list-disc list-inside space-y-1 text-xs">
-              <li>Public keys must be valid Nostr public keys</li>
-              <li>Duplicate contacts will be skipped</li>
-              <li>Invalid entries will be reported in the import results</li>
-              <li>Large imports may take several minutes</li>
+              <li>{t("invites.validationKeys")}</li>
+              <li>{t("invites.validationDuplicates")}</li>
+              <li>{t("invites.validationErrors")}</li>
+              <li>{t("invites.validationLarge")}</li>
             </ul>
           </div>
 
           <div>
             <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">
-              Rate Limiting
+              {t("invites.rateLimiting")}
             </div>
             <div className="text-xs">
-              Imports are rate-limited to prevent system overload. Large contact lists will be processed in batches.
+              {t("invites.rateLimitingDesc")}
             </div>
           </div>
         </div>

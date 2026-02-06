@@ -1,3 +1,4 @@
+"use client";
 
 import React from "react";
 import { OptimizedImage } from "../../../components/optimized-image";
@@ -146,7 +147,6 @@ export function MessageList({
                                                 message.isOutgoing
                                                     ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                                                     : "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100 shadow-sm border border-black/[0.03] dark:border-white/[0.03]",
-                                                // Dynamic Border Radius for grouping
                                                 message.isOutgoing
                                                     ? cn(
                                                         "rounded-[20px]",
@@ -165,7 +165,6 @@ export function MessageList({
                                                 flashMessageId === message.id && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse"
                                             )}
                                         >
-                                            {/* Interaction Hover Menu */}
                                             <div className={cn(
                                                 "absolute opacity-0 group-hover:opacity-100 transition-opacity z-20 top-1 flex flex-col gap-1.5",
                                                 message.isOutgoing ? "-left-12" : "-right-12"
@@ -195,7 +194,7 @@ export function MessageList({
                                                             <span className="text-[10px] font-bold text-zinc-400">?</span>
                                                         </div>
                                                         <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
-                                                            {message.senderPubkey?.slice(0, 8) || "Unknown"}
+                                                            {message.senderPubkey?.slice(0, 8) || t("common.unknown")}
                                                         </span>
                                                     </div>
                                                 )}
@@ -219,7 +218,7 @@ export function MessageList({
                                                             >
                                                                 <div className="flex items-center gap-2 mb-1">
                                                                     <div className="w-0.5 h-3 bg-purple-500 rounded-full" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Reply</span>
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-50">{t("common.reply")}</span>
                                                                 </div>
                                                                 <div className="truncate opacity-80 italic">{message.replyTo.previewText}</div>
                                                             </div>
@@ -255,7 +254,6 @@ export function MessageList({
                                                                         key={`${attachment.url}-${index}`}
                                                                         className={cn(
                                                                             "relative bg-black/5 dark:bg-white/5",
-                                                                            // Full width if single item or last item in odd-numbered list
                                                                             (message.attachments!.length === 1 || (index === message.attachments!.length - 1 && message.attachments!.length % 2 !== 0))
                                                                                 ? "col-span-2 aspect-video max-h-80"
                                                                                 : "aspect-square"
@@ -304,12 +302,12 @@ export function MessageList({
                                                         <div className="flex items-center gap-1">
                                                             {((): React.JSX.Element | null => {
                                                                 const uiByStatus: Readonly<Record<MessageStatus, StatusUi>> = {
-                                                                    sending: { label: "Sending", icon: (p) => <Clock className={cn("animate-pulse", p.className)} /> },
-                                                                    accepted: { label: "Sent", icon: (p) => <Check className={p.className} /> },
-                                                                    rejected: { label: "Failed", icon: (p) => <AlertTriangle className={p.className} /> },
-                                                                    delivered: { label: "Delivered", icon: (p) => <CheckCheck className={p.className} /> },
-                                                                    queued: { label: "Queued", icon: (p) => <Clock className={p.className} /> },
-                                                                    failed: { label: "Failed", icon: (p) => <AlertTriangle className={p.className} /> },
+                                                                    sending: { label: t("messaging.status.sending"), icon: (p) => <Clock className={cn("animate-pulse", p.className)} /> },
+                                                                    accepted: { label: t("messaging.status.sent"), icon: (p) => <Check className={p.className} /> },
+                                                                    rejected: { label: t("messaging.status.failed"), icon: (p) => <AlertTriangle className={p.className} /> },
+                                                                    delivered: { label: t("messaging.status.delivered"), icon: (p) => <CheckCheck className={p.className} /> },
+                                                                    queued: { label: t("messaging.status.queued"), icon: (p) => <Clock className={p.className} /> },
+                                                                    failed: { label: t("messaging.status.failed"), icon: (p) => <AlertTriangle className={p.className} /> },
                                                                 };
                                                                 const ui = uiByStatus[message.status];
                                                                 const Icon = ui.icon;
@@ -320,7 +318,7 @@ export function MessageList({
                                                 </div>
                                             </div>
 
-                                            {message.status === "rejected" && (
+                                            {(message.status === "rejected" || message.status === "failed") && (
                                                 <div className="absolute -right-16 top-1/2 -translate-y-1/2">
                                                     <Button
                                                         type="button"
@@ -329,7 +327,7 @@ export function MessageList({
                                                         className="h-8 px-3 rounded-full bg-rose-500 text-white border-none text-[10px] font-bold"
                                                         onClick={() => onRetryMessage(message)}
                                                     >
-                                                        Retry
+                                                        {t("common.retry")}
                                                     </Button>
                                                 </div>
                                             )}

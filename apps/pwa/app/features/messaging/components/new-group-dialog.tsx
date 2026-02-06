@@ -32,7 +32,7 @@ export function NewGroupDialog({ isOpen, onClose, name, setName, memberPubkeys, 
                             id="new-group-name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Optional"
+                            placeholder={t("groups.optional")}
                         />
                     </div>
                     <div className="space-y-2">
@@ -41,7 +41,7 @@ export function NewGroupDialog({ isOpen, onClose, name, setName, memberPubkeys, 
                             id="new-group-members"
                             value={memberPubkeys}
                             onChange={(e) => setMemberPubkeys(e.target.value)}
-                            placeholder="npub...\nnpub..."
+                            placeholder={t("messaging.memberPubkeysPlaceholder")}
                             rows={4}
                         />
                     </div>

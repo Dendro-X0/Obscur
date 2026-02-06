@@ -348,13 +348,13 @@ export default function SettingsPage(): React.JSX.Element {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="profile-nip05">{t("profile.nip05Label", "NIP-05 Identifier")}</Label>
+                          <Label htmlFor="profile-nip05">{t("profile.nip05Label")}</Label>
                           <div className="flex gap-2">
                             <Input
                               id="profile-nip05"
                               value={profile.state.profile.nip05 || ""}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setNip05({ nip05: e.target.value })}
-                              placeholder="name@domain.tld"
+                              placeholder={t("profile.nip05Placeholder")}
                             />
                             <Button
                               type="button"
@@ -362,10 +362,10 @@ export default function SettingsPage(): React.JSX.Element {
                               onClick={handleVerifyNip05}
                               disabled={isVerifyingNip05 || !profile.state.profile.nip05}
                             >
-                              {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05", "Verify")}
+                              {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05")}
                             </Button>
                           </div>
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help", "Connect your identity to a domain.")}</div>
+                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -377,29 +377,29 @@ export default function SettingsPage(): React.JSX.Element {
                                 nip05: profile.state.profile.nip05
                               });
                               if (success) {
-                                toast.success(t("settings.profileSaved", "Profile published to network!"));
+                                toast.success(t("settings.profileSaved"));
                               } else {
-                                toast.error(t("settings.profilePublishFailed", "Failed to publish. Check relay connections."));
+                                toast.error(t("settings.profilePublishFailed"));
                               }
                             }}
                             disabled={isPublishing}
                           >
-                            {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.publishing", "Publishing...")}</> : t("settings.saveAndPublish", "Save & Publish")}
+                            {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.publishing")}</> : t("settings.saveAndPublish")}
                           </Button>
                           <Button
                             type="button"
                             variant="secondary"
                             onClick={() => {
                               profile.reset();
-                              toast.info(t("settings.changesReset", "Changes reset"));
+                              toast.info(t("settings.changesReset"));
                             }}
                           >
                             {t("profile.reset")}
                           </Button>
                         </div>
                         <div className="mt-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-                          <p className="font-semibold mb-1">Tip: Ghost Account?</p>
-                          <p>If others can't find you, click <strong>Save & Publish</strong> to broadcast your profile to all connected relays.</p>
+                          <p className="font-semibold mb-1">{t("profile.ghostAccountTip")}</p>
+                          <p>{t("profile.ghostAccountDesc")}</p>
                         </div>
                       </div>
                     </Card>
@@ -435,7 +435,7 @@ export default function SettingsPage(): React.JSX.Element {
                       <div className="space-y-1">
                         <div className="text-sm font-medium">{t("settings.health.identity")}</div>
                         <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                          {identity.state.status === "unlocked" ? "Unlocked" : identity.state.status === "locked" ? "Locked" : identity.state.status}
+                          {identity.state.status === "unlocked" ? t("settings.health.unlocked") : identity.state.status === "locked" ? t("settings.health.locked") : identity.state.status}
                         </div>
                       </div>
 
@@ -486,7 +486,7 @@ export default function SettingsPage(): React.JSX.Element {
                     <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="profile-pubkey">{t("identity.publicKeyHex") || "Public Key (Hex)"}</Label>
+                          <Label htmlFor="profile-pubkey">{t("identity.publicKeyHex")}</Label>
                           <Input id="profile-pubkey" value={displayPublicKeyHex} readOnly className="font-mono text-xs" />
                           <div className="flex gap-2">
                             <Button
@@ -494,7 +494,7 @@ export default function SettingsPage(): React.JSX.Element {
                               variant="secondary"
                               onClick={(): void => {
                                 void navigator.clipboard.writeText(displayPublicKeyHex);
-                                toast.success(t("common.copied", "Copied to clipboard"));
+                                toast.success(t("common.copied"));
                               }}
                               disabled={!displayPublicKeyHex}
                             >
@@ -507,7 +507,7 @@ export default function SettingsPage(): React.JSX.Element {
                               onClick={() => setIsDeleteDialogOpen(true)}
                             >
                               <LogOut className="mr-2 h-4 w-4" />
-                              {t("common.disconnect", "Disconnect")}
+                              {t("common.disconnect")}
                             </Button>
                           </div>
                           <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</div>
@@ -515,16 +515,16 @@ export default function SettingsPage(): React.JSX.Element {
                       </div>
                     </Card>
 
-                    <Card title={t("settings.dangerZone", "Danger Zone")} tone="danger" className="mt-8 border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/10">
+                    <Card title={t("settings.dangerZone")} tone="danger" className="mt-8 border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/10">
                       <div className="space-y-4">
                         <div className="flex items-start gap-4">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
                             <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                           </div>
                           <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.deleteAccount", "Delete Account")}</h3>
+                            <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.deleteAccount")}</h3>
                             <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
-                              {t("settings.deleteAccountDesc", "This will permanently remove your account key from this device and reset all local data. This action cannot be undone.")}
+                              {t("settings.deleteAccountDesc")}
                             </p>
                           </div>
                         </div>
@@ -534,7 +534,7 @@ export default function SettingsPage(): React.JSX.Element {
                           className="w-full sm:w-auto px-8"
                           onClick={() => setIsDeleteDialogOpen(true)}
                         >
-                          {t("settings.deleteAccount", "Delete Account & Reset Data")}
+                          {t("settings.deleteAccountFull")}
                         </Button>
                       </div>
 
@@ -544,14 +544,14 @@ export default function SettingsPage(): React.JSX.Element {
                         onConfirm={async () => {
                           await identity.forgetIdentity();
                           localStorage.clear();
-                          toast.success(t("settings.accountDeleted", "Account deleted successfully"));
+                          toast.success(t("settings.accountDeleted"));
                           setTimeout(() => {
                             window.location.href = "/";
                           }, 1000);
                         }}
-                        title={t("settings.deleteAccountConfirmTitle", "Delete Account?")}
-                        description={t("settings.deleteAccountConfirm", "Are you sure you want to delete your account and reset all data? This cannot be undone.")}
-                        confirmLabel={t("settings.deleteConfirm", "Yes, delete everything")}
+                        title={t("settings.deleteAccountConfirmTitle")}
+                        description={t("settings.deleteAccountConfirm")}
+                        confirmLabel={t("settings.deleteConfirm")}
                         variant="danger"
                       />
                     </Card>
@@ -704,14 +704,14 @@ export default function SettingsPage(): React.JSX.Element {
                             className="w-full sm:w-auto"
                             onClick={() => {
                               relayList.resetRelays();
-                              toast.success(t("settings.relays.resetSuccess", "Relays reset to defaults"));
+                              toast.success(t("settings.relays.resetSuccess"));
                             }}
                           >
                             <RefreshCcw className="mr-2 h-4 w-4" />
-                            {t("settings.relays.resetToDefaults", "Reset to Recommended Relays")}
+                            {t("settings.relays.resetToDefaults")}
                           </Button>
                           <p className="mt-2 text-[10px] text-zinc-500">
-                            {t("settings.relays.resetHelp", "Use this if you are having trouble connecting or finding users.")}
+                            {t("settings.relays.resetHelp")}
                           </p>
                         </div>
                       </div>
@@ -721,10 +721,10 @@ export default function SettingsPage(): React.JSX.Element {
 
 
                 {activeTab === "blocklist" && (
-                  <Card title={t("settings.tabs.blocklist", "Blocklist")} description={t("settings.blocklist.desc", "Managing blocked users. You won't receive messages from anyone on this list.")} className="w-full">
+                  <Card title={t("settings.tabs.blocklist")} description={t("settings.blocklist.desc")} className="w-full">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="block-pubkey">{t("settings.blocklist.addLabel", "Block a Public Key")}</Label>
+                        <Label htmlFor="block-pubkey">{t("settings.blocklist.addLabel")}</Label>
                         <div className="flex gap-2">
                           <Input
                             id="block-pubkey"
@@ -735,7 +735,7 @@ export default function SettingsPage(): React.JSX.Element {
                                 if (val) {
                                   blocklist.addBlocked({ publicKeyInput: val });
                                   (e.target as HTMLInputElement).value = "";
-                                  toast.success(t("settings.blocklist.added", "User blocked"));
+                                  toast.success(t("settings.blocklist.added"));
                                 }
                               }
                             }}
@@ -744,9 +744,9 @@ export default function SettingsPage(): React.JSX.Element {
                       </div>
 
                       <div className="space-y-2">
-                        <h4 className="text-sm font-medium">{t("settings.blocklist.blockedUsers", "Blocked Users")} ({blocklist.state.blockedPublicKeys.length})</h4>
+                        <h4 className="text-sm font-medium">{t("settings.blocklist.blockedUsers")} ({blocklist.state.blockedPublicKeys.length})</h4>
                         {blocklist.state.blockedPublicKeys.length === 0 ? (
-                          <p className="text-xs text-zinc-500 italic">{t("settings.blocklist.empty", "No users blocked yet.")}</p>
+                          <p className="text-xs text-zinc-500 italic">{t("settings.blocklist.empty")}</p>
                         ) : (
                           <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                             {blocklist.state.blockedPublicKeys.map((pubkey) => (
@@ -758,7 +758,7 @@ export default function SettingsPage(): React.JSX.Element {
                                   className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                                   onClick={() => {
                                     blocklist.removeBlocked({ publicKeyHex: pubkey });
-                                    toast.info(t("settings.blocklist.removed", "User unblocked"));
+                                    toast.info(t("settings.blocklist.removed"));
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -773,11 +773,11 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
 
 
-                <Card title="Privacy & Trust" description="Manage who you trust and who can reach you directly." className="w-full">
+                <Card title={t("settings.tabs.privacyTrust")} description={t("settings.tabs.privacyTrustDesc")} className="w-full">
                   <div className="mb-6 pb-6 border-b border-zinc-100 dark:border-zinc-800">
-                    <Label className="text-sm font-semibold mb-3 block">Direct Message Privacy</Label>
+                    <Label className="text-sm font-semibold mb-3 block">{t("groups.directMessagePrivacy")}</Label>
                     <div className="flex flex-col gap-2">
-                      <p className="text-xs text-zinc-500 mb-2">Control who can send you direct messages.</p>
+                      <p className="text-xs text-zinc-500 mb-2">{t("settings.dmPrivacy.desc")}</p>
                       <div className="flex gap-2 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl w-fit">
                         <button
                           onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: 'everyone' })}
@@ -788,7 +788,7 @@ export default function SettingsPage(): React.JSX.Element {
                               : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                           )}
                         >
-                          Everyone
+                          {t("settings.dmPrivacy.everyone")}
                         </button>
                         <button
                           onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: 'contacts-only' })}
@@ -799,13 +799,13 @@ export default function SettingsPage(): React.JSX.Element {
                               : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                           )}
                         >
-                          Contacts Only
+                          {t("settings.dmPrivacy.contactsOnly")}
                         </button>
                       </div>
                       {privacySettings.dmPrivacy === 'contacts-only' && (
                         <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-1 flex items-center gap-1">
                           <ShieldAlert className="h-3 w-3" />
-                          Stranger messages will be filtered out.
+                          {t("settings.dmPrivacy.filterNote")}
                         </p>
                       )}
                     </div>
@@ -820,24 +820,24 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
 
                 {activeTab === "storage" && (
-                  <Card title="File Storage" description="Configure where your file attachments are uploaded." className="w-full">
+                  <Card title={t("settings.tabs.storageTitle")} description={t("settings.tabs.storageDesc")} className="w-full">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-3 rounded-xl border border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60">
                         <div className="space-y-0.5">
-                          <div className="text-sm font-medium">External Storage (NIP-96)</div>
-                          <div className="text-xs text-zinc-500">Upload files directly to a Nostr storage provider.</div>
+                          <div className="text-sm font-medium">{t("settings.storage.externalTitle")}</div>
+                          <div className="text-xs text-zinc-500">{t("settings.storage.externalDesc")}</div>
                         </div>
                         <Button
                           variant={nip96Config.enabled ? "primary" : "secondary"}
                           onClick={() => saveNip96Config({ ...nip96Config, enabled: !nip96Config.enabled })}
                         >
-                          {nip96Config.enabled ? "Enabled" : "Disabled"}
+                          {nip96Config.enabled ? t("settings.storage.enabled") : t("settings.storage.disabled")}
                         </Button>
                       </div>
 
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="nip96-url">NIP-96 API URL</Label>
+                          <Label htmlFor="nip96-url">{t("settings.storage.apiUrlLabel")}</Label>
                           <Input
                             id="nip96-url"
                             placeholder="https://nostr.build/api/v2/upload/files"
@@ -845,14 +845,14 @@ export default function SettingsPage(): React.JSX.Element {
                             onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
                           />
                           <p className="text-[10px] text-zinc-500">
-                            The endpoint where files will be POSTed. Requires NIP-98 support for auth.
+                            {t("settings.storage.apiUrlDesc")}
                           </p>
                         </div>
 
                         <div className="space-y-3">
                           <Label className="text-xs font-semibold flex items-center gap-1.5">
                             <Check className="h-3 w-3 text-emerald-500" />
-                            Recommended Providers
+                            {t("settings.storage.recommended")}
                           </Label>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {RECOMMENDED_STORAGE_PROVIDERS.map((provider) => (
@@ -891,10 +891,9 @@ export default function SettingsPage(): React.JSX.Element {
                             <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
                               <p className="font-bold mb-1 flex items-center gap-1">
                                 <ShieldAlert className="h-3 w-3" />
-                                Current Mode: Local Uploads
+                                {t("settings.storage.localMode")}
                               </p>
-                              Local uploads are strictly for the Desktop app or private local relays.
-                              <strong> On Vercel, you must select an External Provider above.</strong>
+                              {t("settings.storage.localModeDesc")}
                             </div>
                           </div>
                         )}
@@ -902,12 +901,12 @@ export default function SettingsPage(): React.JSX.Element {
                         <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-2">
                           <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
                             <Info className="h-3.5 w-3.5" />
-                            Storage Guidance
+                            {t("settings.storage.guidance")}
                           </div>
                           <ul className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-2 list-disc pl-4">
-                            <li><strong>Why External?</strong> Web browsers cannot save files to servers directly without a dedicated storage layer like NIP-96.</li>
-                            <li><strong>Privacy</strong>: Providers like <i>void.cat</i> prioritize no-logging policies and encryption headers.</li>
-                            <li><strong>Capacity</strong>: <i>nostr.build</i> provides the most stable multi-device experience.</li>
+                            <li>{t("settings.storage.guidanceWhy")}</li>
+                            <li>{t("settings.storage.guidancePrivacy")}</li>
+                            <li>{t("settings.storage.guidanceCapacity")}</li>
                           </ul>
                         </div>
                       </div>
@@ -917,7 +916,7 @@ export default function SettingsPage(): React.JSX.Element {
               </div>
             </div>
           </main>
-        </div>
+        </div >
       </div >
     </PageShell >
   );

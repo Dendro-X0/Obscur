@@ -9,17 +9,68 @@ export function useAutoLock() {
     const [settings, setSettings] = useState<PrivacySettings>(PrivacySettingsService.getSettings());
     const [isLocked, setIsLocked] = useState<boolean>(false);
     const [lastActivityTime, setLastActivityTime] = useState<number>(() => Date.now());
+    const [torStatus, setTorStatus] = useState<'disconnected' | 'starting' | 'connected' | 'error' | 'stopped'>('disconnected');
+    const [torLogs, setTorLogs] = useState<string[]>([]);
+    const [torRestartRequired, setTorRestartRequired] = useState<boolean>(false);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Sync with global settings
+    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+
+    // Sync with global settings and handle Tor lifecycle
     useEffect(() => {
         const handleSettingsChange = () => {
-            setSettings(PrivacySettingsService.getSettings());
+            const newSettings = PrivacySettingsService.getSettings();
+            setSettings(newSettings);
         };
 
         window.addEventListener('privacy-settings-changed', handleSettingsChange);
-        return () => window.removeEventListener('privacy-settings-changed', handleSettingsChange);
-    }, []);
+
+        // Listen for Tor events if in Tauri
+        let unlistenStatus: (() => void) | undefined;
+        let unlistenLog: (() => void) | undefined;
+        let unlistenError: (() => void) | undefined;
+
+        if (isTauri) {
+            import('@tauri-apps/api/event').then(({ listen }) => {
+                listen('tor-status', (event) => {
+                    setTorStatus(event.payload as any);
+                }).then(u => unlistenStatus = u);
+
+                listen('tor-log', (event) => {
+                    const log = event.payload as string;
+                    setTorLogs(prev => [...prev.slice(-99), log]);
+                }).then(u => unlistenLog = u);
+
+                listen('tor-error', (event) => {
+                    console.error('[Tor Error]', event.payload);
+                    setTorStatus('error');
+                }).then(u => unlistenError = u);
+            });
+
+            // Initial status check
+            import('@tauri-apps/api/core').then(({ invoke }) => {
+                invoke<boolean>('get_tor_status').then(running => {
+                    if (running) setTorStatus('connected');
+                });
+            });
+        }
+
+        return () => {
+            window.removeEventListener('privacy-settings-changed', handleSettingsChange);
+            if (unlistenStatus) unlistenStatus();
+            if (unlistenLog) unlistenLog();
+            if (unlistenError) unlistenError();
+        };
+    }, [isTauri]);
+
+    // Auto-start Tor on mount if enabled
+    useEffect(() => {
+        if (isTauri && settings.enableTorProxy && torStatus === 'disconnected') {
+            import('@tauri-apps/api/core').then(({ invoke }) => {
+                invoke('start_tor').catch(console.error);
+            });
+        }
+    }, [isTauri, settings.enableTorProxy]);
 
     // Clear clipboard if allowed and configured
     const clearClipboard = useCallback(async () => {
@@ -104,13 +155,33 @@ export function useAutoLock() {
         };
     }, [settings.autoLockTimeout, lastActivityTime, isLocked, lock]);
 
-    // Save settings
+    // Save settings and manage Tor process
     const updateSettings = useCallback((newSettings: Partial<PrivacySettings>) => {
         const current = PrivacySettingsService.getSettings();
         const updated = { ...current, ...newSettings };
+
+        // Handle Tor process if enableTorProxy changed
+        if (isTauri && newSettings.enableTorProxy !== undefined && newSettings.enableTorProxy !== current.enableTorProxy) {
+            import('@tauri-apps/api/core').then(({ invoke }) => {
+                if (newSettings.enableTorProxy) {
+                    invoke('start_tor').catch(console.error);
+                } else {
+                    invoke('stop_tor').catch(console.error);
+                }
+
+                // Persist settings to Rust for startup proxy and flag restart
+                invoke('save_tor_settings', {
+                    enableTor: newSettings.enableTorProxy,
+                    proxyUrl: updated.torProxyUrl
+                }).then(() => {
+                    setTorRestartRequired(true);
+                }).catch(console.error);
+            });
+        }
+
         PrivacySettingsService.saveSettings(updated);
         setSettings(updated);
-    }, []);
+    }, [isTauri]);
 
     return {
         isLocked,
@@ -119,5 +190,9 @@ export function useAutoLock() {
         lock,
         unlock,
         lastActivityTime,
+        torStatus,
+        torLogs,
+        torRestartRequired,
+        isTauri
     };
 }

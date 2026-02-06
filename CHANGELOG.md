@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 ## [v0.4.0] - 2026-02-03
 
 ### Added
+- **Tor Network Integration**: Full Tor support for desktop, routing all application traffic through a bundled Tor sidecar for enhanced privacy and censorship resistance.
 - **Mobile Experience Polish**: Added Swipe-to-Reply gestures, larger touch targets for better accessibility, and fixed virtual keyboard occlusion with `100dvh`.
 - **Core Refinements**: Theme synchronization fix (FOUC), message deduplication, and v0.4.0 versioning.
 - **Auto-Storage Configuration**: Automatically enables NIP-96 storage with `nostr.build` as default when hosted on Vercel to resolve "Local upload" errors out-of-the-box.

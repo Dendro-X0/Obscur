@@ -32,7 +32,7 @@ This repository is a PNPM workspace with:
 
 - **PWA**: `apps/pwa` (Next.js) - Main web application
 - **API (optional, local dev)**: `apps/api` (Hono on Node) - Development API server
-- **Desktop (Alpha)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app with static PWA bundling
+- **Desktop (Beta)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app with static PWA bundling and Tor sidecar
 - **Packages**: Shared libraries for crypto, storage, and Nostr functionality
 
 ### Smart Invite System

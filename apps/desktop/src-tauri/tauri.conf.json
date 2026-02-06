@@ -28,7 +28,9 @@
     "shortDescription": "Secure, encrypted messaging for micro-communities",
     "longDescription": "Obscur is a local-first Nostr messenger designed for small, invite-only micro-communities. Built with privacy, decentralization, and anti-censorship as core principles.",
     "resources": [],
-    "externalBin": [],
+    "externalBin": [
+      "bin/tor"
+    ],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
@@ -58,23 +60,7 @@
     }
   },
   "app": {
-    "windows": [
-      {
-        "title": "Obscur",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
-        "resizable": true,
-        "maximized": false,
-        "visible": true,
-        "decorations": true,
-        "alwaysOnTop": false,
-        "fullscreen": false,
-        "transparent": false,
-        "url": "index.html"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": "default-src 'self'; connect-src 'self' https: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
     }

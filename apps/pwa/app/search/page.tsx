@@ -17,10 +17,12 @@ import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { Loader2, Search, User as UserIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type SearchMode = "user" | "group";
 
 export default function SearchPage(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const identity = useIdentity();
   const publicKeyHex: PublicKeyHex | null = (identity.state.publicKeyHex as PublicKeyHex | null) ?? null;
@@ -45,8 +47,6 @@ export default function SearchPage(): React.JSX.Element {
     setSearchResults([]);
 
     const subId = Math.random().toString(36).substring(7);
-    // Removed broken invite code search. "OBSCUR-" codes are local and not queryable on relays via #code.
-    // Use NIP-50 search for text.
     const filter: Readonly<{ kinds: number[]; limit: number; search: string }> = { kinds: [0], limit: 10, search: trimmedPubkeyInput };
     const req = JSON.stringify(["REQ", subId, filter]);
 
@@ -62,7 +62,7 @@ export default function SearchPage(): React.JSX.Element {
             if (prev.some(r => r.pubkey === event.pubkey)) return prev;
             return [...prev, {
               pubkey: event.pubkey,
-              name: content.name || content.display_name || "Unknown",
+              name: content.name || content.display_name || t("common.unknown"),
               display_name: content.display_name,
               picture: content.picture
             }];
@@ -76,7 +76,6 @@ export default function SearchPage(): React.JSX.Element {
       }
     });
 
-    // Auto-stop after 5 seconds
     setTimeout(() => {
       pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
       cleanup();
@@ -101,16 +100,13 @@ export default function SearchPage(): React.JSX.Element {
     setIsSearching(true);
     setSearchResults([]);
 
-    // Verify connection
     if (pool.connections.length === 0) {
-      // Just redirect if offline, let main shell handle it/warn
       const encoded: string = encodeURIComponent(hex);
       router.push(`/?pubkey=${encoded}`);
       return;
     }
 
     const subId = Math.random().toString(36).substring(7);
-    // Fetch kind 0 (metadata) for this pubkey
     const filter: Readonly<{ kinds: number[]; authors: string[]; limit: number }> = { kinds: [0], authors: [hex], limit: 1 };
     const req = JSON.stringify(["REQ", subId, filter]);
 
@@ -127,25 +123,22 @@ export default function SearchPage(): React.JSX.Element {
             const content = JSON.parse(event.content);
             setSearchResults([{
               pubkey: event.pubkey,
-              name: content.name || content.display_name || "Unknown",
+              name: content.name || content.display_name || t("common.unknown"),
               display_name: content.display_name,
               picture: content.picture
             }]);
             found = true;
             setIsSearching(false);
             cleanup();
-            // Don't redirect automatically, let user see the result and click it
             resolve();
           }
           if (parsed[0] === "EOSE" && parsed[1] === subId) {
             setIsSearching(false);
             if (!found) {
-              // Not found on relays, but valid key.
-              // We should tell the user.
               setSearchResults([{
                 pubkey: hex,
-                name: "Unknown (Not found on relays)",
-                display_name: "Offline or New User",
+                name: t("search.notFoundRelays"),
+                display_name: t("search.offlineNewUser"),
                 picture: undefined
               }]);
             }
@@ -153,11 +146,9 @@ export default function SearchPage(): React.JSX.Element {
             resolve();
           }
         } catch (e) {
-          // Ignore parsing errors
         }
       });
 
-      // Auto-stop after 3 seconds
       setTimeout(() => {
         if (!found) {
           pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
@@ -165,8 +156,8 @@ export default function SearchPage(): React.JSX.Element {
           if (searchResults.length === 0) {
             setSearchResults([{
               pubkey: hex,
-              name: "Unknown (Timeout)",
-              display_name: "Offline or New User",
+              name: t("search.searchTimeout"),
+              display_name: t("search.offlineNewUser"),
               picture: undefined
             }]);
           }
@@ -180,7 +171,6 @@ export default function SearchPage(): React.JSX.Element {
   const onSubmit = (): void => {
     if (mode === "user") {
       if (parsedPubkey.ok) {
-        // Navigate to the chat page with the pubkey
         const encoded: string = encodeURIComponent(parsedPubkey.publicKeyHex);
         router.push(`/?pubkey=${encoded}`);
       } else {
@@ -198,37 +188,37 @@ export default function SearchPage(): React.JSX.Element {
   const canOpenDm: boolean = trimmedPubkeyInput.length > 0;
 
   return (
-    <PageShell title="Search" navBadgeCounts={navBadges.navBadgeCounts}>
+    <PageShell title={t("nav.search")} navBadgeCounts={navBadges.navBadgeCounts}>
       <div className="mx-auto w-full max-w-3xl p-4">
         {identity.state.status !== "unlocked" ? (
           <div className="mb-4">
-            <Card title="Identity locked" description="You can search, but you must unlock to chat." className="w-full">
+            <Card title={t("messaging.identityLocked")} description={t("messaging.identityLockedDesc")} className="w-full">
               <div className="space-y-2">
-                <div className="text-sm text-zinc-700 dark:text-zinc-300">Your private key stays local; unlocking enables encrypted DMs and group posting.</div>
+                <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("messaging.passphraseProtectDesc")}</div>
                 <IdentityCard />
               </div>
             </Card>
           </div>
         ) : null}
 
-        <Card title="Search" description="Find people or groups quickly." className="w-full">
+        <Card title={t("nav.search")} description={t("search.description")} className="w-full">
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant={mode === "user" ? "primary" : "secondary"} onClick={() => setMode("user")}>
-                User
+                {t("search.user")}
               </Button>
               <Button type="button" variant={mode === "group" ? "primary" : "secondary"} onClick={() => setMode("group")}>
-                Group
+                {t("search.group")}
               </Button>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="search-input">{mode === "user" ? "Public key or Name" : "Group identifier"}</Label>
+              <Label htmlFor="search-input">{mode === "user" ? t("search.pubkeyOrName") : t("search.groupIdentifier")}</Label>
               <Input
                 id="search-input"
                 value={activeInputValue}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setActiveInputValue(e.target.value)}
-                placeholder={mode === "user" ? "npub... or name" : "groups.example.com'abcdef"}
+                placeholder={mode === "user" ? t("search.userPlaceholder") : t("search.groupPlaceholder")}
                 className={mode === "user" ? "font-mono" : "font-mono"}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -238,9 +228,9 @@ export default function SearchPage(): React.JSX.Element {
               />
               {mode === "user" ? (
                 !parsedPubkey.ok && trimmedPubkeyInput.length > 0 ? (
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Search for users by name.</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("search.searchByNameDesc")}</div>
                 ) : (
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">Paste an exact key or type a name.</div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("search.exactKeyDesc")}</div>
                 )
               ) : !parsedGroup.ok && trimmedGroupInput.length > 0 ? (
                 <div className="text-xs text-red-600 dark:text-red-400">{parsedGroup.error}</div>
@@ -253,7 +243,7 @@ export default function SearchPage(): React.JSX.Element {
 
             <div className="flex flex-wrap gap-2">
               <Button type="button" disabled={mode === "user" ? !canOpenDm : !canSearchGroup} onClick={onSubmit}>
-                {mode === "user" ? (parsedPubkey.ok ? "Open DM" : "Search") : "Open group"}
+                {mode === "user" ? (parsedPubkey.ok ? t("search.openDm") : t("nav.search")) : t("search.openGroup")}
               </Button>
               {mode === "user" ? (
                 <Button
@@ -267,7 +257,7 @@ export default function SearchPage(): React.JSX.Element {
                     void navigator.clipboard.writeText(parsedPubkey.publicKeyHex);
                   }}
                 >
-                  Copy hex
+                  {t("search.normalizedHex")}
                 </Button>
               ) : null}
             </div>
@@ -275,7 +265,7 @@ export default function SearchPage(): React.JSX.Element {
             {mode === "user" && parsedPubkey.ok ? (
               <div className="space-y-2">
                 <div className="rounded-xl border border-black/10 bg-zinc-50 p-3 text-xs dark:border-white/10 dark:bg-zinc-950/60">
-                  <div className="mb-1 font-medium">Normalized (hex)</div>
+                  <div className="mb-1 font-medium">{t("search.normalizedHex")}</div>
                   <div className="break-all font-mono">{parsedPubkey.publicKeyHex}</div>
                 </div>
                 <div className="p-3 text-xs text-amber-600 bg-amber-50 rounded-xl dark:text-amber-400 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
@@ -287,7 +277,7 @@ export default function SearchPage(): React.JSX.Element {
             {mode === "user" && (searchResults.length > 0 || isSearching) && (
               <div className="space-y-4 pt-4 border-t border-black/10 dark:border-white/10">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium">Search Results</h3>
+                  <h3 className="text-sm font-medium">{t("messaging.searchResults")}</h3>
                   {isSearching && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
                 </div>
 
@@ -321,7 +311,7 @@ export default function SearchPage(): React.JSX.Element {
                   ))}
                   {!isSearching && searchResults.length === 0 && (
                     <div className="py-4 text-center text-sm text-zinc-500 font-medium">
-                      No users found. Try an exact match or npub.
+                      {t("search.noUsersFound")}
                     </div>
                   )}
                 </div>

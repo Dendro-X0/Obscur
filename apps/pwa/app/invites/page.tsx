@@ -45,10 +45,10 @@ export default function InvitesPage(): React.JSX.Element {
     return (
       <PageShell title={t("invites.title")} navBadgeCounts={navBadges.navBadgeCounts}>
         <div className="mx-auto w-full max-w-3xl p-4">
-          <Card title="No identity" description="Create an identity to use the invite system." className="w-full">
+          <Card title={t("invites.noIdentity")} description={t("invites.noIdentityDesc")} className="w-full">
             <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={() => router.push("/settings")}>Settings</Button>
-              <Button type="button" variant="secondary" onClick={() => router.push("/search")}>Search</Button>
+              <Button type="button" onClick={() => router.push("/settings")}>{t("settings.title")}</Button>
+              <Button type="button" variant="secondary" onClick={() => router.push("/search")}>{t("nav.search")}</Button>
             </div>
             <div className="pt-3">
               <IdentityCard />
@@ -66,7 +66,7 @@ export default function InvitesPage(): React.JSX.Element {
       <div className="mx-auto w-full max-w-5xl p-4">
         {!coordinationConfigured ? (
           <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100">
-            <div className="font-semibold">Invite server is not configured.</div>
+            <div className="font-semibold">{t("invites.serverNotConfigured")}</div>
             <div className="mt-1 text-xs text-amber-800 dark:text-amber-200">
               Set <span className="font-mono">NEXT_PUBLIC_COORDINATION_URL</span> in Vercel to enable cross-device invite redemption. Without it, invite links are local-only.
             </div>
@@ -122,7 +122,7 @@ export default function InvitesPage(): React.JSX.Element {
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">{t("invites.scanQr")}</h2>
                 <Button variant="secondary" size="sm" onClick={() => router.push("/search")}>
                   <Users className="mr-2 h-4 w-4" />
-                  Search by Pubkey
+                  {t("messaging.startConvByPubkey")}
                 </Button>
               </div>
               <QRCodeScanner />

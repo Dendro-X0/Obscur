@@ -1,0 +1,17 @@
+{
+    "identifier": "desktop",
+    "permissions": [
+        "core:default",
+        "shell:allow-kill",
+        "shell:allow-open",
+        "default",
+        {
+            "identifier": "shell:allow-spawn",
+            "allow": [
+                {
+                    "sidecar": "bin/tor"
+                }
+            ]
+        }
+    ]
+}

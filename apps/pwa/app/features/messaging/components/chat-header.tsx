@@ -31,14 +31,16 @@ export function ChatHeader({ conversation, onCopyPubkey, onOpenMedia, onOpenInfo
                                 </Button>
                             </>
                         ) : (
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400">{conversation.memberPubkeys.length} members</p>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                {t("messaging.membersCount", { count: conversation.memberPubkeys.length })}
+                            </p>
                         )}
                         <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenMedia}>
                             {t("messaging.media")}
                         </Button>
                         {conversation.kind === "group" && (
                             <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenInfo}>
-                                {t("common.info", "Info")}
+                                {t("common.info")}
                             </Button>
                         )}
                     </div>

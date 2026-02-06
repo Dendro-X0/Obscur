@@ -102,7 +102,7 @@ export function Composer({
             {isGated && (
                 <div className="mb-4 flex items-center gap-3 rounded-2xl border border-purple-500/20 bg-purple-50/50 p-4 text-[11px] font-medium text-purple-700 dark:border-purple-500/30 dark:bg-purple-900/20 dark:text-purple-300 animate-in slide-in-from-bottom-2 duration-300">
                     <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
-                    <p>Connection request pending. Accept to start messaging.</p>
+                    <p>{t("messaging.connectionPending")}</p>
                 </div>
             )}
 
@@ -112,7 +112,7 @@ export function Composer({
                     <div className="mt-0.5 h-4 w-4 shrink-0 text-amber-500">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                     </div>
-                    <p>Recipient profile not found on your relays. Delivery might be unreliable.</p>
+                    <p>{t("messaging.recipientNotFound")}</p>
                 </div>
             )}
 
@@ -183,7 +183,7 @@ export function Composer({
                         className="shrink-0 w-32 aspect-square rounded-xl border-2 border-dashed border-black/5 dark:border-white/10 flex flex-col items-center justify-center hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-zinc-400 hover:text-purple-500 group"
                     >
                         <Paperclip className="h-6 w-6 mb-1 transition-transform group-hover:rotate-12" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{t("common.addMore", "Add More")}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{t("common.addMore")}</span>
                     </button>
                 </div>
             )}
@@ -192,7 +192,7 @@ export function Composer({
                 <div className="mb-3 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 uppercase tracking-wide bg-rose-500/10 p-2 rounded-lg">
                     <div className="h-1 w-1 rounded-full bg-current" />
                     {attachmentError}
-                    <button onClick={clearPendingAttachment} className="ml-auto underline">Clear All</button>
+                    <button onClick={clearPendingAttachment} className="ml-auto underline">{t("common.clearAll")}</button>
                 </div>
             )}
 
@@ -217,12 +217,13 @@ export function Composer({
                     className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 flex items-center justify-center p-0"
                     disabled={isUploadingAttachment || isGated}
                     onClick={() => document.getElementById("composer-attachment")?.click()}
+                    aria-label={t("messaging.media")}
                 >
                     <Paperclip className="h-5 w-5 text-zinc-500" />
                 </Button>
 
                 <Textarea
-                    placeholder={isGated ? "Connection pending..." : t("messaging.typeAMessage")}
+                    placeholder={isGated ? t("messaging.connectionPendingPlaceholder") : t("messaging.typeAMessage")}
                     ref={textareaRef}
                     value={messageInput}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
@@ -249,6 +250,7 @@ export function Composer({
                         )}
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                         disabled={isGated}
+                        aria-label={t("messaging.searchEmojis")}
                     >
                         <Smile className="h-5 w-5 text-zinc-500" />
                     </Button>
@@ -265,7 +267,7 @@ export function Composer({
                                 width={320}
                                 height={400}
                                 skinTonesDisabled
-                                searchPlaceHolder="Search emojis..."
+                                searchPlaceHolder={t("messaging.searchEmojis")}
                             />
                         </div>
                     )}
@@ -282,6 +284,7 @@ export function Composer({
                             ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
                             : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
                     )}
+                    aria-label={t("common.send")}
                 >
                     {isUploadingAttachment ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -300,7 +303,7 @@ export function Composer({
                     </span>
                 </div>
                 <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight">
-                    {t("messaging.nip04Desc", "E2E Encrypted")} • Ver. 0.4.0
+                    {t("messaging.e2eEncrypted")} • Ver. 0.4.0
                 </div>
             </div>
         </div>

@@ -35,7 +35,6 @@ export default function DownloadPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch release
     fetch("https://api.github.com/repos/Dendro-X0/Obscur/releases/latest")
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch release");
@@ -53,7 +52,6 @@ export default function DownloadPage() {
 
   const getBestAsset = () => {
     if (!release) return null;
-    // Prefer setup.exe for Windows, dmg for Mac, AppImage for Linux
     if (os === "win") return release.assets.find(a => a.name.toLowerCase().endsWith("_x64-setup.exe"));
     if (os === "mac") return release.assets.find(a => a.name.toLowerCase().endsWith(".dmg"));
     if (os === "linux") return release.assets.find(a => a.name.toLowerCase().endsWith(".appimage"));
@@ -62,7 +60,7 @@ export default function DownloadPage() {
 
   const getEssentialAssets = () => {
     if (!release) return [];
-    return release.assets.filter(a => 
+    return release.assets.filter(a =>
       ESSENTIAL_EXTENSIONS.some(ext => a.name.toLowerCase().endsWith(ext))
     );
   };
@@ -71,23 +69,20 @@ export default function DownloadPage() {
   const essentialAssets = getEssentialAssets();
 
   return (
-    <PageShell title="Download Obscur">
+    <PageShell title={t("download.title")}>
       <div className="mx-auto w-full max-w-4xl p-4 space-y-12">
         {/* Hero Section */}
         <div className="text-center space-y-6 py-12">
           <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">
-            Get Obscur
+            {t("download.getObscur")}
           </h1>
-          <p className="text-xl text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto">
-            Secure, local-first messaging for your micro-community. <br/>
-            Available on desktop and web, with mobile coming soon.
-          </p>
+          <p className="text-xl text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto" dangerouslySetInnerHTML={{ __html: t("download.subtitle") }} />
 
           {/* Auto-update Note */}
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-100/50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200 rounded-full text-sm font-medium">
               <CheckCircle className="w-4 h-4" />
-              Auto-updates enabled
+              {t("download.autoUpdatesEnabled")}
             </div>
           </div>
         </div>
@@ -96,7 +91,7 @@ export default function DownloadPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <Monitor className="w-6 h-6 text-zinc-700 dark:text-zinc-300" />
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Desktop App</h2>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t("download.desktopApp")}</h2>
           </div>
 
           <div className="flex flex-col items-center gap-4">
@@ -108,32 +103,35 @@ export default function DownloadPage() {
                   {os === "win" && <Monitor className="w-6 h-6" />}
                   {os === "mac" && <Apple className="w-6 h-6" />}
                   {os === "linux" && <Terminal className="w-6 h-6" />}
-                  Download for {os === 'win' ? 'Windows' : os === 'mac' ? 'macOS' : 'Linux'}
+                  {t("download.for", { os: os === 'win' ? 'Windows' : os === 'mac' ? 'macOS' : 'Linux' })}
                   <span className="ml-2 text-xs opacity-70 font-normal">v{release?.tag_name}</span>
                 </a>
               </Button>
             ) : (
               <div className="text-center text-zinc-500">
-                Select your platform below
+                {t("download.selectPlatform")}
               </div>
             )}
             <p className="text-sm text-zinc-500">
-              {bestAsset ? `Recommended for your device • ${(bestAsset.size / 1024 / 1024).toFixed(1)} MB` : "Choose a version below"}
+              {bestAsset
+                ? t("download.recommendedForYourDevice", { size: (bestAsset.size / 1024 / 1024).toFixed(1) })
+                : t("download.chooseVersion")
+              }
             </p>
           </div>
 
           {/* All Desktop Assets */}
           {essentialAssets.length > 0 && (
             <Card className="p-8 border-none shadow-lg bg-white/50 dark:bg-zinc-900/50 backdrop-blur">
-              <h3 className="text-xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">All Platforms</h3>
+              <h3 className="text-xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">{t("download.allPlatforms")}</h3>
               <div className="grid gap-3">
                 {essentialAssets.map(asset => (
                   <div key={asset.name} className="flex justify-between items-center p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
                     <div className="flex items-center gap-4">
                       <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-zinc-500">
                         {asset.name.includes(".exe") ? <Monitor className="w-5 h-5" /> :
-                         asset.name.includes(".dmg") ? <Apple className="w-5 h-5" /> :
-                         <Terminal className="w-5 h-5" />}
+                          asset.name.includes(".dmg") ? <Apple className="w-5 h-5" /> :
+                            <Terminal className="w-5 h-5" />}
                       </div>
                       <div className="flex flex-col">
                         <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{asset.name}</span>
@@ -143,7 +141,7 @@ export default function DownloadPage() {
                     <Button variant="outline" size="sm" asChild>
                       <a href={asset.browser_download_url}>
                         <Download className="w-4 h-4 mr-2" />
-                        Download
+                        {t("common.download")}
                       </a>
                     </Button>
                   </div>
@@ -157,18 +155,15 @@ export default function DownloadPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <Smartphone className="w-6 h-6 text-zinc-700 dark:text-zinc-300" />
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Mobile App</h2>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t("download.mobileApp")}</h2>
           </div>
 
           <Card className="p-8 border-none shadow-lg bg-gradient-to-br from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-zinc-800">
             <div className="text-center space-y-4">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-100/50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-full text-sm font-medium">
-                🚧 Coming Soon
+                🚧 {t("common.comingSoon")}
               </div>
-              <p className="text-zinc-600 dark:text-zinc-400">
-                Native iOS and Android apps are in development. <br/>
-                In the meantime, you can use the web app on your mobile browser.
-              </p>
+              <p className="text-zinc-600 dark:text-zinc-400" dangerouslySetInnerHTML={{ __html: t("download.mobileAppDesc") }} />
             </div>
           </Card>
         </div>

@@ -1,6 +1,7 @@
 
 import React from "react";
 import { cn } from "../../../lib/cn";
+import { useTranslation } from "react-i18next";
 import type { Message, ReactionEmoji } from "../types";
 
 // Helper to determine if deletable - logic from page.tsx
@@ -21,6 +22,7 @@ interface MessageMenuProps {
 }
 
 export function MessageMenu({ x, y, activeMessage, onCopyText, onCopyAttachmentUrl, onReply, onDelete, menuRef }: MessageMenuProps) {
+    const { t } = useTranslation();
     const canDelete: boolean = isDeletableMessageId(activeMessage.id);
     const hasText: boolean = Boolean(activeMessage.content.trim());
     const hasAttachment: boolean = Boolean(activeMessage.attachments && activeMessage.attachments.length > 0);
@@ -39,7 +41,7 @@ export function MessageMenu({ x, y, activeMessage, onCopyText, onCopyAttachmentU
                     disabled={!hasText}
                     onClick={onCopyText}
                 >
-                    Copy text
+                    {t("common.copyText")}
                 </button>
                 <button
                     type="button"
@@ -47,14 +49,14 @@ export function MessageMenu({ x, y, activeMessage, onCopyText, onCopyAttachmentU
                     disabled={!hasAttachment}
                     onClick={onCopyAttachmentUrl}
                 >
-                    Copy attachment URL
+                    {t("common.copyAttachmentUrl")}
                 </button>
                 <button
                     type="button"
                     className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
                     onClick={onReply}
                 >
-                    Reply
+                    {t("common.reply")}
                 </button>
                 <button
                     type="button"
@@ -65,7 +67,7 @@ export function MessageMenu({ x, y, activeMessage, onCopyText, onCopyAttachmentU
                     disabled={!canDelete}
                     onClick={onDelete}
                 >
-                    Delete
+                    {t("common.delete")}
                 </button>
             </div>
         </div>

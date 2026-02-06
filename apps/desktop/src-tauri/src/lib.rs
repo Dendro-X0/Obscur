@@ -11,8 +11,13 @@ use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
 };
+// use serde::{Serialize, Deserialize};
 use serde_json::json;
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::{CommandEvent, CommandChild};
+use std::sync::Mutex;
+use url::Url;
 
 // Window state persistence
 #[cfg(desktop)]
@@ -23,6 +28,17 @@ struct WindowState {
     width: u32,
     height: u32,
     maximized: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+struct TorSettings {
+    enable_tor: bool,
+    proxy_url: String,
+}
+
+struct TorState {
+    child: Mutex<Option<CommandChild>>,
+    settings: Mutex<TorSettings>,
 }
 
 #[tauri::command]
@@ -248,6 +264,95 @@ async fn get_system_theme() -> Result<String, String> {
     Ok("light".to_string())
 }
 
+#[tauri::command]
+async fn start_tor(app: tauri::AppHandle, state: tauri::State<'_, TorState>) -> Result<String, String> {
+    let mut lock = state.child.lock().unwrap();
+    if lock.is_some() {
+        return Ok("Tor is already running".to_string());
+    }
+
+    let sidecar = app.shell().sidecar("bin/tor").map_err(|e| e.to_string())?;
+    let (mut rx, child) = sidecar.spawn().map_err(|e| e.to_string())?;
+
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => {
+                    let line_str = String::from_utf8_lossy(&line);
+                    app_handle.emit("tor-log", line_str.clone()).unwrap();
+                    if line_str.contains("Bootstrapped 100%") {
+                        app_handle.emit("tor-status", "connected").unwrap();
+                    }
+                }
+                CommandEvent::Stderr(line) => {
+                    let line_str = String::from_utf8_lossy(&line);
+                    app_handle.emit("tor-error", line_str).unwrap();
+                }
+                CommandEvent::Terminated(payload) => {
+                    app_handle.emit("tor-status", format!("terminated: {}", payload.code.unwrap_or(-1))).unwrap();
+                }
+                _ => {}
+            }
+        }
+    });
+
+    *lock = Some(child);
+    app.emit("tor-status", "starting").unwrap();
+    Ok("Tor started".to_string())
+}
+
+#[tauri::command]
+async fn stop_tor(state: tauri::State<'_, TorState>, app: tauri::AppHandle) -> Result<String, String> {
+    let mut lock = state.child.lock().unwrap();
+    if let Some(child) = lock.take() {
+        child.kill().map_err(|e| e.to_string())?;
+        app.emit("tor-status", "stopped").unwrap();
+        Ok("Tor stopped".to_string())
+    } else {
+        Ok("Tor is not running".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_tor_status(state: tauri::State<'_, TorState>) -> Result<bool, String> {
+    let lock = state.child.lock().unwrap();
+    Ok(lock.is_some())
+}
+
+#[tauri::command]
+async fn save_tor_settings(app: tauri::AppHandle, state: tauri::State<'_, TorState>, enable_tor: bool, proxy_url: String) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+    settings.enable_tor = enable_tor;
+    settings.proxy_url = proxy_url.clone();
+
+    // Save to file
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
+    let path = app_dir.join("tor_settings.json");
+    let json = serde_json::to_string(&*settings).map_err(|e| e.to_string())?;
+    std::fs::write(path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+fn load_tor_settings(app: &tauri::AppHandle) -> TorSettings {
+    let default = TorSettings {
+        enable_tor: false,
+        proxy_url: "socks5://127.0.0.1:9050".to_string(),
+    };
+
+    let Ok(app_dir) = app.path().app_data_dir() else { return default; };
+    let path = app_dir.join("tor_settings.json");
+    let Ok(json) = std::fs::read_to_string(path) else { return default; };
+    serde_json::from_str(&json).unwrap_or(default)
+}
+
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    app.restart();
+}
+
 // Save window state to storage
 #[tauri::command]
 async fn save_window_state(window: WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
@@ -306,11 +411,42 @@ fn apply_window_state(window: &WebviewWindow, state: WindowState) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
-            // System Tray Setup - Desktop Only
+            let settings = load_tor_settings(&app.handle());
+            
+            // Manage TorState with loaded settings
+            app.manage(TorState { 
+                child: Mutex::new(None),
+                settings: Mutex::new(settings.clone()),
+            });
+
+            // Start Tor if enabled
+            if settings.enable_tor {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = start_tor(handle.clone(), handle.state()).await;
+                });
+            }
+
+            // Create main window with proxy if enabled
+            let mut window_builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+                .title("Obscur")
+                .inner_size(1200.0, 800.0)
+                .min_inner_size(800.0, 600.0)
+                .resizable(true)
+                .visible(false); // Hide initially to apply state
+
+            if settings.enable_tor {
+                if let Ok(url) = Url::parse(&settings.proxy_url) {
+                    window_builder = window_builder.proxy_url(url);
+                }
+            }
+
+            let _window = window_builder.build().expect("Failed to build main window");
             #[cfg(desktop)]
             {
                 let show_i = MenuItem::with_id(app, "show", "Show Obscur", true, None::<&str>)?;
@@ -355,9 +491,6 @@ pub fn run() {
                     .build(app)?;
             }
 
-            // Get the main window
-            let _window = app.get_webview_window("main").expect("Failed to get main window");
-            
             // Load and apply saved window state
             #[cfg(desktop)]
             if let Some(state) = load_window_state(&app.handle()) {
@@ -425,7 +558,12 @@ pub fn run() {
             show_notification,
             request_notification_permission,
             is_notification_permission_granted,
-            get_system_theme
+            get_system_theme,
+            start_tor,
+            stop_tor,
+            get_tor_status,
+            save_tor_settings,
+            restart_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

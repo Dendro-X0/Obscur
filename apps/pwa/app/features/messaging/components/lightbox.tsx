@@ -2,6 +2,7 @@
 import React from "react";
 import Image from "next/image";
 import { Button } from "../../../components/ui/button";
+import { useTranslation } from "react-i18next";
 import type { MediaItem } from "../types";
 
 interface LightboxProps {
@@ -10,6 +11,7 @@ interface LightboxProps {
 }
 
 export function Lightbox({ item, onClose }: LightboxProps) {
+    const { t } = useTranslation();
     if (!item) return null;
 
     return (
@@ -17,7 +19,7 @@ export function Lightbox({ item, onClose }: LightboxProps) {
             <div className="relative w-full max-w-5xl" onPointerDown={(e) => e.stopPropagation()}>
                 <div className="absolute right-2 top-2 z-10">
                     <Button type="button" variant="secondary" onClick={onClose}>
-                        Close
+                        {t("common.close")}
                     </Button>
                 </div>
                 <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">

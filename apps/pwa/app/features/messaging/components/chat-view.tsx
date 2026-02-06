@@ -9,6 +9,7 @@ import { Lightbox } from "./lightbox";
 import { MessageMenu } from "./message-menu";
 import { ReactionPicker } from "./reaction-picker";
 import { Lock, UploadCloud } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary } from "../types";
 
 export interface ChatViewProps {
@@ -73,6 +74,7 @@ export interface ChatViewProps {
 }
 
 export function ChatView(props: ChatViewProps) {
+    const { t } = useTranslation();
     const [isDragging, setIsDragging] = useState(false);
 
     const getMessageById = (messageId: string): Message | undefined => {
@@ -151,10 +153,10 @@ export function ChatView(props: ChatViewProps) {
                             {props.conversation.displayName}
                         </h2>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                            This is the start of your encrypted conversation.
+                            {t("messaging.chatStart")}
                             {props.conversation.kind === 'dm' && !props.isPeerAccepted && (
                                 <span className="block mt-1 text-purple-600 dark:text-purple-400 font-medium">
-                                    Messages will be sent as connection requests until accepted.
+                                    {t("messaging.connectionRequestsNote")}
                                 </span>
                             )}
                         </p>
@@ -260,8 +262,8 @@ export function ChatView(props: ChatViewProps) {
                             <UploadCloud className="h-10 w-10" />
                         </div>
                         <div className="text-center">
-                            <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Drop to upload</h3>
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Images or videos will be attached to your message</p>
+                            <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t("messaging.dropToUpload")}</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t("messaging.dropToUploadDesc")}</p>
                         </div>
                     </div>
                 </div>

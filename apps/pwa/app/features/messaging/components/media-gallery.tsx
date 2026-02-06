@@ -26,11 +26,11 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
             >
                 <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10">
                     <div>
-                        <div className="text-sm font-medium">Media</div>
+                        <div className="text-sm font-medium">{t("messaging.media")}</div>
                         <div className="text-xs text-zinc-600 dark:text-zinc-400">{conversationDisplayName}</div>
                     </div>
                     <Button type="button" variant="secondary" onClick={onClose}>
-                        Close
+                        {t("common.close")}
                     </Button>
                 </div>
                 <div className="p-4 max-h-[80vh] overflow-y-auto">

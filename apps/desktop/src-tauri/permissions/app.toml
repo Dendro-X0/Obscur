@@ -1,0 +1,45 @@
+[[permission]]
+identifier = "allow-window-commands"
+description = "Window management commands"
+commands.allow = [
+    "window_minimize",
+    "window_maximize",
+    "window_unmaximize",
+    "window_close",
+    "window_is_maximized",
+    "window_set_fullscreen",
+    "window_is_fullscreen",
+    "save_window_state"
+]
+
+[[permission]]
+identifier = "allow-tor-commands"
+description = "Tor control commands"
+commands.allow = [
+    "start_tor",
+    "stop_tor",
+    "get_tor_status",
+    "save_tor_settings"
+]
+
+[[permission]]
+identifier = "allow-misc-commands"
+description = "Miscellaneous app commands"
+commands.allow = [
+    "check_for_updates",
+    "install_update",
+    "show_notification",
+    "request_notification_permission",
+    "is_notification_permission_granted",
+    "get_system_theme",
+    "restart_app"
+]
+
+[[set]]
+identifier = "default"
+description = "Default application permissions"
+permissions = [
+    "allow-window-commands",
+    "allow-tor-commands",
+    "allow-misc-commands"
+]
