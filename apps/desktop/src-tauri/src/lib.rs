@@ -433,12 +433,17 @@ pub fn run() {
             }
 
             // Create main window with proxy if enabled
-            let mut window_builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-                .title("Obscur")
-                .inner_size(1200.0, 800.0)
-                .min_inner_size(800.0, 600.0)
-                .resizable(true)
-                .visible(false); // Hide initially to apply state
+            let mut window_builder = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()));
+
+            #[cfg(desktop)]
+            {
+                window_builder = window_builder
+                    .title("Obscur")
+                    .inner_size(1200.0, 800.0)
+                    .min_inner_size(800.0, 600.0)
+                    .resizable(true)
+                    .visible(false); // Hide initially to apply state
+            }
 
             if settings.enable_tor {
                 if let Ok(url) = Url::parse(&settings.proxy_url) {
