@@ -49,6 +49,7 @@ jobs:
           fi
           echo "======================================"
           echo "ℹ️  Builds will proceed regardless of signing status"
+          echo "ℹ️  See apps/desktop/GITHUB_SECRETS.md for setup instructions"
         shell: bash
 
       - name: Install pnpm
@@ -98,15 +99,21 @@ jobs:
         shell: bash
         run: |
           echo "Disabling dynamic routes/APIs for static export..."
-          # Note: apps/pwa/app/api/v1/bootstrap/route.ts is marked as force-static
+          # Hide API directory
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
           
-          # Disable problematic route files that don't support static export
+          # Disable specific route files
           for file in \
             apps/pwa/app/api-backup/upload/route.ts \
             apps/pwa/app/icon-192.png/route.ts \
             apps/pwa/app/icon-512.png/route.ts \
             apps/pwa/app/sw.js/route.ts \
-            apps/pwa/app/apple-touch-icon.png/route.ts
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invite/page.tsx \
+            apps/pwa/app/invite/[code]/page.tsx \
+            apps/pwa/app/groups/[groupId]/page.tsx
           do
             if [ -f "$file" ]; then
               mv "$file" "$file.ignored"
@@ -154,20 +161,24 @@ jobs:
             
             🎉 **New Release Available!**
             
-            ### Major Update: Tor Integration
-            - 🛡️ **Native Tor Support**: Full Tor Network integration for desktop, routing all application traffic through a bundled Tor sidecar for maximum privacy and censorship resistance.
-            - 🧅 **SOCKS5 Proxy**: Automatic configuration of the internal WebSocket proxy to use the Tor network.
+            ### What's New
+            - Enhanced UI/UX with subtle gradients and smooth animations
+            - Improved user experience with loading states and feedback
+            - Cross-platform desktop app with native performance
+            - Secure, encrypted messaging on the Nostr protocol
             
-            ### Mobile Enhancements
-            - 📱 **Android Alpha**: Initial release for Android users.
-            - ✨ **UI Polishing**: Support for safe area insets (notches/dynamic islands) and automatic status bar theme sync.
+            ### Download Instructions
+            - **Windows**: Download the `.msi` installer
+            - **macOS**: Download the `.dmg` file
+            - **Linux**: Download the `.AppImage` or `.deb` package
             
-            ### Core Features
-            - 🔒 End-to-end encrypted messaging (NIP-04/NIP-44)
-            - 🌐 Decentralized Nostr protocol architecture
-            - 👥 Invite-only secure micro-communities
-            - 🎨 Modern gradient-based UI with light/dark theme support
-            - 🖥️ High-performance native desktop and mobile applications
+            ### Features
+            - 🔒 End-to-end encrypted messaging (NIP-04)
+            - 🌐 Decentralized Nostr protocol
+            - 👥 Invite-only micro-communities
+            - 🎨 Beautiful gradient UI with light/dark themes
+            - 📱 Progressive Web App features
+            - 🖥️ Native desktop performance
             
             ### Code Signing Status
             - **Windows**: ${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT && '✅ Signed' || '⚠️ Unsigned (development build)' }}

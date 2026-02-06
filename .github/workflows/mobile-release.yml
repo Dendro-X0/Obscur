@@ -11,10 +11,10 @@ jobs:
   android-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -43,15 +43,21 @@ jobs:
         shell: bash
         run: |
           echo "Disabling dynamic routes/APIs for static export..."
-          # Note: apps/pwa/app/api/v1/bootstrap/route.ts is marked as force-static
+          # Hide API directory
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
           
-          # Disable problematic route files that don't support static export
+          # Disable specific route files
           for file in \
             apps/pwa/app/api-backup/upload/route.ts \
             apps/pwa/app/icon-192.png/route.ts \
             apps/pwa/app/icon-512.png/route.ts \
             apps/pwa/app/sw.js/route.ts \
-            apps/pwa/app/apple-touch-icon.png/route.ts
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invite/page.tsx \
+            apps/pwa/app/invite/[code]/page.tsx \
+            apps/pwa/app/groups/[groupId]/page.tsx
           do
             if [ -f "$file" ]; then
               mv "$file" "$file.ignored"

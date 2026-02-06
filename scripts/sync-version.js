@@ -54,6 +54,15 @@ function syncVersions() {
             version
         );
 
+        // Update shared packages
+        const packages = ['dweb-core', 'dweb-crypto', 'dweb-nostr', 'dweb-storage'];
+        for (const pkg of packages) {
+            updateJsonVersion(
+                resolve(rootDir, `packages/${pkg}/package.json`),
+                version
+            );
+        }
+
         console.log(`\n✨ All versions synced to v${version}`);
     } catch (error) {
         console.error('❌ Error syncing versions:', error.message);
