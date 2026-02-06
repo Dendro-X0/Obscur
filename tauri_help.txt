@@ -1,0 +1,65 @@
+
+> @dweb/desktop@0.4.0 tauri E:\Web Project\experimental-workspace\newstart\apps\desktop
+> tauri "android" "build" "--help"
+
+Build your app in release mode for Android and generate APKs and AABs. It makes use of the `build.frontendDist` property from your `tauri.conf.json` file. It also runs your `build.beforeBuildCommand` which usually builds your frontend into `build.frontendDist`.
+
+Usage: pnpm run tauri android build [OPTIONS] [-- <ARGS>...]
+
+Arguments:
+  [ARGS]...
+          Command line arguments passed to the runner. Use `--` to explicitly mark the start of the arguments. e.g. `tauri android build -- [runnerArgs]`
+
+Options:
+  -d, --debug
+          Builds with the debug flag
+
+  -v, --verbose...
+          Enables verbose logging
+
+  -t, --target [<TARGETS>...]
+          Which targets to build (all by default)
+          
+          [possible values: aarch64, armv7, i686, x86_64]
+
+  -f, --features [<FEATURES>...]
+          List of cargo features to activate
+
+  -c, --config <CONFIG>
+          JSON strings or paths to JSON, JSON5 or TOML files to merge with the default configuration file
+          
+          Configurations are merged in the order they are provided, which means a particular value overwrites previous values when a config key-value pair conflicts.
+          
+          Note that a platform-specific file is looked up and merged with the default file by default (tauri.macos.conf.json, tauri.linux.conf.json, tauri.windows.conf.json, tauri.android.conf.json and tauri.ios.conf.json) but you can use this for more specific use cases such as different build flavors.
+
+      --split-per-abi
+          Whether to split the APKs and AABs per ABIs
+
+      --apk <APK>
+          Build APKs
+          
+          [possible values: true, false]
+
+      --aab <AAB>
+          Build AABs
+          
+          [possible values: true, false]
+
+  -o, --open
+          Open Android Studio
+
+      --ci
+          Skip prompting for values
+          
+          [env: CI=]
+
+      --ignore-version-mismatches
+          Do not error out if a version mismatch is detected on a Tauri package.
+          
+          Only use this when you are sure the mismatch is incorrectly detected as version mismatched Tauri packages can lead to unknown behavior.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
