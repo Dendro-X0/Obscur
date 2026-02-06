@@ -2,9 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.5.0-alpha] - 2026-02-05
+## [v0.5.0-alpha] - 2026-02-06
 
 ### Added
+- **Tor Network Integration**: Full Tor support for desktop, routing all application traffic through a bundled Tor sidecar for enhanced privacy and censorship resistance.
 - **Native Mobile Support (Android)**: Initial alpha release for Android.
 - **Mobile UI Polishing**: Implemented safe area insets for notches and dynamic islands, ensuring content isn't obscured.
 - **Deep Linking**: Support for `obscur://` and `nostr:` links to open invites, profiles, and conversations directly in the app.
@@ -14,10 +15,10 @@ All notable changes to this project will be documented in this file.
 - **Core Feature Parity**: Validated WASM crypto fallback and essential features on mobile environment.
 - **CI/CD**: Automated Android APK building via GitHub Actions (`mobile-release.yml`).
 
+
 ## [v0.4.0] - 2026-02-03
 
 ### Added
-- **Tor Network Integration**: Full Tor support for desktop, routing all application traffic through a bundled Tor sidecar for enhanced privacy and censorship resistance.
 - **Mobile Experience Polish**: Added Swipe-to-Reply gestures, larger touch targets for better accessibility, and fixed virtual keyboard occlusion with `100dvh`.
 - **Core Refinements**: Theme synchronization fix (FOUC), message deduplication, and v0.4.0 versioning.
 - **Auto-Storage Configuration**: Automatically enables NIP-96 storage with `nostr.build` as default when hosted on Vercel to resolve "Local upload" errors out-of-the-box.
