@@ -66,7 +66,7 @@ jobs:
           done
         
       - name: Build Android APK
-        run: pnpm -C apps/desktop tauri android build --target apk
+        run: pnpm -C apps/desktop tauri android build --apk
         env:
            NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
