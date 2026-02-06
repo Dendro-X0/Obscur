@@ -170,6 +170,7 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - Deep linking (`obscur://`, `nostr:`)
 - Native notifications & file uploads
 - Automatic status bar theming
+- **Download**: Get the APK from [GitHub Releases](../../releases)
 
 🚧 **Next Phase**: UI Components and Integration (Tasks 7-15)
 - Invite Manager Service for link and request workflows
@@ -242,7 +243,21 @@ This project is open source. See the LICENSE file for details.
 ## 🔗 Links
 
 - **Live Demo**: [Deployed PWA URL]
-- **Documentation**: See `dcos/` directory
+- **Documentation**: See `docs/` directory.
+
+## 🔐 Reusable Security & Decentralization Protocols
+
+Obscur is built on a foundation of **modular, production-ready security protocols** designed for maximum privacy and censorship resistance. These core technologies are separated into reusable packages (`packages/`) that can power any high-security application—from healthcare to finance.
+
+> **Read the full technical breakdown in [SECURITY_PROTOCOLS.md](docs/SECURITY_PROTOCOLS.md).**
+
+Key innovations include:
+- **NIP-17 Metadata Privacy**: Advanced "Rumor → Seal → Gift Wrap" encryption that hides sender/receiver identity from relays.
+- **Local-First Architecture**: Your data lives on your device, encrypted at rest with AES-GCM.
+- **Decentralized Identity**: Keys, not accounts. Portable and censorship-resistant.
+
+*Future iterations will focus heavily on expanding these decentralized encryption capabilities for broader use cases.*
+
 - **Issues**: [GitHub Issues]
 - **Discussions**: [GitHub Discussions]
 
