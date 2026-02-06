@@ -1,0 +1,324 @@
+   Compiling serde_core v1.0.228
+   Compiling libc v0.2.180
+   Compiling cfg-if v1.0.4
+   Compiling stable_deref_trait v1.2.1
+   Compiling smallvec v1.15.1
+   Compiling itoa v1.0.17
+   Compiling zerofrom v0.1.6
+   Compiling memchr v2.7.6
+   Compiling litemap v0.8.1
+   Compiling writeable v0.6.2
+   Compiling pin-project-lite v0.2.16
+   Compiling log v0.4.29
+   Compiling percent-encoding v2.3.2
+   Compiling once_cell v1.21.3
+   Compiling yoke v0.8.1
+   Compiling futures-core v0.3.31
+   Compiling icu_properties_data v2.1.2
+   Compiling icu_normalizer_data v2.1.1
+   Compiling siphasher v1.0.1
+   Compiling byteorder v1.5.0
+   Compiling siphasher v0.3.11
+   Compiling zerovec v0.11.5
+   Compiling zerotrie v0.2.3
+   Compiling zmij v1.0.12
+   Compiling thiserror v1.0.69
+   Compiling phf_shared v0.11.3
+   Compiling form_urlencoded v1.2.2
+   Compiling scopeguard v1.2.0
+   Compiling bitflags v2.10.0
+   Compiling utf8_iter v1.0.4
+   Compiling new_debug_unreachable v1.0.6
+   Compiling mio v1.1.1
+   Compiling socket2 v0.6.1
+   Compiling parking_lot_core v0.9.12
+   Compiling phf v0.11.3
+   Compiling lock_api v0.4.14
+   Compiling typenum v1.19.0
+   Compiling pin-utils v0.1.0
+   Compiling mac v0.1.1
+   Compiling zeroize v1.8.2
+   Compiling precomputed-hash v0.1.1
+   Compiling jni-sys v0.3.0
+   Compiling futf v0.1.5
+   Compiling getrandom v0.2.16
+   Compiling tinystr v0.8.2
+   Compiling potential_utf v0.1.4
+   Compiling parking_lot v0.12.5
+   Compiling rustls-pki-types v1.13.2
+   Compiling aho-corasick v1.1.4
+   Compiling phf_shared v0.10.0
+   Compiling unic-common v0.9.0
+   Compiling icu_locale_core v2.1.1
+   Compiling icu_collections v2.1.1
+   Compiling futures-task v0.3.31
+   Compiling alloc-no-stdlib v2.0.4
+   Compiling slab v0.4.11
+   Compiling generic-array v0.14.7
+   Compiling regex-syntax v0.8.8
+   Compiling unic-char-range v0.9.0
+   Compiling utf-8 v0.7.6
+   Compiling powerfmt v0.2.0
+   Compiling dtoa v1.0.11
+   Compiling untrusted v0.9.0
+   Compiling tendril v0.4.3
+   Compiling unic-char-property v0.9.0
+   Compiling ring v0.17.14
+   Compiling dtoa-short v0.3.5
+   Compiling futures-util v0.3.31
+   Compiling alloc-stdlib v0.2.2
+   Compiling phf v0.10.1
+   Compiling unic-ucd-version v0.9.0
+   Compiling typeid v1.0.3
+   Compiling icu_provider v2.1.1
+   Compiling phf_shared v0.8.0
+   Compiling cesu8 v1.1.0
+   Compiling raw-window-handle v0.6.2
+   Compiling nodrop v0.1.14
+   Compiling try-lock v0.2.5
+   Compiling base64 v0.22.1
+   Compiling tower-service v0.3.3
+   Compiling icu_normalizer v2.1.1
+   Compiling icu_properties v2.1.2
+   Compiling num-conv v0.1.0
+   Compiling fnv v1.0.7
+   Compiling time-core v0.1.6
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling deranged v0.5.5
+   Compiling uuid v1.19.0
+   Compiling matches v0.1.10
+   Compiling winnow v0.7.14
+   Compiling cssparser v0.29.6
+   Compiling bytes v1.11.0
+   Compiling string_cache v0.8.9
+   Compiling rustls-webpki v0.103.8
+   Compiling idna_adapter v1.2.1
+   Compiling idna v1.1.0
+   Compiling http v1.4.0
+   Compiling tokio v1.49.0
+   Compiling combine v4.6.7
+   Compiling regex-automata v0.4.13
+   Compiling time v0.3.44
+   Compiling url v2.5.8
+   Compiling toml_parser v1.0.6+spec-1.1.0
+   Compiling jsonptr v0.6.3
+   Compiling http-body v1.0.1
+   Compiling markup5ever v0.14.1
+   Compiling dpi v0.1.2
+   Compiling cfb v0.7.3
+   Compiling erased-serde v0.4.9
+   Compiling serde_spanned v1.0.4
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+   Compiling want v0.3.1
+   Compiling phf v0.8.0
+   Compiling servo_arc v0.2.0
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling thiserror v2.0.17
+   Compiling num_enum v0.7.5
+   Compiling unic-ucd-ident v0.9.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling brotli-decompressor v5.0.0
+   Compiling getrandom v0.3.4
+   Compiling httparse v1.10.1
+   Compiling ndk-sys v0.6.0+11769913
+   Compiling fxhash v0.2.1
+   Compiling tracing-core v0.1.36
+   Compiling regex v1.12.2
+   Compiling futures-channel v0.3.31
+   Compiling atomic-waker v1.1.2
+   Compiling toml_writer v1.0.6+spec-1.1.0
+   Compiling hashbrown v0.16.1
+   Compiling bitflags v1.3.2
+   Compiling subtle v2.6.1
+   Compiling equivalent v1.0.2
+   Compiling same-file v1.0.6
+   Compiling rustls v0.23.36
+   Compiling walkdir v2.5.0
+   Compiling selectors v0.24.0
+   Compiling toml v0.9.11+spec-1.1.0
+   Compiling brotli v8.0.2
+   Compiling ndk v0.9.0
+   Compiling tracing v0.1.44
+   Compiling indexmap v2.13.0
+   Compiling urlpattern v0.3.0
+   Compiling crossbeam-channel v0.5.15
+   Compiling anyhow v1.0.100
+   Compiling jni v0.21.1
+   Compiling hyper v1.8.1
+   Compiling cookie v0.18.1
+   Compiling serde-untagged v0.1.9
+   Compiling infer v0.19.0
+   Compiling digest v0.10.7
+   Compiling html5ever v0.29.1
+   Compiling json-patch v3.0.1
+   Compiling serde_with v3.16.1
+   Compiling semver v1.0.27
+   Compiling cpufeatures v0.2.17
+   Compiling sync_wrapper v1.0.2
+   Compiling dunce v1.0.5
+   Compiling glob v0.3.3
+   Compiling tower-layer v0.3.3
+   Compiling ipnet v2.11.0
+   Compiling sha2 v0.10.9
+   Compiling kuchikiki v0.8.8-speedreader
+   Compiling tower v0.5.2
+   Compiling webpki-roots v1.0.5
+   Compiling hyper-util v0.1.19
+   Compiling iri-string v0.7.10
+   Compiling ryu v1.0.22
+   Compiling lazy_static v1.5.0
+   Compiling futures-sink v0.3.31
+   Compiling ndk-context v0.1.1
+   Compiling option-ext v0.2.0
+   Compiling tokio-util v0.7.18
+   Compiling serde_urlencoded v0.7.1
+   Compiling dirs-sys v0.5.0
+   Compiling tokio-rustls v0.26.4
+   Compiling http-body-util v0.1.3
+   Compiling tauri-utils v2.8.1
+   Compiling tao v0.34.5
+   Compiling wry v0.53.5
+   Compiling zerocopy v0.8.33
+   Compiling serialize-to-javascript v0.1.2
+   Compiling dirs v6.0.0
+   Compiling hyper-rustls v0.27.7
+   Compiling heck v0.5.0
+   Compiling mime v0.3.17
+   Compiling rand_core v0.9.5
+   Compiling tower-http v0.6.8
+   Compiling errno v0.3.14
+   Compiling linux-raw-sys v0.11.0
+   Compiling fastrand v2.3.0
+   Compiling minisign-verify v0.2.4
+   Compiling reqwest v0.12.28
+   Compiling rustix v1.1.3
+   Compiling obscur_desktop_lib v0.3.6 (E:\Web Project\experimental-workspace\newstart\apps\desktop\src-tauri)
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.9.0
+   Compiling tempfile v3.24.0
+   Compiling rand v0.9.2
+   Compiling tauri-runtime v2.9.2
+   Compiling tauri-runtime-wry v2.9.3
+   Compiling tauri v2.9.5
+   Compiling tauri-plugin-deep-link v2.4.6
+   Compiling tauri-plugin-notification v2.3.3
+   Compiling tauri-plugin-updater v2.9.0
+warning: unused imports: `PhysicalPosition` and `PhysicalSize`
+ --> src\lib.rs:5:23
+  |
+5 |     Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, Window,
+  |                       ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `window`
+  --> src\lib.rs:67:26
+   |
+67 | async fn window_minimize(window: Window) -> Result<(), String> {
+   |                          ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `window`
+  --> src\lib.rs:75:26
+   |
+75 | async fn window_maximize(window: Window) -> Result<(), String> {
+   |                          ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `window`
+  --> src\lib.rs:83:28
+   |
+83 | async fn window_unmaximize(window: Window) -> Result<(), String> {
+   |                            ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `window`
+  --> src\lib.rs:91:23
+   |
+91 | async fn window_close(window: Window) -> Result<(), String> {
+   |                       ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `window`
+   --> src\lib.rs:100:30
+    |
+100 | async fn window_is_maximized(window: Window) -> Result<bool, String> {
+    |                              ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `window`
+   --> src\lib.rs:108:32
+    |
+108 | async fn window_set_fullscreen(window: Window, fullscreen: bool) -> Result<(), String> {
+    |                                ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `fullscreen`
+   --> src\lib.rs:108:48
+    |
+108 | async fn window_set_fullscreen(window: Window, fullscreen: bool) -> Result<(), String> {
+    |                                                ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_fullscreen`
+
+warning: unused variable: `window`
+   --> src\lib.rs:116:31
+    |
+116 | async fn window_is_fullscreen(window: Window) -> Result<bool, String> {
+    |                               ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `window`
+   --> src\lib.rs:228:28
+    |
+228 | async fn save_window_state(window: WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+    |                            ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `app`
+   --> src\lib.rs:228:51
+    |
+228 | async fn save_window_state(window: WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
+    |                                                   ^^^ help: if this is intentional, prefix it with an underscore: `_app`
+
+warning: unused variable: `window`
+   --> src\lib.rs:265:23
+    |
+265 | fn apply_window_state(window: &WebviewWindow, state: WindowState) {
+    |                       ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: unused variable: `state`
+   --> src\lib.rs:265:47
+    |
+265 | fn apply_window_state(window: &WebviewWindow, state: WindowState) {
+    |                                               ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: unused variable: `window`
+   --> src\lib.rs:330:17
+    |
+330 |             let window = app.get_webview_window("main").expect("Failed to get main window");
+    |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_window`
+
+warning: struct `WindowState` is never constructed
+  --> src\lib.rs:17:8
+   |
+17 | struct WindowState {
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `load_window_state` is never used
+   --> src\lib.rs:257:4
+    |
+257 | fn load_window_state(app: &tauri::AppHandle) -> Option<WindowState> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `apply_window_state` is never used
+   --> src\lib.rs:265:4
+    |
+265 | fn apply_window_state(window: &WebviewWindow, state: WindowState) {
+    |    ^^^^^^^^^^^^^^^^^^
+
+error: linking with `E:/e/Android/Sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android35-clang.cmd` failed: exit code: 1
+  |
+  = note: "E:/e/Android/Sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android35-clang.cmd" "-Wl,--version-script=C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\rustcQJ9aLm\\list" "-Wl,--no-undefined-version" "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\rustcQJ9aLm\\symbols.o" "<257 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "E:\\Web Project\\experimental-workspace\\newstart\\.cargo-target\\desktop\\aarch64-linux-android\\debug\\deps/libtauri_plugin_notification-aa5e9e1c93de299f.rlib" "E:\\Web Project\\experimental-workspace\\newstart\\apps\\desktop\\src-tauri\\../../../.cargo-target/desktop\\aarch64-linux-android\\debug\\deps/{librand-d32aa62c24e770e9,librand_chacha-f4fa9f69d29655b3,libppv_lite86-37e40027ddbe6be0,libzerocopy-7a0b89bdd1714df3,librand_core-ad9b6bdab64118d6}.rlib" "E:\\Web Project\\experimental-workspace\\newstart\\.cargo-target\\desktop\\aarch64-linux-android\\debug\\deps/{libtauri_plugin_deep_link-d952fb6724cc1804,libtauri_plugin_updater-12aa25792c90f168}.rlib" "E:\\Web Project\\experimental-workspace\\newstart\\apps\\desktop\\src-tauri\\../../../.cargo-target/desktop\\aarch64-linux-android\\debug\\deps/{libreqwest-329930638cf557b7,libserde_urlencoded-15bf628768ada646,libryu-b9f53f4b82f1b54a,libhyper_rustls-51b3593d116db646,libwebpki_roots-ebe69eda3cd8a1ea,libtokio_rustls-06833f662c173d44,librustls-ebc45f452b3df7e8,libsubtle-2f65b1aa79a8b544,libwebpki-7e9562df47b2c532,libring-22d22c7870c557fc,libgetrandom-7bdc522d2d1c1e91,libuntrusted-6f2898e2c6075529,librustls_pki_types-b55d7bb68eb8697d,libzeroize-81a58d45bd7ac213,libtower_http-e2b072160df3057b,libiri_string-149fccd472bbca6f,libtower-dd869c7a560364b0,libtower_layer-efb11b7fb1e6269a,libhyper_util-1139100ee8009bbd,libipnet-f8d75bb601380ea9,libtower_service-bb08f76f2164bd54,libtracing-d1603b1028708fcd,libtracing_core-4b9e93be8808d5e3,libhyper-dc0502c3493c6ddb,libwant-31b66a6d16e8bd4c,libtry_lock-614030eb4da416a2,libhttparse-2e839402c2989b3a,libatomic_waker-858c915b8d877ed4,libfutures_channel-7a215cca15554014,libtokio_util-c271b9b9aaebf2a5,libfutures_sink-869fc803b1a2cea3,libhttp_body_util-275106558ae94874,libhttp_body-9ca6e0bc00353ecf,libsync_wrapper-238bd56857029aea,libminisign_verify-b57d18100901ff6f,libfutures_util-8191af9c5c423ac2,libslab-5a6901606461d6c4,libfutures_task-e94abc441bf35bc3,libpin_utils-f105b3b5ff224d0a,libfutures_core-4338758394a521b7,libtauri-dbbe6e49a2b1c4f9,libheck-98d683a89debeb7f,libdirs-15d2ea5f31203f90,libdirs_sys-63355a8309228999,liboption_ext-965c28231eafaaae,libmime-c7b8c13d6573faf1,libgetrandom-57c5431866f30dc5,libtauri_runtime_wry-2b6e0c23bbf4b80d,libwry-8d4aba4f16e8645e,libsha2-e2e898131bd0861f,libdigest-db06d2293274cc9f,libblock_buffer-e144c604531d9fc0,libcrypto_common-20a5f3c0ef13e988,libgeneric_array-8cd00c267e749856,libtypenum-2296bb83dfbe0883,libkuchikiki-61190dc4d9899640,libselectors-b3aefb3c4429da80,libservo_arc-a71681cc8005682f,libnodrop-20ddb929467c020d,libphf-bf37aed9c556a413,libphf_shared-65331c1126d2df9a,libfxhash-94343fd80ff67d3d,libbitflags-3427d18e7f8c8c72,libcssparser-06cdf41117a4f3af,libdtoa_short-40c54858ffeea1f5,libdtoa-5f66fbbcb23aa704,libmatches-7d7f3b4ca20331d8,libphf-ebd5275f25a46278,libphf_shared-a6dc83b3cae3aa6a,libsiphasher-3d0078c3db18171c,libindexmap-3a9eb5b0b332db9c,libequivalent-d10dd49d2e7de188,libhashbrown-f0d41874c24d06f6,libhtml5ever-5dc2de5e7c9e7413,libmarkup5ever-46a4aa936855cc93,libstring_cache-6f9b489172e8242e,libprecomputed_hash-2ef400282be341d2,libparking_lot-97695565c9ce08c3,libparking_lot_core-2f11135a3d3ff078,libcfg_if-fed7faa0e8b21e4b,liblock_api-2498dbb082af230e,libscopeguard-f373846171e722aa,libtendril-242f044436aaa855,libutf8-89cf933add3de32c,libfutf-ac9c4e77c8937ae5,libdebug_unreachable-575e301c110fdbaf,libmac-99119348c4b31a29,libbase64-256b3f4fcd17d743,libtao-a121b9bd3494838c,libndk_context-3cfb0258a30ddd24,libonce_cell-a6638c5678dc9257,libndk-fe168abd669cca6e,libndk_sys-0fd7e038072bf4cb,libnum_enum-0bb84ae5415b7841,libcrossbeam_channel-53100b51d1dcaa13,libcrossbeam_utils-b87124658958def2,libbitflags-5345ceaa9991a2b6,liblazy_static-5b34d1f3f5b5d467,libtokio-a3659e2a177af843,libsocket2-35fe28002616251d,libmio-401f9cd706fe5743,liblibc-cdc43d756478388c,libpin_project_lite-86d25fc8f987892a,libtauri_runtime-e1040c036de6ae2e,libjni-1bc5dd7f215501d6,libcesu8-5f353ad4438ce02c,liblog-3a3f92ef7e8075ea,libcombine-d29e84e896f6f108,libjni_sys-aaa0f1f7844d5584,libcookie-823cd01ae210aad0,libtime-cd931b90dd02425b,libtime_core-3c534216c0728e3c,libnum_conv-6a7bbfd90ccdba5a,libderanged-ccc648bd8155852e,libpowerfmt-3a3b9a2f26c5a9d6,libdpi-92d83e0a67fff586,libserialize_to_javascript-a854382f3c2572fa,libraw_window_handle-af26c97164d5d3d6,libtauri_utils-fa66cff2e9e602b3,libdunce-1556e94a36ba726b,libinfer-1d56ce44af7eab53,libcfb-4d052c396beb608c,libfnv-9fbcdc96b84ee8b7,libbyteorder-374a9d1cb3467fc9,libuuid-31809ba74a76bfb3,libbrotli-e2d8020b4a9c4b52,libbrotli_decompressor-d46a4864c8c63d61,liballoc_stdlib-797625dbed84c978,liballoc_no_stdlib-243a253d394885b0,liburlpattern-eb8355bf0e5bdbad,libunic_ucd_ident-e8eeeec1039f27c1,libunic_ucd_version-f99db9cb177b6d91,libunic_common-468a30f71f93f015,libunic_char_property-b7bde22ec2d0f140,libunic_char_range-7a2a54900033a177,libregex-bcb953e1a74f595e,libregex_automata-e2877feff4cf3e9f,libaho_corasick-3ffa925d781c4063,libregex_syntax-7d022dab44383f36,libglob-f741734155270020,libwalkdir-57fbc594ce7c7b6c,libsame_file-101c8c6abe3e57c6,libjson_patch-d774bedf48c592ef,libthiserror-b894204b194d330d,libjsonptr-347b9a7aa484f8d6,libserde_with-49ce63c1944b8414,libserde_json-3c33d3da45cb6ea0,libmemchr-5aa4c9e5f40352d6,libzmij-44e03a6fbc20dde3,libphf-dfaf05895643b75d,libphf_shared-328ad17144221145,libsiphasher-4445c8baeff66493,libtoml-092ce034facad985,libtoml_writer-0de12f40b0fa5e45,libtoml_parser-3382afd9173026ce,libwinnow-afbf8f3b3b9b972a,libserde_spanned-b84ba9fd9dde156f,libtoml_datetime-3a9e7c0f7f857a9b,libserde_untagged-1f56f4a79dbb3002,liberased_serde-f0b15ac5369d1912,libtypeid-3841d6f64ff75031,liburl-ed9db8cde08dbdb4,libidna-e6d9e5bd149f1265,libutf8_iter-9eb1a8c00713be77,libidna_adapter-ee33fe0ed7d5147c,libicu_properties-7d926907cbdc2101,libicu_properties_data-95b9c88cd6998346,libicu_normalizer-ead85e65f9e67c35,libsmallvec-c2d75e450b97d079,libicu_normalizer_data-2a242e3b15b9e971,libicu_collections-e8e0aa800d91ef47,libpotential_utf-3e9df7c249063369,libicu_provider-a65e21454bc51ad6,libicu_locale_core-3ba33478549f89e7,libtinystr-36f9c83eb1bdabd8,liblitemap-7c6d8f581ef2fffa,libwriteable-7e5616d18fcc42d8,libzerovec-52019aca53c65329,libzerotrie-d07f289336580745,libyoke-0b5d1cd762545089,libstable_deref_trait-74f923fbb9f8811f,libzerofrom-1e8350407ad73aad,libform_urlencoded-6edd7d4065394b1b,libpercent_encoding-46ce4d60f62582ce,libthiserror-cd0a4beefc2a9fec,libanyhow-d6cafa6a7275bccd,libsemver-a349c9ffa3a6437d,libhttp-342ebca813aa3b23,libitoa-f5060db0449a3d8f,libbytes-9e85e9f1a8ac7d53,libserde-5c3b174271b04383,libserde_core-3b0b3f563e771ff8}.rlib" "<sysroot>\\lib\\rustlib\\aarch64-linux-android\\lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-landroid" "-ldl" "-llog" "-lunwind" "-ldl" "-lm" "-lc" "-L" "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\rustcQJ9aLm\\raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "E:\\Web Project\\experimental-workspace\\newstart\\apps\\desktop\\src-tauri\\../../../.cargo-target/desktop\\aarch64-linux-android\\debug\\build\\ring-9d7937e9e32c1e5e\\out" "-o" "E:\\Web Project\\experimental-workspace\\newstart\\apps\\desktop\\src-tauri\\../../../.cargo-target/desktop\\aarch64-linux-android\\debug\\deps\\libobscur_desktop_lib.so" "-Wl,--gc-sections" "-shared" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: The system cannot find the path specified.␍
+          
+
+warning: `obscur_desktop_lib` (lib) generated 17 warnings
+error: could not compile `obscur_desktop_lib` (lib) due to 1 previous error; 17 warnings emitted

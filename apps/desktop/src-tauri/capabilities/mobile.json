@@ -1,0 +1,13 @@
+{
+    "identifier": "mobile",
+    "description": "Mobile specific capabilities",
+    "windows": [
+        "main"
+    ],
+    "permissions": [
+        "deep-link:default",
+        "core:event:default",
+        "core:path:default",
+        "core:webview:default"
+    ]
+}

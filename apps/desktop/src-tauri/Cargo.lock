@@ -2398,8 +2398,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "obscur-desktop"
-version = "0.3.5"
+name = "obscur_desktop_lib"
+version = "0.3.6"
 dependencies = [
  "serde",
  "serde_json",

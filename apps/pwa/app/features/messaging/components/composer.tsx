@@ -97,7 +97,7 @@ export function Composer({
     };
 
     return (
-        <div className="border-t border-black/[0.03] bg-white/80 p-4 pb-safe dark:border-white/[0.03] dark:bg-black/80 backdrop-blur-xl">
+        <div className="border-t border-black/[0.03] bg-white/80 p-4 safe-bottom dark:border-white/[0.03] dark:bg-black/80 backdrop-blur-xl">
             {/* Connection Pending Gated State */}
             {isGated && (
                 <div className="mb-4 flex items-center gap-3 rounded-2xl border border-purple-500/20 bg-purple-50/50 p-4 text-[11px] font-medium text-purple-700 dark:border-purple-500/30 dark:bg-purple-900/20 dark:text-purple-300 animate-in slide-in-from-bottom-2 duration-300">

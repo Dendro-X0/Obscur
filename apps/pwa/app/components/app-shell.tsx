@@ -100,8 +100,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             onClick={(): void => setMobileSidebarOpen(false)}
             aria-label="Close navigation"
           />
-          <div className="absolute left-0 top-0 flex h-full w-[86vw] max-w-sm flex-col border-r border-black/10 bg-white dark:border-white/10 dark:bg-black shadow-2xl">
-            <div className="flex items-center justify-between border-b border-black/10 px-3 py-3 dark:border-white/10">
+          <div className="absolute left-0 top-0 flex h-full w-[86vw] max-w-sm flex-col border-r border-black/10 bg-white dark:border-white/10 dark:bg-black shadow-2xl safe-top safe-bottom">
+            <div className="flex items-center justify-between border-b border-black/10 px-3 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] dark:border-white/10">
               <div className="text-sm font-semibold">Obscur</div>
               <button
                 type="button"
@@ -263,7 +263,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 backdrop-blur dark:border-white/10 md:hidden">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
           {!props.hideSidebar && (
             <button
               type="button"

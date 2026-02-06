@@ -13,7 +13,7 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
 - **🌍 Localized**: Available in English, Chinese (Simplified), and Spanish
 - **🖼️ Media Storage**: Native NIP-96 support for file uploads via external providers (nostr.build, etc.)
 - **📱 Progressive Web App**: Installable with offline functionality and push notifications
-- **🖥️ Cross-Platform**: Web app with planned desktop and mobile versions
+- **🖥️ Cross-Platform**: Web app with experimental Desktop and Android versions
 
 ## 🛡️ Privacy & Security
 
@@ -113,6 +113,7 @@ pnpm build
 - **PWA**: Deploy `apps/pwa` to Vercel, Netlify, or any static hosting service
 - **API**: Optional - the PWA can function without the API server
 - **Desktop**: Built with Tauri v2. Releases managed via GitHub Actions.
+- **Mobile**: Android (APK/AAB) built via GitHub Actions.
 
 ### Pre-deployment Checklist
 
@@ -163,6 +164,12 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - All foundational services implemented and tested
 - Property-based tests validate universal correctness properties
 - Integration tests confirm services work together correctly
+
+✅ **Mobile Support (Alpha)**
+- Native Android application (Tauri v2)
+- Deep linking (`obscur://`, `nostr:`)
+- Native notifications & file uploads
+- Automatic status bar theming
 
 🚧 **Next Phase**: UI Components and Integration (Tasks 7-15)
 - Invite Manager Service for link and request workflows

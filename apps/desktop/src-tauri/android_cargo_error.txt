@@ -1,0 +1,4 @@
+    Updating crates.io index
+error: no matching package named `tauri-plugin-statusbar` found
+location searched: crates.io index
+required by package `obscur-desktop v0.3.6 (E:\Web Project\experimental-workspace\newstart\apps\desktop\src-tauri)`

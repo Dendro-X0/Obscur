@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.5.0-alpha] - 2026-02-05
+
+### Added
+- **Native Mobile Support (Android)**: Initial alpha release for Android.
+- **Mobile UI Polishing**: Implemented safe area insets for notches and dynamic islands, ensuring content isn't obscured.
+- **Deep Linking**: Support for `obscur://` and `nostr:` links to open invites, profiles, and conversations directly in the app.
+- **Native File Uploads**: Integrated NIP-96 file upload support using native file pickers and camera.
+- **Native Notifications**: Implemented foreground polling and native system notifications for new messages.
+- **Status Bar Sync**: The system status bar now automatically syncs with the app's theme (light/dark mode).
+- **Core Feature Parity**: Validated WASM crypto fallback and essential features on mobile environment.
+- **CI/CD**: Automated Android APK building via GitHub Actions (`mobile-release.yml`).
+
 ## [v0.4.0] - 2026-02-03
 
 ### Added

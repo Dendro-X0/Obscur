@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useTheme } from "@/app/features/settings/hooks/use-theme";
+import { syncStatusBarTheme } from "@/app/lib/mobile-theme";
 
 type ThemePreference = "system" | "light" | "dark";
 
@@ -17,13 +18,16 @@ const applyThemeClass = (params: Readonly<{ preference: ThemePreference }>): voi
     return;
   }
   const isDark: boolean = params.preference === "dark" || (params.preference === "system" && getSystemPrefersDark());
-  
+
   // Add transition class before theme change
   document.documentElement.classList.add("theme-transition");
-  
+
   document.documentElement.classList.toggle("dark", isDark);
   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
-  
+
+  // Sync status bar on mobile
+  syncStatusBarTheme(isDark);
+
   // Remove transition class after a short delay to prevent interference with other animations
   setTimeout(() => {
     document.documentElement.classList.remove("theme-transition");

@@ -266,6 +266,13 @@ function NostrMessengerContent() {
   const { isLocked, lock, unlock, settings } = useAutoLock();
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "metadata" in ((window as any).__TAURI_INTERNALS__?.metadata?.mobile || {})) {
+      setIsMobile(true);
+    }
+  }, []);
 
   const handleUnlock = async (passphrase: string): Promise<boolean> => {
     setIsUnlocking(true);
@@ -1980,7 +1987,8 @@ function NostrMessengerContent() {
         />
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      {/* Identity status screens need mobile layout too */}
+      <div className={`flex flex-1 overflow-hidden ${isMobile ? 'mobile-layout' : ''}`}>
         <main className="page-transition flex flex-1 flex-col bg-zinc-50 dark:bg-black">
           {isIdentityLocked ? (
             <div className="flex flex-1 items-center justify-center p-6">

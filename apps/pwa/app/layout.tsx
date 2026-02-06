@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
+import "./styles/mobile-safe-area.css"
 import { ThemeController } from "./components/theme-controller"
 import PwaServiceWorkerRegistrar from "./components/pwa-service-worker-registrar"
 import { ToastProvider } from "./components/toast-provider"
@@ -36,6 +37,10 @@ export const viewport = {
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 }
 
 export default function RootLayout({

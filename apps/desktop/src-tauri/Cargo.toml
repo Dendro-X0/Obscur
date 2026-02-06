@@ -1,7 +1,11 @@
 [package]
-name = "obscur-desktop"
+name = "obscur_desktop_lib"
 version = "0.3.6"
 edition = "2021"
+
+[lib]
+name = "obscur_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -16,6 +20,12 @@ serde = { version = "1", features = ["derive"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+# Development profile optimizations for disk space
+[profile.dev]
+incremental = false # Saves disk space at the cost of slightly slower re-compiles
+debug = 0           # Strips debug symbols (huge space saver)
+strip = "debuginfo" # Further removal of debug info
 
 # Release profile optimizations for smaller binary size and better performance
 [profile.release]

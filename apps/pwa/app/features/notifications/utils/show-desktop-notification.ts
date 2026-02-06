@@ -1,8 +1,15 @@
+import { notifyNewMessage, isTauri } from "@/app/lib/notification-service";
+
 type ShowDesktopNotificationParams = Readonly<{ title: string; body: string; tag: string }>;
 
 type ShowDesktopNotificationResult = Readonly<{ ok: boolean }>;
 
 const showDesktopNotification = (params: ShowDesktopNotificationParams): ShowDesktopNotificationResult => {
+  if (isTauri()) {
+    void notifyNewMessage(params.title, params.body);
+    return { ok: true };
+  }
+
   if (typeof window === "undefined" || typeof Notification === "undefined") {
     return { ok: false };
   }
