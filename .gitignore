@@ -17,7 +17,7 @@ out/
 **/Cargo.lock
 
 # Generated files
-**/gen/
+# **/gen/ - We now include gen for Android project structure
 **/generated/
 
 # IDE and OS
@@ -56,7 +56,7 @@ pnpm-debug.log*
 
 # Tauri specific
 apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/gen/
+# apps/desktop/src-tauri/gen/
 
 # Tauri updater signing keys (CRITICAL - keep private keys secret!)
 **/updater-key.txt
