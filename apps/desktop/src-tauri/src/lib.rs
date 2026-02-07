@@ -348,6 +348,90 @@ fn load_tor_settings(app: &tauri::AppHandle) -> TorSettings {
     serde_json::from_str(&json).unwrap_or(default)
 }
 
+#[derive(serde::Deserialize)]
+struct Nip96Response {
+    url: Option<String>,
+    nip94_event: Option<serde_json::Value>,
+    data: Option<serde_json::Value>,
+    link: Option<String>,
+    status: Option<String>,
+    error: Option<String>,
+    message: Option<String>,
+}
+
+#[tauri::command]
+async fn upload_file_nip96(
+    file_path: String,
+    api_url: String,
+    auth_header: Option<String>,
+) -> Result<String, String> {
+    // Read file from disk
+    let file_bytes = std::fs::read(&file_path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let file_name = std::path::Path::new(&file_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+
+    // Create multipart form
+    let file_part = reqwest::multipart::Part::bytes(file_bytes)
+        .file_name(file_name.to_string());
+    
+    let form = reqwest::multipart::Form::new()
+        .part("file", file_part)
+        .text("caption", file_name.to_string());
+
+    // Build HTTP client
+    let client = reqwest::Client::new();
+    let mut request = client.post(&api_url).multipart(form);
+
+    // Add NIP-98 authorization if provided
+    if let Some(auth) = auth_header {
+        request = request.header("Authorization", format!("Nostr {}", auth));
+    }
+
+    // Send request
+    let response = request.send().await.map_err(|e| format!("Upload failed: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(format!("NIP-96 Upload failed ({}): {}", status, error_text));
+    }
+
+    let result: Nip96Response = response.json().await.map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    // Check for application-level errors
+    if result.status.as_deref() == Some("error") || result.error.is_some() {
+        return Err(result.message.or(result.error).unwrap_or_else(|| "Unknown API error".to_string()));
+    }
+
+    // Extract URL from various possible response formats
+    let url = result.url
+        .or_else(|| {
+            result.nip94_event.as_ref().and_then(|event| {
+                event.get("tags").and_then(|tags| {
+                    tags.as_array().and_then(|arr| {
+                        arr.iter()
+                            .find(|tag| {
+                                tag.as_array()
+                                    .and_then(|t| t.first())
+                                    .and_then(|v| v.as_str())
+                                    == Some("url")
+                            })
+                            .and_then(|tag| tag.as_array())
+                            .and_then(|tag| tag.get(1))
+                            .and_then(|v| v.as_str())
+                            .map(String::from)
+                    })
+                })
+            })
+        })
+        .or_else(|| result.data.as_ref().and_then(|d| d.get("url").and_then(|v| v.as_str()).map(String::from)))
+        .or_else(|| result.link);
+
+    url.ok_or_else(|| "NIP-96 response missing URL".to_string())
+}
+
 #[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
     app.restart();
@@ -415,6 +499,9 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let settings = load_tor_settings(&app.handle());
             
@@ -574,7 +661,8 @@ pub fn run() {
             stop_tor,
             get_tor_status,
             save_tor_settings,
-            restart_app
+            restart_app,
+            upload_file_nip96
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
