@@ -23,7 +23,11 @@ export class Nip96UploadService implements UploadService {
     ) { }
 
     private isTauri(): boolean {
-        return typeof window !== 'undefined' && '__TAURI__' in window;
+        if (typeof window === "undefined") {
+            return false;
+        }
+        const w = window as unknown as Record<string, unknown>;
+        return "__TAURI_INTERNALS__" in w || "__TAURI__" in w;
     }
 
     async uploadFile(file: File): Promise<Attachment> {
