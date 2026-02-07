@@ -37,6 +37,16 @@ This repository is a PNPM workspace with:
 
 ### Smart Invite System
 
+## ⚠️ Known Issues
+
+### Desktop Application (Windows/Linux/macOS)
+- **File Uploads Unavailable**: The desktop application currently cannot upload files or display certain encrypted media due to platform-specific restrictions in the WebView.
+- **Incomplete Feature Set**: Users may experience an "incomplete" version compared to the PWA.
+- **Resolution**: Please use the **Web Version (PWA)** for full file upload capabilities.
+- **Details**: See [docs/DESKTOP_UPLOAD_ISSUES.md](docs/DESKTOP_UPLOAD_ISSUES.md) for a full technical report.
+
+### Smart Invite System
+
 The Smart Invite System provides secure, user-friendly methods for connecting with others:
 
 - **QR Code Generation & Scanning**: Create and scan QR codes for instant connections
