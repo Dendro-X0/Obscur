@@ -498,8 +498,14 @@ pub fn run() {
 
             // Load and apply saved window state
             #[cfg(desktop)]
-            if let Some(state) = load_window_state(&app.handle()) {
-                apply_window_state(&_window, state);
+            {
+                if let Some(state) = load_window_state(&app.handle()) {
+                    apply_window_state(&_window, state);
+                }
+                
+                // Show the window now
+                let _ = _window.show();
+                let _ = _window.set_focus();
             }
 
             // Save window state and intercept close
