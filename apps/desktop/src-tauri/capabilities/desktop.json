@@ -10,6 +10,8 @@
         "http:default",
         "upload:default",
         "fs:default",
+        "fs:allow-write-file",
+        "fs:allow-remove",
         "dialog:default",
         {
             "identifier": "shell:allow-spawn",
