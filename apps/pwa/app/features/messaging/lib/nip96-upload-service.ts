@@ -35,7 +35,11 @@ export class Nip96UploadService implements UploadService {
 
     private async uploadFileTauri(file: File): Promise<Attachment> {
         try {
-            const { upload } = await import('@tauri-apps/plugin-upload');
+            const { fetch } = await import('@tauri-apps/plugin-http');
+
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("caption", file.name);
 
             // Prepare NIP-98 auth header if we have keys
             const headers: Record<string, string> = {};
@@ -59,23 +63,21 @@ export class Nip96UploadService implements UploadService {
                 }
             }
 
-            // Use the dedicated upload plugin which handles files natively
-            const response = await upload(
-                this.apiUrl.trim(),
-                file,
-                ({ progress, total }: { progress: number; total: number }) => {
-                    console.log(`Upload progress: ${progress} / ${total}`);
-                },
-                headers,
-                {
-                    // Additional form data for NIP-96
-                    caption: file.name
-                }
-            );
+            // Use the HTTP plugin's fetch which bypasses WebView CORS
+            const response = await fetch(this.apiUrl.trim(), {
+                method: "POST",
+                body: formData,
+                headers
+            });
 
-            // Check for application-level errors
-            const result = JSON.parse(response);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`NIP-96 Upload failed (${response.status}): ${errorText}`);
+            }
+
+            const result = await response.json();
             const typedResult = result as any;
+
             if (typedResult.status === 'error' || typedResult.error) {
                 throw new Error(typedResult.message || typedResult.error || "Unknown API error");
             }
