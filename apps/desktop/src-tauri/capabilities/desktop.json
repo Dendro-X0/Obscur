@@ -9,6 +9,7 @@
         "shell:allow-open",
         "http:default",
         "upload:default",
+        "fs:default",
         "dialog:default",
         {
             "identifier": "shell:allow-spawn",

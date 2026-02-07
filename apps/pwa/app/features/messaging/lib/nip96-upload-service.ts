@@ -33,16 +33,33 @@ export class Nip96UploadService implements UploadService {
         return this.uploadFileWeb(file);
     }
 
+    /**
+     * Tauri-specific upload using native file system and upload plugin.
+     * This bypasses WebView CORS restrictions by:
+     * 1. Writing the file to a temp directory
+     * 2. Using the native upload plugin with the file path
+     * 3. Cleaning up the temp file
+     */
     private async uploadFileTauri(file: File): Promise<Attachment> {
         try {
-            const { fetch } = await import('@tauri-apps/plugin-http');
+            const { upload } = await import('@tauri-apps/plugin-upload');
+            const { tempDir, join } = await import('@tauri-apps/api/path');
+            const { writeFile, remove } = await import('@tauri-apps/plugin-fs');
 
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("caption", file.name);
+            // Create a unique temp file path
+            const tempDirectory = await tempDir();
+            const uniqueId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            const extension = file.name.split('.').pop() || 'tmp';
+            const tempFilePath = await join(tempDirectory, `${uniqueId}.${extension}`);
+
+            // Write the file to temp directory
+            const arrayBuffer = await file.arrayBuffer();
+            await writeFile(tempFilePath, new Uint8Array(arrayBuffer));
 
             // Prepare NIP-98 auth header if we have keys
-            const headers: Record<string, string> = {};
+            const headersMap = new Map<string, string>();
+            headersMap.set('Content-Type', file.type || 'application/octet-stream');
+
             if (this.publicKeyHex && this.privateKeyHex) {
                 try {
                     const event = await cryptoService.signEvent({
@@ -57,25 +74,34 @@ export class Nip96UploadService implements UploadService {
                     }, this.privateKeyHex);
 
                     const auth = btoa(JSON.stringify(event));
-                    headers["Authorization"] = `Nostr ${auth}`;
+                    headersMap.set("Authorization", `Nostr ${auth}`);
                 } catch (err) {
                     console.error("Failed to sign NIP-98 event:", err);
                 }
             }
 
-            // Use the HTTP plugin's fetch which bypasses WebView CORS
-            const response = await fetch(this.apiUrl.trim(), {
-                method: "POST",
-                body: formData,
-                headers
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`NIP-96 Upload failed (${response.status}): ${errorText}`);
+            let response: string;
+            try {
+                // Use the native upload plugin with file path
+                response = await upload(
+                    this.apiUrl.trim(),
+                    tempFilePath,
+                    (payload) => {
+                        console.log(`Upload progress: ${payload.progress} / ${payload.total}`);
+                    },
+                    headersMap
+                );
+            } finally {
+                // Clean up temp file
+                try {
+                    await remove(tempFilePath);
+                } catch (cleanupError) {
+                    console.warn("Failed to clean up temp file:", cleanupError);
+                }
             }
 
-            const result = await response.json();
+            // Parse the response
+            const result = JSON.parse(response);
             const typedResult = result as any;
 
             if (typedResult.status === 'error' || typedResult.error) {
