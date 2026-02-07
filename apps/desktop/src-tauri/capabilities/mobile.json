@@ -6,6 +6,7 @@
     ],
     "permissions": [
         "deep-link:default",
+        "http:default",
         "core:event:default",
         "core:path:default",
         "core:webview:default"

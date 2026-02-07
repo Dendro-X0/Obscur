@@ -39,9 +39,14 @@ export class Nip96UploadService implements UploadService {
             const { fetch } = await import('@tauri-apps/plugin-http');
 
             // Construct FormData manually or use standard FormData if supported
-            // The plugin supports standard FormData
+            // The plugin supports standard FormData but sometimes needs help with File objects
             const formData = new FormData();
-            formData.append("file", file);
+
+            // Read file into memory to ensure it's accessible to the plugin
+            const buffer = await file.arrayBuffer();
+            const blob = new Blob([buffer], { type: file.type });
+            formData.append("file", blob, file.name);
+
             formData.append("caption", file.name);
 
             // Prepare NIP-98 auth header if we have keys
