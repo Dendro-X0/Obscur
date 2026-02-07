@@ -35,18 +35,11 @@ export class Nip96UploadService implements UploadService {
 
     private async uploadFileTauri(file: File): Promise<Attachment> {
         try {
-            // Import fetch from tauri-plugin-http
-            const { fetch } = await import('@tauri-apps/plugin-http');
-
-            // Construct FormData manually or use standard FormData if supported
-            // The plugin supports standard FormData but sometimes needs help with File objects
+            // Use native browser fetch instead of @tauri-apps/plugin-http
+            // The CSP now allows https://* connections, and native fetch
+            // handles FormData with File objects correctly across all platforms
             const formData = new FormData();
-
-            // Read file into memory to ensure it's accessible to the plugin
-            const buffer = await file.arrayBuffer();
-            const blob = new Blob([buffer], { type: file.type });
-            formData.append("file", blob, file.name);
-
+            formData.append("file", file);
             formData.append("caption", file.name);
 
             // Prepare NIP-98 auth header if we have keys
@@ -71,7 +64,7 @@ export class Nip96UploadService implements UploadService {
                 }
             }
 
-            // Use the plugin's fetch which handles the request via Rust
+            // Use native fetch - works correctly in both browser and Tauri WebView
             const response = await fetch(this.apiUrl.trim(), {
                 method: "POST",
                 body: formData,
@@ -86,7 +79,6 @@ export class Nip96UploadService implements UploadService {
             const result = await response.json();
 
             // Check for application-level errors
-            // Use type assertion since response.json() returns any
             const typedResult = result as any;
             if (typedResult.status === 'error' || typedResult.error) {
                 throw new Error(typedResult.message || typedResult.error || "Unknown API error");
