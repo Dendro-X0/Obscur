@@ -75,6 +75,9 @@ importers:
       '@tauri-apps/plugin-fs':
         specifier: ^2.4.5
         version: 2.4.5
+      '@tauri-apps/plugin-http':
+        specifier: ^2.5.7
+        version: 2.5.7
       '@tauri-apps/plugin-notification':
         specifier: ^2.3.3
         version: 2.3.3

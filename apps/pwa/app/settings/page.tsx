@@ -342,6 +342,7 @@ export default function SettingsPage(): React.JSX.Element {
                           <AvatarUpload
                             currentAvatarUrl={profile.state.profile.avatarUrl}
                             onUploadSuccess={(url) => profile.setAvatarUrl({ avatarUrl: url })}
+                            onClear={() => profile.setAvatarUrl({ avatarUrl: "" })}
                             className="items-start"
                           />
                           <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.avatarHelp")}</div>

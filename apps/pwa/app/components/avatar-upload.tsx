@@ -10,10 +10,11 @@ import { cn } from "@/app/lib/utils";
 interface AvatarUploadProps {
     currentAvatarUrl?: string;
     onUploadSuccess: (url: string) => void;
+    onClear?: () => void;
     className?: string;
 }
 
-export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, className }: AvatarUploadProps) {
+export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, onClear, className }: AvatarUploadProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
@@ -60,10 +61,11 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, className }: A
         fileInputRef.current?.click();
     };
 
-    const clearPreview = () => {
+    const handleClear = () => {
         setPreviewUrl(null);
         setStatus('idle');
         if (fileInputRef.current) fileInputRef.current.value = "";
+        onClear?.();
     };
 
     const displayUrl = previewUrl || currentAvatarUrl;
@@ -119,12 +121,12 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, className }: A
                 >
                     {displayUrl ? "Change Image" : "Upload Image"}
                 </Button>
-                {previewUrl && !isUploading && (
+                {(previewUrl || currentAvatarUrl) && !isUploading && (
                     <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={clearPreview}
+                        onClick={handleClear}
                         className="text-zinc-500"
                     >
                         <X className="h-4 w-4 mr-1" /> Clear

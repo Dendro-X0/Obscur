@@ -35,32 +35,17 @@ export class Nip96UploadService implements UploadService {
 
     private async uploadFileTauri(file: File): Promise<Attachment> {
         try {
-            // For Tauri, we need to save the file temporarily and pass the path
-            // Since we can't directly access file paths from File objects in the browser,
-            // we'll use the dialog plugin to let users select files
-            // For now, we'll convert the File to a blob URL and use that
-            // This is a temporary solution - ideally we'd use the file path directly
+            // Import fetch from tauri-plugin-http
+            const { fetch } = await import('@tauri-apps/plugin-http');
 
-            // Create a temporary file path (this won't work - we need the actual file path)
-            // Instead, we'll read the file as bytes and write it temporarily
-            const { invoke } = await import('@tauri-apps/api/core');
-            const { BaseDirectory, writeFile } = await import('@tauri-apps/plugin-fs');
-
-            // Read file as array buffer
-            const arrayBuffer = await file.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-
-            // Write to temp file
-            const tempFileName = `upload_${Date.now()}_${file.name}`;
-            await writeFile(tempFileName, uint8Array, { baseDir: BaseDirectory.Temp });
-
-            // Get the temp file path
-            const { join, tempDir } = await import('@tauri-apps/api/path');
-            const tempDirPath = await tempDir();
-            const filePath = await join(tempDirPath, tempFileName);
+            // Construct FormData manually or use standard FormData if supported
+            // The plugin supports standard FormData
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("caption", file.name);
 
             // Prepare NIP-98 auth header if we have keys
-            let authHeader: string | null = null;
+            const headers: Record<string, string> = {};
             if (this.publicKeyHex && this.privateKeyHex) {
                 try {
                     const event = await cryptoService.signEvent({
@@ -74,18 +59,51 @@ export class Nip96UploadService implements UploadService {
                         pubkey: this.publicKeyHex
                     }, this.privateKeyHex);
 
-                    authHeader = btoa(JSON.stringify(event));
+                    const auth = btoa(JSON.stringify(event));
+                    headers["Authorization"] = `Nostr ${auth}`;
                 } catch (err) {
                     console.error("Failed to sign NIP-98 event:", err);
                 }
             }
 
-            // Call Tauri command
-            const url = await invoke<string>('upload_file_nip96', {
-                filePath,
-                apiUrl: this.apiUrl.trim(),
-                authHeader
+            // Use the plugin's fetch which handles the request via Rust
+            const response = await fetch(this.apiUrl.trim(), {
+                method: "POST",
+                body: formData,
+                headers
             });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`NIP-96 Upload failed (${response.status}): ${errorText}`);
+            }
+
+            const result = await response.json();
+
+            // Check for application-level errors
+            // Use type assertion since response.json() returns any
+            const typedResult = result as any;
+            if (typedResult.status === 'error' || typedResult.error) {
+                throw new Error(typedResult.message || typedResult.error || "Unknown API error");
+            }
+
+            const url =
+                typedResult.url ||
+                (typedResult.nip94_event?.tags?.find((t: string[]) => t[0] === 'url')?.[1]) ||
+                typedResult.data?.url ||
+                typedResult.data?.[0]?.url ||
+                typedResult.link;
+
+            if (!url) {
+                if (typedResult.processing_url) {
+                    throw new Error("File is processing significantly. Please try a different provider or smaller file.");
+                }
+                if (typedResult.message) {
+                    throw new Error(`Upload returned message: ${typedResult.message}`);
+                }
+                const keys = Object.keys(typedResult).join(", ");
+                throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
+            }
 
             const kind: AttachmentKind = file.type.startsWith("video/") ? "video" : "image";
 
@@ -95,6 +113,7 @@ export class Nip96UploadService implements UploadService {
                 contentType: file.type,
                 fileName: file.name,
             };
+
         } catch (error) {
             console.error("Tauri upload failed:", error);
             throw new Error(`Upload failed: ${error}`);

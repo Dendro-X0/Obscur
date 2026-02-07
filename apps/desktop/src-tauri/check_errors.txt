@@ -1,0 +1,60 @@
+    Checking obscur_desktop_lib v0.5.0-alpha (E:\Web Project\experimental-workspace\newstart\apps\desktop\src-tauri)
+error[E0433]: failed to resolve: could not find `multipart` in `reqwest`
+   --> src\lib.rs:379:44
+    |
+379 |     let form = tauri_plugin_http::reqwest::multipart::Form::new()
+    |                                            ^^^^^^^^^ could not find `multipart` in `reqwest`
+    |
+note: found an item that was configured out
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\reqwest-0.12.28\src\lib.rs:367:31
+    |
+366 |     #[cfg(feature = "multipart")]
+    |           --------------------- the item is gated behind the `multipart` feature
+367 |     pub use self::async_impl::multipart;
+    |                               ^^^^^^^^^
+note: found an item that was configured out
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\reqwest-0.12.28\src\lib.rs:394:25
+    |
+388 | / if_wasm! {
+389 | |     mod wasm;
+390 | |     mod util;
+...   |
+394 | |     pub use self::wasm::multipart;
+    | |                         ^^^^^^^^^
+395 | | }
+    | |_- the item is gated behind the `wasm32` feature
+
+error[E0433]: failed to resolve: could not find `multipart` in `reqwest`
+   --> src\lib.rs:376:49
+    |
+376 |     let file_part = tauri_plugin_http::reqwest::multipart::Part::bytes(file_bytes)
+    |                                                 ^^^^^^^^^ could not find `multipart` in `reqwest`
+    |
+note: found an item that was configured out
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\reqwest-0.12.28\src\lib.rs:367:31
+    |
+366 |     #[cfg(feature = "multipart")]
+    |           --------------------- the item is gated behind the `multipart` feature
+367 |     pub use self::async_impl::multipart;
+    |                               ^^^^^^^^^
+note: found an item that was configured out
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\reqwest-0.12.28\src\lib.rs:394:25
+    |
+388 | / if_wasm! {
+389 | |     mod wasm;
+390 | |     mod util;
+...   |
+394 | |     pub use self::wasm::multipart;
+    | |                         ^^^^^^^^^
+395 | | }
+    | |_- the item is gated behind the `wasm32` feature
+
+error[E0599]: no method named `multipart` found for struct `RequestBuilder` in the current scope
+   --> src\lib.rs:385:45
+    |
+385 |     let mut request = client.post(&api_url).multipart(form);
+    |                                             ^^^^^^^^^ method not found in `RequestBuilder`
+
+Some errors have detailed explanations: E0433, E0599.
+For more information about an error, try `rustc --explain E0433`.
+error: could not compile `obscur_desktop_lib` (lib) due to 3 previous errors
