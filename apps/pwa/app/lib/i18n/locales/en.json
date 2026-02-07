@@ -222,6 +222,7 @@
         "settings.health.locked": "Locked",
         "settings.updates.title": "Updates",
         "settings.updates.desc": "Keep your application up to date.",
+        "settings.updates.currentVersion": "Current Version",
         "settings.updates.help": "Updates are checked automatically on startup. You can also manually trigger a check here.",
         "settings.updates.available": "Update Available",
         "settings.updates.install": "Install Update",
