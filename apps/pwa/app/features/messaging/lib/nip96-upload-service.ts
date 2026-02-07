@@ -35,12 +35,7 @@ export class Nip96UploadService implements UploadService {
 
     private async uploadFileTauri(file: File): Promise<Attachment> {
         try {
-            // Use native browser fetch instead of @tauri-apps/plugin-http
-            // The CSP now allows https://* connections, and native fetch
-            // handles FormData with File objects correctly across all platforms
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("caption", file.name);
+            const { upload } = await import('@tauri-apps/plugin-upload');
 
             // Prepare NIP-98 auth header if we have keys
             const headers: Record<string, string> = {};
@@ -64,21 +59,22 @@ export class Nip96UploadService implements UploadService {
                 }
             }
 
-            // Use native fetch - works correctly in both browser and Tauri WebView
-            const response = await fetch(this.apiUrl.trim(), {
-                method: "POST",
-                body: formData,
-                headers
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`NIP-96 Upload failed (${response.status}): ${errorText}`);
-            }
-
-            const result = await response.json();
+            // Use the dedicated upload plugin which handles files natively
+            const response = await upload(
+                this.apiUrl.trim(),
+                file,
+                ({ progress, total }: { progress: number; total: number }) => {
+                    console.log(`Upload progress: ${progress} / ${total}`);
+                },
+                headers,
+                {
+                    // Additional form data for NIP-96
+                    caption: file.name
+                }
+            );
 
             // Check for application-level errors
+            const result = JSON.parse(response);
             const typedResult = result as any;
             if (typedResult.status === 'error' || typedResult.error) {
                 throw new Error(typedResult.message || typedResult.error || "Unknown API error");
@@ -123,11 +119,6 @@ export class Nip96UploadService implements UploadService {
         formData.append("caption", file.name);
 
         const headers: Record<string, string> = {};
-
-        // Sanitize URL
-        const endpoint = this.apiUrl.trim();
-
-        // If we have keys, use NIP-98 Authorization
         if (this.publicKeyHex && this.privateKeyHex) {
             try {
                 const event = await cryptoService.signEvent({
@@ -135,7 +126,7 @@ export class Nip96UploadService implements UploadService {
                     content: "",
                     created_at: Math.floor(Date.now() / 1000),
                     tags: [
-                        ["u", endpoint],
+                        ["u", this.apiUrl.trim()],
                         ["method", "POST"]
                     ],
                     pubkey: this.publicKeyHex
@@ -148,7 +139,7 @@ export class Nip96UploadService implements UploadService {
             }
         }
 
-        const response = await fetch(endpoint, {
+        const response = await fetch(this.apiUrl.trim(), {
             method: "POST",
             body: formData,
             headers
@@ -160,33 +151,27 @@ export class Nip96UploadService implements UploadService {
         }
 
         const result = await response.json();
-        console.log("NIP-96 Response:", result);
+        const typedResult = result as any;
 
-        // Check for application-level errors even if HTTP status was 200
-        if (result.status === 'error' || result.error) {
-            throw new Error(result.message || result.error || "Unknown API error");
+        if (typedResult.status === 'error' || typedResult.error) {
+            throw new Error(typedResult.message || typedResult.error || "Unknown API error");
         }
 
-        // NIP-96 successful response contains a 'nip94_event' or 'url'
-        // Some providers might wrap it in 'data' or use 'link'
         const url =
-            result.url ||
-            (result.nip94_event?.tags?.find((t: string[]) => t[0] === 'url')?.[1]) ||
-            result.data?.url ||
-            result.data?.[0]?.url ||
-            result.link;
+            typedResult.url ||
+            (typedResult.nip94_event?.tags?.find((t: string[]) => t[0] === 'url')?.[1]) ||
+            typedResult.data?.url ||
+            typedResult.data?.[0]?.url ||
+            typedResult.link;
 
         if (!url) {
-            // Check for processing_url (async processing)
-            if (result.processing_url) {
+            if (typedResult.processing_url) {
                 throw new Error("File is processing significantly. Please try a different provider or smaller file.");
             }
-            // If we have a message but no URL, it might be a soft error or warning we missed above
-            if (result.message) {
-                throw new Error(`Upload returned message: ${result.message}`);
+            if (typedResult.message) {
+                throw new Error(`Upload returned message: ${typedResult.message}`);
             }
-
-            const keys = Object.keys(result).join(", ");
+            const keys = Object.keys(typedResult).join(", ");
             throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
         }
 

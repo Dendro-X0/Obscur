@@ -51,6 +51,7 @@ import { useTranslation } from "react-i18next";
 import { TrustSettingsPanel } from "../features/messaging/components/trust-settings-panel";
 import { AutoLockSettingsPanel } from "../features/settings/components/auto-lock-settings-panel";
 import { STORAGE_KEY_NIP96, Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
+import packageJson from "@/package.json";
 import { RECOMMENDED_STORAGE_PROVIDERS } from "@/app/features/messaging/lib/storage-providers";
 import { Check, Info } from "lucide-react";
 import { AvatarUpload } from "../components/avatar-upload";
@@ -474,6 +475,12 @@ export default function SettingsPage(): React.JSX.Element {
                 {activeTab === "updates" && (
                   <Card title={t("settings.updates.title")} description={t("settings.updates.desc")} className="w-full">
                     <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                        <span className="text-sm font-medium">{t("settings.updates.currentVersion")}</span>
+                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                          v{packageJson.version}
+                        </span>
+                      </div>
                       <DesktopUpdater />
                       <div className="text-xs text-zinc-600 dark:text-zinc-400">
                         {t("settings.updates.help")}

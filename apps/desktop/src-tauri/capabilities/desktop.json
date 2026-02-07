@@ -8,6 +8,7 @@
         "shell:allow-kill",
         "shell:allow-open",
         "http:default",
+        "upload:default",
         "dialog:default",
         {
             "identifier": "shell:allow-spawn",
