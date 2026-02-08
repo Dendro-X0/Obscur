@@ -124,44 +124,62 @@ pub async fn nip96_upload(
     {
         if effective_auth.is_none() {
             println!("[NativeUpload] No auth provided by frontend, attempting native NIP-98 signing...");
-            if let Ok(entry) = Entry::new(APP_SERVICE, KEY_NAME) {
-                if let Ok(nsec) = entry.get_password() {
-                    let nsec_str: String = nsec; // Explicitly type to String
-                    let nsec_zero = Zeroizing::new(nsec_str);
-                    if let Ok(keys) = Keys::parse(nsec_zero.as_str()) {
-                        println!("[NativeUpload] Found native identity: {}", keys.public_key());
-                        
-                        // Hash file bytes for NIP-98 payload tag
-                        let hash = sha256::Hash::hash(&file_bytes);
-                        let payload_hash = hash.to_string();
-                        
-                        let now = Timestamp::now();
-                        let expiration = now.as_u64() + 60; // 1 minute window
+            match Entry::new(APP_SERVICE, KEY_NAME) {
+                Ok(entry) => {
+                    match entry.get_password() {
+                        Ok(nsec) => {
+                            let nsec_str: String = nsec;
+                            let nsec_zero = Zeroizing::new(nsec_str);
+                            match Keys::parse(nsec_zero.as_str()) {
+                                Ok(keys) => {
+                                    println!("[NativeUpload] Found native identity: {}", keys.public_key());
+                                    
+                                    let hash = sha256::Hash::hash(&file_bytes);
+                                    let payload_hash = hash.to_string();
+                                    
+                                    let now = Timestamp::now();
+                                    let expiration = now.as_u64() + 60;
 
-                        let unsigned_event = EventBuilder::new(
-                            Kind::from(27235), // NIP-98 auth
-                            "",
-                        )
-                        .tags(vec![
-                            Tag::custom(TagKind::Custom(Cow::Borrowed("u")), vec![api_url.clone()]),
-                            Tag::custom(TagKind::Custom(Cow::Borrowed("method")), vec!["POST".to_string()]),
-                            Tag::custom(TagKind::Custom(Cow::Borrowed("payload")), vec![payload_hash]),
-                            Tag::custom(TagKind::Custom(Cow::Borrowed("expiration")), vec![expiration.to_string()]),
-                        ])
-                        .custom_created_at(now)
-                        .build(keys.public_key());
+                                    println!("[NativeUpload] Creating NIP-98 event:");
+                                    println!("  - URL (u tag): {}", api_url);
+                                    println!("  - Method: POST");
+                                    println!("  - Payload Hash: {}", payload_hash);
+                                    println!("  - Created At: {}", now.as_u64());
 
-                        if let Ok(signed_event) = unsigned_event.sign(&keys).await {
-                            let auth_b64 = base64::engine::general_purpose::STANDARD.encode(
-                                signed_event.as_json().as_bytes()
-                            );
-                            effective_auth = Some(format!("Nostr {}", auth_b64));
-                            println!("[NativeUpload] Successfully signed NIP-98 event natively");
-                        } else {
-                            println!("[NativeUpload] Failed to sign native NIP-98 event");
-                        }
+                                    let unsigned_event = EventBuilder::new(
+                                        Kind::from(27235),
+                                        "",
+                                    )
+                                    .tags(vec![
+                                        Tag::custom(TagKind::Custom(Cow::Borrowed("u")), vec![api_url.clone()]),
+                                        Tag::custom(TagKind::Custom(Cow::Borrowed("method")), vec!["POST".to_string()]),
+                                        Tag::custom(TagKind::Custom(Cow::Borrowed("payload")), vec![payload_hash]),
+                                        Tag::custom(TagKind::Custom(Cow::Borrowed("expiration")), vec![expiration.to_string()]),
+                                    ])
+                                    .custom_created_at(now)
+                                    .build(keys.public_key());
+
+                                    match unsigned_event.sign(&keys).await {
+                                        Ok(signed_event) => {
+                                            let json = signed_event.as_json();
+                                            println!("[NativeUpload] Signed Event JSON: {}", json);
+                                            
+                                            let auth_b64 = base64::engine::general_purpose::STANDARD.encode(
+                                                json.as_bytes()
+                                            );
+                                            effective_auth = Some(format!("Nostr {}", auth_b64));
+                                            println!("[NativeUpload] Generated Authorization header (first 50 chars): {}...", &effective_auth.as_ref().unwrap()[..50]);
+                                        },
+                                        Err(e) => println!("[NativeUpload] Failed to sign event: {}", e),
+                                    }
+                                },
+                                Err(e) => println!("[NativeUpload] Failed to parse keys from keychain: {}", e),
+                            }
+                        },
+                        Err(e) => println!("[NativeUpload] Failed to get password from keychain: {}", e),
                     }
-                }
+                },
+                Err(e) => println!("[NativeUpload] Failed to access keychain entry: {}", e),
             }
         }
     }
