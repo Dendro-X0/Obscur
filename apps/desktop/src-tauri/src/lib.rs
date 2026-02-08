@@ -19,6 +19,7 @@ use tauri_plugin_shell::process::{CommandEvent, CommandChild};
 use std::sync::Mutex;
 use url::Url;
 mod upload;
+mod relay;
 
 // Window state persistence
 #[cfg(desktop)]
@@ -422,6 +423,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            app.manage(relay::RelayPool::new());
             let settings = load_tor_settings(&app.handle());
             
             // Manage TorState with loaded settings
@@ -577,6 +579,12 @@ pub fn run() {
             is_notification_permission_granted,
             get_system_theme,
             upload::nip96_upload,
+            relay::connect_relay,
+            relay::disconnect_relay,
+            relay::publish_event,
+            relay::subscribe_relay,
+            relay::unsubscribe_relay,
+            relay::send_relay_message,
             start_tor,
             stop_tor,
             get_tor_status,

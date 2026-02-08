@@ -36,11 +36,24 @@ commands.allow = [
     "restart_app"
 ]
 
+[[permission]]
+identifier = "allow-relay-commands"
+description = "Native Relay Transport commands"
+commands.allow = [
+    "connect_relay",
+    "disconnect_relay",
+    "publish_event",
+    "subscribe_relay",
+    "unsubscribe_relay",
+    "send_relay_message"
+]
+
 [[set]]
 identifier = "default"
 description = "Default application permissions"
 permissions = [
     "allow-window-commands",
     "allow-tor-commands",
-    "allow-misc-commands"
+    "allow-misc-commands",
+    "allow-relay-commands"
 ]
