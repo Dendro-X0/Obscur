@@ -13,6 +13,30 @@ interface RelayStatus {
     status: "connected" | "disconnected" | "error" | "starting";
 }
 
+interface RelayProbeReport {
+    url: string;
+    scheme: string;
+    host: string | null;
+    port: number | null;
+    tor_enabled: boolean;
+    proxy_url: string | null;
+    dns_ok: boolean;
+    dns_results: ReadonlyArray<string>;
+    tcp_ok: boolean;
+    ws_ok: boolean;
+    error: string | null;
+}
+
+const formatRelayProbeReport = (report: RelayProbeReport): string => {
+    const hostPort = `${report.host ?? "?"}:${report.port ?? "?"}`;
+    const proxy = report.proxy_url ? ` proxy=${report.proxy_url}` : "";
+    const dns = report.dns_ok ? `dns=ok(${report.dns_results.length})` : "dns=fail";
+    const tcp = report.tcp_ok ? "tcp=ok" : "tcp=fail";
+    const ws = report.ws_ok ? "ws=ok" : "ws=fail";
+    const error = report.error ? ` error=${report.error}` : "";
+    return `[RelayProbe] ${report.url} scheme=${report.scheme} host=${hostPort} tor=${String(report.tor_enabled)}${proxy} ${dns} ${tcp} ${ws}${error}`;
+};
+
 export class NativeRelay implements EventTarget {
     public url: string;
     public readyState: number;
@@ -20,10 +44,10 @@ export class NativeRelay implements EventTarget {
     public bufferedAmount: number = 0;
     public extensions: string = "";
     public protocol: string = "";
-    public onclose: ((this: WebSocket, ev: CloseEvent) => any) | null = null;
-    public onerror: ((this: WebSocket, ev: Event) => any) | null = null;
-    public onmessage: ((this: WebSocket, ev: MessageEvent) => any) | null = null;
-    public onopen: ((this: WebSocket, ev: Event) => any) | null = null;
+    public onclose: ((this: WebSocket, ev: CloseEvent) => void) | null = null;
+    public onerror: ((this: WebSocket, ev: Event) => void) | null = null;
+    public onmessage: ((this: WebSocket, ev: MessageEvent) => void) | null = null;
+    public onopen: ((this: WebSocket, ev: Event) => void) | null = null;
 
     private listeners: Map<string, Set<EventListenerOrEventListenerObject>> = new Map();
     private unlistenStatus: UnlistenFn | null = null;
@@ -54,7 +78,10 @@ export class NativeRelay implements EventTarget {
             });
             const errorEvent = new Event("error");
             this.dispatchEvent(errorEvent);
-            if (this.onerror) this.onerror.call(this as any, errorEvent);
+            if (this.onerror) {
+                const wsThis = this as unknown as WebSocket;
+                this.onerror.call(wsThis, errorEvent);
+            }
         }
     }
 
@@ -67,20 +94,29 @@ export class NativeRelay implements EventTarget {
                 this.readyState = NativeRelay.OPEN;
                 relayHealthMonitor.recordConnectionSuccess(this.url);
                 this.dispatchEvent(new Event("open"));
-                if (this.onopen) this.onopen.call(this as any, new Event("open"));
+                if (this.onopen) {
+                    const wsThis = this as unknown as WebSocket;
+                    this.onopen.call(wsThis, new Event("open"));
+                }
             } else if (status === "disconnected") {
                 if (this.readyState !== NativeRelay.CLOSED) {
                     this.readyState = NativeRelay.CLOSED;
                     relayHealthMonitor.recordConnectionFailure(this.url, "Unexpected disconnect");
                     const closeEvent = new CloseEvent("close", { wasClean: true });
                     this.dispatchEvent(closeEvent);
-                    if (this.onclose) this.onclose.call(this as any, closeEvent);
+                    if (this.onclose) {
+                        const wsThis = this as unknown as WebSocket;
+                        this.onclose.call(wsThis, closeEvent);
+                    }
                 }
             } else if (status === "error") {
                 relayHealthMonitor.recordConnectionFailure(this.url, "Relay error");
                 const errorEvent = new Event("error");
                 this.dispatchEvent(errorEvent);
-                if (this.onerror) this.onerror.call(this as any, errorEvent);
+                if (this.onerror) {
+                    const wsThis = this as unknown as WebSocket;
+                    this.onerror.call(wsThis, errorEvent);
+                }
             }
         });
 
@@ -90,7 +126,10 @@ export class NativeRelay implements EventTarget {
             const data = JSON.stringify(event.payload.payload);
             const messageEvent = new MessageEvent("message", { data });
             this.dispatchEvent(messageEvent);
-            if (this.onmessage) this.onmessage.call(this as any, messageEvent);
+            if (this.onmessage) {
+                const wsThis = this as unknown as WebSocket;
+                this.onmessage.call(wsThis, messageEvent);
+            }
         });
     }
 
@@ -102,21 +141,35 @@ export class NativeRelay implements EventTarget {
             console.error(`Failed to connect to native relay ${this.url}:`, e);
             relayHealthMonitor.recordConnectionFailure(this.url, String(e));
 
+            let probeMessage: string | null = null;
+            try {
+                const report = await invoke<RelayProbeReport>("probe_relay", { url: this.url });
+                probeMessage = formatRelayProbeReport(report);
+            } catch (probeError) {
+                probeMessage = `Relay probe failed: ${probeError instanceof Error ? probeError.message : String(probeError)}`;
+            }
+
             nativeErrorStore.addError({
                 code: "RELAY_CONNECT_FAILED",
-                message: `Failed to connect to ${this.url}: ${e}`,
+                message: `Failed to connect to ${this.url}: ${e}${probeMessage ? `\n${probeMessage}` : ""}`,
                 retryable: true,
                 retry: () => this.connect()
             });
 
             const errorEvent = new Event("error");
             this.dispatchEvent(errorEvent);
-            if (this.onerror) this.onerror.call(this as any, errorEvent);
+            if (this.onerror) {
+                const wsThis = this as unknown as WebSocket;
+                this.onerror.call(wsThis, errorEvent);
+            }
 
             this.readyState = NativeRelay.CLOSED;
             const closeEvent = new CloseEvent("close", { wasClean: false });
             this.dispatchEvent(closeEvent);
-            if (this.onclose) this.onclose.call(this as any, closeEvent);
+            if (this.onclose) {
+                const wsThis = this as unknown as WebSocket;
+                this.onclose.call(wsThis, closeEvent);
+            }
         }
     }
 
@@ -143,7 +196,7 @@ export class NativeRelay implements EventTarget {
                     return;
                 }
             }
-        } catch (e) {
+        } catch {
             // Not a JSON message or not a subscription command, send as raw
         }
 
@@ -160,7 +213,10 @@ export class NativeRelay implements EventTarget {
 
             const errorEvent = new Event("error");
             this.dispatchEvent(errorEvent);
-            if (this.onerror) this.onerror.call(this as any, errorEvent);
+            if (this.onerror) {
+                const wsThis = this as unknown as WebSocket;
+                this.onerror.call(wsThis, errorEvent);
+            }
         }
     }
 
@@ -177,7 +233,10 @@ export class NativeRelay implements EventTarget {
             this.readyState = NativeRelay.CLOSED;
             const closeEvent = new CloseEvent("close", { code, reason, wasClean: true });
             this.dispatchEvent(closeEvent);
-            if (this.onclose) this.onclose.call(this as any, closeEvent);
+            if (this.onclose) {
+                const wsThis = this as unknown as WebSocket;
+                this.onclose.call(wsThis, closeEvent);
+            }
         }
     }
 
@@ -192,7 +251,7 @@ export class NativeRelay implements EventTarget {
         }
     }
 
-    public addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
+    public addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
         let set = this.listeners.get(type);
         if (!set) {
             set = new Set();
@@ -201,7 +260,7 @@ export class NativeRelay implements EventTarget {
         set.add(listener);
     }
 
-    public removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void {
+    public removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
         const set = this.listeners.get(type);
         if (set) {
             set.delete(listener);

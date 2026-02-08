@@ -17,7 +17,6 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandEvent, CommandChild};
 use std::sync::Mutex;
-use url::Url;
 mod upload;
 mod relay;
 mod wallet;
@@ -337,7 +336,7 @@ async fn get_tor_status(state: tauri::State<'_, TorState>) -> Result<bool, Strin
 async fn save_tor_settings(
     app: tauri::AppHandle,
     state: tauri::State<'_, TorState>,
-    net_state: tauri::State<'_, net::NetState>,
+    net_runtime: tauri::State<'_, net::NativeNetworkRuntime>,
     enable_tor: bool,
     proxy_url: String
 ) -> Result<(), String> {
@@ -345,7 +344,7 @@ async fn save_tor_settings(
     settings.enable_tor = enable_tor;
     settings.proxy_url = proxy_url.clone();
 
-    net_state.set(enable_tor, proxy_url.clone());
+    net_runtime.set(enable_tor, proxy_url.clone());
 
     // Save to file
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -498,7 +497,7 @@ pub fn run() {
             app.manage(relay::RelayPool::new());
             let settings = load_tor_settings(&app.handle());
 
-            app.manage(net::NetState::new(settings.enable_tor, settings.proxy_url.clone()));
+            app.manage(net::NativeNetworkRuntime::new(settings.enable_tor, settings.proxy_url.clone()));
             
             // Manage TorState with loaded settings
             app.manage(TorState { 
@@ -525,12 +524,6 @@ pub fn run() {
                     .min_inner_size(800.0, 600.0)
                     .resizable(true)
                     .visible(false); // Hide initially to apply state
-            }
-
-            if settings.enable_tor {
-                if let Ok(url) = Url::parse(&settings.proxy_url) {
-                    window_builder = window_builder.proxy_url(url);
-                }
             }
 
             let _window = window_builder.build().expect("Failed to build main window");
@@ -655,6 +648,7 @@ pub fn run() {
             get_system_theme,
             upload::nip96_upload,
             relay::connect_relay,
+            relay::probe_relay,
             relay::disconnect_relay,
             relay::publish_event,
             relay::subscribe_relay,

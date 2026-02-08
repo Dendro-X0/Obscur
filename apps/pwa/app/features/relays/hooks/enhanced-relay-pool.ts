@@ -45,6 +45,12 @@ type SocketByUrl = Readonly<Record<string, WebSocket>>;
 type MessageListener = (params: Readonly<{ url: string; message: string }>) => void;
 type Unsubscribe = () => void;
 
+const FALLBACK_RELAYS: ReadonlyArray<string> = [
+  "wss://relay.damus.io",
+  "wss://nos.lol",
+  "wss://relay.primal.net"
+];
+
 /**
  * Result of publishing to a single relay
  */
@@ -87,12 +93,34 @@ const upsertConnection = (current: RelayStatusByUrl, next: RelayConnection): Rel
 // Global state
 let relayUrlsKey: string = "";
 let statusByUrl: RelayStatusByUrl = {};
+
+const hasAnyOpenSocket = (): boolean => {
+  return Object.values(socketsByUrl).some((socket: WebSocket): boolean => socket.readyState === WebSocket.OPEN);
+};
+
+const activateFallbackIfOffline = (): void => {
+  if (fallbackActivated) {
+    return;
+  }
+  if (hasAnyOpenSocket()) {
+    return;
+  }
+  const permanentUrls: ReadonlyArray<string> = relayUrlsKey ? relayUrlsKey.split("|") : [];
+  const existing: Set<string> = new Set([...permanentUrls, ...Array.from(transientRelayUrls)]);
+  const toAdd: ReadonlyArray<string> = FALLBACK_RELAYS.filter((url: string): boolean => !existing.has(url));
+  if (toAdd.length === 0) {
+    return;
+  }
+  fallbackActivated = true;
+  toAdd.forEach((url: string) => addTransientRelay(url));
+};
 let socketsByUrl: SocketByUrl = {};
 const transientRelayUrls: Set<string> = new Set();
 const listeners: Set<() => void> = new Set();
 const messageListeners: Set<MessageListener> = new Set();
 let cachedSnapshot: RelayPoolState = { connections: [], healthMetrics: [] };
 let notifyScheduled: boolean = false;
+let fallbackActivated: boolean = false;
 
 // Initialize Subscription Manager
 const subscriptionManager = new SubscriptionManager(
@@ -206,7 +234,7 @@ const connectToRelay = (url: string): WebSocket | null => {
     console.log(`Connected to relay ${url} (latency: ${latency}ms)`);
   });
 
-  socket.addEventListener("error", (event) => {
+  socket.addEventListener("error", () => {
     const errorMessage = "WebSocket error";
 
     // Record connection failure
@@ -225,6 +253,8 @@ const connectToRelay = (url: string): WebSocket | null => {
 
     // Schedule retry with exponential backoff
     scheduleReconnect(url);
+
+    queueMicrotask(() => activateFallbackIfOffline());
   });
 
   socket.addEventListener("close", () => {
@@ -240,6 +270,8 @@ const connectToRelay = (url: string): WebSocket | null => {
 
     // Schedule retry with exponential backoff
     scheduleReconnect(url);
+
+    queueMicrotask(() => activateFallbackIfOffline());
   });
 
   socket.addEventListener("message", (evt: MessageEvent) => {
@@ -272,7 +304,7 @@ const connectToRelay = (url: string): WebSocket | null => {
           });
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore parsing errors
     }
 
@@ -418,6 +450,10 @@ const setRelayUrls = (urls: ReadonlyArray<string>): void => {
 
   recomputeSnapshot();
   notifyListeners();
+
+  setTimeout(() => {
+    activateFallbackIfOffline();
+  }, 3000);
 };
 
 /**
@@ -454,7 +490,8 @@ const removeTransientRelay = (url: string): void => {
     const socket = socketsByUrl[url];
     if (socket) {
       socket.close();
-      const { [url]: _, ...rest } = socketsByUrl;
+      const { [url]: _unused, ...rest } = socketsByUrl;
+      void _unused;
       socketsByUrl = rest as SocketByUrl;
     }
   }
@@ -495,7 +532,7 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
     if (Array.isArray(parsed) && parsed[0] === "EVENT") {
       eventId = parsed[1]?.id;
     }
-  } catch (e) { }
+  } catch { }
 
   if (!eventId) {
     // If not an EVENT payload (e.g. REQ), just send it

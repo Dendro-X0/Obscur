@@ -2,16 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.6.7-alpha] - 2026-02-08
-
-### Fixed
-- **Upload Authentication**: Implemented NIP-98 payload hashing (SHA-256) and expiration tags for file uploads. This resolves "401 Unauthorized" errors with strict NIP-96 storage providers like `nostr.build`.
-- **Upload Debugging**: Added detailed native logging for file uploads to capture response bodies and status codes in debug builds.
-
 ## [v0.6.6-alpha] - 2026-02-08
 
 ### Added
-- **Relay Health Monitoring**: Integrated `RelayHealthMonitor` into the native relay transport. The app now automatically detects failing relays and implements a circuit breaker with exponential backoff to improve connection resilience on mobile.
+- **Native Networking Runtime**: Centralized native HTTP + WebSocket networking behind a single Rust runtime to ensure consistent proxy/Tor routing and improve diagnostics.
+- **Relay Probe Diagnostics**: Added `probe_relay` to quickly distinguish DNS/TCP/WebSocket upgrade failures and surface actionable errors (including HTTP gateway responses).
+- **Relay Resilience**: Native relay transport now tracks desired relays and automatically reconnects with exponential backoff after disconnects.
+- **Fallback Relays (Desktop)**: When all configured relays fail to connect, the app adds a small transient fallback set to avoid hard offline state.
+
+### Fixed
+- **Tor UX**: Removed reliance on WebView proxy configuration at window creation time, enabling live Tor switching without requiring an app restart.
+- **Upload Debugging**: Improved native upload diagnostics and strict-provider behavior (no redirects), with multipart field-name compatibility retry.
 
 ## [v0.6.5-alpha] - 2026-02-08
 

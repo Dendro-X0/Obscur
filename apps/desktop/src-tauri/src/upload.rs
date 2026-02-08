@@ -2,7 +2,7 @@ use std::path::Path;
 use tauri::{command, State};
 use serde::{Serialize, Deserialize};
 
-use crate::net::NetState;
+use crate::net::NativeNetworkRuntime;
 
 const DEFAULT_CONTENT_TYPE: &str = "application/octet-stream";
 
@@ -77,7 +77,7 @@ async fn send_multipart_request(
 
 #[command]
 pub async fn nip96_upload(
-    net_state: State<'_, NetState>,
+    net_runtime: State<'_, NativeNetworkRuntime>,
     api_url: String,
     file_path: String,
     content_type: Option<String>,
@@ -107,22 +107,14 @@ pub async fn nip96_upload(
     let resolved_content_type = content_type.clone().unwrap_or_else(|| DEFAULT_CONTENT_TYPE.to_string());
     let caption = file_name.clone();
 
-    // Build client
+    // Build client via unified runtime.
     // Strict providers validate the NIP-98 `u` tag against the request URL they see.
     // If reqwest follows redirects, the effective URL can change and the Authorization
     // header may be dropped (cross-host), causing 401.
-    let mut client_builder = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none());
-
-    if net_state.is_tor_enabled() {
-        let proxy_url = net_state.get_proxy_url();
-        println!("[NativeUpload] Using proxy: {}", proxy_url);
-        let proxy = reqwest::Proxy::all(proxy_url)
-            .map_err(|e| NativeError { code: "PROXY_ERROR".to_string(), message: e.to_string() })?;
-        client_builder = client_builder.proxy(proxy);
+    if net_runtime.is_tor_enabled() {
+        println!("[NativeUpload] Using proxy: {}", net_runtime.get_proxy_url());
     }
-
-    let client = client_builder.build()?;
+    let client = net_runtime.build_reqwest_client()?;
 
     let (mut status, mut headers, mut text) = send_multipart_request(
         &client,

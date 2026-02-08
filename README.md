@@ -35,13 +35,25 @@ This repository is a PNPM workspace with:
 - **Desktop (Beta)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app with static PWA bundling and Tor sidecar
 - **Packages**: Shared libraries for crypto, storage, and Nostr functionality
 
+### Native Desktop Networking
+
+On Desktop, core networking is handled by the native Rust backend:
+
+- **Relays (WebSocket)**: Connections are established and managed natively for reliability.
+- **Uploads (NIP-96)**: File uploads are performed natively to avoid WebView/browser semantics.
+- **Tor Routing**: When enabled, native networking routes via a SOCKS5 proxy (Tor sidecar).
+
+For debugging and recovery:
+
+- **Relay Probe**: `probe_relay` returns stepwise DNS/TCP/WebSocket diagnostics.
+- **Reset App Storage**: `reset_app_storage` clears local web storage and known WebView cache folders.
+
 ### Smart Invite System
 
 ## ⚠️ Known Issues
 
 ### Desktop Application (Windows/Linux/macOS)
-- **Resolved**: Native key storage and signing implemented in v0.6.0-alpha.
-- **Fixed**: File upload issues addressed via native backend.
+- If relay connectivity fails, use the built-in relay probe diagnostics and/or reset app storage to clear stale WebView caches.
 
 ### Smart Invite System
 
