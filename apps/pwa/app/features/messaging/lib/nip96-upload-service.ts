@@ -94,12 +94,17 @@ export class Nip96UploadService implements UploadService {
         if (providers.length === 0) {
             throw new Error("Upload failed: no NIP-96 providers configured");
         }
+        console.info('[Nip96Upload] Providers:', providers);
+        console.info('[Nip96Upload] Is Tauri?', this.isTauri());
+
         const errors: string[] = [];
         for (const providerUrl of providers) {
             try {
                 if (this.isTauri()) {
+                    console.info('[Nip96Upload] Using Tauri native upload path for:', providerUrl);
                     return await this.uploadFileTauri({ file, apiUrl: providerUrl });
                 }
+                console.info('[Nip96Upload] Using web upload path for:', providerUrl);
                 return await this.uploadFileWeb({ file, apiUrl: providerUrl });
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);

@@ -102,8 +102,8 @@ pub async fn nip96_upload(
     // Read file bytes
     let file_bytes = std::fs::read(&path)?;
 
-    println!("[NativeUpload] File path: {}", file_path);
-    println!("[NativeUpload] File size: {} bytes", file_bytes.len());
+    println!("[NativeUpload-REBUILD-V2] File path: {}", file_path);
+    println!("[NativeUpload-REBUILD-V2] File size: {} bytes", file_bytes.len());
 
     if file_bytes.is_empty() {
         return Ok(UploadResponse {
@@ -193,7 +193,7 @@ pub async fn nip96_upload(
     let (mut status, mut headers, mut text) = send_multipart_request(
         &client,
         &api_url,
-        "file",
+        "files[]", // NIP-96 spec suggests 'file[]' or 'files[]' for some servers, nostr.build uses 'file' but let's try standardizing
         file_name.clone(),
         caption.clone(),
         resolved_content_type.clone(),
@@ -201,8 +201,27 @@ pub async fn nip96_upload(
         file_bytes,
     ).await?;
 
+    // specific handling for nostr.build which might expect 'file' or 'files' without brackets
     if status.as_u16() == 400 && text.to_lowercase().contains("no files") {
-        println!("[NativeUpload] Provider reported missing files; retrying with alternate multipart field name");
+        println!("[NativeUpload] Provider reported missing files; retrying with 'file' field name");
+        let retry_bytes = std::fs::read(&path)?;
+        let (retry_status, retry_headers, retry_text) = send_multipart_request(
+            &client,
+            &api_url,
+            "file",
+            file_name.clone(),
+            caption.clone(),
+            resolved_content_type.clone(),
+            effective_auth.clone(),
+            retry_bytes,
+        ).await?;
+        status = retry_status;
+        headers = retry_headers;
+        text = retry_text;
+    }
+
+    if status.as_u16() == 400 && text.to_lowercase().contains("no files") {
+        println!("[NativeUpload] Provider reported missing files; retrying with 'files' field name");
         let retry_bytes = std::fs::read(&path)?;
         let (retry_status, retry_headers, retry_text) = send_multipart_request(
             &client,
