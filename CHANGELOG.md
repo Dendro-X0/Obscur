@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.6.0-alpha] - 2026-02-08
+## [v0.6.3-alpha] - 2026-02-08
 
 ### Added
 - **Native Key Management**: Secure storage for Nostr private keys (nsec) using the operating system's native keychain (Windows Credential Manager, macOS Keychain) via `keyring`.
