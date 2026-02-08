@@ -12,6 +12,7 @@
         "fs:default",
         "fs:allow-write-file",
         "fs:allow-remove",
+        "fs:allow-temp-write-recursive",
         "dialog:default",
         {
             "identifier": "shell:allow-spawn",

@@ -18,6 +18,7 @@ use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandEvent, CommandChild};
 use std::sync::Mutex;
 use url::Url;
+mod upload;
 
 // Window state persistence
 #[cfg(desktop)]
@@ -575,6 +576,7 @@ pub fn run() {
             request_notification_permission,
             is_notification_permission_granted,
             get_system_theme,
+            upload::nip96_upload,
             start_tor,
             stop_tor,
             get_tor_status,
