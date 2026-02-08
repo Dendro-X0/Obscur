@@ -5,6 +5,7 @@
     ],
     "permissions": [
         "core:default",
+        "app:default",
         "shell:allow-kill",
         "shell:allow-open",
         "http:default",

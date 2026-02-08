@@ -32,7 +32,7 @@ commands.allow = [
     "request_notification_permission",
     "is_notification_permission_granted",
     "get_system_theme",
-    "nip96_upload_file",
+    "nip96_upload",
     "restart_app"
 ]
 

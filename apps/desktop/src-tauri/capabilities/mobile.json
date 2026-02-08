@@ -6,6 +6,7 @@
     ],
     "permissions": [
         "deep-link:default",
+        "app:default",
         "http:default",
         "upload:default",
         "core:event:default",
