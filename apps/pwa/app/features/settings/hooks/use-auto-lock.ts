@@ -14,7 +14,7 @@ export function useAutoLock() {
     const [torRestartRequired, setTorRestartRequired] = useState<boolean>(false);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in (window as unknown as Record<string, unknown>);
 
     // Sync with global settings and handle Tor lifecycle
     useEffect(() => {
@@ -33,7 +33,13 @@ export function useAutoLock() {
         if (isTauri) {
             import('@tauri-apps/api/event').then(({ listen }) => {
                 listen('tor-status', (event) => {
-                    setTorStatus(event.payload as any);
+                    const payload: unknown = event.payload;
+                    if (payload === "disconnected" || payload === "starting" || payload === "connected" || payload === "error" || payload === "stopped") {
+                        setTorStatus(payload);
+                    }
+                    if (payload === 'connected') {
+                        setTorRestartRequired(false);
+                    }
                 }).then(u => unlistenStatus = u);
 
                 listen('tor-log', (event) => {
@@ -70,7 +76,7 @@ export function useAutoLock() {
                 invoke('start_tor').catch(console.error);
             });
         }
-    }, [isTauri, settings.enableTorProxy]);
+    }, [isTauri, settings.enableTorProxy, torStatus]);
 
     // Clear clipboard if allowed and configured
     const clearClipboard = useCallback(async () => {
@@ -174,7 +180,7 @@ export function useAutoLock() {
                     enableTor: newSettings.enableTorProxy,
                     proxyUrl: updated.torProxyUrl
                 }).then(() => {
-                    setTorRestartRequired(true);
+                    setTorRestartRequired(false);
                 }).catch(console.error);
             });
         }

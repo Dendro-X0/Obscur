@@ -21,6 +21,16 @@ use url::Url;
 mod upload;
 mod relay;
 mod wallet;
+mod net;
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+struct ResetAppStorageReport {
+    js_storage_cleared: bool,
+    indexed_db_cleared: bool,
+    app_data_dir: Option<String>,
+    removed_paths: Vec<String>,
+    failed_paths: Vec<String>,
+}
 
 // Window state persistence
 #[cfg(desktop)]
@@ -324,10 +334,18 @@ async fn get_tor_status(state: tauri::State<'_, TorState>) -> Result<bool, Strin
 }
 
 #[tauri::command]
-async fn save_tor_settings(app: tauri::AppHandle, state: tauri::State<'_, TorState>, enable_tor: bool, proxy_url: String) -> Result<(), String> {
+async fn save_tor_settings(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TorState>,
+    net_state: tauri::State<'_, net::NetState>,
+    enable_tor: bool,
+    proxy_url: String
+) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
     settings.enable_tor = enable_tor;
     settings.proxy_url = proxy_url.clone();
+
+    net_state.set(enable_tor, proxy_url.clone());
 
     // Save to file
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -355,6 +373,59 @@ fn load_tor_settings(app: &tauri::AppHandle) -> TorSettings {
 #[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
     app.restart();
+}
+
+#[tauri::command]
+async fn reset_app_storage(window: WebviewWindow, app: tauri::AppHandle) -> Result<ResetAppStorageReport, String> {
+    let mut removed_paths: Vec<String> = Vec::new();
+    let mut failed_paths: Vec<String> = Vec::new();
+    let js_storage_script: &str = "try { localStorage.clear(); } catch (e) {}\ntry { sessionStorage.clear(); } catch (e) {}";
+    let indexed_db_script: &str = "(async () => {\n  try {\n    if (!('indexedDB' in window)) return false;\n    const dbs = indexedDB.databases ? await indexedDB.databases() : [];\n    const names = Array.isArray(dbs) ? dbs.map((d) => d && d.name).filter(Boolean) : [];\n    await Promise.all(names.map((n) => new Promise((resolve) => {\n      try {\n        const req = indexedDB.deleteDatabase(n);\n        req.onsuccess = () => resolve(true);\n        req.onerror = () => resolve(false);\n        req.onblocked = () => resolve(false);\n      } catch (e) { resolve(false); }\n    })));\n    return true;\n  } catch (e) {\n    return false;\n  }\n})()";
+
+    let js_storage_cleared: bool = window.eval(js_storage_script).is_ok();
+    let indexed_db_cleared: bool = window.eval(indexed_db_script).is_ok();
+
+    let app_data_dir = app.path().app_data_dir().ok();
+    if let Some(dir) = &app_data_dir {
+        let files_to_remove: [(&str, bool); 2] = [("tor_settings.json", false), ("window_state.json", false)];
+        for (name, _) in files_to_remove {
+            let path = dir.join(name);
+            if path.exists() {
+                match std::fs::remove_file(&path) {
+                    Ok(_) => removed_paths.push(path.to_string_lossy().to_string()),
+                    Err(_) => failed_paths.push(path.to_string_lossy().to_string()),
+                }
+            }
+        }
+
+        let dirs_to_remove: [&str; 8] = [
+            "EBWebView",
+            "WebView2",
+            "webview",
+            "cache",
+            "Code Cache",
+            "GPUCache",
+            "Service Worker",
+            "IndexedDB",
+        ];
+        for name in dirs_to_remove {
+            let path = dir.join(name);
+            if path.exists() {
+                match std::fs::remove_dir_all(&path) {
+                    Ok(_) => removed_paths.push(path.to_string_lossy().to_string()),
+                    Err(_) => failed_paths.push(path.to_string_lossy().to_string()),
+                }
+            }
+        }
+    }
+
+    Ok(ResetAppStorageReport {
+        js_storage_cleared,
+        indexed_db_cleared,
+        app_data_dir: app_data_dir.map(|p| p.to_string_lossy().to_string()),
+        removed_paths,
+        failed_paths,
+    })
 }
 
 // Save window state to storage
@@ -426,6 +497,8 @@ pub fn run() {
         .setup(|app| {
             app.manage(relay::RelayPool::new());
             let settings = load_tor_settings(&app.handle());
+
+            app.manage(net::NetState::new(settings.enable_tor, settings.proxy_url.clone()));
             
             // Manage TorState with loaded settings
             app.manage(TorState { 
@@ -575,6 +648,7 @@ pub fn run() {
             window_set_fullscreen,
             window_is_fullscreen,
             save_window_state,
+            reset_app_storage,
             show_notification,
             request_notification_permission,
             is_notification_permission_granted,

@@ -1,7 +1,7 @@
 {
   "name": "@dweb/desktop",
   "private": true,
-  "version": "0.6.5-alpha",
+  "version": "0.6.6-alpha",
   "type": "module",
   "scripts": {
     "tauri": "tauri",

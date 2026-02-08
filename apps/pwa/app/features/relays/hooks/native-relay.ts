@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { nativeErrorStore } from "../../native/lib/native-error-store";
+import { relayHealthMonitor } from "./relay-health-monitor";
 
 interface RelayMessage {
     relay_url: string;
-    payload: any;
+    payload: unknown;
 }
 
 interface RelayStatus {
@@ -64,16 +65,19 @@ export class NativeRelay implements EventTarget {
             const status = event.payload.status;
             if (status === "connected") {
                 this.readyState = NativeRelay.OPEN;
+                relayHealthMonitor.recordConnectionSuccess(this.url);
                 this.dispatchEvent(new Event("open"));
                 if (this.onopen) this.onopen.call(this as any, new Event("open"));
             } else if (status === "disconnected") {
                 if (this.readyState !== NativeRelay.CLOSED) {
                     this.readyState = NativeRelay.CLOSED;
+                    relayHealthMonitor.recordConnectionFailure(this.url, "Unexpected disconnect");
                     const closeEvent = new CloseEvent("close", { wasClean: true });
                     this.dispatchEvent(closeEvent);
                     if (this.onclose) this.onclose.call(this as any, closeEvent);
                 }
             } else if (status === "error") {
+                relayHealthMonitor.recordConnectionFailure(this.url, "Relay error");
                 const errorEvent = new Event("error");
                 this.dispatchEvent(errorEvent);
                 if (this.onerror) this.onerror.call(this as any, errorEvent);
@@ -93,8 +97,11 @@ export class NativeRelay implements EventTarget {
     private async connect() {
         try {
             await invoke("connect_relay", { url: this.url });
+            relayHealthMonitor.recordConnectionSuccess(this.url);
         } catch (e) {
             console.error(`Failed to connect to native relay ${this.url}:`, e);
+            relayHealthMonitor.recordConnectionFailure(this.url, String(e));
+
             nativeErrorStore.addError({
                 code: "RELAY_CONNECT_FAILED",
                 message: `Failed to connect to ${this.url}: ${e}`,
@@ -160,7 +167,9 @@ export class NativeRelay implements EventTarget {
     public async close(code?: number, reason?: string): Promise<void> {
         this.readyState = NativeRelay.CLOSING;
         try {
-            await invoke("disconnect_relay", { url: this.url });
+            await invoke("disconnect_relay", {
+                url: this.url
+            });
         } catch (e) {
             console.warn(`Error disconnecting native relay ${this.url}:`, e);
         } finally {

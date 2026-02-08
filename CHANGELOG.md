@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.6.7-alpha] - 2026-02-08
+
+### Fixed
+- **Upload Authentication**: Implemented NIP-98 payload hashing (SHA-256) and expiration tags for file uploads. This resolves "401 Unauthorized" errors with strict NIP-96 storage providers like `nostr.build`.
+- **Upload Debugging**: Added detailed native logging for file uploads to capture response bodies and status codes in debug builds.
+
+## [v0.6.6-alpha] - 2026-02-08
+
+### Added
+- **Relay Health Monitoring**: Integrated `RelayHealthMonitor` into the native relay transport. The app now automatically detects failing relays and implements a circuit breaker with exponential backoff to improve connection resilience on mobile.
+
 ## [v0.6.5-alpha] - 2026-02-08
 
 ### Fixed

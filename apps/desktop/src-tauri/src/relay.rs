@@ -6,6 +6,107 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use futures_util::{StreamExt, SinkExt};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
+use tokio::time::{sleep, Duration};
+
+use crate::net::NetState;
+
+type MaybeTlsStream = tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>;
+
+fn parse_socks5_host_port(proxy_url: &str) -> Option<(String, u16)> {
+    let parsed = url::Url::parse(proxy_url).ok()?;
+    let scheme = parsed.scheme();
+    if scheme != "socks5" && scheme != "socks5h" {
+        return None;
+    }
+    let host = parsed.host_str()?.to_string();
+    let port = parsed.port().unwrap_or(9050);
+    Some((host, port))
+}
+
+fn get_relay_host_port(relay_url: &url::Url) -> Option<(String, u16)> {
+    let host = relay_url.host_str()?.to_string();
+    let port = relay_url.port_or_known_default()?;
+    Some((host, port))
+}
+
+async fn connect_relay_via_socks5_wss(
+    relay_url: &url::Url,
+    proxy_url: &str,
+) -> Result<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, tokio_tungstenite::tungstenite::Error> {
+    use rustls::RootCertStore;
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    use tokio_tungstenite::tungstenite::Error;
+    use tokio_tungstenite::tungstenite::error::UrlError;
+
+    let (proxy_host, proxy_port) = parse_socks5_host_port(proxy_url).ok_or_else(|| {
+        Error::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid SOCKS5 proxy URL"))
+    })?;
+    let (relay_host, relay_port) = get_relay_host_port(relay_url).ok_or_else(|| {
+        Error::Url(UrlError::UnableToConnect("Relay URL missing host/port".to_string()))
+    })?;
+
+    let socks_stream = tokio_socks::tcp::Socks5Stream::connect((proxy_host.as_str(), proxy_port), (relay_host.as_str(), relay_port))
+        .await
+        .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+    let tcp_stream = socks_stream.into_inner();
+
+    let mut root_store = RootCertStore::empty();
+    let certs_result = rustls_native_certs::load_native_certs();
+    for err in certs_result.errors {
+        let _ = err;
+    }
+    for cert in certs_result.certs {
+        let _ = root_store.add(cert);
+    }
+
+    let tls_config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    let connector = tokio_tungstenite::Connector::Rustls(std::sync::Arc::new(tls_config));
+
+    let request = relay_url.as_str().into_client_request()?;
+    let (ws_stream, _) = tokio_tungstenite::client_async_tls_with_config(request, tcp_stream, None, Some(connector)).await?;
+    Ok(ws_stream)
+}
+
+async fn connect_relay_via_socks5_wss_with_retry(
+    relay_url: &url::Url,
+    proxy_url: &str,
+    attempts: u32,
+    delay_ms: u64,
+) -> Result<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, tokio_tungstenite::tungstenite::Error> {
+    let mut last_error: Option<tokio_tungstenite::tungstenite::Error> = None;
+    for attempt_index in 0..attempts {
+        match connect_relay_via_socks5_wss(relay_url, proxy_url).await {
+            Ok(stream) => return Ok(stream),
+            Err(err) => {
+                println!(
+                    "[NativeRelay] Tor connect attempt {}/{} failed: {}",
+                    attempt_index + 1,
+                    attempts,
+                    format_ws_connect_error(&err)
+                );
+                last_error = Some(err);
+                sleep(Duration::from_millis(delay_ms)).await;
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| tokio_tungstenite::tungstenite::Error::Io(
+        std::io::Error::new(std::io::ErrorKind::Other, "Unknown Tor connect error")
+    )))
+}
+
+fn format_ws_connect_error(err: &tokio_tungstenite::tungstenite::Error) -> String {
+    use tokio_tungstenite::tungstenite::Error;
+    match err {
+        Error::Http(response) => {
+            let status = response.status();
+            let headers = response.headers();
+            format!("HTTP error: {} headers={:?}", status, headers)
+        }
+        _ => err.to_string(),
+    }
+}
 
 // Type alias for Relay URL
 type RelayUrl = String;
@@ -48,6 +149,7 @@ impl RelayPool {
 pub async fn connect_relay(
     app: AppHandle,
     state: State<'_, RelayPool>,
+    net_state: State<'_, NetState>,
     url: String,
 ) -> Result<String, String> {
     // Check if already connected
@@ -61,10 +163,52 @@ pub async fn connect_relay(
     // Parse URL
     let relay_url = url::Url::parse(&url).map_err(|e| e.to_string())?;
 
+    println!("[NativeRelay] connect_relay url={}", url);
+    println!("[NativeRelay] Tor enabled={}", net_state.is_tor_enabled());
+    if net_state.is_tor_enabled() {
+        println!("[NativeRelay] Tor proxy={}", net_state.get_proxy_url());
+    }
+
     // Attempt connection
-    let (ws_stream, _) = connect_async(relay_url.as_str())
-        .await
-        .map_err(|e| e.to_string())?;
+    let ws_stream: tokio_tungstenite::WebSocketStream<MaybeTlsStream> = if net_state.is_tor_enabled() {
+        let proxy_url = net_state.get_proxy_url();
+        println!("[NativeRelay] Relay scheme={}", relay_url.scheme());
+        let _ = app.emit("relay-status", serde_json::json!({
+            "url": url,
+            "status": "starting"
+        }));
+        if relay_url.scheme() == "wss" {
+            connect_relay_via_socks5_wss_with_retry(&relay_url, &proxy_url, 30, 1000).await.map_err(|e| {
+                let message = format_ws_connect_error(&e);
+                let _ = app.emit("relay-status", serde_json::json!({
+                    "url": url,
+                    "status": "error",
+                    "error": format!("Tor proxy connect failed: {}", message)
+                }));
+                format!("Tor proxy connect failed: {}", message)
+            })?
+        } else {
+            connect_async(relay_url.as_str()).await.map_err(|e| {
+                let message = format_ws_connect_error(&e);
+                let _ = app.emit("relay-status", serde_json::json!({
+                    "url": url,
+                    "status": "error",
+                    "error": message
+                }));
+                message
+            })?.0
+        }
+    } else {
+        connect_async(relay_url.as_str()).await.map_err(|e| {
+            let message = format_ws_connect_error(&e);
+            let _ = app.emit("relay-status", serde_json::json!({
+                "url": url,
+                "status": "error",
+                "error": message
+            }));
+            message
+        })?.0
+    };
 
     let (mut write, read) = ws_stream.split();
     let (tx, mut rx) = mpsc::channel::<Message>(32);

@@ -7,6 +7,10 @@ edition = "2021"
 name = "obscur_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "obscur_desktop_app"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -20,7 +24,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-upload = "2"
 tauri-plugin-http = "2"
 tauri-plugin-fs = "2"
-reqwest = { version = "0.12.28", default-features = false, features = ["multipart", "json", "rustls-tls", "blocking"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["multipart", "json", "rustls-tls", "blocking", "socks"] }
 base64 = "0.22.1"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
@@ -31,6 +35,9 @@ uuid = { version = "1.20.0", features = ["v4"] }
 nostr = "0.38"
 zeroize = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
+tokio-socks = "0.5.2"
+rustls-native-certs = "0.8.1"
+rustls = { version = "0.23.23", default-features = false, features = ["std"] }
 
 # Platform-specific dependencies
 [target.'cfg(not(target_os = "android"))'.dependencies]
