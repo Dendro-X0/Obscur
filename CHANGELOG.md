@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.6.5-alpha] - 2026-02-08
+
+### Fixed
+- **Android Build**: Isolated native keychain to desktop platforms only (Windows, macOS, Linux) using conditional compilation. Android builds now succeed without OpenSSL dependencies.
+- **Mobile Crypto Fallback**: Android automatically uses WASM-based crypto with encrypted IndexedDB storage, maintaining security without native keychain.
+
 ## [v0.6.4-alpha] - 2026-02-08
 
 ### Fixed

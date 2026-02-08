@@ -20,13 +20,28 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
             this.hasNativeKeyCached = npub !== null;
             return this.hasNativeKeyCached;
         } catch (e) {
+            // Android or other platforms without keychain support
+            const errorMsg = String(e);
+            if (errorMsg.includes("not supported")) {
+                console.info("Native keychain unavailable on this platform, using WASM crypto");
+                this.hasNativeKeyCached = false;
+                return false;
+            }
             console.error("Failed to check native key:", e);
             return false;
         }
     }
 
     async getNativeNpub(): Promise<string | null> {
-        return await invoke<string | null>("get_native_npub");
+        try {
+            return await invoke<string | null>("get_native_npub");
+        } catch (e) {
+            const errorMsg = String(e);
+            if (errorMsg.includes("not supported")) {
+                return null;
+            }
+            throw e;
+        }
     }
 
     async signEvent(event: UnsignedNostrEvent, privateKey: PrivateKeyHex): Promise<NostrEvent> {

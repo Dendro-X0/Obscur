@@ -28,10 +28,13 @@ url = "2.5.8"
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3.31"
 uuid = { version = "1.20.0", features = ["v4"] }
-keyring = "3"
 nostr = "0.38"
 zeroize = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
+
+# Platform-specific dependencies
+[target.'cfg(not(target_os = "android"))'.dependencies]
+keyring = "3"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
