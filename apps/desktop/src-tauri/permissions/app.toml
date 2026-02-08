@@ -48,6 +48,17 @@ commands.allow = [
     "send_relay_message"
 ]
 
+[[permission]]
+identifier = "allow-wallet-commands"
+description = "Native Wallet and Crypto commands"
+commands.allow = [
+    "get_native_npub",
+    "import_native_nsec",
+    "generate_native_nsec",
+    "sign_event_native",
+    "logout_native"
+]
+
 [[set]]
 identifier = "default"
 description = "Default application permissions"
@@ -55,5 +66,6 @@ permissions = [
     "allow-window-commands",
     "allow-tor-commands",
     "allow-misc-commands",
-    "allow-relay-commands"
+    "allow-relay-commands",
+    "allow-wallet-commands"
 ]

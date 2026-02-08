@@ -3,6 +3,7 @@ import { UploadService } from "./upload-service";
 import { cryptoService } from "../../crypto/crypto-service";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import { nativeErrorStore } from "../../native/lib/native-error-store";
 
 export interface Nip96Config {
     apiUrl?: string;
@@ -215,6 +216,13 @@ export class Nip96UploadService implements UploadService {
 
         } catch (error) {
             console.error("Tauri native upload failed:", error);
+            const message = error instanceof Error ? error.message : String(error);
+            nativeErrorStore.addError({
+                code: "UPLOAD_FAILED",
+                message: `Upload failed: ${message}`,
+                retryable: true,
+                retry: () => this.uploadFileTauri(params).then(() => { })
+            });
             throw new Error(`Upload failed: ${error}`);
         } finally {
             if (tempFilePath) {

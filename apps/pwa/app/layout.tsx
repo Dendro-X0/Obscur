@@ -14,6 +14,7 @@ import { I18nProvider } from "./components/i18n-provider"
 import { RootErrorBoundary } from "./components/root-error-boundary"
 import { Preloader } from "./components/preloader"
 import { DesktopNotificationHandler } from "./components/desktop-notification-handler"
+import { ErrorPanel } from "./features/native/components/error-panel"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -73,6 +74,7 @@ export default function RootLayout({
             <I18nProvider>
               <PwaServiceWorkerRegistrar />
               <ToastProvider />
+              <ErrorPanel />
               <DesktopUpdater />
               <OfflineIndicator />
               <DeepLinkHandler />

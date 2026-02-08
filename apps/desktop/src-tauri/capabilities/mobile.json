@@ -6,7 +6,11 @@
     ],
     "permissions": [
         "deep-link:default",
-        "app:default",
+        "allow-window-commands",
+        "allow-tor-commands",
+        "allow-misc-commands",
+        "allow-relay-commands",
+        "allow-wallet-commands",
         "http:default",
         "upload:default",
         "core:event:default",

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Manager, Emitter, State};
+use tauri::{AppHandle, Emitter, State};
 use tokio::sync::mpsc::{self, Sender};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use futures_util::{StreamExt, SinkExt};
@@ -62,7 +62,7 @@ pub async fn connect_relay(
     let relay_url = url::Url::parse(&url).map_err(|e| e.to_string())?;
 
     // Attempt connection
-    let (ws_stream, _) = connect_async(relay_url.clone())
+    let (ws_stream, _) = connect_async(relay_url.as_str())
         .await
         .map_err(|e| e.to_string())?;
 
@@ -80,7 +80,6 @@ pub async fn connect_relay(
 
     // Spawn read task (Messages from Relay -> App)
     let app_handle = app.clone();
-    let url_clone = url.clone();
     let connections_clone = state.connections.clone();
     
     // We need to keep rx alive or manage connection lifecycle
@@ -130,15 +129,15 @@ pub async fn connect_relay(
     }
 
     // Auto-resubscribe from persistent state
-    {
+    let subs_to_re = {
         let states = state.states.lock().unwrap();
-        if let Some(relay_state) = states.get(&url) {
-            for (sub_id, filter) in &relay_state.subscriptions {
-                let msg_json = serde_json::json!(["REQ", sub_id, filter]);
-                let _ = tx.send(Message::Text(msg_json.to_string())).await;
-                println!("Auto-resubscribed to {} on {}", sub_id, url);
-            }
-        }
+        states.get(&url).map(|s| s.subscriptions.clone()).unwrap_or_default()
+    };
+    
+    for (sub_id, filter) in subs_to_re {
+        let msg_json = serde_json::json!(["REQ", sub_id, filter]);
+        let _ = tx.send(Message::Text(msg_json.to_string().into())).await;
+        println!("Auto-resubscribed to {} on {}", sub_id, url);
     }
 
     app.emit("relay-status", serde_json::json!({
@@ -156,10 +155,14 @@ pub async fn disconnect_relay(
     state: State<'_, RelayPool>,
     url: String,
 ) -> Result<String, String> {
-    let mut connections = state.connections.lock().unwrap();
-    if let Some(conn) = connections.remove(&url) {
+    let tx = {
+        let mut connections = state.connections.lock().unwrap();
+        connections.remove(&url).map(|c| c.tx)
+    };
+
+    if let Some(tx) = tx {
         // Sending Close message will terminate the read loop eventually
-        let _ = conn.tx.send(Message::Close(None)).await;
+        let _ = tx.send(Message::Close(None)).await;
         app.emit("relay-status", serde_json::json!({
             "url": url,
             "status": "disconnected"
@@ -181,9 +184,13 @@ pub async fn publish_event(
     let msg_json = serde_json::json!(["EVENT", event_json]);
     let msg_str = msg_json.to_string();
 
-    let connections = state.connections.lock().unwrap();
-    if let Some(conn) = connections.get(&url) {
-        conn.tx.send(Message::Text(msg_str)).await.map_err(|e| e.to_string())?;
+    let tx = {
+        let connections = state.connections.lock().unwrap();
+        connections.get(&url).map(|c| c.tx.clone())
+    };
+
+    if let Some(tx) = tx {
+        tx.send(Message::Text(msg_str.into())).await.map_err(|e| e.to_string())?;
         Ok("Published".to_string())
     } else {
         Err("Not connected".to_string())
@@ -205,10 +212,14 @@ pub async fn subscribe_relay(
     }
 
     // 2. Send REQ if connected
-    let connections = state.connections.lock().unwrap();
-    if let Some(conn) = connections.get(&url) {
+    let tx = {
+        let connections = state.connections.lock().unwrap();
+        connections.get(&url).map(|c| c.tx.clone())
+    };
+
+    if let Some(tx) = tx {
         let msg_json = serde_json::json!(["REQ", sub_id, filter]);
-        conn.tx.send(Message::Text(msg_json.to_string())).await.map_err(|e| e.to_string())?;
+        tx.send(Message::Text(msg_json.to_string().into())).await.map_err(|e| e.to_string())?;
         Ok("Subscribed (active)".to_string())
     } else {
         Ok("Subscribed (persistent, offline)".to_string())
@@ -230,10 +241,14 @@ pub async fn unsubscribe_relay(
     }
 
     // 2. Send CLOSE if connected
-    let connections = state.connections.lock().unwrap();
-    if let Some(conn) = connections.get(&url) {
+    let tx = {
+        let connections = state.connections.lock().unwrap();
+        connections.get(&url).map(|c| c.tx.clone())
+    };
+
+    if let Some(tx) = tx {
         let msg_json = serde_json::json!(["CLOSE", sub_id]);
-        conn.tx.send(Message::Text(msg_json.to_string())).await.map_err(|e| e.to_string())?;
+        tx.send(Message::Text(msg_json.to_string().into())).await.map_err(|e| e.to_string())?;
         Ok("Unsubscribed (active)".to_string())
     } else {
         Ok("Unsubscribed (persistent, offline)".to_string())
@@ -247,9 +262,13 @@ pub async fn send_relay_message(
     url: String,
     message: String,
 ) -> Result<String, String> {
-    let mut connections = state.connections.lock().unwrap();
-    if let Some(conn) = connections.get_mut(&url) {
-        conn.tx.send(Message::Text(message)).await.map_err(|e| e.to_string())?;
+    let tx = {
+        let connections = state.connections.lock().unwrap();
+        connections.get(&url).map(|c| c.tx.clone())
+    };
+
+    if let Some(tx) = tx {
+        tx.send(Message::Text(message.into())).await.map_err(|e| e.to_string())?;
         Ok("Sent".to_string())
     } else {
         Err("Not connected".to_string())

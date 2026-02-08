@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.6.0-alpha] - 2026-02-08
+
+### Added
+- **Native Key Management**: Secure storage for Nostr private keys (nsec) using the operating system's native keychain (Windows Credential Manager, macOS Keychain) via `keyring`.
+- **Native Signing**: Optimized cryptographic signing of Nostr events in Rust for improved performance and security.
+- **Auto-Unlock**: Automatic detection and authentication using native keys on startup, providing a seamless login experience.
+- **Improved Security Boundaries**: The private key is now isolated at the native layer, never touching the frontend/WebView memory once stored.
+
+### Fixed
+- **Relay Stability**: Fixed "Future is not Send" errors and deadlock issues in the native relay transport by ensuring MutexGuards are not held across await points.
+- **Desktop Permissions**: Refactored capability management to use explicit permission identifiers, ensuring native features work correctly in production bundles.
+- **Dependency Optimization**: Updated `nostr` and `tokio` dependencies for better cross-platform compatibility and performance.
+
+
 ## [v0.5.0-alpha] - 2026-02-06
 
 ### Added

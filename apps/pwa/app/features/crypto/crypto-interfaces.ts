@@ -2,6 +2,8 @@ import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
+export type { NostrEvent, PrivateKeyHex, PublicKeyHex };
+
 /**
  * Security utilities for memory cleanup and timing attack prevention
  */
@@ -44,6 +46,11 @@ export interface CryptoService {
     // Utilities
     isValidPubkey(pubkey: string): boolean | Promise<boolean>;
     normalizeKey(key: string): string | Promise<string>;
+
+    // Native Key Operations (Tauri)
+    hasNativeKey?(): Promise<boolean>;
+    deleteNativeKey?(): Promise<void>;
+    importNsec?(nsec: string): Promise<string>;
 
     // Security utilities
     security: SecurityUtils;

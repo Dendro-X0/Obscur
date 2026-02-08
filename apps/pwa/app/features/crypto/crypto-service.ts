@@ -1,5 +1,6 @@
 import * as Comlink from "comlink";
 import { CryptoServiceImpl } from "./crypto-service-impl";
+import { NativeCryptoService } from "./native-crypto-service";
 import type {
   CryptoService,
   SecurityUtils,
@@ -15,6 +16,8 @@ export type {
   InviteSignaturePayload,
   InviteData
 };
+
+export { NATIVE_KEY_SENTINEL } from "./native-crypto-service";
 
 // Internal implementation placeholder to allow type inference
 let instance: Comlink.Remote<CryptoService> | CryptoService;
@@ -32,9 +35,11 @@ if (typeof window !== "undefined" && typeof Worker !== "undefined" && !isTauri) 
 } else {
   // SSR, non-browser environment, or Tauri (where workers might hang during initial load)
   if (isTauri) {
-    console.info("Running in Tauri: forcing crypto service to main thread for compatibility.");
+    console.info("Running in Tauri: using NativeCryptoService for keychain support.");
+    instance = new NativeCryptoService();
+  } else {
+    instance = new CryptoServiceImpl();
   }
-  instance = new CryptoServiceImpl();
 }
 
 /**

@@ -20,6 +20,7 @@ use std::sync::Mutex;
 use url::Url;
 mod upload;
 mod relay;
+mod wallet;
 
 // Window state persistence
 #[cfg(desktop)]
@@ -585,6 +586,11 @@ pub fn run() {
             relay::subscribe_relay,
             relay::unsubscribe_relay,
             relay::send_relay_message,
+            wallet::get_native_npub,
+            wallet::import_native_nsec,
+            wallet::generate_native_nsec,
+            wallet::sign_event_native,
+            wallet::logout_native,
             start_tor,
             stop_tor,
             get_tor_status,

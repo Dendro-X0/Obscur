@@ -10,6 +10,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { clearStoredIdentity } from "../utils/clear-stored-identity";
 import { getStoredIdentity } from "../utils/get-stored-identity";
 import { saveStoredIdentity } from "../utils/save-stored-identity";
+import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -88,6 +89,20 @@ const ensureInitialized = async (): Promise<void> => {
   hasInitialized = true;
   try {
     const stored: IdentityRecord | undefined = (await getStoredIdentity()).record;
+
+    // Auto-unlock with native keychain if possible
+    if (stored && typeof cryptoService.hasNativeKey === 'function' && await cryptoService.hasNativeKey()) {
+      const nativeNpub = typeof (cryptoService as any).getNativeNpub === 'function'
+        ? await (cryptoService as any).getNativeNpub()
+        : null;
+
+      if (nativeNpub === stored.publicKeyHex) {
+        console.info("Native key matched: auto-unlocking.");
+        setIdentityState(createUnlockedState({ stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
+        return;
+      }
+    }
+
     setIdentityState(createLockedState(stored));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
@@ -100,7 +115,17 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
     const record: IdentityRecord = await createNewIdentityRecord({ passphrase: params.passphrase });
     await saveStoredIdentity({ record });
     const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: record.encryptedPrivateKey, passphrase: params.passphrase });
-    setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
+
+    // Sync to native keychain if in Tauri
+    if (typeof cryptoService.importNsec === 'function') {
+      try {
+        await cryptoService.importNsec(privateKeyHex);
+      } catch (e) {
+        console.warn("Failed to import nsec to native keychain:", e);
+      }
+    }
+
+    setIdentityState(createUnlockedState({ stored: record, privateKeyHex: typeof cryptoService.importNsec === 'function' ? NATIVE_KEY_SENTINEL : privateKeyHex }));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message));
@@ -113,7 +138,17 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
   }
   try {
     const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: identityState.stored.encryptedPrivateKey, passphrase: params.passphrase });
-    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex }));
+
+    // Sync to native keychain if in Tauri
+    if (typeof cryptoService.importNsec === 'function') {
+      try {
+        await cryptoService.importNsec(privateKeyHex);
+      } catch (e) {
+        console.warn("Failed to import nsec to native keychain during unlock:", e);
+      }
+    }
+
+    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: typeof cryptoService.importNsec === 'function' ? NATIVE_KEY_SENTINEL : privateKeyHex }));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     setIdentityState(createErrorState(message));
@@ -127,6 +162,12 @@ const lockIdentityAction = (): void => {
 const forgetIdentityAction = async (): Promise<void> => {
   try {
     await clearStoredIdentity();
+
+    // Cleanup native keychain
+    if (typeof cryptoService.deleteNativeKey === 'function') {
+      await cryptoService.deleteNativeKey();
+    }
+
     setIdentityState(createLockedState(undefined));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";

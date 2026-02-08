@@ -40,7 +40,8 @@ This repository is a PNPM workspace with:
 ## ⚠️ Known Issues
 
 ### Desktop Application (Windows/Linux/macOS)
-- **Resolved**: File upload issues have been addressed in v0.6.0-alpha using native backend.
+- **Resolved**: Native key storage and signing implemented in v0.6.0-alpha.
+- **Fixed**: File upload issues addressed via native backend.
 
 ### Smart Invite System
 

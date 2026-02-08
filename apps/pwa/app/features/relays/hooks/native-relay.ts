@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { nativeErrorStore } from "../../native/lib/native-error-store";
 
 interface RelayMessage {
     relay_url: string;
@@ -44,6 +45,12 @@ export class NativeRelay implements EventTarget {
             await this.connect();
         } catch (e) {
             console.error(`Failed to initialize NativeRelay for ${this.url}:`, e);
+            nativeErrorStore.addError({
+                code: "RELAY_INIT_FAILED",
+                message: `Failed to initialize relay connection to ${this.url}`,
+                retryable: true,
+                retry: () => this.initAndConnect()
+            });
             const errorEvent = new Event("error");
             this.dispatchEvent(errorEvent);
             if (this.onerror) this.onerror.call(this as any, errorEvent);
@@ -67,8 +74,6 @@ export class NativeRelay implements EventTarget {
                     if (this.onclose) this.onclose.call(this as any, closeEvent);
                 }
             } else if (status === "error") {
-                // Determine if this is a connection failure or runtime error
-                // For now, treat as error event
                 const errorEvent = new Event("error");
                 this.dispatchEvent(errorEvent);
                 if (this.onerror) this.onerror.call(this as any, errorEvent);
@@ -78,9 +83,6 @@ export class NativeRelay implements EventTarget {
         this.unlistenMessage = await listen<RelayMessage>("relay-event", (event) => {
             if (event.payload.relay_url !== this.url) return;
 
-            // Payload is JSON object, we need to stringify it because frontend expects string
-            // Actually relay-event payload in Rust is `Value`.
-            // Frontend generic WebSocket expects `string`.
             const data = JSON.stringify(event.payload.payload);
             const messageEvent = new MessageEvent("message", { data });
             this.dispatchEvent(messageEvent);
@@ -93,6 +95,13 @@ export class NativeRelay implements EventTarget {
             await invoke("connect_relay", { url: this.url });
         } catch (e) {
             console.error(`Failed to connect to native relay ${this.url}:`, e);
+            nativeErrorStore.addError({
+                code: "RELAY_CONNECT_FAILED",
+                message: `Failed to connect to ${this.url}: ${e}`,
+                retryable: true,
+                retry: () => this.connect()
+            });
+
             const errorEvent = new Event("error");
             this.dispatchEvent(errorEvent);
             if (this.onerror) this.onerror.call(this as any, errorEvent);
@@ -115,7 +124,6 @@ export class NativeRelay implements EventTarget {
             return;
         }
 
-        // Intercept REQ and CLOSE messages to update native state
         try {
             const parsed = JSON.parse(data);
             if (Array.isArray(parsed)) {
@@ -136,6 +144,13 @@ export class NativeRelay implements EventTarget {
             await invoke("send_relay_message", { url: this.url, message: data });
         } catch (e) {
             console.error(`Failed to send message to ${this.url}:`, e);
+            nativeErrorStore.addError({
+                code: "RELAY_SEND_FAILED",
+                message: `Failed to send message to ${this.url}`,
+                retryable: true,
+                retry: () => this.send(data)
+            });
+
             const errorEvent = new Event("error");
             this.dispatchEvent(errorEvent);
             if (this.onerror) this.onerror.call(this as any, errorEvent);
@@ -168,7 +183,6 @@ export class NativeRelay implements EventTarget {
         }
     }
 
-    // EventTarget implementation
     public addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
         let set = this.listeners.get(type);
         if (!set) {

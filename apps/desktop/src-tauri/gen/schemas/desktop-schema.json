@@ -2325,10 +2325,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`",
+          "description": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`"
+          "markdownDescription": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`"
         },
         {
           "description": "Miscellaneous app commands",
@@ -2337,10 +2337,22 @@
           "markdownDescription": "Miscellaneous app commands"
         },
         {
+          "description": "Native Relay Transport commands",
+          "type": "string",
+          "const": "allow-relay-commands",
+          "markdownDescription": "Native Relay Transport commands"
+        },
+        {
           "description": "Tor control commands",
           "type": "string",
           "const": "allow-tor-commands",
           "markdownDescription": "Tor control commands"
+        },
+        {
+          "description": "Native Wallet and Crypto commands",
+          "type": "string",
+          "const": "allow-wallet-commands",
+          "markdownDescription": "Native Wallet and Crypto commands"
         },
         {
           "description": "Window management commands",
