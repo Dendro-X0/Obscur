@@ -155,7 +155,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
-          releaseName: "Obscur Desktop v${{ github.ref_name }}"
+          releaseName: "Obscur Desktop ${{ github.ref_name }}"
           releaseBody: |
             ## Obscur Desktop ${{ github.ref_name }}
             
