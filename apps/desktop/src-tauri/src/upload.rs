@@ -5,6 +5,7 @@ use serde::{Serialize, Deserialize};
 use crate::net::NativeNetworkRuntime;
 use nostr::prelude::*;
 use nostr::hashes::{sha256, Hash};
+#[cfg(not(target_os = "android"))]
 use keyring::Entry;
 use zeroize::Zeroizing;
 use std::borrow::Cow;
@@ -118,42 +119,47 @@ pub async fn nip96_upload(
 
     // 2. Handle NIP-98 Authorization Natively
     let mut effective_auth = authorization;
-    if effective_auth.is_none() {
-        println!("[NativeUpload] No auth provided by frontend, attempting native NIP-98 signing...");
-        if let Ok(entry) = Entry::new(APP_SERVICE, KEY_NAME) {
-            if let Ok(nsec) = entry.get_password() {
-                let nsec_zero = Zeroizing::new(nsec);
-                if let Ok(keys) = Keys::parse(&*nsec_zero) {
-                    println!("[NativeUpload] Found native identity: {}", keys.public_key());
-                    
-                    // Hash file bytes for NIP-98 payload tag
-                    let hash = sha256::Hash::hash(&file_bytes);
-                    let payload_hash = hash.to_string();
-                    
-                    let now = Timestamp::now();
-                    let expiration = now.as_u64() + 60; // 1 minute window
+    
+    #[cfg(not(target_os = "android"))]
+    {
+        if effective_auth.is_none() {
+            println!("[NativeUpload] No auth provided by frontend, attempting native NIP-98 signing...");
+            if let Ok(entry) = Entry::new(APP_SERVICE, KEY_NAME) {
+                if let Ok(nsec) = entry.get_password() {
+                    let nsec_str: String = nsec; // Explicitly type to String
+                    let nsec_zero = Zeroizing::new(nsec_str);
+                    if let Ok(keys) = Keys::parse(nsec_zero.as_str()) {
+                        println!("[NativeUpload] Found native identity: {}", keys.public_key());
+                        
+                        // Hash file bytes for NIP-98 payload tag
+                        let hash = sha256::Hash::hash(&file_bytes);
+                        let payload_hash = hash.to_string();
+                        
+                        let now = Timestamp::now();
+                        let expiration = now.as_u64() + 60; // 1 minute window
 
-                    let unsigned_event = EventBuilder::new(
-                        Kind::from(27235), // NIP-98 auth
-                        "",
-                    )
-                    .tags(vec![
-                        Tag::custom(TagKind::Custom(Cow::Borrowed("u")), vec![api_url.clone()]),
-                        Tag::custom(TagKind::Custom(Cow::Borrowed("method")), vec!["POST".to_string()]),
-                        Tag::custom(TagKind::Custom(Cow::Borrowed("payload")), vec![payload_hash]),
-                        Tag::custom(TagKind::Custom(Cow::Borrowed("expiration")), vec![expiration.to_string()]),
-                    ])
-                    .custom_created_at(now)
-                    .build(keys.public_key());
+                        let unsigned_event = EventBuilder::new(
+                            Kind::from(27235), // NIP-98 auth
+                            "",
+                        )
+                        .tags(vec![
+                            Tag::custom(TagKind::Custom(Cow::Borrowed("u")), vec![api_url.clone()]),
+                            Tag::custom(TagKind::Custom(Cow::Borrowed("method")), vec!["POST".to_string()]),
+                            Tag::custom(TagKind::Custom(Cow::Borrowed("payload")), vec![payload_hash]),
+                            Tag::custom(TagKind::Custom(Cow::Borrowed("expiration")), vec![expiration.to_string()]),
+                        ])
+                        .custom_created_at(now)
+                        .build(keys.public_key());
 
-                    if let Ok(signed_event) = unsigned_event.sign(&keys).await {
-                        let auth_b64 = base64::engine::general_purpose::STANDARD.encode(
-                            signed_event.as_json().as_bytes()
-                        );
-                        effective_auth = Some(format!("Nostr {}", auth_b64));
-                        println!("[NativeUpload] Successfully signed NIP-98 event natively");
-                    } else {
-                        println!("[NativeUpload] Failed to sign native NIP-98 event");
+                        if let Ok(signed_event) = unsigned_event.sign(&keys).await {
+                            let auth_b64 = base64::engine::general_purpose::STANDARD.encode(
+                                signed_event.as_json().as_bytes()
+                            );
+                            effective_auth = Some(format!("Nostr {}", auth_b64));
+                            println!("[NativeUpload] Successfully signed NIP-98 event natively");
+                        } else {
+                            println!("[NativeUpload] Failed to sign native NIP-98 event");
+                        }
                     }
                 }
             }
