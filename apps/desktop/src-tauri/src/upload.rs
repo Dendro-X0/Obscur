@@ -3,6 +3,15 @@ use tauri::{command, State};
 use serde::{Serialize, Deserialize};
 
 use crate::net::NativeNetworkRuntime;
+use nostr::prelude::*;
+use nostr::hashes::{sha256, Hash};
+use keyring::Entry;
+use zeroize::Zeroizing;
+use std::borrow::Cow;
+use base64::Engine;
+
+const APP_SERVICE: &str = "app.obscur.desktop";
+const KEY_NAME: &str = "nsec";
 
 const DEFAULT_CONTENT_TYPE: &str = "application/octet-stream";
 
@@ -107,10 +116,51 @@ pub async fn nip96_upload(
     let resolved_content_type = content_type.clone().unwrap_or_else(|| DEFAULT_CONTENT_TYPE.to_string());
     let caption = file_name.clone();
 
-    // Build client via unified runtime.
-    // Strict providers validate the NIP-98 `u` tag against the request URL they see.
-    // If reqwest follows redirects, the effective URL can change and the Authorization
-    // header may be dropped (cross-host), causing 401.
+    // 2. Handle NIP-98 Authorization Natively
+    let mut effective_auth = authorization;
+    if effective_auth.is_none() {
+        println!("[NativeUpload] No auth provided by frontend, attempting native NIP-98 signing...");
+        if let Ok(entry) = Entry::new(APP_SERVICE, KEY_NAME) {
+            if let Ok(nsec) = entry.get_password() {
+                let nsec_zero = Zeroizing::new(nsec);
+                if let Ok(keys) = Keys::parse(&*nsec_zero) {
+                    println!("[NativeUpload] Found native identity: {}", keys.public_key());
+                    
+                    // Hash file bytes for NIP-98 payload tag
+                    let hash = sha256::Hash::hash(&file_bytes);
+                    let payload_hash = hash.to_string();
+                    
+                    let now = Timestamp::now();
+                    let expiration = now.as_u64() + 60; // 1 minute window
+
+                    let unsigned_event = EventBuilder::new(
+                        Kind::from(27235), // NIP-98 auth
+                        "",
+                    )
+                    .tags(vec![
+                        Tag::custom(TagKind::Custom(Cow::Borrowed("u")), vec![api_url.clone()]),
+                        Tag::custom(TagKind::Custom(Cow::Borrowed("method")), vec!["POST".to_string()]),
+                        Tag::custom(TagKind::Custom(Cow::Borrowed("payload")), vec![payload_hash]),
+                        Tag::custom(TagKind::Custom(Cow::Borrowed("expiration")), vec![expiration.to_string()]),
+                    ])
+                    .custom_created_at(now)
+                    .build(keys.public_key());
+
+                    if let Ok(signed_event) = unsigned_event.sign(&keys).await {
+                        let auth_b64 = base64::engine::general_purpose::STANDARD.encode(
+                            signed_event.as_json().as_bytes()
+                        );
+                        effective_auth = Some(format!("Nostr {}", auth_b64));
+                        println!("[NativeUpload] Successfully signed NIP-98 event natively");
+                    } else {
+                        println!("[NativeUpload] Failed to sign native NIP-98 event");
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Build client via unified runtime.
     if net_runtime.is_tor_enabled() {
         println!("[NativeUpload] Using proxy: {}", net_runtime.get_proxy_url());
     }
@@ -123,7 +173,7 @@ pub async fn nip96_upload(
         file_name.clone(),
         caption.clone(),
         resolved_content_type.clone(),
-        authorization.clone(),
+        effective_auth.clone(),
         file_bytes,
     ).await?;
 
@@ -137,7 +187,7 @@ pub async fn nip96_upload(
             file_name.clone(),
             caption.clone(),
             resolved_content_type.clone(),
-            authorization.clone(),
+            effective_auth.clone(),
             retry_bytes,
         ).await?;
         status = retry_status;

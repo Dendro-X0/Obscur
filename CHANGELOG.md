@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.7.0-alpha] - 2026-02-08
+
+### Added
+- **Native NIP-98 Signing**: Moved NIP-98 authentication event generation and SHA-256 payload hashing entirely into the Rust backend. This ensures a perfect match between uploaded bytes and the authentication tag, eliminating 401 Unauthorized errors.
+- **Native Network Cutover**: Fully audited the Desktop networking stack to ensure 100% of relay and HTTP traffic is routed through the native Rust runtime (ignoring WebView browser fallbacks).
+
+### Fixed
+- **Upload Reliability**: Resolved persistent 401 errors during NIP-96 file uploads by delegating signing to the native layer, which bypasses WebView CORS and IPC overhead.
+- **Relay Connectivity**: Patched adhoc WebSocket leaks in the invite flow to use the native transport.
+
+### Changed
+- **Stabilization Guardrails**: Hardcoded a stable set of default relays and storage providers for v0.7. Custom relay and provider editing has been disabled in the UI to ensure a reliable "golden path" for the release.
+
 ## [v0.6.6-alpha] - 2026-02-08
 
 ### Added

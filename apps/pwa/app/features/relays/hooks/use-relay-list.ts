@@ -43,11 +43,10 @@ const getE2eRelayOverride = (): ReadonlyArray<RelayListItem> | null => {
 };
 
 const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
-  { url: "wss://relay.primal.net", enabled: true },
   { url: "wss://relay.damus.io", enabled: true },
   { url: "wss://nos.lol", enabled: true },
-  { url: "wss://relay.nostr.band", enabled: true },
   { url: "wss://relay.snort.social", enabled: true },
+  { url: "wss://relay.primal.net", enabled: true },
 ];
 
 const getRelayListStorageKey = (publicKeyHex: PublicKeyHex): string => {

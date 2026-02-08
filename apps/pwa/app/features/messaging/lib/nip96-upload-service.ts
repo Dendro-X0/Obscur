@@ -137,33 +137,12 @@ export class Nip96UploadService implements UploadService {
             const arrayBuffer = await params.file.arrayBuffer();
             await writeFile(tempFilePath, new Uint8Array(arrayBuffer));
 
-            // 2. Prepare Auth
-            let authorization: string | null = null;
-            if (this.publicKeyHex && this.privateKeyHex) {
-                try {
-                    // Calculate payload hash for NIP-98 if server requires it
-                    const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    const payloadHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-
-                    const event = await cryptoService.signEvent({
-                        kind: 27235,
-                        content: "",
-                        created_at: Math.floor(Date.now() / 1000),
-                        tags: [
-                            ["u", params.apiUrl.trim()],
-                            ["method", "POST"],
-                            ["payload", payloadHash],
-                            ["expiration", String(Math.floor(Date.now() / 1000) + 60)] // valid for 1 min
-                        ],
-                        pubkey: this.publicKeyHex
-                    }, this.privateKeyHex);
-                    authorization = `Nostr ${btoa(JSON.stringify(event))}`;
-                    console.info("[Nip96Upload] Generated NIP-98 auth for:", params.apiUrl.trim());
-                } catch (err) {
-                    console.error("Failed to sign NIP-98 event:", err);
-                }
-            }
+            // 2. Auth Delegation
+            // On Desktop, we delegate NIP-98 signing to the native layer to ensure 
+            // the payload hash and u-tag match the exact bytes/URL seen by reqwest.
+            // This also reduces IPC overhead.
+            const authorization = null;
+            console.info("[Nip96Upload] Delegating NIP-98 auth to native backend");
 
             // 3. Call Native Command
             // Response type matches UploadResponse in Rust

@@ -177,8 +177,8 @@ export default function SettingsPage(): React.JSX.Element {
         }
       }
 
-      // Auto-enable on Vercel
-      if (window.location.hostname.includes("vercel.app")) {
+      // Auto-enable on Vercel or Tauri (Desktop)
+      if (typeof window !== "undefined" && (window.location.hostname.includes("vercel.app") || "__TAURI__" in window)) {
         return {
           apiUrl: "https://nostr.build/api/v2/upload/files",
           enabled: true
@@ -615,7 +615,7 @@ export default function SettingsPage(): React.JSX.Element {
                       <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.relays.unlockToManage")}</div>
                     ) : (
                       <div className="space-y-3">
-                        <div className="space-y-2">
+                        <div className="space-y-2 opacity-60">
                           <Label htmlFor="relay-url">{t("settings.relays.addRelay")}</Label>
                           <div className="flex gap-2">
                             <Input
@@ -623,10 +623,11 @@ export default function SettingsPage(): React.JSX.Element {
                               value={newRelayUrl}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRelayUrl(e.target.value)}
                               placeholder="wss://relay.example.com"
+                              disabled={true}
                             />
                             <Button
                               type="button"
-                              disabled={!canAddRelay}
+                              disabled={true}
                               onClick={() => {
                                 if (validatedRelayUrl) {
                                   relayList.addRelay({ url: validatedRelayUrl.normalizedUrl });
@@ -637,11 +638,9 @@ export default function SettingsPage(): React.JSX.Element {
                               {t("settings.relays.add")}
                             </Button>
                           </div>
-                          {!canAddRelay && trimmedRelayUrl.length > 0 ? (
-                            <div className="text-xs text-red-600 dark:text-red-400">{t("settings.relays.invalidUrl")}</div>
-                          ) : (
-                            <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.relays.supportOnlyWss")}</div>
-                          )}
+                          <div className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
+                            {t("settings.relays.disabledForStabilization", "Custom relay editing is disabled for v0.7 stabilization.")}
+                          </div>
                         </div>
 
                         <ul className="space-y-2">
@@ -666,10 +665,11 @@ export default function SettingsPage(): React.JSX.Element {
                                     <span className="min-w-0 flex-1 truncate text-xs font-mono">{relay.url}</span>
                                     <span className={cn("shrink-0 text-xs font-medium", getRelayStatusClassName(status))}>{status}</span>
                                   </div>
-                                  <div className="mt-2 flex flex-wrap gap-2">
+                                  <div className="mt-2 flex flex-wrap gap-2 opacity-50">
                                     <Button
                                       type="button"
                                       variant="secondary"
+                                      disabled={true}
                                       onClick={() => relayList.setRelayEnabled({ url: relay.url, enabled: !relay.enabled })}
                                     >
                                       {relay.enabled ? t("settings.relays.disable") : t("settings.relays.enable")}
@@ -677,7 +677,7 @@ export default function SettingsPage(): React.JSX.Element {
                                     <Button
                                       type="button"
                                       variant="secondary"
-                                      disabled={index === 0}
+                                      disabled={true}
                                       onClick={() => relayList.moveRelay({ url: relay.url, direction: "up" })}
                                     >
                                       {t("settings.relays.up")}
@@ -685,7 +685,7 @@ export default function SettingsPage(): React.JSX.Element {
                                     <Button
                                       type="button"
                                       variant="secondary"
-                                      disabled={index === relayList.state.relays.length - 1}
+                                      disabled={true}
                                       onClick={() => relayList.moveRelay({ url: relay.url, direction: "down" })}
                                     >
                                       {t("settings.relays.down")}
@@ -693,6 +693,7 @@ export default function SettingsPage(): React.JSX.Element {
                                     <Button
                                       type="button"
                                       variant="secondary"
+                                      disabled={true}
                                       onClick={() => relayList.removeRelay({ url: relay.url })}
                                     >
                                       {t("settings.relays.remove")}
@@ -705,11 +706,12 @@ export default function SettingsPage(): React.JSX.Element {
                         </ul>
                         <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.relays.metadataWarning")}</div>
 
-                        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 opacity-60">
                           <Button
                             type="button"
                             variant="secondary"
                             className="w-full sm:w-auto"
+                            disabled={true}
                             onClick={() => {
                               relayList.resetRelays();
                               toast.success(t("settings.relays.resetSuccess"));
@@ -718,8 +720,8 @@ export default function SettingsPage(): React.JSX.Element {
                             <RefreshCcw className="mr-2 h-4 w-4" />
                             {t("settings.relays.resetToDefaults")}
                           </Button>
-                          <p className="mt-2 text-[10px] text-zinc-500">
-                            {t("settings.relays.resetHelp")}
+                          <p className="mt-2 text-[10px] text-zinc-500 italic">
+                            {t("settings.relays.disabledForStabilization", "Custom relay editing is disabled for v0.7 stabilization.")}
                           </p>
                         </div>
                       </div>
@@ -830,13 +832,14 @@ export default function SettingsPage(): React.JSX.Element {
                 {activeTab === "storage" && (
                   <Card title={t("settings.tabs.storageTitle")} description={t("settings.tabs.storageDesc")} className="w-full">
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 rounded-xl border border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60">
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60 opacity-60">
                         <div className="space-y-0.5">
                           <div className="text-sm font-medium">{t("settings.storage.externalTitle")}</div>
                           <div className="text-xs text-zinc-500">{t("settings.storage.externalDesc")}</div>
                         </div>
                         <Button
                           variant={nip96Config.enabled ? "primary" : "secondary"}
+                          disabled={true}
                           onClick={() => saveNip96Config({ ...nip96Config, enabled: !nip96Config.enabled })}
                         >
                           {nip96Config.enabled ? t("settings.storage.enabled") : t("settings.storage.disabled")}
@@ -844,20 +847,21 @@ export default function SettingsPage(): React.JSX.Element {
                       </div>
 
                       <div className="space-y-4">
-                        <div className="space-y-2">
+                        <div className="space-y-2 opacity-60">
                           <Label htmlFor="nip96-url">{t("settings.storage.apiUrlLabel")}</Label>
                           <Input
                             id="nip96-url"
                             placeholder="https://nostr.build/api/v2/upload/files"
                             value={nip96Config.apiUrl}
+                            disabled={true}
                             onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
                           />
-                          <p className="text-[10px] text-zinc-500">
-                            {t("settings.storage.apiUrlDesc")}
+                          <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
+                            {t("settings.storage.disabledForStabilization", "Custom storage editing is disabled for v0.7 stabilization.")}
                           </p>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-3 opacity-60">
                           <Label className="text-xs font-semibold flex items-center gap-1.5">
                             <Check className="h-3 w-3 text-emerald-500" />
                             {t("settings.storage.recommended")}
@@ -867,12 +871,13 @@ export default function SettingsPage(): React.JSX.Element {
                               <button
                                 key={provider.name}
                                 type="button"
+                                disabled={true}
                                 onClick={() => {
                                   saveNip96Config({ apiUrl: provider.url, enabled: true });
                                   toast.success(`${provider.name} selected and enabled`);
                                 }}
                                 className={cn(
-                                  "text-left p-3 rounded-xl border transition-all hover:bg-zinc-50 dark:hover:bg-white/5",
+                                  "text-left p-3 rounded-xl border transition-all cursor-not-allowed",
                                   nip96Config.apiUrl === provider.url
                                     ? "border-purple-500 bg-purple-500/5 ring-1 ring-purple-500/20"
                                     : "border-black/5 dark:border-white/5 bg-white dark:bg-zinc-900/40"

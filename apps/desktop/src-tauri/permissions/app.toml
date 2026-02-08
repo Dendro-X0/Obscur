@@ -45,7 +45,8 @@ commands.allow = [
     "publish_event",
     "subscribe_relay",
     "unsubscribe_relay",
-    "send_relay_message"
+    "send_relay_message",
+    "probe_relay"
 ]
 
 [[permission]]

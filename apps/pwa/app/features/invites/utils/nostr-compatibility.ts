@@ -1,6 +1,7 @@
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { QRInviteData, ShareableProfile, InviteLink } from './types';
 import { cryptoService } from '../../crypto/crypto-service';
+import { createRelayWebSocket } from '../../relays/hooks/create-relay-websocket';
 
 /**
  * Nostr Improvement Proposal (NIP) constants for cross-platform compatibility
@@ -60,7 +61,7 @@ export interface UniversalInviteLink {
  * Cross-platform invite format converter
  */
 export class NostrCompatibilityService {
-  
+
   /**
    * Convert internal QR invite data to Nostr-compatible format
    */
@@ -100,11 +101,11 @@ export class NostrCompatibilityService {
    */
   static generateUniversalLink(inviteLink: InviteLink): UniversalInviteLink {
     const nostrData = this.profileToNostrFormat(inviteLink.profile, inviteLink.message);
-    
+
     // Create different URL formats for different platforms
     const baseUrl = 'https://obscur.app';
     const shortCode = inviteLink.shortCode;
-    
+
     return {
       url: `${baseUrl}/invite/${shortCode}`,
       fallbackUrl: `${baseUrl}/invite/${shortCode}?fallback=true`,
@@ -188,7 +189,7 @@ export class NostrCompatibilityService {
     try {
       // Try parsing as JSON first (most common format)
       const parsed = JSON.parse(data);
-      
+
       // Check if it's already in our format
       if (this.isValidNostrInviteData(parsed)) {
         return parsed;
@@ -316,7 +317,7 @@ export class NostrCompatibilityService {
       if (!npub.startsWith('npub1')) {
         return null;
       }
-      
+
       // For now, return null to indicate this needs proper bech32 implementation
       // TODO: Implement proper bech32 decoding
       return null;
@@ -352,14 +353,14 @@ export class NostrCompatibilityService {
     universal: string;
   } {
     const nostrFormat = this.toNostrFormat(qrData);
-    
+
     return {
       // Obscur native format
       obscur: JSON.stringify(qrData),
-      
+
       // Standard Nostr format
       nostr: JSON.stringify(nostrFormat),
-      
+
       // Universal format with fallbacks
       universal: JSON.stringify({
         ...nostrFormat,
@@ -414,14 +415,14 @@ export class NostrCompatibilityService {
  * Relay URL validation for Nostr compatibility
  */
 export class NostrRelayValidator {
-  
+
   /**
    * Validate and normalize relay URLs for Nostr compatibility
    */
   static validateRelayUrl(url: string): { isValid: boolean; normalizedUrl?: string; error?: string } {
     try {
       const parsed = new URL(url);
-      
+
       // Check protocol
       if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
         return { isValid: false, error: 'Relay URL must use ws:// or wss:// protocol' };
@@ -457,8 +458,8 @@ export class NostrRelayValidator {
   static async testRelay(url: string): Promise<{ connected: boolean; latency?: number; error?: string }> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const ws = new WebSocket(url);
-      
+      const ws = createRelayWebSocket(url);
+
       const timeout = setTimeout(() => {
         ws.close();
         resolve({ connected: false, error: 'Connection timeout' });
