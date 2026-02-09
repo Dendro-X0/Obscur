@@ -224,6 +224,11 @@ mod android {
     pub async fn decrypt_nip04(_session: tauri::State<'_, crate::session::SessionState>, _public_key: String, _ciphertext: String) -> Result<String, String> {
         Err(UNSUPPORTED_MSG.to_string())
     }
+
+    #[tauri::command]
+    pub async fn get_session_nsec(_session: tauri::State<'_, crate::session::SessionState>) -> Result<String, String> {
+        Err(UNSUPPORTED_MSG.to_string())
+    }
 }
 
 // Re-export the appropriate implementation
