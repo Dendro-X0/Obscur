@@ -34,7 +34,7 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
         myPrivateKeyHex,
     });
 
-    const { uploadFile } = useUploadService();
+    const { uploadFile, pickFiles } = useUploadService();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editName, setEditName] = useState("");
@@ -70,22 +70,6 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
             toast.error("Failed to update group info");
         } finally {
             setIsSaving(false);
-        }
-    };
-
-    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsUploading(true);
-        try {
-            const result = await uploadFile(file);
-            setEditPicture(result.url);
-        } catch (error) {
-            console.error("Failed to upload avatar:", error);
-            toast.error("Failed to upload image");
-        } finally {
-            setIsUploading(false);
         }
     };
 
@@ -145,10 +129,29 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
                                 )}
                             </div>
                             {isEditing && (
-                                <Label htmlFor="edit-group-avatar" className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-[32px] cursor-pointer opacity-0 hover:opacity-100 transition-opacity">
+                                <button
+                                    type="button"
+                                    disabled={isUploading}
+                                    onClick={async () => {
+                                        setIsUploading(true);
+                                        try {
+                                            const files = await pickFiles();
+                                            const file = files?.[0];
+                                            if (file) {
+                                                const result = await uploadFile(file);
+                                                setEditPicture(result.url);
+                                            }
+                                        } catch (error) {
+                                            console.error("Failed to upload avatar:", error);
+                                            toast.error("Failed to upload image");
+                                        } finally {
+                                            setIsUploading(false);
+                                        }
+                                    }}
+                                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-[32px] cursor-pointer opacity-0 hover:opacity-100 transition-opacity"
+                                >
                                     {isUploading ? <Loader2 className="h-6 w-6 text-white animate-spin" /> : <Camera className="h-6 w-6 text-white" />}
-                                    <input id="edit-group-avatar" type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isUploading} />
-                                </Label>
+                                </button>
                             )}
                         </div>
 
@@ -279,10 +282,10 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
                             const isModerator = admin && !isOwner;
 
                             return (
-                                <div key={pubkey} className="flex items-center gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-xl transition-colors group/member">
-                                    <div className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 relative shadow-sm">
-                                        <Shield className={cn("h-3.5 w-3.5", isOwner ? "text-purple-600" : isModerator ? "text-emerald-600" : "text-zinc-400")} />
-                                        {isOwner && <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-purple-600 border border-white dark:border-zinc-950 shadow-sm" />}
+                                <div key={pubkey} className="flex items-center gap-4 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-2xl transition-colors group/member">
+                                    <div className="h-10 w-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 relative shadow-sm">
+                                        <Shield className={cn("h-4 w-4", isOwner ? "text-purple-600" : isModerator ? "text-emerald-600" : "text-zinc-400")} />
+                                        {isOwner && <div className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-purple-600 border-2 border-white dark:border-zinc-950 shadow-sm" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">

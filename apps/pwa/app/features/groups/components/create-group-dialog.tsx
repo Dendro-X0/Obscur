@@ -27,7 +27,7 @@ interface CreateGroupDialogProps {
 
 export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: CreateGroupDialogProps) {
     const { t } = useTranslation();
-    const { uploadFile } = useUploadService();
+    const { uploadFile, pickFiles } = useUploadService();
     const [isUploading, setIsUploading] = useState(false);
 
     const [info, setInfo] = useState<GroupCreateInfo>({
@@ -92,7 +92,26 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
 
                         {/* Avatar Section */}
                         <div className="flex flex-col items-center gap-2 pt-6">
-                            <Label htmlFor="group-avatar-upload" className="cursor-pointer group relative h-24 w-24 rounded-[32px] bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-purple-500 dark:hover:border-purple-500 transition-colors overflow-hidden">
+                            <button
+                                type="button"
+                                disabled={isUploading || isCreating}
+                                onClick={async () => {
+                                    setIsUploading(true);
+                                    try {
+                                        const files = await pickFiles();
+                                        const file = files?.[0];
+                                        if (file) {
+                                            const result = await uploadFile(file);
+                                            setInfo(prev => ({ ...prev, picture: result.url }));
+                                        }
+                                    } catch (error) {
+                                        console.error("Failed to upload avatar:", error);
+                                    } finally {
+                                        setIsUploading(false);
+                                    }
+                                }}
+                                className="group relative h-24 w-24 rounded-[32px] bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-purple-500 dark:hover:border-purple-500 transition-colors overflow-hidden"
+                            >
                                 {info.picture ? (
                                     <img src={info.picture} alt="Group avatar" className="h-full w-full object-cover" />
                                 ) : (
@@ -103,29 +122,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                         <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                     </div>
                                 )}
-                                <input
-                                    id="group-avatar-upload"
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={async (e) => {
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-
-                                        setIsUploading(true);
-                                        try {
-                                            const result = await uploadFile(file);
-                                            setInfo(prev => ({ ...prev, picture: result.url }));
-                                        } catch (error) {
-                                            console.error("Failed to upload avatar:", error);
-                                            // Ideally show a toast here
-                                        } finally {
-                                            setIsUploading(false);
-                                        }
-                                    }}
-                                    disabled={isUploading || isCreating}
-                                />
-                            </Label>
+                            </button>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Avatar</span>
                         </div>
                     </div>

@@ -140,6 +140,14 @@ export class Nip96UploadService implements UploadService {
         throw new Error(`All providers failed: ${errors.join(" | ")}`);
     }
 
+    async pickFiles(): Promise<File[] | null> {
+        // We reuse the same strategy. In a real app we might want to move this helper
+        // but for now we'll assumes it's available or we'll duplicate it for simplicity
+        // in this specialized service. Actually, I'll export it from upload-service.ts.
+        const { pickFilesInternal } = await import("./upload-service");
+        return pickFilesInternal();
+    }
+
     private async uploadViaTauri(file: File, providerUrl: string): Promise<Attachment> {
         console.info(`[NIP96-TAURI] Uploading to ${providerUrl}`);
 

@@ -4,6 +4,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 export interface UploadService {
     uploadFile: (file: File) => Promise<Attachment>;
+    pickFiles: () => Promise<File[] | null>;
 }
 
 /**
@@ -47,6 +48,70 @@ export class LocalUploadService implements UploadService {
             fileName: file.name,
         };
     }
+
+    async pickFiles(): Promise<File[] | null> {
+        return pickFilesInternal();
+    }
+}
+
+/**
+ * Shared internal helper for picking files across services
+ */
+export async function pickFilesInternal(): Promise<File[] | null> {
+    const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+    if (isTauri) {
+        try {
+            // Use eval to prevent static analysis during build
+            const { open } = await eval('import("@tauri-apps/plugin-dialog")');
+            const { readFile } = await eval('import("@tauri-apps/plugin-fs")');
+
+            const selected = await open({
+                multiple: true,
+                filters: [{
+                    name: "Media",
+                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "mp4", "mov", "avi"]
+                }]
+            });
+
+            if (!selected) return null;
+
+            const paths = Array.isArray(selected) ? selected : [selected];
+            const files: File[] = [];
+
+            for (const path of paths) {
+                const data = await readFile(path);
+                const fileName = path.split(/[\\/]/).pop() || "file";
+                const ext = fileName.split(".").pop()?.toLowerCase() || "";
+
+                let type = "application/octet-stream";
+                if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
+                    type = `image/${ext === "jpg" ? "jpeg" : ext}`;
+                } else if (["mp4", "mov", "avi"].includes(ext)) {
+                    type = `video/${ext === "mov" ? "quicktime" : ext}`;
+                }
+
+                files.push(new File([data], fileName, { type }));
+            }
+            return files;
+        } catch (e) {
+            console.error("Native pick failed, falling back to browser:", e);
+        }
+    }
+
+    // Browser fallback
+    return new Promise((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.multiple = true;
+        input.accept = "image/*,video/*";
+        input.onchange = () => {
+            const files = input.files ? Array.from(input.files) : null;
+            resolve(files);
+        };
+        input.oncancel = () => resolve(null);
+        input.click();
+    });
 }
 
 /**

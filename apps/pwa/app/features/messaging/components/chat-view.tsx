@@ -56,6 +56,7 @@ export interface ChatViewProps {
     replyTo: ReplyTo | null;
     setReplyTo: (val: ReplyTo | null) => void;
     onPickAttachments: (files: FileList | null) => void;
+    onSelectFiles: () => void;
     removePendingAttachment: (index: number) => void;
     clearPendingAttachment: () => void;
     relayStatus: RelayStatusSummary;
@@ -192,6 +193,7 @@ export function ChatView(props: ChatViewProps) {
                 replyTo={props.replyTo}
                 setReplyTo={props.setReplyTo}
                 onPickAttachments={props.onPickAttachments}
+                onSelectFiles={props.onSelectFiles}
                 removePendingAttachment={props.removePendingAttachment}
                 clearPendingAttachment={props.clearPendingAttachment}
                 relayStatus={props.relayStatus}

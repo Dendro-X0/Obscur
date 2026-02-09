@@ -1,3 +1,15 @@
+## [v0.7.4] - 2026-02-09
+
+### Added
+- **Mobile Native Crypto**: Implemented hardware-backed security on Android and iOS using native platform storage, replacing WASM fallbacks.
+- **Deep Linking**: Added system-level support for `obscur://` and `nostr://` protocols for seamless invite redemption and peer-to-peer discovery.
+- **Background Keep-Alive**: Integrated native background services to maintain connectivity and process events while the application is backgrounded.
+- **Native Media Uploads**: Switched to native OS file pickers for smoother integration with system galleries and improved upload reliability on mobile.
+
+### Changed
+- **Group Chat Polish**: Refined member management UI, optimized touch targets, and enabled native avatar uploads for group metadata.
+- **Security Persistence**: Optimized session hydration logic for mobile environments.
+
 ## [v0.7.2] - 2026-02-09
 
 ### Added

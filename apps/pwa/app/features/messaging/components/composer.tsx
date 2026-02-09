@@ -20,6 +20,7 @@ interface ComposerProps {
     replyTo: ReplyTo | null;
     setReplyTo: (val: ReplyTo | null) => void;
     onPickAttachments: (files: FileList | null) => void;
+    onSelectFiles: () => void;
     removePendingAttachment: (index: number) => void;
     clearPendingAttachment: () => void;
     relayStatus: RelayStatusSummary;
@@ -39,6 +40,7 @@ export function Composer({
     replyTo,
     setReplyTo,
     onPickAttachments,
+    onSelectFiles,
     removePendingAttachment,
     clearPendingAttachment,
     relayStatus,
@@ -179,7 +181,7 @@ export function Composer({
                     {/* Add More Button */}
                     <button
                         type="button"
-                        onClick={() => document.getElementById("composer-attachment")?.click()}
+                        onClick={onSelectFiles}
                         className="shrink-0 w-32 aspect-square rounded-xl border-2 border-dashed border-black/5 dark:border-white/10 flex flex-col items-center justify-center hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-zinc-400 hover:text-purple-500 group"
                     >
                         <Paperclip className="h-6 w-6 mb-1 transition-transform group-hover:rotate-12" />
@@ -216,7 +218,7 @@ export function Composer({
                     size="icon"
                     className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 flex items-center justify-center p-0"
                     disabled={isUploadingAttachment || isGated}
-                    onClick={() => document.getElementById("composer-attachment")?.click()}
+                    onClick={onSelectFiles}
                     aria-label={t("messaging.media")}
                 >
                     <Paperclip className="h-5 w-5 text-zinc-500" />

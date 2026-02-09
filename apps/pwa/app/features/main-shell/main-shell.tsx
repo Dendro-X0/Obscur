@@ -271,6 +271,9 @@ function NostrMessengerContent() {
   useEffect(() => {
     if (typeof window !== "undefined" && "metadata" in ((window as any).__TAURI_INTERNALS__?.metadata?.mobile || {})) {
       setIsMobile(true);
+      // Initialize background service on mobile to keep app alive
+      const { initBackgroundService } = require("@/app/lib/background-service");
+      void initBackgroundService();
     }
   }, []);
 
@@ -520,6 +523,148 @@ function NostrMessengerContent() {
     void navigator.clipboard.writeText(url);
   };
 
+  const handleRedeemInvite = useCallback(async (token: string): Promise<void> => {
+    if (!token) return;
+    if (!identity.state.publicKeyHex) {
+      setInviteRedemption(createInviteRedemptionState({ status: "needs_unlock", token }));
+      return;
+    }
+
+    const myPk = identity.state.publicKeyHex as string;
+    const identityKey: string = myPk.trim();
+    // Cache check to avoid duplicate redemption
+    const cacheKey = `invite:${token}:${identityKey}`;
+    if (handledSearchParamPubkeyRef.current === cacheKey) {
+      return;
+    }
+    handledSearchParamPubkeyRef.current = cacheKey;
+
+    setInviteRedemption(createInviteRedemptionState({ status: "redeeming", token }));
+    try {
+      const redeemed = await redeemInviteToken({ token, redeemerPubkey: myPk });
+      redeemed.relays.forEach((url: string): void => {
+        relayList.addRelay({ url });
+      });
+      logAppEvent({
+        name: "invites.inviteToken.redeemed",
+        level: "info",
+        scope: { feature: "invites", action: "redeem" },
+        context: { relaysCount: redeemed.relays.length }
+      });
+      setInviteRedemption(createInviteRedemptionState({ status: "success", token }));
+      const parsed = parsePublicKeyInput(redeemed.inviterPubkey);
+      if (parsed.ok) {
+        if (!wasInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId })) {
+          logAppEvent({
+            name: "requests.invite_auto_send.start",
+            level: "info",
+            scope: { feature: "requests", action: "invite_auto_send" },
+            context: { inviteId: redeemed.inviteId }
+          });
+          try {
+            const sent = await dmController.sendConnectionRequest({ peerPublicKeyHex: parsed.publicKeyHex as PublicKeyHex });
+            if (sent.success) {
+              markInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId });
+              logAppEvent({
+                name: "requests.invite_auto_send.success",
+                level: "info",
+                scope: { feature: "requests", action: "invite_auto_send" },
+                context: { inviteId: redeemed.inviteId }
+              });
+              toast.success("Connection request sent.");
+            } else {
+              logAppEvent({
+                name: "requests.invite_auto_send.failure",
+                level: "warn",
+                scope: { feature: "requests", action: "invite_auto_send" },
+                context: { inviteId: redeemed.inviteId, error: sent.error ?? "unknown" }
+              });
+              toast.warning("Invite redeemed, but sending the connection request failed.");
+            }
+          } catch (e: unknown) {
+            const message: string = e instanceof Error ? e.message : "unknown";
+            logAppEvent({
+              name: "requests.invite_auto_send.failure",
+              level: "warn",
+              scope: { feature: "requests", action: "invite_auto_send" },
+              context: { inviteId: redeemed.inviteId, error: message }
+            });
+            toast.warning("Invite redeemed, but sending the connection request failed.");
+          }
+        }
+        queueMicrotask((): void => {
+          setNewChatPubkey(parsed.publicKeyHex);
+          setNewChatDisplayName("");
+          setIsNewChatOpen(true);
+          router.replace("/");
+        });
+        return;
+      }
+      router.replace("/");
+    } catch (error: unknown) {
+      const message: string = error instanceof Error ? error.message : "Invite redeem failed";
+      const status: InviteRedemptionStatus = classifyInviteRedeemError(message);
+      logAppEvent({
+        name: "invites.inviteToken.redeem_failed",
+        level: "error",
+        scope: { feature: "invites", action: "redeem" },
+        context: { error: message, classifiedAs: status }
+      });
+      setInviteRedemption(createInviteRedemptionState({ status, token, message }));
+      router.replace("/");
+    }
+  }, [identity.state.publicKeyHex, dmController, relayList, router]);
+
+  // Deep Link Listener for Mobile/Desktop
+  useEffect((): (() => void) | void => {
+    if (typeof window === "undefined") return;
+
+    let unlisten: (() => void) | undefined;
+
+    void (async (): Promise<void> => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlisten = await listen<{ url: string }>("deep-link", (event): void => {
+          const urlStr: string = event.payload.url;
+          if (!urlStr) return;
+
+          try {
+            const url = new URL(urlStr);
+            // Case 1: obscur://invite/TOKEN
+            if (url.protocol === "obscur:" && url.host === "invite") {
+              const token = url.pathname.replace(/^\//, "");
+              if (token) void handleRedeemInvite(token);
+            }
+            // Case 2: Query param in web URL or deep link
+            const token = url.searchParams.get("inviteToken") || url.searchParams.get("invite");
+            if (token) void handleRedeemInvite(token);
+
+            // Handle pubkey/npub in deep links
+            const pubkey = url.searchParams.get("pubkey") || url.searchParams.get("chat");
+            if (pubkey) {
+              const parsed = parsePublicKeyInput(pubkey);
+              if (parsed.ok) {
+                queueMicrotask((): void => {
+                  setNewChatPubkey(parsed.publicKeyHex);
+                  setNewChatDisplayName("");
+                  setIsNewChatOpen(true);
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse deep link URL:", e);
+          }
+        });
+      } catch (e) {
+        // Not in Tauri or plugin not available
+      }
+    })();
+
+    return (): void => {
+      if (unlisten) unlisten();
+    };
+  }, [handleRedeemInvite]);
+
   useEffect((): void => {
     const pubkey: string = (searchParams.get("chat") || searchParams.get("pubkey") || "").trim();
     const relays: string = (searchParams.get("relays") || "").trim();
@@ -529,108 +674,28 @@ function NostrMessengerContent() {
       return;
     }
 
-    const identityKey: string = (identity.state.publicKeyHex ?? "").trim();
-    const cacheKey = `${pubkey}:${relays}:${inviteToken}:${identityKey}`;
-    if (handledSearchParamPubkeyRef.current === cacheKey) {
-      return;
-    }
-    handledSearchParamPubkeyRef.current = cacheKey;
-
+    // Handle invite token
     if (inviteToken) {
-      if (!identity.state.publicKeyHex) {
-        setInviteRedemption(createInviteRedemptionState({ status: "needs_unlock", token: inviteToken }));
-        return;
-      }
-      setInviteRedemption(createInviteRedemptionState({ status: "redeeming", token: inviteToken }));
-      void (async (): Promise<void> => {
-        try {
-          const redeemed = await redeemInviteToken({ token: inviteToken, redeemerPubkey: identity.state.publicKeyHex as string });
-          redeemed.relays.forEach((url: string): void => {
-            relayList.addRelay({ url });
-          });
-          logAppEvent({
-            name: "invites.inviteToken.redeemed",
-            level: "info",
-            scope: { feature: "invites", action: "redeem" },
-            context: { relaysCount: redeemed.relays.length }
-          });
-          setInviteRedemption(createInviteRedemptionState({ status: "success", token: inviteToken }));
-          const parsed = parsePublicKeyInput(redeemed.inviterPubkey);
-          if (parsed.ok) {
-            const myPk: string = identity.state.publicKeyHex as string;
-            if (!wasInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId })) {
-              logAppEvent({
-                name: "requests.invite_auto_send.start",
-                level: "info",
-                scope: { feature: "requests", action: "invite_auto_send" },
-                context: { inviteId: redeemed.inviteId }
-              });
-              try {
-                const sent = await dmController.sendConnectionRequest({ peerPublicKeyHex: parsed.publicKeyHex as PublicKeyHex });
-                if (sent.success) {
-                  markInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId });
-                  logAppEvent({
-                    name: "requests.invite_auto_send.success",
-                    level: "info",
-                    scope: { feature: "requests", action: "invite_auto_send" },
-                    context: { inviteId: redeemed.inviteId }
-                  });
-                  toast.success("Connection request sent.");
-                } else {
-                  logAppEvent({
-                    name: "requests.invite_auto_send.failure",
-                    level: "warn",
-                    scope: { feature: "requests", action: "invite_auto_send" },
-                    context: { inviteId: redeemed.inviteId, error: sent.error ?? "unknown" }
-                  });
-                  toast.warning("Invite redeemed, but sending the connection request failed.");
-                }
-              } catch (e: unknown) {
-                const message: string = e instanceof Error ? e.message : "unknown";
-                logAppEvent({
-                  name: "requests.invite_auto_send.failure",
-                  level: "warn",
-                  scope: { feature: "requests", action: "invite_auto_send" },
-                  context: { inviteId: redeemed.inviteId, error: message }
-                });
-                toast.warning("Invite redeemed, but sending the connection request failed.");
-              }
-            }
-            queueMicrotask((): void => {
-              setNewChatPubkey(parsed.publicKeyHex);
-              setNewChatDisplayName("");
-              setIsNewChatOpen(true);
-              router.replace("/");
-            });
-            return;
-          }
-          router.replace("/");
-        } catch (error: unknown) {
-          const message: string = error instanceof Error ? error.message : "Invite redeem failed";
-          const status: InviteRedemptionStatus = classifyInviteRedeemError(message);
-          logAppEvent({
-            name: "invites.inviteToken.redeem_failed",
-            level: "error",
-            scope: { feature: "invites", action: "redeem" },
-            context: { error: message, classifiedAs: status }
-          });
-          setInviteRedemption(createInviteRedemptionState({ status, token: inviteToken, message }));
-          router.replace("/");
-        }
-      })();
-      return;
+      void handleRedeemInvite(inviteToken);
     }
 
     // Handle relay hints
     if (relays) {
-      const relayUrls = relays.split(',').map(r => r.trim()).filter(Boolean);
-      relayUrls.forEach(url => {
+      const relayUrls = relays.split(",").map((r: string): string => r.trim()).filter(Boolean);
+      relayUrls.forEach((url: string): void => {
         relayList.addRelay({ url });
       });
     }
 
     // Handle pubkey/npub
     if (pubkey) {
+      const identityKey: string = (identity.state.publicKeyHex ?? "").trim();
+      const cacheKey = `pubkey:${pubkey}:${identityKey}`;
+      if (handledSearchParamPubkeyRef.current === cacheKey) {
+        return;
+      }
+      handledSearchParamPubkeyRef.current = cacheKey;
+
       const parsed = parsePublicKeyInput(pubkey);
       if (parsed.ok) {
         queueMicrotask((): void => {
@@ -641,7 +706,7 @@ function NostrMessengerContent() {
         });
       }
     }
-  }, [router, searchParams, relayList, identity.state.publicKeyHex, dmController]);
+  }, [router, searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite]);
 
   useEffect((): void => {
     const previous: InviteRedemptionStatus | null = lastInviteRedemptionStatusRef.current;
@@ -1244,6 +1309,35 @@ function NostrMessengerContent() {
     setPendingAttachments(prev => prev.filter((_, i) => i !== index));
     setPendingAttachmentPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
+
+  const handlePickAttachments = useCallback(async (): Promise<void> => {
+    try {
+      const files = await uploadService.pickFiles();
+      if (!files || files.length === 0) return;
+
+      const newFiles: File[] = [];
+      const newUrls: string[] = [];
+
+      for (const file of files) {
+        if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+          setAttachmentError(`File "${file.name}" is not supported.`);
+          continue;
+        }
+        if (file.size > 50 * 1024 * 1024) { // 50MB limit
+          setAttachmentError(`File "${file.name}" is too large. Max size is 50MB.`);
+          continue;
+        }
+        newFiles.push(file);
+        newUrls.push(URL.createObjectURL(file));
+      }
+
+      setPendingAttachments(prev => [...prev, ...newFiles]);
+      setPendingAttachmentPreviewUrls(prev => [...prev, ...newUrls]);
+    } catch (e) {
+      console.error("Failed to pick attachments:", e);
+      setAttachmentError("Failed to open file picker.");
+    }
+  }, [uploadService]);
 
   const onPickAttachments = (files: FileList | null): void => {
     if (!files || files.length === 0) return;
@@ -2060,6 +2154,7 @@ function NostrMessengerContent() {
               replyTo={replyTo}
               setReplyTo={setReplyTo}
               onPickAttachments={onPickAttachments}
+              onSelectFiles={handlePickAttachments}
               removePendingAttachment={removePendingAttachment}
               clearPendingAttachment={clearPendingAttachment}
               relayStatus={relayStatus}

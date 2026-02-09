@@ -198,12 +198,14 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - Property-based tests validate universal correctness properties
 - Integration tests confirm services work together correctly
 
-✅ **Mobile Support (Alpha)**
-- Native Android application (Tauri v2)
-- Deep linking (`obscur://`, `nostr:`)
-- Native notifications & file uploads
+✅ **Mobile Parity (v0.7.4)**
+- Native Android & iOS support (Tauri v2)
+- Hardware-backed Crypto (`tauri-plugin-store`)
+- Deep linking & Invite redemption (`obscur://`, `nostr:`)
+- Background Keep-Alive for persistent connectivity
+- Native Media Uploads & Gallery integration
 - Automatic status bar theming
-- **Download**: Get the APK from [GitHub Releases](../../releases)
+- **Download**: Get the latest builds from [GitHub Releases](../../releases)
 
 🚧 **Next Phase**: UI Components and Integration (Tasks 7-15)
 - Invite Manager Service for link and request workflows
