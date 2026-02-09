@@ -3,7 +3,7 @@
 ### Added
 - **Mobile Native Crypto**: Implemented hardware-backed security on Android and iOS using native platform storage, replacing WASM fallbacks.
 - **Deep Linking**: Added system-level support for `obscur://` and `nostr://` protocols for seamless invite redemption and peer-to-peer discovery.
-- **Background Keep-Alive**: Integrated native background services to maintain connectivity and process events while the application is backgrounded.
+- **Improved Background Handling**: Optimized relay connection persistence and notification handling for mobile environments.
 - **Native Media Uploads**: Switched to native OS file pickers for smoother integration with system galleries and improved upload reliability on mobile.
 
 ### Changed

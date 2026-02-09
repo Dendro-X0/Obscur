@@ -202,7 +202,7 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - Native Android & iOS support (Tauri v2)
 - Hardware-backed Crypto (`tauri-plugin-store`)
 - Deep linking & Invite redemption (`obscur://`, `nostr:`)
-- Background Keep-Alive for persistent connectivity
+- Improved Background notification handling
 - Native Media Uploads & Gallery integration
 - Automatic status bar theming
 - **Download**: Get the latest builds from [GitHub Releases](../../releases)

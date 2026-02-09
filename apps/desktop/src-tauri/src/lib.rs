@@ -519,7 +519,7 @@ fn apply_window_state(window: &WebviewWindow, state: WindowState) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_upload::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -527,9 +527,14 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_background::init())
+        .plugin(tauri_plugin_fs::init());
+
+    #[cfg(mobile)]
+    {
+        builder = builder.plugin(tauri_plugin_store::Builder::new().build());
+    }
+
+    builder
         .setup(|app| {
             app.manage(relay::RelayPool::new());
             let settings = load_tor_settings(&app.handle());

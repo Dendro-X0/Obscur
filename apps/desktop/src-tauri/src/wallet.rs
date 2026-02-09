@@ -55,7 +55,7 @@ mod desktop {
                 let nsec_zero = Zeroizing::new(nsec);
                 // Hydrate session from keychain
                 match session.set_keys(&*nsec_zero).await {
-                    Ok(pubkey) => {
+                    Ok(_pubkey) => {
                         eprintln!("[SESSION] Native session re-hydrated from OS keychain");
                         session.get_keys().await.ok_or_else(|| "Failed to hydrate session".to_string())
                     }

@@ -1,0 +1,40 @@
+    Checking obscur_desktop_lib v0.7.4 (E:\Web Project\experimental-workspace\newstart\apps\desktop\src-tauri)
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tauri_plugin_store`
+   --> src\lib.rs:531:17
+    |
+531 |         .plugin(tauri_plugin_store::Builder::new().build())
+    |                 ^^^^^^^^^^^^^^^^^^ use of unresolved module or unlinked crate `tauri_plugin_store`
+    |
+help: there is a crate or module with a similar name
+    |
+531 -         .plugin(tauri_plugin_store::Builder::new().build())
+531 +         .plugin(tauri_plugin_shell::Builder::new().build())
+    |
+help: consider importing one of these structs
+    |
+  3 + use std::thread::Builder;
+    |
+  3 + use reqwest::retry::Builder;
+    |
+  3 + use tauri::Builder;
+    |
+  3 + use tauri::plugin::Builder;
+    |
+    = and 3 other candidates
+help: if you import `Builder`, refer to it directly
+    |
+531 -         .plugin(tauri_plugin_store::Builder::new().build())
+531 +         .plugin(Builder::new().build())
+    |
+
+warning: unused variable: `pubkey`
+  --> src\wallet.rs:58:24
+   |
+58 |                     Ok(pubkey) => {
+   |                        ^^^^^^ help: if this is intentional, prefix it with an underscore: `_pubkey`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+For more information about this error, try `rustc --explain E0433`.
+warning: `obscur_desktop_lib` (lib) generated 1 warning
+error: could not compile `obscur_desktop_lib` (lib) due to 1 previous error; 1 warning emitted
