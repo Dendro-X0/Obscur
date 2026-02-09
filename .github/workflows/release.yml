@@ -1,0 +1,169 @@
+name: Obscur Full Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create-release.outputs.id }}
+    steps:
+      - name: Create Release
+        id: create-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Obscur ${{ github.ref_name }}"
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+
+  desktop-build:
+    needs: create-release
+    name: Build Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev librsvg2-dev patchelf build-essential pkg-config libssl-dev
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare PWA (Disable Dynamic Routes)
+        shell: bash
+        run: |
+          # Hide API directory to avoid dynamic route errors in static export
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
+          # Disable specific route files that use dynamic segmenting
+          for file in \
+            apps/pwa/app/api-backup/upload/route.ts \
+            apps/pwa/app/icon-192.png/route.ts \
+            apps/pwa/app/icon-512.png/route.ts \
+            apps/pwa/app/sw.js/route.ts \
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invite/page.tsx \
+            apps/pwa/app/invite/[code]/page.tsx \
+            apps/pwa/app/groups/[groupId]/page.tsx
+          do
+            if [ -f "$file" ]; then
+              mv "$file" "$file.ignored"
+            fi
+          done
+
+      - name: Build PWA (Static)
+        run: pnpm -C apps/pwa build
+        env:
+          TAURI_BUILD: true
+
+      - name: Build Desktop and Upload
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          includeRelease: true
+
+  android-build:
+    needs: create-release
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+        
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare PWA (Disable Dynamic Routes)
+        shell: bash
+        run: |
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
+          for file in \
+            apps/pwa/app/api-backup/upload/route.ts \
+            apps/pwa/app/icon-192.png/route.ts \
+            apps/pwa/app/icon-512.png/route.ts \
+            apps/pwa/app/sw.js/route.ts \
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invite/page.tsx \
+            apps/pwa/app/invite/[code]/page.tsx \
+            apps/pwa/app/groups/[groupId]/page.tsx
+          do
+            if [ -f "$file" ]; then
+              mv "$file" "$file.ignored"
+            fi
+          done
+        
+      - name: Build Android APK
+        run: pnpm -C apps/desktop tauri android build --apk true
+        env:
+           NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+
+      - name: Rename APK
+        run: |
+          mv apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk obscur-android-universal.apk
+        
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: obscur-android-universal.apk
+          fail_on_unmatched_files: true
