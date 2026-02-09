@@ -135,10 +135,9 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
     async encryptDM(plaintext: string, recipientPubkey: PublicKeyHex, senderPrivkey: PrivateKeyHex): Promise<string> {
         if (senderPrivkey === NATIVE_KEY_SENTINEL || (await this.hasNativeKey())) {
             try {
-                const key = await this.getActualKey();
-                return super.encryptDM(plaintext, recipientPubkey, key);
+                return await invoke<string>("encrypt_nip04", { publicKey: recipientPubkey, content: plaintext });
             } catch (e) {
-                console.error("Native encryption fallback failed:", e);
+                console.error("Native encryption failed, falling back if possible:", e);
                 if (senderPrivkey !== NATIVE_KEY_SENTINEL) {
                     return super.encryptDM(plaintext, recipientPubkey, senderPrivkey);
                 }
@@ -151,10 +150,9 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
     async decryptDM(ciphertext: string, senderPubkey: PublicKeyHex, recipientPrivkey: PrivateKeyHex): Promise<string> {
         if (recipientPrivkey === NATIVE_KEY_SENTINEL || (await this.hasNativeKey())) {
             try {
-                const key = await this.getActualKey();
-                return super.decryptDM(ciphertext, senderPubkey, key);
+                return await invoke<string>("decrypt_nip04", { publicKey: senderPubkey, ciphertext });
             } catch (e) {
-                console.error("Native decryption fallback failed:", e);
+                console.error("Native decryption failed, falling back if possible:", e);
                 if (recipientPrivkey !== NATIVE_KEY_SENTINEL) {
                     return super.decryptDM(ciphertext, senderPubkey, recipientPrivkey);
                 }
