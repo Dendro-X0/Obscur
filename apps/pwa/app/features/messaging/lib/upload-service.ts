@@ -93,11 +93,12 @@ export const useUploadService = (): UploadService => {
                 }
             }
 
-            // If no config found, and we are on Vercel or Tauri (Desktop), auto-enable a default
+            // If no config found, and we are on Vercel, Tauri (Desktop), or Localhost, auto-enable a default
             const isVercel = window.location.hostname.includes("vercel.app");
-            const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+            const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+            const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
-            if (isVercel || isTauri) {
+            if (isVercel || isTauri || isLocalhost) {
                 const defaultConfig: Nip96Config = {
                     apiUrls: [
                         "https://nostr.build/api/v2/upload/files"

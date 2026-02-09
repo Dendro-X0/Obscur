@@ -15,7 +15,7 @@ import { useDesktopLayout } from "@/app/features/desktop/hooks/use-desktop-layou
 import { RelayStatusBadge } from "./relay-status-badge";
 import { useTranslation } from "react-i18next";
 
-type NavIcon = (props: Readonly<{ className?: string }>) => React.JSX.Element;
+type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
 type AppShellProps = Readonly<{
   sidebarContent?: React.ReactNode;
@@ -26,7 +26,7 @@ type AppShellProps = Readonly<{
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.sidebarExpanded";
 
-const ICON_BY_HREF: Readonly<Record<string, any>> = {
+const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
   "/": MessageSquare,
   "/contacts": Users,
   "/invites": UserPlus,
@@ -63,12 +63,16 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const pathname: string = usePathname();
   const [expanded, setExpanded] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [hasMounted, setHasMounted] = useState<boolean>(false);
   const isDesktop = useIsDesktop();
   const { isCompact } = useDesktopLayout();
 
   // Register keyboard shortcuts for desktop
   useKeyboardShortcuts();
 
+  useEffect((): void => {
+    setHasMounted(true);
+  }, []);
   useEffect((): void => {
     queueMicrotask((): void => {
       setExpanded(loadExpanded());
@@ -90,7 +94,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   return (
     <div className={cn(
       "flex min-h-dvh overflow-hidden bg-gradient-main text-zinc-900 dark:text-zinc-100",
-      isDesktop && "desktop-mode"
+      hasMounted && isDesktop && "desktop-mode"
     )}>
       {mobileSidebarOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">

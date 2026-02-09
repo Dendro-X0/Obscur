@@ -16,20 +16,29 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
     async hasNativeKey(): Promise<boolean> {
         if (this.hasNativeKeyCached !== null) return this.hasNativeKeyCached;
         try {
+            // In the new architecture, we check if a session is ACTIVE in memory
             const npub = await invoke<string | null>("get_native_npub");
             this.hasNativeKeyCached = npub !== null;
             return this.hasNativeKeyCached;
         } catch (e) {
-            // Android or other platforms without keychain support
-            const errorMsg = String(e);
-            if (errorMsg.includes("not supported")) {
-                console.info("Native keychain unavailable on this platform, using WASM crypto");
-                this.hasNativeKeyCached = false;
-                return false;
-            }
-            console.error("Failed to check native key:", e);
+            this.hasNativeKeyCached = false;
             return false;
         }
+    }
+
+    async initNativeSession(nsec: string): Promise<string> {
+        console.info("[NativeCrypto] Initializing native session...");
+        const response = await invoke<{ success: boolean; npub?: string; message?: string }>("init_native_session", { nsec });
+        if (!response.success) {
+            throw new Error(response.message || "Failed to initialize native session");
+        }
+        this.hasNativeKeyCached = true;
+        return response.npub!;
+    }
+
+    async clearNativeSession(): Promise<void> {
+        await invoke("clear_native_session");
+        this.hasNativeKeyCached = false;
     }
 
     async getNativeNpub(): Promise<string | null> {
@@ -81,12 +90,14 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
     }
 
     async importNsec(nsec: string): Promise<string> {
+        // This command now updates BOTH keychain and in-memory session
         const npub = await invoke<string>("import_native_nsec", { nsec });
         this.hasNativeKeyCached = true;
         return npub;
     }
 
     async deleteNativeKey(): Promise<void> {
+        // This command now clears BOTH keychain and in-memory session
         await invoke("logout_native");
         this.hasNativeKeyCached = false;
     }

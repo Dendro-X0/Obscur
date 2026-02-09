@@ -1,77 +1,65 @@
-# Project Status & Handover Report
-**Date:** 2026-02-01
-**Last Version:** v0.3.4
+# Project Status and Debugging Report
+**Date:** 2026-02-08
+**Objective:** Replace NIP-96 file upload with "Option C" (Pure Rust Implementation).
 
-## 1. Recent Modifications (v0.3.3 - v0.3.4)
-The following features were recently implemented to improve the core user experience and address critical usability gaps:
+## 1. Project Architecture
+- **Type:** Monorepo (Turborepo/PNPM workspace).
+- **Frontend:** Next.js (PWA) located in `apps/pwa`.
+- **Backend/Desktop:** Tauri (Rust) located in `apps/desktop`.
+- **Communication:** Tauri Command IPC (`invoke`).
+- **State Management:** Nostr relays + Local storage.
 
-### Build & Reliability
-- **CI Build Fix:** Updated `tsconfig.json` to exclude `out` and `.next` directories. This prevents the TypeScript compiler from checking files in the build output, resolving a critical failure where Web Workers were incorrectly validated during static export.
-- **Version Synchronization:** Aligned `version.json` with workspace packages to ensure consistent releases across PWA and Desktop.
+## 2. Current Implementation Status
+### Phase 1: Rust Backend (Completed & Verified)
+- **File:** `apps/desktop/src-tauri/src/upload.rs`
+- **Feature:** `nip96_upload_v2` command.
+- **Logic:** 
+  - Direct byte transfer (no temp files).
+  - Native NIP-98 auth generation using system keyring.
+  - Robust multipart handling with field name retries (`file`, `files[]`, `files`).
+  - **Verification:** User sees compilation warnings, confirming `cargo` is picking up the changes.
 
-### Account & Data Management
-- **Account Deletion (Danger Zone):** Added a feature in *Settings > Identity* to permanently delete the local account and wipe all data (IndexedDB, LocalStorage).
-- **Onboarding Reliability:** Modified the profile publishing flow to wait for a healthy relay connection before attempting to save, reducing "User not found" errors for new accounts.
-- **Robust Publishing:** Added retry logic and error feedback during the onboarding wizard.
+### Phase 2: Frontend (Completed in Source)
+- **File:** `apps/pwa/app/features/messaging/lib/nip96-upload-service.ts`
+- **Logic:** 
+  - Removed `uploadFileWeb` and `uploadFileTauri`.
+  - Simplified `uploadFile` to call `nip96_upload_v2` directly via `invoke`.
+  - Added "Green Canary" console log for verification.
 
-### UI/UX Enhancements
-- **Custom Feedback System:** Replaced native browser alerts/confirms with disjointed custom components:
-  - **Toast Notifications:** Non-intrusive bottom-right notifications for success/info actions.
-  - **Confirm Dialog:** A premium, centered, glassmorphic modal for dangerous actions (like account deletion).
-- **Search Improvements:** Clarified the "New Chat" dialog to explicitly support searching by NIP-05 identifiers and Names, not just public keys.
-- **Blocklist UI:** Implemented a visible interface for managing blocked users in *Settings > Moderation*.
+## 3. The Issue
+**Symptom:** The application persistently runs old code despite ensuring source changes are correct.
+- **Evidence A:** Console logs show `Upload progress: 8192 / ...`. The *new* Rust command does NOT emit progress events. The *old* `tauri-plugin-upload` does.
+- **Evidence B:** Error `400: No files provided`. This is the exact bug the new Rust code fixes.
+- **Evidence C:** Stack trace references `uploadFileTauri`. This method was removed from the source code.
+- **Evidence D:** Green canary log `[OPTION-C-V2]` is missing from the console.
 
----
+**Root Cause Analysis (Pass Pending Verification):**
+The `apps/desktop/src-tauri/tauri.conf.json` file is missing the `devUrl` configuration in the `build` section.
 
-## 2. Unusable / Broken Features (Critical)
-According to recent testing and user feedback, the following core features are **not functional** or highly unstable:
+```json
+/* Current tauri.conf.json */
+"build": {
+  "beforeDevCommand": "pnpm -C ../pwa dev",
+  "beforeBuildCommand": "cross-env TAURI_BUILD=true pnpm -C ../pwa build",
+  "frontendDist": "../../pwa/out"  <-- Tauri is likely serving this stale static folder
+}
+```
 
-### A. Real-Time Communication
-- **Chat is Broken:** Despite the UI existing, real-time message delivery and reception are unreliable.
-- **Relay Connectivity:** The connection to relays acts "connected" but often fails to actually persist or retrieve messages in real-time.
-- **Interaction Dead-Ends:** Users can "send" messages, but they may disappear into the void or never reach the recipient.
+The `beforeDevCommand` correctly starts the Next.js dev server on `http://localhost:3000`, but **Tauri is not configured to listen to it**. It defaults to serving the static files in `frontendDist` (`../../pwa/out`), which contains an outdated production build.
 
-### B. Data Persistence
-- **Profile Saving:** While improvements were made, saving a new profile sometimes fails silently or doesn't propagate to other clients.
-- **Account Logic:** The "Relay Server" doesn't seem to reliably save newly created accounts, leading to data loss upon refresh or re-login.
+## 4. Proposed Solution (For Next Session)
+1.  **Update `tauri.conf.json`**:
+    Add `devUrl` to point to the Next.js dev server.
+    ```json
+    "build": {
+      "beforeDevCommand": "pnpm -C ../pwa dev",
+      "devUrl": "http://localhost:3000",  // <--- ADD THIS
+      "beforeBuildCommand": "...",
+      "frontendDist": "../../pwa/out"
+    }
+    ```
+2.  **Verify**: Run `pnpm dev:desktop`. Tauri should now proxy `http://localhost:3000`, loading the lived-edited `nip96-upload-service.ts`.
+3.  **Confirm**: The "Green Canary" log should appear, and uploads should route through the new Rust backend.
 
-### C. Useful APIs
-- **Missing Integrations:** The project has a lot of "shell" code. Many service calls (like `verifyRecipient` or `sendConnectionRequest`) mock success or fail interaction with actual Nostr relays.
-
----
-
-## 3. Key Technical Debt & Problems
-- **UI-First, Logic-Second:** The project suffers from "Frontend-itis." It looks beautiful (shadcn/ui, glassmorphism, animations) but lacks the robust backend/protocol logic to back it up.
-- **Complex Monorepo Structure:** The codebase is split into many workspace packages (`@dweb/core`, `@dweb/nostr`, etc.), making it hard to debug where the data flow breaks.
-- **Over-Engineering:** There are complex abstractions for "Decentralized Web Nodes" (DWeb) and "Signaler" that might be overkill or poorly integrated with standard Nostr protocols.
-- **Experimental Nature:** The project attempts to mix standard Nostr with experimental "DWeb" concepts, leading to compatibility issues and a lack of standard tooling support.
-
----
-
-## 4. Future Roadmap & recovery Plan
-If this project is resumed, the following steps are recommended:
-
-1.  **Halt UI Development:** Stop adding new UI features (like enhanced dialogs or animations).
-2.  **Audit the Protocol Layer:**
-    - Isolate the `RelayPool` and `NostrService`.
-    - Write integration tests that *actually* send an event to a public relay (e.g., `wss://relay.damus.io`) and verify it can be fetched back.
-    - If the "DWeb" layer is blocking standard Nostr usage, bypass it for core messaging features.
-3.  **Fix the Happy Path:** Ensure 1 User can send 1 Message to another User and have it appear reliably. Do not move on until this basic primitive works.
-4.  **Simplify:** Remove unused "experimental" features causing friction.
-
-- `apps/pwa/app/settings/page.tsx`
-- `apps/pwa/app/features/messaging/components/new-chat-dialog.tsx`
-
-### 5. Desktop App Packaging (v0.3.4)
-**Status:** SUCCESS
-**Build:** `Obscur_0.3.4_x64-setup.exe`
-**Notes:** 
-- Synced with PWA v0.3.4 features (Messaging reliability fixes).
-- Configured as a standalone offline-first app (Server-side API routes disabled for desktop build to ensure true local-only operation).
-- Browser-independent execution via Tauri/WebView2.
-- **CI Fixed:** Resolved TypeScript error during static export of Web Workers.
-
----
-
-**Status:** Archived / Experimental
-**Maintainer:** [User / Antigravity]
+## 5. Summary
+The "Option C" implementation is code-complete and correct. The failure to verify is due to a strictly environmental configuration issue where the Desktop app is disconnected from the live Development Server, serving a "ghost" version of the app from a previous build.

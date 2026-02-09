@@ -17,8 +17,10 @@ import {
   ShieldAlert,
   Loader2,
   Trash2,
-  LogOut
+  LogOut,
+  Wifi
 } from "lucide-react";
+import { RelayDashboard } from "../components/relay-dashboard";
 import { Button } from "../components/ui/button";
 import { toast } from "../components/ui/toast";
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
@@ -410,49 +412,61 @@ export default function SettingsPage(): React.JSX.Element {
                 )}
 
                 {activeTab === "health" && (
-                  <Card title={t("settings.health.title")} description={t("settings.health.desc")} className="w-full">
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">{t("settings.health.api")}</div>
-                        <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.health.baseUrl")} {getApiBaseUrl()}</div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button type="button" variant="secondary" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
-                            {apiHealth.status === "checking" ? t("settings.health.checking") : t("settings.health.check")}
-                          </Button>
-                          {apiHealth.status === "ok" ? (
-                            <div className="text-sm text-emerald-700 dark:text-emerald-300">
-                              OK ({apiHealth.latencyMs}ms)
+                  <div className="space-y-6">
+                    <Card title={t("settings.health.title")} description={t("settings.health.desc")} className="w-full">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="text-sm font-semibold flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-purple-500" />
+                            {t("settings.health.api")}
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                            <div className="space-y-0.5">
+                              <div className="text-xs font-mono opacity-60 truncate max-w-[250px]">{getApiBaseUrl()}</div>
+                              {apiHealth.status === "ok" ? (
+                                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                  Server Connected ({apiHealth.latencyMs}ms)
+                                </div>
+                              ) : apiHealth.status === "error" ? (
+                                <div className="text-sm font-bold text-red-600 dark:text-red-400">Connection Failed</div>
+                              ) : (
+                                <div className="text-sm font-bold opacity-40">Not Checked</div>
+                              )}
                             </div>
-                          ) : apiHealth.status === "error" ? (
-                            <div className="text-sm text-red-700 dark:text-red-300">{t("settings.health.error")}: {apiHealth.message}</div>
-                          ) : (
-                            <div className="text-sm text-zinc-600 dark:text-zinc-400">{t("settings.health.notChecked")}</div>
-                          )}
+                            <Button type="button" variant="secondary" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
+                              {apiHealth.status === "checking" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check Health"}
+                            </Button>
+                          </div>
                         </div>
-                        {apiHealth.status === "ok" ? (
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.health.serverTime")} {apiHealth.timeIso}</div>
-                        ) : null}
-                      </div>
 
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">{t("settings.health.identity")}</div>
-                        <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                          {identity.state.status === "unlocked" ? t("settings.health.unlocked") : identity.state.status === "locked" ? t("settings.health.locked") : identity.state.status}
+                        <div className="space-y-2">
+                          <div className="text-sm font-semibold flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-blue-500" />
+                            {t("settings.health.identity")}
+                          </div>
+                          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "h-2 w-2 rounded-full",
+                                identity.state.status === "unlocked" ? "bg-emerald-500 animate-pulse" : "bg-red-500"
+                              )} />
+                              <span className="text-sm font-bold">
+                                {identity.state.status === "unlocked" ? "Securely Initialized" : "Locked / Unavailable"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    </Card>
 
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">{t("settings.health.relays")}</div>
-                        <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                          {t("settings.health.open")}: <span className={getRelayStatusClassName("open")}>{relayCounts.open}</span>, {t("settings.health.connecting")}:{" "}
-                          <span className={getRelayStatusClassName("connecting")}>{relayCounts.connecting}</span>, {t("settings.health.error")}:{" "}
-                          <span className={getRelayStatusClassName("error")}>{relayCounts.error}</span>, {t("settings.health.closed")}:{" "}
-                          <span className={getRelayStatusClassName("closed")}>{relayCounts.closed}</span>
-                        </div>
-                        {enabledRelayUrls.length === 0 ? <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.health.noRelays")}</div> : null}
+                    <div className="space-y-2">
+                      <div className="px-1 text-sm font-bold flex items-center gap-2 opacity-60">
+                        <Wifi className="h-4 w-4" />
+                        Relay Performance Monitor
                       </div>
+                      <RelayDashboard />
                     </div>
-                  </Card>
+                  </div>
                 )}
 
                 {activeTab === "appearance" && (
@@ -824,8 +838,46 @@ export default function SettingsPage(): React.JSX.Element {
                 </Card>
 
                 {activeTab === "security" && (
-                  <div className="max-w-3xl w-full">
+                  <div className="max-w-3xl w-full space-y-6">
                     <AutoLockSettingsPanel />
+                    <Card title="Data & Cache" description="Manage your local data and session cache." className="w-full">
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+                            <Database className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-semibold">Clear Local Cache</h3>
+                            <p className="text-xs text-zinc-500 leading-relaxed">
+                              This will wipe your local message cache and temporary icons. Your identity (private key) will remain safe.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            // Clear everything except identity keys
+                            const nsec = localStorage.getItem('obscur_nsec');
+                            const salt = localStorage.getItem('obscur_salt');
+                            const iv = localStorage.getItem('obscur_iv');
+                            const hint = localStorage.getItem('obscur_hint');
+
+                            localStorage.clear();
+
+                            if (nsec) localStorage.setItem('obscur_nsec', nsec);
+                            if (salt) localStorage.setItem('obscur_salt', salt);
+                            if (iv) localStorage.setItem('obscur_iv', iv);
+                            if (hint) localStorage.setItem('obscur_hint', hint);
+
+                            toast.success("Cache cleared. Reloading...");
+                            setTimeout(() => window.location.reload(), 1500);
+                          }}
+                        >
+                          Clear Cache & Reload
+                        </Button>
+                      </div>
+                    </Card>
                   </div>
                 )}
 

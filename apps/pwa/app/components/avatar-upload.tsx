@@ -21,9 +21,21 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, onClear, class
     const fileInputRef = useRef<HTMLInputElement>(null);
     const uploadService = useUploadService();
 
+    // Diagnostic logging
+    React.useEffect(() => {
+        console.log('[AvatarUpload] Service type:', uploadService.constructor.name);
+        console.log('[AvatarUpload] Current localStorage config:', localStorage.getItem('obscur.storage.nip96'));
+    }, [uploadService]);
+
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
+
+        console.log('[AvatarUpload] File selected:', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
 
         // Validation
         if (!file.type.startsWith("image/")) {
@@ -43,12 +55,14 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, onClear, class
         setIsUploading(true);
 
         try {
+            console.log('[AvatarUpload] Calling uploadService.uploadFile...');
             const attachment = await uploadService.uploadFile(file);
+            console.log('[AvatarUpload] Upload successful:', attachment.url);
             onUploadSuccess(attachment.url);
             setStatus('success');
             toast.success("Avatar uploaded successfully!");
         } catch (error) {
-            console.error("Upload failed:", error);
+            console.error("[AvatarUpload] Upload failed:", error);
             setStatus('error');
             const message = error instanceof Error ? error.message : "Failed to upload avatar. Please try again.";
             toast.error(message);
