@@ -40,6 +40,7 @@ export const isVisibleUserMessage = (message: Message): boolean => message.kind 
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
+const IMAGE_HOSTS = ['image.nostr.build', 'nostr.build', 'blossom.', 'imgprxy.', 'void.cat'];
 
 export const extractAttachmentsFromContent = (content: string): Attachment[] => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -50,16 +51,21 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
     const attachments: Attachment[] = [];
 
     for (const url of matches) {
-        const lowerUrl = url.toLowerCase();
+        // Clean trailing punctuation that might be captured
+        const cleanUrl = url.replace(/[.,;:!?)]+$/, '');
+        const lowerUrl = cleanUrl.toLowerCase();
+
+        // Host-based detection for known image services
+        const isKnownImageHost = IMAGE_HOSTS.some(host => lowerUrl.includes(host));
 
         // Simple extension check
         const isImage = IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
-        if (isImage) {
+        if (isImage || isKnownImageHost) {
             attachments.push({
                 kind: 'image',
-                url: url,
+                url: cleanUrl,
                 contentType: 'image/*',
-                fileName: url.split('/').pop()?.split('?')[0] || 'image'
+                fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'image'
             });
             continue;
         }
@@ -68,9 +74,9 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
         if (isVideo) {
             attachments.push({
                 kind: 'video',
-                url: url,
+                url: cleanUrl,
                 contentType: 'video/*',
-                fileName: url.split('/').pop()?.split('?')[0] || 'video'
+                fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'video'
             });
         }
     }

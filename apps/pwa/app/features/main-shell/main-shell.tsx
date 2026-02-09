@@ -1713,6 +1713,7 @@ function NostrMessengerContent() {
   const handleAcceptRequest = useCallback((peerPublicKeyHex: PublicKeyHex) => {
     peerTrust.acceptPeer({ publicKeyHex: peerPublicKeyHex });
     requestsInbox.setStatus({ peerPublicKeyHex, status: 'accepted' });
+    requestsInbox.remove({ peerPublicKeyHex }); // Clear from inbox after accepting
 
     // Create conversation if it doesn't exist
     const exists = createdContacts.some(c => c.pubkey === peerPublicKeyHex);

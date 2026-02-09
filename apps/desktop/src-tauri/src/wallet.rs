@@ -35,9 +35,16 @@ mod desktop {
     /// This also hydrations the in-memory session from the keychain if found.
     #[tauri::command]
     pub async fn get_native_npub(session: State<'_, SessionState>) -> Result<Option<String>, String> {
-        // Try session first
+        match ensure_session(&session).await {
+            Ok(keys) => Ok(Some(keys.public_key().to_string())),
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// Ensure session is hydrated from keychain if not present
+    async fn ensure_session(session: &SessionState) -> Result<Keys, String> {
         if let Some(keys) = session.get_keys().await {
-            return Ok(Some(keys.public_key().to_string()));
+            return Ok(keys);
         }
 
         // Fallback to keychain
@@ -50,12 +57,12 @@ mod desktop {
                 match session.set_keys(&*nsec_zero).await {
                     Ok(pubkey) => {
                         eprintln!("[SESSION] Native session re-hydrated from OS keychain");
-                        Ok(Some(pubkey.to_string()))
+                        session.get_keys().await.ok_or_else(|| "Failed to hydrate session".to_string())
                     }
                     Err(e) => Err(format!("Failed to hydrate session from keychain: {}", e)),
                 }
             }
-            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(keyring::Error::NoEntry) => Err("No active native session and no key in keychain".to_string()),
             Err(e) => Err(e.to_string()),
         }
     }
@@ -98,7 +105,7 @@ mod desktop {
     /// Sign a Nostr event using the in-memory session.
     #[tauri::command]
     pub async fn sign_event_native(session: State<'_, SessionState>, req: NativeSignRequest) -> Result<NativeSignResponse, String> {
-        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
+        let keys = ensure_session(&session).await?;
         
         let unsigned_event = EventBuilder::new(
             Kind::from(req.kind as u16),
@@ -139,7 +146,7 @@ mod desktop {
     /// Encrypt content using NIP-04 (Legacy)
     #[tauri::command]
     pub async fn encrypt_nip04(session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
-        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
+        let keys = ensure_session(&session).await?;
         let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
         
         nostr::nips::nip04::encrypt(keys.secret_key(), &pubkey, &content)
@@ -149,7 +156,7 @@ mod desktop {
     /// Decrypt content using NIP-04 (Legacy)
     #[tauri::command]
     pub async fn decrypt_nip04(session: State<'_, SessionState>, public_key: String, ciphertext: String) -> Result<String, String> {
-        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
+        let keys = ensure_session(&session).await?;
         let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
         
         nostr::nips::nip04::decrypt(keys.secret_key(), &pubkey, &ciphertext)
@@ -159,7 +166,7 @@ mod desktop {
     /// Get the current session secret key as a hex string.
     #[tauri::command]
     pub async fn get_session_nsec(session: State<'_, SessionState>) -> Result<String, String> {
-        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
+        let keys = ensure_session(&session).await?;
         Ok(keys.secret_key().to_secret_hex())
     }
 }
