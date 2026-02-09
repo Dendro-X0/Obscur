@@ -64,10 +64,24 @@ export class NativeRelay implements EventTarget {
         this.initAndConnect();
     }
 
+    private useNative: boolean = true;
+    private socket: WebSocket | null = null;
+
     private async initAndConnect() {
         try {
-            await this.initListeners();
-            await this.connect();
+            // Check if Tor is enabled. If not, use standard browser WebSocket (proven reliable)
+            // This is the "Nuclear Option" fix for the "Failed to publish" error on Desktop.
+            const torStatus = await invoke<string>("get_tor_status").catch(() => "disabled");
+
+            if (torStatus === "enabled") {
+                this.useNative = true;
+                await this.initListeners();
+                await this.connect();
+            } else {
+                this.useNative = false;
+                console.log(`[NativeRelay] Using browser WebSocket for ${this.url}`);
+                this.connectBrowser();
+            }
         } catch (e) {
             console.error(`Failed to initialize NativeRelay for ${this.url}:`, e);
             nativeErrorStore.addError({
@@ -82,6 +96,56 @@ export class NativeRelay implements EventTarget {
                 const wsThis = this as unknown as WebSocket;
                 this.onerror.call(wsThis, errorEvent);
             }
+        }
+    }
+
+    private connectBrowser() {
+        try {
+            this.socket = new WebSocket(this.url);
+            this.socket.binaryType = this.binaryType;
+
+            this.socket.onopen = (event) => {
+                this.readyState = NativeRelay.OPEN;
+                relayHealthMonitor.recordConnectionSuccess(this.url);
+                this.dispatchEvent(new Event("open"));
+                if (this.onopen) {
+                    const wsThis = this as unknown as WebSocket;
+                    this.onopen.call(wsThis, event);
+                }
+            };
+
+            this.socket.onmessage = (event) => {
+                const messageEvent = new MessageEvent("message", { data: event.data });
+                this.dispatchEvent(messageEvent);
+                if (this.onmessage) {
+                    const wsThis = this as unknown as WebSocket;
+                    this.onmessage.call(wsThis, messageEvent);
+                }
+            };
+
+            this.socket.onerror = (event) => {
+                relayHealthMonitor.recordConnectionFailure(this.url, "WebSocket error");
+                this.dispatchEvent(new Event("error"));
+                if (this.onerror) {
+                    const wsThis = this as unknown as WebSocket;
+                    this.onerror.call(wsThis, event);
+                }
+            };
+
+            this.socket.onclose = (event) => {
+                this.readyState = NativeRelay.CLOSED;
+                const closeEvent = new CloseEvent("close", { code: event.code, reason: event.reason, wasClean: event.wasClean });
+                this.dispatchEvent(closeEvent);
+                if (this.onclose) {
+                    const wsThis = this as unknown as WebSocket;
+                    this.onclose.call(wsThis, closeEvent);
+                }
+            };
+        } catch (e) {
+            console.error(`Browser WebSocket connection failed for ${this.url}:`, e);
+            this.readyState = NativeRelay.CLOSED;
+            const errorEvent = new Event("error");
+            this.dispatchEvent(errorEvent);
         }
     }
 
@@ -121,7 +185,11 @@ export class NativeRelay implements EventTarget {
         });
 
         this.unlistenMessage = await listen<RelayMessage>("relay-event", (event) => {
-            if (event.payload.relay_url !== this.url) return;
+            // FIX: Normalize URLs for comparison to avoid mismatch issues
+            const eventUrl = event.payload.relay_url.replace(/\/$/, "");
+            const thisUrl = this.url.replace(/\/$/, "");
+
+            if (eventUrl !== thisUrl) return;
 
             const data = JSON.stringify(event.payload.payload);
             const messageEvent = new MessageEvent("message", { data });
@@ -189,6 +257,11 @@ export class NativeRelay implements EventTarget {
             return;
         }
 
+        if (!this.useNative && this.socket) {
+            this.socket.send(data);
+            return;
+        }
+
         if (typeof data !== "string") {
             console.error("NativeRelay only supports string messages");
             return;
@@ -232,6 +305,13 @@ export class NativeRelay implements EventTarget {
 
     public async close(code?: number, reason?: string): Promise<void> {
         this.readyState = NativeRelay.CLOSING;
+
+        if (!this.useNative && this.socket) {
+            this.socket.close(code, reason);
+            // Events will be fired by onclose handler
+            return;
+        }
+
         try {
             await invoke("disconnect_relay", {
                 url: this.url
