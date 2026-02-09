@@ -101,4 +101,34 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
         await invoke("logout_native");
         this.hasNativeKeyCached = false;
     }
+
+    async encryptDM(plaintext: string, recipientPubkey: PublicKeyHex, senderPrivkey: PrivateKeyHex): Promise<string> {
+        if (senderPrivkey === NATIVE_KEY_SENTINEL || (await this.hasNativeKey())) {
+            try {
+                return await invoke<string>("encrypt_nip04", { publicKey: recipientPubkey, content: plaintext });
+            } catch (e) {
+                console.error("Native encryption failed, falling back if possible:", e);
+                if (senderPrivkey !== NATIVE_KEY_SENTINEL) {
+                    return super.encryptDM(plaintext, recipientPubkey, senderPrivkey);
+                }
+                throw e;
+            }
+        }
+        return super.encryptDM(plaintext, recipientPubkey, senderPrivkey);
+    }
+
+    async decryptDM(ciphertext: string, senderPubkey: PublicKeyHex, recipientPrivkey: PrivateKeyHex): Promise<string> {
+        if (recipientPrivkey === NATIVE_KEY_SENTINEL || (await this.hasNativeKey())) {
+            try {
+                return await invoke<string>("decrypt_nip04", { publicKey: senderPubkey, ciphertext });
+            } catch (e) {
+                console.error("Native decryption failed, falling back if possible:", e);
+                if (recipientPrivkey !== NATIVE_KEY_SENTINEL) {
+                    return super.decryptDM(ciphertext, senderPubkey, recipientPrivkey);
+                }
+                throw e;
+            }
+        }
+        return super.decryptDM(ciphertext, senderPubkey, recipientPrivkey);
+    }
 }

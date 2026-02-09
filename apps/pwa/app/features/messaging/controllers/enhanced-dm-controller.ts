@@ -1008,15 +1008,41 @@ export const useEnhancedDMController = (
         context: { format: preferredFormat, openRelays: openRelays.length }
       });
 
-      const build: DmEventBuildResult = await buildDmEvent({
-        format: preferredFormat,
-        plaintext,
-        recipientPubkey,
-        senderPubkey: params.myPublicKeyHex,
-        senderPrivateKeyHex: params.myPrivateKeyHex,
-        createdAtUnixSeconds: usedCreatedAt,
-        tags: combinedTags
-      });
+      let build: DmEventBuildResult;
+
+      try {
+        build = await buildDmEvent({
+          format: preferredFormat,
+          plaintext,
+          recipientPubkey,
+          senderPubkey: params.myPublicKeyHex,
+          senderPrivateKeyHex: params.myPrivateKeyHex,
+          createdAtUnixSeconds: usedCreatedAt,
+          tags: combinedTags
+        });
+      } catch (buildError) {
+        if (preferredFormat === "nip17") {
+          console.warn("NIP-17 encryption failed, attempting fallback to NIP-04:", buildError);
+          logAppEvent({
+            name: "messaging.dm.build.fallback",
+            level: "warn",
+            scope: { feature: "messaging", action: "build_dm" },
+            context: { from: "nip17", to: "nip04", error: String(buildError) }
+          });
+
+          build = await buildDmEvent({
+            format: "nip04",
+            plaintext,
+            recipientPubkey,
+            senderPubkey: params.myPublicKeyHex,
+            senderPrivateKeyHex: params.myPrivateKeyHex,
+            createdAtUnixSeconds: usedCreatedAt,
+            tags: combinedTags
+          });
+        } else {
+          throw buildError;
+        }
+      }
 
       // Step 4: Create message object
       const messageId = build.signedEvent.id;

@@ -698,6 +698,8 @@ pub fn run() {
             wallet::generate_native_nsec,
             wallet::sign_event_native,
             wallet::logout_native,
+            wallet::encrypt_nip04,
+            wallet::decrypt_nip04,
             start_tor,
             stop_tor,
             get_tor_status,

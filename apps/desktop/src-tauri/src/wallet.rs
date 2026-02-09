@@ -135,6 +135,26 @@ mod desktop {
             Err(e) => Err(e.to_string()),
         }
     }
+
+    /// Encrypt content using NIP-04 (Legacy)
+    #[tauri::command]
+    pub async fn encrypt_nip04(session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
+        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
+        let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
+        
+        nostr::nips::nip04::encrypt(keys.secret_key(), &pubkey, &content)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Decrypt content using NIP-04 (Legacy)
+    #[tauri::command]
+    pub async fn decrypt_nip04(session: State<'_, SessionState>, public_key: String, ciphertext: String) -> Result<String, String> {
+        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
+        let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
+        
+        nostr::nips::nip04::decrypt(keys.secret_key(), &pubkey, &ciphertext)
+            .map_err(|e| e.to_string())
+    }
 }
 
 // Android stub implementations (no keychain support)
