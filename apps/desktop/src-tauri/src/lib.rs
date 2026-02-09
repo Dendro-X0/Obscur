@@ -21,6 +21,10 @@ mod upload;
 mod relay;
 mod wallet;
 mod net;
+mod session;
+
+use nostr::ToBech32;
+use session::{SessionState, SessionResponse};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 struct ResetAppStorageReport {
@@ -427,6 +431,37 @@ async fn reset_app_storage(window: WebviewWindow, app: tauri::AppHandle) -> Resu
     })
 }
 
+#[tauri::command]
+async fn init_native_session(
+    session: tauri::State<'_, SessionState>,
+    nsec: String,
+) -> Result<SessionResponse, String> {
+    match session.set_keys(&nsec).await {
+        Ok(pubkey) => {
+            let npub = pubkey.to_bech32().map_err(|e| e.to_string())?;
+            eprintln!("[SESSION] Native session initialized for {}", npub);
+            Ok(SessionResponse {
+                success: true,
+                npub: Some(npub),
+                message: None,
+            })
+        }
+        Err(e) => Ok(SessionResponse {
+            success: false,
+            npub: None,
+            message: Some(e),
+        }),
+    }
+}
+
+#[tauri::command]
+async fn clear_native_session(session: tauri::State<'_, SessionState>) -> Result<(), String> {
+    session.clear().await;
+    eprintln!("[SESSION] Native session cleared");
+    Ok(())
+}
+
+
 // Save window state to storage
 #[tauri::command]
 async fn save_window_state(window: WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
@@ -499,6 +534,9 @@ pub fn run() {
 
             app.manage(net::NativeNetworkRuntime::new(settings.enable_tor, settings.proxy_url.clone()));
             
+            // Manage SessionState
+            app.manage(SessionState::new());
+
             // Manage TorState with loaded settings
             app.manage(TorState { 
                 child: Mutex::new(None),
@@ -647,6 +685,7 @@ pub fn run() {
             is_notification_permission_granted,
             get_system_theme,
             upload::nip96_upload,
+            upload::nip96_upload_v2,
             relay::connect_relay,
             relay::probe_relay,
             relay::disconnect_relay,
@@ -663,7 +702,9 @@ pub fn run() {
             stop_tor,
             get_tor_status,
             save_tor_settings,
-            restart_app
+            restart_app,
+            init_native_session,
+            clear_native_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,9 +1,10 @@
 import { Attachment, AttachmentKind } from "../types";
 import { UploadService } from "./upload-service";
-import { cryptoService } from "../../crypto/crypto-service";
+import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { nativeErrorStore } from "../../native/lib/native-error-store";
+import { getIdentitySnapshot } from "../../auth/hooks/use-identity";
 
 export interface Nip96Config {
     apiUrl?: string;
@@ -18,6 +19,32 @@ type Nip96Event = Readonly<{
 }>;
 
 type Nip96Response = Readonly<Record<string, unknown>>;
+
+type NativeInvokeError = Readonly<{
+    code?: unknown;
+    message?: unknown;
+}>;
+
+const getErrorMessage = (err: unknown): string => {
+    if (err instanceof Error) {
+        return err.message;
+    }
+    if (typeof err === "string") {
+        return err;
+    }
+    if (err && typeof err === "object") {
+        const asNative = err as NativeInvokeError;
+        if (typeof asNative.message === "string") {
+            return asNative.message;
+        }
+        try {
+            return JSON.stringify(err);
+        } catch {
+            return "Unknown error";
+        }
+    }
+    return String(err);
+};
 
 const getStringProp = (obj: Nip96Response, key: string): string | null => {
     const value = obj[key];
@@ -92,219 +119,84 @@ export class Nip96UploadService implements UploadService {
     async uploadFile(file: File): Promise<Attachment> {
         const providers = this.getProviders();
         if (providers.length === 0) {
-            throw new Error("Upload failed: no NIP-96 providers configured");
+            throw new Error("No NIP-96 providers configured");
         }
-        console.info('[Nip96Upload] Providers:', providers);
-        console.info('[Nip96Upload] Is Tauri?', this.isTauri());
+
+        // Check if running in Tauri
+        if (!this.isTauri()) {
+            throw new Error("NIP-96 upload requires desktop app");
+        }
+
+        // V2: Rust-native path (Option C)
+        // We no longer check or migrate keys here. 
+        // Rust's nip96_upload_v2 will return NO_SESSION if the session isn't initialized.
+
 
         const errors: string[] = [];
+
         for (const providerUrl of providers) {
             try {
-                if (this.isTauri()) {
-                    console.info('[Nip96Upload] Using Tauri native upload path for:', providerUrl);
-                    return await this.uploadFileTauri({ file, apiUrl: providerUrl });
+                // console.log("%c[OPTION-C-V2] 🚀 NEW RUST PATH ACTIVE - 2026-02-08-16:11", "background: #00ff00; color: black; font-size: 16px; padding: 4px;");
+                console.info(`[NIP96-V2] Uploading to ${providerUrl}`);
+
+                // Read file as bytes
+                const arrayBuffer = await file.arrayBuffer();
+                const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+
+                // Call Rust backend
+                const { invoke } = await import("@tauri-apps/api/core");
+                interface UploadResult {
+                    status: string;
+                    url: string | null;
+                    message: string | null;
+                    nip94_event?: any;
                 }
-                console.info('[Nip96Upload] Using web upload path for:', providerUrl);
-                return await this.uploadFileWeb({ file, apiUrl: providerUrl });
-            } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
-                errors.push(`${providerUrl}: ${message}`);
+
+                const result = await invoke<UploadResult>("nip96_upload_v2", {
+                    apiUrl: providerUrl.trim(),
+                    fileBytes,
+                    fileName: file.name,
+                    contentType: file.type || "application/octet-stream",
+                });
+
+                if (result.status === "error") {
+                    throw new Error(result.message || "Upload failed");
+                }
+
+                if (!result.url) {
+                    throw new Error("Upload succeeded but no URL returned");
+                }
+
+                console.info(`[NIP96-V2] Success: ${result.url}`);
+
+                const kind: AttachmentKind = file.type.startsWith("video/")
+                    ? "video"
+                    : "image";
+
+                return {
+                    kind,
+                    url: result.url,
+                    contentType: file.type,
+                    fileName: file.name,
+                };
+
+            } catch (err: any) {
+                const msg = getErrorMessage(err);
+                console.error(`[NIP96-V2] Failed for ${providerUrl}:`, msg);
+
+                // Handle NO_SESSION specifically (from Rust NativeError)
+                if (err?.code === "NO_SESSION" || String(err).includes("NO_SESSION")) {
+                    throw new Error("Native session expired or not initialized. Please LOCK and UNLOCK your screen to refresh your session.");
+                }
+
+                errors.push(`${providerUrl}: ${msg}`);
             }
         }
-        throw new Error(`Upload failed: all providers rejected the upload. ${errors.join(" | ")}`);
+
+        throw new Error(`All providers failed: ${errors.join(" | ")}`);
     }
 
-    /**
-     * Tauri-specific upload using native file system and upload plugin.
-     * This bypasses WebView CORS restrictions by:
-     * 1. Writing the file to a temp directory
-     * 2. Using the native upload plugin with the file path
-     * 3. Cleaning up the temp file
-     */
-    /**
-     * Tauri-specific upload using native Rust backend.
-     * 1. Writes file to temp dir (to get a path).
-     * 2. Calls native `nip96_upload` command.
-     */
-    private async uploadFileTauri(params: Readonly<{ file: File; apiUrl: string }>): Promise<Attachment> {
-        let tempFilePath: string | null = null;
-        try {
-            const { invoke } = await import("@tauri-apps/api/core");
-            const { tempDir, join } = await import("@tauri-apps/api/path");
-            const { writeFile, remove } = await import("@tauri-apps/plugin-fs");
-
-            // 1. Write to temp file to get a path (IPC optimization: avoid sending bytes to upload cmd)
-            const tempDirectory = await tempDir();
-            const uniqueId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            const extension = params.file.name.split(".").pop() || "tmp";
-            tempFilePath = await join(tempDirectory, `${uniqueId}.${extension}`);
-
-            const arrayBuffer = await params.file.arrayBuffer();
-            await writeFile(tempFilePath, new Uint8Array(arrayBuffer));
-
-            // 2. Auth Delegation
-            // On Desktop, we delegate NIP-98 signing to the native layer to ensure 
-            // the payload hash and u-tag match the exact bytes/URL seen by reqwest.
-            // This also reduces IPC overhead.
-            const authorization = null;
-            console.info("[Nip96Upload] Delegating NIP-98 auth to native backend");
-
-            // 3. Call Native Command
-            // Response type matches UploadResponse in Rust
-            interface NativeResponse {
-                status: string;
-                message?: string;
-                original_response: string;
-            }
-
-            const response = await invoke<NativeResponse>("nip96_upload", {
-                apiUrl: params.apiUrl.trim(),
-                filePath: tempFilePath,
-                contentType: params.file.type || "application/octet-stream",
-                authorization
-            });
-
-            // 4. Handle Result
-            if (response.status === "error") {
-                throw new Error(response.message || "Native upload failed");
-            }
-
-            // Parse the original NIP-96 JSON response
-            let typedResult: Nip96Response;
-            try {
-                typedResult = JSON.parse(response.original_response);
-            } catch (e) {
-                throw new Error(`Failed to parse NIP-96 response: ${e}`);
-            }
-
-            const status = typedResult["status"];
-            const error = typedResult["error"];
-            if (status === "error" || typeof error === "string") {
-                const messageValue = typedResult["message"];
-                const message = typeof messageValue === "string" ? messageValue : "Unknown API error";
-                throw new Error(typeof error === "string" ? error : message);
-            }
-
-            const url = getUrlFromNip96Response(typedResult);
-            if (!url) {
-                if (typeof typedResult["processing_url"] === "string") {
-                    throw new Error("File is processing significantly. Please try a different provider or smaller file.");
-                }
-                const messageValue = typedResult["message"];
-                if (typeof messageValue === "string") {
-                    throw new Error(`Upload returned message: ${messageValue}`);
-                }
-                const keys = Object.keys(typedResult).join(", ");
-                throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
-            }
-
-            const kind: AttachmentKind = params.file.type.startsWith("video/") ? "video" : "image";
-            return {
-                kind,
-                url,
-                contentType: params.file.type,
-                fileName: params.file.name,
-            };
-
-        } catch (error) {
-            console.error("Tauri native upload failed:", error);
-            const message = error instanceof Error ? error.message : String(error);
-            nativeErrorStore.addError({
-                code: "UPLOAD_FAILED",
-                message: `Upload failed: ${message}`,
-                retryable: true,
-                retry: () => this.uploadFileTauri(params).then(() => { })
-            });
-            throw new Error(`Upload failed: ${error}`);
-        } finally {
-            if (tempFilePath) {
-                try {
-                    const { remove } = await import("@tauri-apps/plugin-fs");
-                    await remove(tempFilePath);
-                } catch (e) {
-                    console.warn("Failed to clean up temp file:", e);
-                }
-            }
-        }
-    }
-
-    private async uploadFileWeb(params: Readonly<{ file: File; apiUrl: string }>): Promise<Attachment> {
-        const formData = new FormData();
-        formData.append("file", params.file);
-        formData.append("caption", params.file.name);
-
-        const headers: Record<string, string> = {};
-        if (this.publicKeyHex && this.privateKeyHex) {
-            try {
-                // Calculate payload hash for NIP-98
-                const arrayBuffer = await params.file.arrayBuffer();
-                const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const payloadHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-
-                const event = await cryptoService.signEvent({
-                    kind: 27235,
-                    content: "",
-                    created_at: Math.floor(Date.now() / 1000),
-                    tags: [
-                        ["u", params.apiUrl.trim()],
-                        ["method", "POST"],
-                        ["payload", payloadHash],
-                        ["expiration", String(Math.floor(Date.now() / 1000) + 60)]
-                    ],
-                    pubkey: this.publicKeyHex
-                }, this.privateKeyHex);
-
-                const auth = btoa(JSON.stringify(event));
-                headers["Authorization"] = `Nostr ${auth}`;
-                console.info("[Nip96Upload] Generated NIP-98 auth for:", params.apiUrl.trim());
-            } catch (err) {
-                console.error("Failed to sign NIP-98 event:", err);
-            }
-        }
-
-        const response = await fetch(params.apiUrl.trim(), {
-            method: "POST",
-            body: formData,
-            headers
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`NIP-96 Upload failed (${response.status}): ${errorText}`);
-        }
-
-        const result = await response.json();
-        const typedResult = result as Nip96Response;
-        const status = typedResult["status"];
-        const error = typedResult["error"];
-        if (status === "error" || typeof error === "string") {
-            const messageValue = typedResult["message"];
-            const message = typeof messageValue === "string" ? messageValue : "Unknown API error";
-            throw new Error(typeof error === "string" ? error : message);
-        }
-
-        const url = getUrlFromNip96Response(typedResult);
-
-        if (!url) {
-            if (typeof typedResult["processing_url"] === "string") {
-                throw new Error("File is processing significantly. Please try a different provider or smaller file.");
-            }
-            const messageValue = typedResult["message"];
-            if (typeof messageValue === "string") {
-                throw new Error(`Upload returned message: ${messageValue}`);
-            }
-            const keys = Object.keys(typedResult).join(", ");
-            throw new Error(`NIP-96 response missing URL. Keys received: [${keys}]`);
-        }
-
-        const kind: AttachmentKind = params.file.type.startsWith("video/") ? "video" : "image";
-
-        return {
-            kind,
-            url,
-            contentType: params.file.type,
-            fileName: params.file.name,
-        };
+    private async cleanupOldUploadPaths(): Promise<void> {
+        // This method can be called once to clean up any legacy state if needed
     }
 }

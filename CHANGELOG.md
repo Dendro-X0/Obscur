@@ -1,6 +1,14 @@
-# Changelog
+## [v0.7.1-alpha] - 2026-02-09
 
-All notable changes to this project will be documented in this file.
+### Added
+- **In-Memory Native Session**: Implemented a more robust session management pattern that keeps active keys in memory on the Rust backend, reducing reliance on the OS keychain for every operation.
+- **Auto-Hydration**: The desktop backend now automatically loads keys from the OS keychain into the in-memory session on startup, ensuring a seamless experience after app restarts.
+
+### Fixed
+- **NIP-96 Response Parsing**: Added support for servers (like `nostr.build`) that wrap upload results in a `data` array.
+- **Tauri Permissions**: Fixed a "Command not found" error by explicitly allowing `init_native_session` and `clear_native_session` in the app's capability configuration.
+- **Session Sync**: Resolved "Missing native key" errors by making the frontend the source of truth for session initialization.
+
 
 ## [v0.7.0-alpha] - 2026-02-08
 

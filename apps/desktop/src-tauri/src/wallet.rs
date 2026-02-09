@@ -1,9 +1,11 @@
 // Desktop-only wallet implementation with native keychain
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use crate::session::SessionState;
     use keyring::Entry;
     use nostr::prelude::*;
     use serde::{Deserialize, Serialize};
+    use tauri::State;
     use zeroize::Zeroizing;
     use std::borrow::Cow;
 
@@ -29,57 +31,74 @@ mod desktop {
         pub sig: String,
     }
 
-    /// Get the native public key if it exists in the keychain.
+    /// Get the native public key if it exists in the session or keychain.
+    /// This also hydrations the in-memory session from the keychain if found.
     #[tauri::command]
-    pub async fn get_native_npub() -> Result<Option<String>, String> {
+    pub async fn get_native_npub(session: State<'_, SessionState>) -> Result<Option<String>, String> {
+        // Try session first
+        if let Some(keys) = session.get_keys().await {
+            return Ok(Some(keys.public_key().to_string()));
+        }
+
+        // Fallback to keychain
         let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
         
         match entry.get_password() {
             Ok(nsec) => {
-                let keys = Keys::parse(&nsec).map_err(|e| e.to_string())?;
-                Ok(Some(keys.public_key().to_string()))
+                let nsec_zero = Zeroizing::new(nsec);
+                // Hydrate session from keychain
+                match session.set_keys(&*nsec_zero).await {
+                    Ok(pubkey) => {
+                        eprintln!("[SESSION] Native session re-hydrated from OS keychain");
+                        Ok(Some(pubkey.to_string()))
+                    }
+                    Err(e) => Err(format!("Failed to hydrate session from keychain: {}", e)),
+                }
             }
             Err(keyring::Error::NoEntry) => Ok(None),
             Err(e) => Err(e.to_string()),
         }
     }
 
-    /// Store an nsec in the native keychain.
+    /// Store an nsec in the native keychain and session.
     #[tauri::command]
-    pub async fn import_native_nsec(nsec: String) -> Result<String, String> {
+    pub async fn import_native_nsec(session: State<'_, SessionState>, nsec: String) -> Result<String, String> {
         let nsec_zero = Zeroizing::new(nsec);
         let keys = Keys::parse(&*nsec_zero).map_err(|e| e.to_string())?;
-        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
         
+        // Update session
+        session.set_keys(&*nsec_zero).await?;
+
+        // Update keychain
+        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
         entry.set_password(&*nsec_zero).map_err(|e| e.to_string())?;
         
         Ok(keys.public_key().to_string())
     }
 
-    /// Generate a new nsec and store it in the native keychain.
+    /// Generate a new nsec and store it in the native keychain and session.
     #[tauri::command]
-    pub async fn generate_native_nsec() -> Result<String, String> {
+    pub async fn generate_native_nsec(session: State<'_, SessionState>) -> Result<String, String> {
         let keys = Keys::generate();
-        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
-        
         let nsec = keys.secret_key()
             .to_bech32()
             .map_err(|e| e.to_string())?;
         let nsec_zero = Zeroizing::new(nsec);
-        
+
+        // Update session
+        session.set_keys(&*nsec_zero).await?;
+
+        // Update keychain
+        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
         entry.set_password(&*nsec_zero).map_err(|e| e.to_string())?;
         
         Ok(keys.public_key().to_string())
     }
 
-    /// Sign a Nostr event using the native keychain.
+    /// Sign a Nostr event using the in-memory session.
     #[tauri::command]
-    pub async fn sign_event_native(req: NativeSignRequest) -> Result<NativeSignResponse, String> {
-        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
-        let nsec = entry.get_password().map_err(|e| e.to_string())?;
-        let nsec_zero = Zeroizing::new(nsec);
-        
-        let keys = Keys::parse(&*nsec_zero).map_err(|e| e.to_string())?;
+    pub async fn sign_event_native(session: State<'_, SessionState>, req: NativeSignRequest) -> Result<NativeSignResponse, String> {
+        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
         
         let unsigned_event = EventBuilder::new(
             Kind::from(req.kind as u16),
@@ -102,9 +121,13 @@ mod desktop {
         })
     }
 
-    /// Delete the stored nsec from the keychain.
+    /// Delete the stored nsec from the keychain and clear session.
     #[tauri::command]
-    pub async fn logout_native() -> Result<(), String> {
+    pub async fn logout_native(session: State<'_, SessionState>) -> Result<(), String> {
+        // Clear session
+        session.clear().await;
+
+        // Clear keychain
         let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
         match entry.delete_credential() {
             Ok(_) => Ok(()),
@@ -141,28 +164,28 @@ mod android {
     const UNSUPPORTED_MSG: &str = "Native keychain not supported on Android. Please use WASM crypto.";
 
     #[tauri::command]
-    pub async fn get_native_npub() -> Result<Option<String>, String> {
+    pub async fn get_native_npub(_session: tauri::State<'_, crate::session::SessionState>) -> Result<Option<String>, String> {
+        Ok(None)
+    }
+
+    #[tauri::command]
+    pub async fn import_native_nsec(_session: tauri::State<'_, crate::session::SessionState>, _nsec: String) -> Result<String, String> {
         Err(UNSUPPORTED_MSG.to_string())
     }
 
     #[tauri::command]
-    pub async fn import_native_nsec(_nsec: String) -> Result<String, String> {
+    pub async fn generate_native_nsec(_session: tauri::State<'_, crate::session::SessionState>) -> Result<String, String> {
         Err(UNSUPPORTED_MSG.to_string())
     }
 
     #[tauri::command]
-    pub async fn generate_native_nsec() -> Result<String, String> {
+    pub async fn sign_event_native(_session: tauri::State<'_, crate::session::SessionState>, _req: NativeSignRequest) -> Result<NativeSignResponse, String> {
         Err(UNSUPPORTED_MSG.to_string())
     }
 
     #[tauri::command]
-    pub async fn sign_event_native(_req: NativeSignRequest) -> Result<NativeSignResponse, String> {
-        Err(UNSUPPORTED_MSG.to_string())
-    }
-
-    #[tauri::command]
-    pub async fn logout_native() -> Result<(), String> {
-        Err(UNSUPPORTED_MSG.to_string())
+    pub async fn logout_native(_session: tauri::State<'_, crate::session::SessionState>) -> Result<(), String> {
+        Ok(())
     }
 }
 

@@ -91,15 +91,17 @@ const ensureInitialized = async (): Promise<void> => {
     const stored: IdentityRecord | undefined = (await getStoredIdentity()).record;
 
     // Auto-unlock with native keychain if possible
-    if (stored && typeof cryptoService.hasNativeKey === 'function' && await cryptoService.hasNativeKey()) {
-      const nativeNpub = typeof (cryptoService as any).getNativeNpub === 'function'
-        ? await (cryptoService as any).getNativeNpub()
-        : null;
-
-      if (nativeNpub === stored.publicKeyHex) {
-        console.info("Native key matched: auto-unlocking.");
-        setIdentityState(createUnlockedState({ stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
-        return;
+    const cs = cryptoService as any;
+    if (stored && cs.hasNativeKey && await cs.hasNativeKey()) {
+      try {
+        const nativeNpub = cs.getNativeNpub ? await cs.getNativeNpub() : null;
+        if (nativeNpub === stored.publicKeyHex) {
+          console.info("[Identity] Native key matched. Backend hydrated. Auto-unlocking...");
+          setIdentityState(createUnlockedState({ stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
+          return;
+        }
+      } catch (e) {
+        console.warn("[Identity] Native auto-unlock failed:", e);
       }
     }
 
@@ -116,16 +118,20 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
     await saveStoredIdentity({ record });
     const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: record.encryptedPrivateKey, passphrase: params.passphrase });
 
+    let activeKey: PrivateKeyHex = privateKeyHex;
+
     // Sync to native keychain if in Tauri
-    if (typeof cryptoService.importNsec === 'function') {
+    const cs = cryptoService as any;
+    if (cs.initNativeSession) {
       try {
-        await cryptoService.importNsec(privateKeyHex);
+        await cs.initNativeSession(privateKeyHex);
+        activeKey = NATIVE_KEY_SENTINEL;
       } catch (e) {
-        console.warn("Failed to import nsec to native keychain:", e);
+        console.warn("Failed to initialize native session:", e);
       }
     }
 
-    setIdentityState(createUnlockedState({ stored: record, privateKeyHex: typeof cryptoService.importNsec === 'function' ? NATIVE_KEY_SENTINEL : privateKeyHex }));
+    setIdentityState(createUnlockedState({ stored: record, privateKeyHex: activeKey }));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message));
@@ -139,16 +145,20 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
   try {
     const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: identityState.stored.encryptedPrivateKey, passphrase: params.passphrase });
 
+    let activeKey: PrivateKeyHex = privateKeyHex;
+
     // Sync to native keychain if in Tauri
-    if (typeof cryptoService.importNsec === 'function') {
+    const cs = cryptoService as any;
+    if (cs.initNativeSession) {
       try {
-        await cryptoService.importNsec(privateKeyHex);
+        await cs.initNativeSession(privateKeyHex);
+        activeKey = NATIVE_KEY_SENTINEL;
       } catch (e) {
-        console.warn("Failed to import nsec to native keychain during unlock:", e);
+        console.warn("Failed to initialize native session during unlock:", e);
       }
     }
 
-    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: typeof cryptoService.importNsec === 'function' ? NATIVE_KEY_SENTINEL : privateKeyHex }));
+    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: activeKey }));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     setIdentityState(createErrorState(message));
@@ -164,8 +174,12 @@ const forgetIdentityAction = async (): Promise<void> => {
     await clearStoredIdentity();
 
     // Cleanup native keychain
-    if (typeof cryptoService.deleteNativeKey === 'function') {
-      await cryptoService.deleteNativeKey();
+    const cs = cryptoService as any;
+    if (cs.clearNativeSession) {
+      await cs.clearNativeSession();
+    }
+    if (cs.deleteNativeKey) {
+      await cs.deleteNativeKey();
     }
 
     setIdentityState(createLockedState(undefined));

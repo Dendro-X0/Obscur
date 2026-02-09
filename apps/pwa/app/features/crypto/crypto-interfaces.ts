@@ -49,8 +49,11 @@ export interface CryptoService {
 
     // Native Key Operations (Tauri)
     hasNativeKey?(): Promise<boolean>;
+    getNativeNpub?(): Promise<string | null>;
     deleteNativeKey?(): Promise<void>;
     importNsec?(nsec: string): Promise<string>;
+    initNativeSession?(nsec: string): Promise<string>;
+    clearNativeSession?(): Promise<void>;
 
     // Security utilities
     security: SecurityUtils;

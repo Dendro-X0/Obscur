@@ -37,11 +37,12 @@ This repository is a PNPM workspace with:
 
 ### Native Desktop Networking
 
-On Desktop, core networking is handled by the native Rust backend:
+On Desktop, core networking and identity are handled by the native Rust backend:
 
-- **Relays (WebSocket)**: Connections are established and managed natively for reliability.
-- **Uploads (NIP-96)**: File uploads are performed natively to avoid WebView/browser semantics.
-- **Tor Routing**: When enabled, native networking routes via a SOCKS5 proxy (Tor sidecar).
+- **🔐 Robust Identity**: Active session keys are managed in an isolated, in-memory Rust state, synchronized with the OS Keychain (Windows Credential Manager / macOS Keychain) for persistence and security.
+- **Relays (WebSocket)**: Connections are established and managed natively for maximum reliability and multi-relay stability.
+- **Uploads (NIP-96)**: File uploads are performed natively via Rust `reqwest`, with cross-provider support (nostr.build, etc.) and native NIP-98 signing.
+- **Tor Routing**: When enabled, all native networking (Relays & Uploads) routes via a bundled SOCKS5 proxy (Tor sidecar).
 
 For debugging and recovery:
 
