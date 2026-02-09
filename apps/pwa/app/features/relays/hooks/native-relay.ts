@@ -135,8 +135,18 @@ export class NativeRelay implements EventTarget {
 
     private async connect() {
         try {
-            await invoke("connect_relay", { url: this.url });
+            const result = await invoke<string>("connect_relay", { url: this.url });
             relayHealthMonitor.recordConnectionSuccess(this.url);
+
+            // CRITICAL FIX: Handle "Already connected" response
+            if (result === "Already connected") {
+                this.readyState = NativeRelay.OPEN;
+                this.dispatchEvent(new Event("open"));
+                if (this.onopen) {
+                    const wsThis = this as unknown as WebSocket;
+                    this.onopen.call(wsThis, new Event("open"));
+                }
+            }
         } catch (e) {
             console.error(`Failed to connect to native relay ${this.url}:`, e);
             relayHealthMonitor.recordConnectionFailure(this.url, String(e));

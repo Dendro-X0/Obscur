@@ -261,6 +261,13 @@ pub async fn connect_relay(
     {
         let connections = state.connections.lock().unwrap();
         if connections.contains_key(&url) {
+            // CRITICAL FIX: Emit connected status even if already connected
+            // The frontend might be a new instance waiting for this event
+            app.emit("relay-status", serde_json::json!({
+                "url": url,
+                "status": "connected"
+            })).unwrap_or_else(|e| eprintln!("Failed to emit status: {}", e));
+
             return Ok("Already connected".to_string());
         }
     }
