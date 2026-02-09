@@ -8,6 +8,7 @@
 ### Fixed
 - **PWA Uploads**: Resolved the "NIP-96 upload requires desktop app" error by intelligently routing uploads based on the runtime environment.
 - **Initial Sync Spam**: Fixed a race condition where the app would trigger a full message sync for *each* relay that connected, instead of waiting for the connection pool to stabilize.
+- **Relay Connection Hang**: Fixed a critical race condition where the desktop app would get stuck in a "connecting" state because the backend reported a relay as "already connected" without triggering the necessary frontend events.
 
 ## [v0.7.1-alpha] - 2026-02-09
 
