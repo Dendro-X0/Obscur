@@ -700,6 +700,7 @@ pub fn run() {
             wallet::logout_native,
             wallet::encrypt_nip04,
             wallet::decrypt_nip04,
+            wallet::get_session_nsec,
             start_tor,
             stop_tor,
             get_tor_status,

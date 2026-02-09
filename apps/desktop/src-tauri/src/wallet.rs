@@ -155,6 +155,13 @@ mod desktop {
         nostr::nips::nip04::decrypt(keys.secret_key(), &pubkey, &ciphertext)
             .map_err(|e| e.to_string())
     }
+
+    /// Get the current session secret key as a hex string.
+    #[tauri::command]
+    pub async fn get_session_nsec(session: State<'_, SessionState>) -> Result<String, String> {
+        let keys = session.get_keys().await.ok_or_else(|| "No active native session".to_string())?;
+        Ok(keys.secret_key().to_secret_hex())
+    }
 }
 
 // Android stub implementations (no keychain support)
