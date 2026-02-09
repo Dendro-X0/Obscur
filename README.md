@@ -4,6 +4,18 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
 
 ## ✨ Features
 
+### 🎥 Demo
+
+<div align="center">
+  <img src="https://placehold.co/600x400/1e1e1e/FFF?text=Basic+Functions+%26+UI" alt="Basic Functions & UI" width="600" />
+  <p><em>Basic Functions & UI: Discover groups, manage settings, and explore the interface.</em></p>
+  
+  <br />
+
+  <img src="https://placehold.co/600x400/1e1e1e/FFF?text=Secure+Messaging" alt="Secure Messaging" width="600" />
+  <p><em>Secure Messaging: End-to-end encrypted chats with rich media support.</em></p>
+</div>
+
 - **🔒 Privacy-First**: End-to-end encrypted messaging using NIP-04 encryption
 - **🌐 Decentralized**: Built on the Nostr protocol with relay-based architecture
 - **👥 Invite-Only**: Secure micro-communities with invitation-based access

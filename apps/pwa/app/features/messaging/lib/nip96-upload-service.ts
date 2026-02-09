@@ -1,10 +1,9 @@
 import { Attachment, AttachmentKind } from "../types";
 import { UploadService } from "./upload-service";
-import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
-import { nativeErrorStore } from "../../native/lib/native-error-store";
-import { getIdentitySnapshot } from "../../auth/hooks/use-identity";
+import { createNostrEvent } from "@dweb/nostr/create-nostr-event";
+import { toBase64 } from "@dweb/crypto/to-base64";
 
 export interface Nip96Config {
     apiUrl?: string;
@@ -122,73 +121,18 @@ export class Nip96UploadService implements UploadService {
             throw new Error("No NIP-96 providers configured");
         }
 
-        // Check if running in Tauri
-        if (!this.isTauri()) {
-            throw new Error("NIP-96 upload requires desktop app");
-        }
-
-        // V2: Rust-native path (Option C)
-        // We no longer check or migrate keys here. 
-        // Rust's nip96_upload_v2 will return NO_SESSION if the session isn't initialized.
-
-
         const errors: string[] = [];
 
         for (const providerUrl of providers) {
             try {
-                // console.log("%c[OPTION-C-V2] 🚀 NEW RUST PATH ACTIVE - 2026-02-08-16:11", "background: #00ff00; color: black; font-size: 16px; padding: 4px;");
-                console.info(`[NIP96-V2] Uploading to ${providerUrl}`);
-
-                // Read file as bytes
-                const arrayBuffer = await file.arrayBuffer();
-                const fileBytes = Array.from(new Uint8Array(arrayBuffer));
-
-                // Call Rust backend
-                const { invoke } = await import("@tauri-apps/api/core");
-                interface UploadResult {
-                    status: string;
-                    url: string | null;
-                    message: string | null;
-                    nip94_event?: any;
+                if (this.isTauri()) {
+                    return await this.uploadViaTauri(file, providerUrl);
+                } else {
+                    return await this.uploadViaBrowser(file, providerUrl);
                 }
-
-                const result = await invoke<UploadResult>("nip96_upload_v2", {
-                    apiUrl: providerUrl.trim(),
-                    fileBytes,
-                    fileName: file.name,
-                    contentType: file.type || "application/octet-stream",
-                });
-
-                if (result.status === "error") {
-                    throw new Error(result.message || "Upload failed");
-                }
-
-                if (!result.url) {
-                    throw new Error("Upload succeeded but no URL returned");
-                }
-
-                console.info(`[NIP96-V2] Success: ${result.url}`);
-
-                const kind: AttachmentKind = file.type.startsWith("video/")
-                    ? "video"
-                    : "image";
-
-                return {
-                    kind,
-                    url: result.url,
-                    contentType: file.type,
-                    fileName: file.name,
-                };
-
             } catch (err: any) {
                 const msg = getErrorMessage(err);
-                console.error(`[NIP96-V2] Failed for ${providerUrl}:`, msg);
-
-                // Handle NO_SESSION specifically (from Rust NativeError)
-                if (err?.code === "NO_SESSION" || String(err).includes("NO_SESSION")) {
-                    throw new Error("Native session expired or not initialized. Please LOCK and UNLOCK your screen to refresh your session.");
-                }
-
+                console.error(`[NIP96] Failed for ${providerUrl}:`, msg);
                 errors.push(`${providerUrl}: ${msg}`);
             }
         }
@@ -196,7 +140,106 @@ export class Nip96UploadService implements UploadService {
         throw new Error(`All providers failed: ${errors.join(" | ")}`);
     }
 
-    private async cleanupOldUploadPaths(): Promise<void> {
-        // This method can be called once to clean up any legacy state if needed
+    private async uploadViaTauri(file: File, providerUrl: string): Promise<Attachment> {
+        console.info(`[NIP96-TAURI] Uploading to ${providerUrl}`);
+
+        const arrayBuffer = await file.arrayBuffer();
+        const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+
+        const { invoke } = await import("@tauri-apps/api/core");
+        interface UploadResult {
+            status: string;
+            url: string | null;
+            message: string | null;
+            nip94_event?: any;
+        }
+
+        const result = await invoke<UploadResult>("nip96_upload_v2", {
+            apiUrl: providerUrl.trim(),
+            fileBytes,
+            fileName: file.name,
+            contentType: file.type || "application/octet-stream",
+        });
+
+        if (result.status === "error") {
+            // Handle NO_SESSION specifically (from Rust NativeError)
+            if (result.message?.includes("NO_SESSION")) {
+                throw new Error("Native session expired or not initialized. Please LOCK and UNLOCK your screen to refresh your session.");
+            }
+            throw new Error(result.message || "Upload failed");
+        }
+
+        if (!result.url) {
+            throw new Error("Upload succeeded but no URL returned");
+        }
+
+        console.info(`[NIP96-TAURI] Success: ${result.url}`);
+
+        return {
+            kind: file.type.startsWith("video/") ? "video" : "image",
+            url: result.url,
+            contentType: file.type,
+            fileName: file.name,
+        };
+    }
+
+    private async uploadViaBrowser(file: File, providerUrl: string): Promise<Attachment> {
+        console.info(`[NIP96-BROWSER] Uploading to ${providerUrl}`);
+
+        if (!this.privateKeyHex) {
+            throw new Error("Private key required for NIP-98 authentication in browser");
+        }
+
+        // 1. Prepare NIP-98 Auth Header
+        const authHeader = await this.signNip98Header(providerUrl, "POST", this.privateKeyHex);
+
+        // 2. Prepare Form Data
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("caption", file.name);
+
+        // 3. Perform Fetch
+        const response = await fetch(providerUrl, {
+            method: "POST",
+            headers: {
+                "Authorization": `Nostr ${authHeader}`,
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+        }
+
+        const result = await response.json() as Nip96Response;
+        const url = getUrlFromNip96Response(result);
+
+        if (!url) {
+            throw new Error("Upload succeeded but no URL found in response");
+        }
+
+        console.info(`[NIP96-BROWSER] Success: ${url}`);
+
+        return {
+            kind: file.type.startsWith("video/") ? "video" : "image",
+            url: url,
+            contentType: file.type,
+            fileName: file.name,
+        };
+    }
+
+    private async signNip98Header(url: string, method: string, privateKeyHex: string): Promise<string> {
+        const event = await createNostrEvent({
+            kind: 27235,
+            content: "",
+            privateKeyHex: privateKeyHex as PrivateKeyHex,
+            tags: [
+                ["u", url],
+                ["method", method],
+            ],
+        });
+
+        return toBase64(new TextEncoder().encode(JSON.stringify(event)));
     }
 }

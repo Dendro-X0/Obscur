@@ -59,6 +59,7 @@ import { Check, Info } from "lucide-react";
 import { AvatarUpload } from "../components/avatar-upload";
 import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
+import { invoke } from "@tauri-apps/api/core";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -567,9 +568,21 @@ export default function SettingsPage(): React.JSX.Element {
                           await identity.forgetIdentity();
                           localStorage.clear();
                           toast.success(t("settings.accountDeleted"));
-                          setTimeout(() => {
-                            window.location.href = "/";
-                          }, 1000);
+
+                          // Check if running in Tauri (Desktop/Mobile)
+                          if (typeof window !== "undefined" && "__TAURI__" in window) {
+                            try {
+                              await invoke("restart_app");
+                            } catch (e) {
+                              console.error("Failed to restart app:", e);
+                              // Fallback to reload if restart fails
+                              window.location.reload();
+                            }
+                          } else {
+                            setTimeout(() => {
+                              window.location.href = "/";
+                            }, 1000);
+                          }
                         }}
                         title={t("settings.deleteAccountConfirmTitle")}
                         description={t("settings.deleteAccountConfirm")}

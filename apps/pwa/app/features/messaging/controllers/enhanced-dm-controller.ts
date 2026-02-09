@@ -1694,8 +1694,13 @@ export const useEnhancedDMController = (
     });
   }, [params.pool]);
 
+  // Track initial sync status to prevent duplicate triggers
+  const initialSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasTriggeredInitialSync = useRef(false);
+
   /**
    * Monitor relay connection changes and trigger sync when coming online
+   * Debounced to allow multiple relays to connect before syncing
    */
   useEffect(() => {
     if (!params.myPublicKeyHex) return;
@@ -1704,16 +1709,32 @@ export const useEnhancedDMController = (
     recipientRelayCheckCache.current.clear();
 
     const hasOpenRelay = params.pool.connections.some(c => c.status === 'open');
-    const hadOpenRelay = params.pool.connections.some(c =>
-      c.status === 'open' &&
-      c.updatedAtUnixMs < Date.now() - 1000 // Was open at least 1 second ago
-    );
 
     // If we just came online (have open relay now but didn't before)
-    if (hasOpenRelay && !syncStateRef.current.lastSyncAt) {
-      console.log('Relay connection established, triggering initial sync');
-      void syncMissedMessages();
+    if (hasOpenRelay && !syncStateRef.current.lastSyncAt && !hasTriggeredInitialSync.current && !syncStateRef.current.isSyncing) {
+      // Clear any existing timeout (debounce)
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+      }
+
+      console.log('Relay connection established, creating debounce timer for initial sync...');
+
+      // Wait 2 seconds for other relays to potentially connect
+      initialSyncTimeoutRef.current = setTimeout(() => {
+        if (!hasTriggeredInitialSync.current) {
+          console.log('Triggering initial sync now (debounced)');
+          hasTriggeredInitialSync.current = true;
+          void syncMissedMessages();
+        }
+      }, 2000);
     }
+
+    // Cleanup on unmount or re-run
+    return () => {
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+      }
+    };
   }, [params.pool.connections, params.myPublicKeyHex, syncMissedMessages]);
 
   /**

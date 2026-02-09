@@ -1,3 +1,14 @@
+## [v0.7.2] - 2026-02-09
+
+### Added
+- **Dual-Path Upload Architecture**: Re-enabled direct browser uploads for the PWA while maintaining the high-performance Rust-native path for Desktop/Mobile.
+- **Client-Side NIP-98 Signing**: Implemented secure, client-side NIP-98 authentication for browser uploads using the internal `@dweb/nostr` library.
+- **Relay Stability**: Added a defined debounce (2s) to the initial message sync to prevent redundant network requests when multiple relays connect simultaneously on startup.
+
+### Fixed
+- **PWA Uploads**: Resolved the "NIP-96 upload requires desktop app" error by intelligently routing uploads based on the runtime environment.
+- **Initial Sync Spam**: Fixed a race condition where the app would trigger a full message sync for *each* relay that connected, instead of waiting for the connection pool to stabilize.
+
 ## [v0.7.1-alpha] - 2026-02-09
 
 ### Added
