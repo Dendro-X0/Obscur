@@ -82,10 +82,17 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
     async signEvent(event: UnsignedNostrEvent, privateKey: PrivateKeyHex): Promise<NostrEvent> {
         if (privateKey === NATIVE_KEY_SENTINEL || (await this.hasNativeKey())) {
             try {
-                const key = await this.getActualKey();
-                return super.signEvent(event, key);
+                // Use native Rust signer - this is the proven, working path
+                return await invoke<NostrEvent>("sign_event_native", {
+                    req: {
+                        kind: event.kind,
+                        content: event.content,
+                        tags: event.tags,
+                        created_at: event.created_at
+                    }
+                });
             } catch (e) {
-                console.error("Native signing fallback failed:", e);
+                console.error("Native signing failed, falling back if possible:", e);
                 if (privateKey !== NATIVE_KEY_SENTINEL) {
                     return super.signEvent(event, privateKey);
                 }
