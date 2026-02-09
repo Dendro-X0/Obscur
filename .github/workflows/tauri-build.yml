@@ -10,7 +10,27 @@ permissions:
   contents: write  # Changed from 'read' to 'write' to allow creating releases
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create-release.outputs.releaseId }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Create Release
+        id: create-release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Obscur Desktop ${{ github.ref_name }}"
+          releaseBody: "🎉 New Release available for ${{ github.ref_name }}!"
+          releaseDraft: true
+          prerelease: false
+
   build:
+    needs: create-release
     name: Build desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -19,38 +39,12 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     env:
-      # Point desktop at production PWA if you need a remote URL
-      # OBSCUR_DESKTOP_URL: https://your-prod-url
       CI: true
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Check signing configuration
-        run: |
-          echo "🔐 Code Signing Configuration Status:"
-          echo "======================================"
-          if [ -n "${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT }}" ]; then
-            echo "✅ Windows: Signing enabled"
-          else
-            echo "⚠️  Windows: Signing disabled (unsigned build)"
-          fi
-          if [ -n "${{ secrets.APPLE_SIGNING_IDENTITY }}" ]; then
-            echo "✅ macOS: Signing enabled"
-          else
-            echo "⚠️  macOS: Signing disabled (unsigned build)"
-          fi
-          if [ -n "${{ secrets.APPLE_ID }}" ] && [ -n "${{ secrets.APPLE_PASSWORD }}" ]; then
-            echo "✅ macOS: Notarization enabled"
-          else
-            echo "⚠️  macOS: Notarization disabled"
-          fi
-          echo "======================================"
-          echo "ℹ️  Builds will proceed regardless of signing status"
-          echo "ℹ️  See apps/desktop/GITHUB_SECRETS.md for setup instructions"
-        shell: bash
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -145,53 +139,20 @@ jobs:
           fi
         shell: bash
 
-      - name: Build desktop app with release
+      - name: Build desktop app and upload to release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Windows code signing (optional - builds unsigned if not provided)
           TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT }}
-          # macOS signing is disabled - to enable, add APPLE_* secrets to GitHub
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
-          releaseName: "Obscur Desktop ${{ github.ref_name }}"
-          releaseBody: |
-            ## Obscur Desktop ${{ github.ref_name }}
-            
-            🎉 **New Release Available!**
-            
-            ### What's New
-            - Enhanced UI/UX with subtle gradients and smooth animations
-            - Improved user experience with loading states and feedback
-            - Cross-platform desktop app with native performance
-            - Secure, encrypted messaging on the Nostr protocol
-            
-            ### Download Instructions
-            - **Windows**: Download the `.msi` installer
-            - **macOS**: Download the `.dmg` file
-            - **Linux**: Download the `.AppImage` or `.deb` package
-            
-            ### Features
-            - 🔒 End-to-end encrypted messaging (NIP-04)
-            - 🌐 Decentralized Nostr protocol
-            - 👥 Invite-only micro-communities
-            - 🎨 Beautiful gradient UI with light/dark themes
-            - 📱 Progressive Web App features
-            - 🖥️ Native desktop performance
-            
-            ### Code Signing Status
-            - **Windows**: ${{ secrets.TAURI_SIGNING_WINDOWS_CERTIFICATE_THUMBPRINT && '✅ Signed' || '⚠️ Unsigned (development build)' }}
-            - **macOS**: ${{ secrets.APPLE_SIGNING_IDENTITY && '✅ Signed & Notarized' || '⚠️ Unsigned (development build)' }}
-            - **Linux**: ℹ️ No signing required
-            
-            See the [CHANGELOG](https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md) for detailed changes.
-          releaseDraft: false
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          releaseDraft: true
           prerelease: false
           includeDebug: false
           includeRelease: true
-          args: >-
-            --verbose
+          args: --verbose
 
       - name: Upload build artifacts (backup)
         uses: actions/upload-artifact@v4
