@@ -28,18 +28,19 @@ export interface InviteManager {
   // QR Code Operations
   generateQRInvite(options: QRInviteOptions): Promise<QRInviteData>;
   processQRInvite(qrData: string): Promise<ContactRequest>;
-  
+
   // Link Operations  
   generateInviteLink(options: InviteLinkOptions): Promise<InviteLink>;
   processInviteLink(linkData: string): Promise<ContactRequest>;
+  generateGroupInviteUrl(groupId: string): string;
   revokeInviteLink(linkId: string): Promise<void>;
-  
+
   // Cross-platform compatibility operations
-  generateUniversalInviteLink(options: InviteLinkOptions): Promise<{ 
-    inviteLink: InviteLink; 
-    universalLink: string; 
-    fallbackUrl: string; 
-    appScheme: string; 
+  generateUniversalInviteLink(options: InviteLinkOptions): Promise<{
+    inviteLink: InviteLink;
+    universalLink: string;
+    fallbackUrl: string;
+    appScheme: string;
   }>;
   generateNostrCompatibleQR(options: QRInviteOptions): Promise<{
     qrData: QRInviteData;
@@ -49,11 +50,11 @@ export interface InviteManager {
       universal: string;
     };
   }>;
-  
+
   // Deep link processing operations
   processDeepLink(url: string): Promise<DeepLinkResult>;
   handleUrlScheme(url: string): Promise<ContactRequest | null>;
-  
+
   // Contact Request Management
   sendContactRequest(request: OutgoingContactRequest): Promise<void>;
   acceptContactRequest(requestId: string): Promise<Contact>;
@@ -64,7 +65,7 @@ export interface InviteManager {
   getOutgoingContactRequests(): Promise<ContactRequest[]>;
   getAllContactRequests(): Promise<ContactRequest[]>;
   getContactRequestsByStatus(status: ContactRequestStatus): Promise<ContactRequest[]>;
-  
+
   // Import/Export
   importContacts(contactData: NostrContactList): Promise<ImportResult>;
   exportContacts(): Promise<NostrContactList>;
@@ -92,7 +93,7 @@ export interface ContactStore {
   removeContact(contactId: string): Promise<void>;
   getContact(contactId: string): Promise<Contact | null>;
   getAllContacts(): Promise<Contact[]>;
-  
+
   // Contact Organization
   createGroup(group: ContactGroup): Promise<void>;
   deleteGroup(groupId: string): Promise<void>;
@@ -102,11 +103,11 @@ export interface ContactStore {
   addContactToGroup(contactId: string, groupId: string): Promise<void>;
   removeContactFromGroup(contactId: string, groupId: string): Promise<void>;
   getContactsByGroup(groupId: string): Promise<Contact[]>;
-  
+
   // Search and Filtering
   searchContacts(query: string): Promise<Contact[]>;
   filterContacts(filter: ContactFilter): Promise<Contact[]>;
-  
+
   // Trust Management
   setTrustLevel(contactId: string, level: TrustLevel): Promise<void>;
   getTrustedContacts(): Promise<Contact[]>;
@@ -114,7 +115,7 @@ export interface ContactStore {
   getNeutralContacts(): Promise<Contact[]>;
   getContactsByTrustLevel(level: TrustLevel): Promise<Contact[]>;
   bulkSetTrustLevel(contactIds: string[], level: TrustLevel): Promise<void>;
-  
+
   // Multi-group operations
   addContactToMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
   removeContactFromMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
@@ -127,7 +128,7 @@ export interface ProfileManager {
   // Profile Management
   updateProfile(profile: UserProfile): Promise<void>;
   getProfile(): Promise<UserProfile>;
-  
+
   // Privacy Controls
   updatePrivacySettings(settings: PrivacySettings): Promise<void>;
   getPrivacySettings(): Promise<PrivacySettings>;
@@ -140,7 +141,7 @@ export interface ProfileManager {
   }>;
   updateFieldPrivacy(field: 'displayName' | 'avatar' | 'bio' | 'website', share: boolean): Promise<void>;
   shouldShareField(field: 'displayName' | 'avatar' | 'bio' | 'website'): Promise<boolean>;
-  
+
   // Shareable Profile
   getShareableProfile(publicKey: PublicKeyHex, privateKey: PrivateKeyHex): Promise<ShareableProfile>;
   validateProfileData(profile: ShareableProfile): boolean;
@@ -153,11 +154,11 @@ export interface InviteCryptoService {
   // Signature operations for invite data
   signInviteData(data: object): Promise<string>;
   verifyInviteSignature(data: object, signature: string, publicKey: PublicKeyHex): Promise<boolean>;
-  
+
   // Secure random data generation
   generateInviteId(): Promise<string>;
   generateShortCode(): Promise<string>;
-  
+
   // Encryption for sensitive invite information
   encryptInviteData(data: string, publicKey: PublicKeyHex): Promise<string>;
   decryptInviteData(encryptedData: string): Promise<string>;

@@ -7,6 +7,7 @@ import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
 import { Paperclip, Send, X, FileText, Loader2, Smile } from "lucide-react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import { VoiceRecorder } from "./voice-recorder";
 import type { ReplyTo, RelayStatusSummary } from "../types";
 
 interface ComposerProps {
@@ -27,6 +28,7 @@ interface ComposerProps {
     textareaRef: React.RefObject<HTMLTextAreaElement | null>;
     recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
     isPeerAccepted?: boolean;
+    onSendVoiceNote?: (file: File) => void;
 }
 
 export function Composer({
@@ -46,7 +48,8 @@ export function Composer({
     relayStatus,
     textareaRef,
     recipientStatus,
-    isPeerAccepted = true
+    isPeerAccepted = true,
+    onSendVoiceNote
 }: ComposerProps) {
     const { t } = useTranslation();
     const isGated: boolean = isPeerAccepted === false;
@@ -274,6 +277,14 @@ export function Composer({
                         </div>
                     )}
                 </div>
+
+                {onSendVoiceNote && !messageInput.trim() && pendingAttachments.length === 0 && (
+                    <VoiceRecorder
+                        onRecordingComplete={onSendVoiceNote}
+                        isUploading={isUploadingAttachment}
+                        disabled={isGated}
+                    />
+                )}
 
                 <Button
                     type="button"

@@ -24,7 +24,7 @@ type RelayPoolState = Readonly<{
   healthMetrics: ReadonlyArray<RelayHealthMetrics>;
 }>;
 
-type EnhancedRelayPoolResult = Readonly<{
+export type EnhancedRelayPoolResult = Readonly<{
   connections: ReadonlyArray<RelayConnection>;
   healthMetrics: ReadonlyArray<RelayHealthMetrics>;
   sendToOpen: (payload: string) => void;

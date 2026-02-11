@@ -299,12 +299,13 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2">
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 onClick={handleSkipUsername}
-                className="flex-1"
+                disabled={isPublishingProfile}
+                className="w-full"
               >
                 {t("common.skip")}
               </Button>
@@ -312,7 +313,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 type="button"
                 onClick={() => void handleSetUsername()}
                 disabled={username.length < 3 || isPublishingProfile}
-                className="flex-1"
+                className="w-full shadow-lg shadow-purple-500/20 active:scale-[0.98]"
               >
                 {isPublishingProfile ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.saving")}</> : t("common.continue")}
               </Button>

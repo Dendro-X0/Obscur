@@ -61,3 +61,6 @@ apps/desktop/src-tauri/target/
 # Tauri updater signing keys (CRITICAL - keep private keys secret!)
 **/updater-key.txt
 apps/desktop/src-tauri/updater-key.txt
+
+
+.playwright-mcp

@@ -535,6 +535,10 @@ class InviteManagerImpl implements InviteManager {
     }
   }
 
+  generateGroupInviteUrl(groupId: string): string {
+    return `${INVITE_LINK_BASE_URL.replace('/invite', '/group')}/${groupId}`;
+  }
+
   async processInviteLink(linkData: string): Promise<ContactRequest> {
     try {
       // Check if this is a deep link URL that needs parsing

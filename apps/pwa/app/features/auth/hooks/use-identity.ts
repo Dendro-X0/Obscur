@@ -39,7 +39,7 @@ const createUnlockedState = (params: Readonly<{ stored: IdentityRecord; privateK
   publicKeyHex: params.stored.publicKeyHex
 });
 
-const createErrorState = (message: string): IdentityState => ({ status: "error", error: message });
+const createErrorState = (message: string, stored?: IdentityRecord): IdentityState => ({ status: "error", error: message, stored });
 
 const createNewIdentityRecord = async (params: Readonly<{ passphrase: Passphrase }>): Promise<IdentityRecord> => {
   const privateKeyHex: PrivateKeyHex = generatePrivateKeyHex();
@@ -87,8 +87,9 @@ const ensureInitialized = async (): Promise<void> => {
     return;
   }
   hasInitialized = true;
+  let stored: IdentityRecord | undefined;
   try {
-    const stored: IdentityRecord | undefined = (await getStoredIdentity()).record;
+    stored = (await getStoredIdentity()).record;
 
     // Auto-unlock with native keychain if possible
     const cs = cryptoService as any;
@@ -108,13 +109,14 @@ const ensureInitialized = async (): Promise<void> => {
     setIdentityState(createLockedState(stored));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
-    setIdentityState(createErrorState(message));
+    setIdentityState(createErrorState(message, stored));
   }
 };
 
 const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>): Promise<void> => {
+  let record: IdentityRecord | undefined;
   try {
-    const record: IdentityRecord = await createNewIdentityRecord({ passphrase: params.passphrase });
+    record = await createNewIdentityRecord({ passphrase: params.passphrase });
     await saveStoredIdentity({ record });
     const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: record.encryptedPrivateKey, passphrase: params.passphrase });
 
@@ -134,7 +136,7 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex: activeKey }));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
-    setIdentityState(createErrorState(message));
+    setIdentityState(createErrorState(message, record));
   }
 };
 
@@ -161,7 +163,7 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
     setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: activeKey }));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
-    setIdentityState(createErrorState(message));
+    setIdentityState(createErrorState(message, identityState.stored));
   }
 };
 
@@ -185,6 +187,6 @@ const forgetIdentityAction = async (): Promise<void> => {
     setIdentityState(createLockedState(undefined));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
-    setIdentityState(createErrorState(message));
+    setIdentityState(createErrorState(message, identityState.stored));
   }
 };

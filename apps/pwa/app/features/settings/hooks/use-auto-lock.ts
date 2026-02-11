@@ -1,14 +1,28 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PrivacySettingsService, type PrivacySettings } from "../services/privacy-settings-service";
 
+const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
+
 /**
  * Hook for managing auto-lock state and inactivity tracking
  * Requirement 1.4: Clipboard safety & session management
  */
 export function useAutoLock() {
     const [settings, setSettings] = useState<PrivacySettings>(PrivacySettingsService.getSettings());
-    const [isLocked, setIsLocked] = useState<boolean>(false);
-    const [lastActivityTime, setLastActivityTime] = useState<number>(() => Date.now());
+    const [isLocked, setIsLocked] = useState<boolean>(() => {
+        if (typeof window === "undefined") return false;
+        const currentSettings = PrivacySettingsService.getSettings();
+        if (currentSettings.autoLockTimeout === 0) return false;
+        const stored = sessionStorage.getItem(AUTOLOCK_STORAGE_KEY);
+        if (!stored) return false;
+        const elapsed = Date.now() - parseInt(stored, 10);
+        return elapsed >= currentSettings.autoLockTimeout * 60 * 1000;
+    });
+    const [lastActivityTime, setLastActivityTime] = useState<number>(() => {
+        if (typeof window === "undefined") return Date.now();
+        const stored = sessionStorage.getItem(AUTOLOCK_STORAGE_KEY);
+        return stored ? parseInt(stored, 10) : Date.now();
+    });
     const [torStatus, setTorStatus] = useState<'disconnected' | 'starting' | 'connected' | 'error' | 'stopped'>('disconnected');
     const [torLogs, setTorLogs] = useState<string[]>([]);
     const [torRestartRequired, setTorRestartRequired] = useState<boolean>(false);
@@ -69,6 +83,12 @@ export function useAutoLock() {
         };
     }, [isTauri]);
 
+    // Persist lastActivityTime to sessionStorage
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        sessionStorage.setItem(AUTOLOCK_STORAGE_KEY, String(lastActivityTime));
+    }, [lastActivityTime]);
+
     // Auto-start Tor on mount if enabled
     useEffect(() => {
         if (isTauri && settings.enableTorProxy && torStatus === 'disconnected') {
@@ -123,14 +143,31 @@ export function useAutoLock() {
             recordActivity();
         };
 
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const now = Date.now();
+                const inactivityMs = now - lastActivityTime;
+                const timeoutMs = settings.autoLockTimeout * 60 * 1000;
+
+                if (settings.autoLockTimeout > 0 && inactivityMs >= timeoutMs) {
+                    lock();
+                } else {
+                    recordActivity();
+                }
+            }
+        };
+
         events.forEach((event) => {
             window.addEventListener(event, handleActivity, { passive: true });
         });
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             events.forEach((event) => {
                 window.removeEventListener(event, handleActivity);
             });
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [settings.autoLockTimeout, recordActivity, isLocked]);
 

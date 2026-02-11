@@ -13,6 +13,7 @@ interface EmptyConversationViewProps {
     relayStatus: { openCount: number; total: number };
     onCopyMyPubkey: () => void;
     onCopyChatLink: () => void;
+    onNewChat?: () => void;
 }
 
 export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
@@ -21,6 +22,7 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
     relayStatus,
     onCopyMyPubkey,
     onCopyChatLink,
+    onNewChat,
 }) => {
     const { t } = useTranslation();
     return (
@@ -28,7 +30,7 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
             <div className="w-full max-w-lg space-y-8 text-center relative">
                 {showWelcome && (
                     <div className="relative group animate-in fade-in zoom-in-95 duration-1000 ease-out">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-[42px] blur opacity-40 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-[42px] blur opacity-40 group-hover:opacity-75 transition duration-1000 group-hover:duration-200 pointer-events-none"></div>
                         <div className="relative p-10 rounded-[40px] bg-white/40 dark:bg-black/40 border border-black/5 dark:border-white/5 backdrop-blur-3xl shadow-2xl overflow-hidden">
                             <div className="absolute top-0 right-0 p-4 opacity-20">
                                 <Sparkles className="h-12 w-12 text-purple-500" />
@@ -46,10 +48,15 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
                     <div className="flex justify-center">
                         <div className="group relative">
-                            <div className="absolute -inset-2 bg-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl border border-black/5 bg-white text-3xl dark:border-white/5 dark:bg-zinc-900/60 shadow-xl shadow-black/5 transition-transform hover:scale-105 active:scale-95 cursor-default">
+                            <div className="absolute -inset-2 bg-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" aria-hidden="true"></div>
+                            <button
+                                type="button"
+                                className="relative z-10 flex h-20 w-20 items-center justify-center rounded-3xl border border-black/5 bg-white text-3xl dark:border-white/5 dark:bg-zinc-900/60 shadow-xl shadow-black/5 transition-transform hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                                onClick={onNewChat}
+                                aria-label="Start a new conversation"
+                            >
                                 <span className="bg-gradient-to-br from-purple-500 to-blue-500 bg-clip-text text-transparent">+</span>
-                            </div>
+                            </button>
                         </div>
                     </div>
                     <div className="space-y-2">

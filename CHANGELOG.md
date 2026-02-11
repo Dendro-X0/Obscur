@@ -1,3 +1,10 @@
+## [v0.7.5-alpha] - 2026-02-10
+
+### Changed
+- **Profile Flow Optimization**: Reverted mandatory profile publishing enforcement to resolve infinite redirect loops on unstable connections. Users can now choose to skip the username step during onboarding if desired.
+- **Onboarding UX**: Restored the "Skip" button in the onboarding wizard, allowing for a more flexible user journey when setting up a new identity.
+- **Code Stability**: Refactored `AuthGateway` and hook dependencies to fix React strict mode violations and improve application stability during the authentication phase.
+
 ## [v0.7.4] - 2026-02-09
 
 ### Added

@@ -45,7 +45,7 @@ export type StatusUi = Readonly<{
 
 export type MessageKind = "user" | "command";
 
-export type AttachmentKind = "image" | "video";
+export type AttachmentKind = "image" | "video" | "audio";
 
 export type Attachment = Readonly<{
     kind: AttachmentKind;

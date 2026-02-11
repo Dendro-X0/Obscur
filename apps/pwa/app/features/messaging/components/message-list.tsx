@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/button";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { MessageContent } from "../../../components/message-content";
 import { MessageLinkPreview } from "../../../components/message-link-preview";
+import { AudioPlayer } from "./audio-player";
 import { cn } from "../../../lib/cn";
 import { formatTime } from "../utils/formatting";
 import type { Message, ReactionEmoji, MessageStatus, StatusUi } from "../types";
@@ -29,6 +30,7 @@ interface MessageListProps {
     onComposerFocus: () => void;
     onReply?: (message: Message) => void;
     isGroup?: boolean;
+    admins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
 }
 
 export function MessageList({
@@ -45,7 +47,8 @@ export function MessageList({
     onRetryMessage,
     onComposerFocus,
     onReply,
-    isGroup
+    isGroup,
+    admins
 }: MessageListProps) {
     const { t } = useTranslation();
 
@@ -193,9 +196,25 @@ export function MessageList({
                                                         <div className="h-5 w-5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 shadow-sm overflow-hidden">
                                                             <span className="text-[10px] font-bold text-zinc-400">?</span>
                                                         </div>
-                                                        <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
-                                                            {message.senderPubkey?.slice(0, 8) || t("common.unknown")}
-                                                        </span>
+                                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                            <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
+                                                                {message.senderPubkey?.slice(0, 8) || t("common.unknown")}
+                                                            </span>
+                                                            {((): React.ReactNode => {
+                                                                const admin = admins?.find(a => a.pubkey === message.senderPubkey);
+                                                                if (!admin) return null;
+                                                                const rolesLower = admin.roles.map(r => r.toLowerCase());
+                                                                const isOwner = rolesLower.includes("owner") || rolesLower.includes("admin");
+                                                                return (
+                                                                    <span className={cn(
+                                                                        "text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-[4px]",
+                                                                        isOwner ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                                                    )}>
+                                                                        {isOwner ? "Owner" : "Mod"}
+                                                                    </span>
+                                                                );
+                                                            })()}
+                                                        </div>
                                                     </div>
                                                 )}
                                                 {message.deletedAt ? (
@@ -266,6 +285,10 @@ export function MessageList({
                                                                                 containerClassName="h-full w-full rounded-xl"
                                                                                 className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
                                                                             />
+                                                                        ) : attachment.kind === "audio" ? (
+                                                                            <div className="h-full w-full flex items-center justify-center p-2">
+                                                                                <AudioPlayer src={attachment.url} isOutgoing={message.isOutgoing} />
+                                                                            </div>
                                                                         ) : (
                                                                             <video
                                                                                 src={attachment.url}

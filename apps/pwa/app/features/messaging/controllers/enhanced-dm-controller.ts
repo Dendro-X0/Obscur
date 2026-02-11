@@ -190,7 +190,7 @@ type UseEnhancedDMControllerParams = Readonly<{
 /**
  * Controller result
  */
-type UseEnhancedDMControllerResult = Readonly<{
+export type UseEnhancedDMControllerResult = Readonly<{
   state: EnhancedDMControllerState;
   sendDm: (params: Readonly<{
     peerPublicKeyInput: string;

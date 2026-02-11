@@ -103,6 +103,11 @@ const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element |
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold">{title}</div>
               <div className={cn("mt-0.5 truncate text-xs", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-600 dark:text-zinc-400")}> {host} </div>
+              {preview.description && (
+                <div className={cn("mt-1 line-clamp-2 text-xs", props.isOutgoing ? "text-white/60 dark:text-zinc-900/60" : "text-zinc-500 dark:text-zinc-400")}>
+                  {preview.description}
+                </div>
+              )}
             </div>
             <ExternalLink className={cn("mt-0.5 h-4 w-4 flex-none", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-500 dark:text-zinc-400")} />
           </div>

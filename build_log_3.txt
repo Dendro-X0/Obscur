@@ -1,0 +1,38 @@
+
+> pwa@0.7.4 build E:\Web Project\experimental-workspace\newstart\apps\pwa
+> next build
+
+▲ Next.js 16.1.1 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.9s
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/16) ...
+  Generating static pages using 11 workers (4/16) 
+  Generating static pages using 11 workers (8/16) 
+  Generating static pages using 11 workers (12/16) 
+✓ Generating static pages using 11 workers (16/16) in 751.3ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api-backup/upload
+├ ○ /api/v1/bootstrap
+├ ○ /apple-touch-icon.png
+├ ○ /contacts
+├ ○ /download
+├ ○ /icon-192.png
+├ ○ /icon-512.png
+├ ○ /invites
+├ ○ /profile
+├ ○ /requests
+├ ○ /search
+└ ○ /settings
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

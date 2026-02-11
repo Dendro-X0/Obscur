@@ -15,6 +15,7 @@ import { RootErrorBoundary } from "./components/root-error-boundary"
 import { Preloader } from "./components/preloader"
 import { DesktopNotificationHandler } from "./components/desktop-notification-handler"
 import { ErrorPanel } from "./features/native/components/error-panel"
+import { AppProviders } from "./components/providers"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -79,7 +80,9 @@ export default function RootLayout({
               <OfflineIndicator />
               <DeepLinkHandler />
               <DesktopNotificationHandler />
-              {children}
+              <AppProviders>
+                {children}
+              </AppProviders>
             </I18nProvider>
           </DesktopModeProvider>
         </RootErrorBoundary>

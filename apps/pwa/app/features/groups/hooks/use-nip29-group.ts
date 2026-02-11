@@ -81,6 +81,7 @@ type UseNip29GroupParams = Readonly<{
   groupId: string;
   myPublicKeyHex: PublicKeyHex | null;
   myPrivateKeyHex: PrivateKeyHex | null;
+  enabled?: boolean;
 }>;
 
 type UseNip29GroupResult = Readonly<{
@@ -89,10 +90,14 @@ type UseNip29GroupResult = Readonly<{
   requestJoin: () => Promise<void>;
   approveJoin: (params: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>) => Promise<void>;
   denyJoin: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
+  approveAllJoinRequests: () => Promise<void>;
+  denyAllJoinRequests: () => Promise<void>;
   sendMessage: (params: Readonly<{ content: string }>) => Promise<void>;
   updateMetadata: (params: Readonly<GroupMetadata>) => Promise<void>;
   putUser: (params: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>) => Promise<void>;
   removeUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
+  promoteUser: (params: Readonly<{ publicKeyHex: PublicKeyHex; role: "owner" | "moderator" }>) => Promise<void>;
+  demoteUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
   admins: ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; roles: ReadonlyArray<string> }>>;
 }>;
 
@@ -171,7 +176,7 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
   const [isUnmanaged, setIsUnmanaged] = useState<boolean>(false);
 
   useEffect((): (() => void) => {
-    if (!params.relayUrl || !params.groupId) {
+    if (!params.relayUrl || !params.groupId || params.enabled === false) {
       return (): void => { };
     }
     queueMicrotask((): void => {
@@ -303,44 +308,70 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
     setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, membership: { ...prev.membership, status: "requested" }, relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } } }));
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool]);
 
-  const approveJoin = useCallback(async (approveParams: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>): Promise<void> => {
+  const putUser = useCallback(async (putParams: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
-      setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, error: "Unlock your identity to approve join requests." }));
+      setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, error: "Unlock your identity to perform admin actions." }));
       return;
     }
-    const roleTag: string | undefined = approveParams.role && approveParams.role !== "guest" ? approveParams.role : "member";
+    const roleTag: string | undefined = putParams.role && putParams.role !== "guest" ? putParams.role : "member";
     const unsigned: UnsignedNostrEvent = {
       kind: GROUP_KIND_PUT_USER,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [["h", params.groupId], ["p", approveParams.publicKeyHex, roleTag]],
+      tags: [["h", params.groupId], ["p", putParams.publicKeyHex, roleTag]],
       content: "",
       pubkey: params.myPublicKeyHex
     };
     const signed: NostrEvent = await cryptoService.signEvent(unsigned, params.myPrivateKeyHex);
     const payload: string = JSON.stringify(["EVENT", signed]);
-    logAppEvent({ name: "groups.join_approve.attempt", level: "info", scope: { feature: "groups", action: "approve_join" }, context: { groupId: params.groupId } });
+    logAppEvent({ name: "groups.put_user.attempt", level: "info", scope: { feature: "groups", action: "put_user" }, context: { groupId: params.groupId } });
     const result = await params.pool.publishToAll(payload);
-    setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, joinRequests: prev.joinRequests.filter((r): boolean => r.pubkey !== approveParams.publicKeyHex), relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } } }));
+    setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, joinRequests: prev.joinRequests.filter((r): boolean => r.pubkey !== putParams.publicKeyHex), relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } } }));
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool]);
 
-  const denyJoin = useCallback(async (denyParams: Readonly<{ publicKeyHex: PublicKeyHex }>): Promise<void> => {
+  const removeUser = useCallback(async (removeParams: Readonly<{ publicKeyHex: PublicKeyHex }>): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
-      setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, error: "Unlock your identity to deny join requests." }));
+      setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, error: "Unlock your identity to perform admin actions." }));
       return;
     }
     const unsigned: UnsignedNostrEvent = {
       kind: GROUP_KIND_REMOVE_USER,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [["h", params.groupId], ["p", denyParams.publicKeyHex]],
+      tags: [["h", params.groupId], ["p", removeParams.publicKeyHex]],
       content: "",
       pubkey: params.myPublicKeyHex
     };
     const signed: NostrEvent = await cryptoService.signEvent(unsigned, params.myPrivateKeyHex);
     const payload: string = JSON.stringify(["EVENT", signed]);
-    logAppEvent({ name: "groups.join_deny.attempt", level: "info", scope: { feature: "groups", action: "deny_join" }, context: { groupId: params.groupId } });
+    logAppEvent({ name: "groups.remove_user.attempt", level: "info", scope: { feature: "groups", action: "remove_user" }, context: { groupId: params.groupId } });
     const result = await params.pool.publishToAll(payload);
-    setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, joinRequests: prev.joinRequests.filter((r): boolean => r.pubkey !== denyParams.publicKeyHex), relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } } }));
+    setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, joinRequests: prev.joinRequests.filter((r): boolean => r.pubkey !== removeParams.publicKeyHex), relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } } }));
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool]);
+
+  const approveJoin = putUser;
+  const denyJoin = removeUser;
+
+  const approveAllJoinRequests = useCallback(async (): Promise<void> => {
+    if (state.joinRequests.length === 0) return;
+    for (const req of state.joinRequests) {
+      await approveJoin({ publicKeyHex: req.pubkey });
+    }
+  }, [approveJoin, state.joinRequests]);
+
+  const denyAllJoinRequests = useCallback(async (): Promise<void> => {
+    if (state.joinRequests.length === 0) return;
+    for (const req of state.joinRequests) {
+      await denyJoin({ publicKeyHex: req.pubkey });
+    }
+  }, [denyJoin, state.joinRequests]);
+
+  const promoteUser = useCallback(async (promoteParams: Readonly<{ publicKeyHex: PublicKeyHex; role: "owner" | "moderator" }>): Promise<void> => {
+    await putUser({ publicKeyHex: promoteParams.publicKeyHex, role: promoteParams.role });
+  }, [putUser]);
+
+  const demoteUser = useCallback(async (demoteParams: Readonly<{ publicKeyHex: PublicKeyHex }>): Promise<void> => {
+    // Demoting back to 'member' role
+    await putUser({ publicKeyHex: demoteParams.publicKeyHex, role: "member" });
+  }, [putUser]);
 
   const sendMessage = useCallback(async (sendParams: Readonly<{ content: string }>): Promise<void> => {
     const content: string = sendParams.content.trim();
@@ -422,12 +453,16 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
       requestJoin,
       approveJoin,
       denyJoin,
+      approveAllJoinRequests,
+      denyAllJoinRequests,
       sendMessage,
       updateMetadata,
-      putUser: approveJoin,
-      removeUser: denyJoin,
+      putUser,
+      removeUser,
+      promoteUser,
+      demoteUser,
       admins: admins
     };
-  }, [admins, approveJoin, denyJoin, derivedState, refresh, requestJoin, sendMessage, updateMetadata]);
+  }, [admins, approveAllJoinRequests, approveJoin, demoteUser, denyAllJoinRequests, denyJoin, derivedState, promoteUser, putUser, refresh, removeUser, requestJoin, sendMessage, updateMetadata]);
   return result;
 };

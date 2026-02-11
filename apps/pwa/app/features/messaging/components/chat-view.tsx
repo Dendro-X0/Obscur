@@ -61,6 +61,7 @@ export interface ChatViewProps {
     clearPendingAttachment: () => void;
     relayStatus: RelayStatusSummary;
     composerTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
+    onSendVoiceNote?: (file: File) => void;
 
     // Media
     isMediaGalleryOpen: boolean;
@@ -72,6 +73,7 @@ export interface ChatViewProps {
     isPeerAccepted?: boolean;
     onAcceptPeer?: () => void;
     onBlockPeer?: () => void;
+    groupAdmins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
 }
 
 export function ChatView(props: ChatViewProps) {
@@ -179,6 +181,7 @@ export function ChatView(props: ChatViewProps) {
                     onComposerFocus={() => props.composerTextareaRef.current?.focus()}
                     onReply={props.onReferenceMessage}
                     isGroup={props.conversation.kind === "group"}
+                    admins={props.groupAdmins}
                 />
             )}
 
@@ -200,6 +203,7 @@ export function ChatView(props: ChatViewProps) {
                 textareaRef={props.composerTextareaRef}
                 recipientStatus={props.recipientStatus}
                 isPeerAccepted={props.isPeerAccepted}
+                onSendVoiceNote={props.onSendVoiceNote}
             />
 
             {props.messageMenu && activeMessage && (

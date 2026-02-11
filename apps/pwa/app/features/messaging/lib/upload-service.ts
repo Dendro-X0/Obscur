@@ -39,7 +39,11 @@ export class LocalUploadService implements UploadService {
             throw new Error(result.error || "Upload failed");
         }
 
-        const kind: AttachmentKind = result.contentType.startsWith("video/") ? "video" : "image";
+        const kind: AttachmentKind = result.contentType.startsWith("video/")
+            ? "video"
+            : result.contentType.startsWith("audio/")
+                ? "audio"
+                : "image";
 
         return {
             kind,
@@ -70,7 +74,7 @@ export async function pickFilesInternal(): Promise<File[] | null> {
                 multiple: true,
                 filters: [{
                     name: "Media",
-                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "mp4", "mov", "avi"]
+                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "mp4", "mov", "avi", "webm", "mp3", "wav", "m4a"]
                 }]
             });
 
@@ -89,6 +93,8 @@ export async function pickFilesInternal(): Promise<File[] | null> {
                     type = `image/${ext === "jpg" ? "jpeg" : ext}`;
                 } else if (["mp4", "mov", "avi"].includes(ext)) {
                     type = `video/${ext === "mov" ? "quicktime" : ext}`;
+                } else if (["webm", "mp3", "wav", "m4a"].includes(ext)) {
+                    type = `audio/${ext === "m4a" ? "mp4" : ext}`;
                 }
 
                 files.push(new File([data], fileName, { type }));
@@ -104,7 +110,7 @@ export async function pickFilesInternal(): Promise<File[] | null> {
         const input = document.createElement("input");
         input.type = "file";
         input.multiple = true;
-        input.accept = "image/*,video/*";
+        input.accept = "image/*,video/*,audio/*";
         input.onchange = () => {
             const files = input.files ? Array.from(input.files) : null;
             resolve(files);

@@ -1,4 +1,3 @@
-import * as Comlink from "comlink";
 import { CryptoServiceImpl } from "./crypto-service-impl";
 import { NativeCryptoService } from "./native-crypto-service";
 import type {
@@ -19,38 +18,39 @@ export type {
 
 export { NATIVE_KEY_SENTINEL } from "./native-crypto-service";
 
-// Internal implementation placeholder to allow type inference
-let instance: Comlink.Remote<CryptoService> | CryptoService;
+/**
+ * Resilient crypto service initialization
+ * Falls back to main-thread implementation if Worker fails
+ */
+const initializeCryptoService = (): CryptoService => {
+  const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
-const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
-
-if (typeof window !== "undefined" && typeof Worker !== "undefined" && !isTauri) {
-  try {
-    const worker = new Worker(new URL("./crypto.worker.ts", import.meta.url));
-    instance = Comlink.wrap<CryptoService>(worker);
-  } catch (error) {
-    console.warn("Failed to initialize crypto worker, falling back to main thread:", error);
-    instance = new CryptoServiceImpl();
-  }
-} else {
-  // SSR, non-browser environment, or Tauri (where workers might hang during initial load)
+  // Tauri always uses native service for keychain support
   if (isTauri) {
-    console.info("Running in Tauri: using NativeCryptoService for keychain support.");
-    instance = new NativeCryptoService();
-  } else {
-    instance = new CryptoServiceImpl();
+    console.info("[CryptoService] Running in Tauri: using NativeCryptoService");
+    return new NativeCryptoService();
   }
-}
+
+  // SSR or non-browser environment
+  if (typeof window === "undefined") {
+    return new CryptoServiceImpl();
+  }
+
+  // Browser: use main-thread implementation (Worker optimization removed for stability)
+  // TODO: Re-enable Worker after fixing Comlink proxy issues
+  console.info("[CryptoService] Using main-thread CryptoServiceImpl");
+  return new CryptoServiceImpl();
+};
 
 /**
  * Singleton crypto service instance
- * In browser, this is a proxy to a Web Worker via Comlink.
+ * Guaranteed to be a working implementation (no proxy failures)
  */
-export const cryptoService = instance;
+export const cryptoService: CryptoService = initializeCryptoService();
 
 /**
  * Hook for using the crypto service in React components
  */
 export const useCryptoService = (): CryptoService => {
-  return cryptoService as unknown as CryptoService;
+  return cryptoService;
 };
