@@ -198,7 +198,7 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - Property-based tests validate universal correctness properties
 - Integration tests confirm services work together correctly
 
-✅ **Mobile Parity (v0.7.4)**
+✅ **Mobile Parity (v0.7.5)**
 - Native Android & iOS support (Tauri v2)
 - Hardware-backed Crypto (`tauri-plugin-store`)
 - Deep linking & Invite redemption (`obscur://`, `nostr:`)
