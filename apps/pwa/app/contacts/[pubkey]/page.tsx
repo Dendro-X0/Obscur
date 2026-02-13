@@ -23,6 +23,10 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { toast } from "@/app/components/ui/toast";
 
+export function generateStaticParams() {
+    return [];
+}
+
 export default function ContactProfilePage() {
     const { pubkey } = useParams();
     const router = useRouter();
