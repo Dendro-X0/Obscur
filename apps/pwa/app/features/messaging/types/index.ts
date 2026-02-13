@@ -1,5 +1,5 @@
-
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+export type { PublicKeyHex };
 import type React from "react";
 
 export type RelayStatusSummary = Readonly<{
@@ -179,6 +179,7 @@ export type RequestsInboxItem = Readonly<{
     unreadCount: number;
     status?: ConnectionRequestStatusValue;
     isRequest?: boolean;
+    isOutgoing?: boolean;
 }>;
 
 export type PersistedChatState = Readonly<{
@@ -190,3 +191,37 @@ export type PersistedChatState = Readonly<{
     messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>;
     connectionRequests?: ReadonlyArray<PersistedConnectionRequest>;
 }>;
+// --- Upload Errors ---
+
+export enum UploadErrorCode {
+    AUTH_MISSING_KEY = "AUTH_MISSING_KEY",
+    AUTH_ERROR = "AUTH_ERROR",
+    NETWORK_ERROR = "NETWORK_ERROR",
+    PROVIDER_ERROR = "PROVIDER_ERROR",
+    FILE_TOO_LARGE = "FILE_TOO_LARGE",
+    IO_ERROR = "IO_ERROR",
+    MIME_ERROR = "MIME_ERROR",
+    UNKNOWN = "UNKNOWN",
+    NO_SESSION = "NO_SESSION"
+}
+
+export class UploadError extends Error {
+    readonly code: UploadErrorCode;
+    readonly context?: Record<string, unknown>;
+
+    constructor(code: UploadErrorCode, message: string, context?: Record<string, unknown>) {
+        super(message);
+        this.code = code;
+        this.context = context;
+        this.name = "UploadError";
+    }
+
+    static fromNative(err: { code?: string; message?: string }): UploadError {
+        const code = (err.code as UploadErrorCode) || UploadErrorCode.UNKNOWN;
+        return new UploadError(
+            code,
+            err.message || `Native upload error: ${code}`,
+            { nativeCode: err.code }
+        );
+    }
+}

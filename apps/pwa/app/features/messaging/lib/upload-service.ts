@@ -1,4 +1,4 @@
-import { Attachment, AttachmentKind, UploadApiResponse } from "@/app/features/messaging/types";
+import { Attachment, AttachmentKind, UploadApiResponse, UploadError, UploadErrorCode } from "@/app/features/messaging/types";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
@@ -11,14 +11,19 @@ export interface UploadService {
  * Implementation of UploadService using the local /api/upload endpoint
  */
 export class LocalUploadService implements UploadService {
-    async uploadFile(file: File): Promise<Attachment> {
+    uploadFile = async (file: File): Promise<Attachment> => {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/api/upload", {
-            method: "POST",
-            body: formData,
-        });
+        let response: Response;
+        try {
+            response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+            });
+        } catch (e) {
+            throw new UploadError(UploadErrorCode.NETWORK_ERROR, `Fetch failed: ${e}`);
+        }
 
         if (!response.ok) {
             let errorMessage = `Upload failed with status ${response.status}`;
@@ -30,13 +35,13 @@ export class LocalUploadService implements UploadService {
             } catch {
                 // Could not parse error JSON, fall back to status text
             }
-            throw new Error(errorMessage);
+            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, errorMessage);
         }
 
         const result: UploadApiResponse = await response.json();
 
         if (!result.ok) {
-            throw new Error(result.error || "Upload failed");
+            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, result.error || "Upload failed");
         }
 
         const kind: AttachmentKind = result.contentType.startsWith("video/")
@@ -53,7 +58,7 @@ export class LocalUploadService implements UploadService {
         };
     }
 
-    async pickFiles(): Promise<File[] | null> {
+    pickFiles = async (): Promise<File[] | null> => {
         return pickFilesInternal();
     }
 }
@@ -66,9 +71,9 @@ export async function pickFilesInternal(): Promise<File[] | null> {
 
     if (isTauri) {
         try {
-            // Use eval to prevent static analysis during build
-            const { open } = await eval('import("@tauri-apps/plugin-dialog")');
-            const { readFile } = await eval('import("@tauri-apps/plugin-fs")');
+            // Using regular dynamic imports as they are in package.json
+            const { open } = await import("@tauri-apps/plugin-dialog");
+            const { readFile } = await import("@tauri-apps/plugin-fs");
 
             const selected = await open({
                 multiple: true,

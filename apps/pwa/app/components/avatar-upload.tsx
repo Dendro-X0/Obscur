@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+import Image from "next/image";
 import { Upload, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
@@ -96,10 +97,13 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, onClear, class
                     )}
                 >
                     {displayUrl ? (
-                        <img
+                        <Image
                             src={displayUrl}
                             alt="Avatar Preview"
+                            width={96}
+                            height={96}
                             className="h-full w-full object-cover"
+                            unoptimized
                         />
                     ) : (
                         <Upload className="h-8 w-8 text-zinc-400" />

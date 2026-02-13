@@ -15,8 +15,11 @@ export const AutoLockSettingsPanel: React.FC = () => {
     const { settings, updateSettings, torStatus, torLogs, torRestartRequired } = useAutoLock();
     const [showLogs, setShowLogs] = React.useState(false);
 
+    const tauriWindow: (Window & Readonly<{ __TAURI_INTERNALS__?: unknown }>) | null = typeof window !== "undefined" ? window : null;
+    const isTauri: boolean = tauriWindow?.__TAURI_INTERNALS__ !== undefined;
+
     const handleRestart = () => {
-        if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+        if (isTauri) {
             import('@tauri-apps/api/core').then(({ invoke }) => {
                 invoke('restart_app').catch(console.error);
             });
@@ -31,9 +34,6 @@ export const AutoLockSettingsPanel: React.FC = () => {
         { label: '1h', value: 60 },
         { label: t('common.never'), value: 0 },
     ];
-
-    const tauriWindow: (Window & Readonly<{ __TAURI_INTERNALS__?: unknown }>) | null = typeof window !== "undefined" ? window : null;
-    const isTauri: boolean = tauriWindow?.__TAURI_INTERNALS__ !== undefined;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

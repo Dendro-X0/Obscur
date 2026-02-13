@@ -1,69 +1,73 @@
 "use client";
 
 import React from "react";
-import { ShieldAlert, Check, X, ShieldOff } from "lucide-react";
+import { ShieldAlert, Check, X, ShieldOff, UserPlus } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
 
 interface StrangerWarningBannerProps {
     displayName: string;
+    isInitiator?: boolean;
     onAccept: () => void;
     onIgnore: () => void;
     onBlock: () => void;
 }
 
-export function StrangerWarningBanner({
-    displayName,
-    onAccept,
-    onIgnore,
-    onBlock,
-}: StrangerWarningBannerProps) {
+export function StrangerWarningBanner({ displayName, isInitiator, onAccept, onIgnore, onBlock }: StrangerWarningBannerProps) {
     const { t } = useTranslation();
 
-    return (
-        <div className="bg-amber-50 dark:bg-amber-950/20 border-y border-amber-200/50 dark:border-amber-900/30 px-4 py-3 sm:px-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
-                    <div className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-                        <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+    if (isInitiator) {
+        return (
+            <div className="z-10 px-4 py-3 bg-gradient-to-r from-purple-500/10 via-purple-600/15 to-purple-500/10 backdrop-blur-md border-b border-purple-500/20 shadow-lg shadow-purple-500/5 transition-all duration-300">
+                <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                            <ShieldAlert className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-purple-900 dark:text-purple-100 leading-tight">
+                                {t("messaging.waitingForAcceptanceTitle")}
+                            </span>
+                            <span className="text-xs text-purple-700/70 dark:text-purple-400/70">
+                                {t("messaging.waitingForAcceptanceDesc", { name: displayName })}
+                            </span>
+                        </div>
                     </div>
-                    <div className="space-y-1">
-                        <h4 className="text-sm font-bold text-amber-900 dark:text-amber-100 leading-tight">
-                            {t("messaging.strangerWarningTitle", { name: displayName })}
-                        </h4>
-                        <p className="text-[11px] text-amber-800/70 dark:text-amber-300/60 leading-normal max-w-lg">
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="z-10 px-4 py-3 bg-gradient-to-r from-zinc-900/95 via-zinc-800/95 to-zinc-900/95 backdrop-blur-md border-b border-white/5 shadow-2xl transition-all duration-300">
+            <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-zinc-800 dark:bg-zinc-700 flex items-center justify-center text-zinc-400">
+                        <UserPlus className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-zinc-100 leading-tight">
+                            {displayName} {t("messaging.strangerWarningTitle")}
+                        </p>
+                        <p className="text-xs text-zinc-400 mt-0.5">
                             {t("messaging.strangerWarningDesc")}
                         </p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Button
-                        size="sm"
-                        className="flex-1 sm:flex-initial h-8 bg-amber-600 hover:bg-amber-700 text-white border-none text-[11px] font-bold px-4"
-                        onClick={onAccept}
-                    >
-                        <Check className="mr-1.5 h-3.5 w-3.5" />
-                        {t("common.accept")}
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="flex-1 sm:flex-initial h-8 text-[11px] font-bold px-4 bg-white dark:bg-zinc-900"
+                    <button
                         onClick={onIgnore}
+                        className="flex-1 sm:flex-none px-4 py-2 text-xs font-bold text-zinc-400 hover:text-zinc-100 hover:bg-white/5 rounded-xl transition-all active:scale-95"
                     >
-                        <X className="mr-1.5 h-3.5 w-3.5" />
                         {t("common.ignore")}
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-amber-800/50 hover:text-red-600 hover:bg-red-50 dark:text-amber-300/40 dark:hover:text-red-400 dark:hover:bg-red-900/20"
-                        onClick={onBlock}
-                        title={t("common.block")}
+                    </button>
+                    <button
+                        onClick={onAccept}
+                        className="flex-1 sm:flex-none px-6 py-2 text-xs font-black bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-lg shadow-purple-600/20 transition-all active:scale-95"
                     >
-                        <ShieldOff className="h-4 w-4" />
-                    </Button>
+                        {t("common.accept")}
+                    </button>
                 </div>
             </div>
         </div>

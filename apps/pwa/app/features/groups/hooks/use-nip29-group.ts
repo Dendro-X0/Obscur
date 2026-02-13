@@ -98,6 +98,7 @@ type UseNip29GroupResult = Readonly<{
   removeUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
   promoteUser: (params: Readonly<{ publicKeyHex: PublicKeyHex; role: "owner" | "moderator" }>) => Promise<void>;
   demoteUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
+  leaveGroup: () => Promise<void>;
   admins: ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; roles: ReadonlyArray<string> }>>;
 }>;
 
@@ -350,6 +351,26 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
   const approveJoin = putUser;
   const denyJoin = removeUser;
 
+  const leaveGroup = useCallback(async (): Promise<void> => {
+    if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
+      setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, error: "Unlock your identity to perform this action." }));
+      return;
+    }
+    const LEAVE_GROUP_KIND = 9005;
+    const unsigned: UnsignedNostrEvent = {
+      kind: LEAVE_GROUP_KIND,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [["h", params.groupId]],
+      content: "",
+      pubkey: params.myPublicKeyHex
+    };
+    const signed: NostrEvent = await cryptoService.signEvent(unsigned, params.myPrivateKeyHex);
+    const payload: string = JSON.stringify(["EVENT", signed]);
+    logAppEvent({ name: "groups.leave_group.attempt", level: "info", scope: { feature: "groups", action: "leave_group" }, context: { groupId: params.groupId } });
+    const result = await params.pool.publishToAll(payload);
+    setState((prev: Nip29GroupState): Nip29GroupState => ({ ...prev, relayFeedback: { ...prev.relayFeedback, lastOk: { accepted: result.success, message: result.overallError ?? "" } } }));
+  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool]);
+
   const approveAllJoinRequests = useCallback(async (): Promise<void> => {
     if (state.joinRequests.length === 0) return;
     for (const req of state.joinRequests) {
@@ -461,8 +482,9 @@ export const useNip29Group = (params: UseNip29GroupParams): UseNip29GroupResult 
       removeUser,
       promoteUser,
       demoteUser,
+      leaveGroup,
       admins: admins
     };
-  }, [admins, approveAllJoinRequests, approveJoin, demoteUser, denyAllJoinRequests, denyJoin, derivedState, promoteUser, putUser, refresh, removeUser, requestJoin, sendMessage, updateMetadata]);
+  }, [admins, approveAllJoinRequests, approveJoin, demoteUser, denyAllJoinRequests, denyJoin, derivedState, leaveGroup, promoteUser, putUser, refresh, removeUser, requestJoin, sendMessage, updateMetadata]);
   return result;
 };

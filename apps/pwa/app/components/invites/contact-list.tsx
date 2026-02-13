@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { contactStore } from "@/app/features/invites/utils/contact-store";
 import type { Contact, ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
@@ -40,7 +41,7 @@ export const ContactList = () => {
     void loadData();
   }, []);
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (state.status !== "loaded") return;
 
     try {
@@ -62,15 +63,15 @@ export const ContactList = () => {
         filteredContacts = filteredContacts.filter(c => c.groups.includes(selectedGroup));
       }
 
-      setState({ ...state, contacts: filteredContacts });
+      setState(prev => prev.status === "loaded" ? { ...prev, contacts: filteredContacts } : prev);
     } catch (error) {
       console.error("Search failed:", error);
     }
-  };
+  }, [searchQuery, selectedTrustLevel, selectedGroup, state.status]);
 
   useEffect(() => {
     void handleSearch();
-  }, [searchQuery, selectedTrustLevel, selectedGroup]);
+  }, [handleSearch]);
 
   const handleTrustLevelChange = async (contactId: string, newLevel: TrustLevel) => {
     try {
@@ -184,10 +185,13 @@ export const ContactList = () => {
               >
                 <div className="flex items-start gap-3">
                   {contact.avatar ? (
-                    <img
+                    <Image
                       src={contact.avatar}
                       alt={contact.displayName}
-                      className="h-10 w-10 rounded-full"
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="h-10 w-10 rounded-full object-cover"
                     />
                   ) : (
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -203,13 +207,12 @@ export const ContactList = () => {
                         {contact.displayName}
                       </div>
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          contact.trustLevel === "trusted"
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                            : contact.trustLevel === "blocked"
+                        className={`text-xs px-2 py-0.5 rounded-full ${contact.trustLevel === "trusted"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                          : contact.trustLevel === "blocked"
                             ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
                             : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                        }`}
+                          }`}
                       >
                         {contact.trustLevel}
                       </span>
@@ -459,10 +462,13 @@ const ContactDetails = ({
         {/* Contact Info */}
         <div className="flex items-start gap-3">
           {contact.avatar ? (
-            <img
+            <Image
               src={contact.avatar}
               alt={contact.displayName}
-              className="h-16 w-16 rounded-full"
+              width={64}
+              height={64}
+              unoptimized
+              className="h-16 w-16 rounded-full object-cover"
             />
           ) : (
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">

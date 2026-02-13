@@ -120,12 +120,18 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
                 .filter((c: DmConversation | null): c is DmConversation => c !== null);
 
-            setCreatedContacts(nextCreatedContacts);
-            setUnreadByConversationId(persisted.unreadByConversationId);
-            setContactOverridesByContactId(fromPersistedOverridesByContactId(persisted.contactOverridesByContactId));
-            setMessagesByConversationId(fromPersistedMessagesByConversationId(persisted.messagesByConversationId));
+            queueMicrotask(() => {
+                setCreatedContacts(nextCreatedContacts);
+                setUnreadByConversationId(persisted.unreadByConversationId);
+                setContactOverridesByContactId(fromPersistedOverridesByContactId(persisted.contactOverridesByContactId));
+                setMessagesByConversationId(fromPersistedMessagesByConversationId(persisted.messagesByConversationId));
+                setHasHydrated(true);
+            });
+        } else {
+            queueMicrotask(() => {
+                setHasHydrated(true);
+            });
         }
-        setHasHydrated(true);
         didHydrateRef.current = true;
     }, []);
 

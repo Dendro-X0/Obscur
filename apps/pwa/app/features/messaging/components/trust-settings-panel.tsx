@@ -4,22 +4,22 @@ import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { User, ShieldCheck, ShieldOff, VolumeX, Volume2, Search, Trash2, EyeOff, ShieldAlert } from "lucide-react";
-import { usePeerTrust } from "../../contacts/hooks/use-peer-trust";
-import { useBlocklist } from "../../contacts/hooks/use-blocklist";
-import { useIdentity } from "../../auth/hooks/use-identity";
+import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { useState } from "react";
 import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
+import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
+import { toast } from "../../../components/ui/toast";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 export function TrustSettingsPanel() {
     const { t } = useTranslation();
-    const identity = useIdentity();
+    const { identity, peerTrust, blocklist, requestsInbox } = useContacts();
     const myPublicKeyHex = identity.state.publicKeyHex ?? null;
-    const peerTrust = usePeerTrust({ publicKeyHex: myPublicKeyHex });
-    const blocklist = useBlocklist({ publicKeyHex: myPublicKeyHex as any });
     const [searchQuery, setSearchQuery] = useState("");
+    const [confirmUntrustPk, setConfirmUntrustPk] = useState<string | null>(null);
 
     const acceptedPeers = peerTrust.state.acceptedPeers;
     const mutedPeers = peerTrust.state.mutedPeers;
@@ -61,7 +61,7 @@ export function TrustSettingsPanel() {
                     </Card>
                 ) : (
                     <div className="grid gap-2">
-                        {filteredAccepted.map((pk) => (
+                        {filteredAccepted.map((pk: string) => (
                             <div key={pk} className="group flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-sm">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className="h-9 w-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
@@ -87,7 +87,7 @@ export function TrustSettingsPanel() {
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                        onClick={() => peerTrust.unacceptPeer({ publicKeyHex: pk })}
+                                        onClick={() => setConfirmUntrustPk(pk)}
                                         title={t("settings.security.revokeTrust")}
                                     >
                                         <ShieldOff className="h-4 w-4" />
@@ -107,7 +107,7 @@ export function TrustSettingsPanel() {
                     </h3>
 
                     <div className="grid gap-2">
-                        {filteredMuted.map((pk) => (
+                        {filteredMuted.map((pk: string) => (
                             <div key={pk} className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-950/40 opacity-70">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className="h-9 w-9 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
@@ -153,7 +153,7 @@ export function TrustSettingsPanel() {
                         <p className="text-[10px] italic text-zinc-400 text-center py-2">{t("settings.security.noBlockedFound")}</p>
                     ) : (
                         <div className="grid gap-2">
-                            {filteredBlocked.map((pk) => (
+                            {filteredBlocked.map((pk: string) => (
                                 <div key={pk} className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-950/10">
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="h-9 w-9 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
@@ -197,6 +197,23 @@ export function TrustSettingsPanel() {
                     </div>
                 </div>
             </Card>
+
+            <ConfirmDialog
+                isOpen={!!confirmUntrustPk}
+                onClose={() => setConfirmUntrustPk(null)}
+                onConfirm={() => {
+                    if (confirmUntrustPk) {
+                        peerTrust.unacceptPeer({ publicKeyHex: confirmUntrustPk as PublicKeyHex });
+                        requestsInbox.setStatus({ peerPublicKeyHex: confirmUntrustPk as PublicKeyHex, status: 'declined' });
+                        setConfirmUntrustPk(null);
+                        toast.success(t("contacts.notifications.removed", "Contact removed"));
+                    }
+                }}
+                title={t("contacts.dialogs.removeTitle", "Remove Contact")}
+                description={t("contacts.dialogs.removeDesc", "Are you sure you want to remove this contact from your trusted list?")}
+                confirmLabel={t("contacts.actions.remove", "Remove")}
+                variant="danger"
+            />
         </div>
     );
 }

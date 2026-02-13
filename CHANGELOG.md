@@ -1,3 +1,15 @@
+## [v0.7.6-alpha] - 2026-02-14
+
+### Added
+- **Invite Code Search**: Integrated secure invite code resolution directly into the "New Chat" dialog. Users can now enter an `OBSCUR-...` code to instantly find and connect with peers, streamlining the "Add Contact" workflow.
+
+### Changed
+- **Messaging Stability**: Optimized dependency tracking in `EnhancedDMController`, preventing unnecessary relay re-connections and ensuring consistent message delivery during network fluctuations.
+- **Performance**: Prioritized critical LCP (Largest Contentful Paint) images in the authentication gateway, significantly improving the initial load experience and Core Web Vitals score.
+
+### Fixed
+- **React Hooks**: Resolved internal dependency warnings in the messaging components, ensuring stable and predictable state updates.
+
 ## [v0.7.5-alpha] - 2026-02-10
 
 ### Changed

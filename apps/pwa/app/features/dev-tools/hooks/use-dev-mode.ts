@@ -32,9 +32,9 @@ export function useDevMode() {
     useEffect(() => {
         const saved = localStorage.getItem("obscur_dev_mode") === "true";
         if (saved !== isDevMode) {
-            setIsDevMode(saved);
+            queueMicrotask(() => setIsDevMode(saved));
         }
-    }, []);
+    }, [isDevMode]);
 
     const toggleDevMode = useCallback(() => {
         const next = !isDevMode;

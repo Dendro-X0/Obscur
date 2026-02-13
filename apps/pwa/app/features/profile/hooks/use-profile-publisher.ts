@@ -2,8 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
-import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useTranslation } from "react-i18next";
 
 export type PublishProfileParams = Readonly<{
@@ -12,6 +11,7 @@ export type PublishProfileParams = Readonly<{
     avatarUrl?: string; // NIP-05 compliant field name is 'picture', but we map it
     nip05?: string;
     lud16?: string;
+    inviteCode?: string;
 }>;
 
 type UseProfilePublisherResult = Readonly<{
@@ -30,16 +30,9 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
     const [isPublishing, setIsPublishing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Get enabled relays
-    const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
-    const enabledRelayUrls = useMemo(() => {
-        return relayList.state.relays
-            .filter((r) => r.enabled)
-            .map((r) => r.url);
-    }, [relayList.state.relays]);
+    // Use shared relay pool
+    const { relayPool: pool, enabledRelayUrls } = useRelay();
 
-    // Use relay pool to publish
-    const pool = useRelayPool(enabledRelayUrls);
 
     const publishProfile = useCallback(async (params: PublishProfileParams): Promise<boolean> => {
         if (!identity.state.publicKeyHex || !identity.state.privateKeyHex) {
@@ -67,19 +60,31 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             }
 
             // Construct Kind 0 Event content
+            let aboutContent = params.about || "";
+            if (params.inviteCode && !aboutContent.includes(params.inviteCode)) {
+                if (aboutContent) aboutContent += "\n\n";
+                aboutContent += `Find me on Obscur with this code: ${params.inviteCode}`;
+            }
+
             const content = JSON.stringify({
                 name: params.username,
                 display_name: params.username, // Some clients use one or the other
-                about: params.about || "",
+                about: aboutContent,
                 picture: params.avatarUrl || "",
                 nip05: params.nip05 || "",
                 lud16: params.lud16 || "",
             });
 
+            const tags: string[][] = [];
+            if (params.inviteCode) {
+                tags.push(["code", params.inviteCode]);
+                tags.push(["l", "obscur-invite"]);
+            }
+
             const unsignedEvent: UnsignedNostrEvent = {
                 kind: 0,
                 content,
-                tags: [],
+                tags,
                 created_at: Math.floor(Date.now() / 1000),
                 pubkey: identity.state.publicKeyHex,
             };

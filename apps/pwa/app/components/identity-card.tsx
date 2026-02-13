@@ -31,7 +31,7 @@ export const IdentityCard = (props: IdentityCardProps): React.JSX.Element => {
         pubkey: state.publicKeyHex,
         relays: [] // Could add default relays here
       });
-    } catch (e) {
+    } catch (_) {
       return "";
     }
   }, [state.publicKeyHex]);

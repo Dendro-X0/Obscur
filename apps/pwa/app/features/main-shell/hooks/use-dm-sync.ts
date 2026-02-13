@@ -13,36 +13,42 @@ export function useDmSync(
     const lastProcessedCountRef = useRef(0);
 
     useEffect(() => {
-        if (dmMessages.length === 0) return;
-        if (dmMessages.length === lastProcessedCountRef.current) return;
+        // We removed the length check to ensure status updates and the first message arrival 
+        // trigger the effect properly.
 
         setMessagesByConversationId(prev => {
             const next = { ...prev };
+            let hasChanged = false;
 
             dmMessages.forEach(m => {
                 const cid = m.conversationId;
                 if (!cid) return;
 
                 const existing = next[cid] || [];
-                const alreadyExists = existing.some(ex => ex.id === m.id);
+                const existingIndex = existing.findIndex(ex => ex.id === m.id);
 
-                if (!alreadyExists) {
-                    // Prepend or append? DM controller returns messages sorted newest first or oldest first?
-                    // MessageList expect them sorted oldest to newest (ascending) usually.
-                    // DM Controller state.messages is usually newest first.
-                    // Let's assume ascending for the unified store as that's what ChatView likes.
+                if (existingIndex === -1) {
+                    // New message
                     const updated = [...existing, m].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
                     next[cid] = updated;
+                    hasChanged = true;
                 } else {
-                    // Update status/reactions if changed?
-                    // useCommandMessages handles status updates, but we could do it here too.
-                    next[cid] = existing.map(ex => ex.id === m.id ? m : ex);
+                    // Update if status or content or reactions changed
+                    const existingMsg = existing[existingIndex];
+                    if (
+                        existingMsg.status !== m.status ||
+                        existingMsg.content !== m.content ||
+                        JSON.stringify(existingMsg.reactions) !== JSON.stringify(m.reactions)
+                    ) {
+                        const updated = [...existing];
+                        updated[existingIndex] = m;
+                        next[cid] = updated;
+                        hasChanged = true;
+                    }
                 }
             });
 
-            return next;
+            return hasChanged ? next : prev;
         });
-
-        lastProcessedCountRef.current = dmMessages.length;
     }, [dmMessages, setMessagesByConversationId]);
 }

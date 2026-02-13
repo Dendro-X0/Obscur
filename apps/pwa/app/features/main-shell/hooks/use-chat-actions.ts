@@ -4,10 +4,12 @@ import { useCallback } from "react";
 import { toast } from "@/app/components/ui/toast";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
 import { createEmptyReactions, toReactionsByEmoji } from "@/app/features/messaging/utils/logic";
-import type { Message, ReactionEmoji } from "@/app/features/messaging/types";
+import { type Message, type ReactionEmoji, UploadError, UploadErrorCode } from "@/app/features/messaging/types";
 import type { UseEnhancedDMControllerResult } from "../../messaging/controllers/enhanced-dm-controller";
 import { GroupService } from "@/app/features/groups/services/group-service";
+import { useUploadService } from "../../messaging/lib/upload-service";
 
 /**
  * Hook to manage chat actions like sending, deleting, and reacting to messages.
@@ -20,14 +22,67 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setMessagesByConversationId,
         pendingAttachments, setPendingAttachments,
         setPendingAttachmentPreviewUrls,
-        setContactOverridesByContactId
+        setContactOverridesByContactId,
+        setIsUploadingAttachment,
+        setAttachmentError
     } = useMessaging();
     const identity = useIdentity();
+    const uploadService = useUploadService();
+    const { peerTrust } = useContacts();
 
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;
 
-        const currentInput = messageInput;
+        // 1. Upload Attachments if any
+        let finalContent = messageInput;
+        const attachments = [];
+
+        if (pendingAttachments.length > 0) {
+            setIsUploadingAttachment(true);
+            setAttachmentError(null);
+
+            try {
+                // Upload all files in parallel
+                const results = await Promise.all(pendingAttachments.map(file => uploadService.uploadFile(file)));
+                attachments.push(...results);
+
+                // Append URLs to content (NIP-96 standard behavior for clients)
+                const urls = attachments.map(a => a.url).join(" ");
+                if (finalContent.trim()) {
+                    finalContent += "\n" + urls;
+                } else {
+                    finalContent = urls;
+                }
+            } catch (error: any) {
+                console.error("Failed to upload attachment:", error);
+                setIsUploadingAttachment(false);
+
+                if (error instanceof UploadError) {
+                    switch (error.code) {
+                        case UploadErrorCode.NO_SESSION:
+                            setAttachmentError("Session expired. Please lock/unlock.");
+                            break;
+                        case UploadErrorCode.AUTH_MISSING_KEY:
+                            setAttachmentError("Login required for upload.");
+                            break;
+                        case UploadErrorCode.FILE_TOO_LARGE:
+                            setAttachmentError("File too large.");
+                            break;
+                        case UploadErrorCode.NETWORK_ERROR:
+                            setAttachmentError("Network error. Check connection.");
+                            break;
+                        default:
+                            setAttachmentError(error.message || "Upload failed");
+                    }
+                } else {
+                    setAttachmentError("Upload failed unexpectedly");
+                }
+                return; // Stop sending
+            }
+        }
+
+        // 2. Prepare for Send
+        const currentInput = finalContent;
         const currentReplyTo = replyTo;
         const conversationId = selectedConversation.id;
 
@@ -36,6 +91,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setPendingAttachments([]);
         setPendingAttachmentPreviewUrls([]);
         setReplyTo(null);
+        setIsUploadingAttachment(false); // Done uploading
 
         try {
             if (selectedConversation.kind === 'dm') {
@@ -48,6 +104,9 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     plaintext: currentInput,
                     replyTo: currentReplyTo?.messageId
                 });
+
+                // Auto-accept the peer since we are initiating/responding consciously
+                peerTrust.acceptPeer({ publicKeyHex: selectedConversation.pubkey });
 
                 // Update contact overrides to show last message in sidebar
                 setContactOverridesByContactId(prev => ({
@@ -89,7 +148,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                         messageId: currentReplyTo.messageId,
                         previewText: currentReplyTo.previewText
                     } : undefined,
-                    attachments: [] // Attachments logic to be expanded
+                    attachments: attachments // Now we have actual attachments!
                 };
 
                 setMessagesByConversationId(prev => ({
@@ -100,7 +159,10 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         } catch (error: any) {
             console.error("Failed to send message:", error);
             toast.error("Failed to send message");
+            // Restore input on failure
             setMessageInput(currentInput);
+            // Note: We don't restore attachments here because they are mostly already uploaded 
+            // and it complicates the logic. User can re-select. 
         }
     }, [
         selectedConversation,
@@ -115,7 +177,11 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setPendingAttachmentPreviewUrls,
         setReplyTo,
         setContactOverridesByContactId,
-        setMessagesByConversationId
+        setMessagesByConversationId,
+        setIsUploadingAttachment,
+        setAttachmentError,
+        uploadService,
+        peerTrust
     ]);
 
     const deleteMessage = useCallback(async (params: { conversationId: string; messageId: string }) => {

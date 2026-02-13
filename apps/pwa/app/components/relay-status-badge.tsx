@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
-import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
-import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { cn } from "@/app/lib/utils";
 import { Wifi, WifiOff } from "lucide-react";
 
@@ -12,17 +10,8 @@ import { Wifi, WifiOff } from "lucide-react";
  * Shows real-time connection health to Nostr relays.
  */
 export function RelayStatusBadge() {
-    const identity = useIdentity();
-    const publicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
-    const relayList = useRelayList({ publicKeyHex });
+    const { relayPool: pool, enabledRelayUrls } = useRelay();
 
-    const enabledRelayUrls = useMemo(() => {
-        return relayList.state.relays
-            .filter((r) => r.enabled)
-            .map((r) => r.url);
-    }, [relayList.state.relays]);
-
-    const pool = useRelayPool(enabledRelayUrls);
 
     const openCount = pool.connections.filter((c) => c.status === "open").length;
     const totalCount = enabledRelayUrls.length;

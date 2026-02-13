@@ -33,8 +33,10 @@ export function ConfirmDialog({
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
-        return () => setMounted(false);
+        const tid = queueMicrotask(() => setMounted(true));
+        return () => {
+            setMounted(false);
+        };
     }, []);
 
     if (!isOpen || !mounted) return null;

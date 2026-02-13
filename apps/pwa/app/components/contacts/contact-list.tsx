@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { contactStore } from "@/app/features/invites/utils/contact-store";
 import type { Contact, ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
 import { ContactCard } from "./contact-card";
@@ -21,7 +21,7 @@ export const ContactList = () => {
     const [trustLevel, setTrustLevel] = useState<TrustLevel | "all">("all");
     const [groupId, setGroupId] = useState<string | "all">("all");
 
-    const loadData = async () => {
+    const loadData = React.useCallback(async () => {
         setLoading(true);
         try {
             const [allContacts, allGroups] = await Promise.all([
@@ -55,11 +55,11 @@ export const ContactList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchQuery, trustLevel, groupId]);
 
     useEffect(() => {
         void loadData();
-    }, [searchQuery, trustLevel, groupId]);
+    }, [loadData]);
 
     if (loading && contacts.length === 0) {
         return (

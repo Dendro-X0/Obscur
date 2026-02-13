@@ -10,6 +10,9 @@ import type { Conversation, RequestsInboxItem } from "../types";
 import { RequestsInboxPanel } from "./requests-inbox-panel";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { SidebarUserSearch } from "./sidebar-user-search";
+import { ConversationRow } from "./conversation-row";
+import { SearchMessageResult } from "./search-message-result";
+import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 
 export interface SidebarProps {
     isNewChatOpen: boolean;
@@ -101,12 +104,9 @@ export function Sidebar({
                         )}
                     >
                         {t("nav.requests")}
-                        {requests.length > 0 && (
-                            <span className={cn(
-                                "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] text-white shadow-sm",
-                                requestsUnreadTotal > 0 ? "bg-rose-500" : "bg-zinc-400 dark:bg-zinc-600"
-                            )}>
-                                {requestsUnreadTotal > 0 ? requestsUnreadTotal : requests.length}
+                        {requestsUnreadTotal > 0 && (
+                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] text-white shadow-sm">
+                                {requestsUnreadTotal}
                             </span>
                         )}
                     </button>
@@ -174,37 +174,14 @@ export function Sidebar({
                         ) : (
                             <>
                                 {filteredConversations.map((conversation) => (
-                                    <button
+                                    <ConversationRow
                                         key={conversation.id}
-                                        onClick={() => selectConversation(conversation)}
-                                        className={cn(
-                                            "flex w-full items-start gap-3 border-b border-black/5 p-3 text-left transition-all hover:bg-zinc-50/80 dark:border-white/5 dark:hover:bg-zinc-900/40",
-                                            selectedConversation?.id === conversation.id && "bg-zinc-100/50 dark:bg-zinc-900/60"
-                                        )}
-                                    >
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white dark:from-zinc-100 dark:to-zinc-300 dark:text-black shadow-sm">
-                                            {conversation.displayName[0]}
-                                        </div>
-
-                                        <div className="min-w-0 flex-1 py-0.5">
-                                            <div className="mb-1 flex items-center justify-between">
-                                                <span className="font-bold text-sm tracking-tight text-zinc-900 dark:text-zinc-100">{conversation.displayName}</span>
-                                                {formatTime(conversation.lastMessageTime, resolvedNowMs) ? (
-                                                    <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">{formatTime(conversation.lastMessageTime, resolvedNowMs)}</span>
-                                                ) : null}
-                                            </div>
-                                            <div className="flex items-start justify-between gap-2 overflow-hidden">
-                                                <p className="truncate text-xs text-zinc-600 dark:text-zinc-400 leading-normal flex-1">
-                                                    {conversation.lastMessage || t("messaging.noMessagesYet")}
-                                                </p>
-                                                {(unreadByConversationId[conversation.id] ?? conversation.unreadCount) > 0 ? (
-                                                    <span className="shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-black">
-                                                        {unreadByConversationId[conversation.id] ?? conversation.unreadCount}
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                    </button>
+                                        conversation={conversation}
+                                        isSelected={selectedConversation?.id === conversation.id}
+                                        onSelect={selectConversation}
+                                        unreadCount={unreadByConversationId[conversation.id] ?? conversation.unreadCount}
+                                        nowMs={resolvedNowMs}
+                                    />
                                 ))}
 
                                 {searchQuery.trim().length > 0 && (
@@ -220,23 +197,15 @@ export function Sidebar({
                                                     const conversation = allConversations.find((c) => c.id === result.conversationId);
                                                     if (!conversation) return null;
                                                     return (
-                                                        <button
+                                                        <SearchMessageResult
                                                             key={`${result.conversationId}-${result.messageId}`}
-                                                            type="button"
-                                                            className="w-full rounded-xl border border-black/5 bg-white p-3 text-left hover:border-purple-500/30 dark:border-white/5 dark:bg-zinc-900/50 transition-all shadow-sm"
-                                                            onClick={() => {
-                                                                selectConversation(conversation);
-                                                                setPendingScrollTarget({ conversationId: result.conversationId, messageId: result.messageId });
-                                                            }}
-                                                        >
-                                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                                <div className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">{conversation.displayName}</div>
-                                                                <div className="shrink-0 text-[10px] font-medium text-zinc-500">{formatTime(result.timestamp, resolvedNowMs) ?? ""}</div>
-                                                            </div>
-                                                            <div className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400 italic">
-                                                                &quot;{highlightText({ text: result.preview, query: searchQuery })}&quot;
-                                                            </div>
-                                                        </button>
+                                                            result={result}
+                                                            conversation={conversation}
+                                                            selectConversation={selectConversation}
+                                                            setPendingScrollTarget={setPendingScrollTarget}
+                                                            searchQuery={searchQuery}
+                                                            resolvedNowMs={resolvedNowMs}
+                                                        />
                                                     );
                                                 })}
                                             </div>

@@ -2822,7 +2822,7 @@ dependencies = [
 
 [[package]]
 name = "obscur_desktop_lib"
-version = "0.7.4"
+version = "0.7.6-alpha"
 dependencies = [
  "base64 0.22.1",
  "futures-util",

@@ -24,7 +24,7 @@ export function ReactionPicker({ x, y, onSelect, pickerRef }: ReactionPickerProp
                     <button
                         key={emoji}
                         type="button"
-                        className="rounded-lg px-2 py-1 text-lg hover:bg-black/5 dark:hover:bg-white/5"
+                        className="rounded-lg px-2 py-1 text-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-transform hover:scale-125 active:scale-95"
                         onClick={() => onSelect(emoji)}
                     >
                         {emoji}

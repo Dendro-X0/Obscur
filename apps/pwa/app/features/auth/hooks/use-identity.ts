@@ -129,7 +129,9 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
         await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
       } catch (e) {
-        console.warn("Failed to initialize native session:", e);
+        console.error("Failed to initialize native session:", e);
+        // On Desktop/Tauri, failing to sync with native is a hard error for onboarding
+        throw new Error(e instanceof Error ? e.message : "Failed to initialize secure storage. Please restart the app.");
       }
     }
 
@@ -156,7 +158,8 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
         await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
       } catch (e) {
-        console.warn("Failed to initialize native session during unlock:", e);
+        console.error("Failed to initialize native session during unlock:", e);
+        throw new Error(e instanceof Error ? e.message : "Failed to sync with secure storage.");
       }
     }
 

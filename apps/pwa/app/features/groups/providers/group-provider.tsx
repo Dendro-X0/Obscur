@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef } from "react";
 import type { GroupConversation, PersistedGroupConversation } from "@/app/features/messaging/types";
-import { loadPersistedChatState, fromPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
+import { loadPersistedChatState, fromPersistedGroupConversation, savePersistedChatState, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 
 interface GroupContextType {
     createdGroups: ReadonlyArray<GroupConversation>;
@@ -17,6 +17,8 @@ interface GroupContextType {
     setNewGroupName: (name: string) => void;
     newGroupMemberPubkeys: string;
     setNewGroupMemberPubkeys: (pubkeys: string) => void;
+    addGroup: (group: GroupConversation) => void;
+    leaveGroup: (groupId: string) => void;
 }
 
 const GroupContext = createContext<GroupContextType | null>(null);
@@ -31,18 +33,44 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const didHydrateRef = useRef(false);
 
-    // Persistence: Hydration
-    useEffect(() => {
-        if (didHydrateRef.current) return;
-        const persisted = loadPersistedChatState();
-        if (persisted) {
-            const nextCreatedGroups: ReadonlyArray<GroupConversation> = persisted.createdGroups.map((g: PersistedGroupConversation): GroupConversation =>
-                fromPersistedGroupConversation(g)
-            );
-            setCreatedGroups(nextCreatedGroups);
-        }
-        didHydrateRef.current = true;
-    }, []);
+    const addGroup = (group: GroupConversation) => {
+        setCreatedGroups(prev => {
+            if (prev.find(g => g.groupId === group.groupId)) return prev;
+            const next = [...prev, group];
+            const persisted = loadPersistedChatState() || {
+                version: 2,
+                createdGroups: [],
+                createdContacts: [],
+                unreadByConversationId: {},
+                contactOverridesByContactId: {},
+                messagesByConversationId: {},
+            };
+            savePersistedChatState({
+                ...persisted,
+                createdGroups: next.map(g => toPersistedGroupConversation(g))
+            });
+            return next;
+        });
+    };
+
+    const leaveGroup = (groupId: string) => {
+        setCreatedGroups(prev => {
+            const next = prev.filter(g => g.groupId !== groupId);
+            const persisted = loadPersistedChatState() || {
+                version: 2,
+                createdGroups: [],
+                createdContacts: [],
+                unreadByConversationId: {},
+                contactOverridesByContactId: {},
+                messagesByConversationId: {},
+            };
+            savePersistedChatState({
+                ...persisted,
+                createdGroups: next.map(g => toPersistedGroupConversation(g))
+            });
+            return next;
+        });
+    }
 
     const value = useMemo(() => ({
         createdGroups,
@@ -56,7 +84,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         newGroupName,
         setNewGroupName,
         newGroupMemberPubkeys,
-        setNewGroupMemberPubkeys
+        setNewGroupMemberPubkeys,
+        addGroup,
+        leaveGroup
     }), [createdGroups, isNewGroupOpen, isCreatingGroup, isGroupInfoOpen, newGroupName, newGroupMemberPubkeys]);
 
     return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;

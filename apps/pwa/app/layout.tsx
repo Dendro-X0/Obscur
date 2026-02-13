@@ -79,8 +79,8 @@ export default function RootLayout({
               <DesktopUpdater />
               <OfflineIndicator />
               <DeepLinkHandler />
-              <DesktopNotificationHandler />
               <AppProviders>
+                <DesktopNotificationHandler />
                 {children}
               </AppProviders>
             </I18nProvider>

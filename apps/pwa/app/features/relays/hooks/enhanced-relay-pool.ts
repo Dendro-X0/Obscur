@@ -38,6 +38,8 @@ export type EnhancedRelayPoolResult = Readonly<{
   canConnectToRelay: (url: string) => boolean;
   addTransientRelay: (url: string) => void;
   removeTransientRelay: (url: string) => void;
+  isConnected: () => boolean;
+  waitForConnection: (timeoutMs: number) => Promise<boolean>;
 }>;
 
 type RelayStatusByUrl = Readonly<Record<string, RelayConnection>>;
@@ -670,6 +672,32 @@ const canConnectToRelay = (url: string): boolean => {
   return relayHealthMonitor.canConnect(url);
 };
 
+const isConnected = (): boolean => {
+  return cachedSnapshot.connections.some(c => c.status === "open");
+};
+
+const waitForConnection = (timeoutMs: number): Promise<boolean> => {
+  if (isConnected()) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    let unsubscribe: () => void = () => { };
+
+    const timeoutId = setTimeout(() => {
+      unsubscribe();
+      resolve(false);
+    }, timeoutMs);
+
+    unsubscribe = relayHealthMonitor.subscribe((metricsMap) => {
+      const metrics = Array.from(metricsMap.values());
+      if (metrics.some(m => m.status === "connected")) {
+        clearTimeout(timeoutId);
+        unsubscribe();
+        resolve(true);
+      }
+    });
+  });
+};
+
 const serverSnapshot: RelayPoolState = { connections: [], healthMetrics: [] };
 
 /**
@@ -695,7 +723,7 @@ export const useEnhancedRelayPool = (urls: ReadonlyArray<string>): EnhancedRelay
 
   const snapshot: RelayPoolState = useSyncExternalStore(subscribe, getStateSnapshot, () => serverSnapshot);
 
-  return {
+  return useMemo(() => ({
     connections: snapshot.connections,
     healthMetrics: snapshot.healthMetrics,
     sendToOpen,
@@ -708,6 +736,8 @@ export const useEnhancedRelayPool = (urls: ReadonlyArray<string>): EnhancedRelay
     getRelayHealth,
     canConnectToRelay,
     addTransientRelay,
-    removeTransientRelay
-  };
+    removeTransientRelay,
+    isConnected,
+    waitForConnection
+  }), [snapshot]);
 };

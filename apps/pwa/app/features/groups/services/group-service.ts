@@ -8,6 +8,7 @@ export type GroupMetadata = {
     name?: string;
     about?: string;
     picture?: string;
+    access?: "public" | "private" | "closed";
 };
 
 /**
@@ -38,6 +39,7 @@ export class GroupService {
         if (params.metadata.name) tags.push(["name", params.metadata.name]);
         if (params.metadata.about) tags.push(["about", params.metadata.about]);
         if (params.metadata.picture) tags.push(["picture", params.metadata.picture]);
+        if (params.metadata.access) tags.push([params.metadata.access]);
 
         return createGroupProposalEvent({
             privateKeyHex: this.myPrivateKeyHex,

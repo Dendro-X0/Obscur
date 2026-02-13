@@ -3,12 +3,14 @@
 import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
-import { User, MessageSquare, Check, X, ShieldAlert, BadgeInfo, UserPlus } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
+import { MessageSquare, Check, X, ShieldAlert, BadgeInfo, UserPlus } from "lucide-react";
+// Removed unused Avatar imports
 import { cn } from "@/app/lib/utils";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { formatTime } from "../utils/formatting";
 import { useTranslation } from "react-i18next";
+import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { UserAvatar } from "../../profile/components/user-avatar";
 
 import type { ConnectionRequestStatusValue } from "../../messaging/types";
 
@@ -74,86 +76,114 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-2">
                 {requests.map((request) => (
-                    <Card key={request.peerPublicKeyHex} className="p-3 bg-white dark:bg-zinc-900 border-black/5 dark:border-white/5 hover:border-purple-500/30 transition-colors">
-                        <div className="flex items-start gap-3">
-                            <Avatar className="h-10 w-10 shrink-0 rounded-xl">
-                                <AvatarFallback className="rounded-xl">
-                                    <User className="h-5 w-5 text-zinc-400" />
-                                </AvatarFallback>
-                            </Avatar>
-
-                            <div className="flex-1 min-w-0" onClick={() => onSelect(request.peerPublicKeyHex)}>
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
-                                            {request.isRequest ? t("messaging.newConnection") : t("messaging.unknownPeer")}
-                                        </span>
-                                        {request.isRequest && (
-                                            <span className="shrink-0 flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tight">
-                                                <UserPlus className="h-2.5 w-2.5" />
-                                                {t("messaging.requestBadge")}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <span className="text-[10px] text-zinc-400 whitespace-nowrap">
-                                        {formatTime(new Date(request.lastReceivedAtUnixSeconds * 1000), nowMs)}
-                                    </span>
-                                </div>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed italic">
-                                    {request.lastMessagePreview}
-                                </p>
-                                <p className="text-[10px] text-zinc-400 mt-1 font-mono opacity-50">
-                                    {request.peerPublicKeyHex.slice(0, 8)}...
-                                </p>
-                            </div>
-
-                            {request.unreadCount > 0 && (
-                                <div className="h-5 min-w-5 rounded-full bg-purple-600 px-1.5 flex items-center justify-center">
-                                    <span className="text-[10px] font-black text-white">{request.unreadCount}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {request.status && request.status !== 'pending' ? (
-                            <div className={cn(
-                                "mt-4 p-2 rounded-lg text-center text-[10px] font-bold uppercase tracking-widest",
-                                request.status === 'accepted' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" : "bg-rose-50 text-rose-600 dark:bg-rose-950/30"
-                            )}>
-                                {t(`messaging.status.${request.status}`)}
-                            </div>
-                        ) : (
-                            <div className="mt-4 flex gap-2">
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="flex-1 h-8 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border-none text-[10px] font-bold"
-                                    onClick={() => onAccept(request.peerPublicKeyHex)}
-                                >
-                                    <Check className="mr-1 h-3 w-3" /> {t("common.accept")}
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                                    onClick={() => onIgnore(request.peerPublicKeyHex)}
-                                    title={t("common.ignore")}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500"
-                                    onClick={() => onBlock(request.peerPublicKeyHex)}
-                                    title={t("common.blockAndReport")}
-                                >
-                                    <ShieldAlert className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        )}
-                    </Card>
+                    <RequestItemRow
+                        key={request.peerPublicKeyHex}
+                        request={request}
+                        nowMs={nowMs}
+                        onAccept={onAccept}
+                        onIgnore={onIgnore}
+                        onBlock={onBlock}
+                        onSelect={onSelect}
+                    />
                 ))}
             </div>
         </div>
+    );
+}
+
+interface RequestItemRowProps {
+    request: RequestItem;
+    nowMs: number;
+    onAccept: (pubkey: PublicKeyHex) => void;
+    onIgnore: (pubkey: PublicKeyHex) => void;
+    onBlock: (pubkey: PublicKeyHex) => void;
+    onSelect: (pubkey: PublicKeyHex) => void;
+}
+
+function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect }: RequestItemRowProps) {
+    const { t } = useTranslation();
+    const metadata = useProfileMetadata(request.peerPublicKeyHex);
+    const displayName = metadata?.displayName || (request.isRequest ? t("messaging.newConnection") : t("messaging.unknownPeer"));
+
+    return (
+        <Card className="p-3 bg-white dark:bg-zinc-900 border-black/5 dark:border-white/5 hover:border-purple-500/30 transition-colors">
+            <div className="flex items-start gap-3">
+                <UserAvatar
+                    pubkey={request.peerPublicKeyHex}
+                    size="md"
+                    className="shrink-0 rounded-xl"
+                    showProfileOnClick={false}
+                />
+
+                <div className="flex-1 min-w-0" onClick={() => onSelect(request.peerPublicKeyHex)}>
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                                {displayName}
+                            </span>
+                            {request.isRequest && (
+                                <span className="shrink-0 flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tight">
+                                    <UserPlus className="h-3.5 w-3.5" />
+                                    {t("messaging.requestBadge")}
+                                </span>
+                            )}
+                        </div>
+                        <span className="text-[10px] text-zinc-400 whitespace-nowrap">
+                            {formatTime(new Date(request.lastReceivedAtUnixSeconds * 1000), nowMs)}
+                        </span>
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed italic">
+                        {request.lastMessagePreview}
+                    </p>
+                    <p className="text-[10px] text-zinc-400 mt-1 font-mono opacity-50">
+                        {request.peerPublicKeyHex.slice(0, 8)}...
+                    </p>
+                </div>
+
+                {request.unreadCount > 0 && (
+                    <div className="h-5 min-w-5 rounded-full bg-purple-600 px-1.5 flex items-center justify-center">
+                        <span className="text-[10px] font-black text-white">{request.unreadCount}</span>
+                    </div>
+                )}
+            </div>
+
+            {request.status && request.status !== 'pending' ? (
+                <div className={cn(
+                    "mt-4 p-2 rounded-lg text-center text-[10px] font-bold uppercase tracking-widest",
+                    request.status === 'accepted' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" : "bg-rose-50 text-rose-600 dark:bg-rose-950/30"
+                )}>
+                    {t(`messaging.status.${request.status}`)}
+                </div>
+            ) : (
+                <div className="mt-4 flex gap-2">
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 h-9 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border-none text-[11px] font-bold"
+                        onClick={() => onAccept(request.peerPublicKeyHex)}
+                    >
+                        <Check className="mr-1.5 h-4 w-4" /> {t("common.accept")}
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-9 w-9 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                        onClick={() => onIgnore(request.peerPublicKeyHex)}
+                        title={t("common.ignore")}
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500"
+                        onClick={() => onBlock(request.peerPublicKeyHex)}
+                        title={t("common.blockAndReport")}
+                    >
+                        <ShieldAlert className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
+        </Card>
     );
 }

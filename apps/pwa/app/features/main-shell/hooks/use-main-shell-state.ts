@@ -1,11 +1,11 @@
 
-import { useState, useRef, useCallback, useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { useRouter, useSearchParams } from "next/navigation";
-import type { Conversation, DmConversation, GroupConversation, Message, UnreadByConversationId, ContactOverridesByContactId, MessagesByConversationId, ReplyTo } from "@/app/features/messaging/types";
+import { useState, useRef } from "react";
+
+
+import type { Conversation, DmConversation, GroupConversation, UnreadByConversationId, ContactOverridesByContactId, MessagesByConversationId, ReplyTo } from "@/app/features/messaging/types";
 
 export function useMainShellState() {
-    const { t } = useTranslation();
+
     const didHydrateFromStorageRef = useRef<boolean>(false);
     const handledIncomingDmIdsRef = useRef<Set<string>>(new Set<string>());
     const handledAcceptedOutgoingDmIdsRef = useRef<Set<string>>(new Set<string>());

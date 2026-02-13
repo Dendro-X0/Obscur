@@ -1,5 +1,5 @@
-
 import React, { useState } from "react";
+import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
 import { MessageList } from "./message-list";
@@ -11,6 +11,7 @@ import { ReactionPicker } from "./reaction-picker";
 import { Lock, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary } from "../types";
+import Image from "next/image";
 
 export interface ChatViewProps {
     conversation: Conversation;
@@ -71,14 +72,18 @@ export interface ChatViewProps {
     setLightboxIndex: (val: number | null) => void;
     recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
     isPeerAccepted?: boolean;
+    isInitiator?: boolean;
     onAcceptPeer?: () => void;
     onBlockPeer?: () => void;
     groupAdmins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
 }
 
+
 export function ChatView(props: ChatViewProps) {
     const { t } = useTranslation();
     const [isDragging, setIsDragging] = useState(false);
+    const metadata = useProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
+    const resolvedName = metadata?.displayName || props.conversation.displayName;
 
     const getMessageById = (messageId: string): Message | undefined => {
         return props.messages.find(m => m.id === messageId);
@@ -126,7 +131,8 @@ export function ChatView(props: ChatViewProps) {
 
             {props.conversation.kind === 'dm' && props.isPeerAccepted === false && (
                 <StrangerWarningBanner
-                    displayName={props.conversation.displayName}
+                    displayName={resolvedName}
+                    isInitiator={props.isInitiator}
                     onAccept={() => props.onAcceptPeer?.()}
                     onIgnore={() => {
                         // For ignore, we can just close the banner by setting a local state or 
@@ -142,8 +148,12 @@ export function ChatView(props: ChatViewProps) {
                 <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6 text-center opacity-0 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-forwards delay-200">
                     <div className="relative">
                         <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center shadow-2xl shadow-purple-500/10 ring-1 ring-black/5 dark:ring-white/5">
-                            <span className="text-4xl font-black text-zinc-300 dark:text-zinc-600 select-none">
-                                {props.conversation.displayName?.[0]?.toUpperCase()}
+                            <span className="text-4xl font-black text-zinc-300 dark:text-zinc-600 select-none overflow-hidden h-full w-full flex items-center justify-center rounded-3xl">
+                                {metadata?.avatarUrl ? (
+                                    <Image src={metadata.avatarUrl} alt={resolvedName} fill unoptimized className="object-cover" />
+                                ) : (
+                                    resolvedName[0]?.toUpperCase()
+                                )}
                             </span>
                         </div>
                         <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1.5 rounded-full ring-4 ring-white dark:ring-black">
@@ -153,7 +163,7 @@ export function ChatView(props: ChatViewProps) {
 
                     <div className="space-y-2 max-w-sm">
                         <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                            {props.conversation.displayName}
+                            {resolvedName}
                         </h2>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                             {t("messaging.chatStart")}
@@ -203,6 +213,7 @@ export function ChatView(props: ChatViewProps) {
                 textareaRef={props.composerTextareaRef}
                 recipientStatus={props.recipientStatus}
                 isPeerAccepted={props.isPeerAccepted}
+                isInitiator={props.isInitiator}
                 onSendVoiceNote={props.onSendVoiceNote}
             />
 
@@ -249,7 +260,7 @@ export function ChatView(props: ChatViewProps) {
             <MediaGallery
                 isOpen={props.isMediaGalleryOpen}
                 onClose={() => props.setIsMediaGalleryOpen(false)}
-                conversationDisplayName={props.conversation.displayName}
+                conversationDisplayName={resolvedName}
                 mediaItems={props.selectedConversationMediaItems}
                 onSelect={props.setLightboxIndex}
             />

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ProfileSearchService, type ProfileSearchResult } from "../../search/services/profile-search-service";
-import { useRelayPool } from "../../relays/hooks/use-relay-pool";
+import { useRelay } from "../../relays/providers/relay-provider";
 import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { Search, UserPlus, Loader2, Info } from "lucide-react";
@@ -14,7 +14,7 @@ import { useIdentity } from "../../auth/hooks/use-identity";
  */
 export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: ProfileSearchResult) => void }) => {
     const { t } = useTranslation();
-    const pool = useRelayPool([]); // Get global pool
+    const { relayPool: pool } = useRelay();
     const { state: identityState } = useIdentity();
 
     const [query, setQuery] = useState("");

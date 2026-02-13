@@ -7,6 +7,9 @@ import { useTranslation } from "react-i18next";
 import { Camera, Loader2, Search, UserCheck, UserX, Check, MessageSquare, UserPlus } from "lucide-react";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { nip19 } from "nostr-tools";
+import { useInviteResolver } from "@/app/features/invites/utils/use-invite-resolver";
+import { isValidInviteCode } from "@/app/features/invites/utils/invite-parser";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 
 import { SearchResultsList } from "../../search/components/search-results-list";
 import { QRScanner } from "../../invites/components/qr-scanner";
@@ -54,7 +57,7 @@ interface NewChatDialogProps {
     setPubkey: (val: string) => void;
     displayName: string;
     setDisplayName: (val: string) => void;
-    onCreate: () => void;
+    onCreate: (pubkey?: string) => void;
     verifyRecipient: (pubkeyHex: string) => Promise<{ exists: boolean; profile?: NostrProfileMetadata }>;
     searchProfiles: (query: string) => Promise<ProfileSearchResult[]>;
     isAccepted: (pubkeyHex: string) => boolean;
@@ -80,47 +83,61 @@ export function NewChatDialog({
     const [foundProfile, setFoundProfile] = useState<FoundProfile | null>(null);
     const [resolvedPubkeyHex, setResolvedPubkeyHex] = useState<PublicKeyHex | null>(null);
 
+    const identity = useIdentity();
+    const myPublicKeyHex = (identity.state.publicKeyHex as PublicKeyHex | null) ?? null;
+    const inviteResolver = useInviteResolver({ myPublicKeyHex });
+
     const trimmedPubkey = pubkey.trim();
-    const parsed = parsePublicKeyInput(trimmedPubkey);
+    const parsed = useMemo(() => parsePublicKeyInput(trimmedPubkey), [trimmedPubkey]);
 
     useEffect(() => {
-        if (!isOpen) {
-            return;
-        }
-        if (!parsed.ok) {
-            return;
-        }
-        if (resolvedPubkeyHex) {
-            return;
-        }
-        setIsSearching(true);
-        setResolvedPubkeyHex(parsed.publicKeyHex);
-        void verifyRecipient(parsed.publicKeyHex)
-            .then((result) => {
-                if (!result.exists) {
-                    setVerificationStatus("not_found");
-                    return;
-                }
-                setVerificationStatus("found");
-                setFoundProfile(result.profile ?? null);
-                const name = result.profile?.display_name || result.profile?.name;
-                if (name) {
-                    setDisplayName(name);
-                }
-            })
-            .catch((e: unknown) => {
-                console.error("Auto-verify recipient failed:", e);
-            })
-            .finally(() => {
-                setIsSearching(false);
-            });
-    }, [isOpen, parsed.ok, resolvedPubkeyHex, setDisplayName, verifyRecipient]);
+        if (!isOpen) return;
 
-    useEffect(() => {
-        setVerificationStatus('idle');
-        setFoundProfile(null);
-        setResolvedPubkeyHex(null);
-    }, [pubkey]);
+        const isLikelyNip05 = trimmedPubkey.includes('@');
+        const isInviteCode = isValidInviteCode(trimmedPubkey.toUpperCase());
+
+        // If input is empty or clearly invalid (not a potential NIP-05 AND not a valid invite code), reset state
+        if (!trimmedPubkey || (!parsed.ok && !isLikelyNip05 && !isInviteCode)) {
+            setVerificationStatus('idle');
+            setFoundProfile(null);
+            setResolvedPubkeyHex(null);
+            return;
+        }
+
+        // Handle hex/npub auto-resolution
+        if (parsed.ok && resolvedPubkeyHex !== parsed.publicKeyHex) {
+            // Optimistically set the resolved hex so the button is enabled immediately
+            setResolvedPubkeyHex(parsed.publicKeyHex);
+
+            // Start verification
+            setIsSearching(true);
+            setVerificationStatus('idle');
+            setFoundProfile(null);
+
+            void verifyRecipient(parsed.publicKeyHex)
+                .then((result) => {
+                    // Only update if we are still looking at the same key
+                    if (parsed.ok) {
+                        if (!result.exists) {
+                            setVerificationStatus("not_found");
+                            return;
+                        }
+                        setVerificationStatus("found");
+                        setFoundProfile(result.profile ?? null);
+                        const name = result.profile?.display_name || result.profile?.name;
+                        if (name) {
+                            setDisplayName(name);
+                        }
+                    }
+                })
+                .catch((e: unknown) => {
+                    console.error("Auto-verify recipient failed:", e);
+                })
+                .finally(() => {
+                    setIsSearching(false);
+                });
+        }
+    }, [isOpen, parsed, resolvedPubkeyHex, setDisplayName, verifyRecipient, trimmedPubkey]);
 
     const [nip05Error, setNip05Error] = useState<string | null>(null);
     const [searchResults, setSearchResults] = useState<ProfileSearchResult[]>([]);
@@ -163,6 +180,27 @@ export function NewChatDialog({
         setSearchResults([]);
 
         try {
+            // Check for Invite Code
+            const code = query.toUpperCase();
+            if (isValidInviteCode(code)) {
+                const resolved = await inviteResolver.resolveCode(code);
+                if (resolved) {
+                    setResolvedPubkeyHex(resolved.publicKeyHex);
+                    setVerificationStatus('found');
+                    setFoundProfile({
+                        name: resolved.displayName,
+                        display_name: resolved.displayName,
+                        picture: resolved.avatar
+                    });
+                    if (resolved.displayName) {
+                        setDisplayName(resolved.displayName);
+                    }
+                } else {
+                    setVerificationStatus('not_found');
+                }
+                return;
+            }
+
             if (query.includes('@')) {
                 const nip05 = await import("@/app/features/profile/utils/nip05-resolver").then(m => m.resolveNip05(query));
                 if (nip05.ok) {
@@ -231,6 +269,8 @@ export function NewChatDialog({
         });
 
         if (result.success) {
+            // Also create the conversation locally so it appears in the sidebar using the resolved hex
+            onCreate(resolvedPubkeyHex);
             onClose();
         }
     };
@@ -346,14 +386,15 @@ export function NewChatDialog({
                                 <div className="flex items-start gap-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-900/50">
                                     <UserX className="h-4 w-4 mt-0.5 shrink-0" />
                                     <div>
-                                        <p className="font-bold">{t("messaging.userNotFound")}</p>
+                                        <p className="font-bold">{t("messaging.noProfileFound") || "No Profile Data Found"}</p>
                                         <p className="opacity-90 leading-relaxed mt-0.5">
-                                            {t("messaging.userNotFoundDesc")}
+                                            {t("messaging.noProfileFoundDesc") || "This user hasn't published a profile yet, but you can still send them message requests using their public key."}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
                                     <Button type="button" variant="secondary" size="sm" className="flex-1 text-xs" onClick={() => {
+                                        void handleUnifiedSearch();
                                     }}>
                                         {t("messaging.tryGlobalSearch")}
                                     </Button>
@@ -384,12 +425,17 @@ export function NewChatDialog({
                                 if (resolvedPubkeyHex && !isAccepted(resolvedPubkeyHex)) {
                                     setIsRequestDialogOpen(true);
                                 } else {
-                                    onCreate();
+                                    onCreate(resolvedPubkeyHex || undefined);
                                 }
                             }}
-                            disabled={!resolvedPubkeyHex}
+                            disabled={!resolvedPubkeyHex || isSearching}
                         >
-                            {resolvedPubkeyHex && !isAccepted(resolvedPubkeyHex) ? (
+                            {isSearching ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    {t("common.searching")}
+                                </span>
+                            ) : resolvedPubkeyHex && !isAccepted(resolvedPubkeyHex) ? (
                                 <span className="flex items-center gap-2">
                                     <UserPlus className="h-4 w-4" />
                                     {t("contacts.connect")}
@@ -403,7 +449,7 @@ export function NewChatDialog({
                         </Button>
                     </div>
                 </div>
-            </Card>
+            </Card >
 
             <SendRequestDialog
                 isOpen={isRequestDialogOpen}
@@ -411,6 +457,6 @@ export function NewChatDialog({
                 recipientName={displayName || t("common.unknown")}
                 onSend={handleSendRequest}
             />
-        </div>
+        </div >
     );
 }

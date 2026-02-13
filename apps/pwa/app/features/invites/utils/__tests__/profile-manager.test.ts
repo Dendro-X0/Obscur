@@ -3,11 +3,13 @@ import fc from 'fast-check';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import { profileManager } from '../profile-manager';
+import { contactStore } from '../contact-store';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 import type { UserProfile, PrivacySettings, ShareableProfile } from '../types';
 import { USER_PROFILE_KEY, PRIVACY_SETTINGS_KEY } from '../constants';
 
 // Mock crypto service
-vi.mock('../../crypto/crypto-service', () => ({
+vi.mock('@/app/features/crypto/crypto-service', () => ({
   cryptoService: {
     signInviteData: vi.fn(),
     isValidPubkey: vi.fn()
@@ -29,7 +31,7 @@ describe('Profile Manager Property Tests', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    
+
     // Setup localStorage mock
     Object.defineProperty(window, 'localStorage', {
       value: mockLocalStorage,
@@ -37,9 +39,9 @@ describe('Profile Manager Property Tests', () => {
     });
 
     // Setup crypto service mocks
-    const { cryptoService } = await import('../../crypto/crypto-service');
+    const { cryptoService } = await import('@/app/features/crypto/crypto-service');
     vi.mocked(cryptoService.signInviteData).mockResolvedValue('mock-signature-hex');
-    vi.mocked(cryptoService.isValidPubkey).mockImplementation((key: string) => {
+    vi.mocked(cryptoService.isValidPubkey).mockImplementation(async (key: string) => {
       return typeof key === 'string' && key.length === 64 && /^[0-9a-f]{64}$/i.test(key);
     });
   });
@@ -59,11 +61,11 @@ describe('Profile Manager Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             displayName: fc.string({ minLength: 1, maxLength: 100 }),
-            avatar: fc.option(fc.webUrl()),
-            bio: fc.option(fc.string({ minLength: 0, maxLength: 500 })),
-            website: fc.option(fc.webUrl()),
-            nip05: fc.option(fc.string({ minLength: 1, maxLength: 100 })),
-            lud16: fc.option(fc.string({ minLength: 1, maxLength: 100 }))
+            avatar: fc.option(fc.webUrl(), { nil: undefined }),
+            bio: fc.option(fc.string({ minLength: 0, maxLength: 500 }), { nil: undefined }),
+            website: fc.option(fc.webUrl(), { nil: undefined }),
+            nip05: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined }),
+            lud16: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined })
           }),
           fc.record({
             shareDisplayName: fc.boolean(),
@@ -181,7 +183,7 @@ describe('Profile Manager Property Tests', () => {
       mockLocalStorage.getItem.mockReturnValue(null);
 
       const profile = await profileManager.getProfile();
-      
+
       // Should return default profile
       expect(profile.displayName).toBe('');
       expect(profile.avatar).toBeUndefined();
@@ -219,11 +221,11 @@ describe('Profile Manager Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             displayName: fc.string({ minLength: 1, maxLength: 100 }),
-            avatar: fc.option(fc.webUrl()),
-            bio: fc.option(fc.string({ minLength: 0, maxLength: 500 })),
-            website: fc.option(fc.webUrl()),
-            nip05: fc.option(fc.string({ minLength: 1, maxLength: 100 })),
-            lud16: fc.option(fc.string({ minLength: 1, maxLength: 100 }))
+            avatar: fc.option(fc.webUrl(), { nil: undefined }),
+            bio: fc.option(fc.string({ minLength: 0, maxLength: 500 }), { nil: undefined }),
+            website: fc.option(fc.webUrl(), { nil: undefined }),
+            nip05: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined }),
+            lud16: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined })
           }),
           async (profile: UserProfile) => {
             // Update profile
@@ -312,15 +314,15 @@ describe('Profile Manager Property Tests', () => {
 
       // Generate multiple shareable profiles
       const profile1 = await profileManager.getShareableProfile(validPublicKey, validPrivateKey);
-      
+
       // Wait a bit to ensure different timestamp
       await new Promise(resolve => setTimeout(resolve, 1));
-      
+
       const profile2 = await profileManager.getShareableProfile(validPublicKey, validPrivateKey);
 
       // Timestamps should be different
       expect(profile2.timestamp).toBeGreaterThan(profile1.timestamp);
-      
+
       // Other data should be the same
       expect(profile1.displayName).toBe(profile2.displayName);
       expect(profile1.publicKey).toBe(profile2.publicKey);
@@ -442,7 +444,7 @@ describe('Profile Manager Property Tests', () => {
     });
 
     it('should handle crypto service errors gracefully', async () => {
-      const { cryptoService } = await import('../../crypto/crypto-service');
+      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
       vi.mocked(cryptoService.signInviteData).mockRejectedValue(new Error('Signing failed'));
 
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
@@ -455,8 +457,8 @@ describe('Profile Manager Property Tests', () => {
     });
 
     it('should handle invalid public keys', async () => {
-      const { cryptoService } = await import('../../crypto/crypto-service');
-      vi.mocked(cryptoService.isValidPubkey).mockReturnValue(false);
+      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+      vi.mocked(cryptoService.isValidPubkey).mockResolvedValue(false);
 
       const invalidProfile: ShareableProfile = {
         publicKey: 'invalid-key' as PublicKeyHex,
@@ -470,8 +472,8 @@ describe('Profile Manager Property Tests', () => {
 
   describe('Integration with Crypto Service', () => {
     it('should use crypto service for signing shareable profiles', async () => {
-      const { cryptoService } = await import('../../crypto/crypto-service');
-      
+      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+
       const profile: UserProfile = {
         displayName: 'Test User',
         avatar: 'https://example.com/avatar.jpg'
@@ -505,8 +507,8 @@ describe('Profile Manager Property Tests', () => {
     });
 
     it('should use crypto service for public key validation', async () => {
-      const { cryptoService } = await import('../../crypto/crypto-service');
-      
+      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+
       const profile: ShareableProfile = {
         publicKey: validPublicKey,
         timestamp: Date.now(),

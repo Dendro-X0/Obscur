@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
@@ -21,10 +22,19 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     const identity = useIdentity();
     const profile = useProfile();
     const { isLocked, unlock: clearInactivityLock } = useAutoLock();
+    const [isOnboarding, setIsOnboarding] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
 
     const isIdentityLocked = identity.state.status === "locked";
     const hasStoredIdentity = !!identity.state.stored;
+
+    // Track when we should be in onboarding mode
+    React.useEffect(() => {
+        if (identity.state.status === "locked" && !hasStoredIdentity) {
+            setIsOnboarding(true);
+        }
+        // If we have a stored identity, we only stay in onboarding if we've already started it
+    }, [identity.state.status, hasStoredIdentity]);
 
     const handleUnlock = async (passphrase: string): Promise<boolean> => {
         setIsUnlocking(true);
@@ -46,8 +56,8 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         return (
             <div className="fixed inset-0 flex items-center justify-center bg-zinc-50 dark:bg-black z-[200]">
                 <div className="relative flex h-24 w-24 items-center justify-center">
-                    <img src="/obscur-logo-light.svg" alt="Loading" className="h-20 w-20 animate-pulse dark:hidden" />
-                    <img src="/obscur-logo-dark.svg" alt="Loading" className="hidden h-20 w-20 animate-pulse dark:block" />
+                    <Image src="/obscur-logo-light.svg" alt="Loading" width={80} height={80} className="animate-pulse dark:hidden" priority />
+                    <Image src="/obscur-logo-dark.svg" alt="Loading" width={80} height={80} className="hidden animate-pulse dark:block" priority />
                 </div>
             </div>
         );
@@ -66,15 +76,14 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         );
     }
 
-    // 3. New User / No Stored Identity
-    // If we are locked but have no stored data, we show onboarding
-    if (isIdentityLocked && !hasStoredIdentity) {
-        return <OnboardingWizard />;
+    // 3. New User / Onboarding Flow
+    if (isOnboarding) {
+        return <OnboardingWizard onComplete={() => setIsOnboarding(false)} />;
     }
 
     // 4. Identity is Unlocked but inactive-lock is active
     // Or Identity is Locked and we have stored data
-    const shouldShowLockScreen = isLocked || isIdentityLocked;
+    const shouldShowLockScreen = isLocked || (isIdentityLocked && hasStoredIdentity);
 
     if (shouldShowLockScreen) {
         return (

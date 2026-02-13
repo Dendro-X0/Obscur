@@ -461,6 +461,19 @@ async fn clear_native_session(session: tauri::State<'_, SessionState>) -> Result
     Ok(())
 }
 
+#[tauri::command]
+async fn get_session_status(session: tauri::State<'_, SessionState>) -> Result<session::SessionStatus, String> {
+    let keys_opt = session.get_keys().await;
+    let npub = keys_opt.map(|k| k.public_key().to_string());
+    let is_active = npub.is_some();
+
+    Ok(session::SessionStatus {
+        is_active,
+        npub,
+        is_native: true,
+    })
+}
+
 
 // Save window state to storage
 #[tauri::command]
@@ -519,7 +532,7 @@ fn apply_window_state(window: &WebviewWindow, state: WindowState) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_upload::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -530,9 +543,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init());
 
     #[cfg(mobile)]
-    {
-        builder = builder.plugin(tauri_plugin_store::Builder::new().build());
-    }
+    let builder = builder.plugin(tauri_plugin_store::Builder::new().build());
 
     builder
         .setup(|app| {
@@ -714,7 +725,8 @@ pub fn run() {
             save_tor_settings,
             restart_app,
             init_native_session,
-            clear_native_session
+            clear_native_session,
+            get_session_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

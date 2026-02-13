@@ -2,9 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { contactStore } from '../contact-store';
 import { profileManager } from '../profile-manager';
 import { qrGenerator } from '../qr-generator';
-import { cryptoService } from '../../crypto/crypto-service';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 import type { Contact, ContactGroup, UserProfile, PrivacySettings } from '../types';
-import type { PublicKeyHex, PrivateKeyHex } from '@dweb/crypto';
+import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
+import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 
 /**
  * Core Services Integration Tests
@@ -24,7 +25,7 @@ describe('Core Services Integration', () => {
       for (const contact of allContacts) {
         await contactStore.removeContact(contact.id);
       }
-      
+
       const allGroups = await contactStore.getAllGroups();
       for (const group of allGroups) {
         await contactStore.deleteGroup(group.id);
@@ -102,7 +103,7 @@ describe('Core Services Integration', () => {
         color: '#blue',
         createdAt: new Date()
       };
-      
+
       await contactStore.createGroup(group);
       const retrievedGroup = await contactStore.getGroup(group.id);
       expect(retrievedGroup).toEqual(group);
@@ -216,7 +217,7 @@ describe('Core Services Integration', () => {
       // 1. Generate invite ID
       const inviteId1 = cryptoService.generateInviteId();
       const inviteId2 = cryptoService.generateInviteId();
-      
+
       expect(inviteId1).toBeTruthy();
       expect(inviteId2).toBeTruthy();
       expect(inviteId1).not.toBe(inviteId2); // Should be unique
@@ -229,7 +230,7 @@ describe('Core Services Integration', () => {
       // 3. Test secure random generation
       const random1 = cryptoService.generateSecureRandom(16);
       const random2 = cryptoService.generateSecureRandom(16);
-      
+
       expect(random1).toHaveLength(16);
       expect(random2).toHaveLength(16);
       expect(random1).not.toEqual(random2); // Should be different
@@ -264,7 +265,7 @@ describe('Core Services Integration', () => {
       };
 
       await contactStore.addContact(contact);
-      
+
       await expect(
         contactStore.addContactToGroup(contact.id, 'non-existent-group')
       ).rejects.toThrow();
@@ -324,7 +325,7 @@ describe('Core Services Integration', () => {
         trustLevel: 'neutral',
         groups: [],
         addedAt: new Date(),
-        metadata: { source: 'test' }
+        metadata: { source: 'manual' }
       };
 
       await contactStore.addContact(contact);
@@ -362,7 +363,7 @@ describe('Core Services Integration', () => {
 
       const updatedProfile = { ...profile, ...partialUpdate };
       await profileManager.updateProfile(updatedProfile);
-      
+
       const retrieved2 = await profileManager.getProfile();
       expect(retrieved2).toEqual(updatedProfile);
       expect(retrieved2.displayName).toBe(profile.displayName); // Should preserve existing data

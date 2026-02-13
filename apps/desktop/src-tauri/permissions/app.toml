@@ -34,7 +34,8 @@ commands.allow = [
     "get_system_theme",
     "nip96_upload",
     "nip96_upload_v2",
-    "restart_app"
+    "restart_app",
+    "reset_app_storage"
 ]
 
 [[permission]]
@@ -60,7 +61,11 @@ commands.allow = [
     "sign_event_native",
     "logout_native",
     "init_native_session",
-    "clear_native_session"
+    "clear_native_session",
+    "encrypt_nip04",
+    "decrypt_nip04",
+    "get_session_nsec",
+    "get_session_status"
 ]
 
 [[set]]

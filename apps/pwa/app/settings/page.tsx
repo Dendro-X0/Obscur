@@ -18,7 +18,8 @@ import {
   Loader2,
   Trash2,
   LogOut,
-  Wifi
+  Wifi,
+  Copy
 } from "lucide-react";
 import { RelayDashboard } from "../components/relay-dashboard";
 import { Button } from "../components/ui/button";
@@ -33,12 +34,11 @@ import { cn } from "@/app/lib/utils";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
 import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
-import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
-import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+// unused import removed
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import type { RelayConnection } from "@/app/features/relays/utils/relay-connection";
 import { ThemeToggle } from "../components/theme-toggle";
-import { useHorizontalScroll } from "@/app/features/messaging/hooks/use-horizontal-scroll";
+// unused import removed
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useNotificationPreference } from "@/app/features/notifications/hooks/use-notification-preference";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
@@ -46,7 +46,7 @@ import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { DesktopUpdater } from "../components/desktop-updater";
-import { KeyboardShortcutsHelp } from "../components/desktop/keyboard-shortcuts-help";
+// unused import removed
 import { ShareInviteCard } from "../components/share-invite-card";
 import { LanguageSelector } from "../components/language-selector";
 import { useTranslation } from "react-i18next";
@@ -60,6 +60,7 @@ import { AvatarUpload } from "../components/avatar-upload";
 import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
 import { invoke } from "@tauri-apps/api/core";
+import { useUserInviteCode } from "@/app/features/invites/hooks/use-user-invite-code";
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -146,19 +147,21 @@ export default function SettingsPage(): React.JSX.Element {
   const profile = useProfile();
   const notificationPreference = useNotificationPreference();
   const { publishProfile, isPublishing } = useProfilePublisher();
-  const relayList = useRelayList({ publicKeyHex });
+  const { relayList, relayPool: pool } = useRelay();
   const blocklist = useBlocklist({ publicKeyHex });
-  const enabledRelayUrls: ReadonlyArray<string> = useMemo((): ReadonlyArray<string> => {
-    return relayList.state.relays
-      .filter((relay: Readonly<{ url: string; enabled: boolean }>): boolean => relay.enabled)
-      .map((relay: Readonly<{ url: string; enabled: boolean }>): string => relay.url);
-  }, [relayList.state.relays]);
-  const pool = useRelayPool(enabledRelayUrls);
+
+  // Ensure we have an invite code generated
+  useUserInviteCode({
+    publicKeyHex,
+    privateKeyHex: identity.state.privateKeyHex || null
+  });
+
   const [newRelayUrl, setNewRelayUrl] = useState<string>("");
   const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
   const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isVerifyingNip05, setIsVerifyingNip05] = useState(false);
+  const [savedInviteCode, setSavedInviteCode] = useState<string>(profile.state.profile.inviteCode || "");
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => PrivacySettingsService.getSettings());
   const [nip96Config, setNip96Config] = useState<Nip96Config>(() => {
     const fallback: Nip96Config = { apiUrl: "", enabled: false };
@@ -223,7 +226,7 @@ export default function SettingsPage(): React.JSX.Element {
       } else {
         toast.error(`Verification failed: ${result.reason}`);
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred during verification");
     } finally {
       setIsVerifyingNip05(false);
@@ -238,13 +241,7 @@ export default function SettingsPage(): React.JSX.Element {
     return result;
   }, [pool.connections]);
 
-  const relayCounts = useMemo((): Readonly<Record<RelayConnectionStatus, number>> => {
-    const base: Record<RelayConnectionStatus, number> = { connecting: 0, open: 0, error: 0, closed: 0 };
-    Object.values(relayStatusByUrl).forEach((status: RelayConnectionStatus): void => {
-      base[status] += 1;
-    });
-    return base;
-  }, [relayStatusByUrl]);
+
 
   const handleCheckApi = (): void => {
     const baseUrl: string = getApiBaseUrl().replace(/\/$/, "");
@@ -278,7 +275,7 @@ export default function SettingsPage(): React.JSX.Element {
 
   const trimmedRelayUrl: string = newRelayUrl.trim();
   const validatedRelayUrl: Readonly<{ normalizedUrl: string }> | null = validateRelayUrl(trimmedRelayUrl);
-  const canAddRelay: boolean = validatedRelayUrl !== null;
+
 
   const canEnableNotifications: boolean = notificationPreference.state.permission !== "denied";
 
@@ -372,16 +369,68 @@ export default function SettingsPage(): React.JSX.Element {
                           </div>
                           <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
                         </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="profile-invite-code">{t("profile.inviteCodeLabel", "Personal Invite Code")}</Label>
+                            {profile.state.profile.inviteCode !== savedInviteCode ? (
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-[9px] font-black uppercase tracking-tighter text-amber-600 dark:text-amber-500 border border-amber-500/20 animate-pulse">
+                                <ShieldAlert className="h-3 w-3" />
+                                {t("profile.unsavedChanges", "Unsaved Changes")}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-[9px] font-black uppercase tracking-tighter text-emerald-600 dark:text-emerald-500 border border-emerald-500/20">
+                                <Check className="h-3 w-3" />
+                                {t("profile.searchable", "Active & Searchable")}
+                              </div>
+                            )}
+                          </div>
+                          <div className="relative">
+                            <Input
+                              id="profile-invite-code"
+                              value={profile.state.profile.inviteCode || ""}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                const val = e.target.value.toUpperCase();
+                                if (val.length <= 13) { // OBSCUR- + 6 chars
+                                  profile.setInviteCode({ inviteCode: val });
+                                }
+                              }}
+                              placeholder="OBSCUR-XXXXXX"
+                              className="pr-12"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                              onClick={() => {
+                                if (profile.state.profile.inviteCode) {
+                                  void navigator.clipboard.writeText(profile.state.profile.inviteCode);
+                                  toast.success(t("common.copied"));
+                                }
+                              }}
+                              disabled={!profile.state.profile.inviteCode}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                            {t("profile.inviteCodeHelp", "Share this code with others so they can find you. Format: OBSCUR-XXXXXX")}
+                          </div>
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
                             onClick={async () => {
                               const success = await publishProfile({
                                 username: profile.state.profile.username,
+                                about: profile.state.profile.about,
                                 avatarUrl: profile.state.profile.avatarUrl,
-                                nip05: profile.state.profile.nip05
+                                nip05: profile.state.profile.nip05,
+                                inviteCode: profile.state.profile.inviteCode
                               });
                               if (success) {
+                                setSavedInviteCode(profile.state.profile.inviteCode);
                                 toast.success(t("settings.profileSaved"));
                               } else {
                                 toast.error(t("settings.profilePublishFailed"));
@@ -681,7 +730,7 @@ export default function SettingsPage(): React.JSX.Element {
                               />
                             </div>
                           ) : (
-                            relayList.state.relays.map((relay, index: number) => {
+                            relayList.state.relays.map((relay) => {
                               const status: RelayConnectionStatus = relayStatusByUrl[relay.url] ?? "closed";
                               return (
                                 <li

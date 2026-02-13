@@ -1,26 +1,26 @@
 "use client";
 
-import type React from "react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Copy, Share2, Check, Sparkles, QrCode } from "lucide-react";
 import { useUserInviteCode } from "@/app/features/invites/hooks/use-user-invite-code";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import QRCode from "qrcode";
-
 import { useTranslation } from "react-i18next";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 
 export const ShareInviteCard = (): React.JSX.Element => {
     const { t } = useTranslation();
     const identity = useIdentity();
     const { publicKeyHex, privateKeyHex } = identity.state;
     const { inviteCode, publishCode, isPublishing } = useUserInviteCode({
-        publicKeyHex: publicKeyHex as any,
-        privateKeyHex: privateKeyHex as any
+        publicKeyHex: publicKeyHex as PublicKeyHex | null,
+        privateKeyHex: privateKeyHex as PrivateKeyHex | null
     });
 
-    const [copied, setCopied] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
     const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
     const [showQr, setShowQr] = useState(false);
@@ -45,8 +45,6 @@ export const ShareInviteCard = (): React.JSX.Element => {
     const handleCopy = () => {
         if (!inviteCode) return;
         void navigator.clipboard.writeText(inviteCode);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
     };
 
     const handleCopyLink = () => {
@@ -101,10 +99,13 @@ export const ShareInviteCard = (): React.JSX.Element => {
                 <div className="flex flex-col items-center justify-center space-y-4 py-2">
                     {showQr && qrDataUrl ? (
                         <div className="relative group cursor-pointer" onClick={() => setShowQr(false)}>
-                            <img
+                            <Image
                                 src={qrDataUrl}
                                 alt="Invite QR Code"
+                                width={160}
+                                height={160}
                                 className="h-40 w-40 rounded-xl border-4 border-white shadow-xl dark:border-zinc-800 animate-in zoom-in-95 duration-200"
+                                unoptimized
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
                                 <span className="text-[10px] font-bold uppercase text-zinc-600 bg-white/90 px-2 py-1 rounded-full shadow-sm">{t("invites.hideQr")}</span>

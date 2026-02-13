@@ -27,7 +27,6 @@ import type { RelayConnection } from "@/app/features/relays/utils/relay-connecti
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { NOSTR_SAFETY_LIMITS } from "@/app/features/relays/utils/nostr-safety-limits";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
-import { ConnectionRequestService } from "@/app/features/contacts/services/connection-request-service";
 import { nip19 } from "nostr-tools";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
@@ -41,6 +40,8 @@ type RelayPool = Readonly<{
   subscribeToMessages: (handler: (params: Readonly<{ url: string; message: string }>) => void) => () => void;
   addTransientRelay?: (url: string) => void;
   removeTransientRelay?: (url: string) => void;
+  isConnected?: () => boolean;
+  waitForConnection: (timeoutMs: number) => Promise<boolean>;
 }>;
 
 /**
@@ -173,6 +174,7 @@ type UseEnhancedDMControllerParams = Readonly<{
   };
   peerTrust?: {
     isAccepted: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => boolean;
+    acceptPeer: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => void;
   };
   requestsInbox?: {
     upsertIncoming: (params: Readonly<{
@@ -183,6 +185,8 @@ type UseEnhancedDMControllerParams = Readonly<{
       status?: ConnectionRequestStatusValue;
       eventId?: string;
     }>) => void;
+    getRequestStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => { status?: ConnectionRequestStatusValue; isOutgoing: boolean } | null;
+    setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>) => void;
   };
   onNewMessage?: (message: Message) => void;
 }>;
@@ -280,14 +284,6 @@ const createReadyState = (messages: ReadonlyArray<Message>): EnhancedDMControlle
   };
 };
 
-/**
- * Generate unique message ID
- */
-const generateMessageId = (): string => {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-};
 
 /**
  * Generate unique subscription ID
@@ -362,6 +358,12 @@ export const useEnhancedDMController = (
 
   // Track events being processed to prevent race conditions in deduplication
   const processingEvents = useRef<Set<string>>(new Set());
+
+  // Use a ref for params to avoid stale closures in long-lived subscriptions
+  const paramsRef = useRef(params);
+  useEffect(() => {
+    paramsRef.current = params;
+  }, [params]);
 
   /**
    * Load messages from storage on mount
@@ -530,6 +532,8 @@ export const useEnhancedDMController = (
     if (!params.pool) return;
 
     const unsubscribe = params.pool.subscribeToMessages((evt) => {
+      // Use the latest parameters to avoid stale closure issues
+      const currentParams = paramsRef.current;
       // Handle OK messages for sent message status updates
       const ok = parseRelayOkMessage(evt.message);
       if (ok) {
@@ -606,7 +610,9 @@ export const useEnhancedDMController = (
         }
 
         // Validate status transition
-        if (isValidStatusTransition(updatedMessage.status, newStatus)) {
+        if (newStatus === updatedMessage.status) {
+          // No change, ignore
+        } else if (isValidStatusTransition(updatedMessage.status, newStatus)) {
           updatedMessage.status = newStatus;
         } else {
           console.warn(`Invalid status transition: ${updatedMessage.status} -> ${newStatus}`);
@@ -634,7 +640,10 @@ export const useEnhancedDMController = (
       const incomingEvent = parseRelayEventByKind(evt.message);
       if (incomingEvent) {
         if (incomingEvent.kind === 4 || incomingEvent.kind === 1059) {
-          void handleIncomingEvent(incomingEvent);
+          // Use currentParams instead of stale closures
+          if (currentParams.myPrivateKeyHex && currentParams.myPublicKeyHex) {
+            void handleIncomingEvent(incomingEvent);
+          }
         } else if (incomingEvent.kind === 10002) {
           nip65Service.updateFromEvent(incomingEvent);
         }
@@ -673,10 +682,13 @@ export const useEnhancedDMController = (
    * Tracks UI performance to ensure updates within 100ms (Requirement 8.2)
    */
   const handleIncomingEvent = async (event: NostrEvent): Promise<void> => {
+    // Use the latest parameters to avoid stale closure issues
+    const currentParams = paramsRef.current;
+
     // Start performance tracking
     const endTracking = uiPerformanceMonitor.startTracking();
 
-    if (!params.myPrivateKeyHex || !params.myPublicKeyHex) {
+    if (!currentParams.myPrivateKeyHex || !currentParams.myPublicKeyHex) {
       console.warn('Cannot process incoming message: identity not available');
       endTracking();
       return;
@@ -712,13 +724,13 @@ export const useEnhancedDMController = (
 
       // Step 2: Check if message is for us (Kind 4 or Kind 1059)
       const recipientTag = event.tags?.find(tag => tag[0] === 'p');
-      if (!recipientTag || recipientTag[1] !== params.myPublicKeyHex) {
+      if (!recipientTag || recipientTag[1] !== currentParams.myPublicKeyHex) {
         // Not for us, ignore
         return;
       }
 
       // Step 3: Filter out messages from blocked senders (Requirement 2.7)
-      if (params.blocklist?.isBlocked({ publicKeyHex: senderPubkey })) {
+      if (currentParams.blocklist?.isBlocked({ publicKeyHex: senderPubkey })) {
         console.log('Filtered message from blocked sender:', senderPubkey);
         return;
       }
@@ -732,7 +744,7 @@ export const useEnhancedDMController = (
       try {
         if (event.kind === 1059) {
           // NIP-17 Gift Wrap
-          const rumor = await cryptoService.decryptGiftWrap(event, params.myPrivateKeyHex);
+          const rumor = await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex);
           plaintext = rumor.content;
           actualSenderPubkey = rumor.pubkey as PublicKeyHex;
           usedEventId = rumor.id; // Use internal event ID
@@ -742,7 +754,7 @@ export const useEnhancedDMController = (
           plaintext = await cryptoService.decryptDM(
             event.content,
             senderPubkey,
-            params.myPrivateKeyHex
+            currentParams.myPrivateKeyHex
           );
         }
       } catch (decryptError) {
@@ -755,40 +767,61 @@ export const useEnhancedDMController = (
         return;
       }
 
-      // Step 5: Check if sender is an accepted contact
-      const isAcceptedContact = params.peerTrust?.isAccepted({ publicKeyHex: actualSenderPubkey }) || false;
+      // Step 5: Check if sender is an accepted contact or has a pending outgoing request
+      const isAcceptedContact = currentParams.peerTrust?.isAccepted({ publicKeyHex: actualSenderPubkey }) || false;
+      const requestState = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });
+      const hasOutgoingPending = requestState?.isOutgoing && (requestState.status === 'pending' || !requestState.status);
 
       // Step 5.1: Apply global Privacy Filter (Requirement: Contacts Only)
       const privacySettings = PrivacySettingsService.getSettings();
-      if (privacySettings.dmPrivacy === 'contacts-only' && !isAcceptedContact) {
+      if (privacySettings.dmPrivacy === 'contacts-only' && !isAcceptedContact && !hasOutgoingPending) {
         console.log('Filtered message from stranger due to "Contacts Only" privacy setting:', actualSenderPubkey);
         return;
       }
 
       // Step 6: Route message based on sender status
       // CRITICAL FIX: For NIP-17, we must check the RUMOR tags, not the outer event tags
-      const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, params.myPrivateKeyHex)).tags : event.tags;
+      const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex)).tags : event.tags;
       const isConnectionRequest = effectiveTags?.some(tag => tag[0] === 't' && tag[1] === 'connection-request');
 
       if (!isAcceptedContact) {
-        // Route unknown sender messages to requests inbox (Requirement 2.8)
-        if (params.requestsInbox) {
-          params.requestsInbox.upsertIncoming({
+        // Check if we have an outgoing pending request to this sender
+        const requestState = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });
+        const hasOutgoingPending = requestState?.isOutgoing && (requestState.status === 'pending' || !requestState.status);
+
+        if (hasOutgoingPending) {
+          console.log('Detected reply to outgoing connection request from:', actualSenderPubkey, '. Auto-accepting.');
+          // Auto-accept the peer
+          currentParams.peerTrust?.acceptPeer({ publicKeyHex: actualSenderPubkey });
+          // Mark the request as accepted in the inbox
+          currentParams.requestsInbox?.upsertIncoming({
             peerPublicKeyHex: actualSenderPubkey,
             plaintext,
             createdAtUnixSeconds: usedCreatedAt,
-            isRequest: isConnectionRequest,
-            status: isConnectionRequest ? 'pending' : undefined,
+            status: 'accepted',
             eventId: usedEventId
           });
-          console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey, { isRequest: isConnectionRequest });
+          // Continue to process as normal message
+        } else {
+          // Route unknown sender messages to requests inbox (Requirement 2.8)
+          if (currentParams.requestsInbox) {
+            currentParams.requestsInbox.upsertIncoming({
+              peerPublicKeyHex: actualSenderPubkey,
+              plaintext,
+              createdAtUnixSeconds: usedCreatedAt,
+              isRequest: isConnectionRequest,
+              status: isConnectionRequest ? 'pending' : undefined,
+              eventId: usedEventId
+            });
+            console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey, { isRequest: isConnectionRequest });
+          }
+          // Don't add to main conversation view for unknown senders
+          return;
         }
-        // Don't add to main conversation view for unknown senders
-        return;
       }
 
       // Step 7: Create message object for accepted contacts (Requirement 2.4)
-      const conversationId = [params.myPublicKeyHex, actualSenderPubkey].sort().join(':');
+      const conversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(':');
 
       const message: Message = {
         id: usedEventId,
@@ -801,7 +834,7 @@ export const useEnhancedDMController = (
         eventId: usedEventId,
         eventCreatedAt: new Date(usedCreatedAt * 1000),
         senderPubkey: actualSenderPubkey,
-        recipientPubkey: params.myPublicKeyHex,
+        recipientPubkey: currentParams.myPublicKeyHex,
         encryptedContent: event.content,
         attachments: extractAttachmentsFromContent(plaintext)
       };
@@ -871,8 +904,8 @@ export const useEnhancedDMController = (
       console.log('Processed incoming message from accepted contact:', event.id);
 
       // Step 12: Trigger global message callback
-      if (params.onNewMessage) {
-        params.onNewMessage(message);
+      if (currentParams.onNewMessage) {
+        currentParams.onNewMessage(message);
       }
 
       // Track performance metric
@@ -1373,18 +1406,18 @@ export const useEnhancedDMController = (
     activeSubscriptions.current.set(subId, subscription);
     hasSubscribedRef.current = true;
 
+    console.log(`[DMController] Subscribing to incoming DMs on ${params.pool.connections.filter(c => c.status === 'open').length} open relays:`, filter);
+
     // Send REQ message to all open relays
     const reqMessage = JSON.stringify(['REQ', subId, filter]);
     params.pool.sendToOpen(reqMessage);
-
-    console.log('Subscribed to incoming DMs with filter:', filter);
 
     // Update state with new subscription
     setState(prev => ({
       ...prev,
       subscriptions: Array.from(activeSubscriptions.current.values())
     }));
-  }, [params.myPublicKeyHex, params.pool]);
+  }, [params.myPublicKeyHex, params.pool.connections, params.pool.sendToOpen]);
 
   /**
    * Unsubscribe from DM events
@@ -1480,7 +1513,7 @@ export const useEnhancedDMController = (
         let mostRecentTimestamp: Date | null = null;
 
         // Check all known conversations
-        for (const [conversationId, lastTimestamp] of syncStateRef.current.conversationTimestamps.entries()) {
+        for (const [_, lastTimestamp] of syncStateRef.current.conversationTimestamps.entries()) {
           if (!mostRecentTimestamp || lastTimestamp > mostRecentTimestamp) {
             mostRecentTimestamp = lastTimestamp;
           }
@@ -1582,13 +1615,20 @@ export const useEnhancedDMController = (
         syncProgress: undefined
       }));
     }
-  }, [params.myPublicKeyHex, params.pool, messageQueue]);
+  }, [params.myPublicKeyHex, params.pool.connections, params.pool.sendToOpen, messageQueue]);
 
   /**
    * Verify if a recipient exists on the network by checking for metadata (Kind 0)
    * Requirement: Prevents messaging 'ghost' accounts
    */
   const verifyRecipient = useCallback(async (pubkeyHex: PublicKeyHex): Promise<{ exists: boolean; profile?: any }> => {
+    // Wait for at least one relay to connect (max 3s)
+    const isPoolConnected = await params.pool.waitForConnection(3000);
+
+    if (!isPoolConnected) {
+      console.warn("[DMController] No relay connection for verification after timeout.");
+    }
+
     return new Promise((resolve) => {
       const subId = `verify-${Math.random().toString(36).substring(7)}`;
       let found = false;
@@ -1627,7 +1667,7 @@ export const useEnhancedDMController = (
         if (!found) resolve({ exists: false });
       }, 3000);
     });
-  }, [params.pool]);
+  }, [params.pool.waitForConnection, params.pool.subscribeToMessages, params.pool.sendToOpen]);
 
   // Cache to track which recipients we've already discovered relays for
   const recipientRelayCheckCache = useRef<Set<string>>(new Set());
@@ -1646,7 +1686,6 @@ export const useEnhancedDMController = (
     return new Promise<void>((resolve) => {
       const subId = `relays-${Math.random().toString(36).substring(7)}`;
       const discoveredRelays = new Set<string>();
-      let found = false;
       let cleanup: () => void = () => { };
 
       // NIP-65 (10002) and Legacy (3)
@@ -1686,7 +1725,6 @@ export const useEnhancedDMController = (
                   }
                 }
               });
-              found = true;
             }
             // Handle Legacy Kind 3
             else if (event.kind === 3) {
@@ -1697,7 +1735,6 @@ export const useEnhancedDMController = (
                     discoveredRelays.add(url);
                   }
                 });
-                found = true;
               } catch (e) { }
             }
           }
@@ -1718,7 +1755,7 @@ export const useEnhancedDMController = (
         finish();
       }, 2000);
     });
-  }, [params.pool]);
+  }, [params.pool.subscribeToMessages, params.pool.addTransientRelay, params.pool.sendToOpen]);
 
   // Track initial sync status to prevent duplicate triggers
   const initialSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1810,7 +1847,7 @@ export const useEnhancedDMController = (
       sendQueuedMessage,
       (messageId) => messageQueue.removeFromQueue(messageId)
     );
-  }, [messageQueue, params.pool]);
+  }, [messageQueue, params.pool.publishToAll, params.pool.sendToOpen]);
 
   /**
    * Get offline queue status
@@ -1827,6 +1864,7 @@ export const useEnhancedDMController = (
     peerPublicKeyHex: PublicKeyHex;
     introMessage?: string;
   }>): Promise<SendResult> => {
+    const currentParams = paramsRef.current;
     // Phase 6.1: Include write relays in the request (Automatic Relay Hints)
     const myWriteRelays = params.myPublicKeyHex
       ? nip65Service.getWriteRelays(params.myPublicKeyHex)
@@ -1846,12 +1884,10 @@ export const useEnhancedDMController = (
     });
 
     if (params.myPublicKeyHex && result.success) {
-      await ConnectionRequestService.addRequest(params.myPublicKeyHex, {
-        id: paramsReq.peerPublicKeyHex,
+      currentParams.requestsInbox?.setStatus({
+        peerPublicKeyHex: paramsReq.peerPublicKeyHex,
         status: "pending",
-        isOutgoing: true,
-        introMessage: paramsReq.introMessage,
-        timestamp: new Date()
+        isOutgoing: true
       });
     }
 
@@ -1874,9 +1910,9 @@ export const useEnhancedDMController = (
       });
       console.log(`Refreshed subscriptions for gossip relays of ${peerPubkey.slice(0, 8)}`);
     }
-  }, [ensureConnectedToRecipientRelays, params.pool]);
+  }, [ensureConnectedToRecipientRelays, params.pool.sendToOpen]);
 
-  return {
+  return useMemo(() => ({
     state,
     sendDm,
     retryFailedMessage,
@@ -1890,5 +1926,19 @@ export const useEnhancedDMController = (
     verifyRecipient,
     sendConnectionRequest,
     watchConversation
-  };
+  }), [
+    state,
+    sendDm,
+    retryFailedMessage,
+    getMessageStatus,
+    getMessagesByConversation,
+    subscribeToIncomingDMs,
+    unsubscribeFromDMs,
+    syncMissedMessages,
+    processOfflineQueue,
+    getOfflineQueueStatus,
+    verifyRecipient,
+    sendConnectionRequest,
+    watchConversation
+  ]);
 };

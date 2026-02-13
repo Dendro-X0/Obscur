@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { createNostrEvent } from "@dweb/nostr/create-nostr-event";
-import { fetchBootstrapConfig } from "@/app/features/onboarding/utils/fetch-bootstrap-config";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -23,19 +22,17 @@ type RelayFeedback = Readonly<{
 }>;
 
 type MessagingViewState = Readonly<{
-  relayUrls: ReadonlyArray<string>;
   relayFeedback: ReadonlyArray<RelayFeedback>;
   events: ReadonlyArray<NostrEvent>;
   status: "loading" | "ready" | "error";
   error?: string;
 }>;
 
-const createLoadingState = (): MessagingViewState => ({ relayUrls: [], relayFeedback: [], events: [], status: "loading" });
+const createLoadingState = (): MessagingViewState => ({ relayFeedback: [], events: [], status: "loading" });
 
-const createErrorState = (message: string): MessagingViewState => ({ relayUrls: [], relayFeedback: [], events: [], status: "error", error: message });
+const createErrorState = (message: string): MessagingViewState => ({ relayFeedback: [], events: [], status: "error", error: message });
 
-const createReadyState = (params: Readonly<{ relayUrls: ReadonlyArray<string>; relayFeedback: ReadonlyArray<RelayFeedback>; events: ReadonlyArray<NostrEvent> }>): MessagingViewState => ({
-  relayUrls: params.relayUrls,
+const createReadyState = (params: Readonly<{ relayFeedback: ReadonlyArray<RelayFeedback>; events: ReadonlyArray<NostrEvent> }>): MessagingViewState => ({
   relayFeedback: params.relayFeedback,
   events: params.events,
   status: "ready"
@@ -141,31 +138,29 @@ const parseRelayMessage = (rawJson: string): RelayMessage | undefined => {
 
 export const MessagingCard = () => {
   const identity = useIdentity();
+  const { relayPool, enabledRelayUrls } = useRelay();
+  const { connections, sendToOpen, subscribeToMessages } = relayPool;
+
   const [state, setState] = useState<MessagingViewState>(createLoadingState());
   const subId: string = useMemo(() => createSubId(), []);
   const [content, setContent] = useState<string>("hello from dweb");
-  const canPublish: boolean = useMemo(() => identity.state.status === "unlocked" && Boolean(identity.state.privateKeyHex) && content.trim().length > 0, [content, identity.state.privateKeyHex, identity.state.status]);
-  const { connections, sendToOpen, subscribeToMessages } = useRelayPool(state.relayUrls);
   const hasRequestedRef = useRef<boolean>(false);
 
+  const canPublish: boolean = useMemo(() =>
+    identity.state.status === "unlocked" &&
+    Boolean(identity.state.privateKeyHex) &&
+    content.trim().length > 0,
+    [content, identity.state.privateKeyHex, identity.state.status]
+  );
+
   useEffect(() => {
-    const run = async (): Promise<void> => {
-      try {
-        const result: Awaited<ReturnType<typeof fetchBootstrapConfig>> = await fetchBootstrapConfig();
-        if (result.error) {
-          setState(createErrorState(result.error));
-          return;
-        }
-        const relayUrls: ReadonlyArray<string> = result.data?.relays ?? [];
-        const relayFeedback: ReadonlyArray<RelayFeedback> = relayUrls.map((url: string) => createRelayFeedback(url));
-        setState(createReadyState({ relayUrls, relayFeedback, events: [] }));
-      } catch (error: unknown) {
-        const message: string = error instanceof Error ? error.message : "Unknown error";
-        setState(createErrorState(message));
-      }
-    };
-    void run();
-  }, []);
+    if (enabledRelayUrls.length > 0) {
+      const relayFeedback: ReadonlyArray<RelayFeedback> = enabledRelayUrls.map((url: string) => createRelayFeedback(url));
+      queueMicrotask(() => {
+        setState(createReadyState({ relayFeedback, events: [] }));
+      });
+    }
+  }, [enabledRelayUrls]);
 
   useEffect(() => {
     if (state.status !== "ready") {
@@ -182,7 +177,7 @@ export const MessagingCard = () => {
             return prev;
           }
           const events: ReadonlyArray<NostrEvent> = uniqByIdNewestFirst([message.event, ...prev.events]).slice(0, 50);
-          return createReadyState({ relayUrls: prev.relayUrls, relayFeedback: prev.relayFeedback, events });
+          return createReadyState({ relayFeedback: prev.relayFeedback, events });
         });
         return;
       }
@@ -192,7 +187,7 @@ export const MessagingCard = () => {
             return prev;
           }
           const relayFeedback: ReadonlyArray<RelayFeedback> = prev.relayFeedback.map((r: RelayFeedback) => (r.url === params.url ? { ...r, eose: true } : r));
-          return createReadyState({ relayUrls: prev.relayUrls, relayFeedback, events: prev.events });
+          return createReadyState({ relayFeedback, events: prev.events });
         });
         return;
       }
@@ -202,7 +197,7 @@ export const MessagingCard = () => {
             return prev;
           }
           const relayFeedback: ReadonlyArray<RelayFeedback> = prev.relayFeedback.map((r: RelayFeedback) => (r.url === params.url ? { ...r, lastNotice: message.message } : r));
-          return createReadyState({ relayUrls: prev.relayUrls, relayFeedback, events: prev.events });
+          return createReadyState({ relayFeedback, events: prev.events });
         });
         return;
       }
@@ -214,7 +209,7 @@ export const MessagingCard = () => {
           const relayFeedback: ReadonlyArray<RelayFeedback> = prev.relayFeedback.map((r: RelayFeedback) =>
             r.url === params.url ? { ...r, lastOk: { eventId: message.eventId, accepted: message.accepted, message: message.message } } : r
           );
-          return createReadyState({ relayUrls: prev.relayUrls, relayFeedback, events: prev.events });
+          return createReadyState({ relayFeedback, events: prev.events });
         });
       }
     });

@@ -1,15 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import { Ghost, Bot, Zap, Settings, ChevronUp, ChevronDown, Trash2, Play } from "lucide-react";
+import { Ghost, Bot, Zap, Settings, ChevronUp, ChevronDown, Trash2, Play, MessageSquare, UserPlus } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { useDevMode } from "../hooks/use-dev-mode";
 import { SCENARIOS } from "../scenarios";
 import { cn } from "@/app/lib/cn";
+import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
-export const DevPanel = () => {
+export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const { isDevMode, toggleDevMode, botEngine, mockPool } = useDevMode();
+    const { requestsInbox } = useContacts();
     const [isOpen, setIsOpen] = useState(false);
     const [activeScenario, setActiveScenario] = useState<string | null>(null);
     const [stopScenario, setStopScenario] = useState<(() => void) | null>(null);
@@ -42,6 +45,35 @@ export const DevPanel = () => {
     const handleClearBots = () => {
         handleStopScenario();
         botEngine.clearBots();
+    };
+
+    const simulateIncomingMessage = () => {
+        if (!dmController) return;
+        const randomPubkey = "f" + Math.random().toString(16).slice(2, 65).padEnd(63, '0');
+
+        // Use emitEvent if it's the mock pool
+        if (mockPool && typeof (mockPool as any).emitEvent === 'function') {
+            (mockPool as any).emitEvent({
+                kind: 4,
+                content: "Real-time message! " + new Date().toLocaleTimeString(),
+                pubkey: randomPubkey,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [['p', dmController.params?.myPublicKeyHex || '']],
+                id: Math.random().toString(36).slice(2),
+                sig: 'mock_sig'
+            });
+        }
+    };
+
+    const simulateIncomingRequest = () => {
+        const randomPubkey = "e" + Math.random().toString(16).slice(2, 65).padEnd(63, '0') as PublicKeyHex;
+        requestsInbox.upsertIncoming({
+            peerPublicKeyHex: randomPubkey,
+            plaintext: "I'd like to connect with you! " + new Date().toLocaleTimeString(),
+            createdAtUnixSeconds: Math.floor(Date.now() / 1000),
+            isRequest: true,
+            status: 'pending'
+        });
     };
 
     return (
@@ -122,6 +154,31 @@ export const DevPanel = () => {
                                         Stop Simulation
                                     </Button>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Simulations */}
+                        <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Simulations</div>
+                            <div className="mt-2 flex flex-col gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="justify-start gap-2 border-purple-500/30 text-purple-600 dark:text-purple-400"
+                                    onClick={simulateIncomingMessage}
+                                >
+                                    <MessageSquare className="h-3 w-3" />
+                                    <span>Simulate Message</span>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="justify-start gap-2 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                    onClick={simulateIncomingRequest}
+                                >
+                                    <UserPlus className="h-3 w-3" />
+                                    <span>Simulate Request</span>
+                                </Button>
                             </div>
                         </div>
 

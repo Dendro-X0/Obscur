@@ -36,16 +36,16 @@ export interface CryptoService {
     deriveSharedSecret(privateKey: PrivateKeyHex, publicKey: PublicKeyHex): Promise<Uint8Array>;
 
     // Invite-specific Operations
-    generateInviteId(): string | Promise<string>;
+    generateInviteId(): Promise<string>;
     signInviteData(data: InviteSignaturePayload, privateKey: PrivateKeyHex): Promise<string>;
     verifyInviteSignature(data: InviteSignaturePayload, signature: string, publicKey: PublicKeyHex): Promise<boolean>;
     encryptInviteData(data: string, key: Uint8Array): Promise<string>;
     decryptInviteData(encryptedData: string, key: Uint8Array): Promise<string>;
-    generateSecureRandom(length: number): Uint8Array | Promise<Uint8Array>;
+    generateSecureRandom(length: number): Promise<Uint8Array>;
 
     // Utilities
-    isValidPubkey(pubkey: string): boolean | Promise<boolean>;
-    normalizeKey(key: string): string | Promise<string>;
+    isValidPubkey(pubkey: string): Promise<boolean>;
+    normalizeKey(key: string): Promise<string>;
 
     // Native Key Operations (Tauri)
     hasNativeKey?(): Promise<boolean>;

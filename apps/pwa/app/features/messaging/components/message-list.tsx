@@ -14,6 +14,8 @@ import { formatTime } from "../utils/formatting";
 import type { Message, ReactionEmoji, MessageStatus, StatusUi } from "../types";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { UserAvatar } from "../../profile/components/user-avatar";
+import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 
 interface MessageListProps {
     hasHydrated: boolean;
@@ -62,7 +64,7 @@ export function MessageList({
     const virtualizer = useVirtualizer({
         count: messages.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 140, // Realistic average height with media
+        estimateSize: () => 160, // Increased estimate for padding
         overscan: 10,
     });
 
@@ -131,7 +133,7 @@ export function MessageList({
                                     className={cn(
                                         "flex relative",
                                         message.isOutgoing ? "justify-end" : "justify-start",
-                                        isGroupEnd ? "mb-6" : "mb-1"
+                                        isGroupEnd ? "pb-8" : "pb-3"
                                     )}
                                 >
                                     <SwipeReplyWrapper
@@ -192,29 +194,13 @@ export function MessageList({
 
                                             <div className="px-4 py-2.5">
                                                 {isGroup && !message.isOutgoing && isGroupStart && (
-                                                    <div className="flex items-center gap-2 mb-1.5 px-0.5">
-                                                        <div className="h-5 w-5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ring-1 ring-black/5 dark:ring-white/5 shadow-sm overflow-hidden">
-                                                            <span className="text-[10px] font-bold text-zinc-400">?</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                                            <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
-                                                                {message.senderPubkey?.slice(0, 8) || t("common.unknown")}
-                                                            </span>
-                                                            {((): React.ReactNode => {
-                                                                const admin = admins?.find(a => a.pubkey === message.senderPubkey);
-                                                                if (!admin) return null;
-                                                                const rolesLower = admin.roles.map(r => r.toLowerCase());
-                                                                const isOwner = rolesLower.includes("owner") || rolesLower.includes("admin");
-                                                                return (
-                                                                    <span className={cn(
-                                                                        "text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-[4px]",
-                                                                        isOwner ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                                                    )}>
-                                                                        {isOwner ? "Owner" : "Mod"}
-                                                                    </span>
-                                                                );
-                                                            })()}
-                                                        </div>
+                                                    <div className="flex items-center gap-2 mb-2 px-0.5">
+                                                        <UserAvatar
+                                                            pubkey={message.senderPubkey!}
+                                                            size="sm"
+                                                            className="h-5 w-5 ring-1 ring-black/5 dark:ring-white/5 shadow-sm"
+                                                        />
+                                                        <SenderName pubkey={message.senderPubkey!} admins={admins} />
                                                     </div>
                                                 )}
                                                 {message.deletedAt ? (
@@ -252,15 +238,15 @@ export function MessageList({
                                                                             key={emoji}
                                                                             type="button"
                                                                             className={cn(
-                                                                                "rounded-full border px-1.5 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-sm transition-transform active:scale-90",
+                                                                                "rounded-full border px-2 py-1 text-sm font-bold flex items-center gap-1 shadow-sm transition-transform active:scale-90",
                                                                                 message.isOutgoing
                                                                                     ? "border-white/20 bg-zinc-800 text-white dark:border-black/10 dark:bg-white dark:text-zinc-900"
                                                                                     : "border-black/5 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100"
                                                                             )}
                                                                             onClick={() => onToggleReaction(message.id, emoji)}
                                                                         >
-                                                                            <span>{emoji}</span>
-                                                                            <span className="opacity-70">{count}</span>
+                                                                            <span className="text-base">{emoji}</span>
+                                                                            <span className="opacity-70 text-[10px]">{count}</span>
                                                                         </button>
                                                                     ))}
                                                             </div>
@@ -361,6 +347,38 @@ export function MessageList({
                         })}
                     </div>
                 </>
+            )
+            }
+        </div>
+    );
+}
+
+/**
+ * Sub-component to resolve and display sender name with badges
+ */
+function SenderName({ pubkey, admins }: { pubkey: string, admins?: MessageListProps['admins'] }) {
+    const metadata = useProfileMetadata(pubkey);
+    const { t } = useTranslation();
+
+    const admin = admins?.find(a => a.pubkey === pubkey);
+    const rolesLower = admin?.roles.map(r => r.toLowerCase()) || [];
+    const isOwner = rolesLower.includes("owner") || rolesLower.includes("admin");
+    const isMod = rolesLower.includes("moderator") || rolesLower.includes("mod");
+
+    return (
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
+                {metadata?.displayName || pubkey.slice(0, 8)}
+            </span>
+            {(isOwner || isMod) && (
+                <span className={cn(
+                    "text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-[4px]",
+                    isOwner
+                        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                )}>
+                    {isOwner ? "Owner" : "Mod"}
+                </span>
             )}
         </div>
     );

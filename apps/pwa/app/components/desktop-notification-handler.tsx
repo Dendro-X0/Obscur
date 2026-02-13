@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useTauri } from "@/app/features/desktop/hooks/use-tauri";
 import { useDesktopNotifications } from "@/app/features/desktop/hooks/use-desktop-notifications";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
-import { fetchBootstrapConfig } from "@/app/features/onboarding/utils/fetch-bootstrap-config";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import type { Message } from "@/app/features/messaging/lib/message-queue";
 
 /**
@@ -17,14 +16,12 @@ export const DesktopNotificationHandler = () => {
     useTauri();
     const { showNotification } = useDesktopNotifications();
     const identity = useIdentity();
-    const [relayUrls, setRelayUrls] = useState<string[]>([]);
+    const { relayPool: pool } = useRelay();
     const hasSubscribedRef = useRef<boolean>(false);
     const unsubscribeRef = useRef<(() => void) | null>(null);
 
     const myPublicKeyHex = identity.state.publicKeyHex;
     const myPrivateKeyHex = identity.state.privateKeyHex;
-
-    const pool = useRelayPool(relayUrls);
 
     // Initialize controller for background listening
     const dmController = useEnhancedDmController({
@@ -47,16 +44,6 @@ export const DesktopNotificationHandler = () => {
         unsubscribeRef.current = dmController.unsubscribeFromDMs;
     }, [dmController.unsubscribeFromDMs]);
 
-    // Load bootstrap config for relays
-    useEffect(() => {
-        const loadConfig = async () => {
-            const result = await fetchBootstrapConfig();
-            if (result.data?.relays) {
-                setRelayUrls([...result.data.relays]);
-            }
-        };
-        void loadConfig();
-    }, []);
 
     // Auto-subscribe to incoming DMs
     useEffect(() => {
@@ -71,7 +58,7 @@ export const DesktopNotificationHandler = () => {
         }
         dmController.subscribeToIncomingDMs();
         hasSubscribedRef.current = true;
-    }, [dmController.state.status, dmController.subscribeToIncomingDMs, myPublicKeyHex]);
+    }, [dmController, myPublicKeyHex]);
 
     useEffect((): (() => void) => {
         return (): void => {

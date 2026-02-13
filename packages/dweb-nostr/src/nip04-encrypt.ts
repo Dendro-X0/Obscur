@@ -15,16 +15,6 @@ const sha256 = async (bytes: Uint8Array): Promise<Uint8Array> => {
   return new Uint8Array(digest);
 };
 
-const pkcs7Pad = (payload: Uint8Array): Uint8Array => {
-  const blockSize: number = 16;
-  const mod: number = payload.length % blockSize;
-  const padLen: number = mod === 0 ? blockSize : blockSize - mod;
-  const padded: Uint8Array = new Uint8Array(payload.length + padLen);
-  padded.set(payload);
-  padded.fill(padLen, payload.length);
-  return padded;
-};
-
 const deriveNip04KeyBytes = async (params: Readonly<{ senderPrivateKeyHex: PrivateKeyHex; recipientPublicKeyHex: PublicKeyHex }>): Promise<Uint8Array> => {
   const recipientCompressedHex: string = `02${params.recipientPublicKeyHex}`;
   const secret: Uint8Array = getSharedSecret(params.senderPrivateKeyHex, recipientCompressedHex, true);
@@ -38,8 +28,7 @@ export const nip04Encrypt = async (params: Nip04EncryptParams): Promise<string> 
   const keyBytes: Uint8Array = await deriveNip04KeyBytes({ senderPrivateKeyHex: params.senderPrivateKeyHex, recipientPublicKeyHex: params.recipientPublicKeyHex });
   const key: CryptoKey = await crypto.subtle.importKey("raw", toArrayBuffer(keyBytes), { name: "AES-CBC" }, false, ["encrypt"]);
   const plaintextBytes: Uint8Array = new TextEncoder().encode(params.plaintext);
-  const padded: Uint8Array = pkcs7Pad(plaintextBytes);
-  const ciphertextBuffer: ArrayBuffer = await crypto.subtle.encrypt({ name: "AES-CBC", iv: toArrayBuffer(iv) }, key, toArrayBuffer(padded));
+  const ciphertextBuffer: ArrayBuffer = await crypto.subtle.encrypt({ name: "AES-CBC", iv: toArrayBuffer(iv) }, key, toArrayBuffer(plaintextBytes));
   const ciphertextBytes: Uint8Array = new Uint8Array(ciphertextBuffer);
   const ciphertextB64: string = toBase64(ciphertextBytes);
   const ivB64: string = toBase64(iv);

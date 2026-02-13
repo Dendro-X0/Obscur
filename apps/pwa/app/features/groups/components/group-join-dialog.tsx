@@ -4,9 +4,10 @@ import { useNip29Group } from "../hooks/use-nip29-group";
 import { Button } from "@/app/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
 import { Users, ShieldCheck, X } from "lucide-react";
-import { useState } from "react";
-import { useRelayPool } from "../../relays/hooks/use-relay-pool";
+import { useState, useEffect } from "react";
+import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
+import { useGroups } from "../providers/group-provider";
 
 /**
  * Props for GroupJoinDialog
@@ -23,10 +24,16 @@ export type GroupJoinDialogProps = Readonly<{
  * Dialog to show group information before joining
  */
 export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSuccess }: GroupJoinDialogProps) => {
-    const relayPool = useRelayPool([]);
-    // EnhancedRelayPoolResult doesn't have poolUrls, use connections or just pass array to useRelayPool
-    const pool = useRelayPool([relayUrl]);
+    const { relayPool: pool } = useRelay();
     const { state: identityState } = useIdentity();
+    const { addGroup } = useGroups();
+
+    // Ensure the group's relay is connected as a transient relay
+    useEffect(() => {
+        if (open && relayUrl) {
+            pool.addTransientRelay(relayUrl);
+        }
+    }, [open, relayUrl, pool]);
 
     const { state: groupState, requestJoin } = useNip29Group({
         pool: pool as any, // Cast to any to satisfy the local interface in use-nip29-group
@@ -44,6 +51,20 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
             setError(null);
             setIsJoining(true);
             await requestJoin();
+
+            // Add to local state for immediate UI update
+            addGroup({
+                kind: "group",
+                id: `${groupId}@${new URL(relayUrl).hostname}`,
+                groupId,
+                relayUrl,
+                displayName: groupState.metadata?.name || groupId,
+                memberPubkeys: [], // Will be populated by live subscription
+                lastMessage: "Joining community...",
+                unreadCount: 0,
+                lastMessageTime: new Date(),
+            });
+
             onSuccess?.();
             onOpenChange(false);
         } catch (e) {

@@ -13,7 +13,7 @@ vi.mock('qrcode', () => ({
 }));
 
 // Mock crypto service
-vi.mock('../../crypto/crypto-service', () => ({
+vi.mock('@/app/features/crypto/crypto-service', () => ({
   cryptoService: {
     generateInviteId: vi.fn(),
     signInviteData: vi.fn(),
@@ -33,17 +33,17 @@ describe('QR Generator Property Tests', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    
-    // Setup mocks
+
+    // Setup crypto service mocks
     const QRCode = await import('qrcode');
-    const { cryptoService } = await import('../../crypto/crypto-service');
-    
-    vi.mocked(QRCode.default.toDataURL).mockResolvedValue('data:image/png;base64,mock-qr-data');
-    vi.mocked(QRCode.default.toString).mockResolvedValue('<svg>mock-qr-svg</svg>');
-    
-    vi.mocked(cryptoService.generateInviteId).mockReturnValue('mock-invite-id-123');
+    const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+
+    vi.mocked(QRCode.default.toDataURL).mockResolvedValue('data:image/png;base64,mock-qr-data' as never);
+    vi.mocked(QRCode.default.toString).mockResolvedValue('<svg>mock-qr-svg</svg>' as never);
+
+    vi.mocked(cryptoService.generateInviteId).mockResolvedValue('mock-invite-id-123');
     vi.mocked(cryptoService.signInviteData).mockResolvedValue('mock-signature-hex');
-    vi.mocked(cryptoService.isValidPubkey).mockImplementation((key: string) => {
+    vi.mocked(cryptoService.isValidPubkey).mockImplementation(async (key: string) => {
       return typeof key === 'string' && key.length === 64 && /^[0-9a-f]{64}$/i.test(key);
     });
   });
@@ -60,29 +60,29 @@ describe('QR Generator Property Tests', () => {
           fc.record({
             version: fc.constant('1.0'),
             publicKey: fc.constant(validPublicKey),
-            displayName: fc.option(fc.string({ minLength: 1, maxLength: 50 })),
-            avatar: fc.option(fc.webUrl()),
-            message: fc.option(fc.string({ minLength: 0, maxLength: 200 })),
-            timestamp: fc.integer({ min: Date.now() - 1000, max: Date.now() }),
+            displayName: fc.option(fc.string({ minLength: 1, maxLength: 50 }), { nil: undefined }),
+            avatar: fc.option(fc.webUrl(), { nil: undefined }),
+            message: fc.option(fc.string({ minLength: 0, maxLength: 200 }), { nil: undefined }),
+            timestamp: fc.integer({ min: Date.now() - 10000, max: Date.now() }),
             expirationTime: fc.integer({ min: Date.now() + 1000, max: Date.now() + 86400000 }),
             signature: fc.string({ minLength: 64, maxLength: 128 })
           }),
           async (inviteData: QRInviteData) => {
             const qrCode = await qrGenerator.generateQR(inviteData);
-            
+
             // Should have all required formats
             expect(qrCode.dataUrl).toBeTruthy();
             expect(qrCode.svgString).toBeTruthy();
             expect(qrCode.rawData).toBeTruthy();
             expect(qrCode.size).toBeGreaterThan(0);
-            
+
             // Raw data should contain the invite information
             expect(qrCode.rawData).toContain('obscur-invite:');
             expect(qrCode.rawData).toContain(inviteData.publicKey);
             // Note: signature might contain special characters, so just check it's included in JSON
             const parsedFromRaw = JSON.parse(qrCode.rawData.slice('obscur-invite:'.length));
             expect(parsedFromRaw.signature).toBe(inviteData.signature);
-            
+
             // Should be parseable
             const parsed = qrGenerator.parseQRData(qrCode.rawData);
             expect(parsed).not.toBeNull();
@@ -137,34 +137,34 @@ describe('QR Generator Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            displayName: fc.option(fc.string({ minLength: 1, maxLength: 50 })),
-            avatar: fc.option(fc.webUrl()),
-            message: fc.option(fc.string({ minLength: 0, maxLength: 200 })),
+            displayName: fc.option(fc.string({ minLength: 1, maxLength: 50 }), { nil: undefined }),
+            avatar: fc.option(fc.webUrl(), { nil: undefined }),
+            message: fc.option(fc.string({ minLength: 0, maxLength: 200 }), { nil: undefined }),
             expirationHours: fc.integer({ min: 1, max: 168 }) // 1 hour to 1 week
           }),
           async (options: QRInviteOptions) => {
             // Generate QR code
             const qrCode = await qrGenerator.createInviteQR(validPublicKey, validPrivateKey, options);
-            
+
             // Parse it back
             const parsed = qrGenerator.parseQRData(qrCode.rawData);
-            
+
             expect(parsed).not.toBeNull();
             expect(parsed?.publicKey).toBe(validPublicKey);
             expect(parsed?.version).toBe('1.0');
-            
+
             // Check optional fields match what was requested
             if (options.includeProfile) {
               expect(parsed?.displayName).toBe(options.displayName);
               expect(parsed?.avatar).toBe(options.avatar);
             }
             expect(parsed?.message).toBe(options.message);
-            
+
             // Timestamps should be reasonable
             const now = Date.now();
             expect(parsed?.timestamp).toBeLessThanOrEqual(now);
             expect(parsed?.timestamp).toBeGreaterThan(now - 5000); // Within last 5 seconds
-            expect(parsed?.expirationTime).toBeGreaterThan(parsed?.timestamp);
+            expect(parsed!.expirationTime).toBeGreaterThan(parsed!.timestamp);
           }
         ),
         { numRuns: 100 }
@@ -183,7 +183,7 @@ describe('QR Generator Property Tests', () => {
       ];
 
       expect(qrGenerator.validateQRData(validData)).toBe(true);
-      
+
       for (const invalid of invalidData) {
         expect(qrGenerator.validateQRData(invalid)).toBe(false);
       }
@@ -231,13 +231,13 @@ describe('QR Generator Property Tests', () => {
             const options: QRInviteOptions = { expirationHours };
             const qrCode = await qrGenerator.createInviteQR(validPublicKey, validPrivateKey, options);
             const parsed = qrGenerator.parseQRData(qrCode.rawData);
-            
+
             expect(parsed).not.toBeNull();
-            
+
             // Check expiration time is approximately correct
             const expectedExpiration = parsed!.timestamp + (expirationHours * 60 * 60 * 1000);
             const actualExpiration = parsed!.expirationTime;
-            
+
             // Allow 1 second tolerance for processing time
             expect(Math.abs(actualExpiration - expectedExpiration)).toBeLessThan(1000);
           }
@@ -255,10 +255,10 @@ describe('QR Generator Property Tests', () => {
         'not an object' as any,
         {} as any, // Missing required fields
         { version: '1.0' } as any, // Missing other fields
-        { 
-          version: '1.0', 
-          publicKey: 'invalid-key', 
-          timestamp: Date.now(), 
+        {
+          version: '1.0',
+          publicKey: 'invalid-key',
+          timestamp: Date.now(),
           expirationTime: Date.now() + 3600000,
           signature: 'sig'
         } as any // Invalid public key
@@ -317,11 +317,11 @@ describe('QR Generator Property Tests', () => {
 
       // Test each required field
       const requiredFields = ['version', 'publicKey', 'timestamp', 'expirationTime', 'signature'];
-      
+
       for (const field of requiredFields) {
         const incompleteData = { ...baseData };
         delete (incompleteData as any)[field];
-        
+
         expect(qrGenerator.parseQRData(`obscur-invite:${JSON.stringify(incompleteData)}`)).toBeNull();
       }
     });
@@ -360,18 +360,18 @@ describe('QR Generator Property Tests', () => {
 
   describe('Integration with Crypto Service', () => {
     it('should use crypto service for invite ID generation', async () => {
-      const { cryptoService } = await import('../../crypto/crypto-service');
-      
+      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+
       await qrGenerator.createInviteQR(validPublicKey, validPrivateKey);
-      
+
       expect(cryptoService.generateInviteId).toHaveBeenCalled();
     });
 
     it('should use crypto service for signing', async () => {
-      const { cryptoService } = await import('../../crypto/crypto-service');
-      
+      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+
       await qrGenerator.createInviteQR(validPublicKey, validPrivateKey);
-      
+
       expect(cryptoService.signInviteData).toHaveBeenCalledWith(
         expect.objectContaining({
           publicKey: validPublicKey,
@@ -384,8 +384,8 @@ describe('QR Generator Property Tests', () => {
     });
 
     it('should validate public keys using crypto service', async () => {
-      const { cryptoService } = await import('../../crypto/crypto-service');
-      
+      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+
       const invalidData: QRInviteData = {
         version: '1.0',
         publicKey: 'invalid-key' as PublicKeyHex,
@@ -394,8 +394,8 @@ describe('QR Generator Property Tests', () => {
         signature: 'mock-signature'
       };
 
-      vi.mocked(cryptoService.isValidPubkey).mockReturnValue(false);
-      
+      vi.mocked(cryptoService.isValidPubkey).mockResolvedValue(false);
+
       await expect(qrGenerator.generateQR(invalidData)).rejects.toThrow('invalid publicKey format');
       expect(cryptoService.isValidPubkey).toHaveBeenCalledWith('invalid-key');
     });

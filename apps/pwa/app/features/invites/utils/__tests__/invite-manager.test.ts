@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { inviteManager } from '../invite-manager';
-import { cryptoService } from '../../crypto/crypto-service';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 import { contactStore } from '../contact-store';
 import { profileManager } from '../profile-manager';
 import {
@@ -22,7 +22,7 @@ vi.mock('../db/open-invite-db');
 describe('Invite Manager Property Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Mock getCurrentUserIdentity to avoid the "not implemented" error
     vi.spyOn(inviteManager as any, 'getCurrentUserIdentity').mockResolvedValue({
       publicKey: 'a'.repeat(64),
@@ -36,25 +36,25 @@ describe('Invite Manager Property Tests', () => {
      * For any two invite link generation requests, the system should produce unique URLs even when created by the same user
      * Validates: Requirements 2.1
      */
-    it('should generate unique short codes and IDs', () => {
-      fc.assert(
-        fc.property(
+    it('should generate unique short codes and IDs', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.array(fc.integer({ min: 1, max: 100 }), { minLength: 2, maxLength: 10 }),
-          (seeds) => {
+          async (seeds) => {
             // Test the uniqueness of generated IDs and short codes
             const generatedIds = new Set<string>();
             const generatedShortCodes = new Set<string>();
-            
+
             // Mock crypto service to generate deterministic but unique values
             let idCounter = 0;
-            vi.mocked(cryptoService.generateInviteId).mockImplementation(() => {
+            vi.mocked(cryptoService.generateInviteId).mockImplementation(async () => {
               return `id-${idCounter++}`;
             });
 
             for (const seed of seeds) {
-              const id = cryptoService.generateInviteId();
+              const id = await cryptoService.generateInviteId();
               const shortCode = `code-${seed}-${Math.random().toString(36).slice(2, 10)}`;
-              
+
               generatedIds.add(id);
               generatedShortCodes.add(shortCode);
             }
@@ -83,7 +83,7 @@ describe('Invite Manager Property Tests', () => {
             // Test the short code extraction logic
             const baseUrl = 'https://obscur.app/invite';
             const fullUrl = `${baseUrl}/${shortCode}`;
-            
+
             // Mock the private method for testing
             const extractShortCode = (linkData: string): string | null => {
               try {
@@ -99,7 +99,7 @@ describe('Invite Manager Property Tests', () => {
 
             const extracted = extractShortCode(fullUrl);
             expect(extracted).toBe(shortCode);
-            
+
             // Test with just the short code
             const extractedDirect = extractShortCode(shortCode);
             expect(extractedDirect).toBe(shortCode);
@@ -142,13 +142,13 @@ describe('Invite Manager Property Tests', () => {
 
             // Test contact creation properties
             const expectedDisplayName = displayName || `User ${senderPublicKey.slice(0, 8)}`;
-            
+
             expect(mockContactRequest.senderPublicKey).toBe(senderPublicKey);
             expect(mockContactRequest.profile.displayName).toBe(displayName);
             expect(mockContactRequest.message).toBe(message);
             expect(mockContactRequest.type).toBe('incoming');
             expect(mockContactRequest.status).toBe('pending');
-            
+
             // Verify the expected contact properties
             expect(expectedDisplayName).toBeTruthy();
             expect(expectedDisplayName.length).toBeGreaterThan(0);
@@ -181,7 +181,7 @@ describe('Invite Manager Property Tests', () => {
             expect(outgoingRequest.message).toBe(message);
             expect(outgoingRequest.recipientPublicKey).toBe(recipientPublicKey);
             expect(outgoingRequest.includeProfile).toBe(true);
-            
+
             // Verify message properties
             expect(message.length).toBeGreaterThan(0);
             expect(typeof message).toBe('string');
@@ -204,11 +204,11 @@ describe('Invite Manager Property Tests', () => {
           fc.integer({ min: 51, max: 100 }),
           (numRequests) => {
             const MAX_PENDING_REQUESTS = 50;
-            
+
             // Test the queue management logic
             if (numRequests >= MAX_PENDING_REQUESTS) {
               const expectedToRemove = numRequests - MAX_PENDING_REQUESTS + 1; // +1 because we're adding one more
-              
+
               // Verify the calculation
               expect(expectedToRemove).toBeGreaterThan(0);
               expect(expectedToRemove).toBeLessThanOrEqual(numRequests);

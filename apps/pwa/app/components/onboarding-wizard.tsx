@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useState } from "react";
+import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -133,8 +134,8 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
             {/* Logo/Icon */}
             <div className="flex justify-center">
               <div className="relative flex h-40 w-40 items-center justify-center">
-                <img src="/obscur-logo-light.svg" alt="Obscur Logo" className="h-40 w-40 drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] dark:hidden" />
-                <img src="/obscur-logo-dark.svg" alt="Obscur Logo" className="hidden h-40 w-40 drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] dark:block" />
+                <Image src="/obscur-logo-light.svg" alt="Obscur Logo" width={160} height={160} className="drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] dark:hidden" />
+                <Image src="/obscur-logo-dark.svg" alt="Obscur Logo" width={160} height={160} className="hidden drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] dark:block" />
               </div>
             </div>
 
@@ -222,7 +223,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 {t("common.getStarted")}
               </Button>
 
-              <p className="mt-4 text-center text-xs text-zinc-400 dark:text-zinc-600">
+              <p className="mt-4 text-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 {t("onboarding.welcome.disclaimer")}
               </p>
             </div>
@@ -375,7 +376,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 <div className="p-4 rounded-xl border border-purple-200 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                   <div className="h-10 w-10 rounded-full bg-purple-200 dark:bg-purple-800 flex items-center justify-center overflow-hidden">
                     {resolvedProfile.avatar ? (
-                      <img src={resolvedProfile.avatar} alt={resolvedProfile.displayName} className="h-full w-full object-cover" />
+                      <Image src={resolvedProfile.avatar!} alt={resolvedProfile.displayName || "Avatar"} fill unoptimized className="object-cover" />
                     ) : (
                       <User className="h-5 w-5 text-purple-600 dark:text-purple-300" />
                     )}
@@ -454,9 +455,14 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
 
             <ShareInviteCard />
 
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {t("onboarding.complete.redirecting")}
-            </p>
+            <div className="pt-2">
+              <Button
+                onClick={() => props.onComplete?.()}
+                className="w-full bg-zinc-900 dark:bg-zinc-50 dark:text-zinc-900 hover:opacity-90"
+              >
+                {t("onboarding.complete.goToMessages") || "Go to Messages"}
+              </Button>
+            </div>
           </div>
         </Card>
       </div>

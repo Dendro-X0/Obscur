@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { inviteManager } from "@/app/features/invites/utils/invite-manager";
 import type { ContactRequest } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
@@ -93,10 +94,13 @@ export const ContactRequestInbox = () => {
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   {request.profile.avatar ? (
-                    <img
+                    <Image
                       src={request.profile.avatar}
                       alt={request.profile.displayName || "User"}
-                      className="h-12 w-12 rounded-full"
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 rounded-full object-cover"
+                      unoptimized
                     />
                   ) : (
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">

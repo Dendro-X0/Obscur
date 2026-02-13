@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { qrGenerator } from "@/app/features/invites/utils/qr-generator";
 import type { QRCode, QRInviteOptions } from "@/app/features/invites/utils/types";
@@ -9,7 +10,7 @@ import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
-type QRGeneratorState = 
+type QRGeneratorState =
   | { status: "idle" }
   | { status: "generating" }
   | { status: "success"; qrCode: QRCode }
@@ -48,9 +49,9 @@ export const QRCodeGenerator = () => {
 
       setState({ status: "success", qrCode });
     } catch (error) {
-      setState({ 
-        status: "error", 
-        error: error instanceof Error ? error.message : "Failed to generate QR code" 
+      setState({
+        status: "error",
+        error: error instanceof Error ? error.message : "Failed to generate QR code"
       });
     }
   };
@@ -182,10 +183,13 @@ export const QRCodeGenerator = () => {
         {state.status === "success" && (
           <div className="space-y-4">
             <div className="flex justify-center rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950/60">
-              <img
+              <Image
                 src={state.qrCode.dataUrl}
                 alt="QR Code"
+                width={256}
+                height={256}
                 className="h-64 w-64"
+                unoptimized
               />
             </div>
 

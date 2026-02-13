@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { useHorizontalScroll } from "@/app/features/messaging/hooks/use-horizontal-scroll";
-import { AppShell } from "./app-shell";
+import AppShell from "./app-shell";
 
 import { useTranslation } from "react-i18next";
 

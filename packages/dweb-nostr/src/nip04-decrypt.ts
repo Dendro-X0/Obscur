@@ -15,26 +15,6 @@ const sha256 = async (bytes: Uint8Array): Promise<Uint8Array> => {
   return new Uint8Array(digest);
 };
 
-const pkcs7Unpad = (payload: Uint8Array): Uint8Array => {
-  if (payload.length === 0) {
-    throw new Error("Invalid ciphertext");
-  }
-  const lastByte: number | undefined = payload.at(-1);
-  if (lastByte === undefined) {
-    throw new Error("Invalid ciphertext");
-  }
-  const padLen: number = lastByte;
-  if (padLen <= 0 || padLen > 16) {
-    throw new Error("Invalid padding");
-  }
-  for (let i: number = payload.length - padLen; i < payload.length; i += 1) {
-    if (payload[i] !== padLen) {
-      throw new Error("Invalid padding");
-    }
-  }
-  return payload.slice(0, payload.length - padLen);
-};
-
 const parsePayload = (payload: string): Readonly<{ ciphertext: Uint8Array; iv: Uint8Array }> => {
   const parts: ReadonlyArray<string> = payload.split("?iv=");
   if (parts.length !== 2) {
@@ -64,8 +44,6 @@ export const nip04Decrypt = async (params: Nip04DecryptParams): Promise<string> 
   const parsed: Readonly<{ ciphertext: Uint8Array; iv: Uint8Array }> = parsePayload(params.payload);
   const keyBytes: Uint8Array = await deriveNip04KeyBytes({ recipientPrivateKeyHex: params.recipientPrivateKeyHex, senderPublicKeyHex: params.senderPublicKeyHex });
   const key: CryptoKey = await crypto.subtle.importKey("raw", toArrayBuffer(keyBytes), { name: "AES-CBC" }, false, ["decrypt"]);
-  const paddedBuffer: ArrayBuffer = await crypto.subtle.decrypt({ name: "AES-CBC", iv: toArrayBuffer(parsed.iv) }, key, toArrayBuffer(parsed.ciphertext));
-  const paddedBytes: Uint8Array = new Uint8Array(paddedBuffer);
-  const plaintextBytes: Uint8Array = pkcs7Unpad(paddedBytes);
-  return new TextDecoder().decode(plaintextBytes);
+  const plaintextBuffer: ArrayBuffer = await crypto.subtle.decrypt({ name: "AES-CBC", iv: toArrayBuffer(parsed.iv) }, key, toArrayBuffer(parsed.ciphertext));
+  return new TextDecoder().decode(new Uint8Array(plaintextBuffer));
 };

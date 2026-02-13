@@ -7,8 +7,10 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
 import { useTranslation } from "react-i18next";
-import { Users, Info, Camera, X, Check } from "lucide-react";
+import { Users, Info, Camera, X, Check, Globe, Lock } from "lucide-react";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
+import { cn } from "@/app/lib/cn";
+import Image from "next/image";
 
 export interface GroupCreateInfo {
     host: string;
@@ -16,6 +18,7 @@ export interface GroupCreateInfo {
     name: string;
     about: string;
     picture?: string;
+    access: "public" | "private";
 }
 
 interface CreateGroupDialogProps {
@@ -36,6 +39,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
         name: "",
         about: "",
         picture: "",
+        access: "public",
     });
 
     const isValid =
@@ -113,7 +117,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                 className="group relative h-24 w-24 rounded-[32px] bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-purple-500 dark:hover:border-purple-500 transition-colors overflow-hidden"
                             >
                                 {info.picture ? (
-                                    <img src={info.picture} alt="Group avatar" className="h-full w-full object-cover" />
+                                    <Image src={info.picture} alt="Group avatar" fill unoptimized className="object-cover" />
                                 ) : (
                                     <Camera className="h-8 w-8 text-zinc-400 group-hover:text-purple-500 transition-colors" />
                                 )}
@@ -153,6 +157,47 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                             placeholder="What is this group about?"
                             className="bg-zinc-50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 rounded-xl min-h-[80px]"
                         />
+                    </div>
+
+                    {/* Privacy Section */}
+                    <div className="space-y-3">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                            {t("groups.privacyLabel", "Privacy Policy")}
+                        </Label>
+                        <div className="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setInfo(prev => ({ ...prev, access: "public" }))}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                    info.access === "public"
+                                        ? "bg-white dark:bg-zinc-800 text-purple-600 shadow-sm"
+                                        : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                                )}
+                            >
+                                <Globe className="h-4 w-4" />
+                                {t("groups.public", "Public")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setInfo(prev => ({ ...prev, access: "private" }))}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                    info.access === "private"
+                                        ? "bg-white dark:bg-zinc-800 text-purple-600 shadow-sm"
+                                        : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                                )}
+                            >
+                                <Lock className="h-4 w-4" />
+                                {t("groups.private", "Private")}
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-zinc-500 px-1 leading-relaxed">
+                            {info.access === "public"
+                                ? "Anyone can find and join this group instantly."
+                                : "Invite only. Users cannot request to join and must be added by an admin."
+                            }
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 pt-2">

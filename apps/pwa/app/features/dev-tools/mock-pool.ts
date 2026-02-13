@@ -155,4 +155,6 @@ export class MockPool {
     canConnectToRelay(_url: string) { return true; }
     addTransientRelay(_url: string) { }
     removeTransientRelay(_url: string) { }
+    isConnected() { return true; }
+    async waitForConnection() { return true; }
 }

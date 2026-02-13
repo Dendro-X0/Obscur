@@ -1,8 +1,8 @@
 # Roadmap
 
-## 🚀 Upcoming Release: v0.4.0 (Community & Polish)
+## 🚀 Current Release: v0.7.6-alpha (Invite System & Stability)
 
-The next major release focuses on expanding social features and refining the mobile experience to ensure Obscur feels like a mature, native-quality application.
+This release focuses on streamlining the user connection flow and hardening the messaging core against network instability.
 
 ### 👥 Group Chat V1
 - **Objective**: Deliver a robust group chat experience comparable to Signal/Telegram groups.

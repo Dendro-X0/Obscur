@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { cn } from "../lib/cn";
 import { ImageOff, Loader2 } from "lucide-react";
 
-interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'onLoad' | 'onError'> {
     src: string;
     alt: string;
     className?: string;
@@ -18,7 +19,7 @@ export function OptimizedImage({ src, alt, className, containerClassName, ...pro
     return (
         <div className={cn("relative overflow-hidden bg-zinc-100 dark:bg-zinc-800", containerClassName)}>
             {!isLoaded && !isError && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center z-10">
                     <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
                 </div>
             )}
@@ -29,14 +30,15 @@ export function OptimizedImage({ src, alt, className, containerClassName, ...pro
                     <span className="text-[10px] font-bold uppercase tracking-widest">Load Failed</span>
                 </div>
             ) : (
-                <img
+                <Image
                     src={src}
                     alt={alt}
-                    loading="lazy"
+                    fill
+                    unoptimized
                     onLoad={() => setIsLoaded(true)}
                     onError={() => setIsError(true)}
                     className={cn(
-                        "transition-all duration-700 ease-in-out",
+                        "transition-all duration-700 ease-in-out object-cover",
                         isLoaded ? "opacity-100 scale-100 blur-0" : "opacity-0 scale-105 blur-lg",
                         className
                     )}

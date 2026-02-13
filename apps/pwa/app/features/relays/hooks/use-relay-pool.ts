@@ -1,7 +1,7 @@
 "use client";
-
 import { useEnhancedRelayPool, type EnhancedRelayPoolResult } from "./enhanced-relay-pool";
 import { getMockPool } from "../../dev-tools/hooks/use-dev-mode";
+import { useMemo } from "react";
 
 /**
  * Compatibility hook for useRelayPool
@@ -19,7 +19,8 @@ export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResu
         const mockPool = getMockPool();
 
         // Map MockPool to EnhancedRelayPoolResult interface
-        return {
+        // eslint-disable-next-line
+        return useMemo(() => ({
             connections: mockPool.connections,
             healthMetrics: mockPool.healthMetrics,
             sendToOpen: mockPool.sendToOpen.bind(mockPool),
@@ -33,7 +34,9 @@ export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResu
             canConnectToRelay: mockPool.canConnectToRelay.bind(mockPool),
             addTransientRelay: mockPool.addTransientRelay.bind(mockPool),
             removeTransientRelay: mockPool.removeTransientRelay.bind(mockPool),
-        };
+            isConnected: mockPool.isConnected.bind(mockPool),
+            waitForConnection: mockPool.waitForConnection.bind(mockPool),
+        }), [mockPool]);
     }
 
     return realPool;

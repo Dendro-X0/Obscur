@@ -1,8 +1,8 @@
 "use client";
 
-import type React from "react";
+import React, { useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -12,8 +12,9 @@ import { IdentityCard } from "../components/identity-card";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { parseNip29GroupIdentifier } from "@/app/features/groups/utils/parse-nip29-group-identifier";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
-import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useInviteResolver } from "@/app/features/invites/utils/use-invite-resolver";
+import { isValidInviteCode } from "@/app/features/invites/utils/invite-parser";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { Loader2, Search, User as UserIcon } from "lucide-react";
@@ -27,9 +28,8 @@ export default function SearchPage(): React.JSX.Element {
   const identity = useIdentity();
   const publicKeyHex: PublicKeyHex | null = (identity.state.publicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
-  const relayList = useRelayList({ publicKeyHex });
-  const enabledRelayUrls = useMemo(() => relayList.state.relays.filter((r: { enabled: boolean }) => r.enabled).map((r: { url: string }) => r.url), [relayList.state.relays]);
-  const pool = useRelayPool(enabledRelayUrls);
+  const { relayPool: pool } = useRelay();
+  const inviteResolver = useInviteResolver({ myPublicKeyHex: publicKeyHex });
 
   const [mode, setMode] = useState<SearchMode>("user");
   const [pubkeyInput, setPubkeyInput] = useState<string>("");
@@ -71,8 +71,8 @@ export default function SearchPage(): React.JSX.Element {
         if (parsed[0] === "EOSE" && parsed[1] === subId) {
           setIsSearching(false);
         }
-      } catch (e) {
-        // Ignore parsing errors
+      } catch (err) {
+        console.error("Search message parse failed:", err);
       }
     });
 
@@ -96,80 +96,27 @@ export default function SearchPage(): React.JSX.Element {
     setGroupInput(value);
   };
 
-  const checkHexKeyProfile = async (hex: string): Promise<void> => {
-    setIsSearching(true);
-    setSearchResults([]);
-
-    if (pool.connections.length === 0) {
-      const encoded: string = encodeURIComponent(hex);
-      router.push(`/?pubkey=${encoded}`);
-      return;
-    }
-
-    const subId = Math.random().toString(36).substring(7);
-    const filter: Readonly<{ kinds: number[]; authors: string[]; limit: number }> = { kinds: [0], authors: [hex], limit: 1 };
-    const req = JSON.stringify(["REQ", subId, filter]);
-
-    let found = false;
-
-    void pool.broadcastEvent(req);
-
-    return new Promise<void>((resolve) => {
-      const cleanup = pool.subscribeToMessages(({ message }) => {
-        try {
-          const parsed = JSON.parse(message);
-          if (parsed[0] === "EVENT" && parsed[1] === subId) {
-            const event = parsed[2];
-            const content = JSON.parse(event.content);
-            setSearchResults([{
-              pubkey: event.pubkey,
-              name: content.name || content.display_name || t("common.unknown"),
-              display_name: content.display_name,
-              picture: content.picture
-            }]);
-            found = true;
-            setIsSearching(false);
-            cleanup();
-            resolve();
-          }
-          if (parsed[0] === "EOSE" && parsed[1] === subId) {
-            setIsSearching(false);
-            if (!found) {
-              setSearchResults([{
-                pubkey: hex,
-                name: t("search.notFoundRelays"),
-                display_name: t("search.offlineNewUser"),
-                picture: undefined
-              }]);
-            }
-            cleanup();
-            resolve();
-          }
-        } catch (e) {
-        }
-      });
-
-      setTimeout(() => {
-        if (!found) {
-          pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
-          setIsSearching(false);
-          if (searchResults.length === 0) {
-            setSearchResults([{
-              pubkey: hex,
-              name: t("search.searchTimeout"),
-              display_name: t("search.offlineNewUser"),
-              picture: undefined
-            }]);
-          }
-        }
-        cleanup();
-        resolve();
-      }, 3000);
-    });
-  };
-
-  const onSubmit = (): void => {
+  const onSubmit = async (): Promise<void> => {
     if (mode === "user") {
+      const code = trimmedPubkeyInput.toUpperCase();
+      if (isValidInviteCode(code)) {
+        setIsSearching(true);
+        setSearchResults([]);
+        const resolved = await inviteResolver.resolveCode(code);
+        setIsSearching(false);
+        if (resolved) {
+          setSearchResults([{
+            pubkey: resolved.publicKeyHex,
+            name: resolved.displayName || t("common.unknown"),
+            display_name: resolved.displayName,
+            picture: resolved.avatar
+          }]);
+        } else {
+          setSearchResults([]);
+        }
+        return;
+      }
+
       if (parsedPubkey.ok) {
         const encoded: string = encodeURIComponent(parsedPubkey.publicKeyHex);
         router.push(`/?pubkey=${encoded}`);
@@ -278,7 +225,7 @@ export default function SearchPage(): React.JSX.Element {
               <div className="space-y-4 pt-4 border-t border-black/10 dark:border-white/10">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium">{t("messaging.searchResults")}</h3>
-                  {isSearching && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+                  {(isSearching || inviteResolver.isResolving) && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
                 </div>
 
                 <div className="grid gap-2">
@@ -290,7 +237,14 @@ export default function SearchPage(): React.JSX.Element {
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
                         {result.picture ? (
-                          <img src={result.picture} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                          <Image
+                            src={result.picture}
+                            alt=""
+                            width={40}
+                            height={40}
+                            className="h-10 w-10 shrink-0 rounded-full object-cover"
+                            unoptimized
+                          />
                         ) : (
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">
                             <UserIcon className="h-5 w-5 text-zinc-500" />

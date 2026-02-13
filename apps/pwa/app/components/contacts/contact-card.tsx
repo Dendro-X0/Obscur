@@ -1,11 +1,11 @@
 "use client";
 
 import type React from "react";
+import Image from "next/image";
 import type { Contact, ContactGroup } from "@/app/features/invites/utils/types";
 import { MessageSquare, MoreVertical, Shield, ShieldCheck, ShieldOff, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
-import { cn } from "../../lib/cn";
 
 interface ContactCardProps {
     contact: Contact;
@@ -39,10 +39,13 @@ export const ContactCard = ({ contact, groups, onSelect }: ContactCardProps) => 
             {/* Avatar Section */}
             <div className="relative shrink-0">
                 {contact.avatar ? (
-                    <img
+                    <Image
                         src={contact.avatar}
                         alt={contact.displayName}
+                        width={48}
+                        height={48}
                         className="h-12 w-12 rounded-full object-cover ring-2 ring-white dark:ring-zinc-800"
+                        unoptimized
                     />
                 ) : (
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 ring-2 ring-white dark:bg-zinc-800 dark:ring-zinc-800">

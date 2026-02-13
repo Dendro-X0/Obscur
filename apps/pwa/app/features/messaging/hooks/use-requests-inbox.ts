@@ -24,10 +24,12 @@ type UseRequestsInboxResult = Readonly<{
     createdAtUnixSeconds: number;
     isRequest?: boolean;
     status?: ConnectionRequestStatusValue;
+    eventId?: string;
   }>) => void;
   remove: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => void;
   markRead: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => void;
-  setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue }>) => void;
+  setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>) => void;
+  getRequestStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => { status?: ConnectionRequestStatusValue; isOutgoing: boolean } | null;
 }>;
 
 type StoredRequestsInbox = Readonly<{
@@ -74,10 +76,11 @@ const loadFromStorage = (publicKeyHex: PublicKeyHex): StoredRequestsInbox => {
         const unreadCount = typeof c.unreadCount === "number" ? c.unreadCount : 0;
         const status = typeof c.status === "string" ? (c.status as ConnectionRequestStatusValue) : undefined;
         const isRequest = typeof c.isRequest === "boolean" ? c.isRequest : false;
+        const isOutgoing = typeof c.isOutgoing === "boolean" ? c.isOutgoing : false;
         if (!peer) {
           return null;
         }
-        return { peerPublicKeyHex: peer, lastMessagePreview, lastReceivedAtUnixSeconds, unreadCount, status, isRequest };
+        return { peerPublicKeyHex: peer, lastMessagePreview, lastReceivedAtUnixSeconds, unreadCount, status, isRequest, isOutgoing };
       })
       .filter((v: RequestsInboxItem | null): v is RequestsInboxItem => v !== null);
     return { items };
@@ -189,9 +192,16 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       }
 
       // If we've seen a more recent message, update preview and increment count
-      // If same message (matched by eventId earlier) or older, we might want to skip incrementing unread
       const isNewer = p.createdAtUnixSeconds > existing.lastReceivedAtUnixSeconds;
-      const nextUnread: number = existing.unreadCount + 1;
+
+      // Only increment unread if the request is still pending or if it's a new request for a previously declined contact
+      const currentStatus = p.status ?? statusByPeer[p.peerPublicKeyHex] ?? existing.status;
+      const shouldIncrement = isNewer && (currentStatus === 'pending' || !currentStatus);
+
+      // Clear unreadCount if the status is already resolved
+      const nextUnread: number = (currentStatus === 'pending' || !currentStatus)
+        ? (shouldIncrement ? existing.unreadCount + 1 : existing.unreadCount)
+        : 0;
 
       const updated: RequestsInboxItem = {
         peerPublicKeyHex: existing.peerPublicKeyHex,
@@ -201,10 +211,22 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         isRequest: p.isRequest ?? existing.isRequest,
         status: p.status ?? existing.status
       };
-      const nextItems: RequestsInboxItem[] = [updated, ...prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex)];
+
+      let nextItems: RequestsInboxItem[] = [updated, ...prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex)];
+
+      // Limit history: only keep latest handled (non-pending) request
+      const pendingItems = nextItems.filter(i => i.status === 'pending' || !i.status);
+      const handledItems = nextItems.filter(i => i.status !== 'pending' && i.status !== undefined);
+
+      if (handledItems.length > 1) {
+        // Sort by time and keep only the newest
+        handledItems.sort((a, b) => b.lastReceivedAtUnixSeconds - a.lastReceivedAtUnixSeconds);
+        nextItems = [...pendingItems, handledItems[0]];
+      }
+
       return { items: nextItems };
     });
-  }, [params.publicKeyHex, processedEventIds]);
+  }, [params.publicKeyHex, processedEventIds, statusByPeer]);
   const remove = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): void => {
     if (params.publicKeyHex) {
       void ConnectionRequestService.updateRequestStatus(params.publicKeyHex, p.peerPublicKeyHex, "declined");
@@ -226,20 +248,48 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       };
     });
   }, []);
-  const setStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue }>): void => {
+  const setStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>): void => {
     if (params.publicKeyHex) {
-      void ConnectionRequestService.updateRequestStatus(params.publicKeyHex, p.peerPublicKeyHex, p.status);
+      void ConnectionRequestService.addRequest(params.publicKeyHex, {
+        id: p.peerPublicKeyHex,
+        status: p.status,
+        isOutgoing: p.isOutgoing || false,
+        timestamp: new Date()
+      });
       setStatusByPeer((prev: RequestsStatusByPeer): RequestsStatusByPeer => ({ ...prev, [p.peerPublicKeyHex]: p.status }));
     }
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
-      return {
-        items: prev.items.map((i: RequestsInboxItem): RequestsInboxItem => {
-          if (i.peerPublicKeyHex !== p.peerPublicKeyHex) {
-            return i;
-          }
-          return { ...i, status: p.status };
-        })
-      };
+      const existing = prev.items.find(i => i.peerPublicKeyHex === p.peerPublicKeyHex);
+      if (!existing) {
+        const newItem: RequestsInboxItem = {
+          peerPublicKeyHex: p.peerPublicKeyHex,
+          lastMessagePreview: "", // No preview for manually removed contacts
+          lastReceivedAtUnixSeconds: Math.floor(Date.now() / 1000),
+          unreadCount: 0,
+          status: p.status,
+          isOutgoing: p.isOutgoing
+        };
+        return { items: [newItem, ...prev.items] };
+      }
+      const nextItems = prev.items.map((i: RequestsInboxItem): RequestsInboxItem => {
+        if (i.peerPublicKeyHex !== p.peerPublicKeyHex) {
+          return i;
+        }
+        // Clear unread count when status changes to anything other than pending
+        const nextUnread = p.status === 'pending' ? i.unreadCount : 0;
+        return { ...i, status: p.status, unreadCount: nextUnread, isOutgoing: p.isOutgoing ?? i.isOutgoing };
+      });
+
+      // Limit history: only keep latest handled (non-pending) request
+      const pendingItems = nextItems.filter(i => i.status === 'pending' || !i.status);
+      const handledItems = nextItems.filter(i => i.status !== 'pending' && i.status !== undefined);
+
+      if (handledItems.length > 1) {
+        handledItems.sort((a, b) => b.lastReceivedAtUnixSeconds - a.lastReceivedAtUnixSeconds);
+        return { items: [...pendingItems, handledItems[0]] };
+      }
+
+      return { items: nextItems };
     });
   }, [params.publicKeyHex]);
   const state: RequestsInboxState = useMemo((): RequestsInboxState => {
@@ -252,5 +302,11 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     });
     return { items };
   }, [statusByPeer, stored.items]);
-  return { state, upsertIncoming, remove, markRead, setStatus };
+  const getRequestStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): { status?: ConnectionRequestStatusValue; isOutgoing: boolean } | null => {
+    const item = stored.items.find(i => i.peerPublicKeyHex === p.peerPublicKeyHex);
+    if (!item) return null;
+    return { status: statusByPeer[p.peerPublicKeyHex] || item.status, isOutgoing: item.isOutgoing || false };
+  }, [stored.items, statusByPeer]);
+
+  return { state, upsertIncoming, remove, markRead, setStatus, getRequestStatus };
 };

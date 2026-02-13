@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { profileManager } from "@/app/features/invites/utils/profile-manager";
 import type { UserProfile, PrivacySettings } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
@@ -141,21 +142,19 @@ export const ProfileSettings = () => {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setActiveTab("profile")}
-          className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === "profile"
+          className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "profile"
               ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
               : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-          }`}
+            }`}
         >
           Profile
         </button>
         <button
           onClick={() => setActiveTab("privacy")}
-          className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === "privacy"
+          className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "privacy"
               ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
               : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-          }`}
+            }`}
         >
           Privacy
         </button>
@@ -193,15 +192,18 @@ export const ProfileSettings = () => {
             />
             {avatar && (
               <div className="mt-2 flex items-center gap-2">
-                <img
+                <Image
                   src={avatar}
                   alt="Avatar preview"
+                  width={48}
+                  height={48}
                   className="h-12 w-12 rounded-full object-cover"
+                  unoptimized
                   onError={(e) => {
-                    e.currentTarget.style.display = "none";
+                    (e.currentTarget as HTMLImageElement).style.display = "none";
                   }}
                 />
-                <span className="text-xs text-zinc-500 dark:text-zinc-500">Preview</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">Preview</span>
               </div>
             )}
           </div>

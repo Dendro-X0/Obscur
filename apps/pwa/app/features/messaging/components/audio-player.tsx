@@ -17,6 +17,7 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [currentTime, setCurrentTime] = useState(0);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     const togglePlay = () => {
@@ -32,6 +33,7 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
 
     const handleTimeUpdate = () => {
         if (audioRef.current) {
+            setCurrentTime(audioRef.current.currentTime);
             setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
         }
     };
@@ -45,6 +47,7 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
     const handleEnded = () => {
         setIsPlaying(false);
         setProgress(0);
+        setCurrentTime(0);
     };
 
     const formatTime = (time: number) => {
@@ -93,7 +96,7 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
                     />
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-60">
-                    <span>{formatTime(audioRef.current?.currentTime || 0)}</span>
+                    <span>{formatTime(currentTime)}</span>
                     <div className="flex items-center gap-1 group">
                         <Volume2 className="h-2.5 w-2.5" />
                         <span>{formatTime(duration)}</span>

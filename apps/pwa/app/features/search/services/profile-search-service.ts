@@ -47,7 +47,8 @@ export class ProfileSearchService {
 
                                 if (
                                     name.toLowerCase().includes(query.toLowerCase()) ||
-                                    displayName.toLowerCase().includes(query.toLowerCase())
+                                    displayName.toLowerCase().includes(query.toLowerCase()) ||
+                                    event.pubkey === query
                                 ) {
                                     results.set(event.pubkey, {
                                         pubkey: event.pubkey as PublicKeyHex,
@@ -66,18 +67,30 @@ export class ProfileSearchService {
                 } catch (e) { }
             });
 
-            // If the pool supports NIP-50 search, we should use it
-            const searchFilter = {
-                kinds: [0],
-                search: query,
-                limit: 20
+            // Wait for at least one relay to connect (max 3s)
+            // Wait up to 3s for connection, then proceed
+            const doSearch = async () => {
+                const isConnected = await this.pool.waitForConnection(3000);
+
+                if (!isConnected) {
+                    console.warn("[ProfileSearch] No relay connection after timeout. Falling back or failing.");
+                }
+
+                // If the pool supports NIP-50 search, we should use it
+                const searchFilter = {
+                    kinds: [0],
+                    search: query,
+                    limit: 20
+                };
+
+                try {
+                    this.pool.sendToOpen(JSON.stringify(["REQ", subId, searchFilter]));
+                } catch (e) {
+                    console.warn("Failed to send relay search REQ", e);
+                }
             };
 
-            try {
-                this.pool.sendToOpen(JSON.stringify(["REQ", subId, searchFilter]));
-            } catch (e) {
-                console.warn("Failed to send relay search REQ", e);
-            }
+            void doSearch();
 
             // Timeout to return whatever we found on relays
             setTimeout(() => {
@@ -89,9 +102,15 @@ export class ProfileSearchService {
         });
 
         // 2. HTTP Fallback (Nostr.band API)
-        const apiSearchPromise = fetch(`https://api.nostr.band/v0/search/profile?q=${encodeURIComponent(query)}`)
+        const apiController = new AbortController();
+        const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+
+        const apiSearchPromise = fetch(`https://api.nostr.band/v0/search/profile?q=${encodeURIComponent(query)}`, {
+            signal: apiController.signal
+        })
             .then(res => res.ok ? res.json() : { profiles: [] })
             .then((data: { profiles: Array<{ pubkey: string; new_content: any }> }) => {
+                clearTimeout(apiTimeoutId);
                 return data.profiles.map(p => {
                     try {
                         const content = p.new_content;
@@ -109,7 +128,8 @@ export class ProfileSearchService {
                 }).filter((p) => p !== null) as ProfileSearchResult[];
             })
             .catch(e => {
-                console.warn("API search failed", e);
+                clearTimeout(apiTimeoutId);
+                console.warn("API search failed or timed out", e);
                 return [] as ProfileSearchResult[];
             });
 

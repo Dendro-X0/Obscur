@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { useRelayPool } from "../../relays/hooks/use-relay-pool";
-import { useRelayList } from "../../relays/hooks/use-relay-list";
+import { useRelay } from "../../relays/providers/relay-provider";
 import { isValidInviteCode } from "./invite-parser";
 
 export type ResolvedInvite = {
@@ -15,8 +14,8 @@ export type ResolvedInvite = {
 
 export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null }) => {
     const { myPublicKeyHex } = params;
-    const relayList = useRelayList({ publicKeyHex: myPublicKeyHex });
-    const pool = useRelayPool(relayList.state.relays.filter(r => r.enabled).map(r => r.url));
+    const { relayPool: pool } = useRelay();
+
 
     const [isResolving, setIsResolving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -31,58 +30,55 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
         setError(null);
 
         return new Promise((resolve) => {
-            const subscriptionId = Math.random().toString(36).substring(2, 10);
             let found: ResolvedInvite | null = null;
+            let subId: string | null = null;
 
-            const handleMessage = (msgParams: { url: string; message: string }) => {
+            const onEvent = (event: any) => {
                 try {
-                    const data = JSON.parse(msgParams.message);
-                    if (data[0] === "EVENT" && data[1] === subscriptionId) {
-                        const event = data[2];
-                        if (event.kind === 0) {
-                            const content = JSON.parse(event.content);
-                            // Verify this event actually belongs to the code
-                            // Standard search by 'name' as established in use-user-invite-code.ts
-                            if (content.name === code || content.display_name === code) {
-                                found = {
-                                    publicKeyHex: event.pubkey as PublicKeyHex,
-                                    displayName: content.display_name || content.name,
-                                    avatar: content.picture || content.avatar,
-                                    about: content.about
-                                };
-                                cleanup();
-                                resolve(found);
-                            }
+                    if (event.kind === 0) {
+                        const content = JSON.parse(event.content);
+                        // Double check this event actually belongs to the code
+                        // We check tags first (reliable for Obscur PWA), then name/displayName
+                        const hasCodeTag = event.tags?.some((t: any) => t[0] === 'code' && t[1]?.toUpperCase() === code);
+                        const namesMatch = content.name === code || content.display_name === code;
+
+                        if (hasCodeTag || namesMatch) {
+                            console.log(`[InviteResolver] Found user for code ${code}: ${event.pubkey}`);
+                            found = {
+                                publicKeyHex: event.pubkey as PublicKeyHex,
+                                displayName: content.display_name || content.name,
+                                avatar: content.picture || content.avatar,
+                                about: content.about
+                            };
+                            if (subId) pool.unsubscribe(subId);
+                            setIsResolving(false);
+                            resolve(found);
                         }
                     }
-                } catch {
-                    // Ignore parse errors
+                } catch (e) {
+                    console.warn("[InviteResolver] Error parsing profile:", e);
                 }
             };
 
-            const cleanup = pool.subscribeToMessages(handleMessage);
+            // Strategy 1: Search by custom #code tag (Primary)
+            // Strategy 2: NIP-50 Keyword search (Secondary)
+            const filters = [
+                { kinds: [0], "#code": [code], limit: 1 },
+                { kinds: [0], search: code, limit: 3 }
+            ];
 
-            // Send REQ for Kind 0 with the code in search or name
-            // Some relays support 'search' filter, others we might need to be more specific
-            // Since use-user-invite-code puts it in 'name' and 'display_name', we can't easily filter by that in standard REQ unless we use 'search' or 'authors' (which we don't know)
-            // However, it also adds a [["code", inviteCode]] tag.
-            const filter = {
-                kinds: [0],
-                "#code": [code], // Use the custom tag we added
-                limit: 1
-            };
+            console.log(`[InviteResolver] Subscribing with dual search filters for: ${code}`);
+            subId = pool.subscribe(filters, onEvent);
 
-            pool.sendToOpen(JSON.stringify(["REQ", subscriptionId, filter]));
-
-            // Timeout after 5 seconds
+            // Timeout after 7 seconds (allow more time for dual relay search)
             setTimeout(() => {
                 if (!found) {
-                    cleanup();
+                    if (subId) pool.unsubscribe(subId);
                     setError("Could not find user with this code");
                     setIsResolving(false);
                     resolve(null);
                 }
-            }, 5000);
+            }, 7000);
         });
     }, [pool]);
 

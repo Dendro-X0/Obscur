@@ -168,8 +168,8 @@ export class CryptoServiceImpl implements CryptoService {
         return new Uint8Array(hashBuffer);
     }
 
-    generateInviteId(): string {
-        const randomBytes = this.generateSecureRandom(16);
+    async generateInviteId(): Promise<string> {
+        const randomBytes = await this.generateSecureRandom(16);
         return this.bytesToHex(randomBytes);
     }
 
@@ -195,7 +195,7 @@ export class CryptoServiceImpl implements CryptoService {
     }
 
     async encryptInviteData(data: string, key: Uint8Array): Promise<string> {
-        const iv = this.generateSecureRandom(12);
+        const iv = await this.generateSecureRandom(12);
         const cryptoKey = await crypto.subtle.importKey('raw', toArrayBuffer(key), { name: 'AES-GCM' }, false, ['encrypt']);
         const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: toArrayBuffer(iv) }, cryptoKey, toArrayBuffer(new TextEncoder().encode(data)));
         const combined = new Uint8Array(iv.length + encrypted.byteLength);
@@ -213,17 +213,17 @@ export class CryptoServiceImpl implements CryptoService {
         return new TextDecoder().decode(decrypted);
     }
 
-    generateSecureRandom(length: number): Uint8Array {
+    async generateSecureRandom(length: number): Promise<Uint8Array> {
         const bytes = new Uint8Array(length);
         crypto.getRandomValues(bytes);
         return bytes;
     }
 
-    isValidPubkey(pubkey: string): boolean {
+    async isValidPubkey(pubkey: string): Promise<boolean> {
         return /^[0-9a-fA-F]{64}$/.test(pubkey.trim());
     }
 
-    normalizeKey(key: string): string {
+    async normalizeKey(key: string): Promise<string> {
         const normalized = key.trim().toLowerCase().replace(/[^0-9a-f]/g, '');
         return normalized.length === 64 ? normalized : '';
     }
@@ -270,9 +270,23 @@ export class CryptoServiceImpl implements CryptoService {
     }
 
     private hexToBytes(hex: string): Uint8Array {
+        if (!hex || typeof hex !== 'string') return new Uint8Array(32);
+
+        // Remove 0x prefix if present
+        const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
+
+        // If not valid hex, return zeros to avoid exceptions in crypto ops (though they will fail later)
+        if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
+            console.warn("Invalid hex string provided to hexToBytes");
+            return new Uint8Array(32);
+        }
+
         const bytes = new Uint8Array(32);
+        // Better parsing loop
         for (let i = 0; i < 32; i++) {
-            bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+            const byteStr = cleanHex.slice(i * 2, i * 2 + 2);
+            if (byteStr.length < 2) break;
+            bytes[i] = parseInt(byteStr, 16);
         }
         return bytes;
     }

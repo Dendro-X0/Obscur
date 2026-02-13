@@ -1,4 +1,4 @@
-import { Attachment, AttachmentKind } from "../types";
+import { Attachment, AttachmentKind, UploadError, UploadErrorCode } from "../types";
 import { UploadService } from "./upload-service";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
@@ -18,32 +18,6 @@ type Nip96Event = Readonly<{
 }>;
 
 type Nip96Response = Readonly<Record<string, unknown>>;
-
-type NativeInvokeError = Readonly<{
-    code?: unknown;
-    message?: unknown;
-}>;
-
-const getErrorMessage = (err: unknown): string => {
-    if (err instanceof Error) {
-        return err.message;
-    }
-    if (typeof err === "string") {
-        return err;
-    }
-    if (err && typeof err === "object") {
-        const asNative = err as NativeInvokeError;
-        if (typeof asNative.message === "string") {
-            return asNative.message;
-        }
-        try {
-            return JSON.stringify(err);
-        } catch {
-            return "Unknown error";
-        }
-    }
-    return String(err);
-};
 
 const getStringProp = (obj: Nip96Response, key: string): string | null => {
     const value = obj[key];
@@ -115,42 +89,82 @@ export class Nip96UploadService implements UploadService {
         return "__TAURI_INTERNALS__" in w || "__TAURI__" in w;
     }
 
-    async uploadFile(file: File): Promise<Attachment> {
+    private logTelemetry(event: "upload.started" | "upload.success" | "upload.failed", context: Record<string, any>) {
+        console.info(`[TELEMETRY] ${JSON.stringify({
+            name: event,
+            level: event === "upload.failed" ? "error" : "info",
+            atUnixMs: Date.now(),
+            scope: "nip96-upload",
+            context
+        })}`);
+    }
+
+    uploadFile = async (file: File): Promise<Attachment> => {
         const providers = this.getProviders();
         if (providers.length === 0) {
-            throw new Error("No NIP-96 providers configured");
+            throw new UploadError(UploadErrorCode.UNKNOWN, "No NIP-96 providers configured");
         }
 
-        const errors: string[] = [];
+        const errors: UploadError[] = [];
+        const startTime = Date.now();
+
+        this.logTelemetry("upload.started", {
+            fileName: file.name,
+            fileSize: file.size,
+            contentType: file.type,
+            providerCount: providers.length,
+            isNative: this.isTauri()
+        });
 
         for (const providerUrl of providers) {
             try {
+                let attachment: Attachment;
                 if (this.isTauri()) {
-                    return await this.uploadViaTauri(file, providerUrl);
+                    attachment = await this.uploadViaTauri(file, providerUrl);
                 } else {
-                    return await this.uploadViaBrowser(file, providerUrl);
+                    attachment = await this.uploadViaBrowser(file, providerUrl);
                 }
+
+                this.logTelemetry("upload.success", {
+                    providerUrl,
+                    latencyMs: Date.now() - startTime,
+                    url: attachment.url
+                });
+
+                return attachment;
             } catch (err: any) {
-                const msg = getErrorMessage(err);
-                console.error(`[NIP96] Failed for ${providerUrl}:`, msg);
-                errors.push(`${providerUrl}: ${msg}`);
+                const uploadError = err instanceof UploadError
+                    ? err
+                    : new UploadError(UploadErrorCode.UNKNOWN, err.message || String(err));
+
+                console.error(`[NIP96] Failed for ${providerUrl}:`, uploadError.message);
+                errors.push(uploadError);
+
+                // If it's a fatal error (like no session), don't bother retrying other providers
+                if (uploadError.code === UploadErrorCode.NO_SESSION ||
+                    uploadError.code === UploadErrorCode.AUTH_MISSING_KEY) {
+                    break;
+                }
             }
         }
 
-        throw new Error(`All providers failed: ${errors.join(" | ")}`);
+        const lastError = errors[errors.length - 1];
+        this.logTelemetry("upload.failed", {
+            latencyMs: Date.now() - startTime,
+            errorCount: errors.length,
+            lastErrorCode: lastError?.code,
+            lastErrorMessage: lastError?.message
+        });
+
+        throw lastError || new UploadError(UploadErrorCode.UNKNOWN, "All providers failed unexpectedly");
     }
 
-    async pickFiles(): Promise<File[] | null> {
-        // We reuse the same strategy. In a real app we might want to move this helper
-        // but for now we'll assumes it's available or we'll duplicate it for simplicity
-        // in this specialized service. Actually, I'll export it from upload-service.ts.
+    pickFiles = async (): Promise<File[] | null> => {
         const { pickFilesInternal } = await import("./upload-service");
         return pickFilesInternal();
     }
 
     private async uploadViaTauri(file: File, providerUrl: string): Promise<Attachment> {
-        console.info(`[NIP96-TAURI] Uploading to ${providerUrl}`);
-
         const arrayBuffer = await file.arrayBuffer();
         const fileBytes = Array.from(new Uint8Array(arrayBuffer));
 
@@ -162,72 +176,88 @@ export class Nip96UploadService implements UploadService {
             nip94_event?: any;
         }
 
-        const result = await invoke<UploadResult>("nip96_upload_v2", {
-            apiUrl: providerUrl.trim(),
-            fileBytes,
-            fileName: file.name,
-            contentType: file.type || "application/octet-stream",
-        });
+        try {
+            const result = await invoke<UploadResult>("nip96_upload_v2", {
+                apiUrl: providerUrl.trim(),
+                fileBytes,
+                fileName: file.name,
+                contentType: file.type || "application/octet-stream",
+            });
 
-        if (result.status === "error") {
-            // Handle NO_SESSION specifically (from Rust NativeError)
-            if (result.message?.includes("NO_SESSION")) {
-                throw new Error("Native session expired or not initialized. Please LOCK and UNLOCK your screen to refresh your session.");
+            if (result.status === "error") {
+                // If it came back as "status: error" but didn't throw, 
+                // it might be a structured response from the backend
+                throw new UploadError(
+                    (result.message?.includes("NO_SESSION") ? UploadErrorCode.NO_SESSION : UploadErrorCode.PROVIDER_ERROR),
+                    result.message || "Upload failed"
+                );
             }
-            throw new Error(result.message || "Upload failed");
+
+            if (!result.url) {
+                throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Upload succeeded but no URL returned");
+            }
+
+            return {
+                kind: file.type.startsWith("video/") ? "video" : "image",
+                url: result.url,
+                contentType: file.type,
+                fileName: file.name,
+            };
+        } catch (err: any) {
+            // Check if it's a Tauri-thrown object (NativeError)
+            if (err && typeof err === "object" && "code" in err) {
+                throw UploadError.fromNative(err);
+            }
+            throw err;
         }
-
-        if (!result.url) {
-            throw new Error("Upload succeeded but no URL returned");
-        }
-
-        console.info(`[NIP96-TAURI] Success: ${result.url}`);
-
-        return {
-            kind: file.type.startsWith("video/") ? "video" : "image",
-            url: result.url,
-            contentType: file.type,
-            fileName: file.name,
-        };
     }
 
     private async uploadViaBrowser(file: File, providerUrl: string): Promise<Attachment> {
-        console.info(`[NIP96-BROWSER] Uploading to ${providerUrl}`);
-
         if (!this.privateKeyHex) {
-            throw new Error("Private key required for NIP-98 authentication in browser");
+            throw new UploadError(UploadErrorCode.AUTH_MISSING_KEY, "Private key required for NIP-98 authentication");
         }
 
-        // 1. Prepare NIP-98 Auth Header
-        const authHeader = await this.signNip98Header(providerUrl, "POST", this.privateKeyHex);
+        let authHeader: string;
+        try {
+            authHeader = await this.signNip98Header(providerUrl, "POST", this.privateKeyHex);
+        } catch (e) {
+            throw new UploadError(UploadErrorCode.AUTH_ERROR, `Failed to sign NIP-98 header: ${e}`);
+        }
 
-        // 2. Prepare Form Data
         const formData = new FormData();
         formData.append("file", file);
         formData.append("caption", file.name);
 
-        // 3. Perform Fetch
-        const response = await fetch(providerUrl, {
-            method: "POST",
-            headers: {
-                "Authorization": `Nostr ${authHeader}`,
-            },
-            body: formData,
-        });
+        let response: Response;
+        try {
+            response = await fetch(providerUrl, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Nostr ${authHeader}`,
+                },
+                body: formData,
+            });
+        } catch (e) {
+            throw new UploadError(UploadErrorCode.NETWORK_ERROR, `Fetch failed: ${e}`);
+        }
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, `HTTP ${response.status}: ${errorText || response.statusText}`);
         }
 
-        const result = await response.json() as Nip96Response;
+        let result: Nip96Response;
+        try {
+            result = await response.json() as Nip96Response;
+        } catch (e) {
+            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Failed to parse provider response as JSON");
+        }
+
         const url = getUrlFromNip96Response(result);
 
         if (!url) {
-            throw new Error("Upload succeeded but no URL found in response");
+            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Upload succeeded but no URL found in response");
         }
-
-        console.info(`[NIP96-BROWSER] Success: ${url}`);
 
         return {
             kind: file.type.startsWith("video/") ? "video" : "image",

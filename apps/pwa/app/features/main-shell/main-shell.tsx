@@ -1,36 +1,25 @@
 "use client";
 
 import type React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { AppShell } from "@/app/components/app-shell";
-import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
+import AppShell from "@/app/components/app-shell";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
-import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
+import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { usePeerTrust } from "@/app/features/contacts/hooks/use-peer-trust";
-import { useRequestsInbox } from "@/app/features/messaging/hooks/use-requests-inbox";
-import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { toast } from "@/app/components/ui/toast";
 import { useTranslation } from "react-i18next";
 import { ProfileSearchService } from "../search/services/profile-search-service";
 import { SocialGraphService } from "../social-graph/services/social-graph-service";
 
 import type {
-  Conversation,
   DmConversation,
   GroupConversation,
   Message,
-  ReplyTo,
-  MediaItem,
-  MessagesByConversationId,
 } from "@/app/features/messaging/types";
 
 import {
   applyContactOverrides,
-  isVisibleUserMessage,
 } from "@/app/features/messaging/utils/logic";
 
 import {
@@ -39,16 +28,9 @@ import {
   getNowMsServerSnapshot
 } from "@/app/features/messaging/utils/time";
 
-import {
-  createContactId,
-} from "@/app/features/messaging/utils/ids";
-
 import { Sidebar } from "@/app/features/messaging/components/sidebar";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
-import { NewChatDialog } from "@/app/features/messaging/components/new-chat-dialog";
-import { CreateGroupDialog, type GroupCreateInfo } from "@/app/features/groups/components/create-group-dialog";
 import { GroupSettingsSheet } from "@/app/features/groups/components/group-settings-sheet";
-import { GroupService } from "@/app/features/groups/services/group-service";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { useNip29Group } from "@/app/features/groups/hooks/use-nip29-group";
 import { LockScreen } from "@/app/components/lock-screen";
@@ -70,47 +52,36 @@ import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
-const PROFILE_STORAGE_PREFIX = "dweb.nostr.pwa.profile";
-const LEGACY_PROFILE_STORAGE_KEY = "dweb.nostr.pwa.profile";
 const DEFAULT_VISIBLE_MESSAGES = 50;
 const LOAD_EARLIER_STEP = 50;
-const DEFAULT_PROFILE_USERNAME = "Anon";
-const ONBOARDING_DISMISSED_STORAGE_KEY = "dweb.nostr.pwa.ui.onboardingDismissed";
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-const isString = (value: unknown): value is string => typeof value === "string";
-const getProfileStorageKey = (publicKeyHex: string): string => `${PROFILE_STORAGE_PREFIX}.${publicKeyHex}`;
 
 function NostrMessengerContent() {
   const { t } = useTranslation();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const identity = useIdentity();
-  const blocklist = useBlocklist({ publicKeyHex: identity.state.publicKeyHex ?? null });
-  const peerTrust = usePeerTrust({ publicKeyHex: identity.state.publicKeyHex ?? null });
-  const requestsInbox = useRequestsInbox({ publicKeyHex: identity.state.publicKeyHex ?? null });
+  const { blocklist, peerTrust, requestsInbox } = useContacts();
+
+  const myPublicKeyHex = identity.state.publicKeyHex || null;
+  const myPrivateKeyHex = identity.state.privateKeyHex || null;
   const { isLocked, unlock } = useAutoLock();
 
   const {
     selectedConversation, setSelectedConversation,
-    unreadByConversationId, setUnreadByConversationId,
-    contactOverridesByContactId, setContactOverridesByContactId,
+    unreadByConversationId,
+    contactOverridesByContactId,
     setMessagesByConversationId, messagesByConversationId,
     visibleMessageCountByConversationId, setVisibleMessageCountByConversationId,
     replyTo, setReplyTo,
-    pendingAttachments, setPendingAttachments,
-    pendingAttachmentPreviewUrls, setPendingAttachmentPreviewUrls,
-    isUploadingAttachment, setIsUploadingAttachment,
-    attachmentError, setAttachmentError,
+    pendingAttachments,
+    pendingAttachmentPreviewUrls,
+    isUploadingAttachment,
+    attachmentError,
     hasHydrated, sidebarTab, setSidebarTab,
     messageInput, setMessageInput,
     searchQuery, setSearchQuery,
     isNewChatOpen, setIsNewChatOpen,
-    newChatPubkey, setNewChatPubkey,
-    newChatDisplayName, setNewChatDisplayName,
     isMediaGalleryOpen, setIsMediaGalleryOpen,
     lightboxIndex, setLightboxIndex,
-    flashMessageId, setFlashMessageId,
+    flashMessageId,
     pendingScrollTarget, setPendingScrollTarget,
     messageMenu, setMessageMenu,
     reactionPicker, setReactionPicker,
@@ -118,16 +89,14 @@ function NostrMessengerContent() {
     createdContacts, setCreatedContacts
   } = useMessaging();
 
-  const { relayList, relayPool, relayStatus } = useRelay();
+  const { relayPool, relayStatus } = useRelay();
   const {
-    createdGroups, setCreatedGroups, isNewGroupOpen, setIsNewGroupOpen,
-    isCreatingGroup, setIsCreatingGroup, isGroupInfoOpen, setIsGroupInfoOpen,
-    newGroupName, setNewGroupName, newGroupMemberPubkeys, setNewGroupMemberPubkeys
+    createdGroups, isNewGroupOpen, setIsNewGroupOpen,
+    isGroupInfoOpen, setIsGroupInfoOpen,
   } = useGroups();
 
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [showWelcome] = useState(false);
 
   // Refs
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -135,23 +104,57 @@ function NostrMessengerContent() {
   const messageMenuRef = useRef<HTMLDivElement | null>(null);
   const reactionPickerRef = useRef<HTMLDivElement | null>(null);
 
-  const myPublicKeyHex = identity.state.status === "unlocked" ? identity.state.publicKeyHex ?? null : null;
-  const myPrivateKeyHex = identity.state.status === "unlocked" ? identity.state.privateKeyHex ?? null : null;
+  // No-op - moved to top
 
   const dmController = useEnhancedDmController({
     myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox
   });
 
-  const profileSearch = useMemo(() => new ProfileSearchService(relayPool), [relayPool]);
+  const { state: groupState } = useNip29Group({
+    pool: relayPool,
+    relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
+    groupId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).groupId : '',
+    myPublicKeyHex,
+    myPrivateKeyHex,
+    enabled: selectedConversation?.kind === 'group'
+  });
+
+  useEffect(() => {
+    if (selectedConversation?.kind !== 'group' || !groupState.messages.length) return;
+
+    setMessagesByConversationId(prev => {
+      const existing = prev[selectedConversation.id] ?? [];
+      const newMessages = groupState.messages
+        .filter(m => !existing.some(em => em.id === m.id))
+        .map(m => ({
+          id: m.id,
+          kind: 'user',
+          content: m.content,
+          timestamp: new Date(m.created_at * 1000),
+          isOutgoing: m.pubkey === myPublicKeyHex,
+          senderPubkey: m.pubkey as PublicKeyHex,
+          status: 'delivered',
+          reactions: {},
+        } as Message));
+
+      if (newMessages.length === 0) return prev;
+      return {
+        ...prev,
+        [selectedConversation.id]: [...existing, ...newMessages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+      };
+    });
+  }, [groupState.messages, selectedConversation, myPublicKeyHex, setMessagesByConversationId]);
+
+  const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
 
   // Feature hooks
   const { handleSendMessage, deleteMessage, toggleReaction } = useChatActions(dmController);
-  const { inviteRedemption, handleRedeemInvite } = useInviteRedemption(dmController);
+  const { handleRedeemInvite } = useInviteRedemption(dmController);
   useDeepLinks(handleRedeemInvite);
   useDmSync(dmController.state.messages, setMessagesByConversationId);
   useCommandMessages(dmController.state.messages, setMessagesByConversationId);
   const { allConversations, filteredConversations, messageSearchResults } = useFilteredConversations(
-    createdContacts, createdGroups, contactOverridesByContactId, messagesByConversationId, searchQuery, peerTrust.isAccepted
+    createdContacts, createdGroups, contactOverridesByContactId, messagesByConversationId, searchQuery, peerTrust.isAccepted, myPublicKeyHex
   );
   const { pickAttachments, handleFilesSelected, removePendingAttachment, clearPendingAttachments } = useAttachmentHandler();
 
@@ -188,60 +191,6 @@ function NostrMessengerContent() {
     DEFAULT_VISIBLE_MESSAGES,
     LOAD_EARLIER_STEP
   });
-
-  const handleCreateChat = useCallback(() => {
-    if (!newChatPubkey) return;
-    const existing = createdContacts.find(c => c.pubkey === newChatPubkey);
-    if (existing) {
-      setSelectedConversation(existing);
-    } else {
-      const newId = [myPublicKeyHex || '', newChatPubkey].sort().join(':');
-      const newConv: DmConversation = {
-        kind: 'dm',
-        id: newId,
-        pubkey: newChatPubkey as PublicKeyHex,
-        displayName: newChatDisplayName || newChatPubkey.slice(0, 8),
-        lastMessage: '',
-        unreadCount: 0,
-        lastMessageTime: new Date()
-      };
-      setCreatedContacts(prev => [...prev, newConv]);
-      setSelectedConversation(newConv);
-    }
-    setIsNewChatOpen(false);
-    setNewChatPubkey("");
-    setNewChatDisplayName("");
-  }, [newChatPubkey, newChatDisplayName, createdContacts, myPublicKeyHex, setSelectedConversation, setCreatedContacts, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName]);
-
-  const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
-    if (!myPrivateKeyHex || !myPublicKeyHex) return;
-    setIsCreatingGroup(true);
-    try {
-      const { groupId, host: relayUrl, name, about, picture } = info;
-      const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex);
-      await groupService.createGroup({ groupId, relayUrl });
-
-      const newGroup: GroupConversation = {
-        kind: 'group',
-        id: `group:${groupId}:${relayUrl}`,
-        groupId,
-        relayUrl,
-        displayName: name,
-        memberPubkeys: [myPublicKeyHex],
-        lastMessage: 'Group created',
-        unreadCount: 0,
-        lastMessageTime: new Date()
-      };
-      setCreatedGroups(prev => [...prev, newGroup]);
-      setSelectedConversation(newGroup);
-      setIsNewGroupOpen(false);
-      toast.success(t("groups.created"));
-    } catch (e) {
-      toast.error(t("groups.error.createFailed"));
-    } finally {
-      setIsCreatingGroup(false);
-    }
-  }, [myPrivateKeyHex, myPublicKeyHex, setCreatedGroups, setSelectedConversation, setIsNewGroupOpen, t]);
 
   const updateSidebarTab = (tab: "chats" | "requests") => {
     setSidebarTab(tab);
@@ -285,10 +234,44 @@ function NostrMessengerContent() {
             setActiveTab={updateSidebarTab}
             selectConversation={setSelectedConversation}
             requests={requestsInbox.state.items}
-            onAcceptRequest={(pk) => peerTrust.acceptPeer({ publicKeyHex: pk })}
-            onIgnoreRequest={(pk) => requestsInbox.remove({ peerPublicKeyHex: pk })}
+            onAcceptRequest={(pk) => {
+              peerTrust.acceptPeer({ publicKeyHex: pk as PublicKeyHex });
+              requestsInbox.setStatus({ peerPublicKeyHex: pk as PublicKeyHex, status: 'accepted' });
+
+              const cid = [myPublicKeyHex || '', pk].sort().join(':');
+              const newConv: DmConversation = {
+                kind: 'dm',
+                id: cid,
+                pubkey: pk as PublicKeyHex,
+                displayName: pk.slice(0, 8),
+                lastMessage: '',
+                unreadCount: 0,
+                lastMessageTime: new Date()
+              };
+
+              // Ensure it's in createdContacts
+              setCreatedContacts(prev => {
+                if (prev.some(c => c.id === cid)) return prev;
+                return [...prev, newConv];
+              });
+
+              setSelectedConversation(newConv);
+              updateSidebarTab("chats");
+            }}
+            onIgnoreRequest={(pk) => requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex })}
             onBlockRequest={(pk) => blocklist.addBlocked({ publicKeyInput: pk })}
-            onSelectRequest={(pk) => setSelectedConversation({ kind: 'dm', id: pk, pubkey: pk, displayName: pk, lastMessage: '', unreadCount: 0, lastMessageTime: new Date() })}
+            onSelectRequest={(pk) => {
+              const cid = [myPublicKeyHex || '', pk].sort().join(':');
+              setSelectedConversation({
+                kind: 'dm',
+                id: cid,
+                pubkey: pk as PublicKeyHex,
+                displayName: pk.slice(0, 8),
+                lastMessage: '',
+                unreadCount: 0,
+                lastMessageTime: new Date()
+              });
+            }}
           />
         ) : null
       }
@@ -318,6 +301,8 @@ function NostrMessengerContent() {
               toast.success(t("messaging.pubkeyCopied"));
             }}
             onOpenMedia={() => setIsMediaGalleryOpen(true)}
+            onOpenInfo={selectedConversationView.kind === 'group' ? () => setIsGroupInfoOpen(true) : undefined}
+            groupAdmins={groupState.admins}
             messageMenu={messageMenu}
             setMessageMenu={setMessageMenu}
             messageMenuRef={messageMenuRef}
@@ -356,33 +341,49 @@ function NostrMessengerContent() {
             selectedConversationMediaItems={selectedConversationMediaItems}
             lightboxIndex={lightboxIndex}
             setLightboxIndex={setLightboxIndex}
-            isPeerAccepted={peerTrust.isAccepted({ publicKeyHex: selectedConversationView.kind === 'dm' ? selectedConversationView.pubkey : '' })}
-            onAcceptPeer={() => selectedConversationView.kind === 'dm' && peerTrust.acceptPeer({ publicKeyHex: selectedConversationView.pubkey })}
+            isPeerAccepted={peerTrust.isAccepted({ publicKeyHex: selectedConversationView.kind === 'dm' ? selectedConversationView.pubkey : '' as PublicKeyHex })}
+            isInitiator={selectedConversationView.kind === 'dm' && !requestsInbox.state.items.some(i => i.peerPublicKeyHex === selectedConversationView.pubkey)}
+            onAcceptPeer={() => {
+              if (selectedConversationView.kind === 'dm') {
+                const pk = selectedConversationView.pubkey;
+                peerTrust.acceptPeer({ publicKeyHex: pk });
+                requestsInbox.setStatus({ peerPublicKeyHex: pk, status: 'accepted' });
+                updateSidebarTab("chats");
+
+                const cid = [myPublicKeyHex || '', pk].sort().join(':');
+                const existing = allConversations.find(c => c.id === cid);
+                if (existing) {
+                  setSelectedConversation(existing);
+                } else {
+                  setSelectedConversation({
+                    kind: 'dm',
+                    id: cid,
+                    pubkey: pk as PublicKeyHex,
+                    displayName: selectedConversationView.displayName || pk.slice(0, 8),
+                    lastMessage: '',
+                    unreadCount: 0,
+                    lastMessageTime: new Date()
+                  });
+                }
+              }
+            }}
             onBlockPeer={() => selectedConversationView.kind === 'dm' && blocklist.addBlocked({ publicKeyInput: selectedConversationView.pubkey })}
           />
         )}
       </main>
-      <NewChatDialog
-        isOpen={isNewChatOpen}
-        onClose={() => setIsNewChatOpen(false)}
-        pubkey={newChatPubkey}
-        setPubkey={setNewChatPubkey}
-        displayName={newChatDisplayName}
-        setDisplayName={setNewChatDisplayName}
-        onCreate={handleCreateChat}
-        verifyRecipient={dmController.verifyRecipient}
-        searchProfiles={(query) => profileSearch.searchByName(query)}
-        isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })}
-        sendConnectionRequest={dmController.sendConnectionRequest}
-      />
-      <CreateGroupDialog
-        isOpen={isNewGroupOpen}
-        onClose={() => setIsNewGroupOpen(false)}
-        onCreate={handleCreateGroup}
-        isCreating={isCreatingGroup}
-      />
       <PersistenceManager />
-      <DevPanel />
+      <DevPanel dmController={dmController} />
+
+      {selectedConversation?.kind === 'group' && (
+        <GroupSettingsSheet
+          isOpen={isGroupInfoOpen}
+          onClose={() => setIsGroupInfoOpen(false)}
+          group={selectedConversation as GroupConversation}
+          pool={relayPool}
+          myPublicKeyHex={myPublicKeyHex}
+          myPrivateKeyHex={myPrivateKeyHex}
+        />
+      )}
     </AppShell>
   );
 }

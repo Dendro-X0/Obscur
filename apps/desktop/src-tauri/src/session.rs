@@ -43,14 +43,14 @@ impl SessionState {
         let session_keys = self.keys.lock().await;
         session_keys.clone()
     }
+}
 
-    /*
-    /// Check if session is active
-    pub async fn is_active(&self) -> bool {
-        let session_keys = self.keys.lock().await;
-        session_keys.is_some()
-    }
-    */
+/// Detailed session status for the frontend
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionStatus {
+    pub is_active: bool,
+    pub npub: Option<String>,
+    pub is_native: bool,
 }
 
 /// Generic response for session commands

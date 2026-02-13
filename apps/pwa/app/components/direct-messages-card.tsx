@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchBootstrapConfig } from "@/app/features/onboarding/utils/fetch-bootstrap-config";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useRelayPool } from "@/app/features/relays/hooks/use-relay-pool";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useEnhancedDMController, type Message } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -17,19 +16,15 @@ import { RefreshCw, AlertCircle } from "lucide-react";
 
 type DirectMessagesState = Readonly<{
   status: "loading" | "ready" | "error";
-  relayUrls: ReadonlyArray<string>;
   error?: string;
 }>;
 
-const createInitialState = (): DirectMessagesState => ({ status: "loading", relayUrls: [] });
-
-const createErrorState = (message: string): DirectMessagesState => ({ status: "error", relayUrls: [], error: message });
-
-const createReadyState = (params: Readonly<{ relayUrls: ReadonlyArray<string> }>): DirectMessagesState => ({ status: "ready", relayUrls: params.relayUrls });
+const createInitialState = (): DirectMessagesState => ({ status: "ready" });
 
 export const DirectMessagesCard = () => {
   const identity = useIdentity();
-  const [state, setState] = useState<DirectMessagesState>(createInitialState());
+  const { relayPool: pool } = useRelay();
+  const [state] = useState<DirectMessagesState>(createInitialState());
   const [peerPublicKeyHexInput, setPeerPublicKeyHexInput] = useState<string>("");
   const [outgoingText, setOutgoingText] = useState<string>("");
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -38,10 +33,9 @@ export const DirectMessagesCard = () => {
     totalQueued: number;
     isProcessing: boolean;
   } | null>(null);
-  
+
   const myPublicKeyHex = identity.state.publicKeyHex;
   const myPrivateKeyHex = identity.state.privateKeyHex;
-  const pool = useRelayPool(state.relayUrls);
 
   // Initialize enhanced DM controller
   const dmController = useEnhancedDMController({
@@ -83,24 +77,6 @@ export const DirectMessagesCard = () => {
       });
     }
   }, [dmController.state.queueStatus]);
-
-  useEffect(() => {
-    const run = async (): Promise<void> => {
-      try {
-        const result: Awaited<ReturnType<typeof fetchBootstrapConfig>> = await fetchBootstrapConfig();
-        if (result.error) {
-          setState(createErrorState(result.error));
-          return;
-        }
-        const relayUrls: ReadonlyArray<string> = result.data?.relays ?? [];
-        setState(createReadyState({ relayUrls }));
-      } catch (error: unknown) {
-        const message: string = error instanceof Error ? error.message : "Unknown error";
-        setState(createErrorState(message));
-      }
-    };
-    void run();
-  }, []);
 
   // Auto-subscribe to incoming DMs when ready
   useEffect(() => {
@@ -213,21 +189,21 @@ export const DirectMessagesCard = () => {
       </div>
       <div className="mt-3">
         <Label>Message</Label>
-        <Input 
-          value={outgoingText} 
-          onChange={(e) => setOutgoingText(e.target.value)} 
+        <Input
+          value={outgoingText}
+          onChange={(e) => setOutgoingText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && canSend) {
               e.preventDefault();
               void send();
             }
           }}
-          type="text" 
-          placeholder="Type a private message" 
+          type="text"
+          placeholder="Type a private message"
           disabled={isSending}
         />
       </div>
-      
+
       {/* Error display with detailed information */}
       {sendError && dmController.state.lastError && (
         <ErrorDetails
@@ -289,9 +265,9 @@ export const DirectMessagesCard = () => {
           <Button type="button" onClick={() => void send()} disabled={!canSend}>
             {isSending ? 'Sending...' : 'Send'}
           </Button>
-          <Button 
-            type="button" 
-            onClick={() => void handleSyncMessages()} 
+          <Button
+            type="button"
+            onClick={() => void handleSyncMessages()}
             disabled={!dmController.state.networkState?.hasRelayConnection}
             variant="outline"
             title="Sync missed messages"
@@ -311,13 +287,12 @@ export const DirectMessagesCard = () => {
             <li className="text-xs text-zinc-600 dark:text-zinc-400">No messages yet.</li>
           ) : null}
           {messages.slice(0, 15).map((message: Message) => (
-            <li 
-              key={message.id} 
-              className={`flex flex-col gap-1 rounded-xl border px-3 py-2 ${
-                message.isOutgoing
+            <li
+              key={message.id}
+              className={`flex flex-col gap-1 rounded-xl border px-3 py-2 ${message.isOutgoing
                   ? 'border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/20'
                   : 'border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950/60'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-zinc-600 dark:text-zinc-400 font-mono wrap-break-word">

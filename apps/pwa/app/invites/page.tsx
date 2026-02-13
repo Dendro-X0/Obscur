@@ -11,7 +11,8 @@ import {
   Send,
   Settings as SettingsIcon,
   Download,
-  Users
+  Users,
+  type LucideIcon
 } from "lucide-react";
 import { PageShell } from "../components/page-shell";
 import { Button } from "../components/ui/button";
@@ -181,7 +182,7 @@ function CategoryButton({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: any;
+  icon: LucideIcon;
   label: string;
   badge?: number;
 }) {

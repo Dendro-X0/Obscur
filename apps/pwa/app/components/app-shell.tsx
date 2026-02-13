@@ -65,14 +65,17 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [hasMounted, setHasMounted] = useState<boolean>(false);
   const isDesktop = useIsDesktop();
-  const { isCompact } = useDesktopLayout();
+  useDesktopLayout();
 
   // Register keyboard shortcuts for desktop
   useKeyboardShortcuts();
 
   useEffect((): void => {
-    setHasMounted(true);
+    queueMicrotask((): void => {
+      setHasMounted(true);
+    });
   }, []);
+
   useEffect((): void => {
     queueMicrotask((): void => {
       setExpanded(loadExpanded());
@@ -289,5 +292,4 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   );
 };
 
-export { AppShell };
 export default AppShell;

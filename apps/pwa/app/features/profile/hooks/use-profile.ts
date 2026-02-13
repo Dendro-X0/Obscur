@@ -2,8 +2,10 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 
 export type UserProfile = Readonly<{
   username: string;
+  about?: string;
   avatarUrl: string;
   nip05: string;
+  inviteCode: string;
 }>;
 
 type ProfileState = Readonly<{
@@ -13,8 +15,10 @@ type ProfileState = Readonly<{
 type UseProfileResult = Readonly<{
   state: ProfileState;
   setUsername: (params: Readonly<{ username: string }>) => void;
+  setAbout: (params: Readonly<{ about: string }>) => void;
   setAvatarUrl: (params: Readonly<{ avatarUrl: string }>) => void;
   setNip05: (params: Readonly<{ nip05: string }>) => void;
+  setInviteCode: (params: Readonly<{ inviteCode: string }>) => void;
   reset: () => void;
 }>;
 
@@ -25,7 +29,7 @@ type PersistedProfileV1 = Readonly<{
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.profile";
 
-const defaultProfile: UserProfile = { username: "", avatarUrl: "", nip05: "" };
+const defaultProfile: UserProfile = { username: "", about: "", avatarUrl: "", nip05: "", inviteCode: "" };
 
 const defaultState: ProfileState = { profile: defaultProfile };
 
@@ -37,7 +41,7 @@ const isProfile = (value: unknown): value is UserProfile => {
   if (!isRecord(value)) {
     return false;
   }
-  return isString(value.username) && isString(value.avatarUrl) && (value.nip05 === undefined || isString(value.nip05));
+  return isString(value.username) && (value.about === undefined || isString(value.about)) && isString(value.avatarUrl) && (value.nip05 === undefined || isString(value.nip05)) && (value.inviteCode === undefined || isString(value.inviteCode));
 };
 
 const parsePersisted = (value: unknown): PersistedProfileV1 | null => {
@@ -148,6 +152,11 @@ export const useProfile = (): UseProfileResult => {
           profile: { ...prev.profile, username: params.username },
         }));
       },
+      setAbout: (params: Readonly<{ about: string }>): void => {
+        updateAndPersist((prev: ProfileState): ProfileState => ({
+          profile: { ...prev.profile, about: params.about },
+        }));
+      },
       setAvatarUrl: (params: Readonly<{ avatarUrl: string }>): void => {
         updateAndPersist((prev: ProfileState): ProfileState => ({
           profile: { ...prev.profile, avatarUrl: params.avatarUrl },
@@ -156,6 +165,11 @@ export const useProfile = (): UseProfileResult => {
       setNip05: (params: Readonly<{ nip05: string }>): void => {
         updateAndPersist((prev: ProfileState): ProfileState => ({
           profile: { ...prev.profile, nip05: params.nip05 },
+        }));
+      },
+      setInviteCode: (params: Readonly<{ inviteCode: string }>): void => {
+        updateAndPersist((prev: ProfileState): ProfileState => ({
+          profile: { ...prev.profile, inviteCode: params.inviteCode },
         }));
       },
       reset: (): void => {

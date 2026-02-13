@@ -3,11 +3,11 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 // Core invite system types
 export type TrustLevel = "trusted" | "neutral" | "blocked";
 
-export type ContactRequestStatus = 
-  | "pending" 
-  | "accepted" 
-  | "declined" 
-  | "cancelled" 
+export type ContactRequestStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled"
   | "expired";
 
 export interface QRInviteOptions {
@@ -59,7 +59,7 @@ export interface Contact {
 }
 
 export interface ContactMetadata {
-  source: 'qr' | 'link' | 'import' | 'manual';
+  source?: 'qr' | 'link' | 'import' | 'manual';
   importedFrom?: string;
   notes?: string;
 }

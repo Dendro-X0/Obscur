@@ -28,6 +28,7 @@ interface ComposerProps {
     textareaRef: React.RefObject<HTMLTextAreaElement | null>;
     recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
     isPeerAccepted?: boolean;
+    isInitiator?: boolean;
     onSendVoiceNote?: (file: File) => void;
 }
 
@@ -49,10 +50,11 @@ export function Composer({
     textareaRef,
     recipientStatus,
     isPeerAccepted = true,
+    isInitiator = false,
     onSendVoiceNote
 }: ComposerProps) {
     const { t } = useTranslation();
-    const isGated: boolean = isPeerAccepted === false;
+    const isGated: boolean = isPeerAccepted === false && isInitiator === false;
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const emojiPickerRef = React.useRef<HTMLDivElement>(null);
 

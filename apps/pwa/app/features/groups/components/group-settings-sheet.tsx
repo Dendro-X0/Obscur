@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/label";
@@ -24,6 +25,7 @@ import {
     DropdownMenuTrigger
 } from "../../../components/ui/dropdown-menu";
 import { MoreVertical, UserCog } from "lucide-react";
+import { useGroups } from "../providers/group-provider";
 
 import { GroupQRCode } from "./group-qr-code";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
@@ -40,6 +42,7 @@ interface GroupSettingsSheetProps {
 
 export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHex, myPrivateKeyHex }: GroupSettingsSheetProps) {
     const { t } = useTranslation();
+    const { leaveGroup } = useGroups();
     const {
         state,
         approveJoin,
@@ -51,6 +54,7 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
         removeUser,
         promoteUser,
         demoteUser,
+        leaveGroup: leaveNip29Group,
         admins
     } = useNip29Group({
         groupId: group.groupId,
@@ -181,13 +185,13 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
                             <div className="h-24 w-24 rounded-[32px] bg-gradient-to-br from-zinc-800 to-black dark:from-zinc-200 dark:to-white flex items-center justify-center shadow-xl overflow-hidden">
                                 {isEditing ? (
                                     editPicture ? (
-                                        <img src={editPicture} alt="Group avatar" className="h-full w-full object-cover" />
+                                        <Image src={editPicture} alt="Group avatar" fill unoptimized className="object-cover" />
                                     ) : (
                                         <Camera className="h-8 w-8 text-zinc-400" />
                                     )
                                 ) : (
                                     (state.metadata?.picture) ? (
-                                        <img src={state.metadata.picture} alt="Group avatar" className="h-full w-full object-cover" />
+                                        <Image src={state.metadata.picture} alt="Group avatar" fill unoptimized className="object-cover" />
                                     ) : (
                                         <span className="text-4xl font-black text-white dark:text-black">
                                             {state.metadata?.name?.[0] || group.displayName[0]}
@@ -560,7 +564,16 @@ export function GroupSettingsSheet({ isOpen, onClose, group, pool, myPublicKeyHe
                         Share
                     </Button>
                 </div>
-                <Button variant="secondary" className="w-full h-11 rounded-2xl gap-2 font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-black/[0.03] dark:border-white/[0.03]">
+                <Button
+                    variant="secondary"
+                    className="w-full h-11 rounded-2xl gap-2 font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-black/[0.03] dark:border-white/[0.03]"
+                    onClick={async () => {
+                        await leaveNip29Group();
+                        leaveGroup(group.groupId);
+                        onClose();
+                        toast.success("Left community and removed from list");
+                    }}
+                >
                     <UserMinus className="h-4 w-4" />
                     {t("groups.leaveGroup", "Leave Group")}
                 </Button>

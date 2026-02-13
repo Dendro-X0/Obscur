@@ -66,7 +66,7 @@ class QRGeneratorImpl implements QRGenerator {
 
     try {
       // Validate input data
-      this.validateInviteData(data);
+      await this.validateInviteData(data);
 
       // Create the raw data string
       const rawData = this.serializeInviteData(data);
@@ -134,8 +134,8 @@ class QRGeneratorImpl implements QRGenerator {
    * Create invite QR code from user data
    */
   async createInviteQR(
-    publicKey: PublicKeyHex, 
-    privateKey: PrivateKeyHex, 
+    publicKey: PublicKeyHex,
+    privateKey: PrivateKeyHex,
     options: QRInviteOptions = {}
   ): Promise<QRCode> {
     try {
@@ -243,7 +243,7 @@ class QRGeneratorImpl implements QRGenerator {
   /**
    * Validate invite data structure
    */
-  private validateInviteData(data: QRInviteData): void {
+  private async validateInviteData(data: QRInviteData): Promise<void> {
     if (!data || typeof data !== 'object') {
       throw new Error('Invalid invite data: must be object');
     }
@@ -256,7 +256,7 @@ class QRGeneratorImpl implements QRGenerator {
       throw new Error('Invalid invite data: publicKey required');
     }
 
-    if (!cryptoService.isValidPubkey(data.publicKey)) {
+    if (!(await cryptoService.isValidPubkey(data.publicKey))) {
       throw new Error('Invalid invite data: invalid publicKey format');
     }
 
