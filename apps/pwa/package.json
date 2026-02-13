@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "node scripts/toggle-api.js hide && next build && node scripts/toggle-api.js show",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",

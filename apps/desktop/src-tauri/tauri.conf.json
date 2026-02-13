@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm -C ../pwa dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "cross-env TAURI_BUILD=true pnpm -C ../pwa build",
+    "beforeBuildCommand": "cross-env TAURI_BUILD=true pnpm -C ../pwa build:static",
     "frontendDist": "../../pwa/out"
   },
   "bundle": {
