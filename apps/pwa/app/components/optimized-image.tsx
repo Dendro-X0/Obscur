@@ -5,14 +5,24 @@ import Image from "next/image";
 import { cn } from "../lib/cn";
 import { ImageOff, Loader2 } from "lucide-react";
 
-interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'onLoad' | 'onError'> {
+interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'onLoad' | 'onError' | 'width' | 'height'> {
     src: string;
     alt: string;
     className?: string;
     containerClassName?: string;
+    priority?: boolean;
+    unoptimized?: boolean;
 }
 
-export function OptimizedImage({ src, alt, className, containerClassName, ...props }: OptimizedImageProps) {
+export function OptimizedImage({
+    src,
+    alt,
+    className,
+    containerClassName,
+    priority,
+    unoptimized = true,
+    ...props
+}: OptimizedImageProps) {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isError, setIsError] = useState(false);
 
@@ -34,7 +44,8 @@ export function OptimizedImage({ src, alt, className, containerClassName, ...pro
                     src={src}
                     alt={alt}
                     fill
-                    unoptimized
+                    priority={priority}
+                    unoptimized={unoptimized}
                     onLoad={() => setIsLoaded(true)}
                     onError={() => setIsError(true)}
                     className={cn(

@@ -36,6 +36,8 @@ export const applyContactOverrides = (
     };
 };
 
+export const isVisibleUserMessage = (m: Message): boolean => m.kind === "user" && !m.deletedAt;
+
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
 const IMAGE_HOSTS = ['image.nostr.build', 'nostr.build', 'blossom.', 'imgprxy.', 'void.cat'];

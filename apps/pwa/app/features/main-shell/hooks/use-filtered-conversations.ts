@@ -64,7 +64,7 @@ export function useFilteredConversations(
 
         allConversations.forEach(conversation => {
             const messages = messagesByConversationId[conversation.id] ?? [];
-            messages.filter(m => m.kind === "user" && !m.deletedAt).forEach(m => {
+            messages.filter(isVisibleUserMessage).forEach(m => {
                 if (m.content.toLowerCase().includes(normalizedSearchQuery)) {
                     results.push({
                         conversationId: conversation.id,
