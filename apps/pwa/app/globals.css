@@ -132,8 +132,14 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
   body {
-    @apply bg-background text-foreground;
+    @apply h-full overflow-hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-purple-500/30;
   }
 
   /* Apply gradients to main areas */
@@ -312,17 +318,48 @@
     }
   }
 
-  /* Immersive Scrollbar utility - completely hidden, scroll still works */
+  /* Immersive Global Scrollbar - thin, customized, hidden by default */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s ease;
+  }
+
+  *:hover {
+    scrollbar-color: oklch(from var(--border) l c h / 0.5) transparent;
+  }
+
+  /* Webkit Global styles */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 10px;
+    transition: background 0.3s ease;
+  }
+
+  *:hover::-webkit-scrollbar-thumb {
+    background: oklch(from var(--border) l c h / 0.4);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(from var(--border) l c h / 0.7) !important;
+  }
+
   .scrollbar-immersive {
-    scrollbar-width: none;
-    /* Firefox */
-    -ms-overflow-style: none;
-    /* IE and Edge */
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
   }
 
   .scrollbar-immersive::-webkit-scrollbar {
-    display: none;
-    /* Chrome, Safari, Opera */
+    display: none !important;
   }
 
   /* Safe Area Utilities for Mobile */

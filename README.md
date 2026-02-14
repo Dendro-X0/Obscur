@@ -1,6 +1,12 @@
 # Obscur
+> **⚠️ WARNING: EXPERIMENTAL ALPHA SOFTWARE**
+>
+> This project is currently in an early **Alpha** stage and is known to contain logical flaws, invisible functional errors, and stability issues. It is **NOT** ready for production use.
+>
+> We are actively working to resolve these issues, but fixes may introduce regressions. We invite you to test usage and **report any N issues you find** to help us stabilize the architecture. Use at your own risk.
 
 Obscur is a local-first Nostr messenger designed for small, invite-only micro-communities. Built with privacy, decentralization, and anti-censorship as core principles.
+
 
 ## ✨ Features
 

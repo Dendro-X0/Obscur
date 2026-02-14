@@ -47,7 +47,7 @@ export function StrangerWarningBanner({ displayName, isInitiator, onAccept, onIg
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-zinc-100 leading-tight">
-                            {displayName} {t("messaging.strangerWarningTitle")}
+                            {t("messaging.strangerWarningTitle", { name: displayName })}
                         </p>
                         <p className="text-xs text-zinc-400 mt-0.5">
                             {t("messaging.strangerWarningDesc")}

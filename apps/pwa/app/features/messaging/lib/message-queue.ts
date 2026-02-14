@@ -111,6 +111,11 @@ export interface IMessageQueue {
   markMessagesSynced(messageIds: string[]): Promise<void>;
   cleanupOldMessages(olderThan: Date): Promise<void>;
   getStorageUsage(): Promise<StorageStats>;
+  /**
+   * Get recent messages across all conversations for initialization
+   */
+  getAllMessages(limit?: number): Promise<Message[]>;
+
 }
 
 const MAX_MESSAGES_PER_CONVERSATION = 5000; // Increased due to IndexedDB
@@ -398,6 +403,60 @@ export class MessageQueue implements IMessageQueue {
       tx.onerror = () => reject(tx.error);
     });
   }
+
+  async getAllMessages(limit: number = 2000): Promise<Message[]> {
+    const db = await this.getDb();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("messages", "readonly");
+      const store = tx.objectStore("messages");
+      const request = store.getAll();
+
+      request.onsuccess = async () => {
+        let results = request.result as any[];
+
+        // Sort newest first
+        results.sort((a, b) => b.timestamp - a.timestamp);
+
+        if (limit && results.length > limit) {
+          results = results.slice(0, limit);
+        }
+
+        try {
+          const processedResults = await Promise.all(results.map(async (stored) => {
+            let messageData = { ...stored };
+
+            if (stored.isEncrypted && stored.encryptedData) {
+              try {
+                const decryptedJson = await this.decryptData(stored.encryptedData);
+                const decrypted = JSON.parse(decryptedJson);
+                messageData = { ...messageData, ...decrypted };
+              } catch (e) {
+                console.error("Failed to decrypt message in global list:", e);
+              }
+            }
+
+            // Migrate legacy attachment
+            if ((messageData as any).attachment && !messageData.attachments) {
+              messageData.attachments = [(messageData as any).attachment];
+              delete (messageData as any).attachment;
+            }
+
+            return {
+              ...messageData,
+              timestamp: new Date(stored.timestamp),
+              eventCreatedAt: stored.eventCreatedAt ? new Date(stored.eventCreatedAt) : undefined
+            };
+          }));
+          resolve(processedResults);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
 
   async getLastMessageTimestamp(conversationId: string): Promise<Date | null> {
     const messages = await this.getMessages(conversationId, { limit: 1 });

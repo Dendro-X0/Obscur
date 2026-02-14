@@ -113,11 +113,32 @@ export function ChatView(props: ChatViewProps) {
         }
     };
 
+    // Close menu when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (props.messageMenu && props.messageMenuRef.current && !props.messageMenuRef.current.contains(event.target as Node)) {
+                props.setMessageMenu(null);
+            }
+            if (props.reactionPicker && props.reactionPickerRef.current && !props.reactionPickerRef.current.contains(event.target as Node)) {
+                props.setReactionPicker(null);
+            }
+        };
+
+        if (props.messageMenu || props.reactionPicker) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [props.messageMenu, props.reactionPicker, props.setMessageMenu, props.setReactionPicker, props.messageMenuRef, props.reactionPickerRef]);
+
+
     const activeMessage = props.messageMenu && getMessageById(props.messageMenu.messageId);
 
     return (
         <div
-            className="flex flex-col h-full h-[100dvh] relative overflow-hidden"
+            className="flex flex-col flex-1 min-h-0 relative overflow-hidden"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}

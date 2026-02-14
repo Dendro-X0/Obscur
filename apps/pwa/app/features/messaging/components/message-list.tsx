@@ -69,7 +69,7 @@ export function MessageList({
     });
 
     return (
-        <div ref={parentRef} className="flex-1 overflow-y-auto p-4">
+        <div ref={parentRef} className="flex-1 overflow-y-auto p-4 scrollbar-custom">
             {!hasHydrated ? (
                 <div className="space-y-3">
                     {Array.from({ length: 8 }).map((_, i) => (

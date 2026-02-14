@@ -2,14 +2,18 @@
 
 ### Added
 - **Invite Code Search**: Integrated secure invite code resolution directly into the "New Chat" dialog. Users can now enter an `OBSCUR-...` code to instantly find and connect with peers, streamlining the "Add Contact" workflow.
+- **Custom Scrollbars**: Implemented universal, seamless scrollbars that remain hidden by default and appear on hover, providing a more immersive and cleaner interface.
 
 ### Changed
 - **Messaging Stability**: Optimized dependency tracking in `EnhancedDMController`, preventing unnecessary relay re-connections and ensuring consistent message delivery during network fluctuations.
 - **Performance**: Prioritized critical LCP (Largest Contentful Paint) images in the authentication gateway, significantly improving the initial load experience and Core Web Vitals score.
 
 ### Fixed
+- **Chat Layout**: Resolved an issue in the web version where the input composer would disappear below the fold. The input box is now strictly pinned to the bottom of the viewport.
+- **History Persistence**: Fixed a critical bug where chat history and contacts were not loading on startup/refresh.
+- **UI Interactions**: Added click-outside listeners to predictably close message context menus and reaction pickers.
 - **First Message Visibility**: Corrected race condition in message ingestion that prevented initial connection request messages from displaying in real-time.
-- **Localization Polish**: Fixed broken translation keys (including `common.searching`) and localized hardcoded UI elements in Global Search and Sidebar.
+- **Localization Polish**: Fixed broken translation keys (including `common.searching` and stranger warning titles) and localized hardcoded UI elements.
 - **React Hooks**: Resolved internal dependency warnings in the messaging components, ensuring stable and predictable state updates.
 
 ## [v0.7.5-alpha] - 2026-02-10

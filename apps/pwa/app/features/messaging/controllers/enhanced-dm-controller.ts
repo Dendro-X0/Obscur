@@ -373,9 +373,8 @@ export const useEnhancedDMController = (
 
     const loadMessages = async () => {
       try {
-        // For now, we'll load messages as they come in
-        // In a full implementation, we'd load from all conversations
-        setState(createReadyState([]));
+        const storedMessages = await messageQueue.getAllMessages();
+        setState(createReadyState(storedMessages));
       } catch (error) {
         console.error('Failed to load messages:', error);
         const messageError = errorHandler.handleUnknownError(
