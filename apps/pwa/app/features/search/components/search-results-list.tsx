@@ -2,6 +2,7 @@ import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { CheckCircle2, UserCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ProfileSearchResult } from "../services/profile-search-service";
 
 interface SearchResultsListProps {
@@ -12,6 +13,8 @@ interface SearchResultsListProps {
 }
 
 export function SearchResultsList({ results, onSelect, isAccepted, showSuggestions }: SearchResultsListProps) {
+    const { t } = useTranslation();
+
     if (results.length === 0) {
         if (showSuggestions) {
             const SUGGESTED_RELAYS = [
@@ -23,9 +26,9 @@ export function SearchResultsList({ results, onSelect, isAccepted, showSuggestio
 
             return (
                 <div className="mt-4 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-center">
-                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No users found.</p>
+                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t("common.noUsersFound")}</p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                        Try searching on these popular relays:
+                        {t("messaging.shareInviteLinkDesc")}
                     </p>
                     <div className="mt-2 text-xs font-mono bg-white dark:bg-black/20 rounded border border-zinc-100 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
                         {SUGGESTED_RELAYS.map(relay => (
@@ -42,10 +45,10 @@ export function SearchResultsList({ results, onSelect, isAccepted, showSuggestio
 
     return (
         <div className="mt-4 space-y-2 max-h-72 overflow-y-auto pr-1">
-            <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider px-1 mb-2">Search Results</p>
+            <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider px-1 mb-2">{t("common.results")}</p>
             {results.map((profile) => {
                 const trusted = isAccepted(profile.pubkey);
-                const displayName = profile.displayName || profile.name || "Anonymous";
+                const displayName = profile.displayName || profile.name || t("common.unknown");
                 return (
                     <button
                         key={profile.pubkey}
@@ -76,13 +79,13 @@ export function SearchResultsList({ results, onSelect, isAccepted, showSuggestio
                             <div className="flex items-center gap-2 mt-0.5">
                                 {trusted && (
                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 uppercase tracking-tighter shadow-sm border border-emerald-200 dark:border-emerald-500/10">
-                                        Trusted
+                                        {t("invites.trusted")}
                                     </span>
                                 )}
                                 {profile.mutuals && profile.mutuals.length > 0 && (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20">
                                         <UserCheck className="w-3 h-3" />
-                                        {profile.mutuals.length} Mutual{profile.mutuals.length !== 1 ? 's' : ''}
+                                        {profile.mutuals.length} {t("common.mutuals")}
                                     </span>
                                 )}
                             </div>
@@ -98,7 +101,7 @@ export function SearchResultsList({ results, onSelect, isAccepted, showSuggestio
                         </div>
                         <div className="self-center">
                             <Button variant="secondary" size="sm" className="h-8 px-3 text-[11px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                Select
+                                {t("common.select")}
                             </Button>
                         </div>
                     </button>

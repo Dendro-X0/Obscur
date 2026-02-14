@@ -43,7 +43,7 @@ export function ChatHeader({ conversation, onCopyPubkey, onOpenMedia, onOpenInfo
                             </p>
                         )}
                         <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenMedia}>
-                            {t("messaging. media")}
+                            {t("messaging.media")}
                         </Button>
                         {conversation.kind === "group" && (
                             <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenInfo}>

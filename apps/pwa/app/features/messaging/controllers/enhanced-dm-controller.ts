@@ -779,48 +779,9 @@ export const useEnhancedDMController = (
         return;
       }
 
-      // Step 6: Route message based on sender status
-      // CRITICAL FIX: For NIP-17, we must check the RUMOR tags, not the outer event tags
-      const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex)).tags : event.tags;
-      const isConnectionRequest = effectiveTags?.some(tag => tag[0] === 't' && tag[1] === 'connection-request');
-
-      if (!isAcceptedContact) {
-        // Check if we have an outgoing pending request to this sender
-        const requestState = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });
-        const hasOutgoingPending = requestState?.isOutgoing && (requestState.status === 'pending' || !requestState.status);
-
-        if (hasOutgoingPending) {
-          console.log('Detected reply to outgoing connection request from:', actualSenderPubkey, '. Auto-accepting.');
-          // Auto-accept the peer
-          currentParams.peerTrust?.acceptPeer({ publicKeyHex: actualSenderPubkey });
-          // Mark the request as accepted in the inbox
-          currentParams.requestsInbox?.upsertIncoming({
-            peerPublicKeyHex: actualSenderPubkey,
-            plaintext,
-            createdAtUnixSeconds: usedCreatedAt,
-            status: 'accepted',
-            eventId: usedEventId
-          });
-          // Continue to process as normal message
-        } else {
-          // Route unknown sender messages to requests inbox (Requirement 2.8)
-          if (currentParams.requestsInbox) {
-            currentParams.requestsInbox.upsertIncoming({
-              peerPublicKeyHex: actualSenderPubkey,
-              plaintext,
-              createdAtUnixSeconds: usedCreatedAt,
-              isRequest: isConnectionRequest,
-              status: isConnectionRequest ? 'pending' : undefined,
-              eventId: usedEventId
-            });
-            console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey, { isRequest: isConnectionRequest });
-          }
-          // Don't add to main conversation view for unknown senders
-          return;
-        }
-      }
-
-      // Step 7: Create message object for accepted contacts (Requirement 2.4)
+      // Step 6: Create message object (Requirement 2.4)
+      // Optimized: Create message object before routing to ensure it can be persisted
+      // and made available to the UI even if the sender is not yet accepted.
       const conversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(':');
 
       const message: Message = {
@@ -839,7 +800,7 @@ export const useEnhancedDMController = (
         attachments: extractAttachmentsFromContent(plaintext)
       };
 
-      // Step 8: Check for duplicates in storage (Requirement 6.3)
+      // Step 7: Check for duplicates in storage (Requirement 6.3)
       if (messageQueue) {
         const existingMessage = await messageQueue.getMessage(usedEventId);
         if (existingMessage) {
@@ -848,7 +809,7 @@ export const useEnhancedDMController = (
         }
       }
 
-      // Step 9: Persist message to storage (Requirement 2.4)
+      // Step 8: Persist message to storage (Requirement 2.4)
       if (messageQueue) {
         try {
           await messageQueue.persistMessage(message);
@@ -859,6 +820,43 @@ export const useEnhancedDMController = (
           );
           console.error('Failed to persist incoming message:', storageError);
           // Continue with UI update even if storage fails
+        }
+      }
+
+      // Step 9: Route message based on sender status
+      // CRITICAL FIX: We no longer return early for unknown senders. 
+      // This ensures the first message is visible in ChatView when viewing a request.
+      const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex)).tags : event.tags;
+      const isConnectionRequest = effectiveTags?.some(tag => tag[0] === 't' && tag[1] === 'connection-request');
+
+      if (!isAcceptedContact) {
+        if (hasOutgoingPending) {
+          console.log('Detected reply to outgoing connection request from:', actualSenderPubkey, '. Auto-accepting.');
+          // Auto-accept the peer
+          currentParams.peerTrust?.acceptPeer({ publicKeyHex: actualSenderPubkey });
+          // Mark the request as accepted in the inbox
+          currentParams.requestsInbox?.upsertIncoming({
+            peerPublicKeyHex: actualSenderPubkey,
+            plaintext,
+            createdAtUnixSeconds: usedCreatedAt,
+            status: 'accepted',
+            eventId: usedEventId
+          });
+        } else {
+          // Route unknown sender messages to requests inbox (Requirement 2.8)
+          if (currentParams.requestsInbox) {
+            currentParams.requestsInbox.upsertIncoming({
+              peerPublicKeyHex: actualSenderPubkey,
+              plaintext,
+              createdAtUnixSeconds: usedCreatedAt,
+              isRequest: isConnectionRequest,
+              status: isConnectionRequest ? 'pending' : undefined,
+              eventId: usedEventId
+            });
+            console.log('Routed message from unknown sender to requests inbox:', actualSenderPubkey, { isRequest: isConnectionRequest });
+          }
+          // Note: We continue execution to add the message to the memory state,
+          // allowing it to be visible if the user clicks "View Request".
         }
       }
 

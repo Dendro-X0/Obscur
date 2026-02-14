@@ -1,4 +1,4 @@
-## [v0.7.6-alpha] - 2026-02-14
+## [v0.7.6-alpha] - 2026-02-13
 
 ### Added
 - **Invite Code Search**: Integrated secure invite code resolution directly into the "New Chat" dialog. Users can now enter an `OBSCUR-...` code to instantly find and connect with peers, streamlining the "Add Contact" workflow.
@@ -8,6 +8,8 @@
 - **Performance**: Prioritized critical LCP (Largest Contentful Paint) images in the authentication gateway, significantly improving the initial load experience and Core Web Vitals score.
 
 ### Fixed
+- **First Message Visibility**: Corrected race condition in message ingestion that prevented initial connection request messages from displaying in real-time.
+- **Localization Polish**: Fixed broken translation keys (including `common.searching`) and localized hardcoded UI elements in Global Search and Sidebar.
 - **React Hooks**: Resolved internal dependency warnings in the messaging components, ensuring stable and predictable state updates.
 
 ## [v0.7.5-alpha] - 2026-02-10

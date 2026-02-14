@@ -82,12 +82,12 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
                     <div className="absolute top-full left-0 w-[280px] mt-2 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/5 rounded-[24px] shadow-2xl z-50 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="p-3 border-b border-black/[0.03] dark:border-white/[0.03] bg-zinc-50/50 dark:bg-zinc-800/50 flex items-center gap-2">
                             <Info className="h-3 w-3 text-zinc-400" />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Global Discovery</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">{t("messaging.globalDiscovery")}</span>
                         </div>
 
                         {results.length === 0 && !isSearching ? (
                             <div className="p-6 text-center text-xs text-zinc-500 italic">
-                                No users found matching &quot;{query}&quot;
+                                {t("common.noUsersFound")}
                             </div>
                         ) : (
                             <div className="p-1">
@@ -110,7 +110,7 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-1.5 overflow-hidden">
                                                 <span className="text-xs font-bold truncate text-zinc-900 dark:text-zinc-100">
-                                                    {user.displayName || user.name || "Unknown"}
+                                                    {user.displayName || user.name || t("common.unknown")}
                                                 </span>
                                                 {user.nip05 && (
                                                     <div className="flex h-3 w-3 items-center justify-center rounded-full bg-blue-500 text-[6px] text-white" title={user.nip05}>
@@ -127,7 +127,7 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
                                                 <span className="font-mono">{user.pubkey.slice(0, 8)}</span>
                                                 {user.mutuals && user.mutuals.length > 0 && (
                                                     <span className="flex items-center gap-0.5 text-purple-500 font-bold">
-                                                        • {user.mutuals.length} mutuals
+                                                        • {user.mutuals.length} {t("common.mutuals")}
                                                     </span>
                                                 )}
                                             </div>
