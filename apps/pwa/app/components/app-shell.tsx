@@ -269,7 +269,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col h-full min-h-0 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col h-full min-h-0 overflow-y-auto overflow-x-hidden">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
           {!props.hideSidebar && (
             <button

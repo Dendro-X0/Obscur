@@ -24,7 +24,7 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
   
   <br />
 
-  <img src="https://placehold.co/600x400/1e1e1e/FFF?text=Secure+Messaging" alt="Secure Messaging" width="600" />
+  <img src="docs\assets\obscur_short_2.gif" alt="Secure Messaging" width="600" />
   <p><em>Secure Messaging: End-to-end encrypted chats with rich media support.</em></p>
 </div>
 

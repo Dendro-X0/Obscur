@@ -134,7 +134,7 @@
 
   html,
   body {
-    @apply h-full overflow-hidden;
+    @apply h-full overflow-x-hidden;
     overscroll-behavior: none;
   }
 

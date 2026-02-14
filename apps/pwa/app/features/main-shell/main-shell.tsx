@@ -36,7 +36,6 @@ import { useNip29Group } from "@/app/features/groups/hooks/use-nip29-group";
 import { LockScreen } from "@/app/components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { EmptyConversationView } from "./components/empty-conversation-view";
-import { PersistenceManager } from "./components/persistence-manager";
 import { DevPanel } from "../dev-tools/components/dev-panel";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
@@ -371,7 +370,6 @@ function NostrMessengerContent() {
           />
         )}
       </main>
-      <PersistenceManager />
       <DevPanel dmController={dmController} />
 
       {selectedConversation?.kind === 'group' && (

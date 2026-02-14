@@ -7,6 +7,7 @@ import { RelayProvider } from "@/app/features/relays/providers/relay-provider";
 import { GroupProvider } from "@/app/features/groups/providers/group-provider";
 import { ContactsProvider } from "@/app/features/contacts/providers/contacts-provider";
 import { GlobalDialogManager } from "@/app/features/messaging/components/global-dialog-manager";
+import { PersistenceManager } from "@/app/features/main-shell/components/persistence-manager";
 
 export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     return (
@@ -16,6 +17,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
                     <MessagingProvider>
                         <AuthGateway>
                             <GlobalDialogManager />
+                            <PersistenceManager />
                             {children}
                         </AuthGateway>
                     </MessagingProvider>

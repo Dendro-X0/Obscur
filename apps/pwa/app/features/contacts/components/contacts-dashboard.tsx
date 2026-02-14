@@ -248,7 +248,7 @@ export const ContactsDashboard = () => {
                                                 key={pk}
                                                 pubkey={pk}
                                                 displayName={contact?.displayName}
-                                                onClick={() => router.push(`/contacts/${pk}`)}
+                                                onClick={() => router.push(`/?pubkey=${pk}`)}
                                             />
                                         );
                                     })}
