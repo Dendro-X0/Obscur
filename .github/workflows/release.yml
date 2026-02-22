@@ -54,9 +54,8 @@ jobs:
             apps/pwa/app/icon-512.png/route.ts \
             apps/pwa/app/sw.js/route.ts \
             apps/pwa/app/apple-touch-icon.png/route.ts \
-            apps/pwa/app/invite/page.tsx \
-            apps/pwa/app/invite/[code]/page.tsx \
-            apps/pwa/app/groups/[groupId]/page.tsx
+            apps/pwa/app/invites/page.tsx \
+            apps/pwa/app/groups/[...id]/page.tsx
           do
             if [ -f "$file" ]; then
               mv "$file" "$file.ignored"
@@ -134,9 +133,8 @@ jobs:
             apps/pwa/app/icon-512.png/route.ts \
             apps/pwa/app/sw.js/route.ts \
             apps/pwa/app/apple-touch-icon.png/route.ts \
-            apps/pwa/app/invite/page.tsx \
-            apps/pwa/app/invite/[code]/page.tsx \
-            apps/pwa/app/groups/[groupId]/page.tsx
+            apps/pwa/app/invites/page.tsx \
+            apps/pwa/app/groups/[...id]/page.tsx
           do
             if [ -f "$file" ]; then
               mv "$file" "$file.ignored"
