@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    optimizePackageImports: ["lucide-react", "framer-motion", "emoji-picker-react"]
+  },
   // Ensure turbopack key is always present to satisfy Next.js 16 build requirements
   turbopack: process.env.VERCEL ? {} : {
     root: repoRoot

@@ -258,6 +258,85 @@ export class CryptoServiceImpl implements CryptoService {
         return await this.signEvent(wrap, wrapKey);
     }
 
+    // Group Room Key Operations (Symmetric E2EE)
+    async generateRoomKey(): Promise<string> {
+        const keyBytes = await this.generateSecureRandom(32);
+        return this.bytesToHex(keyBytes);
+    }
+
+    async encryptGroupMessage(plaintext: string, roomKeyHex: string): Promise<string> {
+        let plaintextBytes: Uint8Array | null = null;
+        let keyBytes: Uint8Array | null = null;
+        try {
+            keyBytes = this.hexToBytes(roomKeyHex);
+            const iv = await this.generateSecureRandom(12);
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                toArrayBuffer(keyBytes),
+                { name: 'AES-GCM' },
+                false,
+                ['encrypt']
+            );
+
+            const encoder = new TextEncoder();
+            plaintextBytes = encoder.encode(plaintext);
+
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+                cryptoKey,
+                toArrayBuffer(plaintextBytes)
+            );
+
+            const combined = new Uint8Array(iv.length + encrypted.byteLength);
+            combined.set(iv, 0);
+            combined.set(new Uint8Array(encrypted), iv.length);
+
+            return toBase64(combined) + "?v=1"; // Versioning the encryption format
+        } finally {
+            if (plaintextBytes) this.security.clearSensitiveBuffer(plaintextBytes);
+            if (keyBytes) this.security.clearSensitiveBuffer(keyBytes);
+            this.security.clearSensitiveString(plaintext);
+        }
+    }
+
+    async decryptGroupMessage(ciphertext: string, roomKeyHex: string): Promise<string> {
+        let keyBytes: Uint8Array | null = null;
+        let decryptedBytes: Uint8Array | null = null;
+        try {
+            // Strip version if present (currently only v=1)
+            const cleanCiphertext = ciphertext.split("?v=")[0];
+            const combined = fromBase64(cleanCiphertext);
+
+            if (combined.length < 28) { // 12 bytes IV + 16 bytes auth tag min
+                throw new Error("Invalid cipher payload length");
+            }
+
+            const iv = combined.slice(0, 12);
+            const encrypted = combined.slice(12);
+
+            keyBytes = this.hexToBytes(roomKeyHex);
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                toArrayBuffer(keyBytes),
+                { name: 'AES-GCM' },
+                false,
+                ['decrypt']
+            );
+
+            const decryptedBuffer = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+                cryptoKey,
+                toArrayBuffer(encrypted)
+            );
+
+            decryptedBytes = new Uint8Array(decryptedBuffer);
+            return new TextDecoder().decode(decryptedBytes);
+        } finally {
+            if (keyBytes) this.security.clearSensitiveBuffer(keyBytes);
+            if (decryptedBytes) this.security.clearSensitiveBuffer(decryptedBytes);
+        }
+    }
+
     async decryptGiftWrap(giftWrap: NostrEvent, recipientPrivkey: PrivateKeyHex): Promise<NostrEvent> {
         if (giftWrap.kind !== 1059) throw new Error("Not a gift wrap");
         const conversationKeyWrap = nip44.v2.utils.getConversationKey(this.hexToBytes(recipientPrivkey), giftWrap.pubkey);

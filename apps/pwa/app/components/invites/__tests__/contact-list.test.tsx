@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ContactList } from '../contact-list';
-import * as contactStoreModule from '../../../lib/invites/contact-store';
-import type { Contact, ContactGroup } from '../../../lib/invites/types';
+import * as contactStoreModule from '../../../features/invites/utils/contact-store';
+import type { Contact, ContactGroup } from '../../../features/invites/utils/types';
 
 // Mock the contact store
-vi.mock('../../../lib/invites/contact-store');
+vi.mock('../../../features/invites/utils/contact-store');
 
 describe('ContactList', () => {
   const mockContact: Contact = {
@@ -32,10 +32,10 @@ describe('ContactList', () => {
 
   it('should render loading state initially', () => {
     vi.mocked(contactStoreModule.contactStore.getAllContacts).mockImplementation(
-      () => new Promise(() => {})
+      () => new Promise(() => { })
     );
     vi.mocked(contactStoreModule.contactStore.getAllGroups).mockImplementation(
-      () => new Promise(() => {})
+      () => new Promise(() => { })
     );
 
     render(<ContactList />);
@@ -158,9 +158,9 @@ describe('ContactList', () => {
       expect(screen.getByText('Alice')).toBeInTheDocument();
     });
 
-    const contactCard = screen.getByText('Alice').closest('div');
-    if (contactCard) {
-      fireEvent.click(contactCard);
+    const closestDiv = screen.getByText('Alice').parentElement;
+    if (closestDiv) {
+      fireEvent.click(closestDiv);
     }
 
     await waitFor(() => {

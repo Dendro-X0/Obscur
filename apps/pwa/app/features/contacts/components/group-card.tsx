@@ -10,11 +10,12 @@ interface GroupCardProps {
     displayName: string;
     relayUrl: string;
     memberCount?: number;
+    avatar?: string;
     onClick: () => void;
     className?: string;
 }
 
-export const GroupCard = ({ id, displayName, relayUrl, memberCount, onClick, className }: GroupCardProps) => {
+export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onClick, className }: GroupCardProps) => {
     let relayHost = relayUrl;
     try {
         relayHost = new URL(relayUrl).hostname;
@@ -26,44 +27,51 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, onClick, cla
         <div
             onClick={onClick}
             className={cn(
-                "group relative flex flex-col p-5 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl border border-zinc-200/50 dark:border-white/5 rounded-[32px] cursor-pointer transition-all duration-300 hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-500/10 hover:-translate-y-1 active:scale-[0.98]",
+                "group relative flex flex-col p-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[32px] cursor-pointer transition-all duration-500 hover:border-purple-500/50 hover:bg-[#121216] hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:-translate-y-1 active:scale-[0.98]",
                 className
             )}
         >
-            <div className="flex items-start justify-between mb-4">
-                <Avatar className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg group-hover:scale-110 transition-transform duration-500 border-none">
-                    <AvatarFallback className="bg-transparent font-black text-xl">
-                        {displayName.slice(0, 1).toUpperCase()}
-                    </AvatarFallback>
+            <div className="flex items-start justify-between mb-5">
+                <Avatar className="h-14 w-14 rounded-2xl bg-zinc-900 text-white shadow-xl group-hover:scale-110 transition-transform duration-700 ease-out border border-white/5 overflow-hidden">
+                    {avatar ? (
+                        <img src={avatar} alt={displayName} className="h-full w-full object-cover" />
+                    ) : (
+                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-black text-xl tracking-tighter w-full h-full flex items-center justify-center">
+                            {displayName.slice(0, 1).toUpperCase()}
+                        </AvatarFallback>
+                    )}
                 </Avatar>
 
-                <div className="flex flex-col items-end gap-1">
-                    <div className="p-2 rounded-xl bg-zinc-100 dark:bg-white/5 text-zinc-400 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300">
-                        <ChevronRight className="h-4 w-4" />
-                    </div>
+                <div className="p-2.5 rounded-2xl bg-[#1A1A1E] text-zinc-500 group-hover:bg-white group-hover:text-black transition-all duration-300 shadow-inner">
+                    <ChevronRight className="h-4 w-4" />
                 </div>
             </div>
 
-            <div className="flex-1 space-y-2">
-                <h4 className="font-black text-lg text-zinc-900 dark:text-zinc-50 truncate">
+            <div className="flex-1 space-y-2.5">
+                <h4 className="font-black text-lg text-white tracking-tight truncate group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-zinc-500 transition-all duration-300">
                     {displayName}
                 </h4>
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-medium">
-                    <Globe className="h-3 w-3 text-purple-500" />
+                <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+                    <div className="p-1 rounded-sm bg-purple-500/10">
+                        <Globe className="h-3 w-3 text-purple-400" />
+                    </div>
                     <span className="truncate">{relayHost}</span>
                 </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-black/[0.03] dark:border-white/[0.03] flex items-center justify-between">
-                <div className="flex items-center gap-1.5 bg-black/[0.02] dark:bg-white/[0.02] px-2.5 py-1 rounded-full border border-black/[0.03] dark:border-white/[0.03]">
-                    <Users className="h-3 w-3 text-zinc-400" />
-                    <span className="text-[10px] font-bold text-zinc-500">
-                        {memberCount ?? 0} {memberCount === 1 ? 'member' : 'members'}
+            <div className="mt-5 pt-5 border-t border-white/[0.03] flex items-center justify-between">
+                <div className="flex items-center gap-2 bg-white/[0.03] px-3 py-1.5 rounded-full border border-white/[0.05] backdrop-blur-sm">
+                    <Users className="h-3.5 w-3.5 text-indigo-400" />
+                    <span className="text-[11px] font-black text-zinc-300">
+                        {memberCount ?? 0}
                     </span>
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-2.5 py-1 rounded-full border border-purple-500/10">
-                    Community
-                </span>
+                <div className="flex items-center gap-1.5 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
+                    <div className="h-1 w-1 rounded-full bg-indigo-400 animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">
+                        Active
+                    </span>
+                </div>
             </div>
         </div>
     );

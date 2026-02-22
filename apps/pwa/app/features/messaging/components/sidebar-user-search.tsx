@@ -59,7 +59,7 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
     return (
         <div className="relative w-full">
             <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 transition-colors group-focus-within:text-purple-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 transition-colors group-focus-within:text-purple-500" />
                 <input
                     type="text"
                     value={query}
@@ -69,7 +69,7 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
                     onFocus={() => query.length >= 3 && setShowResults(true)}
                 />
                 {isSearching && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-purple-500/50" />
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-purple-500/50" />
                 )}
             </div>
 
@@ -81,7 +81,7 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
                     />
                     <div className="absolute top-full left-0 w-[280px] mt-2 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/5 rounded-[24px] shadow-2xl z-50 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="p-3 border-b border-black/[0.03] dark:border-white/[0.03] bg-zinc-50/50 dark:bg-zinc-800/50 flex items-center gap-2">
-                            <Info className="h-3 w-3 text-zinc-400" />
+                            <Info className="h-4 w-4 text-zinc-400" />
                             <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">{t("messaging.globalDiscovery")}</span>
                         </div>
 
@@ -92,14 +92,24 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
                         ) : (
                             <div className="p-1">
                                 {results.map((user) => (
-                                    <button
+                                    <div
+                                        role="button"
+                                        tabIndex={0}
                                         key={user.pubkey}
                                         onClick={() => {
                                             onUserSelect(user);
                                             setShowResults(false);
                                             setQuery("");
                                         }}
-                                        className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group text-left"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                onUserSelect(user);
+                                                setShowResults(false);
+                                                setQuery("");
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group text-left cursor-pointer outline-none focus-visible:bg-zinc-50 dark:focus-visible:bg-zinc-800/50"
                                     >
                                         <Avatar className="h-10 w-10 border border-black/5 dark:border-white/5 shadow-sm">
                                             <AvatarImage src={user.picture} />
@@ -144,17 +154,17 @@ export const SidebarUserSearch = ({ onUserSelect }: { onUserSelect: (user: Profi
                                                     setQuery("");
                                                 }}
                                             >
-                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                                             </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8 rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-600"
                                             >
-                                                <UserPlus className="h-4 w-4" />
+                                                <UserPlus className="h-5 w-5" />
                                             </Button>
                                         </div>
-                                    </button>
+                                    </div>
                                 ))}
                             </div>
                         )}

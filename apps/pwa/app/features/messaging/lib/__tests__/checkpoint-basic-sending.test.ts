@@ -28,7 +28,7 @@ vi.mock('../../crypto/crypto-service', () => ({
 vi.mock('../message-queue', () => {
   const messages = new Map();
   const queue = new Map();
-  
+
   class MockMessageQueue {
     persistMessage = vi.fn(async (msg: any) => {
       messages.set(msg.id, msg);
@@ -49,8 +49,9 @@ vi.mock('../message-queue', () => {
     removeFromQueue = vi.fn(async (id: string) => {
       queue.delete(id);
     });
+    getAllMessages = vi.fn(async () => Array.from(messages.values()));
   }
-  
+
   return {
     MessageQueue: MockMessageQueue
   };
@@ -62,7 +63,7 @@ vi.mock('../retry-manager', () => ({
       shouldRetry: msg.retryCount < 5,
       nextRetryAt: new Date(Date.now() + 1000 * Math.pow(2, msg.retryCount))
     })),
-    calculateNextRetry: vi.fn((retryCount: number) => 
+    calculateNextRetry: vi.fn((retryCount: number) =>
       new Date(Date.now() + 1000 * Math.pow(2, retryCount))
     ),
     recordRelaySuccess: vi.fn(),
@@ -84,8 +85,8 @@ vi.mock('../../nostr-safety-limits', () => ({
 }));
 
 // Import after mocking
-import { useEnhancedDMController } from '../enhanced-dm-controller';
-import { cryptoService } from '../../crypto/crypto-service';
+import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { cryptoService } from '../../../../features/crypto/crypto-service';
 
 describe('Checkpoint: Basic Sending Functionality', () => {
   const mockPublicKey: PublicKeyHex = 'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc' as PublicKeyHex;
@@ -203,10 +204,10 @@ describe('Checkpoint: Basic Sending Functionality', () => {
 
       // Verify event was sent to relays
       expect(mockRelayPool.sendToOpen).toHaveBeenCalled();
-      
+
       const sentPayload = mockRelayPool.sendToOpen.mock.calls[0][0];
       const parsedPayload = JSON.parse(sentPayload);
-      
+
       expect(parsedPayload[0]).toBe('EVENT');
       expect(parsedPayload[1]).toEqual(
         expect.objectContaining({
@@ -260,15 +261,18 @@ describe('Checkpoint: Basic Sending Functionality', () => {
           pool: mockRelayPool
         })
       );
-
+      let messageId = '';
       await act(async () => {
-        await result.current.sendDm({
+        const sendResult = await result.current.sendDm({
           peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
+          plaintext: 'Test message ID'
         });
+        if (sendResult.success) {
+          messageId = (sendResult as any).messageId || '';
+        }
       });
 
-      // Check message status in state
+      expect(messageId).toBeTruthy();
       const messages = result.current.state.messages;
       expect(messages).toHaveLength(1);
       expect(messages[0].status).toBe('sending');
@@ -364,7 +368,7 @@ describe('Checkpoint: Basic Sending Functionality', () => {
       await act(async () => {
         const sendResult = await result.current.sendDm({
           peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
+          plaintext: 'Persistence test'
         });
         messageId = sendResult.messageId;
       });
@@ -386,16 +390,16 @@ describe('Checkpoint: Basic Sending Functionality', () => {
       // Verify relay results are tracked
       await waitFor(() => {
         const messages = result.current.state.messages;
-        const message = messages.find(m => m.id === messageId);
-        
-        expect(message).toBeDefined();
-        expect(message!.relayResults).toBeDefined();
-        expect(message!.relayResults!.length).toBeGreaterThan(0);
-        
+        const sentMessage = messages.find((m: any) => m.content === 'Persistence test');
+
+        expect(sentMessage).toBeDefined();
+        expect(sentMessage!.relayResults).toBeDefined();
+        expect(sentMessage!.relayResults!.length).toBeGreaterThan(0);
+
         // Should have both success and failure
-        const hasSuccess = message!.relayResults!.some(r => r.success);
-        const hasFailure = message!.relayResults!.some(r => !r.success);
-        
+        const hasSuccess = sentMessage!.relayResults!.some(r => r.success);
+        const hasFailure = sentMessage!.relayResults!.some(r => !r.success);
+
         expect(hasSuccess).toBe(true);
         expect(hasFailure).toBe(true);
       });
@@ -526,12 +530,9 @@ describe('Checkpoint: Basic Sending Functionality', () => {
 
     it('should respect retry limits', async () => {
       const { retryManager } = await import('../retry-manager');
-      
+
       // Mock shouldRetry to return false after max retries
-      vi.mocked(retryManager.shouldRetry).mockReturnValue({
-        shouldRetry: false,
-        nextRetryAt: undefined
-      });
+      vi.mocked(retryManager.shouldRetry).mockReturnValue({ success: false, shouldRetry: false, nextRetryAt: undefined } as any);
 
       const { result } = renderHook(() =>
         useEnhancedDMController({
@@ -583,8 +584,8 @@ describe('Checkpoint: Basic Sending Functionality', () => {
         })
       );
 
+      let messageId = '';
       const testMessage = 'Complete lifecycle test message';
-      let messageId: string;
 
       // Step 1: Send message
       await act(async () => {

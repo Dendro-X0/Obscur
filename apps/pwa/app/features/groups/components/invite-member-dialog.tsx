@@ -1,0 +1,255 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import {
+    Search,
+    UserPlus,
+    Loader2,
+    X,
+    Send,
+    CheckCircle2,
+    Users as InviteIcon
+} from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
+import { toast } from "../../../components/ui/toast";
+import { cn } from "../../../lib/cn";
+import { ProfileSearchService, type ProfileSearchResult } from "../../search/services/profile-search-service";
+import { useRelay } from "../../relays/providers/relay-provider";
+import { useIdentity } from "../../auth/hooks/use-identity";
+import { GroupService } from "../services/group-service";
+import type { GroupMetadata } from "../types";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { useMessaging } from "../../messaging/providers/messaging-provider";
+import { useGroups } from "../providers/group-provider";
+import { MessageQueue } from "../../messaging/lib/message-queue";
+import type { Message } from "../../messaging/types";
+
+interface InviteMemberDialogProps {
+    isOpen: boolean;
+    onClose: () => void;
+    groupId: string;
+    roomKeyHex: string;
+    metadata: GroupMetadata;
+}
+
+export function InviteMemberDialog({
+    isOpen,
+    onClose,
+    groupId,
+    roomKeyHex,
+    metadata
+}: InviteMemberDialogProps) {
+    const { t } = useTranslation();
+    const { relayPool: pool } = useRelay();
+    const { state: identityState } = useIdentity();
+    const { messagesByConversationId, setMessagesByConversationId } = useMessaging();
+    const { createdGroups } = useGroups();
+
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<ProfileSearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [sendingInviteTo, setSendingInviteTo] = useState<string | null>(null);
+
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const searchService = useRef<ProfileSearchService | null>(null);
+    const groupService = useRef<GroupService | null>(null);
+
+    useEffect(() => {
+        if (pool && identityState.publicKeyHex) {
+            searchService.current = new ProfileSearchService(
+                pool as any,
+                undefined,
+                identityState.publicKeyHex
+            );
+            groupService.current = new GroupService(
+                identityState.publicKeyHex,
+                identityState.privateKeyHex as any
+            );
+        }
+    }, [pool, identityState.publicKeyHex, identityState.privateKeyHex]);
+
+    const handleSearch = (val: string) => {
+        setQuery(val);
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+        if (val.length < 3) {
+            setResults([]);
+            setIsSearching(false);
+            return;
+        }
+
+        setIsSearching(true);
+        searchTimeoutRef.current = setTimeout(async () => {
+            if (!searchService.current) return;
+            const searchResults = await searchService.current.searchByName(val);
+            setResults(searchResults);
+            setIsSearching(false);
+        }, 500);
+    };
+
+    const handleSendInvite = async (user: ProfileSearchResult) => {
+        const group = createdGroups.find(g => g.groupId === groupId);
+        if (group?.memberPubkeys.includes(user.pubkey)) {
+            toast.error(t("groups.alreadyMember", "This user is already a member of the group."));
+            return;
+        }
+
+        const messages = messagesByConversationId[user.pubkey];
+        if (messages) {
+            for (let i = messages.length - 1; i >= 0; i--) {
+                const msg = messages[i];
+                if (msg.isOutgoing) {
+                    try {
+                        const parsed = JSON.parse(msg.content);
+                        if (parsed.type === "community-invite" && parsed.groupId === groupId) {
+                            toast.error(t("groups.spamWarning", "Please wait for this user's confirmation before sending another invite to avoid spam."));
+                            return;
+                        }
+                    } catch (e) {
+                        // ignore parsing errors
+                    }
+                }
+            }
+        }
+
+        if (!groupService.current) return;
+
+        setSendingInviteTo(user.pubkey);
+        try {
+            const inviteEvent = await groupService.current.distributeRoomKey({
+                recipientPubkey: user.pubkey as PublicKeyHex,
+                groupId,
+                roomKeyHex,
+                metadata
+            });
+            await pool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
+
+            // Persist locally for sender visibility
+            const messageId = inviteEvent.id;
+            const myPublicKeyHex = identityState.publicKeyHex || '';
+            const conversationId = [myPublicKeyHex, user.pubkey].sort().join(':');
+
+            const inviteMessage: Message = {
+                id: messageId,
+                conversationId,
+                kind: 'user',
+                content: JSON.stringify({
+                    type: "community-invite",
+                    groupId,
+                    roomKey: roomKeyHex,
+                    metadata
+                }),
+                timestamp: new Date(),
+                isOutgoing: true,
+                status: 'delivered',
+                eventId: inviteEvent.id,
+                senderPubkey: myPublicKeyHex as PublicKeyHex,
+                recipientPubkey: user.pubkey as PublicKeyHex,
+            };
+
+            const mq = new MessageQueue(identityState.publicKeyHex!);
+            await mq.persistMessage(inviteMessage as any);
+
+            // Update UI optimistically
+            setMessagesByConversationId(prev => ({
+                ...prev,
+                [conversationId]: [...(prev[conversationId] ?? []), inviteMessage]
+            }));
+
+            toast.success(`Invite sent successfully to ${user.displayName || user.name || 'user'}`);
+        } catch (error) {
+            console.error("Failed to send invite:", error);
+            toast.error("Failed to distribute room key. Encryption error.");
+        } finally {
+            setSendingInviteTo(null);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md bg-[#0A0A0B] border-white/10 p-0 overflow-hidden rounded-[32px]">
+                <DialogHeader className="p-8 pb-0">
+                    <DialogTitle className="text-white font-black text-2xl flex items-center gap-3">
+                        <UserPlus className="h-6 w-6 text-indigo-400" />
+                        Secure Propagation
+                    </DialogTitle>
+                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2">Distribute Room Key via NIP-17</p>
+                </DialogHeader>
+
+                <div className="p-8 space-y-6">
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-600 group-focus-within:text-indigo-400 transition-colors" />
+                        <Input
+                            placeholder="Identify peer by name or pubkey..."
+                            value={query}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            className="pl-12 h-14 bg-[#0E0E10] border-[#1A1A1E] text-white rounded-2xl font-bold focus:border-indigo-500/50 transition-all shadow-inner"
+                        />
+                        {isSearching && (
+                            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-indigo-500/50" />
+                        )}
+                    </div>
+
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                        {results.map((user) => (
+                            <div
+                                key={user.pubkey}
+                                className="flex items-center justify-between p-4 bg-[#0E0E10] border border-[#1A1A1E] rounded-[24px] hover:border-indigo-500/30 transition-all group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <Avatar className="h-12 w-12 border border-white/5 shadow-lg">
+                                        <AvatarImage src={user.picture} />
+                                        <AvatarFallback className="font-black bg-zinc-800 text-zinc-400">
+                                            {(user.displayName || user.name || "?").slice(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="text-white font-black text-sm">{user.displayName || user.name || 'Unknown'}</p>
+                                        <p className="text-zinc-600 text-[10px] font-mono mt-0.5">{user.pubkey.slice(0, 16)}...</p>
+                                    </div>
+                                </div>
+                                <Button
+                                    onClick={() => handleSendInvite(user)}
+                                    disabled={sendingInviteTo === user.pubkey}
+                                    className={cn(
+                                        "h-10 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
+                                        sendingInviteTo === user.pubkey
+                                            ? "bg-zinc-800 text-zinc-500"
+                                            : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20"
+                                    )}
+                                >
+                                    {sendingInviteTo === user.pubkey ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <Send className="h-3 w-3 mr-2" />
+                                            Send Invite
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        ))}
+
+                        {query.length >= 3 && results.length === 0 && !isSearching && (
+                            <div className="py-12 flex flex-col items-center justify-center text-center opacity-30">
+                                <Search className="h-10 w-10 text-zinc-700 mb-4" />
+                                <p className="text-zinc-500 font-black uppercase tracking-widest text-[10px]">No peers located</p>
+                            </div>
+                        )}
+
+                        {query.length < 3 && (
+                            <div className="py-12 flex flex-col items-center justify-center text-center opacity-20">
+                                <InviteIcon className="h-10 w-10 text-zinc-700 mb-4" />
+                                <p className="text-zinc-500 font-black uppercase tracking-widest text-[10px]">Search for connections</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useMemo, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useMemo, useEffect } from "react";
+import { useIdentity } from "../../auth/hooks/use-identity";
 import type {
     Conversation,
     UnreadByConversationId,
@@ -72,6 +73,12 @@ interface MessagingContextType {
     reactionPicker: Readonly<{ messageId: string; x: number; y: number }> | null;
     setReactionPicker: (picker: Readonly<{ messageId: string; x: number; y: number }> | null) => void;
 
+    pinnedChatIds: ReadonlyArray<string>;
+    togglePin: (conversationId: string) => void;
+    hiddenChatIds: ReadonlyArray<string>;
+    hideConversation: (conversationId: string) => void;
+    unhideConversation: (conversationId: string) => void;
+
     // Derived
     chatsUnreadCount: number;
 }
@@ -79,6 +86,7 @@ interface MessagingContextType {
 const MessagingContext = createContext<MessagingContextType | null>(null);
 
 export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const identity = useIdentity();
     const [createdContacts, setCreatedContacts] = useState<ReadonlyArray<DmConversation>>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
@@ -87,8 +95,8 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] = useState<Readonly<Record<string, number>>>({});
     const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
 
+    const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
     const [hasHydrated, setHasHydrated] = useState(false);
-    const didHydrateRef = useRef(false);
 
     // Attachments
     const [pendingAttachments, setPendingAttachments] = useState<ReadonlyArray<File>>([]);
@@ -110,11 +118,33 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [messageMenu, setMessageMenu] = useState<Readonly<{ messageId: string; x: number; y: number }> | null>(null);
     const [reactionPicker, setReactionPicker] = useState<Readonly<{ messageId: string; x: number; y: number }> | null>(null);
 
+    const [pinnedChatIds, setPinnedChatIds] = useState<ReadonlyArray<string>>([]);
+    const [hiddenChatIds, setHiddenChatIds] = useState<ReadonlyArray<string>>([]);
+
+    const togglePin = (conversationId: string) => {
+        setPinnedChatIds(prev =>
+            prev.includes(conversationId)
+                ? prev.filter(id => id !== conversationId)
+                : [...prev, conversationId]
+        );
+    };
+
+    const hideConversation = (conversationId: string) => {
+        setHiddenChatIds(prev =>
+            prev.includes(conversationId) ? prev : [...prev, conversationId]
+        );
+    };
+
+    const unhideConversation = (conversationId: string) => {
+        setHiddenChatIds(prev => prev.filter(id => id !== conversationId));
+    };
+
     // Persistence: Hydration
     useEffect(() => {
-        if (didHydrateRef.current) return;
+        if (hasHydrated) return;
+        if (!publicKeyHex) return;
 
-        const persisted = loadPersistedChatState();
+        const persisted = loadPersistedChatState(publicKeyHex);
         if (persisted) {
             const nextCreatedContacts: ReadonlyArray<DmConversation> = persisted.createdContacts
                 .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
@@ -125,15 +155,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 setUnreadByConversationId(persisted.unreadByConversationId);
                 setContactOverridesByContactId(fromPersistedOverridesByContactId(persisted.contactOverridesByContactId));
                 setMessagesByConversationId(fromPersistedMessagesByConversationId(persisted.messagesByConversationId));
-                setHasHydrated(true);
-            });
-        } else {
-            queueMicrotask(() => {
-                setHasHydrated(true);
+                if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
+                if (persisted.hiddenChatIds) setHiddenChatIds(persisted.hiddenChatIds);
             });
         }
-        didHydrateRef.current = true;
-    }, []);
+        queueMicrotask(() => {
+            setHasHydrated(true);
+        });
+    }, [publicKeyHex, hasHydrated]);
 
     const chatsUnreadCount = useMemo(() => {
         return Object.values(unreadByConversationId).reduce((sum, count) => sum + count, 0);
@@ -187,6 +216,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setMessageMenu,
         reactionPicker,
         setReactionPicker,
+        pinnedChatIds,
+        togglePin,
+        hiddenChatIds,
+        hideConversation,
+        unhideConversation,
         chatsUnreadCount
     }), [
         createdContacts,
@@ -213,6 +247,8 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         pendingScrollTarget,
         messageMenu,
         reactionPicker,
+        pinnedChatIds,
+        hiddenChatIds,
         chatsUnreadCount
     ]);
 

@@ -15,7 +15,8 @@ import {
 
 export function PersistenceManager() {
     const identity = useIdentity();
-    const requestsInbox = useRequestsInbox({ publicKeyHex: identity.state.publicKeyHex ?? null });
+    const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
+    const requestsInbox = useRequestsInbox({ publicKeyHex });
     const {
         hasHydrated,
         createdContacts,
@@ -26,7 +27,7 @@ export function PersistenceManager() {
     const { createdGroups } = useGroups();
 
     useEffect(() => {
-        if (hasHydrated) {
+        if (hasHydrated && publicKeyHex) {
             savePersistedChatState({
                 version: 2,
                 createdContacts: createdContacts.map(toPersistedDmConversation),
@@ -37,13 +38,14 @@ export function PersistenceManager() {
                 connectionRequests: requestsInbox.state.items.map(item => ({
                     id: item.peerPublicKeyHex,
                     status: item.status || 'pending',
-                    isOutgoing: false,
+                    isOutgoing: item.isOutgoing ?? false,
                     introMessage: item.lastMessagePreview,
                     timestampMs: item.lastReceivedAtUnixSeconds * 1000
                 }))
-            });
+            }, publicKeyHex);
         }
     }, [
+        publicKeyHex,
         hasHydrated,
         createdContacts,
         createdGroups,

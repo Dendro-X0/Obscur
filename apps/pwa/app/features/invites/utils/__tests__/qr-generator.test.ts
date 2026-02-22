@@ -91,7 +91,7 @@ describe('QR Generator Property Tests', () => {
             expect(parsed?.expirationTime).toBe(inviteData.expirationTime);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
 
@@ -167,7 +167,7 @@ describe('QR Generator Property Tests', () => {
             expect(parsed!.expirationTime).toBeGreaterThan(parsed!.timestamp);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { loadPersistedChatState } from "@/app/features/messaging/utils/persistence";
 
 type PeerTrustState = Readonly<{
   acceptedPeers: ReadonlyArray<PublicKeyHex>;
@@ -35,12 +36,26 @@ const getStorageKey = (publicKeyHex: PublicKeyHex): string => {
   return `obscur.peer_trust.v1.${publicKeyHex}`;
 };
 
+const shouldDebugPersistence = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem("obscur_debug_persistence") === "1";
+  } catch {
+    return false;
+  }
+};
+
 const loadFromStorage = (publicKeyHex: PublicKeyHex): StoredPeerTrust => {
   if (typeof window === "undefined") {
     return createDefaultState();
   }
   try {
     const raw: string | null = window.localStorage.getItem(getStorageKey(publicKeyHex));
+    if (shouldDebugPersistence()) {
+      console.info("[peerTrust] load", getStorageKey(publicKeyHex), raw ? raw.length : 0);
+    }
     if (!raw) {
       return createDefaultState();
     }
@@ -64,32 +79,85 @@ const saveToStorage = (publicKeyHex: PublicKeyHex, value: StoredPeerTrust): void
     return;
   }
   try {
-    window.localStorage.setItem(getStorageKey(publicKeyHex), JSON.stringify(value));
+    const serialized = JSON.stringify(value);
+    window.localStorage.setItem(getStorageKey(publicKeyHex), serialized);
+    if (shouldDebugPersistence()) {
+      console.info("[peerTrust] save", getStorageKey(publicKeyHex), serialized.length);
+    }
   } catch {
     return;
   }
 };
 
 export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => {
+  const publicKeyHexRef = useRef<PublicKeyHex | null>(params.publicKeyHex);
+  useEffect(() => {
+    publicKeyHexRef.current = params.publicKeyHex;
+  }, [params.publicKeyHex]);
+
   const [stored, setStored] = useState<StoredPeerTrust>(() => {
     if (!params.publicKeyHex) {
       return createDefaultState();
     }
     return loadFromStorage(params.publicKeyHex);
   });
+  const didLoadRef = useRef(false);
+  const hasInitiallyHydratedRef = useRef(false);
+
   useEffect((): void => {
     queueMicrotask((): void => {
       if (!params.publicKeyHex) {
-        setStored(createDefaultState());
         return;
       }
-      setStored(loadFromStorage(params.publicKeyHex));
+      const loaded = loadFromStorage(params.publicKeyHex);
+      setStored(loaded);
+      hasInitiallyHydratedRef.current = true;
+      // We don't set didLoadRef.current here yet because the state update hasn't applied
+      // The subsequent render will trigger the save effect
     });
   }, [params.publicKeyHex]);
+
   useEffect((): void => {
     if (!params.publicKeyHex) {
       return;
     }
+    if (stored.acceptedPeers.length > 0) {
+      return;
+    }
+    const persisted = loadPersistedChatState(params.publicKeyHex);
+    const acceptedFromChat: PublicKeyHex[] = (persisted?.connectionRequests ?? [])
+      .filter(cr => cr.status === "accepted")
+      .map(cr => cr.id as PublicKeyHex)
+      .filter((v: unknown): v is PublicKeyHex => typeof v === "string" && v.trim().length > 0);
+
+    if (acceptedFromChat.length === 0) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      setStored((prev: StoredPeerTrust): StoredPeerTrust => {
+        if (prev.acceptedPeers.length > 0) {
+          return prev;
+        }
+        const merged = Array.from(new Set([...prev.acceptedPeers, ...acceptedFromChat]));
+        const next: StoredPeerTrust = { acceptedPeers: merged, mutedPeers: prev.mutedPeers };
+        saveToStorage(params.publicKeyHex as PublicKeyHex, next);
+        return next;
+      });
+    });
+  }, [params.publicKeyHex, stored.acceptedPeers.length]);
+
+  useEffect((): void => {
+    if (!params.publicKeyHex || !hasInitiallyHydratedRef.current) {
+      return;
+    }
+
+    // Skip the very first render after hydration to avoid saving the same thing we just loaded
+    if (!didLoadRef.current) {
+      didLoadRef.current = true;
+      return;
+    }
+
     saveToStorage(params.publicKeyHex, stored);
   }, [params.publicKeyHex, stored]);
   const isAccepted = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): boolean => {
@@ -103,12 +171,22 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       if (prev.mutedPeers.includes(p.publicKeyHex)) {
         return prev;
       }
-      return { ...prev, mutedPeers: [...prev.mutedPeers, p.publicKeyHex] };
+      const next: StoredPeerTrust = { ...prev, mutedPeers: [...prev.mutedPeers, p.publicKeyHex] };
+      const pk = publicKeyHexRef.current;
+      if (pk) {
+        saveToStorage(pk, next);
+      }
+      return next;
     });
   }, []);
   const unmutePeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      return { ...prev, mutedPeers: prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex) };
+      const next: StoredPeerTrust = { ...prev, mutedPeers: prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex) };
+      const pk = publicKeyHexRef.current;
+      if (pk) {
+        saveToStorage(pk, next);
+      }
+      return next;
     });
   }, []);
   const acceptPeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
@@ -118,12 +196,22 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       }
       const nextAccepted: ReadonlyArray<PublicKeyHex> = [...prev.acceptedPeers, p.publicKeyHex];
       const nextMuted: ReadonlyArray<PublicKeyHex> = prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex);
-      return { acceptedPeers: nextAccepted, mutedPeers: nextMuted };
+      const next: StoredPeerTrust = { acceptedPeers: nextAccepted, mutedPeers: nextMuted };
+      const pk = publicKeyHexRef.current;
+      if (pk) {
+        saveToStorage(pk, next);
+      }
+      return next;
     });
   }, []);
   const unacceptPeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      return { ...prev, acceptedPeers: prev.acceptedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex) };
+      const next: StoredPeerTrust = { ...prev, acceptedPeers: prev.acceptedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex) };
+      const pk = publicKeyHexRef.current;
+      if (pk) {
+        saveToStorage(pk, next);
+      }
+      return next;
     });
   }, []);
   const state: PeerTrustState = useMemo((): PeerTrustState => {

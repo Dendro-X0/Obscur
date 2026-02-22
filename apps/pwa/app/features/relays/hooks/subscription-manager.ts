@@ -21,7 +21,7 @@ const isNostrEvent = (value: unknown): value is NostrEvent => {
 interface SubscriptionRequest {
     id: string;
     filters: ReadonlyArray<NostrFilter>;
-    onEvent: (event: NostrEvent) => void;
+    onEvent: (event: NostrEvent, url: string) => void;
 }
 
 type WireNostrFilter = {
@@ -54,7 +54,7 @@ export class SubscriptionManager {
     /**
      * Request a new subscription with coalescing
      */
-    public subscribe(filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent) => void): string {
+    public subscribe(filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent, url: string) => void): string {
         const id = crypto.randomUUID();
         const request: SubscriptionRequest = { id, filters, onEvent };
 
@@ -163,7 +163,7 @@ export class SubscriptionManager {
                 if (!this.matchesFilter(event, sub.filters)) {
                     return;
                 }
-                sub.onEvent(event);
+                sub.onEvent(event, params.url);
             });
         } catch {
             return;

@@ -9,13 +9,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEnhancedDMController } from '../enhanced-dm-controller';
-import { cryptoService } from '../../crypto/crypto-service';
+import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 
 // Mock dependencies
-vi.mock('../../crypto/crypto-service', () => ({
+vi.mock('@/app/features/crypto/crypto-service', () => ({
   cryptoService: {
     encryptDM: vi.fn(async (plaintext: string) => `encrypted_${plaintext}`),
     decryptDM: vi.fn(async (ciphertext: string) => ciphertext.replace('encrypted_', '')),
@@ -30,10 +30,10 @@ vi.mock('../../crypto/crypto-service', () => ({
   }
 }));
 
-vi.mock('../message-queue', () => {
+vi.mock('../../lib/message-queue', () => {
   const messages = new Map();
   const queuedMessages = new Map();
-  
+
   class MockMessageQueue {
     persistMessage = vi.fn(async (msg: any) => {
       messages.set(msg.id, msg);
@@ -46,7 +46,11 @@ vi.mock('../message-queue', () => {
       }
     });
     getMessage = vi.fn(async (id: string) => messages.get(id));
-    getMessages = vi.fn(async () => Array.from(messages.values()));
+    getMessages = vi.fn(async (conversationId?: string) => {
+      const all = Array.from(messages.values());
+      if (!conversationId) return all;
+      return all.filter((m: any) => m.conversationId === conversationId);
+    });
     queueOutgoingMessage = vi.fn(async (msg: any) => {
       queuedMessages.set(msg.id, msg);
     });
@@ -55,14 +59,19 @@ vi.mock('../message-queue', () => {
       queuedMessages.delete(id);
     });
     getLastMessageTimestamp = vi.fn(async () => null);
+    getAllMessages = vi.fn(async () => Array.from(messages.values()));
+
+    markMessagesSynced = vi.fn(async () => { });
+    cleanupOldMessages = vi.fn(async () => { });
+    getStorageUsage = vi.fn(async () => ({ totalMessages: messages.size, totalSizeBytes: 0 }));
   }
-  
+
   return {
     MessageQueue: MockMessageQueue
   };
 });
 
-vi.mock('../retry-manager', () => ({
+vi.mock('../../lib/retry-manager', () => ({
   retryManager: {
     shouldRetry: vi.fn(() => ({ shouldRetry: true, nextRetryAt: new Date(Date.now() + 1000) })),
     calculateNextRetry: vi.fn(() => new Date(Date.now() + 1000)),
@@ -71,14 +80,14 @@ vi.mock('../retry-manager', () => ({
   }
 }));
 
-vi.mock('../../parse-public-key-input', () => ({
+vi.mock('@/app/features/profile/utils/parse-public-key-input', () => ({
   parsePublicKeyInput: vi.fn((input: string) => ({
     ok: true,
     publicKeyHex: input
   }))
 }));
 
-vi.mock('../../nostr-safety-limits', () => ({
+vi.mock('@/app/features/relays/utils/nostr-safety-limits', () => ({
   NOSTR_SAFETY_LIMITS: {
     maxDmPlaintextChars: 1000
   }
@@ -108,6 +117,7 @@ describe('Integration: Complete Message Flows', () => {
         { url: 'wss://relay2.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
       ],
       sendToOpen: vi.fn(),
+      waitForConnection: vi.fn(async () => true),
       publishToAll: vi.fn(async () => ({
         success: true,
         successCount: 2,
@@ -137,7 +147,8 @@ describe('Integration: Complete Message Flows', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -147,7 +158,7 @@ describe('Integration: Complete Message Flows', () => {
       });
 
       // Alice sends message to Bob
-      let aliceMessageId: string;
+      let aliceMessageId = '';
       await act(async () => {
         const result = await aliceController.current.sendDm({
           peerPublicKeyInput: bob.pub,
@@ -160,7 +171,7 @@ describe('Integration: Complete Message Flows', () => {
       // Verify Alice sees her sent message
       await waitFor(() => {
         const messages = aliceController.current.state.messages;
-        const sentMessage = messages.find(m => m.id === aliceMessageId);
+        const sentMessage = messages.find((m: any) => m.id === aliceMessageId);
         expect(sentMessage).toBeDefined();
         expect(sentMessage?.content).toBe('Hello Bob!');
         expect(sentMessage?.isOutgoing).toBe(true);
@@ -185,7 +196,8 @@ describe('Integration: Complete Message Flows', () => {
           myPrivateKeyHex: bob.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -205,7 +217,7 @@ describe('Integration: Complete Message Flows', () => {
       // Verify Bob received the message
       await waitFor(() => {
         const messages = bobController.current.state.messages;
-        const receivedMessage = messages.find(m => m.content === 'Hello Bob!');
+        const receivedMessage = messages.find((m: any) => m.content === 'Hello Bob!');
         expect(receivedMessage).toBeDefined();
         expect(receivedMessage?.isOutgoing).toBe(false);
         expect(receivedMessage?.status).toBe('delivered');
@@ -213,7 +225,7 @@ describe('Integration: Complete Message Flows', () => {
       }, { timeout: 2000 });
 
       // Bob replies to Alice
-      let bobMessageId: string;
+      let bobMessageId = '';
       await act(async () => {
         const result = await bobController.current.sendDm({
           peerPublicKeyInput: alice.pub,
@@ -244,7 +256,7 @@ describe('Integration: Complete Message Flows', () => {
       // Verify Alice received Bob's reply
       await waitFor(() => {
         const messages = aliceController.current.state.messages;
-        const receivedMessage = messages.find(m => m.content === 'Hi Alice!');
+        const receivedMessage = messages.find((m: any) => m.content === 'Hi Alice!');
         expect(receivedMessage).toBeDefined();
         expect(receivedMessage?.isOutgoing).toBe(false);
         expect(receivedMessage?.senderPubkey).toBe(bob.pub);
@@ -263,13 +275,26 @@ describe('Integration: Complete Message Flows', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
 
       await waitFor(() => {
         expect(result.current.state.status).toBe('ready');
+      });
+
+      const subId = await waitFor(() => {
+        expect(mockPool.sendToOpen).toHaveBeenCalled();
+        const reqCall = mockPool.sendToOpen.mock.calls.find((call: any[]) => {
+          const message = call[0];
+          return typeof message === 'string' && message.includes('"REQ"');
+        });
+        expect(reqCall).toBeTruthy();
+        const parsed = JSON.parse(reqCall![0]);
+        expect(parsed[0]).toBe('REQ');
+        return parsed[1];
       });
 
       // Send multiple messages rapidly
@@ -291,10 +316,10 @@ describe('Integration: Complete Message Flows', () => {
       await waitFor(() => {
         const messages = result.current.state.messages;
         expect(messages.length).toBeGreaterThanOrEqual(5);
-        
+
         // Check that all messages are present
         for (let i = 0; i < 5; i++) {
-          const message = messages.find(m => m.content === `Message ${i + 1}`);
+          const message = messages.find((m: any) => m.content === `Message ${i + 1}`);
           expect(message).toBeDefined();
           expect(message?.status).toBe('accepted');
         }
@@ -308,7 +333,8 @@ describe('Integration: Complete Message Flows', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -357,9 +383,9 @@ describe('Integration: Complete Message Flows', () => {
       await waitFor(() => {
         const messages = result.current.state.messages;
         expect(messages.length).toBeGreaterThanOrEqual(3);
-        
+
         // Messages should be sorted by timestamp (newest first in UI)
-        const timestamps = messages.map(m => m.timestamp.getTime());
+        const timestamps = messages.map((m: any) => m.timestamp.getTime());
         for (let i = 0; i < timestamps.length - 1; i++) {
           expect(timestamps[i]).toBeGreaterThanOrEqual(timestamps[i + 1]);
         }
@@ -375,7 +401,8 @@ describe('Integration: Complete Message Flows', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -405,7 +432,7 @@ describe('Integration: Complete Message Flows', () => {
       // Wait for processing
       await waitFor(() => {
         const messages = result.current.state.messages;
-        expect(messages.some(m => m.eventId === 'duplicate_event_123')).toBe(true);
+        expect(messages.some((m: any) => m.eventId === 'duplicate_event_123')).toBe(true);
       });
 
       const initialMessageCount = result.current.state.messages.length;
@@ -484,13 +511,26 @@ describe('Integration: Complete Message Flows', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
 
       await waitFor(() => {
         expect(result.current.state.status).toBe('ready');
+      });
+
+      const subId = await waitFor(() => {
+        expect(mockPool.sendToOpen).toHaveBeenCalled();
+        const reqCall = mockPool.sendToOpen.mock.calls.find((call: any[]) => {
+          const message = call[0];
+          return typeof message === 'string' && message.includes('"REQ"');
+        });
+        expect(reqCall).toBeTruthy();
+        const parsed = JSON.parse(reqCall![0]);
+        expect(parsed[0]).toBe('REQ');
+        return parsed[1];
       });
 
       // Receive message that will fail decryption
@@ -504,7 +544,7 @@ describe('Integration: Complete Message Flows', () => {
           content: 'encrypted_bad_content',
           sig: 'sig'
         };
-        const eventMessage = JSON.stringify(['EVENT', 'sub', event]);
+        const eventMessage = JSON.stringify(['EVENT', subId, event]);
         messageListeners.forEach(listener => {
           listener({ url: 'wss://relay1.example.com', message: eventMessage });
         });
@@ -515,9 +555,9 @@ describe('Integration: Complete Message Flows', () => {
 
       // System should still be ready (not crashed)
       expect(result.current.state.status).toBe('ready');
-      
+
       // Bad message should not appear in state
-      const badMessage = result.current.state.messages.find(m => m.eventId === 'bad_decrypt');
+      const badMessage = result.current.state.messages.find((m: any) => m.eventId === 'bad_decrypt');
       expect(badMessage).toBeUndefined();
     });
   });
@@ -532,13 +572,26 @@ describe('Integration: Complete Message Flows', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
 
       await waitFor(() => {
         expect(result.current.state.status).toBe('ready');
+      });
+
+      const subId = await waitFor(() => {
+        expect(mockPool.sendToOpen).toHaveBeenCalled();
+        const reqCall = mockPool.sendToOpen.mock.calls.find((call: any[]) => {
+          const message = call[0];
+          return typeof message === 'string' && message.includes('"REQ"');
+        });
+        expect(reqCall).toBeTruthy();
+        const parsed = JSON.parse(reqCall![0]);
+        expect(parsed[0]).toBe('REQ');
+        return parsed[1];
       });
 
       // Receive messages from Bob and Carol simultaneously
@@ -563,8 +616,8 @@ describe('Integration: Complete Message Flows', () => {
           sig: 'sig'
         };
 
-        const bobMessage = JSON.stringify(['EVENT', 'sub', bobEvent]);
-        const carolMessage = JSON.stringify(['EVENT', 'sub', carolEvent]);
+        const bobMessage = JSON.stringify(['EVENT', subId, bobEvent]);
+        const carolMessage = JSON.stringify(['EVENT', subId, carolEvent]);
 
         messageListeners.forEach(listener => {
           listener({ url: 'wss://relay1.example.com', message: bobMessage });
@@ -575,9 +628,9 @@ describe('Integration: Complete Message Flows', () => {
       // Verify both messages were received
       await waitFor(() => {
         const messages = result.current.state.messages;
-        const bobMessage = messages.find(m => m.content === 'Message from Bob');
-        const carolMessage = messages.find(m => m.content === 'Message from Carol');
-        
+        const bobMessage = messages.find((m: any) => m.content === 'Message from Bob');
+        const carolMessage = messages.find((m: any) => m.content === 'Message from Carol');
+
         expect(bobMessage).toBeDefined();
         expect(carolMessage).toBeDefined();
         expect(bobMessage?.senderPubkey).toBe(bob.pub);

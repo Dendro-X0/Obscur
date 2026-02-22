@@ -11,8 +11,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEnhancedDMController } from '../enhanced-dm-controller';
-import { cryptoService } from '../../crypto/crypto-service';
+import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { cryptoService } from '../../../../features/crypto/crypto-service';
 import { errorHandler } from '../error-handler';
 import { offlineQueueManager } from '../offline-queue-manager';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
@@ -36,7 +36,7 @@ vi.mock('../../crypto/crypto-service', () => ({
 vi.mock('../message-queue', () => {
   const messages = new Map();
   const queuedMessages = new Map();
-  
+
   class MockMessageQueue {
     persistMessage = vi.fn(async (msg: any) => {
       messages.set(msg.id, msg);
@@ -58,8 +58,9 @@ vi.mock('../message-queue', () => {
       queuedMessages.delete(id);
     });
     getLastMessageTimestamp = vi.fn(async () => null);
+    getAllMessages = vi.fn(async () => Array.from(messages.values()));
   }
-  
+
   return {
     MessageQueue: MockMessageQueue
   };
@@ -95,7 +96,8 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
       subscribeToMessages: vi.fn((handler: any) => {
         messageListeners.add(handler);
         return () => messageListeners.delete(handler);
-      })
+      }),
+      waitForConnection: vi.fn(async () => true)
     };
   });
 
@@ -111,7 +113,8 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
           myPrivateKeyHex,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -145,7 +148,7 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
       await waitFor(() => {
         const messages = result.current.state.messages;
         expect(messages.length).toBeGreaterThan(0);
-        const sentMessage = messages.find(m => m.content === 'Hello, World!');
+        const sentMessage = messages.find((m: any) => m.content === 'Hello, World!');
         expect(sentMessage).toBeDefined();
         expect(sentMessage?.isOutgoing).toBe(true);
         expect(sentMessage?.status).toBe('accepted');
@@ -173,7 +176,7 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
       // Verify incoming message was processed
       await waitFor(() => {
         const messages = result.current.state.messages;
-        const receivedMessage = messages.find(m => m.content === 'Hello back!');
+        const receivedMessage = messages.find((m: any) => m.content === 'Hello back!');
         expect(receivedMessage).toBeDefined();
         expect(receivedMessage?.isOutgoing).toBe(false);
         expect(receivedMessage?.status).toBe('delivered');
@@ -200,7 +203,7 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
 
       // Send a message
       let sendResult: any;
-      let eventId: string;
+      let eventId = '';
       await act(async () => {
         sendResult = await result.current.sendDm({
           peerPublicKeyInput: peerPublicKeyHex,
@@ -242,11 +245,12 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
           successCount: 0,
           totalRelays: 1,
           results: [
-            { relayUrl: 'wss://relay1.example.com', success: false, error: 'Connection closed' }
+            { relayUrl: 'wss://relay1.example.com', success: false, errorMessage: 'Connection closed' }
           ],
           overallError: 'All relays failed'
         })),
-        subscribeToMessages: vi.fn(() => () => {})
+        subscribeToMessages: vi.fn(() => () => { }),
+        waitForConnection: vi.fn(async () => true)
       };
 
       const { result } = renderHook(() =>
@@ -272,11 +276,11 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
 
       // Message should be queued
       expect(sendResult.success).toBe(false);
-      
+
       // Verify message is in queued state
       await waitFor(() => {
         const messages = result.current.state.messages;
-        const queuedMessage = messages.find(m => m.content === 'Offline message');
+        const queuedMessage = messages.find((m: any) => m.content === 'Offline message');
         expect(queuedMessage).toBeDefined();
         // Status could be 'queued' or 'rejected' depending on implementation
         expect(['queued', 'rejected']).toContain(queuedMessage?.status);
@@ -290,7 +294,8 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
           myPrivateKeyHex,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -306,7 +311,7 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
 
       // Verify sync was initiated
       expect(mockPool.sendToOpen).toHaveBeenCalled();
-      
+
       // Check that a REQ message was sent for sync
       const calls = mockPool.sendToOpen.mock.calls;
       const syncCall = calls.find((call: any[]) => {
@@ -381,7 +386,8 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
           myPrivateKeyHex,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -411,7 +417,7 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
       // Should not crash, message should not appear in state
       await new Promise(resolve => setTimeout(resolve, 100));
       const messages = result.current.state.messages;
-      const badMessage = messages.find(m => m.eventId === 'bad_event_123');
+      const badMessage = messages.find((m: any) => m.eventId === 'bad_event_123');
       expect(badMessage).toBeUndefined();
     });
 
@@ -460,7 +466,7 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
 
       // Verify retry function exists and can be called
       expect(result.current.retryFailedMessage).toBeDefined();
-      
+
       // Note: Actually retrying would require the message to be in a failed state
       // which is complex to set up in this test environment
     });
@@ -474,7 +480,8 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
           myPrivateKeyHex,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );

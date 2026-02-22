@@ -13,6 +13,8 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 import { toast } from "../../../components/ui/toast";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { UserAvatar } from "../../profile/components/user-avatar";
 
 export function TrustSettingsPanel() {
     const { t } = useTranslation();
@@ -34,7 +36,7 @@ export function TrustSettingsPanel() {
     return (
         <div className="space-y-6">
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
                 <Input
                     placeholder={t("settings.security.searchPeers")}
                     className="pl-9 h-11 bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:ring-purple-500/20"
@@ -62,38 +64,13 @@ export function TrustSettingsPanel() {
                 ) : (
                     <div className="grid gap-2">
                         {filteredAccepted.map((pk: string) => (
-                            <div key={pk} className="group flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-sm">
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className="h-9 w-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                                        <User className="h-4 w-4 text-zinc-400" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-mono truncate text-zinc-900 dark:text-zinc-100">
-                                            {pk}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-1 shrink-0 ml-4">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                                        onClick={() => peerTrust.mutePeer({ publicKeyHex: pk })}
-                                        title={t("settings.security.mutePeer")}
-                                    >
-                                        <VolumeX className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                        onClick={() => setConfirmUntrustPk(pk)}
-                                        title={t("settings.security.revokeTrust")}
-                                    >
-                                        <ShieldOff className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
+                            <AcceptedPeerRow
+                                key={pk}
+                                pk={pk}
+                                t={t}
+                                onMute={() => peerTrust.mutePeer({ publicKeyHex: pk })}
+                                onUntrust={() => setConfirmUntrustPk(pk)}
+                            />
                         ))}
                     </div>
                 )}
@@ -108,29 +85,12 @@ export function TrustSettingsPanel() {
 
                     <div className="grid gap-2">
                         {filteredMuted.map((pk: string) => (
-                            <div key={pk} className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-950/40 opacity-70">
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className="h-9 w-9 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                                        <VolumeX className="h-4 w-4 text-zinc-400" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-mono truncate text-zinc-500">
-                                            {pk}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-1 shrink-0 ml-4">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                                        onClick={() => peerTrust.unmutePeer({ publicKeyHex: pk })}
-                                        title={t("settings.security.unmutePeer")}
-                                    >
-                                        <Volume2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
+                            <MutedPeerRow
+                                key={pk}
+                                pk={pk}
+                                t={t}
+                                onUnmute={() => peerTrust.unmutePeer({ publicKeyHex: pk })}
+                            />
                         ))}
                     </div>
                 </section>
@@ -154,28 +114,12 @@ export function TrustSettingsPanel() {
                     ) : (
                         <div className="grid gap-2">
                             {filteredBlocked.map((pk: string) => (
-                                <div key={pk} className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-950/10">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="h-9 w-9 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                                            <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-mono truncate text-red-700/70 dark:text-red-400/70">
-                                                {pk}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-1 shrink-0 ml-4">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 px-3 h-8 rounded-lg transition-colors"
-                                            onClick={() => blocklist.removeBlocked({ publicKeyHex: pk as any })}
-                                        >
-                                            {t("settings.blocklist.unblock")}
-                                        </Button>
-                                    </div>
-                                </div>
+                                <BlockedPeerRow
+                                    key={pk}
+                                    pk={pk}
+                                    t={t}
+                                    onUnblock={() => blocklist.removeBlocked({ publicKeyHex: pk as any })}
+                                />
                             ))}
                         </div>
                     )}
@@ -214,6 +158,106 @@ export function TrustSettingsPanel() {
                 confirmLabel={t("contacts.actions.remove", "Remove")}
                 variant="danger"
             />
+        </div>
+    );
+}
+
+function AcceptedPeerRow({ pk, t, onMute, onUntrust }: { pk: string; t: any; onMute: () => void; onUntrust: () => void }) {
+    const metadata = useProfileMetadata(pk);
+    return (
+        <div className="group flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-sm">
+            <div className="flex items-center gap-3 min-w-0">
+                <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} />
+                <div className="min-w-0">
+                    <p className="text-sm font-bold truncate text-zinc-900 dark:text-zinc-100">
+                        {metadata?.displayName || `${pk.slice(0, 8)}...${pk.slice(-8)}`}
+                    </p>
+                    <p className="text-[10px] font-mono truncate text-zinc-500">
+                        {pk}
+                    </p>
+                </div>
+            </div>
+            <div className="flex gap-1 shrink-0 ml-4">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    onClick={onMute}
+                    title={t("settings.security.mutePeer")}
+                >
+                    <VolumeX className="h-6 w-6" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    onClick={onUntrust}
+                    title={t("settings.security.revokeTrust")}
+                >
+                    <ShieldOff className="h-6 w-6" />
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+function MutedPeerRow({ pk, t, onUnmute }: { pk: string; t: any; onUnmute: () => void }) {
+    const metadata = useProfileMetadata(pk);
+    return (
+        <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-950/40 opacity-70">
+            <div className="flex items-center gap-3 min-w-0">
+                <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} className="grayscale" />
+                <div className="min-w-0">
+                    <p className="text-sm font-bold truncate text-zinc-500">
+                        {metadata?.displayName || `${pk.slice(0, 8)}...${pk.slice(-8)}`}
+                    </p>
+                    <p className="text-[10px] font-mono truncate text-zinc-400">
+                        {pk}
+                    </p>
+                </div>
+            </div>
+            <div className="flex gap-1 shrink-0 ml-4">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    onClick={onUnmute}
+                    title={t("settings.security.unmutePeer")}
+                >
+                    <Volume2 className="h-6 w-6" />
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+function BlockedPeerRow({ pk, t, onUnblock }: { pk: string; t: any; onUnblock: () => void }) {
+    const metadata = useProfileMetadata(pk);
+    return (
+        <div className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-950/10">
+            <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                    <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-bold truncate text-red-700 dark:text-red-400">
+                        {metadata?.displayName || `${pk.slice(0, 8)}...${pk.slice(-8)}`}
+                    </p>
+                    <p className="text-[10px] font-mono truncate text-red-700/50 dark:text-red-400/50">
+                        {pk}
+                    </p>
+                </div>
+            </div>
+            <div className="flex gap-1 shrink-0 ml-4">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 px-3 h-8 rounded-lg transition-colors"
+                    onClick={onUnblock}
+                >
+                    {t("settings.blocklist.unblock")}
+                </Button>
+            </div>
         </div>
     );
 }

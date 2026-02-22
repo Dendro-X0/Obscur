@@ -22,16 +22,41 @@ import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-met
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { toast } from "@/app/components/ui/toast";
+import { InviteToGroupDialog } from "./invite-to-group-dialog";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
+import type { GroupConversation } from "@/app/features/messaging/types";
+import { GroupService } from "@/app/features/groups/services/group-service";
+import { roomKeyStore } from "@/app/features/crypto/room-key-store";
+import type { GroupMetadata } from "@/app/features/groups/types";
+import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
+import type { Message } from "@/app/features/messaging/types";
 
 export default function ContactProfileView() {
     const { pubkey } = useParams();
     const router = useRouter();
     const { t } = useTranslation();
     const { peerTrust, requestsInbox, blocklist } = useContacts();
-    const { createdContacts } = useMessaging();
+    const { createdContacts, setMessagesByConversationId } = useMessaging();
+    const { relayPool } = useRelay();
+    const identity = useIdentity();
 
     const [isRemoveDialogOpen, setIsRemoveDialogOpen] = React.useState(false);
     const [isBlockDialogOpen, setIsBlockDialogOpen] = React.useState(false);
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false);
+
+    const myPublicKeyHex = identity.state.publicKeyHex || null;
+    const myPrivateKeyHex = identity.state.privateKeyHex || null;
+
+    const dmController = useEnhancedDmController({
+        myPublicKeyHex,
+        myPrivateKeyHex,
+        pool: relayPool,
+        blocklist,
+        peerTrust,
+        requestsInbox
+    });
 
     const pk = Array.isArray(pubkey) ? pubkey[0]! : pubkey!;
     const metadata = useProfileMetadata(pk);
@@ -74,6 +99,89 @@ export default function ContactProfileView() {
         setIsRemoveDialogOpen(false);
         toast.success(t("contacts.notifications.removed", "Contact removed"));
         router.push("/contacts");
+    };
+
+    const handleInviteToGroup = async (group: GroupConversation) => {
+        if (!myPublicKeyHex || !myPrivateKeyHex) {
+            toast.error(t("contacts.notifications.identityError", "Identity not found"));
+            return;
+        }
+
+        try {
+            const roomKeyHex = await roomKeyStore.getRoomKey(group.groupId);
+            if (!roomKeyHex) {
+                toast.error(t("contacts.notifications.noRoomKey", "Missing group secret key"));
+                return;
+            }
+
+            const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex as any);
+            const metadata: GroupMetadata = {
+                id: group.id,
+                name: group.displayName,
+                about: group.about,
+                picture: group.avatar,
+                access: group.access,
+                memberCount: group.memberCount
+            };
+
+            const inviteEvent = await inviteEventBuilder(groupService, group, roomKeyHex, metadata, pk as PublicKeyHex);
+
+            await relayPool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
+
+            const conversationId = [myPublicKeyHex, pk].sort().join(':');
+
+            // Persist locally for sender visibility
+            const inviteMessage: Message = {
+                id: inviteEvent.id,
+                conversationId,
+                kind: 'user',
+                content: JSON.stringify({
+                    type: "community-invite",
+                    groupId: group.groupId,
+                    roomKey: roomKeyHex,
+                    metadata
+                }),
+                timestamp: new Date(),
+                isOutgoing: true,
+                status: 'delivered',
+                eventId: inviteEvent.id,
+                senderPubkey: myPublicKeyHex as PublicKeyHex,
+                recipientPubkey: pk as PublicKeyHex,
+            };
+
+            const mq = new MessageQueue(myPublicKeyHex);
+            await mq.persistMessage(inviteMessage as any);
+
+            // Update UI optimistically
+            setMessagesByConversationId(prev => ({
+                ...prev,
+                [conversationId]: [...(prev[conversationId] ?? []), inviteMessage]
+            }));
+
+            setIsInviteDialogOpen(false);
+            toast.success(t("contacts.notifications.invited", "Invitation sent to {{name}}", { name: resolvedName }));
+        } catch (error) {
+            console.error("Failed to send invite:", error);
+            toast.error(t("contacts.notifications.inviteFailed", "Failed to send invitation"));
+        }
+    };
+
+    /**
+     * Helper to build the invite event safely.
+     */
+    const inviteEventBuilder = async (
+        service: GroupService,
+        group: GroupConversation,
+        roomKeyHex: string,
+        metadata: GroupMetadata,
+        recipient: PublicKeyHex
+    ) => {
+        return await service.distributeRoomKey({
+            recipientPubkey: recipient,
+            groupId: group.groupId,
+            roomKeyHex,
+            metadata
+        });
     };
 
     return (
@@ -161,6 +269,7 @@ export default function ContactProfileView() {
                     <Button
                         size="lg"
                         variant="secondary"
+                        onClick={() => setIsInviteDialogOpen(true)}
                         className="h-14 gap-3 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/5 rounded-2xl font-bold shadow-sm"
                     >
                         <Plus className="h-5 w-5" />
@@ -253,6 +362,12 @@ export default function ContactProfileView() {
                 description={t("contacts.dialogs.blockDesc", "Are you sure you want to block this user? You will no longer receive their messages.")}
                 confirmLabel={t("contacts.actions.block", "Block")}
                 variant="danger"
+            />
+
+            <InviteToGroupDialog
+                isOpen={isInviteDialogOpen}
+                onClose={() => setIsInviteDialogOpen(false)}
+                onInvite={handleInviteToGroup}
             />
         </div>
     );

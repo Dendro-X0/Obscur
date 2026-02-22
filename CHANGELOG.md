@@ -1,3 +1,40 @@
+## [v0.7.8-alpha] - 2026-02-21
+
+### Major Overhaul: Sealed Communities Protocol
+- **Egalitarian Privacy First**: Deprecated legacy NIP-29 administrative roles. Implemented the "Sealed Communities" (Kind 10105) protocol where all keyholders participate as equal members, ensuring maximum decentralization and privacy.
+- **Invite & Key Distribution**: Implemented deterministic NIP-17 Gift-Wrapped DMs for secure, peer-to-peer distribution of Community Room Keys. Support for QR code scanning and `obscur://` deep link invite redemption.
+- **Consensus Moderation**: Introduced "Vote to Kick" sealed events. Content moderation and member expulsion now rely on a strictly enforced >50% client-side consensus threshold, eliminating single points of administrative failure.
+- **Secure Key Rotation**: Automated cryptographic Room Key rotation upon member expulsion to maintain community integrity.
+- **Registry Independence**: Communities can now operate without centralized relay tracking, relying entirely on obscured identifiers and shared secrets.
+
+### Added
+- **Unified Auth Flow**: Completely redesigned the authentication and onboarding experience. Integrated account creation and login into a single, high-fidelity `AuthScreen` with smooth `framer-motion` animations.
+- **"Remember Me" Persistence**: Implemented opt-in session persistence. Users can now choose to save their encrypted session, allowing for seamless auto-unlock on app restart.
+- **Instant Discovery**: Account creation now automatically generates and publishes a unique invitation code in the background, making new users immediately discoverable.
+- **Sidebar Categorization**: Introduced a unified Segmented Control to toggle between "Chat" (Direct Messages) and "Community" (Groups), replacing static buttons.
+- **Chat Management**: Users can now pin, unpin, and soft-delete (hide) conversations directly from the sidebar via a new three-dot context menu. Pinned chats remain reliably at the top.
+- **Request Inbox Management**: Added a "Clear All" button to instantly wipe the connection requests inbox history.
+- **Community Invitation UI**: Introduced `CommunityInviteResponseCard` to display invitation acceptance/rejection status as an elegant notification pill instead of raw JSON.
+- **Group Member Presence**: Implemented dynamic member discovery tracking. The app now persists members discovered through live chat history to the local database.
+
+### Changed
+- **Technical Protocols**: Standardized all internal persistence schemas and React hooks around the simplified egalitarian protocol, greatly reducing state fragmentation.
+- **UI Architecture**: Extracted Radix-based components (Checkbox, Avatars) and completely redesigned interactive lists to eliminate nested `<button>` hydration errors and improve keyboard accessibility.
+- **Streamlined Onboarding**: Removed the multi-step `OnboardingWizard` in favor of the new unified `AuthScreen`.
+- **Global Esthetics (Midnight Slate)**: Shifted the primary color system from generic grays to a premium "Midnight Slate / Indigo" palette using OKLCH color spaces. Enhanced dark mode depth and light mode clarity across the entire PWA.
+
+### Fixed
+- **Strict Relay Clock Skew**: Fixed an "event too much in the future" error that occurred when publishing events to strict relays. A conservative negative offset has been applied to the timestamp generation logic natively.
+- **Community Creation Resilience**: Fixed a critical issue where group creation failed on strict relays (like `groups.fiatjaf.com`) with a `group doesn't exist` error.
+- **Test Suite Stability**: Resolved all failures in the `apps/pwa/app/features/invites/utils/__tests__` test suite (13 files, 154 tests now passing).
+- **Localization Resilience**: Fixed missing and misconfigured English translation keys (e.g., `messaging.pin_chat`, `messaging.direct_messages`) that were causing raw function/key names to render in the UI.
+- **Dependency Resolution**: Fixed a `Module not found` error for `@radix-ui/react-checkbox`.
+- **Hydration & Semantics**: Fixed multiple DOM nesting errors where interactive elements were improperly wrapped inside buttons in the Sidebar and Search views.
+- **Community Invite Crash**: Fixed a critical `TypeError: adminPubkeys is not iterable` that occurred when accepting group invitations.
+- **Group Member Sync**: Resolved the "1 Member" bug by properly seeding both the inviter and invitee on group creation and syncing live-discovered members to persistence.
+- **Persistence Resilience**: Hardened `toPersistedGroupConversation` to gracefully handle missing group metadata and prevent runtime crashes.
+- **Message Parsing**: Improved JSON detection in `MessageList` to correctly route specialized community events to their respective UI cards.
+
 ## [v0.7.6-alpha] - 2026-02-13
 
 ### Added
@@ -7,6 +44,7 @@
 ### Changed
 - **Messaging Stability**: Optimized dependency tracking in `EnhancedDMController`, preventing unnecessary relay re-connections and ensuring consistent message delivery during network fluctuations.
 - **Performance**: Prioritized critical LCP (Largest Contentful Paint) images in the authentication gateway, significantly improving the initial load experience and Core Web Vitals score.
+- **Test Infrastructure**: Refactored `enhanced-dm-controller.test.ts` to use top-level imports and standard Vitest `vi.mocked()` patterns, replacing legacy `require()` calls to improve type safety and maintainability.
 
 ### Fixed
 - **Chat Layout**: Resolved an issue in the web version where the input composer would disappear below the fold. The input box is now strictly pinned to the bottom of the viewport.

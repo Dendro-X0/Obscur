@@ -36,7 +36,7 @@ const buildIdPayloadJson = (template: NostrEventTemplate): string => {
   return JSON.stringify([0, template.pubkey, template.created_at, template.kind, template.tags, template.content]);
 };
 
-const getUnixSeconds = (): number => Math.floor(Date.now() / 1000);
+const getUnixSeconds = (): number => Math.floor(Date.now() / 1000) - 2;
 
 export const createNostrEvent = async (params: CreateNostrEventParams): Promise<NostrEvent> => {
   const pubkey: string = derivePublicKeyHex(params.privateKeyHex);

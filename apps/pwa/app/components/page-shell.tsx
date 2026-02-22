@@ -28,7 +28,7 @@ const PageShell = (props: PageShellProps): React.JSX.Element => {
 
   return (
     <AppShell navBadgeCounts={navBadgeCounts}>
-      <div className="flex min-h-dvh flex-col bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-100">
+      <div className="flex min-h-dvh flex-col">
         <header className="sticky top-0 z-20 border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-black/70">
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
             <div className="flex min-w-0 flex-1 items-center gap-6">

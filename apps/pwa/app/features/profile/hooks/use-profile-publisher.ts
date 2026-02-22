@@ -35,7 +35,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
 
 
     const publishProfile = useCallback(async (params: PublishProfileParams): Promise<boolean> => {
-        if (!identity.state.publicKeyHex || !identity.state.privateKeyHex) {
+        const idState = identity.getIdentitySnapshot();
+        const pubkey = identity.state.publicKeyHex || idState.publicKeyHex;
+        const privkey = identity.state.privateKeyHex || idState.privateKeyHex;
+
+        if (!pubkey || !privkey) {
             setError(t("identity.error.notUnlocked") || "Identity not unlocked");
             return false;
         }
@@ -86,11 +90,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                 content,
                 tags,
                 created_at: Math.floor(Date.now() / 1000),
-                pubkey: identity.state.publicKeyHex,
+                pubkey: pubkey,
             };
 
             // Sign event
-            const signedEvent = await cryptoService.signEvent(unsignedEvent, identity.state.privateKeyHex);
+            const signedEvent = await cryptoService.signEvent(unsignedEvent, privkey);
 
             // Publish to all connected relays
             const payload = JSON.stringify(["EVENT", signedEvent]);

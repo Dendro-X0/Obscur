@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { InviteLinkCreator } from '../invite-link-creator';
-import * as useIdentityModule from '../../../lib/use-identity';
-import * as inviteManagerModule from '../../../lib/invites/invite-manager';
-import type { InviteLink } from '../../../lib/invites/types';
+import * as useIdentityModule from '../../../features/auth/hooks/use-identity';
+import * as inviteManagerModule from '../../../features/invites/utils/invite-manager';
+import type { InviteLink } from '../../../features/invites/utils/types';
 
 // Mock the modules
-vi.mock('../../../lib/use-identity');
-vi.mock('../../../lib/invites/invite-manager');
+vi.mock('../../../features/auth/hooks/use-identity');
+vi.mock('../../../features/invites/utils/invite-manager');
 
 describe('InviteLinkCreator', () => {
   const mockPublicKey = '0'.repeat(64);
@@ -35,11 +35,13 @@ describe('InviteLinkCreator', () => {
   it('should render locked state when identity is not unlocked', () => {
     vi.mocked(useIdentityModule.useIdentity).mockReturnValue({
       state: { status: 'locked' },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     render(<InviteLinkCreator />);
@@ -54,11 +56,13 @@ describe('InviteLinkCreator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: '1'.repeat(64) as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     render(<InviteLinkCreator />);
@@ -76,11 +80,13 @@ describe('InviteLinkCreator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: '1'.repeat(64) as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(inviteManagerModule.inviteManager.generateInviteLink).mockResolvedValue(mockInviteLink);
@@ -103,11 +109,13 @@ describe('InviteLinkCreator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: '1'.repeat(64) as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(inviteManagerModule.inviteManager.generateInviteLink).mockRejectedValue(
@@ -131,11 +139,13 @@ describe('InviteLinkCreator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: '1'.repeat(64) as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(inviteManagerModule.inviteManager.generateInviteLink).mockResolvedValue(mockInviteLink);
@@ -175,11 +185,13 @@ describe('InviteLinkCreator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: '1'.repeat(64) as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(inviteManagerModule.inviteManager.generateInviteLink).mockResolvedValue(mockInviteLink);
@@ -209,11 +221,13 @@ describe('InviteLinkCreator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: '1'.repeat(64) as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(inviteManagerModule.inviteManager.generateInviteLink).mockResolvedValue(linkWithExpiration);

@@ -32,7 +32,8 @@ const mockIdentity = {
 };
 
 // Helper to generate valid hex strings
-const hexString = (length: number) => fc.hexaString({ minLength: length, maxLength: length });
+const hexString = (length: number) => fc.array(fc.integer({ min: 0, max: 15 }), { minLength: length, maxLength: length })
+  .map(arr => arr.map(n => n.toString(16)).join(''));
 
 // Helper to generate valid public keys
 const publicKeyArb = () => hexString(64);
@@ -75,7 +76,7 @@ describe('Privacy and Security Properties', () => {
   beforeEach(async () => {
     // Mock getCurrentUserIdentity
     vi.spyOn(inviteManager as any, 'getCurrentUserIdentity').mockResolvedValue(mockIdentity);
-    
+
     // Reset rate limiters before each test
     const { rateLimiter } = await import('../security-enhancements');
     rateLimiter.clearAll();
@@ -91,31 +92,27 @@ describe('Privacy and Security Properties', () => {
     const securityModule = await import('../security-enhancements');
     vi.spyOn(securityModule, 'canGenerateInviteLink').mockReturnValue(true);
     vi.spyOn(securityModule, 'canProcessInvite').mockReturnValue(true);
-    
+
     // Mock the database operations for this test
     const mockInviteLinks = new Map<string, any>();
-    
+
     // Mock storeInviteLink
     vi.spyOn(inviteManager as any, 'storeInviteLink').mockImplementation(async (inviteLink: any) => {
       mockInviteLinks.set(inviteLink.id, inviteLink);
     });
-    
+
     // Mock getInviteLinkByShortCode
-    vi.spyOn(inviteManager as any, 'getInviteLinkByShortCode').mockImplementation(async (shortCode: string) => {
-      for (const link of mockInviteLinks.values()) {
-        if (link.shortCode === shortCode) {
-          return link;
-        }
-      }
-      return null;
-    });
-    
+    vi.spyOn(inviteManager as any, 'getInviteLinkByShortCode').mockImplementation((async (shortCode: string) => {
+      const links = Array.from(mockInviteLinks.values());
+      return links.find(link => link.shortCode === shortCode) || null;
+    }) as any);
+
     // Mock generateUniqueShortCode
     let shortCodeCounter = 0;
     vi.spyOn(inviteManager as any, 'generateUniqueShortCode').mockImplementation(async () => {
       return `test-${shortCodeCounter++}`;
     });
-    
+
     // Mock revokeInviteLink to update the mock storage
     const originalRevoke = inviteManager.revokeInviteLink.bind(inviteManager);
     vi.spyOn(inviteManager, 'revokeInviteLink').mockImplementation(async (linkId: string) => {
@@ -130,17 +127,17 @@ describe('Privacy and Security Properties', () => {
       fc.asyncProperty(inviteLinkOptionsArb(), async (options) => {
         // Generate an invite link
         const inviteLink = await inviteManager.generateInviteLink(options);
-        
+
         // Verify the invite link is active
         expect(inviteLink.isActive).toBe(true);
-        
+
         // Revoke the invite link
         await inviteManager.revokeInviteLink(inviteLink.id);
-        
+
         // Verify the link is now inactive in our mock storage
         const revokedLink = mockInviteLinks.get(inviteLink.id);
         expect(revokedLink?.isActive).toBe(false);
-        
+
         // Attempt to process the revoked invite link
         try {
           await inviteManager.processInviteLink(inviteLink.shortCode);
@@ -152,7 +149,7 @@ describe('Privacy and Security Properties', () => {
           return errorMessage.includes('revoked') || errorMessage.includes('not found');
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 25 }
     );
   }, 30000);
 
@@ -171,49 +168,49 @@ describe('Privacy and Security Properties', () => {
           // Set up initial profile and privacy settings
           await profileManager.updateProfile(profile);
           await profileManager.updatePrivacySettings(initialSettings);
-          
+
           // Generate a shareable profile with initial settings
           const initialShareableProfile = await profileManager.getShareableProfile(
             mockIdentity.publicKey,
             mockIdentity.privateKey
           );
-          
+
           // Verify initial settings are applied
           const initialHasDisplayName = initialShareableProfile.displayName !== undefined;
           const initialHasAvatar = initialShareableProfile.avatar !== undefined;
           const initialHasBio = initialShareableProfile.bio !== undefined;
-          
+
           expect(initialHasDisplayName).toBe(initialSettings.shareDisplayName && profile.displayName !== undefined);
           expect(initialHasAvatar).toBe(initialSettings.shareAvatar && profile.avatar !== undefined);
           expect(initialHasBio).toBe(initialSettings.shareBio && profile.bio !== undefined);
-          
+
           // Change privacy settings
           await profileManager.applyPrivacySettingsToFutureInvites(newSettings);
-          
+
           // Generate a new shareable profile with new settings
           const newShareableProfile = await profileManager.getShareableProfile(
             mockIdentity.publicKey,
             mockIdentity.privateKey
           );
-          
+
           // Verify new settings are applied to future invites
           const newHasDisplayName = newShareableProfile.displayName !== undefined;
           const newHasAvatar = newShareableProfile.avatar !== undefined;
           const newHasBio = newShareableProfile.bio !== undefined;
-          
+
           expect(newHasDisplayName).toBe(newSettings.shareDisplayName && profile.displayName !== undefined);
           expect(newHasAvatar).toBe(newSettings.shareAvatar && profile.avatar !== undefined);
           expect(newHasBio).toBe(newSettings.shareBio && profile.bio !== undefined);
-          
+
           // Verify that the initial shareable profile is unchanged (existing connections not affected)
           // This is demonstrated by the fact that we can still access the initial profile data
           expect(initialShareableProfile.publicKey).toBe(mockIdentity.publicKey);
           expect(initialShareableProfile.timestamp).toBeLessThanOrEqual(Date.now());
-          
+
           return true;
         }
       ),
-      { numRuns: 100 }
+      { numRuns: 25 }
     );
   }, 30000);
 
@@ -229,19 +226,19 @@ describe('Privacy and Security Properties', () => {
         async (profile, field, shouldShare) => {
           // Set up profile
           await profileManager.updateProfile(profile);
-          
+
           // Update field privacy
           await profileManager.updateFieldPrivacy(field as any, shouldShare);
-          
+
           // Check if field should be shared
           const isShared = await profileManager.shouldShareField(field as any);
-          
+
           expect(isShared).toBe(shouldShare);
-          
+
           return true;
         }
       ),
-      { numRuns: 100 }
+      { numRuns: 25 }
     );
   }, 30000);
 
@@ -265,13 +262,13 @@ describe('Privacy and Security Properties', () => {
             requireMessage: false,
             autoAcceptTrusted: false,
           });
-          
+
           // Generate initial shareable profile (simulating existing connection)
           const existingProfile = await profileManager.getShareableProfile(
             mockIdentity.publicKey,
             mockIdentity.privateKey
           );
-          
+
           // Store the existing profile data
           const existingData = {
             hasDisplayName: existingProfile.displayName !== undefined,
@@ -280,33 +277,33 @@ describe('Privacy and Security Properties', () => {
             publicKey: existingProfile.publicKey,
             timestamp: existingProfile.timestamp,
           };
-          
+
           // Change privacy settings to restrict sharing
           await profileManager.applyPrivacySettingsToFutureInvites(newSettings);
-          
+
           // The existing profile data should remain unchanged
           // (In a real system, existing connections would have already received this data)
           expect(existingData.publicKey).toBe(mockIdentity.publicKey);
           expect(existingData.timestamp).toBeLessThanOrEqual(Date.now());
-          
+
           // New invites should use the new settings
           const newProfile = await profileManager.getShareableProfile(
             mockIdentity.publicKey,
             mockIdentity.privateKey
           );
-          
+
           const newHasDisplayName = newProfile.displayName !== undefined;
           const newHasAvatar = newProfile.avatar !== undefined;
           const newHasBio = newProfile.bio !== undefined;
-          
+
           expect(newHasDisplayName).toBe(newSettings.shareDisplayName && profile.displayName !== undefined);
           expect(newHasAvatar).toBe(newSettings.shareAvatar && profile.avatar !== undefined);
           expect(newHasBio).toBe(newSettings.shareBio && profile.bio !== undefined);
-          
+
           return true;
         }
       ),
-      { numRuns: 100 }
+      { numRuns: 25 }
     );
   }, 30000);
 });

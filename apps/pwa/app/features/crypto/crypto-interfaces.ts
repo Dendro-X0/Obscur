@@ -31,6 +31,11 @@ export interface CryptoService {
     encryptGiftWrap(rumor: UnsignedNostrEvent, senderPrivkey: PrivateKeyHex, recipientPubkey: PublicKeyHex): Promise<NostrEvent>;
     decryptGiftWrap(giftWrap: NostrEvent, recipientPrivkey: PrivateKeyHex): Promise<NostrEvent>; // Returns the Rumor
 
+    // Group Room Key Operations (Symmetric E2EE)
+    generateRoomKey(): Promise<string>;
+    encryptGroupMessage(plaintext: string, roomKeyHex: string): Promise<string>;
+    decryptGroupMessage(ciphertext: string, roomKeyHex: string): Promise<string>;
+
     // Key Operations
     generateKeyPair(): Promise<{ publicKey: PublicKeyHex; privateKey: PrivateKeyHex }>;
     deriveSharedSecret(privateKey: PrivateKeyHex, publicKey: PublicKeyHex): Promise<Uint8Array>;

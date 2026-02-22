@@ -3,7 +3,7 @@
  * Tests the complete invite workflow and integration with existing features
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { inviteManager } from '../invite-manager';
 import { contactStore } from '../contact-store';
 import { profileManager } from '../profile-manager';
@@ -16,7 +16,44 @@ import type {
   QRCode 
 } from '../types';
 
+const identityRef = vi.hoisted(() => ({
+  current: {
+    status: 'unlocked',
+    publicKeyHex: '0'.repeat(64),
+    privateKeyHex: '1'.repeat(64),
+    stored: {
+      publicKeyHex: '0'.repeat(64),
+      encryptedPrivateKey: 'test-encrypted',
+      username: 'test-user',
+    },
+  },
+}));
+
+vi.mock('../../../auth/hooks/use-identity', () => ({
+  getIdentitySnapshot: () => identityRef.current,
+}));
+
 describe('Invite System Integration', () => {
+  beforeEach(async () => {
+    const seed = `${Date.now()}-${Math.random()}`;
+    const pubkey = seed.replace(/[^0-9a-f]/gi, '').padEnd(64, '0').slice(0, 64);
+    const privkey = seed.replace(/[^0-9a-f]/gi, '').padEnd(64, '1').slice(0, 64);
+    identityRef.current = {
+      status: 'unlocked',
+      publicKeyHex: pubkey,
+      privateKeyHex: privkey,
+      stored: {
+        publicKeyHex: pubkey,
+        encryptedPrivateKey: 'test-encrypted',
+        username: 'test-user',
+      },
+    };
+
+    const { cryptoService } = await import('../../../crypto/crypto-service');
+    vi.spyOn(cryptoService, 'signInviteData').mockResolvedValue('mock-signature' as never);
+    vi.spyOn(cryptoService, 'verifyInviteSignature').mockResolvedValue(true as never);
+  });
+
   // Clean up after each test
   afterEach(async () => {
     // Clear all data from stores
@@ -33,9 +70,25 @@ describe('Invite System Integration', () => {
 
   describe('End-to-End Invite Workflow', () => {
     it('should complete full invite link workflow', async () => {
+      await profileManager.updateProfile({
+        displayName: 'Test User',
+        avatar: undefined,
+        bio: undefined,
+        website: undefined,
+      });
+
+      await profileManager.updatePrivacySettings({
+        shareDisplayName: true,
+        shareAvatar: true,
+        shareBio: true,
+        shareWebsite: true,
+        allowContactRequests: true,
+        requireMessage: false,
+        autoAcceptTrusted: false,
+      });
+
       // 1. Create an invite link
       const inviteLink = await inviteManager.generateInviteLink({
-        displayName: 'Test User',
         message: 'Let\'s connect!',
         expirationTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
         includeProfile: true
@@ -123,7 +176,7 @@ describe('Invite System Integration', () => {
 
       // Add contact to a group
       const group = {
-        id: crypto.randomUUID(),
+        id: 'test-group',
         name: 'Test Group',
         createdAt: new Date()
       };

@@ -211,7 +211,7 @@ class ProfileManagerImpl implements ProfileManager {
   /**
    * Validate profile data structure and signature
    */
-  validateProfileData(profile: ShareableProfile): boolean {
+  async validateProfileData(profile: ShareableProfile): Promise<boolean> {
     try {
       // Check required fields
       if (!profile || typeof profile !== 'object') {
@@ -222,7 +222,7 @@ class ProfileManagerImpl implements ProfileManager {
         return false;
       }
 
-      if (!cryptoService.isValidPubkey(profile.publicKey)) {
+      if (!(await cryptoService.isValidPubkey(profile.publicKey))) {
         return false;
       }
 

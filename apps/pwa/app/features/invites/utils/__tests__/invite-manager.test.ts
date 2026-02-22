@@ -21,6 +21,7 @@ vi.mock('../db/open-invite-db');
 
 describe('Invite Manager Property Tests', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
 
     // Mock getCurrentUserIdentity to avoid the "not implemented" error
@@ -47,9 +48,7 @@ describe('Invite Manager Property Tests', () => {
 
             // Mock crypto service to generate deterministic but unique values
             let idCounter = 0;
-            vi.mocked(cryptoService.generateInviteId).mockImplementation(async () => {
-              return `id-${idCounter++}`;
-            });
+            vi.spyOn(cryptoService, 'generateInviteId').mockImplementation(async () => `id-${idCounter++}`);
 
             for (const seed of seeds) {
               const id = await cryptoService.generateInviteId();

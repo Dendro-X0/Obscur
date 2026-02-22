@@ -5,6 +5,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import type { Passphrase } from "@dweb/crypto/passphrase";
+import { decryptPrivateKeyHex } from "@dweb/crypto/decrypt-private-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
@@ -13,11 +14,13 @@ import { ShareInviteCard } from "./share-invite-card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
-import { CheckCircle2, Loader2, User, Lock, UserPlus, QrCode } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2, User, Lock, UserPlus, QrCode } from "lucide-react";
 import { LanguageSelector } from "./language-selector";
 import { useInviteResolver, type ResolvedInvite } from "@/app/features/invites/utils/use-invite-resolver";
 import { isValidInviteCode } from "@/app/features/invites/utils/invite-parser";
 import { QRScanner } from "./qr-scanner";
+import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
+import { getStoredIdentity } from "@/app/features/auth/utils/get-stored-identity";
 
 type OnboardingStep = "welcome" | "creating" | "username" | "add-contact" | "complete";
 
@@ -33,7 +36,10 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   const { t } = useTranslation();
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [username, setUsername] = useState<string>("");
-  const [passphrase, setPassphrase] = useState<string>("");
+  const [quickPassword, setQuickPassword] = useState<string>("");
+  const [quickPasswordConfirm, setQuickPasswordConfirm] = useState<string>("");
+  const [isQuickPasswordVisible, setIsQuickPasswordVisible] = useState<boolean>(false);
+  const [isQuickPasswordConfirmVisible, setIsQuickPasswordConfirmVisible] = useState<boolean>(false);
   const [inviteCodeInput, setInviteCodeInput] = useState<string>("");
   const [showScanner, setShowScanner] = useState(false);
   const [resolvedProfile, setResolvedProfile] = useState<ResolvedInvite | null>(null);
@@ -46,15 +52,48 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   });
   const { publishProfile, isPublishing: isPublishingProfile, error: publishError } = useProfilePublisher();
 
+  const generatePassword = (length: number = 12): string => {
+    const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    let out = "";
+    for (let i = 0; i < length; i++) {
+      out += charset[bytes[i]! % charset.length];
+    }
+    return out;
+  };
+
   const handleStart = async (): Promise<void> => {
+    if (!quickPassword || quickPassword.length < 4) {
+      setError("Password must be at least 4 characters");
+      return;
+    }
+    if (quickPassword !== quickPasswordConfirm) {
+      setError("Passwords do not match");
+      return;
+    }
+
     setStep("creating");
     setError("");
 
     try {
-      // Auto-generate a secure passphrase or use a simple default
-      const autoPassphrase = passphrase.trim() || "obscur-default-passphrase";
+      await identity.createIdentity({ passphrase: quickPassword as Passphrase });
 
-      await identity.createIdentity({ passphrase: autoPassphrase as Passphrase });
+      const stored = await getStoredIdentity();
+      if (!stored.record) {
+        throw new Error("Identity created but was not persisted");
+      }
+
+      const privateKeyHex = await decryptPrivateKeyHex({
+        payload: stored.record.encryptedPrivateKey,
+        passphrase: quickPassword as Passphrase
+      });
+
+      await PinLockService.setPin({
+        publicKeyHex: stored.record.publicKeyHex,
+        privateKeyHex,
+        pin: quickPassword
+      });
 
       // Move to username step
       setStep("username");
@@ -186,21 +225,68 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
                 <div className="absolute inset-0 -inset-x-2 rounded-xl bg-zinc-100 opacity-0 transition group-hover:opacity-100 dark:bg-zinc-800/50"></div>
                 <div className="relative">
                   <Label
-                    htmlFor="passphrase"
+                    htmlFor="quick-password"
                     className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
                   >
-                    {t("onboarding.welcome.passphrase.label")}
+                    Quick Unlock Password
                   </Label>
                   <Input
-                    id="passphrase"
-                    type="password"
-                    value={passphrase}
-                    onChange={(e) => setPassphrase(e.target.value)}
-                    placeholder={t("onboarding.welcome.passphrase.placeholder")}
+                    id="quick-password"
+                    type={isQuickPasswordVisible ? "text" : "password"}
+                    value={quickPassword}
+                    onChange={(e) => setQuickPassword(e.target.value)}
+                    placeholder="Enter a short password"
                     className="border-zinc-200 bg-white/50 backdrop-blur focus:bg-white dark:border-zinc-800 dark:bg-zinc-900/50 dark:focus:bg-zinc-900"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickPasswordVisible(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    aria-label={isQuickPasswordVisible ? "Hide password" : "Show password"}
+                  >
+                    {isQuickPasswordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                  <div className="mt-3">
+                    <Label
+                      htmlFor="quick-password-confirm"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                    >
+                      Confirm
+                    </Label>
+                    <Input
+                      id="quick-password-confirm"
+                      type={isQuickPasswordConfirmVisible ? "text" : "password"}
+                      value={quickPasswordConfirm}
+                      onChange={(e) => setQuickPasswordConfirm(e.target.value)}
+                      placeholder="Re-enter password"
+                      className="border-zinc-200 bg-white/50 backdrop-blur focus:bg-white dark:border-zinc-800 dark:bg-zinc-900/50 dark:focus:bg-zinc-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsQuickPasswordConfirmVisible(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                      aria-label={isQuickPasswordConfirmVisible ? "Hide password" : "Show password"}
+                    >
+                      {isQuickPasswordConfirmVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        const next = generatePassword(12);
+                        setQuickPassword(next);
+                        setQuickPasswordConfirm(next);
+                        setError("");
+                      }}
+                      className="w-full"
+                    >
+                      Generate Password
+                    </Button>
+                  </div>
                   <p className="mt-1.5 text-[10px] text-zinc-400 dark:text-zinc-500">
-                    {t("onboarding.welcome.passphrase.help")}
+                    This password is required and is used to protect your identity on this device.
                   </p>
                 </div>
               </div>

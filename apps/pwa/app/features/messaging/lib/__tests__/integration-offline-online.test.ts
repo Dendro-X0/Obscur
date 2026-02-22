@@ -9,13 +9,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEnhancedDMController } from '../enhanced-dm-controller';
-import { cryptoService } from '../../crypto/crypto-service';
+import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 
 // Mock dependencies
-vi.mock('../../crypto/crypto-service', () => ({
+vi.mock('@/app/features/crypto/crypto-service', () => ({
   cryptoService: {
     encryptDM: vi.fn(async (plaintext: string) => `encrypted_${plaintext}`),
     decryptDM: vi.fn(async (ciphertext: string) => ciphertext.replace('encrypted_', '')),
@@ -30,10 +30,10 @@ vi.mock('../../crypto/crypto-service', () => ({
   }
 }));
 
-vi.mock('../message-queue', () => {
+vi.mock('../../lib/message-queue', () => {
   const messages = new Map();
   const queuedMessages = new Map();
-  
+
   class MockMessageQueue {
     persistMessage = vi.fn(async (msg: any) => {
       messages.set(msg.id, msg);
@@ -55,14 +55,15 @@ vi.mock('../message-queue', () => {
       queuedMessages.delete(id);
     });
     getLastMessageTimestamp = vi.fn(async () => null);
+    getAllMessages = vi.fn(async () => Array.from(messages.values()));
   }
-  
+
   return {
     MessageQueue: MockMessageQueue
   };
 });
 
-vi.mock('../retry-manager', () => ({
+vi.mock('../../lib/retry-manager', () => ({
   retryManager: {
     shouldRetry: vi.fn(() => ({ shouldRetry: true, nextRetryAt: new Date(Date.now() + 1000) })),
     calculateNextRetry: vi.fn(() => new Date(Date.now() + 1000)),
@@ -71,14 +72,14 @@ vi.mock('../retry-manager', () => ({
   }
 }));
 
-vi.mock('../../parse-public-key-input', () => ({
+vi.mock('@/app/features/profile/utils/parse-public-key-input', () => ({
   parsePublicKeyInput: vi.fn((input: string) => ({
     ok: true,
     publicKeyHex: input
   }))
 }));
 
-vi.mock('../../nostr-safety-limits', () => ({
+vi.mock('@/app/features/relays/utils/nostr-safety-limits', () => ({
   NOSTR_SAFETY_LIMITS: {
     maxDmPlaintextChars: 1000
   }
@@ -111,10 +112,11 @@ describe('Integration: Offline/Online Scenarios', () => {
       // Set up pool with all relays offline
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'closed' as const, updatedAtUnixMs: Date.now() },
-          { url: 'wss://relay2.example.com', status: 'error' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'closed' as const },
+          { url: 'wss://relay2.example.com', status: 'error' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => false),
         publishToAll: vi.fn(async () => ({
           success: false,
           successCount: 0,
@@ -158,7 +160,7 @@ describe('Integration: Offline/Online Scenarios', () => {
       // Verify message is in queued state
       await waitFor(() => {
         const messages = result.current.state.messages;
-        const queuedMessage = messages.find(m => m.content === 'Offline message');
+        const queuedMessage = messages.find((m: any) => m.content === 'Offline message');
         expect(queuedMessage).toBeDefined();
         expect(['queued', 'rejected']).toContain(queuedMessage?.status);
       });
@@ -167,9 +169,10 @@ describe('Integration: Offline/Online Scenarios', () => {
     it('should queue multiple messages when offline', async () => {
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'closed' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'closed' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => false),
         publishToAll: vi.fn(async () => ({
           success: false,
           successCount: 0,
@@ -179,7 +182,7 @@ describe('Integration: Offline/Online Scenarios', () => {
           ],
           overallError: 'All relays offline'
         })),
-        subscribeToMessages: vi.fn(() => () => {})
+        subscribeToMessages: vi.fn(() => () => { })
       };
 
       const { result } = renderHook(() =>
@@ -208,9 +211,9 @@ describe('Integration: Offline/Online Scenarios', () => {
       await waitFor(() => {
         const messages = result.current.state.messages;
         expect(messages.length).toBeGreaterThanOrEqual(3);
-        
+
         for (let i = 0; i < 3; i++) {
-          const message = messages.find(m => m.content === `Offline message ${i + 1}`);
+          const message = messages.find((m: any) => m.content === `Offline message ${i + 1}`);
           expect(message).toBeDefined();
         }
       });
@@ -222,9 +225,10 @@ describe('Integration: Offline/Online Scenarios', () => {
       // Start offline
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'closed' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'closed' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => false),
         publishToAll: vi.fn(async () => ({
           success: false,
           successCount: 0,
@@ -232,7 +236,7 @@ describe('Integration: Offline/Online Scenarios', () => {
           results: [{ relayUrl: 'wss://relay1.example.com', success: false, error: 'Offline' }],
           overallError: 'Offline'
         })),
-        subscribeToMessages: vi.fn(() => () => {})
+        subscribeToMessages: vi.fn(() => () => { })
       };
 
       const { result, rerender } = renderHook(() =>
@@ -258,13 +262,13 @@ describe('Integration: Offline/Online Scenarios', () => {
       // Verify message is queued
       await waitFor(() => {
         const messages = result.current.state.messages;
-        const queuedMessage = messages.find(m => m.content === 'Queued message');
+        const queuedMessage = messages.find((m: any) => m.content === 'Queued message');
         expect(queuedMessage).toBeDefined();
       });
 
       // Simulate coming online
       mockPool.connections = [
-        { url: 'wss://relay1.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
+        { url: 'wss://relay1.example.com', status: 'open' as const }
       ];
       mockPool.publishToAll = vi.fn(async () => ({
         success: true,
@@ -286,9 +290,10 @@ describe('Integration: Offline/Online Scenarios', () => {
       // Start with online pool
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'open' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => true),
         publishToAll: vi.fn(async () => ({
           success: true,
           successCount: 1,
@@ -307,7 +312,8 @@ describe('Integration: Offline/Online Scenarios', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
@@ -324,12 +330,12 @@ describe('Integration: Offline/Online Scenarios', () => {
 
       // Verify sync request was sent
       expect(mockPool.sendToOpen).toHaveBeenCalled();
-      
+
       // Check that a REQ message was sent with since filter
       const calls = mockPool.sendToOpen.mock.calls;
       const syncCall = calls.find((call: any[]) => {
         const message = call[0];
-        return message.includes('REQ') && message.includes('"kinds":[4]') && message.includes('"since"');
+        return message.includes('REQ') && message.includes('"kinds":[4') && message.includes('"since"');
       });
       expect(syncCall).toBeDefined();
     });
@@ -339,16 +345,17 @@ describe('Integration: Offline/Online Scenarios', () => {
     it('should handle rapid online/offline transitions', async () => {
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'open' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => true),
         publishToAll: vi.fn(async () => ({
           success: true,
           successCount: 1,
           totalRelays: 1,
           results: [{ relayUrl: 'wss://relay1.example.com', success: true }]
         })),
-        subscribeToMessages: vi.fn(() => () => {})
+        subscribeToMessages: vi.fn(() => () => { })
       };
 
       const { result, rerender } = renderHook(() =>
@@ -373,7 +380,7 @@ describe('Integration: Offline/Online Scenarios', () => {
 
       // Go offline
       mockPool.connections = [
-        { url: 'wss://relay1.example.com', status: 'closed' as const, updatedAtUnixMs: Date.now() }
+        { url: 'wss://relay1.example.com', status: 'closed' as const }
       ];
       mockPool.publishToAll = vi.fn(async () => ({
         success: false,
@@ -395,7 +402,7 @@ describe('Integration: Offline/Online Scenarios', () => {
 
       // Come back online
       mockPool.connections = [
-        { url: 'wss://relay1.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
+        { url: 'wss://relay1.example.com', status: 'open' as const }
       ];
       mockPool.publishToAll = vi.fn(async () => ({
         success: true,
@@ -413,16 +420,17 @@ describe('Integration: Offline/Online Scenarios', () => {
     it('should track network state correctly', async () => {
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'open' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => true),
         publishToAll: vi.fn(async () => ({
           success: true,
           successCount: 1,
           totalRelays: 1,
           results: [{ relayUrl: 'wss://relay1.example.com', success: true }]
         })),
-        subscribeToMessages: vi.fn(() => () => {})
+        subscribeToMessages: vi.fn(() => () => { })
       };
 
       const { result } = renderHook(() =>
@@ -447,9 +455,10 @@ describe('Integration: Offline/Online Scenarios', () => {
     it('should request messages since last known timestamp', async () => {
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'open' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => true),
         publishToAll: vi.fn(async () => ({
           success: true,
           successCount: 1,
@@ -468,13 +477,26 @@ describe('Integration: Offline/Online Scenarios', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );
 
       await waitFor(() => {
         expect(result.current.state.status).toBe('ready');
+      });
+
+      const subId = await waitFor(() => {
+        expect(mockPool.sendToOpen).toHaveBeenCalled();
+        const reqCall = mockPool.sendToOpen.mock.calls.find((call: any[]) => {
+          const message = call[0];
+          return typeof message === 'string' && message.includes('"REQ"');
+        });
+        expect(reqCall).toBeTruthy();
+        const parsed = JSON.parse(reqCall![0]);
+        expect(parsed[0]).toBe('REQ');
+        return parsed[1];
       });
 
       // Receive a message to establish a timestamp
@@ -488,15 +510,14 @@ describe('Integration: Offline/Online Scenarios', () => {
           content: 'encrypted_Old message',
           sig: 'sig'
         };
-        const eventMessage = JSON.stringify(['EVENT', 'sub', event]);
         messageListeners.forEach(listener => {
-          listener({ url: 'wss://relay1.example.com', message: eventMessage });
+          listener({ url: 'wss://relay1.example.com', message: JSON.stringify(['EVENT', subId, event]) });
         });
       });
 
       await waitFor(() => {
         const messages = result.current.state.messages;
-        expect(messages.some(m => m.content === 'Old message')).toBe(true);
+        expect(messages.some((m: any) => m.content === 'Old message')).toBe(true);
       });
 
       // Clear previous calls
@@ -519,9 +540,10 @@ describe('Integration: Offline/Online Scenarios', () => {
     it('should handle large message backlogs efficiently', async () => {
       mockPool = {
         connections: [
-          { url: 'wss://relay1.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
+          { url: 'wss://relay1.example.com', status: 'open' as const }
         ],
         sendToOpen: vi.fn(),
+        waitForConnection: vi.fn(async () => true),
         publishToAll: vi.fn(async () => ({
           success: true,
           successCount: 1,
@@ -540,7 +562,8 @@ describe('Integration: Offline/Online Scenarios', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );

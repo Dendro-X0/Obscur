@@ -20,14 +20,21 @@ Standard E2EE protects message *content* but often leaks *metadata* (who is talk
     3.  **Gift Wrap**: The final envelope addressed to the recipient, making the package look like random noise to anyone else.
 - **Outcome**: Even the relay servers cannot determine who is communicating with whom.
 
-### 3. Decentralized Identity (DID)
+### 3. Sealed Communities (Kind 10105)
+Legacy decentralized group chats (like NIP-29) rely on public registries and explicit admin roles, leaking metadata about who owns and participates in a community. Obscur solves this with **Sealed Communities**.
+
+- **Egalitarian Cryptography**: There are no "admins". Instead, authorized members share a symmetric **Room Key** used to encrypt and decrypt community payloads.
+- **Strictly Obscured**: The community ID is an unguessable UUID. The community exists only for those who hold the Room Key. Relays see unintelligible blobs belonging to a random UUID.
+- **Consensus Moderation**: Member management (such as kicking a malicious user) is achieved through consensus. A >50% threshold of "Vote to Kick" events triggers a client-side expulsion and an automatic **Room Key Rotation**, ensuring the kicked member cannot read future messages.
+
+### 4. Decentralized Identity (DID)
 Users are identified by cryptographic keys, not by entries in a central database.
 
 - **Public Key as ID**: Your **npub** (Nostr Public Key) is your universal username.
 - **Portability**: You can move your identity and data to any other client or relay. No vendor lock-in.
 - **Censorship Resistance**: no central authority can ban or delete your account.
 
-### 4. Local-First Data Ownership
+### 5. Local-First Data Ownership
 Your data lives on your device, not in the cloud.
 
 - **Storage**: Messages and contacts are stored in **IndexedDB** locally.

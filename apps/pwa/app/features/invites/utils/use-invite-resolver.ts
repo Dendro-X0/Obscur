@@ -33,7 +33,7 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
             let found: ResolvedInvite | null = null;
             let subId: string | null = null;
 
-            const onEvent = (event: any) => {
+            const onEvent = (event: any, _url: string) => {
                 try {
                     if (event.kind === 0) {
                         const content = JSON.parse(event.content);

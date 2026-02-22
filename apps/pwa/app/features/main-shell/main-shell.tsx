@@ -16,6 +16,8 @@ import type {
   DmConversation,
   GroupConversation,
   Message,
+  SendDirectMessageParams,
+  SendDirectMessageResult,
 } from "@/app/features/messaging/types";
 
 import {
@@ -30,9 +32,9 @@ import {
 
 import { Sidebar } from "@/app/features/messaging/components/sidebar";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
-import { GroupSettingsSheet } from "@/app/features/groups/components/group-settings-sheet";
+import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
-import { useNip29Group } from "@/app/features/groups/hooks/use-nip29-group";
+import { useSealedCommunity, type GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community";
 import { LockScreen } from "@/app/components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { EmptyConversationView } from "./components/empty-conversation-view";
@@ -40,6 +42,7 @@ import { DevPanel } from "../dev-tools/components/dev-panel";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 
 import { useInviteRedemption } from "./hooks/use-invite-redemption";
 import { useDeepLinks } from "./hooks/use-deep-links";
@@ -49,6 +52,7 @@ import { useFilteredConversations } from "./hooks/use-filtered-conversations";
 import { useAttachmentHandler } from "./hooks/use-attachment-handler";
 import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
+import { AuthScreen } from "../auth/components/auth-screen";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const DEFAULT_VISIBLE_MESSAGES = 50;
@@ -59,7 +63,7 @@ function NostrMessengerContent() {
   const identity = useIdentity();
   const { blocklist, peerTrust, requestsInbox } = useContacts();
 
-  const myPublicKeyHex = identity.state.publicKeyHex || null;
+  const myPublicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
   const myPrivateKeyHex = identity.state.privateKeyHex || null;
   const { isLocked, unlock } = useAutoLock();
 
@@ -84,6 +88,8 @@ function NostrMessengerContent() {
     pendingScrollTarget, setPendingScrollTarget,
     messageMenu, setMessageMenu,
     reactionPicker, setReactionPicker,
+    pinnedChatIds, togglePin,
+    hiddenChatIds, hideConversation, unhideConversation,
     chatsUnreadCount,
     createdContacts, setCreatedContacts
   } = useMessaging();
@@ -109,7 +115,7 @@ function NostrMessengerContent() {
     myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox
   });
 
-  const { state: groupState } = useNip29Group({
+  const { state: groupState } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
     groupId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).groupId : '',
@@ -124,8 +130,8 @@ function NostrMessengerContent() {
     setMessagesByConversationId(prev => {
       const existing = prev[selectedConversation.id] ?? [];
       const newMessages = groupState.messages
-        .filter(m => !existing.some(em => em.id === m.id))
-        .map(m => ({
+        .filter((m: GroupMessageEvent) => !existing.some(em => em.id === m.id))
+        .map((m: GroupMessageEvent) => ({
           id: m.id,
           kind: 'user',
           content: m.content,
@@ -173,6 +179,29 @@ function NostrMessengerContent() {
     }
   };
 
+  const storedPubkey: string | null = identity.state.stored?.publicKeyHex ?? null;
+  const hasPin: boolean = storedPubkey ? PinLockService.hasPin(storedPubkey) : false;
+
+  const handleUnlockPin = async (pin: string): Promise<boolean> => {
+    if (!storedPubkey) {
+      return false;
+    }
+    setIsUnlocking(true);
+    try {
+      const unlocked = await PinLockService.unlockWithPin({ publicKeyHex: storedPubkey, pin });
+      if (!unlocked.ok) {
+        return false;
+      }
+      await identity.unlockWithPrivateKeyHex({ privateKeyHex: unlocked.privateKeyHex as any });
+      unlock();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
+
   const {
     handleLoadEarlier,
     handleCopyMyPubkey,
@@ -194,6 +223,9 @@ function NostrMessengerContent() {
   const updateSidebarTab = (tab: "chats" | "requests") => {
     setSidebarTab(tab);
     localStorage.setItem(LAST_PAGE_STORAGE_KEY, JSON.stringify({ type: 'tab', id: tab }));
+    if (tab === "requests") {
+      requestsInbox.markAllRead();
+    }
   };
 
   const isIdentityUnlocked = identity.state.status === "unlocked";
@@ -203,8 +235,24 @@ function NostrMessengerContent() {
     return <div className="fixed inset-0 flex items-center justify-center bg-zinc-50 dark:bg-black z-[200]">Loading...</div>;
   }
 
+  const hasStoredAccount = !!identity.state.stored;
+
   if (shouldShowLockScreen) {
-    return <LockScreen publicKeyHex={identity.state.publicKeyHex ?? ""} isUnlocking={isUnlocking} onUnlock={handleUnlock} onForget={identity.forgetIdentity} />;
+    return (
+      <LockScreen
+        publicKeyHex={identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? ""}
+        username={identity.state.stored?.username}
+        isUnlocking={isUnlocking}
+        onUnlock={handleUnlock}
+        hasPin={hasPin}
+        onUnlockPin={handleUnlockPin}
+        onForget={identity.forgetIdentity}
+      />
+    );
+  }
+
+  if (!hasStoredAccount && identity.state.status !== "unlocked") {
+    return <AuthScreen />;
   }
 
   return (
@@ -233,9 +281,20 @@ function NostrMessengerContent() {
             setActiveTab={updateSidebarTab}
             selectConversation={setSelectedConversation}
             requests={requestsInbox.state.items}
+            pinnedChatIds={pinnedChatIds}
+            togglePin={togglePin}
+            hiddenChatIds={hiddenChatIds}
+            hideConversation={hideConversation}
+            onClearHistory={requestsInbox.clearHistory}
             onAcceptRequest={(pk) => {
               peerTrust.acceptPeer({ publicKeyHex: pk as PublicKeyHex });
               requestsInbox.setStatus({ peerPublicKeyHex: pk as PublicKeyHex, status: 'accepted' });
+
+              void dmController.sendDm({
+                peerPublicKeyInput: pk,
+                plaintext: "Accepted",
+                customTags: [['t', 'connection-accept']]
+              });
 
               const cid = [myPublicKeyHex || '', pk].sort().join(':');
               const newConv: DmConversation = {
@@ -260,6 +319,7 @@ function NostrMessengerContent() {
             onIgnoreRequest={(pk) => requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex })}
             onBlockRequest={(pk) => blocklist.addBlocked({ publicKeyInput: pk })}
             onSelectRequest={(pk) => {
+              requestsInbox.markRead({ peerPublicKeyHex: pk as PublicKeyHex });
               const cid = [myPublicKeyHex || '', pk].sort().join(':');
               setSelectedConversation({
                 kind: 'dm',
@@ -323,6 +383,16 @@ function NostrMessengerContent() {
             messageInput={messageInput}
             setMessageInput={setMessageInput}
             handleSendMessage={handleSendMessage}
+            onSendDirectMessage={async (params: SendDirectMessageParams): Promise<SendDirectMessageResult> => {
+              if (dmController) {
+                return await dmController.sendDm({
+                  peerPublicKeyInput: params.recipientPubkey,
+                  plaintext: params.content,
+                  replyTo: params.replyTo
+                });
+              }
+              return { success: false, messageId: '', relayResults: [], error: 'DM Controller not ready' };
+            }}
             isUploadingAttachment={isUploadingAttachment}
             pendingAttachments={pendingAttachments}
             pendingAttachmentPreviewUrls={pendingAttachmentPreviewUrls}
@@ -340,13 +410,31 @@ function NostrMessengerContent() {
             selectedConversationMediaItems={selectedConversationMediaItems}
             lightboxIndex={lightboxIndex}
             setLightboxIndex={setLightboxIndex}
-            isPeerAccepted={peerTrust.isAccepted({ publicKeyHex: selectedConversationView.kind === 'dm' ? selectedConversationView.pubkey : '' as PublicKeyHex })}
-            isInitiator={selectedConversationView.kind === 'dm' && !requestsInbox.state.items.some(i => i.peerPublicKeyHex === selectedConversationView.pubkey)}
+            isPeerAccepted={(() => {
+              if (selectedConversationView.kind !== 'dm') return true;
+              const pk = selectedConversationView.pubkey;
+              if (peerTrust.isAccepted({ publicKeyHex: pk })) return true;
+              const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
+              return !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
+            })()}
+            isInitiator={(() => {
+              if (selectedConversationView.kind !== 'dm') return false;
+              const pk = selectedConversationView.pubkey;
+              const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
+              if (rs?.isOutgoing && (rs.status === 'pending' || !rs.status)) return true;
+              return !requestsInbox.state.items.some(i => i.peerPublicKeyHex === pk);
+            })()}
             onAcceptPeer={() => {
               if (selectedConversationView.kind === 'dm') {
                 const pk = selectedConversationView.pubkey;
                 peerTrust.acceptPeer({ publicKeyHex: pk });
                 requestsInbox.setStatus({ peerPublicKeyHex: pk, status: 'accepted' });
+
+                void dmController.sendDm({
+                  peerPublicKeyInput: pk,
+                  plaintext: "Accepted",
+                  customTags: [['t', 'connection-accept']]
+                });
                 updateSidebarTab("chats");
 
                 const cid = [myPublicKeyHex || '', pk].sort().join(':');
@@ -373,7 +461,7 @@ function NostrMessengerContent() {
       <DevPanel dmController={dmController} />
 
       {selectedConversation?.kind === 'group' && (
-        <GroupSettingsSheet
+        <GroupManagementDialog
           isOpen={isGroupInfoOpen}
           onClose={() => setIsGroupInfoOpen(false)}
           group={selectedConversation as GroupConversation}

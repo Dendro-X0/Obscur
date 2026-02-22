@@ -19,7 +19,7 @@ const ContactsContext = createContext<ContactsContextType | null>(null);
 export const ContactsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
     const { state } = identity;
-    const publicKeyHex = state.publicKeyHex || null;
+    const publicKeyHex = (state.publicKeyHex ?? state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
 
     const peerTrust = usePeerTrust({ publicKeyHex });
     const requestsInbox = useRequestsInbox({ publicKeyHex });

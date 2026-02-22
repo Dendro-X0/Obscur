@@ -17,10 +17,15 @@ const parseIdentityRecord = (value: unknown): IdentityRecord | undefined => {
   }
   const encryptedPrivateKey: unknown = value.encryptedPrivateKey;
   const publicKeyHex: unknown = value.publicKeyHex;
+  const username: unknown = value.username;
   if (typeof encryptedPrivateKey !== "string" || typeof publicKeyHex !== "string") {
     return undefined;
   }
-  return { encryptedPrivateKey, publicKeyHex };
+  return {
+    encryptedPrivateKey,
+    publicKeyHex,
+    username: typeof username === "string" ? username : undefined
+  };
 };
 
 export const getStoredIdentity = async (): Promise<GetStoredIdentityResult> => {

@@ -22,10 +22,13 @@ export type IdentityState = Readonly<{
 
 type UseIdentityResult = Readonly<{
   state: IdentityState;
-  createIdentity: (params: Readonly<{ passphrase: Passphrase }>) => Promise<void>;
+  createIdentity: (params: Readonly<{ passphrase: Passphrase; username?: string }>) => Promise<void>;
+  importIdentity: (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string }>) => Promise<void>;
   unlockIdentity: (params: Readonly<{ passphrase: Passphrase }>) => Promise<void>;
+  unlockWithPrivateKeyHex: (params: Readonly<{ privateKeyHex: PrivateKeyHex }>) => Promise<void>;
   lockIdentity: () => void;
   forgetIdentity: () => Promise<void>;
+  getIdentitySnapshot: () => IdentityState;
 }>;
 
 const createLoadingState = (): IdentityState => ({ status: "loading" });
@@ -41,11 +44,11 @@ const createUnlockedState = (params: Readonly<{ stored: IdentityRecord; privateK
 
 const createErrorState = (message: string, stored?: IdentityRecord): IdentityState => ({ status: "error", error: message, stored });
 
-const createNewIdentityRecord = async (params: Readonly<{ passphrase: Passphrase }>): Promise<IdentityRecord> => {
+const createNewIdentityRecord = async (params: Readonly<{ passphrase: Passphrase; username?: string }>): Promise<IdentityRecord> => {
   const privateKeyHex: PrivateKeyHex = generatePrivateKeyHex();
   const publicKeyHex: PublicKeyHex = derivePublicKeyHex(privateKeyHex);
   const encryptedPrivateKey: string = await encryptPrivateKeyHex({ privateKeyHex, passphrase: params.passphrase });
-  return { encryptedPrivateKey, publicKeyHex };
+  return { encryptedPrivateKey, publicKeyHex, username: params.username };
 };
 
 export const useIdentity = (): UseIdentityResult => {
@@ -53,7 +56,16 @@ export const useIdentity = (): UseIdentityResult => {
     void ensureInitialized();
   }, []);
   const state: IdentityState = useSyncExternalStore(subscribeToIdentity, getIdentitySnapshot, () => serverSnapshot);
-  return { state, createIdentity: createIdentityAction, unlockIdentity: unlockIdentityAction, lockIdentity: lockIdentityAction, forgetIdentity: forgetIdentityAction };
+  return {
+    state,
+    createIdentity: createIdentityAction,
+    importIdentity: importIdentityAction,
+    unlockIdentity: unlockIdentityAction,
+    unlockWithPrivateKeyHex: unlockWithPrivateKeyHexAction,
+    lockIdentity: lockIdentityAction,
+    forgetIdentity: forgetIdentityAction,
+    getIdentitySnapshot
+  };
 };
 
 let identityState: IdentityState = createLoadingState();
@@ -113,10 +125,10 @@ const ensureInitialized = async (): Promise<void> => {
   }
 };
 
-const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>): Promise<void> => {
+const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; username?: string }>): Promise<void> => {
   let record: IdentityRecord | undefined;
   try {
-    record = await createNewIdentityRecord({ passphrase: params.passphrase });
+    record = await createNewIdentityRecord({ passphrase: params.passphrase, username: params.username });
     await saveStoredIdentity({ record });
     const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: record.encryptedPrivateKey, passphrase: params.passphrase });
 
@@ -139,6 +151,41 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message, record));
+    throw error;
+  }
+};
+
+const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string }>): Promise<void> => {
+  let record: IdentityRecord | undefined;
+  try {
+    const publicKeyHex: PublicKeyHex = derivePublicKeyHex(params.privateKeyHex);
+    const encryptedPrivateKey: string = await encryptPrivateKeyHex({
+      privateKeyHex: params.privateKeyHex,
+      passphrase: params.passphrase
+    });
+
+    record = { encryptedPrivateKey, publicKeyHex, username: params.username };
+    await saveStoredIdentity({ record });
+
+    let activeKey: PrivateKeyHex = params.privateKeyHex;
+
+    // Sync to native keychain if in Tauri
+    const cs = cryptoService as any;
+    if (cs.initNativeSession) {
+      try {
+        await cs.initNativeSession(params.privateKeyHex);
+        activeKey = NATIVE_KEY_SENTINEL;
+      } catch (e) {
+        console.error("Failed to initialize native session during import:", e);
+        throw new Error(e instanceof Error ? e.message : "Failed to initialize secure storage.");
+      }
+    }
+
+    setIdentityState(createUnlockedState({ stored: record, privateKeyHex: activeKey }));
+  } catch (error: unknown) {
+    const message: string = error instanceof Error ? error.message : "Import failed";
+    setIdentityState(createErrorState(message, record));
+    throw error;
   }
 };
 
@@ -167,6 +214,34 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     setIdentityState(createErrorState(message, identityState.stored));
+    throw error;
+  }
+};
+
+const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex }>): Promise<void> => {
+  if (!identityState.stored) {
+    return;
+  }
+  try {
+    let activeKey: PrivateKeyHex = params.privateKeyHex;
+
+    // Sync to native keychain if in Tauri
+    const cs = cryptoService as any;
+    if (cs.initNativeSession) {
+      try {
+        await cs.initNativeSession(params.privateKeyHex);
+        activeKey = NATIVE_KEY_SENTINEL;
+      } catch (e) {
+        console.error("Failed to initialize native session during raw unlock:", e);
+        throw new Error(e instanceof Error ? e.message : "Failed to sync with secure storage.");
+      }
+    }
+
+    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: activeKey }));
+  } catch (error: unknown) {
+    const message: string = error instanceof Error ? error.message : "Unlock failed";
+    setIdentityState(createErrorState(message, identityState.stored));
+    throw error;
   }
 };
 

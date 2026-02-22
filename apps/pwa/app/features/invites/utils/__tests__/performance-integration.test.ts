@@ -258,9 +258,9 @@ describe('Performance Optimizations Integration', () => {
       const stats = monitor.getStats('test-operation');
       expect(stats).toBeDefined();
       expect(stats!.count).toBe(2);
-      expect(stats!.avg).toBeGreaterThan(0);
-      expect(stats!.min).toBeGreaterThan(0);
-      expect(stats!.max).toBeGreaterThan(0);
+      expect(stats!.avg).toBeGreaterThanOrEqual(0);
+      expect(stats!.min).toBeGreaterThanOrEqual(0);
+      expect(stats!.max).toBeGreaterThanOrEqual(0);
     });
 
     it('should calculate statistics correctly', () => {

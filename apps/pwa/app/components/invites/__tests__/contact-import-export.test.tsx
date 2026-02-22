@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ContactImportExport } from '../contact-import-export';
-import * as inviteManagerModule from '../../../lib/invites/invite-manager';
-import type { ImportResult } from '../../../lib/invites/types';
+import * as inviteManagerModule from '../../../features/invites/utils/invite-manager';
+import type { ImportResult } from '../../../features/invites/utils/types';
 
 // Mock the invite manager
-vi.mock('../../../lib/invites/invite-manager');
+vi.mock('../../../features/invites/utils/invite-manager');
 
 describe('ContactImportExport', () => {
   const mockImportResult: ImportResult = {
@@ -17,7 +17,7 @@ describe('ContactImportExport', () => {
       {
         publicKey: 'invalid-key',
         error: 'Invalid public key format',
-        reason: 'invalid_key',
+        reason: 'invalid_key' as const,
       },
     ],
   };

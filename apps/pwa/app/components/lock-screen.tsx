@@ -1,27 +1,52 @@
 import React, { useState } from 'react';
-import { Lock, Shield, User } from 'lucide-react';
+import { Eye, EyeOff, Lock, Shield, User } from 'lucide-react';
 
 interface LockScreenProps {
     onUnlock: (passphrase: string) => Promise<boolean>;
+    onUnlockPin?: (pin: string) => Promise<boolean>;
+    hasPin?: boolean;
     onForget?: () => Promise<void>;
     publicKeyHex?: string;
     isUnlocking?: boolean;
     errorMessage?: string;
+    username?: string;
 }
 
 export const LockScreen: React.FC<LockScreenProps> = ({
     onUnlock,
+    onUnlockPin,
+    hasPin = false,
     onForget,
     publicKeyHex,
     isUnlocking = false,
-    errorMessage
+    errorMessage,
+    username
 }) => {
     const [passphrase, setPassphrase] = useState('');
+    const [pin, setPin] = useState('');
     const [error, setError] = useState<string | null>(errorMessage ?? null);
+    const [mode, setMode] = useState<'passphrase' | 'pin'>(() => (hasPin ? 'pin' : 'passphrase'));
+    const [isVisible, setIsVisible] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+
+        if (mode === 'pin') {
+            if (!onUnlockPin) {
+                setError('PIN unlock is not available');
+                return;
+            }
+            if (!pin.trim()) {
+                setError('Please enter your password');
+                return;
+            }
+            const success = await onUnlockPin(pin);
+            if (!success) {
+                setError('Invalid password. Please try again.');
+            }
+            return;
+        }
 
         if (!passphrase.trim()) {
             setError('Please enter your passphrase');
@@ -52,10 +77,35 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                         </p>
                     </div>
 
-                    {publicKeyHex && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-zinc-500 text-[10px] uppercase tracking-wider font-medium">
+                    {hasPin && (
+                        <div className="flex items-center gap-2 p-1 bg-white/5 border border-white/10 rounded-2xl">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode('pin');
+                                    setError(null);
+                                }}
+                                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${mode === 'pin' ? 'bg-white text-black' : 'text-zinc-300 hover:text-white'}`}
+                            >
+                                Password
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode('passphrase');
+                                    setError(null);
+                                }}
+                                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${mode === 'passphrase' ? 'bg-white text-black' : 'text-zinc-300 hover:text-white'}`}
+                            >
+                                Passphrase
+                            </button>
+                        </div>
+                    )}
+
+                    {(username || publicKeyHex) && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-zinc-300 text-[10px] uppercase tracking-wider font-bold">
                             <User className="w-3 h-3" />
-                            <span>{publicKeyHex.slice(0, 8)}...{publicKeyHex.slice(-8)}</span>
+                            <span>{username || (publicKeyHex ? `${publicKeyHex.slice(0, 8)}...${publicKeyHex.slice(-8)}` : "")}</span>
                         </div>
                     )}
 
@@ -64,12 +114,20 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                             <div className="relative">
                                 <input
                                     autoFocus
-                                    type="password"
-                                    placeholder="Enter passphrase..."
-                                    value={passphrase}
-                                    onChange={(e) => setPassphrase(e.target.value)}
+                                    type={isVisible ? "text" : "password"}
+                                    placeholder={mode === 'pin' ? 'Enter password...' : 'Enter passphrase...'}
+                                    value={mode === 'pin' ? pin : passphrase}
+                                    onChange={(e) => mode === 'pin' ? setPin(e.target.value) : setPassphrase(e.target.value)}
                                     className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-5 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all text-center text-lg tracking-widest"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsVisible(v => !v)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200"
+                                    aria-label={isVisible ? "Hide password" : "Show password"}
+                                >
+                                    {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
                             </div>
                             {error && (
                                 <p className="text-red-400 text-xs font-medium bg-red-400/10 py-2 rounded-lg border border-red-400/20">

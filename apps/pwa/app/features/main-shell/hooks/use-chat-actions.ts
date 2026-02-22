@@ -28,7 +28,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
     } = useMessaging();
     const identity = useIdentity();
     const uploadService = useUploadService();
-    const { peerTrust } = useContacts();
+    const { peerTrust, requestsInbox } = useContacts();
 
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;
@@ -105,8 +105,12 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     replyTo: currentReplyTo?.messageId
                 });
 
-                // Auto-accept the peer since we are initiating/responding consciously
-                peerTrust.acceptPeer({ publicKeyHex: selectedConversation.pubkey });
+                const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: selectedConversation.pubkey });
+                const isOutgoingPending = !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
+                if (!isOutgoingPending) {
+                    // Auto-accept the peer since we are initiating/responding consciously
+                    peerTrust.acceptPeer({ publicKeyHex: selectedConversation.pubkey });
+                }
 
                 // Update contact overrides to show last message in sidebar
                 setContactOverridesByContactId(prev => ({
@@ -127,7 +131,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     identity.state.privateKeyHex
                 );
 
-                const event = await groupService.sendMessage({
+                const event = await groupService.sendSealedMessage({
                     groupId: selectedConversation.groupId,
                     content: currentInput,
                     replyTo: currentReplyTo?.messageId
@@ -192,8 +196,21 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
             }
             return next;
         });
-        // Note: Actual Nostr deletion (Kind 5) could be added here
-    }, [setMessagesByConversationId]);
+
+        if (selectedConversation?.kind === 'group') {
+            try {
+                if (identity.state.publicKeyHex && identity.state.privateKeyHex) {
+                    const groupService = new GroupService(identity.state.publicKeyHex, identity.state.privateKeyHex);
+                    await groupService.hideMessage({
+                        groupId: selectedConversation.groupId,
+                        eventId: params.messageId
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to delete group message:", error);
+            }
+        }
+    }, [setMessagesByConversationId, selectedConversation, identity.state]);
 
     const toggleReaction = useCallback(async (params: { conversationId: string; messageId: string; emoji: string }) => {
         const reactionEmoji = params.emoji as ReactionEmoji;
@@ -214,8 +231,21 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
             return next;
         });
 
-        // Note: Actual Nostr reaction (Kind 7) could be added here
-    }, [setMessagesByConversationId]);
+        if (selectedConversation?.kind === 'group') {
+            try {
+                if (identity.state.publicKeyHex && identity.state.privateKeyHex) {
+                    const groupService = new GroupService(identity.state.publicKeyHex, identity.state.privateKeyHex);
+                    await groupService.sendSealedReaction({
+                        groupId: selectedConversation.groupId,
+                        eventId: params.messageId,
+                        emoji: params.emoji
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to send group reaction:", error);
+            }
+        }
+    }, [setMessagesByConversationId, selectedConversation, identity.state]);
 
     return { handleSendMessage, deleteMessage, toggleReaction };
 }

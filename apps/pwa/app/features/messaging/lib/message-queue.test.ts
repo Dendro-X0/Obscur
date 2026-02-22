@@ -15,7 +15,7 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 describe('MessageQueue Property Tests', () => {
   let messageQueue: MessageQueue;
   const testIdentity = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as PublicKeyHex;
-  
+
   // Clean up localStorage before and after each test
   beforeEach(() => {
     // Clear any existing test data
@@ -27,7 +27,7 @@ describe('MessageQueue Property Tests', () => {
       }
     }
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    
+
     messageQueue = new MessageQueue(testIdentity);
   });
 
@@ -55,6 +55,7 @@ describe('MessageQueue Property Tests', () => {
     id: messageId,
     conversationId: conversationId,
     content: messageContent,
+    kind: fc.constant('user'),
     timestamp: fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') }),
     isOutgoing: fc.boolean(),
     status: messageStatus,
@@ -70,10 +71,10 @@ describe('MessageQueue Property Tests', () => {
           async (message) => {
             // Persist the message
             await messageQueue.persistMessage(message);
-            
+
             // Immediately retrieve it
             const retrieved = await messageQueue.getMessage(message.id);
-            
+
             // Should be available immediately
             expect(retrieved).not.toBeNull();
             expect(retrieved!.id).toBe(message.id);
@@ -99,7 +100,7 @@ describe('MessageQueue Property Tests', () => {
             for (const message of messages) {
               await messageQueue.persistMessage(message);
             }
-            
+
             // Group messages by conversation
             const messagesByConversation = new Map<string, Message[]>();
             for (const message of messages) {
@@ -108,13 +109,13 @@ describe('MessageQueue Property Tests', () => {
               }
               messagesByConversation.get(message.conversationId)!.push(message);
             }
-            
+
             // Verify each conversation contains the correct messages
             for (const [conversationId, expectedMessages] of messagesByConversation) {
               const retrievedMessages = await messageQueue.getMessages(conversationId);
-              
+
               expect(retrievedMessages.length).toBe(expectedMessages.length);
-              
+
               // Check that all expected messages are present
               for (const expectedMessage of expectedMessages) {
                 const found = retrievedMessages.find(m => m.id === expectedMessage.id);
@@ -138,10 +139,10 @@ describe('MessageQueue Property Tests', () => {
               ...msg,
               id: `${msg.id}_${index}`
             }));
-            
+
             // Persist all messages concurrently
             await Promise.all(uniqueMessages.map(msg => messageQueue.persistMessage(msg)));
-            
+
             // Verify all messages were persisted
             for (const message of uniqueMessages) {
               const retrieved = await messageQueue.getMessage(message.id);
@@ -163,19 +164,19 @@ describe('MessageQueue Property Tests', () => {
           async (message) => {
             // Persist the message
             await messageQueue.persistMessage(message);
-            
+
             // Check raw storage - content should be encrypted
             const storageKey = `obscur.messages.${testIdentity}.message.${message.id}`;
             const rawStored = localStorage.getItem(storageKey);
-            
+
             expect(rawStored).not.toBeNull();
-            
+
             const parsedStored = JSON.parse(rawStored!);
-            
+
             // The encryptedData field should not contain the original content in plaintext
             expect(parsedStored.encryptedData).toBeDefined();
             expect(parsedStored.encryptedData).not.toContain(message.content);
-            
+
             // But we should be able to retrieve the original content
             const retrieved = await messageQueue.getMessage(message.id);
             expect(retrieved!.content).toBe(message.content);
@@ -194,28 +195,28 @@ describe('MessageQueue Property Tests', () => {
             if (message1.content === message2.content) {
               message2 = { ...message2, content: message2.content + '_different' };
             }
-            
+
             // Ensure different IDs
             message1 = { ...message1, id: 'msg1_' + message1.id };
             message2 = { ...message2, id: 'msg2_' + message2.id };
-            
+
             // Persist both messages
             await messageQueue.persistMessage(message1);
             await messageQueue.persistMessage(message2);
-            
+
             // Get raw storage for both
             const key1 = `obscur.messages.${testIdentity}.message.${message1.id}`;
             const key2 = `obscur.messages.${testIdentity}.message.${message2.id}`;
-            
+
             const raw1 = localStorage.getItem(key1);
             const raw2 = localStorage.getItem(key2);
-            
+
             expect(raw1).not.toBeNull();
             expect(raw2).not.toBeNull();
-            
+
             const parsed1 = JSON.parse(raw1!);
             const parsed2 = JSON.parse(raw2!);
-            
+
             // Different messages should have different encrypted data
             expect(parsed1.encryptedData).not.toBe(parsed2.encryptedData);
           }
@@ -232,12 +233,12 @@ describe('MessageQueue Property Tests', () => {
             // Add some complex data to test encryption
             const complexMessage: Message = {
               ...message,
-              attachment: {
+              attachments: [{
                 kind: 'image',
                 url: 'https://example.com/image.jpg',
                 contentType: 'image/jpeg',
                 fileName: 'test.jpg'
-              },
+              }],
               replyTo: {
                 messageId: 'reply-to-id',
                 previewText: 'Original message preview'
@@ -247,15 +248,15 @@ describe('MessageQueue Property Tests', () => {
                 '❤️': 3
               }
             };
-            
+
             // Persist and retrieve
             await messageQueue.persistMessage(complexMessage);
             const retrieved = await messageQueue.getMessage(complexMessage.id);
-            
+
             // All data should be preserved
             expect(retrieved).not.toBeNull();
             expect(retrieved!.content).toBe(complexMessage.content);
-            expect(retrieved!.attachment).toEqual(complexMessage.attachment);
+            expect(retrieved!.attachments).toEqual(complexMessage.attachments);
             expect(retrieved!.replyTo).toEqual(complexMessage.replyTo);
             expect(retrieved!.reactions).toEqual(complexMessage.reactions);
           }
@@ -276,18 +277,18 @@ describe('MessageQueue Property Tests', () => {
             if (message.status === newStatus) {
               return true;
             }
-            
+
             // Persist original message
             await messageQueue.persistMessage(message);
-            
+
             // Update status
             await messageQueue.updateMessageStatus(message.id, newStatus);
-            
+
             // Verify status was updated
             const retrieved = await messageQueue.getMessage(message.id);
             expect(retrieved).not.toBeNull();
             expect(retrieved!.status).toBe(newStatus);
-            
+
             // Other fields should remain unchanged
             expect(retrieved!.content).toBe(message.content);
             expect(retrieved!.conversationId).toBe(message.conversationId);
@@ -340,16 +341,16 @@ describe('MessageQueue Property Tests', () => {
               id: `msg_${index}_${msg.id}`,
               timestamp: new Date(Date.now() + index * 1000) // Ensure different timestamps
             }));
-            
+
             // Persist messages in random order
             const shuffled = [...conversationMessages].sort(() => Math.random() - 0.5);
             for (const message of shuffled) {
               await messageQueue.persistMessage(message);
             }
-            
+
             // Retrieve messages
             const retrieved = await messageQueue.getMessages(convId);
-            
+
             // Should be in chronological order
             for (let i = 1; i < retrieved.length; i++) {
               expect(retrieved[i].timestamp.getTime()).toBeGreaterThanOrEqual(
@@ -373,7 +374,7 @@ describe('MessageQueue Property Tests', () => {
             try {
               await messageQueue.persistMessage(message);
               const retrieved = await messageQueue.getMessage(message.id);
-              
+
               // Operations should complete successfully or fail gracefully
               expect(typeof retrieved === 'object' || retrieved === null).toBe(true);
             } catch (error) {

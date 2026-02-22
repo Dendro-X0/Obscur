@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QRCodeGenerator } from '../qr-code-generator';
-import * as useIdentityModule from '../../../lib/use-identity';
-import * as qrGeneratorModule from '../../../lib/invites/qr-generator';
+import * as useIdentityModule from '../../../features/auth/hooks/use-identity';
+import * as qrGeneratorModule from '../../../features/invites/utils/qr-generator';
 
 // Mock the identity hook
-vi.mock('../../../lib/use-identity');
-vi.mock('../../../lib/invites/qr-generator');
+vi.mock('../../../features/auth/hooks/use-identity');
+vi.mock('../../../features/invites/utils/qr-generator');
 
 describe('QRCodeGenerator', () => {
   const mockPublicKey = '0'.repeat(64);
@@ -19,11 +19,13 @@ describe('QRCodeGenerator', () => {
   it('should render locked state when identity is not unlocked', () => {
     vi.mocked(useIdentityModule.useIdentity).mockReturnValue({
       state: { status: 'locked' },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     render(<QRCodeGenerator />);
@@ -38,11 +40,13 @@ describe('QRCodeGenerator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: mockPrivateKey as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     render(<QRCodeGenerator />);
@@ -67,11 +71,13 @@ describe('QRCodeGenerator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: mockPrivateKey as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(qrGeneratorModule.qrGenerator.createInviteQR).mockResolvedValue(mockQRCode);
@@ -102,11 +108,13 @@ describe('QRCodeGenerator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: mockPrivateKey as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(qrGeneratorModule.qrGenerator.createInviteQR).mockRejectedValue(
@@ -137,11 +145,13 @@ describe('QRCodeGenerator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: mockPrivateKey as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(qrGeneratorModule.qrGenerator.createInviteQR).mockResolvedValue(mockQRCode);
@@ -188,11 +198,13 @@ describe('QRCodeGenerator', () => {
         publicKeyHex: mockPublicKey as any,
         privateKeyHex: mockPrivateKey as any,
       },
-      unlock: vi.fn(),
-      lock: vi.fn(),
-      create: vi.fn(),
-      restore: vi.fn(),
-      clear: vi.fn(),
+      unlockIdentity: vi.fn(),
+      lockIdentity: vi.fn(),
+      createIdentity: vi.fn(),
+      importIdentity: vi.fn(),
+      forgetIdentity: vi.fn(),
+      unlockWithPrivateKeyHex: vi.fn(),
+      getIdentitySnapshot: vi.fn(),
     });
 
     vi.mocked(qrGeneratorModule.qrGenerator.createInviteQR).mockResolvedValue(mockQRCode);

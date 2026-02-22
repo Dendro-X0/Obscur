@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 
 export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void>) {
@@ -12,7 +13,8 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
     const searchParams = useSearchParams();
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
-    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen } = useMessaging();
+    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdContacts, setSelectedConversation } = useMessaging();
+    const { createdGroups } = useGroups();
     const handledSearchParamRef = useRef<string | null>(null);
 
     // Deep Link Listener for Mobile/Desktop (Tauri)
@@ -70,11 +72,12 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
         const pubkey = (searchParams.get("chat") || searchParams.get("pubkey") || "").trim();
         const relays = (searchParams.get("relays") || "").trim();
         const inviteToken = (searchParams.get("inviteToken") || "").trim();
+        const convId = (searchParams.get("convId") || "").trim();
 
-        if (!pubkey && !relays && !inviteToken) return;
+        if (!pubkey && !relays && !inviteToken && !convId) return;
 
         const myPk = identity.state.publicKeyHex || "";
-        const cacheKey = `${pubkey}:${relays}:${inviteToken}:${myPk}`;
+        const cacheKey = `${pubkey}:${relays}:${inviteToken}:${convId}:${myPk}`;
         if (handledSearchParamRef.current === cacheKey) return;
         handledSearchParamRef.current = cacheKey;
 
@@ -96,5 +99,19 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                 });
             }
         }
-    }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen]);
+
+        if (convId) {
+            const group = createdGroups.find(g => g.id === convId);
+            if (group) {
+                setSelectedConversation(group);
+                router.replace("/");
+            } else {
+                const contact = createdContacts.find(c => c.id === convId);
+                if (contact) {
+                    setSelectedConversation(contact);
+                    router.replace("/");
+                }
+            }
+        }
+    }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdContacts, setSelectedConversation]);
 }

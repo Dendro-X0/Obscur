@@ -5,13 +5,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEnhancedDMController } from '../enhanced-dm-controller';
+import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
-import type { RelayConnection } from '../../relays/relay-connection';
+import type { RelayConnection } from '../relay-connection';
 
 // Mock crypto service
-vi.mock('../../crypto/crypto-service', () => ({
+vi.mock('@/app/features/crypto/crypto-service', () => ({
   cryptoService: {
     verifyEventSignature: vi.fn().mockResolvedValue(true),
     decryptDM: vi.fn().mockResolvedValue('Test message content'),
@@ -29,18 +30,19 @@ vi.mock('../../crypto/crypto-service', () => ({
 }));
 
 // Mock message queue
-vi.mock('../message-queue', () => ({
+vi.mock('../../lib/message-queue', () => ({
   MessageQueue: class MessageQueue {
-    constructor(publicKey: any) {}
+    constructor(publicKey: any) { }
     persistMessage = vi.fn().mockResolvedValue(undefined);
     updateMessageStatus = vi.fn().mockResolvedValue(undefined);
     getMessage = vi.fn().mockResolvedValue(null);
     queueOutgoingMessage = vi.fn().mockResolvedValue(undefined);
+    getAllMessages = vi.fn().mockResolvedValue([]);
   }
 }));
 
 // Mock retry manager
-vi.mock('../retry-manager', () => ({
+vi.mock('../../lib/retry-manager', () => ({
   retryManager: {
     recordRelaySuccess: vi.fn(),
     recordRelayFailure: vi.fn(),
@@ -59,6 +61,22 @@ describe('Message Synchronization', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // vitest is configured with mockReset, which clears vi.fn() implementations
+    // between tests. Re-apply the intended defaults for this suite.
+    vi.mocked(cryptoService.verifyEventSignature).mockResolvedValue(true);
+    vi.mocked(cryptoService.decryptDM).mockResolvedValue('Test message content');
+    vi.mocked(cryptoService.encryptDM).mockResolvedValue('encrypted_content');
+    vi.mocked(cryptoService.signEvent).mockResolvedValue({
+      id: 'event_123',
+      pubkey: 'sender_pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 4,
+      tags: [['p', 'recipient_pubkey']],
+      content: 'encrypted_content',
+      sig: 'signature'
+    });
+
     messageHandlers = [];
 
     mockRelayPool = {
@@ -132,7 +150,7 @@ describe('Message Synchronization', () => {
         const syncCalls = mockRelayPool.sendToOpen.mock.calls.filter((call: any[]) => {
           const message = call[0];
           if (!message.includes('REQ') || !message.includes('"since"')) return false;
-          
+
           const parsed = JSON.parse(message);
           const expectedTimestamp = Math.floor(syncTimestamp.getTime() / 1000);
           return parsed[2]?.since === expectedTimestamp;
@@ -197,7 +215,8 @@ describe('Message Synchronization', () => {
   describe('Message Deduplication', () => {
     it('should deduplicate messages with same event ID', async () => {
       const mockPeerTrust = {
-        isAccepted: vi.fn().mockReturnValue(true)
+        isAccepted: vi.fn().mockReturnValue(true),
+        acceptPeer: vi.fn()
       };
 
       const { result } = renderHook(() =>
@@ -247,7 +266,8 @@ describe('Message Synchronization', () => {
   describe('Message Ordering', () => {
     it('should sort out-of-order messages by timestamp', async () => {
       const mockPeerTrust = {
-        isAccepted: vi.fn().mockReturnValue(true)
+        isAccepted: vi.fn().mockReturnValue(true),
+        acceptPeer: vi.fn()
       };
 
       const { result } = renderHook(() =>

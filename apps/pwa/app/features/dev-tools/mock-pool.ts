@@ -123,15 +123,17 @@ export class MockPool {
         }
     }
 
-    subscribe(filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent) => void): string {
+    subscribe(filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent, url: string) => void): string {
         const id = Math.random().toString(36).substring(7);
-        this.subscriptions.set(id, { filters, onEvent });
+        // Adapt the onEvent to match internal storage if needed, or just store as is
+        // We need to cast or wrap because our internal map stores generic onEvent
+        this.subscriptions.set(id, { filters, onEvent: (e) => onEvent(e, "mock://ghost-protocol") });
 
         // Push existing events (simulating stored events)
         setTimeout(() => {
             this.events.forEach(event => {
                 if (this.matchesFilters(event, filters)) {
-                    onEvent(event);
+                    onEvent(event, "mock://ghost-protocol");
                 }
             });
         }, 0);

@@ -1,6 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 export type { PublicKeyHex };
 import type React from "react";
+import type { GroupAccessMode } from "../../groups/types";
 
 export type RelayStatusSummary = Readonly<{
     total: number;
@@ -28,8 +29,11 @@ export type GroupConversation = Readonly<{
     lastMessage: string;
     unreadCount: number;
     lastMessageTime: Date;
+    access: GroupAccessMode;
+    memberCount: number;
+    adminPubkeys: ReadonlyArray<string>;
     about?: string;
-    picture?: string;
+    avatar?: string;
 }>;
 
 export type Conversation = DmConversation | GroupConversation;
@@ -97,6 +101,24 @@ export type Message = Readonly<{
     conversationId?: string;
 }>;
 
+export type SendDirectMessageParams = Readonly<{
+    recipientPubkey: string;
+    content: string;
+    replyTo?: string;
+}>;
+
+export interface SendDirectMessageResult {
+    success: boolean;
+    messageId: string;
+    relayResults: Array<{
+        relayUrl: string;
+        success: boolean;
+        error?: string;
+        latency?: number;
+    }>;
+    error?: string;
+}
+
 export type UnreadByConversationId = Readonly<Record<string, number>>;
 
 export type ContactOverridesByContactId = Readonly<
@@ -135,6 +157,11 @@ export type PersistedGroupConversation = Readonly<{
     lastMessage: string;
     unreadCount: number;
     lastMessageTimeMs: number;
+    access?: GroupAccessMode;
+    memberCount?: number;
+    adminPubkeys?: ReadonlyArray<string>;
+    about?: string;
+    avatar?: string;
 }>;
 
 export type PersistedMessage = Readonly<{
@@ -190,6 +217,8 @@ export type PersistedChatState = Readonly<{
     contactOverridesByContactId: Readonly<Record<string, PersistedContactOverride>>;
     messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>;
     connectionRequests?: ReadonlyArray<PersistedConnectionRequest>;
+    pinnedChatIds?: ReadonlyArray<string>;
+    hiddenChatIds?: ReadonlyArray<string>;
 }>;
 // --- Upload Errors ---
 

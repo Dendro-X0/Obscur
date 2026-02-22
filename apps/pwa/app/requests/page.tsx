@@ -18,7 +18,7 @@ import { IdentityCard } from "../components/identity-card";
 export default function RequestsPage(): React.JSX.Element {
   const router = useRouter();
   const identity = useIdentity();
-  const publicKeyHex: PublicKeyHex | null = (identity.state.publicKeyHex as PublicKeyHex | null) ?? null;
+  const publicKeyHex: PublicKeyHex | null = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
   const peerTrust = usePeerTrust({ publicKeyHex });
   const requestsInbox = useRequestsInbox({ publicKeyHex });
   const blocklist = useBlocklist({ publicKeyHex });

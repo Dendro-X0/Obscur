@@ -3,10 +3,12 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { UserAvatar } from "./user-avatar";
 import { cn } from "@/app/lib/utils";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
-
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const MENU_APPROX_HEIGHT_PX: number = 176;
@@ -20,6 +22,8 @@ type UserAvatarMenuProps = Readonly<{
 const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
   const { t } = useTranslation();
   const profile = useProfile();
+  const identity = useIdentity();
+  const router = useRouter();
   const [open, setOpen] = useState<boolean>(false);
   const [openUp, setOpenUp] = useState<boolean>(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -115,6 +119,21 @@ const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
           >
             {t("settings.title")}
           </Link>
+          <div className="border-t border-black/10 dark:border-white/10 my-1" />
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+            onClick={async (): Promise<void> => {
+              setOpen(false);
+              localStorage.removeItem("obscur_auth_token");
+              localStorage.removeItem("obscur_remember_me");
+              identity.lockIdentity();
+              router.replace("/");
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            {t("common.logout", "Log Out")}
+          </button>
         </div>
       ) : null}
     </div>

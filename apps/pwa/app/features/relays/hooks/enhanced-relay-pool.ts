@@ -32,7 +32,7 @@ export type EnhancedRelayPoolResult = Readonly<{
   publishToAll: (payload: string) => Promise<MultiRelayPublishResult>;
   broadcastEvent: (payload: string) => Promise<MultiRelayPublishResult>;
   subscribeToMessages: (handler: (params: Readonly<{ url: string; message: string }>) => void) => () => void;
-  subscribe: (filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent) => void) => string;
+  subscribe: (filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent, url: string) => void) => string;
   unsubscribe: (id: string) => void;
   getRelayHealth: (url: string) => RelayHealthMetrics | undefined;
   canConnectToRelay: (url: string) => boolean;

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ContactRequestInbox } from '../contact-request-inbox';
-import * as inviteManagerModule from '../../../lib/invites/invite-manager';
-import type { ContactRequest } from '../../../lib/invites/types';
+import * as inviteManagerModule from '../../../features/invites/utils/invite-manager';
+import type { ContactRequest } from '../../../features/invites/utils/types';
 
 // Mock the invite manager
-vi.mock('../../../lib/invites/invite-manager');
+vi.mock('../../../features/invites/utils/invite-manager');
 
 describe('ContactRequestInbox', () => {
   const mockContactRequest: ContactRequest = {
@@ -31,7 +31,7 @@ describe('ContactRequestInbox', () => {
 
   it('should render loading state initially', () => {
     vi.mocked(inviteManagerModule.inviteManager.getIncomingContactRequests).mockImplementation(
-      () => new Promise(() => {}) // Never resolves
+      () => new Promise(() => { }) // Never resolves
     );
 
     render(<ContactRequestInbox />);

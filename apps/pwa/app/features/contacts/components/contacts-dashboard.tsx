@@ -5,14 +5,11 @@ import { useTranslation } from "react-i18next";
 import {
     Users,
     UserPlus,
-    Shield,
     MessageSquare,
     UserCheck,
     Ban,
     Search,
-    Plus,
     PlusCircle,
-    ChevronRight,
     Check,
     X,
     Globe,
@@ -24,11 +21,6 @@ import { useContacts } from "../providers/contacts-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
-import { ProfileSearchService } from "@/app/features/search/services/profile-search-service";
-import { SocialGraphService } from "@/app/features/social-graph/services/social-graph-service";
-import { GroupService } from "@/app/features/groups/services/group-service";
-import { toast } from "@/app/components/ui/toast";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -37,7 +29,7 @@ import { Avatar, AvatarFallback } from "@/app/components/ui/avatar";
 import { cn } from "@/app/lib/cn";
 import { useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { DmConversation, GroupConversation, RequestsInboxItem } from "@/app/features/messaging/types";
+import type { RequestsInboxItem } from "@/app/features/messaging/types";
 import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
 import { JoinGroupInputDialog } from "@/app/features/groups/components/join-group-input-dialog";
 import { GroupJoinDialog } from "@/app/features/groups/components/group-join-dialog";
@@ -50,26 +42,15 @@ type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked";
 
 export const ContactsDashboard = () => {
     const { t } = useTranslation();
-    const { identity, peerTrust, requestsInbox, blocklist } = useContacts();
-    const { createdGroups, setCreatedGroups, isNewGroupOpen, setIsNewGroupOpen, isCreatingGroup, setIsCreatingGroup } = useGroups();
+    const { peerTrust, requestsInbox, blocklist } = useContacts();
+    const { createdGroups, setIsNewGroupOpen } = useGroups();
     const {
         setIsNewChatOpen,
-        isNewChatOpen,
         createdContacts,
-        setCreatedContacts,
-        newChatPubkey,
-        setNewChatPubkey,
-        newChatDisplayName,
-        setNewChatDisplayName
+        hasHydrated,
     } = useMessaging();
-    const { relayPool } = useRelay();
+    useRelay();
     const router = useRouter();
-
-    const myPublicKeyHex = identity.state.publicKeyHex || null;
-    const myPrivateKeyHex = identity.state.privateKeyHex || null;
-
-    const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
-    const profileSearch = useMemo(() => new ProfileSearchService(relayPool, socialGraph, myPublicKeyHex || undefined), [relayPool, socialGraph, myPublicKeyHex]);
 
     const [activeTab, setActiveTab] = useState<TabId>("all");
     const [searchQuery, setSearchQuery] = useState("");
@@ -80,13 +61,13 @@ export const ContactsDashboard = () => {
     const [joinGroupId, setJoinGroupId] = useState("");
     const [joinRelayUrl, setJoinRelayUrl] = useState("");
 
-    const tabs = [
+    const tabs: { id: TabId, label: string, icon: any, badge?: number }[] = [
         { id: "all", label: t("contacts.tabs.all"), icon: UserCheck },
         { id: "groups", label: t("contacts.tabs.groups"), icon: Users },
         { id: "discovery", label: "Discovery", icon: Globe },
         { id: "invitations", label: t("contacts.tabs.invitations"), icon: MailOpen, badge: requestsInbox.state.items.filter(i => i.status === 'pending' || !i.status).length },
         { id: "blocked", label: t("contacts.tabs.blocked"), icon: Ban },
-    ] as const;
+    ];
 
     const filteredRequests = useMemo(() => {
         return requestsInbox.state.items
@@ -140,81 +121,81 @@ export const ContactsDashboard = () => {
     );
 
     return (
-        <div className="mx-auto max-w-7xl w-full flex flex-col gap-10 pb-20">
+        <div className="mx-auto max-w-7xl w-full flex flex-col gap-10 pb-20 px-6">
             {/* Redesigned Header: Symmetrical & Centered */}
-            <div className="flex flex-col items-center gap-8 pt-6">
-                <div className="text-center space-y-2">
-                    <h1 className="text-4xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
-                        {t("contacts.title", "Contacts")}
+            <div className="flex flex-col items-center gap-10 pt-10">
+                <div className="text-center space-y-3">
+                    <h1 className="text-5xl font-black tracking-tighter text-white">
+                        {t("contacts.title", "Network")}
                     </h1>
-                    <p className="text-zinc-500 font-medium">
-                        {t("contacts.subtitle", "Manage your secure connections and communities")}
+                    <p className="text-zinc-500 font-bold uppercase tracking-[0.2em] text-[10px]">
+                        {t("contacts.subtitle", "Secure Connections & Decentralized Groups")}
                     </p>
                 </div>
 
-                <div className="w-full max-w-2xl flex flex-col gap-6">
-                    {/* Search Bar: Centered Glassmorphism */}
+                <div className="w-full max-w-2xl flex flex-col gap-8">
+                    {/* Search Bar: Centered Deep Dark */}
                     <div className="relative group">
-                        <div className="absolute inset-0 bg-purple-500/5 blur-2xl rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity" />
-                        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400 group-focus-within:text-purple-500 transition-colors" />
+                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 rounded-[32px] blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+                        <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-600 group-focus-within:text-purple-400 transition-colors" />
                         <Input
                             placeholder={t("contacts.searchPlaceholder")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-12 h-14 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-xl border-zinc-200 dark:border-white/5 rounded-[24px] text-lg font-medium shadow-sm transition-all focus:ring-purple-500/50"
+                            className="pl-14 h-16 bg-[#0E0E10] border-[#1A1A1E] text-white rounded-[28px] text-lg font-bold shadow-2xl transition-all focus:ring-purple-500/30 focus:border-purple-500/50"
                         />
                     </div>
 
-                    {/* Action Buttons: Positioned for Symmetry */}
-                    <div className="flex flex-wrap items-center justify-center gap-3">
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center justify-center gap-4">
                         <Button
-                            variant="secondary"
-                            className="gap-2.5 h-12 px-6 rounded-2xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200/50 dark:border-white/5 shadow-sm hover:shadow-xl hover:border-purple-500/30 transition-all font-bold group"
                             onClick={() => setIsNewChatOpen(true)}
+                            className="h-12 px-6 rounded-2xl bg-[#1A1A1E] hover:bg-[#222226] text-white font-black border border-white/5 transition-all hover:scale-105"
                         >
-                            <UserPlus className="h-5 w-5 text-purple-600 transition-transform group-hover:scale-110" />
-                            {t("invites.addContact")}
+                            <UserPlus className="h-5 w-5 mr-3 text-purple-400" />
+                            {t("contacts.addFriend")}
                         </Button>
                         <Button
-                            variant="secondary"
-                            className="gap-2.5 h-12 px-6 rounded-2xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200/50 dark:border-white/5 shadow-sm hover:shadow-xl hover:border-purple-500/30 transition-all font-bold group"
-                            onClick={() => setIsJoinInputOpen(true)}
-                        >
-                            <Globe className="h-5 w-5 text-purple-600 transition-transform group-hover:scale-110" />
-                            {t("groups.joinGroup", "Join Group")}
-                        </Button>
-                        <Button
-                            className="gap-2.5 h-12 px-8 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white shadow-xl shadow-purple-500/20 transition-all font-black group hover:scale-[1.02] active:scale-[0.98]"
                             onClick={() => setIsNewGroupOpen(true)}
+                            className="h-12 px-6 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black shadow-lg shadow-indigo-500/20 transition-all hover:scale-105"
                         >
-                            <PlusCircle className="h-6 w-6 transition-transform group-hover:scale-110" />
-                            {t("messaging.newGroup")}
+                            <PlusCircle className="h-5 w-5 mr-3" />
+                            {t("groups.createButton")}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setIsJoinInputOpen(true)}
+                            className="h-12 px-6 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] text-zinc-400 hover:text-white font-black border border-white/5"
+                        >
+                            <MessageSquare className="h-5 w-5 mr-3" />
+                            {t("groups.joinButton")}
                         </Button>
                     </div>
-                </div>
-            </div>
 
-            {/* Tabs: Floating Pill */}
-            <div className="inline-flex p-1.5 bg-zinc-100/80 dark:bg-zinc-900/50 backdrop-blur-md rounded-[20px] self-center shadow-inner border border-zinc-200/50 dark:border-white/5">
-                {tabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={cn(
-                                "relative flex items-center gap-2.5 px-6 py-2.5 text-sm font-bold rounded-[14px] transition-all duration-300",
-                                isActive
-                                    ? "bg-white dark:bg-zinc-800 text-purple-600 dark:text-purple-400 shadow-md"
-                                    : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
-                            )}
-                        >
-                            <Icon className={cn("h-4 w-4", isActive && "animate-pulse")} />
-                            {tab.label}
-                        </button>
-                    );
-                })}
+                    {/* Navigation Tabs: Centered Pill */}
+                    <div className="flex bg-[#0E0E10] p-1.5 rounded-[24px] border border-[#1A1A1E]">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as TabId)}
+                                className={cn(
+                                    "flex-1 min-w-[40px] relative flex items-center justify-center gap-3 h-12 rounded-[20px] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 px-2",
+                                    activeTab === tab.id
+                                        ? "bg-[#1A1A1E] text-white shadow-xl"
+                                        : "text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.02]"
+                                )}
+                            >
+                                <tab.icon className={cn("h-4 w-4", activeTab === tab.id ? "text-purple-400" : "opacity-50")} />
+                                <span className="hidden sm:inline">{tab.label}</span>
+                                {tab.badge ? (
+                                    <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full bg-rose-500 text-[10px] text-white animate-pulse shadow-lg">
+                                        {tab.badge}
+                                    </span>
+                                ) : null}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* Content Area: Grid-based */}
@@ -232,7 +213,11 @@ export const ContactsDashboard = () => {
                                 </span>
                             </div>
 
-                            {filteredAcceptedPeers.length === 0 ? (
+                            {!hasHydrated ? (
+                                <div className="flex items-center justify-center p-12">
+                                    <MessageSquare className="h-8 w-8 animate-pulse text-purple-500/50" />
+                                </div>
+                            ) : filteredAcceptedPeers.length === 0 ? (
                                 renderEmptyState(
                                     t("contacts.noContactsFound"),
                                     t("contacts.noContactsDesc"),
@@ -248,7 +233,7 @@ export const ContactsDashboard = () => {
                                                 key={pk}
                                                 pubkey={pk}
                                                 displayName={contact?.displayName}
-                                                onClick={() => router.push(`/?pubkey=${pk}`)}
+                                                onClick={() => router.push(`/contacts/${pk}`)}
                                             />
                                         );
                                     })}
@@ -264,7 +249,51 @@ export const ContactsDashboard = () => {
                                 </h3>
                                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                                     {requestsInbox.state.items.filter(r => r.status === 'pending').map(req => (
-                                        <PendingRequestCard key={req.peerPublicKeyHex} req={req} />
+                                        <PendingRequestCard
+                                            key={req.peerPublicKeyHex}
+                                            req={req}
+                                            onAccept={() => {
+                                                peerTrust.acceptPeer({ publicKeyHex: req.peerPublicKeyHex as PublicKeyHex });
+                                                requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'accepted' });
+                                            }}
+                                            onBlock={() => {
+                                                blocklist.addBlocked({ publicKeyInput: req.peerPublicKeyHex });
+                                                requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'declined' });
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Recent Communities Section */}
+                        {filteredGroups.length > 0 && (
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between px-2">
+                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400/80">
+                                        Communities
+                                    </h3>
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => setActiveTab("groups")}
+                                        className="text-[10px] font-black uppercase tracking-widest text-indigo-400 p-0 hover:bg-transparent hover:text-indigo-300"
+                                    >
+                                        View All
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {filteredGroups.slice(0, 4).map(group => (
+                                        <GroupCard
+                                            key={group.id}
+                                            id={group.id}
+                                            displayName={group.displayName}
+                                            relayUrl={group.relayUrl}
+                                            memberCount={group.memberCount}
+                                            avatar={group.avatar}
+                                            onClick={() => {
+                                                router.push(`/groups/${encodeURIComponent(group.id)}`);
+                                            }}
+                                        />
                                     ))}
                                 </div>
                             </div>
@@ -289,9 +318,10 @@ export const ContactsDashboard = () => {
                                         id={group.id}
                                         displayName={group.displayName}
                                         relayUrl={group.relayUrl}
-                                        memberCount={group.memberPubkeys.length}
+                                        memberCount={group.memberCount}
+                                        avatar={group.avatar}
                                         onClick={() => {
-                                            // Navigate to group or open info
+                                            router.push(`/groups/${encodeURIComponent(group.id)}`);
                                         }}
                                     />
                                 ))}
@@ -330,7 +360,10 @@ export const ContactsDashboard = () => {
                                                         peerTrust.acceptPeer({ publicKeyHex: req.peerPublicKeyHex as PublicKeyHex });
                                                         requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'accepted' });
                                                     }}
-                                                    onDecline={() => requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'declined' })}
+                                                    onBlock={() => {
+                                                        blocklist.addBlocked({ publicKeyInput: req.peerPublicKeyHex });
+                                                        requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'declined' });
+                                                    }}
                                                 />
                                             ))}
                                         </div>
@@ -433,7 +466,15 @@ export const ContactsDashboard = () => {
     );
 };
 
-function PendingRequestCard({ req }: { req: RequestsInboxItem }) {
+function PendingRequestCard({
+    req,
+    onAccept,
+    onBlock,
+}: {
+    req: RequestsInboxItem;
+    onAccept: () => void;
+    onBlock: () => void;
+}) {
     const { t } = useTranslation();
     const metadata = useProfileMetadata(req.peerPublicKeyHex);
     const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 8)}...`;
@@ -448,12 +489,29 @@ function PendingRequestCard({ req }: { req: RequestsInboxItem }) {
                         {t("contacts.pending", "Incoming Request")}
                     </p>
                 </div>
+                <div className="flex gap-2">
+                    <Button
+                        size="sm"
+                        className="h-9 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl"
+                        onClick={onAccept}
+                    >
+                        {t("common.accept")}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-9 px-4 text-zinc-500 hover:text-red-500 hover:bg-red-500/5 font-black rounded-xl"
+                        onClick={onBlock}
+                    >
+                        {t("common.block", "Block")}
+                    </Button>
+                </div>
             </div>
         </Card>
     );
 }
 
-function InvitationCard({ req, onAccept, onDecline }: { req: RequestsInboxItem, onAccept: () => void, onDecline: () => void }) {
+function InvitationCard({ req, onAccept, onBlock }: { req: RequestsInboxItem, onAccept: () => void, onBlock: () => void }) {
     const { t } = useTranslation();
     const metadata = useProfileMetadata(req.peerPublicKeyHex);
     const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 10)}...`;
@@ -494,47 +552,13 @@ function InvitationCard({ req, onAccept, onDecline }: { req: RequestsInboxItem, 
                         size="icon"
                         variant="secondary"
                         className="h-14 w-14 bg-white/50 dark:bg-zinc-800/50 text-zinc-500 hover:text-red-500 hover:bg-red-500/5 rounded-[20px] border-zinc-200/50 dark:border-white/5 transition-all"
-                        onClick={onDecline}
+                        onClick={onBlock}
                     >
                         <X className="h-7 w-7" />
                     </Button>
                 </div>
             </div>
         </Card>
-    );
-}
-
-function BlockedUserCard({ pubkey, onUnblock }: { pubkey: string, onUnblock: (pk: string) => void }) {
-    const { t } = useTranslation();
-    const metadata = useProfileMetadata(pubkey);
-    const displayName = metadata?.displayName || `${pubkey.slice(0, 12)}...`;
-
-    return (
-        <div className="group relative flex flex-col items-center p-6 bg-red-500/[0.02] dark:bg-red-500/[0.04] backdrop-blur-xl border border-red-500/10 dark:border-red-500/10 rounded-[32px] transition-all duration-300 hover:border-red-500/30 shadow-sm">
-            <div className="relative mb-4">
-                <UserAvatar pubkey={pubkey} size="lg" className="rounded-[24px] border-2 border-white/50 dark:border-white/10" />
-                <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-red-500 border-4 border-white dark:border-zinc-950 flex items-center justify-center">
-                    <EyeOff className="h-3 w-3 text-white" />
-                </div>
-            </div>
-
-            <div className="text-center w-full space-y-1 mb-6">
-                <h4 className="font-black text-sm text-zinc-900 dark:text-zinc-50 truncate w-full px-4">
-                    {displayName}
-                </h4>
-                <p className="text-[10px] text-red-600/60 dark:text-red-400/60 font-black uppercase tracking-widest">
-                    {t("contacts.status.blocked", "Blocked")}
-                </p>
-            </div>
-
-            <Button
-                variant="secondary"
-                className="w-full h-11 rounded-xl font-bold bg-white/50 dark:bg-zinc-800/50 hover:bg-red-500 hover:text-white border-zinc-200 dark:border-white/5 transition-all text-xs"
-                onClick={() => onUnblock(pubkey)}
-            >
-                {t("contacts.actions.unblock", "Unblock")}
-            </Button>
-        </div>
     );
 }
 function DeclinedRequestRow({ req, onRestore, onRemove }: { req: RequestsInboxItem, onRestore: (pk: PublicKeyHex) => void, onRemove: (pk: PublicKeyHex) => void }) {

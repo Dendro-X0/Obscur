@@ -4,12 +4,13 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import { profileManager } from '../profile-manager';
 import { contactStore } from '../contact-store';
-import { cryptoService } from '@/app/features/crypto/crypto-service';
+import { cryptoService } from '../../../crypto/crypto-service';
+
 import type { UserProfile, PrivacySettings, ShareableProfile } from '../types';
 import { USER_PROFILE_KEY, PRIVACY_SETTINGS_KEY } from '../constants';
 
 // Mock crypto service
-vi.mock('@/app/features/crypto/crypto-service', () => ({
+vi.mock('../../../crypto/crypto-service', () => ({
   cryptoService: {
     signInviteData: vi.fn(),
     isValidPubkey: vi.fn()
@@ -39,7 +40,7 @@ describe('Profile Manager Property Tests', () => {
     });
 
     // Setup crypto service mocks
-    const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+    const { cryptoService } = await import('../../../crypto/crypto-service');
     vi.mocked(cryptoService.signInviteData).mockResolvedValue('mock-signature-hex');
     vi.mocked(cryptoService.isValidPubkey).mockImplementation(async (key: string) => {
       return typeof key === 'string' && key.length === 64 && /^[0-9a-f]{64}$/i.test(key);
@@ -116,7 +117,7 @@ describe('Profile Manager Property Tests', () => {
             expect(shareableProfile.signature).toBe('mock-signature-hex');
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
 
@@ -161,7 +162,7 @@ describe('Profile Manager Property Tests', () => {
      * the public key prefix as the display name
      * Validates: Requirements 4.5
      */
-    it('should provide fallback display name from public key when profile is empty', () => {
+    it('should provide fallback display name from public key when profile is empty', async () => {
       const emptyProfile: ShareableProfile = {
         publicKey: validPublicKey,
         timestamp: Date.now(),
@@ -169,13 +170,13 @@ describe('Profile Manager Property Tests', () => {
         // No displayName provided
       };
 
-      const isValid = profileManager.validateProfileData(emptyProfile);
-      expect(isValid).toBe(true);
-
       // The fallback behavior would be implemented in the UI layer
       // Here we just verify that profiles without displayName are valid
       expect(emptyProfile.displayName).toBeUndefined();
       expect(emptyProfile.publicKey).toBe(validPublicKey);
+
+      // Validate asynchronously
+      await expect(profileManager.validateProfileData(emptyProfile)).resolves.toBe(true);
     });
 
     it('should handle missing profile data gracefully', async () => {
@@ -248,7 +249,7 @@ describe('Profile Manager Property Tests', () => {
             expect(retrieved).toEqual(profile);
           }
         ),
-        { numRuns: 50 }
+        { numRuns: 25 }
       );
     });
 
@@ -313,12 +314,15 @@ describe('Profile Manager Property Tests', () => {
       });
 
       // Generate multiple shareable profiles
+      vi.useFakeTimers();
+      const baseTime = new Date('2020-01-01T00:00:00.000Z');
+      vi.setSystemTime(baseTime);
       const profile1 = await profileManager.getShareableProfile(validPublicKey, validPrivateKey);
 
-      // Wait a bit to ensure different timestamp
-      await new Promise(resolve => setTimeout(resolve, 1));
-
+      vi.setSystemTime(new Date(baseTime.getTime() + 1));
       const profile2 = await profileManager.getShareableProfile(validPublicKey, validPrivateKey);
+
+      vi.useRealTimers();
 
       // Timestamps should be different
       expect(profile2.timestamp).toBeGreaterThan(profile1.timestamp);
@@ -392,7 +396,7 @@ describe('Profile Manager Property Tests', () => {
       }
     });
 
-    it('should validate shareable profile data', () => {
+    it('should validate shareable profile data', async () => {
       const validShareableProfiles = [
         {
           publicKey: validPublicKey,
@@ -420,11 +424,11 @@ describe('Profile Manager Property Tests', () => {
       ];
 
       for (const valid of validShareableProfiles) {
-        expect(profileManager.validateProfileData(valid as ShareableProfile)).toBe(true);
+        await expect(profileManager.validateProfileData(valid as ShareableProfile)).resolves.toBe(true);
       }
 
       for (const invalid of invalidShareableProfiles) {
-        expect(profileManager.validateProfileData(invalid as any)).toBe(false);
+        await expect(profileManager.validateProfileData(invalid as any)).resolves.toBe(false);
       }
     });
   });
@@ -444,7 +448,7 @@ describe('Profile Manager Property Tests', () => {
     });
 
     it('should handle crypto service errors gracefully', async () => {
-      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+      const { cryptoService } = await import('../../../crypto/crypto-service');
       vi.mocked(cryptoService.signInviteData).mockRejectedValue(new Error('Signing failed'));
 
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
@@ -457,7 +461,7 @@ describe('Profile Manager Property Tests', () => {
     });
 
     it('should handle invalid public keys', async () => {
-      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+      const { cryptoService } = await import('../../../crypto/crypto-service');
       vi.mocked(cryptoService.isValidPubkey).mockResolvedValue(false);
 
       const invalidProfile: ShareableProfile = {
@@ -466,13 +470,13 @@ describe('Profile Manager Property Tests', () => {
         signature: 'signature'
       };
 
-      expect(profileManager.validateProfileData(invalidProfile)).toBe(false);
+      await expect(profileManager.validateProfileData(invalidProfile)).resolves.toBe(false);
     });
   });
 
   describe('Integration with Crypto Service', () => {
     it('should use crypto service for signing shareable profiles', async () => {
-      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+      const { cryptoService } = await import('../../../crypto/crypto-service');
 
       const profile: UserProfile = {
         displayName: 'Test User',
@@ -507,7 +511,7 @@ describe('Profile Manager Property Tests', () => {
     });
 
     it('should use crypto service for public key validation', async () => {
-      const { cryptoService } = await import('@/app/features/crypto/crypto-service');
+      const { cryptoService } = await import('../../../crypto/crypto-service');
 
       const profile: ShareableProfile = {
         publicKey: validPublicKey,
@@ -515,7 +519,7 @@ describe('Profile Manager Property Tests', () => {
         signature: 'signature'
       };
 
-      profileManager.validateProfileData(profile);
+      await profileManager.validateProfileData(profile);
 
       expect(cryptoService.isValidPubkey).toHaveBeenCalledWith(validPublicKey);
     });

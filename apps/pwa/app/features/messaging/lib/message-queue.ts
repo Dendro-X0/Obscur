@@ -129,11 +129,12 @@ export class MessageQueue implements IMessageQueue {
   private identityPubkey: PublicKeyHex;
   private db: IDBDatabase | null = null;
   private encryptionKeyMaterial: string;
+  private decryptFailures: Set<string> = new Set();
 
-  constructor(identityPubkey: PublicKeyHex, encryptionSecret?: string) {
+  constructor(identityPubkey: PublicKeyHex) {
     this.identityPubkey = identityPubkey;
-    // Fallback to pubkey if no secret, but in Phase 7 we'll pass a real secret
-    this.encryptionKeyMaterial = encryptionSecret || identityPubkey;
+    // Standardize on pubkey for consistent encryption material across sessions
+    this.encryptionKeyMaterial = identityPubkey;
   }
 
   private async getDb(): Promise<IDBDatabase> {
@@ -197,6 +198,24 @@ export class MessageQueue implements IMessageQueue {
     );
 
     return new TextDecoder().decode(decrypted);
+  }
+
+  private warnDecryptOnce(messageId: string, error: unknown, scope: "single" | "list" | "global"): void {
+    // Determine key by scope to prevent flooding the console. One warning per type is enough.
+    const key = scope;
+    if (this.decryptFailures.has(key)) {
+      return;
+    }
+    this.decryptFailures.add(key);
+    // Use warn instead of error to avoid triggering Next.js error tracking overlays
+    console.warn(
+      scope === "global"
+        ? `Failed to decrypt a message in global list (e.g., ID: ${messageId}). This is expected for messages encrypted with an older/different key.`
+        : scope === "list"
+          ? `Failed to decrypt a message in list (e.g., ID: ${messageId}). This is expected for messages encrypted with an older/different key.`
+          : `Failed to decrypt stored message (ID: ${messageId}). This is expected for messages encrypted with an older/different key.`,
+      error
+    );
   }
 
   async persistMessage(message: Message): Promise<void> {
@@ -292,12 +311,9 @@ export class MessageQueue implements IMessageQueue {
             eventCreatedAt: stored.eventCreatedAt ? new Date(stored.eventCreatedAt) : undefined
           });
         } catch (e) {
-          console.error("Failed to decrypt stored message:", e);
-          // Return the stored object as is, maybe the content is lost if it was encrypted
-          resolve({
-            ...stored,
-            timestamp: new Date(stored.timestamp)
-          });
+          this.warnDecryptOnce(String(messageId), e, "single");
+          // Return null so the caller can handle it as missing and potentially re-fetch
+          resolve(null);
         }
       };
       request.onerror = () => reject(request.error);
@@ -333,7 +349,9 @@ export class MessageQueue implements IMessageQueue {
                 const decrypted = JSON.parse(decryptedJson);
                 messageData = { ...messageData, ...decrypted };
               } catch (e) {
-                console.error("Failed to decrypt message in list:", e);
+                this.warnDecryptOnce(String(stored.id ?? stored.eventId ?? stored.timestamp ?? "unknown"), e, "list");
+                // Drop the message so it can be cleanly re-fetched from relays
+                return null;
               }
             }
 
@@ -346,9 +364,9 @@ export class MessageQueue implements IMessageQueue {
             return {
               ...messageData,
               timestamp: new Date(stored.timestamp)
-            };
+            } as Message;
           }));
-          resolve(processedResults);
+          resolve(processedResults.filter((m): m is Message => m !== null));
         } catch (e) {
           reject(e);
         }
@@ -432,7 +450,9 @@ export class MessageQueue implements IMessageQueue {
                 const decrypted = JSON.parse(decryptedJson);
                 messageData = { ...messageData, ...decrypted };
               } catch (e) {
-                console.error("Failed to decrypt message in global list:", e);
+                this.warnDecryptOnce(String(stored.id ?? stored.eventId ?? stored.timestamp ?? "unknown"), e, "global");
+                // Drop the message so it can be cleanly re-fetched from relays
+                return null;
               }
             }
 
@@ -446,9 +466,9 @@ export class MessageQueue implements IMessageQueue {
               ...messageData,
               timestamp: new Date(stored.timestamp),
               eventCreatedAt: stored.eventCreatedAt ? new Date(stored.eventCreatedAt) : undefined
-            };
+            } as Message;
           }));
-          resolve(processedResults);
+          resolve(processedResults.filter((m): m is Message => m !== null));
         } catch (e) {
           reject(e);
         }

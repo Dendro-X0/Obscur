@@ -10,17 +10,21 @@ interface GroupQRCodeProps {
     groupId: string;
     relayUrl: string;
     groupName: string;
+    roomKeyHex?: string;
 }
 
 /**
  * QR Code Generator for NIP-29 Groups
  */
-export function GroupQRCode({ groupId, relayUrl, groupName }: GroupQRCodeProps) {
+export function GroupQRCode({ groupId, relayUrl, groupName, roomKeyHex }: GroupQRCodeProps) {
     const [copied, setCopied] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const relayHost = new URL(relayUrl).hostname;
-    const universalUrl = `https://obscur-pwa.vercel.app/groups/${groupId}?relay=${encodeURIComponent(relayUrl)}`;
+
+    // In Phase 2, we encode the Room Key in the hash fragment to prevent leakage to the web server
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://obscur.app";
+    const universalUrl = `${baseUrl}/groups/${groupId}?relay=${encodeURIComponent(relayUrl)}${roomKeyHex ? `#k=${roomKeyHex}` : ""}`;
 
     useEffect(() => {
         if (canvasRef.current) {

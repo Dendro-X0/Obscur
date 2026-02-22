@@ -6,7 +6,7 @@
  * - Validates Requirements 3.6
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fc from 'fast-check';
 import { MessageQueue, type Message, type MessageStatus } from './message-queue';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
@@ -14,7 +14,7 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 describe('Message Ordering Property Tests', () => {
   let messageQueue: MessageQueue;
   const testIdentity = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as PublicKeyHex;
-  
+
   beforeEach(() => {
     // Clear localStorage
     const keysToRemove: string[] = [];
@@ -25,7 +25,7 @@ describe('Message Ordering Property Tests', () => {
       }
     }
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    
+
     messageQueue = new MessageQueue(testIdentity);
   });
 
@@ -42,7 +42,8 @@ describe('Message Ordering Property Tests', () => {
   });
 
   // Helper arbitraries
-  const validPubkey = fc.hexaString({ minLength: 64, maxLength: 64 }) as fc.Arbitrary<PublicKeyHex>;
+  const validPubkey = fc.array(fc.integer({ min: 0, max: 15 }), { minLength: 64, maxLength: 64 })
+    .map(arr => arr.map(n => n.toString(16)).join('') as PublicKeyHex);
   const messageStatus = fc.constantFrom('sending', 'queued', 'accepted', 'rejected', 'delivered', 'failed') as fc.Arbitrary<MessageStatus>;
   const messageContent = fc.string({ minLength: 1, maxLength: 1000 });
   const conversationId = fc.string({ minLength: 1, maxLength: 50 });
@@ -55,7 +56,8 @@ describe('Message Ordering Property Tests', () => {
     isOutgoing: fc.boolean(),
     status: messageStatus,
     senderPubkey: validPubkey,
-    recipientPubkey: validPubkey
+    recipientPubkey: validPubkey,
+    kind: fc.constant('user')
   }) as fc.Arbitrary<Message>;
 
   describe('Property 22: Timestamp ordering maintenance', () => {
@@ -76,7 +78,7 @@ describe('Message Ordering Property Tests', () => {
 
             // Persist messages in random order to test sorting
             const shuffledMessages = [...conversationMessages].sort(() => Math.random() - 0.5);
-            
+
             for (const message of shuffledMessages) {
               await messageQueue.persistMessage(message);
             }
@@ -125,7 +127,8 @@ describe('Message Ordering Property Tests', () => {
                 isOutgoing: i % 2 === 0,
                 status: 'delivered',
                 senderPubkey: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as PublicKeyHex,
-                recipientPubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex
+                recipientPubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex,
+                kind: 'user'
               });
             }
 
@@ -164,7 +167,7 @@ describe('Message Ordering Property Tests', () => {
           async (conversationIds, messages) => {
             // Distribute messages across conversations
             const messagesByConversation = new Map<string, Message[]>();
-            
+
             messages.forEach((msg, index) => {
               const convId = conversationIds[index % conversationIds.length];
               const uniqueMsg = {
@@ -172,7 +175,7 @@ describe('Message Ordering Property Tests', () => {
                 id: `msg_${index}_${Date.now()}_${Math.random()}`,
                 conversationId: convId
               };
-              
+
               if (!messagesByConversation.has(convId)) {
                 messagesByConversation.set(convId, []);
               }
@@ -182,7 +185,7 @@ describe('Message Ordering Property Tests', () => {
             // Persist all messages in random order
             const allMessages = Array.from(messagesByConversation.values()).flat();
             const shuffled = [...allMessages].sort(() => Math.random() - 0.5);
-            
+
             for (const message of shuffled) {
               await messageQueue.persistMessage(message);
             }
@@ -190,17 +193,17 @@ describe('Message Ordering Property Tests', () => {
             // Verify ordering for each conversation
             for (const [convId, expectedMessages] of messagesByConversation) {
               const retrieved = await messageQueue.getMessages(convId);
-              
+
               // Should have correct number of messages
               expect(retrieved.length).toBe(expectedMessages.length);
-              
+
               // Should be in chronological order
               for (let i = 1; i < retrieved.length; i++) {
                 expect(retrieved[i].timestamp.getTime()).toBeGreaterThanOrEqual(
                   retrieved[i - 1].timestamp.getTime()
                 );
               }
-              
+
               // Should contain all expected messages
               for (const expectedMsg of expectedMessages) {
                 const found = retrieved.find(m => m.id === expectedMsg.id);
@@ -227,7 +230,8 @@ describe('Message Ordering Property Tests', () => {
                 isOutgoing: true,
                 status: 'delivered',
                 senderPubkey: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as PublicKeyHex,
-                recipientPubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex
+                recipientPubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex,
+                kind: 'user'
               },
               {
                 id: 'very_new',
@@ -237,7 +241,8 @@ describe('Message Ordering Property Tests', () => {
                 isOutgoing: false,
                 status: 'delivered',
                 senderPubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex,
-                recipientPubkey: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as PublicKeyHex
+                recipientPubkey: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as PublicKeyHex,
+                kind: 'user'
               },
               {
                 id: 'middle',
@@ -247,7 +252,8 @@ describe('Message Ordering Property Tests', () => {
                 isOutgoing: true,
                 status: 'delivered',
                 senderPubkey: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as PublicKeyHex,
-                recipientPubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex
+                recipientPubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex,
+                kind: 'user'
               }
             ];
 

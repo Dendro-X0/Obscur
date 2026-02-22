@@ -144,7 +144,7 @@ export interface ProfileManager {
 
   // Shareable Profile
   getShareableProfile(publicKey: PublicKeyHex, privateKey: PrivateKeyHex): Promise<ShareableProfile>;
-  validateProfileData(profile: ShareableProfile): boolean;
+  validateProfileData(profile: ShareableProfile): Promise<boolean>;
 }
 
 /**

@@ -11,11 +11,13 @@ import { MessageLinkPreview } from "../../../components/message-link-preview";
 import { AudioPlayer } from "./audio-player";
 import { cn } from "../../../lib/cn";
 import { formatTime } from "../utils/formatting";
-import type { Message, ReactionEmoji, MessageStatus, StatusUi } from "../types";
+import type { Message, ReactionEmoji, MessageStatus, StatusUi, SendDirectMessageParams, SendDirectMessageResult } from "../types";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { CommunityInviteCard } from "../../groups/components/community-invite-card";
+import { CommunityInviteResponseCard } from "../../groups/components/community-invite-response-card";
 
 interface MessageListProps {
     hasHydrated: boolean;
@@ -31,8 +33,10 @@ interface MessageListProps {
     onRetryMessage: (message: Message) => void;
     onComposerFocus: () => void;
     onReply?: (message: Message) => void;
+    onImageClick?: (url: string) => void;
     isGroup?: boolean;
     admins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
+    onSendDirectMessage?: (params: SendDirectMessageParams) => Promise<SendDirectMessageResult>;
 }
 
 export function MessageList({
@@ -49,8 +53,10 @@ export function MessageList({
     onRetryMessage,
     onComposerFocus,
     onReply,
+    onImageClick,
     isGroup,
-    admins
+    admins,
+    onSendDirectMessage
 }: MessageListProps) {
     const { t } = useTranslation();
 
@@ -260,7 +266,7 @@ export function MessageList({
                                                                         className={cn(
                                                                             "relative bg-black/5 dark:bg-white/5",
                                                                             (message.attachments!.length === 1 || (index === message.attachments!.length - 1 && message.attachments!.length % 2 !== 0))
-                                                                                ? "col-span-2 aspect-video max-h-80"
+                                                                                ? "col-span-2 aspect-video max-h-[480px]"
                                                                                 : "aspect-square"
                                                                         )}
                                                                     >
@@ -270,6 +276,7 @@ export function MessageList({
                                                                                 alt={attachment.fileName}
                                                                                 containerClassName="h-full w-full rounded-xl"
                                                                                 className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
+                                                                                onClick={() => onImageClick?.(attachment.url)}
                                                                             />
                                                                         ) : attachment.kind === "audio" ? (
                                                                             <div className="h-full w-full flex items-center justify-center p-2">
@@ -288,10 +295,35 @@ export function MessageList({
                                                         )}
 
                                                         <div className="text-[15px] leading-relaxed break-words">
-                                                            <MessageContent content={message.content} isOutgoing={message.isOutgoing} />
+                                                            {(() => {
+                                                                try {
+                                                                    const parsed = JSON.parse(message.content);
+                                                                    if (parsed.type === "community-invite") {
+                                                                        return <CommunityInviteCard
+                                                                            invite={parsed}
+                                                                            isOutgoing={message.isOutgoing}
+                                                                            message={message}
+                                                                            messages={messages}
+                                                                            onSendDirectMessage={onSendDirectMessage}
+                                                                        />;
+                                                                    }
+                                                                    if (parsed.type === "community-invite-response") {
+                                                                        return <CommunityInviteResponseCard
+                                                                            response={parsed}
+                                                                            isOutgoing={message.isOutgoing}
+                                                                        />;
+                                                                    }
+                                                                } catch (e) {
+                                                                    // Not JSON or not an invite, fall through
+                                                                }
+                                                                return (
+                                                                    <>
+                                                                        <MessageContent content={message.content} isOutgoing={message.isOutgoing} />
+                                                                        {message.content && <MessageLinkPreview content={message.content} isOutgoing={message.isOutgoing} />}
+                                                                    </>
+                                                                );
+                                                            })()}
                                                         </div>
-
-                                                        {message.content && <MessageLinkPreview content={message.content} isOutgoing={message.isOutgoing} />}
                                                     </>
                                                 )}
 

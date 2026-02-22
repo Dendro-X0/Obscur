@@ -1,16 +1,15 @@
-
 import { parsePublicKeyInput } from "../../profile/utils/parse-public-key-input";
 import type {
     PersistedChatState,
     PersistedDmConversation,
     PersistedGroupConversation,
+    PersistedConnectionRequest,
     PersistedMessage,
     PersistedContactOverride,
     DmConversation,
     GroupConversation,
     Message,
     MessageKind,
-    MessageStatus,
     Attachment,
     ReplyTo,
     ReactionEmoji,
@@ -19,12 +18,21 @@ import type {
     MessagesByConversationId,
     LastSeenByConversationId
 } from "../types";
+import type { GroupAccessMode } from "../../groups/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 const MAX_PERSISTED_MESSAGES_PER_CONVERSATION: number = 500;
 const PERSISTED_CHAT_STATE_VERSION: number = 2;
-const PERSISTED_CHAT_STATE_STORAGE_KEY: string = "dweb.nostr.pwa.chatState";
+const LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY: string = "dweb.nostr.pwa.chatState";
+const PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX: string = "dweb.nostr.pwa.chatState.v2";
 const LAST_SEEN_STORAGE_PREFIX: string = "dweb.nostr.pwa.last-seen";
+
+const getPersistedChatStateStorageKey = (publicKeyHex: string | null | undefined): string => {
+    if (!publicKeyHex || publicKeyHex.trim().length === 0) {
+        return LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY;
+    }
+    return `${PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX}.${publicKeyHex}`;
+};
 
 // Helper functions for type checking
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -106,7 +114,40 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
 
     if (parsedMemberPubkeys.length === 0) return null;
     if (!isNumber(unreadCount) || !isNumber(lastMessageTimeMs)) return null;
-    return { id, groupId, relayUrl, displayName, memberPubkeys: parsedMemberPubkeys, lastMessage, unreadCount, lastMessageTimeMs };
+
+    // Migration and parsing for new fields
+    const access: GroupAccessMode =
+        (value.access === "private" || value.access === "invite-only") ? "invite-only" :
+            (value.access === "discoverable") ? "discoverable" : "open";
+    const memberCount: number = isNumber(value.memberCount) ? value.memberCount : parsedMemberPubkeys.length;
+    const adminPubkeysRaw: unknown = value.adminPubkeys;
+    const adminPubkeys: string[] = Array.isArray(adminPubkeysRaw)
+        ? adminPubkeysRaw.filter((v): v is string => isString(v) && v.trim().length > 0)
+        : [];
+    const about: string | undefined = isString(value.about) ? value.about : undefined;
+    const avatar: string | undefined = isString(value.avatar) ? value.avatar : undefined;
+
+    return { id, groupId, relayUrl, displayName, memberPubkeys: parsedMemberPubkeys, lastMessage, unreadCount, lastMessageTimeMs, access, memberCount, adminPubkeys, about, avatar };
+};
+
+const parsePersistedConnectionRequest = (value: unknown): PersistedConnectionRequest | null => {
+    if (!isRecord(value)) return null;
+    const { id, status, isOutgoing, introMessage, timestampMs } = value;
+    if (!isString(id) || id.trim().length === 0) return null;
+    if (!isString(status)) return null;
+    if (!isBoolean(isOutgoing)) return null;
+    if (!isNumber(timestampMs)) return null;
+    if (introMessage !== undefined && !isString(introMessage)) return null;
+    if (status !== "pending" && status !== "accepted" && status !== "declined" && status !== "canceled") {
+        return null;
+    }
+    return {
+        id,
+        status,
+        isOutgoing,
+        introMessage: introMessage as string | undefined,
+        timestampMs
+    };
 };
 
 const parsePersistedContactOverride = (value: unknown): PersistedContactOverride | null => {
@@ -156,7 +197,7 @@ const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
 
 const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
     if (!isRecord(value)) return null;
-    const { version, createdContacts, createdGroups, unreadByConversationId, unreadByContactId, contactOverridesByContactId, messagesByConversationId, messagesByContactId } = value;
+    const { version, createdContacts, createdGroups, unreadByConversationId, unreadByContactId, contactOverridesByContactId, messagesByConversationId, messagesByContactId, connectionRequests, pinnedChatIds, hiddenChatIds } = value;
 
     if (!isNumber(version) || (version !== 1 && version !== PERSISTED_CHAT_STATE_VERSION)) return null;
     if (!Array.isArray(createdContacts) || !isRecord(contactOverridesByContactId)) return null;
@@ -195,6 +236,20 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
         parsedMessagesByConversationId[conversationId] = parsedList;
     });
 
+    const parsedConnectionRequests: ReadonlyArray<PersistedConnectionRequest> | undefined = Array.isArray(connectionRequests)
+        ? connectionRequests
+            .map((cr: unknown) => parsePersistedConnectionRequest(cr))
+            .filter((cr: PersistedConnectionRequest | null): cr is PersistedConnectionRequest => cr !== null)
+        : undefined;
+
+    const parsedPinnedChatIds: ReadonlyArray<string> | undefined = Array.isArray(pinnedChatIds)
+        ? pinnedChatIds.filter(isString)
+        : undefined;
+
+    const parsedHiddenChatIds: ReadonlyArray<string> | undefined = Array.isArray(hiddenChatIds)
+        ? hiddenChatIds.filter(isString)
+        : undefined;
+
     return {
         version: PERSISTED_CHAT_STATE_VERSION,
         createdContacts: parsedCreatedContacts,
@@ -202,24 +257,49 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
         unreadByConversationId: parsedUnreadByConversationId,
         contactOverridesByContactId: parsedOverridesByContactId,
         messagesByConversationId: parsedMessagesByConversationId,
+        ...(parsedConnectionRequests ? { connectionRequests: parsedConnectionRequests } : {}),
+        pinnedChatIds: parsedPinnedChatIds,
+        hiddenChatIds: parsedHiddenChatIds
     };
 };
 
 // Public persistence API
-export const loadPersistedChatState = (): PersistedChatState | null => {
+export const loadPersistedChatState = (publicKeyHex?: string | null): PersistedChatState | null => {
     try {
-        const raw = localStorage.getItem(PERSISTED_CHAT_STATE_STORAGE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return parsePersistedChatState(parsed);
+        const primaryKey = getPersistedChatStateStorageKey(publicKeyHex);
+        const rawPrimary = localStorage.getItem(primaryKey);
+        if (rawPrimary) {
+            const parsed = JSON.parse(rawPrimary);
+            const next = parsePersistedChatState(parsed);
+            if (next) {
+                return next;
+            }
+        }
+
+        if (publicKeyHex && publicKeyHex.trim().length > 0) {
+            const rawLegacy = localStorage.getItem(LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY);
+            if (!rawLegacy) return null;
+            const parsedLegacy = JSON.parse(rawLegacy);
+            const nextLegacy = parsePersistedChatState(parsedLegacy);
+            if (!nextLegacy) return null;
+            try {
+                localStorage.setItem(primaryKey, JSON.stringify(nextLegacy));
+            } catch {
+                return nextLegacy;
+            }
+            return nextLegacy;
+        }
+
+        return null;
     } catch {
         return null;
     }
 };
 
-export const savePersistedChatState = (state: PersistedChatState): void => {
+export const savePersistedChatState = (state: PersistedChatState, publicKeyHex?: string | null): void => {
     try {
-        localStorage.setItem(PERSISTED_CHAT_STATE_STORAGE_KEY, JSON.stringify(state));
+        const key = getPersistedChatStateStorageKey(publicKeyHex);
+        localStorage.setItem(key, JSON.stringify(state));
     } catch {
         return;
     }
@@ -253,10 +333,15 @@ export const toPersistedGroupConversation = (group: GroupConversation): Persiste
     groupId: group.groupId,
     relayUrl: group.relayUrl,
     displayName: group.displayName,
-    memberPubkeys: [...group.memberPubkeys],
+    memberPubkeys: [...(group.memberPubkeys || [])],
     lastMessage: group.lastMessage,
     unreadCount: group.unreadCount,
     lastMessageTimeMs: group.lastMessageTime.getTime(),
+    access: group.access,
+    memberCount: group.memberCount,
+    adminPubkeys: [...(group.adminPubkeys || [])],
+    avatar: group.avatar,
+    about: group.about,
 });
 
 export const fromPersistedGroupConversation = (group: PersistedGroupConversation): GroupConversation => ({
@@ -269,6 +354,11 @@ export const fromPersistedGroupConversation = (group: PersistedGroupConversation
     lastMessage: group.lastMessage,
     unreadCount: group.unreadCount,
     lastMessageTime: new Date(group.lastMessageTimeMs),
+    access: group.access || "open",
+    memberCount: group.memberCount || 0,
+    adminPubkeys: group.adminPubkeys || [],
+    avatar: group.avatar,
+    about: group.about,
 });
 
 export const toPersistedOverridesByContactId = (

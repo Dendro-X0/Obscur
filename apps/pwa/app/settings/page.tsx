@@ -10,11 +10,14 @@ import {
   Palette,
   Lock,
   Database,
+  Check,
+  Eye,
   EyeOff,
   RefreshCcw,
   Activity,
   Bell,
   ShieldAlert,
+  Info,
   Loader2,
   Trash2,
   LogOut,
@@ -22,45 +25,58 @@ import {
   Copy
 } from "lucide-react";
 import { RelayDashboard } from "../components/relay-dashboard";
-import { Button } from "../components/ui/button";
-import { toast } from "../components/ui/toast";
-import { ConfirmDialog } from "../components/ui/confirm-dialog";
-import { Card } from "../components/ui/card";
-import { EmptyState } from "../components/ui/empty-state";
-import { PageShell } from "../components/page-shell";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { cn } from "@/app/lib/utils";
-import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
-import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
-import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-// unused import removed
-import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import type { RelayConnection } from "@/app/features/relays/utils/relay-connection";
-import { ThemeToggle } from "../components/theme-toggle";
-// unused import removed
-import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
-import { useNotificationPreference } from "@/app/features/notifications/hooks/use-notification-preference";
-import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
-import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
-import { useProfile } from "@/app/features/profile/hooks/use-profile";
-import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
-import { DesktopUpdater } from "../components/desktop-updater";
-// unused import removed
-import { ShareInviteCard } from "../components/share-invite-card";
-import { LanguageSelector } from "../components/language-selector";
-import { useTranslation } from "react-i18next";
-import { TrustSettingsPanel } from "../features/messaging/components/trust-settings-panel";
-import { AutoLockSettingsPanel } from "../features/settings/components/auto-lock-settings-panel";
-import { STORAGE_KEY_NIP96, Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
-import packageJson from "@/package.json";
-import { RECOMMENDED_STORAGE_PROVIDERS } from "@/app/features/messaging/lib/storage-providers";
-import { Check, Info } from "lucide-react";
 import { AvatarUpload } from "../components/avatar-upload";
+import { useTranslation } from "react-i18next";
+import { PageShell } from "@/app/components/page-shell";
+import { cn } from "@/app/lib/utils";
+import { Card } from "@/app/components/ui/card";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { Label } from "@/app/components/ui/label";
+import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
+import { toast } from "@/app/components/ui/toast";
+import { ShareInviteCard } from "@/app/components/share-invite-card";
+import { DesktopUpdater } from "@/app/components/desktop-updater";
+import { ThemeToggle } from "@/app/components/theme-toggle";
+import { LanguageSelector } from "@/app/components/language-selector";
+import { EmptyState } from "@/app/components/ui/empty-state";
+import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useProfile } from "@/app/features/profile/hooks/use-profile";
+import { useNotificationPreference } from "@/app/features/notifications/hooks/use-notification-preference";
+import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import type { RelayConnection } from "@/app/features/relays/hooks/relay-connection";
+import { validateRelayUrl } from "@/app/features/relays/hooks/validate-relay-url";
+import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
+import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
+import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
+import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-lock-settings-panel";
+import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
+import type { Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
+import { STORAGE_KEY_NIP96 } from "@/app/features/messaging/lib/nip96-upload-service";
 import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
 import { invoke } from "@tauri-apps/api/core";
 import { useUserInviteCode } from "@/app/features/invites/hooks/use-user-invite-code";
+import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
+import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
+
+const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+
+const RECOMMENDED_STORAGE_PROVIDERS: ReadonlyArray<Readonly<{
+  name: string;
+  url: string;
+  description: string;
+  maxSize?: string;
+}>> = [
+  {
+    name: "nostr.build",
+    url: "https://nostr.build/api/v2/upload/files",
+    description: "Popular NIP-96 provider with good uptime.",
+    maxSize: "~100MB"
+  }
+];
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -163,6 +179,21 @@ export default function SettingsPage(): React.JSX.Element {
   const [isVerifyingNip05, setIsVerifyingNip05] = useState(false);
   const [savedInviteCode, setSavedInviteCode] = useState<string>(profile.state.profile.inviteCode || "");
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => PrivacySettingsService.getSettings());
+  const [quickPassword, setQuickPassword] = useState<string>("");
+  const [quickPasswordConfirm, setQuickPasswordConfirm] = useState<string>("");
+  const [isQuickPasswordVisible, setIsQuickPasswordVisible] = useState<boolean>(false);
+  const [isQuickPasswordConfirmVisible, setIsQuickPasswordConfirmVisible] = useState<boolean>(false);
+
+  const generatePassword = (length: number = 12): string => {
+    const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    let out = "";
+    for (let i = 0; i < length; i++) {
+      out += charset[bytes[i]! % charset.length];
+    }
+    return out;
+  };
   const [nip96Config, setNip96Config] = useState<Nip96Config>(() => {
     const fallback: Nip96Config = { apiUrl: "", enabled: false };
     if (typeof window === "undefined") {
@@ -542,7 +573,7 @@ export default function SettingsPage(): React.JSX.Element {
                       <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
                         <span className="text-sm font-medium">{t("settings.updates.currentVersion")}</span>
                         <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                          v{packageJson.version}
+                          v{APP_VERSION}
                         </span>
                       </div>
                       <DesktopUpdater />
@@ -901,6 +932,118 @@ export default function SettingsPage(): React.JSX.Element {
 
                 {activeTab === "security" && (
                   <div className="max-w-3xl w-full space-y-6">
+                    <Card title="Quick Unlock Password" description="Set a short password to unlock Obscur faster on this device." className="w-full">
+                      <div className="space-y-4">
+                        <div className="text-xs text-zinc-500 leading-relaxed">
+                          This password is stored locally and only protects access on this device. It does not replace your passphrase.
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="quick-password">Password</Label>
+                            <div className="relative">
+                              <Input
+                                id="quick-password"
+                                type={isQuickPasswordVisible ? "text" : "password"}
+                                value={quickPassword}
+                                onChange={(e) => setQuickPassword(e.target.value)}
+                                placeholder="Enter a short password"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setIsQuickPasswordVisible(v => !v)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                aria-label={isQuickPasswordVisible ? "Hide password" : "Show password"}
+                              >
+                                {isQuickPasswordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="quick-password-confirm">Confirm</Label>
+                            <div className="relative">
+                              <Input
+                                id="quick-password-confirm"
+                                type={isQuickPasswordConfirmVisible ? "text" : "password"}
+                                value={quickPasswordConfirm}
+                                onChange={(e) => setQuickPasswordConfirm(e.target.value)}
+                                placeholder="Re-enter password"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setIsQuickPasswordConfirmVisible(v => !v)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                aria-label={isQuickPasswordConfirmVisible ? "Hide password" : "Show password"}
+                              >
+                                {isQuickPasswordConfirmVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                              const next = generatePassword(12);
+                              setQuickPassword(next);
+                              setQuickPasswordConfirm(next);
+                            }}
+                          >
+                            Generate Password
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={async () => {
+                              if (!publicKeyHex) {
+                                toast.error("No identity found");
+                                return;
+                              }
+                              if (identity.state.status !== "unlocked" || !identity.state.privateKeyHex) {
+                                toast.error("Unlock your identity to set a quick password");
+                                return;
+                              }
+                              if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
+                                toast.error("Quick password cannot be set while using native secure session. Unlock with your passphrase first.");
+                                return;
+                              }
+                              if (!quickPassword || quickPassword.length < 4) {
+                                toast.error("Password must be at least 4 characters");
+                                return;
+                              }
+                              if (quickPassword !== quickPasswordConfirm) {
+                                toast.error("Passwords do not match");
+                                return;
+                              }
+                              await PinLockService.setPin({
+                                publicKeyHex,
+                                privateKeyHex: identity.state.privateKeyHex,
+                                pin: quickPassword
+                              });
+                              setQuickPassword("");
+                              setQuickPasswordConfirm("");
+                              toast.success("Quick password updated");
+                            }}
+                          >
+                            Save Password
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                              if (!publicKeyHex) {
+                                toast.error("No identity found");
+                                return;
+                              }
+                              PinLockService.removePin(publicKeyHex);
+                              toast.success("Quick password removed");
+                            }}
+                          >
+                            Remove Password
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
                     <AutoLockSettingsPanel />
                     <Card title="Data & Cache" description="Manage your local data and session cache." className="w-full">
                       <div className="space-y-4">

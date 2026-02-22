@@ -200,6 +200,7 @@ export type UseEnhancedDMControllerResult = Readonly<{
     peerPublicKeyInput: string;
     plaintext: string;
     replyTo?: string;
+    customTags?: string[][];
   }>) => Promise<SendResult>;
   retryFailedMessage: (messageId: string) => Promise<void>;
   getMessageStatus: (messageId: string) => MessageStatus | null;
@@ -331,8 +332,8 @@ export const useEnhancedDMController = (
   // Initialize message queue
   const messageQueue = useMemo(() => {
     if (!params.myPublicKeyHex) return null;
-    return new MessageQueue(params.myPublicKeyHex, params.myPrivateKeyHex || undefined);
-  }, [params.myPublicKeyHex, params.myPrivateKeyHex]);
+    return new MessageQueue(params.myPublicKeyHex);
+  }, [params.myPublicKeyHex]);
 
   // Track pending messages for status updates
   const pendingMessages = useRef<Map<string, Message>>(new Map());
@@ -744,6 +745,36 @@ export const useEnhancedDMController = (
         if (event.kind === 1059) {
           // NIP-17 Gift Wrap
           const rumor = await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex);
+
+          if (rumor.kind === 10104) {
+            try {
+              const payload = JSON.parse(rumor.content);
+              if (payload.type === 'group_invite') {
+                const { roomKeyStore } = await import("../../crypto/room-key-store");
+                await roomKeyStore.saveRoomKey(payload.groupId, payload.roomKeyHex);
+
+                const newGroup = {
+                  kind: 'group',
+                  id: `group:${payload.groupId}:${payload.relayUrl}`,
+                  groupId: payload.groupId,
+                  relayUrl: payload.relayUrl,
+                  displayName: payload.name || "Private Group",
+                  memberPubkeys: [currentParams.myPublicKeyHex],
+                  lastMessage: 'Joined private encrypted group',
+                  unreadCount: 1,
+                  lastMessageTime: new Date(rumor.created_at * 1000),
+                  access: "private",
+                  memberCount: 1
+                };
+
+                window.dispatchEvent(new CustomEvent('obscur:group-invite', { detail: newGroup }));
+              }
+            } catch (e) {
+              console.error("Failed to process group invite", e);
+            }
+            return; // Stop processing as it's not a DM message
+          }
+
           plaintext = rumor.content;
           actualSenderPubkey = rumor.pubkey as PublicKeyHex;
           usedEventId = rumor.id; // Use internal event ID
@@ -827,6 +858,21 @@ export const useEnhancedDMController = (
       // This ensures the first message is visible in ChatView when viewing a request.
       const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex)).tags : event.tags;
       const isConnectionRequest = effectiveTags?.some(tag => tag[0] === 't' && tag[1] === 'connection-request');
+      const isConnectionAccept = effectiveTags?.some(tag => tag[0] === 't' && tag[1] === 'connection-accept');
+
+      if (isConnectionAccept) {
+        const rs = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });
+        const hasOutgoingPending = !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
+        if (hasOutgoingPending) {
+          console.log('Detected connection-accept acknowledgement from:', actualSenderPubkey, '. Marking as accepted.');
+          currentParams.peerTrust?.acceptPeer({ publicKeyHex: actualSenderPubkey });
+          currentParams.requestsInbox?.setStatus({
+            peerPublicKeyHex: actualSenderPubkey,
+            status: 'accepted',
+            isOutgoing: true
+          });
+        }
+      }
 
       if (!isAcceptedContact) {
         if (hasOutgoingPending) {

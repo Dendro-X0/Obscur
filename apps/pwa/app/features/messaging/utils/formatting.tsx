@@ -16,6 +16,10 @@ export const formatTime = (date: Date, currentNowMs: number | null): string => {
         return "Just now";
     }
 
+    if (diff < ONE_MINUTE_MS) {
+        return "Just now";
+    }
+
     if (diff < ONE_HOUR_MS) {
         return `${Math.floor(diff / ONE_MINUTE_MS)}m ago`;
     }
@@ -45,11 +49,11 @@ export const highlightText = (params: Readonly<{ text: string; query: string }>)
         }
         const matchEnd: number = index + query.length;
         parts.push(
-            <mark key={`${index}-${matchEnd}`} className = "rounded bg-amber-200/70 px-0.5 text-inherit dark:bg-amber-400/30" >
-                { params.text.slice(index, matchEnd) }
-                </mark>
-    );
-cursor = matchEnd;
-  }
-return React.createElement(React.Fragment, null, parts);
+            <mark key={`${index}-${matchEnd}`} className="rounded bg-amber-200/70 px-0.5 text-inherit dark:bg-amber-400/30" >
+                {params.text.slice(index, matchEnd)}
+            </mark>
+        );
+        cursor = matchEnd;
+    }
+    return React.createElement(React.Fragment, null, parts);
 };

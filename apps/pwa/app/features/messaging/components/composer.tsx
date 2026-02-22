@@ -103,6 +103,25 @@ export function Composer({
         }, 0);
     };
 
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData.items;
+        const files: File[] = [];
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.startsWith("image/")) {
+                const file = items[i].getAsFile();
+                if (file) files.push(file);
+            }
+        }
+
+        if (files.length > 0) {
+            // Create a FileList-like object using DataTransfer
+            const dataTransfer = new DataTransfer();
+            files.forEach(file => dataTransfer.items.add(file));
+            onPickAttachments(dataTransfer.files);
+        }
+    };
+
     return (
         <div className="border-t border-black/[0.03] bg-white/80 p-4 safe-bottom dark:border-white/[0.03] dark:bg-black/80 backdrop-blur-xl">
             {/* Connection Pending Gated State */}
@@ -140,7 +159,7 @@ export function Composer({
                             className="h-7 w-7 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
                             onClick={() => setReplyTo(null)}
                         >
-                            <X className="h-3.5 w-3.5" />
+                            <X className="h-5 w-5" />
                         </Button>
                     </div>
                 </div>
@@ -173,7 +192,7 @@ export function Composer({
                                         className="h-8 w-8 rounded-full shadow-lg"
                                         onClick={() => removePendingAttachment(index)}
                                     >
-                                        <X className="h-4 w-4" />
+                                        <X className="h-5 w-5" />
                                     </Button>
                                 </div>
                             </div>
@@ -226,7 +245,7 @@ export function Composer({
                     onClick={onSelectFiles}
                     aria-label={t("messaging.media")}
                 >
-                    <Paperclip className="h-5 w-5 text-zinc-500" />
+                    <Paperclip className="h-6 w-6 text-zinc-500" />
                 </Button>
 
                 <Textarea
@@ -234,6 +253,7 @@ export function Composer({
                     ref={textareaRef}
                     value={messageInput}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
+                    onPaste={handlePaste}
                     onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                         if (isGated) return;
                         if (e.key === "Enter" && !e.shiftKey) {
@@ -259,7 +279,7 @@ export function Composer({
                         disabled={isGated}
                         aria-label={t("messaging.searchEmojis")}
                     >
-                        <Smile className="h-5 w-5 text-zinc-500" />
+                        <Smile className="h-6 w-6 text-zinc-500" />
                     </Button>
 
                     {showEmojiPicker && (
@@ -302,9 +322,9 @@ export function Composer({
                     aria-label={t("common.send")}
                 >
                     {isUploadingAttachment ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <Loader2 className="h-6 w-6 animate-spin" />
                     ) : (
-                        <Send className="h-5 w-5 translate-x-0.5 mt-[-1px]" />
+                        <Send className="h-6 w-6 translate-x-0.5 mt-[-1px]" />
                     )}
                 </Button>
             </div>

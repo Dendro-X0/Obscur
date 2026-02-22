@@ -10,7 +10,10 @@ import { MessageMenu } from "./message-menu";
 import { ReactionPicker } from "./reaction-picker";
 import { Lock, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary } from "../types";
+import type {
+    Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary,
+    SendDirectMessageParams, SendDirectMessageResult
+} from "../types";
 import Image from "next/image";
 
 export interface ChatViewProps {
@@ -50,6 +53,7 @@ export interface ChatViewProps {
     messageInput: string;
     setMessageInput: (val: string) => void;
     handleSendMessage: () => void;
+    onSendDirectMessage?: (params: SendDirectMessageParams) => Promise<SendDirectMessageResult>;
     isUploadingAttachment: boolean;
     pendingAttachments: ReadonlyArray<File>;
     pendingAttachmentPreviewUrls: ReadonlyArray<string>;
@@ -178,7 +182,7 @@ export function ChatView(props: ChatViewProps) {
                             </span>
                         </div>
                         <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1.5 rounded-full ring-4 ring-white dark:ring-black">
-                            <Lock className="h-4 w-4" />
+                            <Lock className="h-5 w-5" />
                         </div>
                     </div>
 
@@ -211,8 +215,18 @@ export function ChatView(props: ChatViewProps) {
                     onRetryMessage={props.onRetryMessage}
                     onComposerFocus={() => props.composerTextareaRef.current?.focus()}
                     onReply={props.onReferenceMessage}
+                    onImageClick={(url) => {
+                        const index = props.selectedConversationMediaItems.findIndex(item => item.attachment.url === url);
+                        if (index !== -1) {
+                            props.setLightboxIndex(index);
+                        } else {
+                            // If for some reason it's not in the media items, we can handle it or just do nothing
+                            // For now, index -1 means it's not found.
+                        }
+                    }}
                     isGroup={props.conversation.kind === "group"}
                     admins={props.groupAdmins}
+                    onSendDirectMessage={props.onSendDirectMessage}
                 />
             )}
 

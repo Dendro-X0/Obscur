@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ProfileSettings } from '../profile-settings';
-import * as profileManagerModule from '../../../lib/invites/profile-manager';
-import type { UserProfile, PrivacySettings } from '../../../lib/invites/types';
+import * as profileManagerModule from '../../../features/invites/utils/profile-manager';
+import type { UserProfile, PrivacySettings } from '../../../features/invites/utils/types';
 
 // Mock the profile manager
-vi.mock('../../../lib/invites/profile-manager');
+vi.mock('../../../features/invites/utils/profile-manager');
 
 describe('ProfileSettings', () => {
   const mockProfile: UserProfile = {

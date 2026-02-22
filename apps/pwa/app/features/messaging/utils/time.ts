@@ -11,12 +11,13 @@ export const subscribeNowMs = (listener: NowMsListener): (() => void) => {
     nowMsListeners.add(listener);
     if (!isNowMsScheduled) {
         isNowMsScheduled = true;
-        queueMicrotask((): void => {
+        nowMsSnapshot = Date.now();
+        setInterval((): void => {
             nowMsSnapshot = Date.now();
             nowMsListeners.forEach((nextListener: NowMsListener): void => {
                 nextListener();
             });
-        });
+        }, 30000);
     }
     return (): void => {
         nowMsListeners.delete(listener);

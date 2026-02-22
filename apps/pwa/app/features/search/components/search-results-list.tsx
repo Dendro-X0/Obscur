@@ -50,10 +50,18 @@ export function SearchResultsList({ results, onSelect, isAccepted, showSuggestio
                 const trusted = isAccepted(profile.pubkey);
                 const displayName = profile.displayName || profile.name || t("common.unknown");
                 return (
-                    <button
+                    <div
+                        role="button"
+                        tabIndex={0}
                         key={profile.pubkey}
                         onClick={() => onSelect(profile)}
-                        className="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 border border-transparent hover:border-black/5 dark:hover:border-white/5 transition-all text-left group"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                onSelect(profile);
+                            }
+                        }}
+                        className="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 border border-transparent hover:border-black/5 dark:hover:border-white/5 transition-all text-left group cursor-pointer outline-none focus-visible:bg-zinc-100 dark:focus-visible:bg-zinc-900 focus-visible:border-black/5 dark:focus-visible:border-white/10"
                     >
                         <Avatar className="h-11 w-11 border border-black/5 dark:border-white/10 shrink-0">
                             {profile.picture ? (
@@ -104,7 +112,7 @@ export function SearchResultsList({ results, onSelect, isAccepted, showSuggestio
                                 {t("common.select")}
                             </Button>
                         </div>
-                    </button>
+                    </div>
                 );
             })}
         </div>

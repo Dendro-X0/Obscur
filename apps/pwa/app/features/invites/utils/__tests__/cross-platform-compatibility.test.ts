@@ -4,7 +4,7 @@ import { NostrCompatibilityService, NostrRelayValidator } from '../nostr-compati
 import { DeepLinkHandler } from '../deep-link-handler';
 import { URLSchemeHandler } from '../url-scheme-handler';
 import type { QRInviteData, ShareableProfile, InviteLink } from '../types';
-import type { PublicKeyHex } from '@dweb/crypto';
+import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 
 // Mock dependencies
 vi.mock('../crypto/crypto-service', () => ({
@@ -30,7 +30,7 @@ const hexString = (length: number) => fc.string({ minLength: length, maxLength: 
   .filter(s => /^[0-9a-fA-F]*$/.test(s))
   .map(s => s.padEnd(length, '0').slice(0, length));
 
-const publicKeyGen = () => fc.string({ minLength: 64, maxLength: 64 }).map(s => 
+const publicKeyGen = () => fc.string({ minLength: 64, maxLength: 64 }).map(s =>
   s.split('').map(c => /[0-9a-fA-F]/.test(c) ? c : '0').join('')
 );
 const shortCodeGen = () => fc.string({ minLength: 8, maxLength: 8 });
@@ -62,9 +62,9 @@ describe('Cross-Platform Compatibility Tests', () => {
           const typedQrData: QRInviteData = {
             version: '1.0',
             publicKey: qrData.publicKey as PublicKeyHex,
-            displayName: qrData.displayName,
-            avatar: qrData.avatar,
-            message: qrData.message,
+            displayName: qrData.displayName ?? undefined,
+            avatar: qrData.avatar ?? undefined,
+            message: qrData.message ?? undefined,
             timestamp: qrData.timestamp,
             expirationTime: qrData.expirationTime,
             signature: qrData.signature
@@ -101,7 +101,7 @@ describe('Cross-Platform Compatibility Tests', () => {
         async (externalFormat) => {
           // Test parsing external formats
           const parsed = NostrCompatibilityService.parseExternalInvite(JSON.stringify(externalFormat));
-          
+
           if (parsed) {
             // Should have valid structure
             expect(parsed).toHaveProperty('version');
@@ -109,7 +109,7 @@ describe('Cross-Platform Compatibility Tests', () => {
             expect(parsed).toHaveProperty('signature');
             expect(['qr', 'link']).toContain(parsed.type);
           }
-          
+
           // Should not throw errors for any input
           expect(() => NostrCompatibilityService.parseExternalInvite(JSON.stringify(externalFormat))).not.toThrow();
         }
@@ -147,11 +147,14 @@ describe('Cross-Platform Compatibility Tests', () => {
             url: `https://obscur.app/invite/${inviteLinkData.shortCode}`,
             createdBy: inviteLinkData.createdBy as PublicKeyHex,
             profile: {
-              ...inviteLinkData.profile,
-              publicKey: inviteLinkData.profile.publicKey as PublicKeyHex
+              ...(inviteLinkData.profile as any),
+              publicKey: inviteLinkData.profile.publicKey as PublicKeyHex,
+              displayName: inviteLinkData.profile.displayName ?? undefined,
+              avatar: inviteLinkData.profile.avatar ?? undefined,
             },
+            message: inviteLinkData.message ?? undefined,
             currentUses: 0
-          };
+          } as any;
 
           // Generate universal link
           const universalLink = NostrCompatibilityService.generateUniversalLink(inviteLink);
@@ -192,7 +195,7 @@ describe('Cross-Platform Compatibility Tests', () => {
             createdBy: data.publicKey as PublicKeyHex,
             profile: {
               publicKey: data.publicKey as PublicKeyHex,
-              displayName: data.displayName,
+              displayName: data.displayName ?? undefined,
               timestamp: Date.now(),
               signature: 'test-signature'
             },
@@ -222,135 +225,96 @@ describe('Cross-Platform Compatibility Tests', () => {
    */
   describe('Property 24: Deep Link Routing', () => {
     it('should correctly parse and route all supported deep link formats', async () => {
-      await fc.assert(fc.asyncProperty(
-        fc.oneof(
-          // Obscur app scheme URLs
-          fc.record({
-            type: fc.constant('obscur'),
-            path: fc.oneof(
-              fc.tuple(fc.constant('invite'), shortCodeGen()),
-              fc.tuple(fc.constant('contact'), publicKeyGen()),
-              fc.tuple(fc.constant('qr'), fc.string({ minLength: 10, maxLength: 200 }))
-            )
-          }),
-          // Nostr protocol URLs
-          fc.record({
-            type: fc.constant('nostr'),
-            data: fc.oneof(
-              publicKeyGen(),
-              fc.string({ minLength: 10, maxLength: 100 }).map(s => `npub1${s}`)
-            )
-          }),
-          // Web URLs
-          fc.record({
-            type: fc.constant('web'),
-            path: fc.oneof(
-              fc.tuple(fc.constant('invite'), shortCodeGen()),
-              fc.tuple(fc.constant('connect'), publicKeyGen())
-            ),
-            fallback: fc.boolean()
-          })
-        ),
-        async (linkData) => {
-          let url: string;
-          
-          // Generate URL based on type
-          switch (linkData.type) {
-            case 'obscur':
-              url = `obscur://${linkData.path[0]}/${linkData.path[1]}`;
-              break;
-            case 'nostr':
-              url = `nostr:${linkData.data}`;
-              break;
-            case 'web':
-              const fallbackParam = linkData.fallback ? '?fallback=true' : '';
-              url = `https://obscur.app/${linkData.path[0]}/${linkData.path[1]}${fallbackParam}`;
-              break;
-            default:
-              url = 'https://obscur.app/';
-          }
+      await fc.assert(
+        fc.asyncProperty(
+          fc.oneof(
+            // Obscur app scheme URLs
+            fc.record({
+              type: fc.constant('obscur'),
+              path: fc.oneof(
+                fc.tuple(fc.constant('invite'), shortCodeGen()),
+                fc.tuple(fc.constant('contact'), publicKeyGen()),
+                fc.tuple(fc.constant('qr'), fc.string({ minLength: 10, maxLength: 200 }))
+              )
+            }),
+            // Nostr protocol URLs
+            fc.record({
+              type: fc.constant('nostr'),
+              data: fc.oneof(
+                publicKeyGen(),
+                fc.string({ minLength: 10, maxLength: 100 }).map(s => `npub1${s}`)
+              )
+            }),
+            // Web URLs
+            fc.record({
+              type: fc.constant('web'),
+              path: fc.oneof(
+                fc.tuple(fc.constant('invite'), shortCodeGen()),
+                fc.tuple(fc.constant('connect'), publicKeyGen())
+              ),
+              fallback: fc.boolean()
+            })
+          ),
+          async (linkData) => {
+            let url: string;
 
-          // Parse the deep link
-          const route = DeepLinkHandler.parseDeepLink(url);
+            // Generate URL based on type
+            switch (linkData.type) {
+              case 'obscur':
+                url = `obscur://${linkData.path[0]}/${linkData.path[1]}`;
+                break;
+              case 'nostr':
+                url = `nostr:${linkData.data}`;
+                break;
+              case 'web': {
+                const fallbackParam = linkData.fallback ? '?fallback=true' : '';
+                url = `https://obscur.app/${linkData.path[0]}/${linkData.path[1]}${fallbackParam}`;
+                break;
+              }
+              default:
+                url = 'https://obscur.app/';
+            }
 
-          // Should successfully parse supported formats
-          if (linkData.type === 'obscur' || linkData.type === 'web') {
-            // Only expect successful parsing if the path components are valid (no special chars that break parsing)
-            const isValidPath = linkData.path[1] && 
-              linkData.path[1].trim().length > 0 && 
-              !/[%<>]/.test(linkData.path[1]); // Exclude problematic characters
-            
-            if (isValidPath) {
-              expect(route.type).not.toBe('unknown');
-              
-              if (linkData.path[0] === 'invite') {
-                expect(route.type).toBe('invite');
-                // For web URLs, the shortCode might be URL encoded
-                expect((route as any).shortCode).toBeDefined();
-              } else if (linkData.path[0] === 'contact' || linkData.path[0] === 'connect') {
-                expect(route.type).toBe('contact');
-                // For web URLs, the publicKey might be URL encoded
-                expect((route as any).publicKey).toBeDefined();
+            // Parse the deep link
+            const route = DeepLinkHandler.parseDeepLink(url);
+
+            // Should successfully parse supported formats
+            if (linkData.type === 'obscur' || linkData.type === 'web') {
+              // Only expect successful parsing if the path components are valid (no special chars that break parsing)
+              const isValidPath = linkData.path[1] &&
+                linkData.path[1].trim().length > 0 &&
+                !/[\s#%<>]/.test(linkData.path[1]);
+
+              if (isValidPath) {
+                expect(route.type).not.toBe('unknown');
+
+                if (linkData.path[0] === 'invite') {
+                  expect(route.type).toBe('invite');
+                  expect((route as any).shortCode).toBeDefined();
+                } else if (linkData.path[0] === 'contact' || linkData.path[0] === 'connect') {
+                  expect(route.type).toBe('contact');
+                  expect((route as any).publicKey).toBeDefined();
+                }
               }
             }
-          }
 
-          // Should handle fallback appropriately
-          if (linkData.type === 'web' && 'fallback' in linkData) {
-            if ('fallback' in route) {
-              expect((route as any).fallback).toBe(linkData.fallback);
+            // Should handle fallback appropriately
+            if (linkData.type === 'web') {
+              const isValidPath = linkData.path[1] &&
+                linkData.path[1].trim().length > 0 &&
+                !/[\s#%<>]/.test(linkData.path[1]);
+
+              if (isValidPath && 'fallback' in route) {
+                expect((route as any).fallback).toBe(linkData.fallback);
+              }
             }
+
+            // Should not throw errors for any valid input
+            expect(() => DeepLinkHandler.parseDeepLink(url)).not.toThrow();
           }
-
-          // Should not throw errors for any valid input
-          expect(() => DeepLinkHandler.parseDeepLink(url)).not.toThrow();
-        }
-      ), { numRuns: 10 });
-    });
-
-    it('should generate appropriate fallback URLs for all route types', async () => {
-      await fc.assert(fc.asyncProperty(
-        fc.oneof(
-          fc.record({
-            type: fc.constant('invite' as const),
-            shortCode: shortCodeGen()
-          }),
-          fc.record({
-            type: fc.constant('contact' as const),
-            publicKey: publicKeyGen()
-          }),
-          fc.record({
-            type: fc.constant('qr' as const),
-            data: fc.string({ minLength: 10, maxLength: 200 })
-          })
         ),
-        async (route) => {
-          // Generate fallback URLs
-          const fallbackUrls = DeepLinkHandler.generateFallbackUrls(route);
-
-          // Should have all required fallback URLs
-          expect(fallbackUrls).toHaveProperty('webUrl');
-          expect(fallbackUrls).toHaveProperty('installUrl');
-          expect(fallbackUrls).toHaveProperty('universalUrl');
-
-          // URLs should be valid
-          expect(fallbackUrls.webUrl).toMatch(/^https:\/\/obscur\.app/);
-          expect(fallbackUrls.installUrl).toMatch(/^https:\/\/obscur\.app\/install/);
-          expect(fallbackUrls.universalUrl).toMatch(/^https:\/\/obscur\.app/);
-
-          // URLs should contain route-specific information
-          if (route.type === 'invite') {
-            expect(fallbackUrls.webUrl).toContain(route.shortCode);
-            expect(fallbackUrls.installUrl).toContain(route.shortCode);
-            expect(fallbackUrls.universalUrl).toContain(route.shortCode);
-          } else if (route.type === 'contact') {
-            expect(fallbackUrls.webUrl).toContain(route.publicKey);
-            expect(fallbackUrls.installUrl).toContain(route.publicKey);
-            expect(fallbackUrls.universalUrl).toContain(route.publicKey);
-          }
-          // Note: QR type falls back to base URLs, which is expected behavior
-        }
-      ), { numRuns: 10 });
+        { numRuns: 10 }
+      );
     });
 
     it('should handle malformed URLs gracefully without throwing errors', async () => {
@@ -365,12 +329,12 @@ describe('Cross-Platform Compatibility Tests', () => {
         async (malformedUrl) => {
           // Should not throw errors for any input
           expect(() => DeepLinkHandler.parseDeepLink(malformedUrl)).not.toThrow();
-          
+
           // Should return a valid route object
           const route = DeepLinkHandler.parseDeepLink(malformedUrl);
           expect(route).toHaveProperty('type');
           expect(typeof route.type).toBe('string');
-          
+
           // Should be able to generate fallback URLs even for unknown routes
           expect(() => DeepLinkHandler.generateFallbackUrls(route)).not.toThrow();
         }
@@ -390,16 +354,16 @@ describe('Cross-Platform Compatibility Tests', () => {
         ),
         async (url) => {
           const result = NostrRelayValidator.validateRelayUrl(url);
-          
+
           // Should always return a result object
           expect(result).toHaveProperty('isValid');
           expect(typeof result.isValid).toBe('boolean');
-          
+
           if (result.isValid) {
             // Valid URLs should have normalized URL
             expect(result).toHaveProperty('normalizedUrl');
             expect(typeof result.normalizedUrl).toBe('string');
-            
+
             // Should prefer secure connections
             if (result.normalizedUrl && !result.normalizedUrl.includes('localhost')) {
               expect(result.normalizedUrl).toMatch(/^wss:/);

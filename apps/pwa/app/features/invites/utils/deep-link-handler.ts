@@ -46,6 +46,11 @@ export class DeepLinkHandler {
     try {
       const cleanUrl = url.trim();
 
+      // Handle any web URLs (http/https)
+      if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+        return this.parseWebUrl(cleanUrl);
+      }
+
       // Handle Obscur app scheme
       if (cleanUrl.startsWith(URL_SCHEMES.OBSCUR)) {
         return this.parseObscurScheme(cleanUrl);
@@ -54,11 +59,6 @@ export class DeepLinkHandler {
       // Handle Nostr protocol
       if (cleanUrl.startsWith(URL_SCHEMES.NOSTR)) {
         return this.parseNostrScheme(cleanUrl);
-      }
-
-      // Handle web URLs
-      if (cleanUrl.startsWith(URL_SCHEMES.WEB) || cleanUrl.startsWith(URL_SCHEMES.FALLBACK)) {
-        return this.parseWebUrl(cleanUrl);
       }
 
       // Handle other formats

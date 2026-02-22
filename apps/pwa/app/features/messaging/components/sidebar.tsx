@@ -13,6 +13,16 @@ import { SidebarUserSearch } from "./sidebar-user-search";
 import { ConversationRow } from "./conversation-row";
 import { SearchMessageResult } from "./search-message-result";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import {
+    MoreVertical, Pin, Trash2, Users, User,
+    ChevronDown, ChevronRight, Plus
+} from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
 
 export interface SidebarProps {
     isNewChatOpen: boolean;
@@ -40,6 +50,13 @@ export interface SidebarProps {
     onIgnoreRequest: (pubkey: PublicKeyHex) => void;
     onBlockRequest: (pubkey: PublicKeyHex) => void;
     onSelectRequest: (pubkey: PublicKeyHex) => void;
+
+    // Pin/Hide actions
+    pinnedChatIds: ReadonlyArray<string>;
+    togglePin: (conversationId: string) => void;
+    hiddenChatIds: ReadonlyArray<string>;
+    hideConversation: (conversationId: string) => void;
+    onClearHistory: () => void;
 }
 
 export function Sidebar({
@@ -63,53 +80,116 @@ export function Sidebar({
     onAcceptRequest,
     onIgnoreRequest,
     onBlockRequest,
-    onSelectRequest
+    onSelectRequest,
+    pinnedChatIds,
+    togglePin,
+    hiddenChatIds,
+    hideConversation,
+    onClearHistory
 }: SidebarProps) {
     const { t } = useTranslation();
-    const [initialNowMs] = useState<number>(() => Date.now());
-    const resolvedNowMs: number = nowMs ?? initialNowMs;
+    const [localNowMs, setLocalNowMs] = React.useState<number>(() => Date.now());
+
+    React.useEffect(() => {
+        const interval = setInterval(() => setLocalNowMs(Date.now()), 30000); // 30s update
+        return () => clearInterval(interval);
+    }, []);
+
+    const resolvedNowMs: number = nowMs ?? localNowMs;
 
     const chatsUnreadTotal = Object.values(unreadByConversationId).reduce((a: number, b: number) => a + b, 0);
     const requestsUnreadTotal = requests.reduce((sum: number, r: RequestsInboxItem) => sum + r.unreadCount, 0);
+    const pendingRequestsCount = requests.filter(r => r.status === 'pending').length;
 
+    const [isDmsExpanded, setIsDmsExpanded] = useState(true);
+    const [isCommunitiesExpanded, setIsCommunitiesExpanded] = useState(true);
+    const [chatViewMode, setChatViewMode] = useState<"direct" | "community">("direct");
+
+    const visibleConversations = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
+
+    const pinnedConversations = visibleConversations.filter(c => pinnedChatIds.includes(c.id));
+    const unpinnedConversations = visibleConversations.filter(c => !pinnedChatIds.includes(c.id));
+
+    const dms = unpinnedConversations.filter(c => c.kind === 'dm');
+    const communities = unpinnedConversations.filter(c => c.kind === 'group');
+
+    const renderConversationList = (list: ReadonlyArray<Conversation>) => (
+        list.map((conversation) => (
+            <ConversationRow
+                key={conversation.id}
+                conversation={conversation}
+                isSelected={selectedConversation?.id === conversation.id}
+                onSelect={selectConversation}
+                unreadCount={unreadByConversationId[conversation.id] ?? conversation.unreadCount}
+                nowMs={resolvedNowMs}
+                isPinned={pinnedChatIds.includes(conversation.id)}
+                onTogglePin={() => togglePin(conversation.id)}
+                onHide={() => hideConversation(conversation.id)}
+            />
+        ))
+    );
     return (
         <div className="flex h-full flex-col">
             <div className="border-b border-black/[0.03] p-4 dark:border-white/[0.03] space-y-4">
-                <div className="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
-                    <button
-                        onClick={() => setActiveTab("chats")}
-                        suppressHydrationWarning
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
-                            activeTab === "chats"
-                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
-                                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                        )}
-                    >
-                        {t("nav.chats")}
-                        {chatsUnreadTotal > 0 && (
-                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] text-white shadow-sm">
-                                {chatsUnreadTotal}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("requests")}
-                        suppressHydrationWarning
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
-                            activeTab === "requests"
-                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
-                                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                        )}
-                    >
-                        {t("nav.requests")}
-                        {requestsUnreadTotal > 0 && (
-                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] text-white shadow-sm">
-                                {requestsUnreadTotal}
-                            </span>
-                        )}
-                    </button>
+                <div className="flex items-center gap-2">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500">
+                                <MoreVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuItem className="gap-2">
+                                <Pin className="h-4 w-4" />
+                                <span>{t("messaging.pin_chat")}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600">
+                                <Trash2 className="h-4 w-4" />
+                                <span>{t("messaging.delete_chat")}</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <div className="flex-1 flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
+                        <button
+                            onClick={() => setActiveTab("chats")}
+                            suppressHydrationWarning
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
+                                activeTab === "chats"
+                                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
+                                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                            )}
+                        >
+                            {t("nav.chats")}
+                            {chatsUnreadTotal > 0 && (
+                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] text-white shadow-sm">
+                                    {chatsUnreadTotal}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("requests")}
+                            suppressHydrationWarning
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
+                                activeTab === "requests"
+                                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
+                                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                            )}
+                        >
+                            {t("nav.requests")}
+                            {requestsUnreadTotal > 0 ? (
+                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] text-white shadow-sm">
+                                    {requestsUnreadTotal}
+                                </span>
+                            ) : pendingRequestsCount > 0 && (
+                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-zinc-400 dark:bg-zinc-600 px-1 text-[9px] text-white shadow-sm">
+                                    {pendingRequestsCount}
+                                </span>
+                            )}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="space-y-3">
@@ -129,18 +209,44 @@ export function Sidebar({
                             suppressHydrationWarning
                         />
                         <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 transition-colors group-focus-within:text-purple-500">
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                         </div>
                     </div>
                 </div>
 
                 {activeTab === "chats" && (
-                    <div className="flex gap-3">
-                        <Button type="button" className="flex-1 h-10 shadow-sm py-0 rounded-2xl" onClick={() => setIsNewChatOpen(true)} suppressHydrationWarning>
-                            <span className="text-xs font-bold tracking-tight">{t("messaging.newChat")}</span>
-                        </Button>
-                        <Button type="button" variant="secondary" className="flex-1 h-10 border-black/[0.03] dark:border-white/[0.03] py-0 rounded-2xl" onClick={() => setIsNewGroupOpen(true)} suppressHydrationWarning>
-                            <span className="text-xs font-bold tracking-tight">{t("messaging.newGroup")}</span>
+                    <div className="flex items-center gap-2">
+                        <div className="flex-1 flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
+                            <button
+                                onClick={() => setChatViewMode("direct")}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center py-2 text-[11px] font-bold rounded-lg transition-all z-10",
+                                    chatViewMode === "direct"
+                                        ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
+                                        : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                                )}
+                            >
+                                {t("messaging.chat")}
+                            </button>
+                            <button
+                                onClick={() => setChatViewMode("community")}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center py-2 text-[11px] font-bold rounded-lg transition-all z-10",
+                                    chatViewMode === "community"
+                                        ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
+                                        : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                                )}
+                            >
+                                {t("messaging.group")}
+                            </button>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-10 w-10 shrink-0 rounded-xl border-black/[0.03] dark:border-white/[0.03]"
+                            onClick={() => chatViewMode === "direct" ? setIsNewChatOpen(true) : setIsNewGroupOpen(true)}
+                        >
+                            <Plus className="h-5 w-5" />
                         </Button>
                     </div>
                 )}
@@ -156,6 +262,7 @@ export function Sidebar({
                         onBlock={onBlockRequest}
                         onSelect={onSelectRequest}
                         onFindSomeone={() => setIsNewChatOpen(true)}
+                        onClearHistory={onClearHistory}
                     />
                 ) : (
                     <>
@@ -173,16 +280,47 @@ export function Sidebar({
                             </div>
                         ) : (
                             <>
-                                {filteredConversations.map((conversation) => (
-                                    <ConversationRow
-                                        key={conversation.id}
-                                        conversation={conversation}
-                                        isSelected={selectedConversation?.id === conversation.id}
-                                        onSelect={selectConversation}
-                                        unreadCount={unreadByConversationId[conversation.id] ?? conversation.unreadCount}
-                                        nowMs={resolvedNowMs}
-                                    />
-                                ))}
+                                {pinnedConversations.length > 0 && (
+                                    <div className="mb-4">
+                                        <div className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                                            <Pin className="h-3 w-3" />
+                                            {t("messaging.pinned")}
+                                        </div>
+                                        {renderConversationList(pinnedConversations)}
+                                    </div>
+                                )}
+
+                                {chatViewMode === "direct" && (
+                                    <div>
+                                        <button
+                                            onClick={() => setIsDmsExpanded(!isDmsExpanded)}
+                                            className="w-full px-4 py-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <User className="h-3 w-3" />
+                                                {t("messaging.direct_messages")}
+                                            </div>
+                                            {isDmsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                        </button>
+                                        {isDmsExpanded && renderConversationList(dms)}
+                                    </div>
+                                )}
+
+                                {chatViewMode === "community" && (
+                                    <div className="mt-4">
+                                        <button
+                                            onClick={() => setIsCommunitiesExpanded(!isCommunitiesExpanded)}
+                                            className="w-full px-4 py-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Users className="h-3 w-3" />
+                                                {t("messaging.communities")}
+                                            </div>
+                                            {isCommunitiesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                        </button>
+                                        {isCommunitiesExpanded && renderConversationList(communities)}
+                                    </div>
+                                )}
 
                                 {searchQuery.trim().length > 0 && (
                                     <div className="p-3">

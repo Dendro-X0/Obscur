@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
-import { Search, Globe, Users, Loader2, ArrowRight } from "lucide-react";
+import { Search, Globe, Users, Loader2, ArrowRight, Lock } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Card } from "@/app/components/ui/card";
@@ -18,7 +18,8 @@ interface DiscoveredGroup {
     relayUrl: string;
     name?: string;
     about?: string;
-    picture?: string;
+    avatar?: string;
+    access?: "open" | "invite-only" | "discoverable";
     memberCount?: number;
 }
 
@@ -53,11 +54,15 @@ export function GroupDiscovery() {
 
                             const name = event.tags.find((t: string[]) => t[0] === "name")?.[1];
                             const about = event.tags.find((t: string[]) => t[0] === "about")?.[1];
-                            const picture = event.tags.find((t: string[]) => t[0] === "picture")?.[1];
+                            const avatar = event.tags.find((t: string[]) => t[0] === "picture")?.[1];
+
+                            const isPrivate = event.tags.some((t: string[]) => t[0] === "private");
+                            const isClosed = event.tags.some((t: string[]) => t[0] === "closed");
+                            const access = isClosed ? "invite-only" : isPrivate ? "invite-only" : "open";
 
                             setGroups(prev => {
                                 if (prev.some(g => g.groupId === groupId && g.relayUrl === cleanUrl)) return prev;
-                                return [...prev, { groupId, relayUrl: cleanUrl, name, about, picture }];
+                                return [...prev, { groupId, relayUrl: cleanUrl, name, about, avatar, access }];
                             });
                         }
                     }
@@ -108,7 +113,11 @@ export function GroupDiscovery() {
             memberPubkeys: [],
             lastMessage: 'Joined via discovery',
             unreadCount: 0,
-            lastMessageTime: new Date()
+            lastMessageTime: new Date(),
+            access: group.access || "open",
+            memberCount: group.memberCount || 0,
+            adminPubkeys: [], // Will be hydrated from relay
+            avatar: group.avatar
         };
         addGroup(newGroup);
         toast.success(t("groups.notifications.joined", { name: group.name || group.groupId }));
@@ -162,9 +171,9 @@ export function GroupDiscovery() {
                         <Card key={`${group.relayUrl}-${group.groupId}`} className="group relative overflow-hidden bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl border-black/5 dark:border-white/5 rounded-[32px] hover:border-purple-500/30 transition-all duration-500">
                             <div className="p-6 flex flex-col items-center text-center space-y-4">
                                 <div className="h-20 w-20 rounded-[28px] bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center shadow-inner overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
-                                    {group.picture ? (
+                                    {group.avatar ? (
                                         <Image
-                                            src={group.picture}
+                                            src={group.avatar}
                                             alt={group.name || group.groupId}
                                             width={80}
                                             height={80}
@@ -203,11 +212,19 @@ export function GroupDiscovery() {
                                         t("groups.status.member", "Member")
                                     ) : (
                                         <>
-                                            {t("groups.actions.joinCommunity", "Join Community")}
+                                            {group.access === "invite-only" ? "Request Access" : t("groups.actions.joinCommunity", "Join Community")}
                                             <ArrowRight className="h-4 w-4" />
                                         </>
                                     )}
                                 </Button>
+                                {group.access && group.access !== "open" && (
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-full">
+                                        <Users className="h-3 w-3 text-amber-600" />
+                                        <span className="text-[10px] font-bold text-amber-600 capitalize">
+                                            {group.access === "invite-only" ? "Restricted" : "Listed"}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </Card>
                     );

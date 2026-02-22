@@ -66,6 +66,7 @@ vi.mock('../message-queue', () => {
       queuedMessages.delete(id);
     });
     getLastMessageTimestamp = vi.fn(async () => null);
+    getAllMessages = vi.fn(async () => Array.from(messages.values()));
   }
 
   return {
@@ -582,7 +583,8 @@ describe('Integration: Multi-Relay Failover and Recovery', () => {
           myPrivateKeyHex: alice.priv,
           pool: mockPool,
           peerTrust: {
-            isAccepted: () => true
+            isAccepted: () => true,
+            acceptPeer: () => { }
           }
         })
       );

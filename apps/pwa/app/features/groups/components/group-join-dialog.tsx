@@ -1,6 +1,6 @@
 "use client";
 
-import { useNip29Group } from "../hooks/use-nip29-group";
+import { useSealedCommunity } from "../hooks/use-sealed-community";
 import { Button } from "@/app/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
 import { Users, ShieldCheck, X } from "lucide-react";
@@ -35,8 +35,8 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
         }
     }, [open, relayUrl, pool]);
 
-    const { state: groupState, requestJoin } = useNip29Group({
-        pool: pool as any, // Cast to any to satisfy the local interface in use-nip29-group
+    const { state: groupState, requestJoin } = useSealedCommunity({
+        pool: pool as any, // Cast to any to satisfy the local interface in use-sealed-community
         relayUrl,
         groupId,
         myPublicKeyHex: identityState.publicKeyHex || null,
@@ -63,6 +63,10 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 lastMessage: "Joining community...",
                 unreadCount: 0,
                 lastMessageTime: new Date(),
+                access: "open",
+                memberCount: 0,
+                adminPubkeys: [], // Will be hydrated
+                avatar: groupState.metadata?.picture
             });
 
             onSuccess?.();

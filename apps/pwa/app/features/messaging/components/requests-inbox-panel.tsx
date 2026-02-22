@@ -3,7 +3,7 @@
 import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
-import { MessageSquare, Check, X, ShieldAlert, BadgeInfo, UserPlus } from "lucide-react";
+import { MessageSquare, Check, X, ShieldAlert, BadgeInfo, UserPlus, Trash2 } from "lucide-react";
 // Removed unused Avatar imports
 import { cn } from "@/app/lib/utils";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -31,9 +31,10 @@ interface RequestsInboxPanelProps {
     onBlock: (pubkey: PublicKeyHex) => void;
     onSelect: (pubkey: PublicKeyHex) => void;
     onFindSomeone?: () => void;
+    onClearHistory?: () => void;
 }
 
-export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBlock, onSelect, onFindSomeone }: RequestsInboxPanelProps) {
+export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBlock, onSelect, onFindSomeone, onClearHistory }: RequestsInboxPanelProps) {
     const { t } = useTranslation();
 
     if (requests.length === 0) {
@@ -66,10 +67,23 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                 <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">
                     {t("messaging.pendingRequests")} ({requests.length})
                 </h2>
-                <div className="group relative">
-                    <BadgeInfo className="h-4 w-4 text-zinc-400 cursor-help" />
-                    <div className="absolute top-6 right-0 w-48 p-2 rounded-lg bg-white dark:bg-zinc-800 shadow-xl border border-black/5 dark:border-white/5 text-[10px] text-zinc-500 dark:text-zinc-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
-                        {t("messaging.pendingRequestsHelp")}
+                <div className="flex items-center gap-2">
+                    {onClearHistory && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[10px] font-bold text-zinc-400 hover:text-red-500 hover:bg-red-500/5 transition-colors"
+                            onClick={onClearHistory}
+                        >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            {t("common.clear")}
+                        </Button>
+                    )}
+                    <div className="group relative">
+                        <BadgeInfo className="h-4 w-4 text-zinc-400 cursor-help" />
+                        <div className="absolute top-6 right-0 w-48 p-2 rounded-lg bg-white dark:bg-zinc-800 shadow-xl border border-black/5 dark:border-white/5 text-[10px] text-zinc-500 dark:text-zinc-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                            {t("messaging.pendingRequestsHelp")}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -140,9 +154,13 @@ function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect 
                     </p>
                 </div>
 
-                {request.unreadCount > 0 && (
-                    <div className="h-5 min-w-5 rounded-full bg-purple-600 px-1.5 flex items-center justify-center">
+                {request.unreadCount > 0 ? (
+                    <div className="h-5 min-w-5 rounded-full bg-red-500 px-1.5 flex items-center justify-center">
                         <span className="text-[10px] font-black text-white">{request.unreadCount}</span>
+                    </div>
+                ) : (
+                    <div className="h-5 min-w-5 flex items-center justify-center">
+                        <div className="h-2 w-2 rounded-full bg-zinc-400 shadow-sm" />
                     </div>
                 )}
             </div>
@@ -159,28 +177,28 @@ function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect 
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="flex-1 h-9 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border-none text-[11px] font-bold"
+                        className="flex-1 h-11 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border-none text-[11px] font-bold rounded-xl"
                         onClick={() => onAccept(request.peerPublicKeyHex)}
                     >
-                        <Check className="mr-1.5 h-4 w-4" /> {t("common.accept")}
+                        <Check className="mr-1.5 h-7 w-7" /> {t("common.accept")}
                     </Button>
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="h-9 w-9 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                        className="h-11 w-11 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-xl"
                         onClick={() => onIgnore(request.peerPublicKeyHex)}
                         title={t("common.ignore")}
                     >
-                        <X className="h-4 w-4" />
+                        <X className="h-7 w-7" />
                     </Button>
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500"
+                        className="h-11 w-11 p-0 text-zinc-400 hover:text-red-500 rounded-xl"
                         onClick={() => onBlock(request.peerPublicKeyHex)}
                         title={t("common.blockAndReport")}
                     >
-                        <ShieldAlert className="h-4 w-4" />
+                        <ShieldAlert className="h-7 w-7" />
                     </Button>
                 </div>
             )}

@@ -137,7 +137,39 @@ export function NewChatDialog({
                     setIsSearching(false);
                 });
         }
-    }, [isOpen, parsed, resolvedPubkeyHex, setDisplayName, verifyRecipient, trimmedPubkey]);
+
+        // Handle auto-resolution for invite codes
+        if (isInviteCode && verificationStatus === 'idle' && !isSearching) {
+            setIsSearching(true);
+            setVerificationStatus('idle');
+            setFoundProfile(null);
+
+            const code = trimmedPubkey.toUpperCase();
+            void inviteResolver.resolveCode(code).then((resolved) => {
+                // Ensure we are still looking at the same code
+                if (trimmedPubkey.toUpperCase() === code) {
+                    if (resolved) {
+                        setResolvedPubkeyHex(resolved.publicKeyHex);
+                        setVerificationStatus('found');
+                        setFoundProfile({
+                            name: resolved.displayName,
+                            display_name: resolved.displayName,
+                            picture: resolved.avatar
+                        });
+                        if (resolved.displayName) {
+                            setDisplayName(resolved.displayName);
+                        }
+                    } else {
+                        setVerificationStatus('not_found');
+                    }
+                }
+            }).catch((e: unknown) => {
+                console.error("Auto-resolve invite code failed:", e);
+            }).finally(() => {
+                setIsSearching(false);
+            });
+        }
+    }, [isOpen, parsed, resolvedPubkeyHex, setDisplayName, verifyRecipient, trimmedPubkey, isSearching, verificationStatus, inviteResolver]);
 
     const [nip05Error, setNip05Error] = useState<string | null>(null);
     const [searchResults, setSearchResults] = useState<ProfileSearchResult[]>([]);
@@ -279,7 +311,7 @@ export function NewChatDialog({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-            <Card title={t("messaging.newChat")} description={t("messaging.startConvByPubkey")} className="w-full max-w-md shadow-2xl border-white/10">
+            <Card title={t("contacts.addContact", "Add New Contact")} description={t("contacts.addContactDesc", "Search for people by username, public key, or NIP-05.")} className="w-full max-w-md shadow-2xl border-white/10">
                 <div className="space-y-6">
                     <div className="space-y-3">
                         <Label htmlFor="new-chat-pubkey" className="text-xs font-bold uppercase tracking-wider text-zinc-500">{t("messaging.findRecipient")}</Label>

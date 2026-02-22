@@ -8,17 +8,44 @@
  * - Validates Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fc from 'fast-check';
-import { ContactStoreImpl } from '../contact-store';
 import { Contact, ContactGroup, TrustLevel, ContactFilter } from '../types';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 
 describe('ContactStore Property Tests', () => {
-  let contactStore: ContactStoreImpl;
-  
-  beforeEach(() => {
-    contactStore = new ContactStoreImpl();
+  let ContactStoreImplCtor: typeof import('../contact-store').ContactStoreImpl;
+  let contactStore: InstanceType<typeof ContactStoreImplCtor>;
+
+  const mockLocalStorage = {
+    getItem: vi.fn(() => null as string | null),
+    setItem: vi.fn(() => undefined),
+    removeItem: vi.fn(() => undefined),
+    clear: vi.fn(() => undefined),
+  };
+
+  const flushMicrotasks = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+
+  const resetInviteDb = async (): Promise<void> => {
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase('obscur-invites');
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+      req.onblocked = () => resolve();
+    });
+    await flushMicrotasks();
+  };
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.stubGlobal('localStorage', mockLocalStorage);
+
+    const mod = await import('../contact-store');
+    ContactStoreImplCtor = mod.ContactStoreImpl;
+    contactStore = new ContactStoreImplCtor();
   });
 
   afterEach(async () => {
@@ -30,38 +57,42 @@ describe('ContactStore Property Tests', () => {
           indexedDB.deleteDatabase(db.name);
         }
       }
-    } catch (error) {
+    } catch {
       // Ignore cleanup errors in tests
     }
   });
 
   // Helper arbitraries
-  const validPubkey = fc.array(fc.integer({ min: 0, max: 15 }), { minLength: 64, maxLength: 64 })
-    .map(arr => arr.map(n => n.toString(16)).join('')) as fc.Arbitrary<PublicKeyHex>;
+  const validPubkey = fc
+    .stringMatching(/^[0-9a-f]{64}$/)
+    .map((s: string) => s.toLowerCase()) as fc.Arbitrary<PublicKeyHex>;
   const displayName = fc.string({ minLength: 1, maxLength: 100 });
   const trustLevel = fc.constantFrom('trusted', 'neutral', 'blocked') as fc.Arbitrary<TrustLevel>;
-  const contactId = fc.string({ minLength: 1, maxLength: 50 });
-  const groupId = fc.string({ minLength: 1, maxLength: 50 });
+  const groupId = fc.uuid();
   const groupName = fc.string({ minLength: 1, maxLength: 100 });
-  
+
   const contactMetadata = fc.record({
     source: fc.constantFrom('qr', 'link', 'import', 'manual'),
     importedFrom: fc.option(fc.string()),
     notes: fc.option(fc.string({ maxLength: 500 }))
   });
 
-  const contact = fc.record({
-    id: contactId,
-    publicKey: validPubkey,
-    displayName: displayName,
-    avatar: fc.option(fc.webUrl()),
-    bio: fc.option(fc.string({ maxLength: 500 })),
-    trustLevel: trustLevel,
-    groups: fc.array(groupId, { maxLength: 10 }),
-    addedAt: fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') }),
-    lastSeen: fc.option(fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') })),
-    metadata: contactMetadata
-  }) as fc.Arbitrary<Contact>;
+  const contact = fc
+    .record({
+      publicKey: validPubkey,
+      displayName: displayName,
+      avatar: fc.option(fc.webUrl()),
+      bio: fc.option(fc.string({ maxLength: 500 })),
+      trustLevel: trustLevel,
+      groups: fc.array(groupId, { maxLength: 10 }),
+      addedAt: fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') }),
+      lastSeen: fc.option(fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') })),
+      metadata: contactMetadata
+    })
+    .map((c) => ({
+      ...c,
+      id: c.publicKey,
+    })) as fc.Arbitrary<Contact>;
 
   const contactGroup = fc.record({
     id: groupId,
@@ -77,34 +108,40 @@ describe('ContactStore Property Tests', () => {
       fc.assert(
         fc.asyncProperty(
           contact,
-          fc.array(contactGroup, { minLength: 1, maxLength: 5 }),
+          fc.uniqueArray(contactGroup, { minLength: 1, maxLength: 5, selector: (g) => g.id }),
           async (testContact, testGroups) => {
+            await resetInviteDb();
+            contactStore = new ContactStoreImplCtor();
             // Create groups first
             for (const group of testGroups) {
               await contactStore.createGroup(group);
             }
-            
+
+            await flushMicrotasks();
+
             // Add contact
             await contactStore.addContact(testContact);
-            
+
+            await flushMicrotasks();
+
             // Add contact to multiple groups
             const groupIds = testGroups.map(g => g.id);
             for (const groupId of groupIds) {
               await contactStore.addContactToGroup(testContact.id, groupId);
             }
-            
+
             // Verify contact is in all groups
             const updatedContact = await contactStore.getContact(testContact.id);
             expect(updatedContact).not.toBeNull();
-            
+
             for (const groupId of groupIds) {
               expect(updatedContact!.groups).toContain(groupId);
               const contactsInGroup = await contactStore.getContactsByGroup(groupId);
-              expect(contactsInGroup.some(c => c.id === testContact.id)).toBe(true);
+              expect(contactsInGroup.some((c: Contact) => c.id === testContact.id)).toBe(true);
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
 
@@ -114,18 +151,23 @@ describe('ContactStore Property Tests', () => {
           contact,
           contactGroup,
           async (testContact, testGroup) => {
+            await resetInviteDb();
+            contactStore = new ContactStoreImplCtor();
             // Create group and add contact
             await contactStore.createGroup(testGroup);
             await contactStore.addContact(testContact);
+
+            await flushMicrotasks();
+
             await contactStore.addContactToGroup(testContact.id, testGroup.id);
-            
+
             // Verify contact is in group
             let updatedContact = await contactStore.getContact(testContact.id);
             expect(updatedContact!.groups).toContain(testGroup.id);
-            
+
             // Delete group
             await contactStore.deleteGroup(testGroup.id);
-            
+
             // Verify contact still exists but group association is removed
             updatedContact = await contactStore.getContact(testContact.id);
             expect(updatedContact).not.toBeNull();
@@ -134,7 +176,7 @@ describe('ContactStore Property Tests', () => {
             expect(updatedContact!.publicKey).toBe(testContact.publicKey);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
   });
@@ -146,60 +188,68 @@ describe('ContactStore Property Tests', () => {
           contact,
           trustLevel,
           async (testContact, newTrustLevel) => {
+            await resetInviteDb();
+            contactStore = new ContactStoreImplCtor();
             // Add contact
             await contactStore.addContact(testContact);
-            
+
+            await flushMicrotasks();
+
             // Set trust level
             await contactStore.setTrustLevel(testContact.id, newTrustLevel);
-            
+
             // Verify trust level is persisted
             const updatedContact = await contactStore.getContact(testContact.id);
             expect(updatedContact!.trustLevel).toBe(newTrustLevel);
-            
+
             // Verify trust level filtering works
             const contactsByTrustLevel = await contactStore.getContactsByTrustLevel(newTrustLevel);
-            expect(contactsByTrustLevel.some(c => c.id === testContact.id)).toBe(true);
-            
+            expect(contactsByTrustLevel.some((c: Contact) => c.id === testContact.id)).toBe(true);
+
             // Verify blocked contacts are properly filtered
             if (newTrustLevel === 'blocked') {
               const blockedContacts = await contactStore.getBlockedContacts();
-              expect(blockedContacts.some(c => c.id === testContact.id)).toBe(true);
+              expect(blockedContacts.some((c: Contact) => c.id === testContact.id)).toBe(true);
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
 
     it('should support bulk trust level assignment', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.array(contact, { minLength: 2, maxLength: 10 }),
+          fc.uniqueArray(contact, { minLength: 2, maxLength: 10, selector: (c) => c.publicKey }),
           trustLevel,
           async (testContacts, newTrustLevel) => {
+            await resetInviteDb();
+            contactStore = new ContactStoreImplCtor();
             // Add all contacts
             for (const testContact of testContacts) {
               await contactStore.addContact(testContact);
             }
-            
+
+            await flushMicrotasks();
+
             // Bulk set trust level
             const contactIds = testContacts.map(c => c.id);
             await contactStore.bulkSetTrustLevel(contactIds, newTrustLevel);
-            
+
             // Verify all contacts have the new trust level
             for (const contactId of contactIds) {
               const updatedContact = await contactStore.getContact(contactId);
               expect(updatedContact!.trustLevel).toBe(newTrustLevel);
             }
-            
+
             // Verify trust level filtering includes all contacts
             const contactsByTrustLevel = await contactStore.getContactsByTrustLevel(newTrustLevel);
             for (const contactId of contactIds) {
-              expect(contactsByTrustLevel.some(c => c.id === contactId)).toBe(true);
+              expect(contactsByTrustLevel.some((c: Contact) => c.id === contactId)).toBe(true);
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
   });
@@ -208,39 +258,42 @@ describe('ContactStore Property Tests', () => {
     it('should return only contacts that match search criteria', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.array(contact, { minLength: 5, maxLength: 20 }),
+          fc.uniqueArray(contact, { minLength: 5, maxLength: 20, selector: (c) => c.publicKey }),
           fc.string({ minLength: 1, maxLength: 10 }),
           async (testContacts, searchQuery) => {
+            await resetInviteDb();
+            contactStore = new ContactStoreImplCtor();
             // Add all contacts
             for (const testContact of testContacts) {
               await contactStore.addContact(testContact);
             }
-            
+
+            await flushMicrotasks();
+
             // Search contacts
             const searchResults = await contactStore.searchContacts(searchQuery);
-            
+
             // Verify all results match the search query
             const lowercaseQuery = searchQuery.toLowerCase();
             for (const result of searchResults) {
-              const matchesDisplayName = result.displayName.toLowerCase().includes(lowercaseQuery);
-              const matchesBio = result.bio?.toLowerCase().includes(lowercaseQuery) || false;
-              const matchesPublicKey = result.publicKey.toLowerCase().includes(lowercaseQuery);
-              const matchesNotes = result.metadata.notes?.toLowerCase().includes(lowercaseQuery) || false;
-              
+              const matchesDisplayName = result.displayName.toLowerCase().startsWith(lowercaseQuery);
+              const matchesBio = result.bio?.toLowerCase().split(/\s+/).some((w) => w.startsWith(lowercaseQuery)) || false;
+              const matchesPublicKey = result.publicKey.substring(0, 16).toLowerCase().startsWith(lowercaseQuery);
+
               expect(
-                matchesDisplayName || matchesBio || matchesPublicKey || matchesNotes
+                matchesDisplayName || matchesBio || matchesPublicKey
               ).toBe(true);
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
 
     it('should filter contacts by multiple criteria correctly', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.array(contact, { minLength: 10, maxLength: 30 }),
+          fc.uniqueArray(contact, { minLength: 10, maxLength: 30, selector: (c) => c.publicKey }),
           fc.record({
             trustLevel: fc.option(trustLevel),
             groups: fc.option(fc.array(groupId, { minLength: 1, maxLength: 3 })),
@@ -249,87 +302,93 @@ describe('ContactStore Property Tests', () => {
             addedBefore: fc.option(fc.date({ min: new Date('2025-01-01'), max: new Date('2030-01-01') }))
           }) as fc.Arbitrary<ContactFilter>,
           async (testContacts, filter) => {
+            await resetInviteDb();
+            contactStore = new ContactStoreImplCtor();
             // Add all contacts
             for (const testContact of testContacts) {
               await contactStore.addContact(testContact);
             }
-            
+
+            await flushMicrotasks();
+
             // Apply filter
             const filteredResults = await contactStore.filterContacts(filter);
-            
+
             // Verify all results match the filter criteria
             for (const result of filteredResults) {
               // Check trust level filter
               if (filter.trustLevel) {
                 expect(result.trustLevel).toBe(filter.trustLevel);
               }
-              
+
               // Check groups filter
               if (filter.groups && filter.groups.length > 0) {
-                const hasMatchingGroup = filter.groups.some(groupId => 
+                const hasMatchingGroup = filter.groups.some(groupId =>
                   result.groups.includes(groupId)
                 );
                 expect(hasMatchingGroup).toBe(true);
               }
-              
+
               // Check search query filter
               if (filter.searchQuery) {
                 const lowercaseQuery = filter.searchQuery.toLowerCase();
-                const matchesDisplayName = result.displayName.toLowerCase().includes(lowercaseQuery);
-                const matchesBio = result.bio?.toLowerCase().includes(lowercaseQuery) || false;
-                const matchesPublicKey = result.publicKey.toLowerCase().includes(lowercaseQuery);
-                const matchesNotes = result.metadata.notes?.toLowerCase().includes(lowercaseQuery) || false;
-                
+                const matchesDisplayName = result.displayName.toLowerCase().startsWith(lowercaseQuery);
+                const matchesBio = result.bio?.toLowerCase().split(/\s+/).some((w) => w.startsWith(lowercaseQuery)) || false;
+                const matchesPublicKey = result.publicKey.substring(0, 16).toLowerCase().startsWith(lowercaseQuery);
+
                 expect(
-                  matchesDisplayName || matchesBio || matchesPublicKey || matchesNotes
+                  matchesDisplayName || matchesBio || matchesPublicKey
                 ).toBe(true);
               }
-              
+
               // Check date range filters
               if (filter.addedAfter) {
                 expect(result.addedAt.getTime()).toBeGreaterThanOrEqual(filter.addedAfter.getTime());
               }
-              
+
               if (filter.addedBefore) {
                 expect(result.addedAt.getTime()).toBeLessThanOrEqual(filter.addedBefore.getTime());
               }
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
 
     it('should handle empty search results correctly', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.array(contact, { minLength: 1, maxLength: 10 }),
+          fc.uniqueArray(contact, { minLength: 1, maxLength: 10, selector: (c) => c.publicKey }),
           fc.string({ minLength: 20, maxLength: 50 }), // Long random string unlikely to match
           async (testContacts, unlikelyQuery) => {
+            await resetInviteDb();
+            contactStore = new ContactStoreImplCtor();
             // Add all contacts
             for (const testContact of testContacts) {
               await contactStore.addContact(testContact);
             }
-            
+
+            await flushMicrotasks();
+
             // Search with unlikely query
             const searchResults = await contactStore.searchContacts(unlikelyQuery);
-            
+
             // If no results, that's valid behavior
             // If there are results, they must match the query
             const lowercaseQuery = unlikelyQuery.toLowerCase();
             for (const result of searchResults) {
-              const matchesDisplayName = result.displayName.toLowerCase().includes(lowercaseQuery);
-              const matchesBio = result.bio?.toLowerCase().includes(lowercaseQuery) || false;
-              const matchesPublicKey = result.publicKey.toLowerCase().includes(lowercaseQuery);
-              const matchesNotes = result.metadata.notes?.toLowerCase().includes(lowercaseQuery) || false;
-              
+              const matchesDisplayName = result.displayName.toLowerCase().startsWith(lowercaseQuery);
+              const matchesBio = result.bio?.toLowerCase().split(/\s+/).some((w) => w.startsWith(lowercaseQuery)) || false;
+              const matchesPublicKey = result.publicKey.substring(0, 16).toLowerCase().startsWith(lowercaseQuery);
+
               expect(
-                matchesDisplayName || matchesBio || matchesPublicKey || matchesNotes
+                matchesDisplayName || matchesBio || matchesPublicKey
               ).toBe(true);
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
     });
   });

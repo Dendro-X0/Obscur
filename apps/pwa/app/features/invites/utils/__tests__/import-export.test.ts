@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { inviteManager } from '../invite-manager';
-import { cryptoService } from '../../crypto/crypto-service';
+import { cryptoService } from '../../../crypto/crypto-service';
 import { contactStore } from '../contact-store';
 import {
   publicKeyArbitrary,
@@ -9,6 +9,7 @@ import {
   displayNameArbitrary
 } from './test-utils';
 import type { NostrContactList, ImportResult } from '../types';
+import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 
 // Mock the dependencies
 vi.mock('../../crypto/crypto-service');
@@ -17,6 +18,7 @@ vi.mock('../db/open-invite-db');
 
 describe('Import/Export Property Tests', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -40,36 +42,38 @@ describe('Import/Export Property Tests', () => {
           async (contacts) => {
             // Create a valid NIP-02 contact list
             const contactList: NostrContactList = {
-              contacts,
+              contacts: contacts.map(c => ({
+                ...c,
+                petname: c.petname ?? undefined,
+                relayUrl: c.relayUrl ?? undefined
+              })),
               version: 1,
               createdAt: Date.now()
             };
 
             // Mock crypto service validation
-            vi.mocked(cryptoService.isValidPubkey).mockImplementation((key: string) => {
-              return /^[0-9a-fA-F]{64}$/.test(key);
-            });
-            vi.mocked(cryptoService.normalizeKey).mockImplementation((key: string) => key.toLowerCase());
-            vi.mocked(cryptoService.generateInviteId).mockImplementation(() => Math.random().toString(36));
+            vi.spyOn(cryptoService, 'isValidPubkey').mockImplementation(async (key: string) => /^[0-9a-fA-F]{64}$/.test(key));
+            vi.spyOn(cryptoService, 'normalizeKey').mockImplementation(async (key: string) => key.toLowerCase());
+            vi.spyOn(cryptoService, 'generateInviteId').mockImplementation(async () => Math.random().toString(36));
 
             // Mock contact store to return empty contacts (no duplicates)
-            vi.mocked(contactStore.getAllContacts).mockResolvedValue([]);
-            vi.mocked(contactStore.addContact).mockResolvedValue();
+            vi.spyOn(contactStore, 'getAllContacts').mockResolvedValue([]);
+            vi.spyOn(contactStore, 'addContact').mockResolvedValue();
 
             try {
               const result = await inviteManager.importContacts(contactList);
-              
+
               // Verify the import result structure
               expect(result).toHaveProperty('totalContacts');
               expect(result).toHaveProperty('successfulImports');
               expect(result).toHaveProperty('failedImports');
               expect(result).toHaveProperty('duplicates');
               expect(result).toHaveProperty('errors');
-              
+
               // Total should equal the sum of successful, failed, and duplicates
               expect(result.totalContacts).toBe(contacts.length);
               expect(result.successfulImports + result.failedImports + result.duplicates).toBe(result.totalContacts);
-              
+
               // For valid contacts, successful imports should be > 0
               if (contacts.length > 0) {
                 expect(result.successfulImports).toBeGreaterThan(0);
@@ -109,41 +113,45 @@ describe('Import/Export Property Tests', () => {
           ),
           async (contacts) => {
             const contactList: NostrContactList = {
-              contacts,
+              contacts: contacts.map(c => ({
+                ...c,
+                petname: c.petname ?? undefined,
+                relayUrl: c.relayUrl ?? undefined
+              })),
               version: 1,
               createdAt: Date.now()
             };
 
             // Mock crypto service validation to properly validate keys
-            vi.mocked(cryptoService.isValidPubkey).mockImplementation((key: string) => {
+            vi.spyOn(cryptoService, 'isValidPubkey').mockImplementation(async (key: string) => {
               return typeof key === 'string' && /^[0-9a-fA-F]{64}$/.test(key);
             });
-            vi.mocked(cryptoService.normalizeKey).mockImplementation((key: string) => key.toLowerCase());
-            vi.mocked(cryptoService.generateInviteId).mockImplementation(() => Math.random().toString(36));
+            vi.spyOn(cryptoService, 'normalizeKey').mockImplementation(async (key: string) => key.toLowerCase());
+            vi.spyOn(cryptoService, 'generateInviteId').mockImplementation(async () => Math.random().toString(36));
 
             // Mock contact store
-            vi.mocked(contactStore.getAllContacts).mockResolvedValue([]);
-            vi.mocked(contactStore.addContact).mockResolvedValue();
+            vi.spyOn(contactStore, 'getAllContacts').mockResolvedValue([]);
+            vi.spyOn(contactStore, 'addContact').mockResolvedValue();
 
             try {
               const result = await inviteManager.importContacts(contactList);
-              
+
               // Count expected valid and invalid contacts
-              const validContacts = contacts.filter(c => 
+              const validContacts = contacts.filter(c =>
                 typeof c.publicKey === 'string' && /^[0-9a-fA-F]{64}$/.test(c.publicKey)
               );
-              const invalidContacts = contacts.filter(c => 
+              const invalidContacts = contacts.filter(c =>
                 !c.publicKey || typeof c.publicKey !== 'string' || !/^[0-9a-fA-F]{64}$/.test(c.publicKey)
               );
 
               // Verify validation results
               expect(result.totalContacts).toBe(contacts.length);
-              
+
               // If there are invalid contacts, there should be failures and errors
               if (invalidContacts.length > 0) {
                 expect(result.failedImports).toBeGreaterThan(0);
                 expect(result.errors.length).toBeGreaterThan(0);
-                
+
                 // Each error should have the required fields
                 result.errors.forEach(error => {
                   expect(error).toHaveProperty('publicKey');
@@ -152,7 +160,7 @@ describe('Import/Export Property Tests', () => {
                   expect(['invalid_key', 'already_exists', 'network_error', 'validation_failed']).toContain(error.reason);
                 });
               }
-              
+
               // If there are valid contacts, there should be successful imports
               if (validContacts.length > 0) {
                 expect(result.successfulImports).toBeGreaterThan(0);
@@ -182,10 +190,10 @@ describe('Import/Export Property Tests', () => {
             // Create some overlap between existing and new keys
             const duplicateKeys = existingKeys.slice(0, Math.min(existingKeys.length, newKeys.length));
             const allNewKeys = [...newKeys, ...duplicateKeys];
-            
+
             const contactList: NostrContactList = {
               contacts: allNewKeys.map(key => ({
-                publicKey: key as any,
+                publicKey: key as PublicKeyHex,
                 petname: `User ${key.slice(0, 8)}`,
                 relayUrl: 'wss://relay.example.com'
               })),
@@ -205,31 +213,31 @@ describe('Import/Export Property Tests', () => {
             }));
 
             // Mock crypto service
-            vi.mocked(cryptoService.isValidPubkey).mockReturnValue(true);
-            vi.mocked(cryptoService.normalizeKey).mockImplementation((key: string) => key.toLowerCase());
-            vi.mocked(cryptoService.generateInviteId).mockImplementation(() => Math.random().toString(36));
+            vi.spyOn(cryptoService, 'isValidPubkey').mockResolvedValue(true);
+            vi.spyOn(cryptoService, 'normalizeKey').mockImplementation(async (key: string) => key.toLowerCase());
+            vi.spyOn(cryptoService, 'generateInviteId').mockImplementation(async () => Math.random().toString(36));
 
             // Mock contact store to return existing contacts
-            vi.mocked(contactStore.getAllContacts).mockResolvedValue(existingContacts);
-            vi.mocked(contactStore.addContact).mockResolvedValue();
+            vi.spyOn(contactStore, 'getAllContacts').mockResolvedValue(existingContacts);
+            vi.spyOn(contactStore, 'addContact').mockResolvedValue();
 
             try {
               const result = await inviteManager.importContacts(contactList);
-              
+
               // Verify deduplication
               expect(result.totalContacts).toBe(allNewKeys.length);
-              
+
               // Calculate expected duplicates
               const expectedDuplicates = duplicateKeys.length;
               const expectedNewContacts = allNewKeys.length - expectedDuplicates;
-              
+
               // Verify the counts make sense
               expect(result.duplicates).toBe(expectedDuplicates);
               expect(result.successfulImports).toBe(expectedNewContacts);
               expect(result.successfulImports + result.duplicates + result.failedImports).toBe(result.totalContacts);
-              
+
               // Verify no duplicate contacts were added to the store
-              const addContactCalls = vi.mocked(contactStore.addContact).mock.calls;
+              const addContactCalls = vi.mocked(contactStore.addContact as unknown as ReturnType<typeof vi.fn>).mock.calls;
               const addedPublicKeys = addContactCalls.map(call => call[0].publicKey);
               const uniqueAddedKeys = new Set(addedPublicKeys);
               expect(uniqueAddedKeys.size).toBe(addedPublicKeys.length);
@@ -264,7 +272,7 @@ describe('Import/Export Property Tests', () => {
           }),
           async (validContactList) => {
             const validation = await inviteManager.validateContactListFormat(validContactList);
-            
+
             // Valid contact lists should pass validation
             expect(validation.isValid).toBe(true);
             expect(validation.errors).toHaveLength(0);

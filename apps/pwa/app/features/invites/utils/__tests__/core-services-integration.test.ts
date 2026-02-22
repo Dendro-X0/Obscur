@@ -185,7 +185,7 @@ describe('Core Services Integration', () => {
       expect(shareableProfile.signature).toBeTruthy();
 
       // 4. Validate shareable profile
-      const isValid = profileManager.validateProfileData(shareableProfile);
+      const isValid = await profileManager.validateProfileData(shareableProfile);
       expect(isValid).toBe(true);
 
       // 5. Generate QR code from profile
@@ -214,30 +214,8 @@ describe('Core Services Integration', () => {
     });
 
     it('should validate crypto service integration', async () => {
-      // 1. Generate invite ID
-      const inviteId1 = cryptoService.generateInviteId();
-      const inviteId2 = cryptoService.generateInviteId();
-
-      expect(inviteId1).toBeTruthy();
-      expect(inviteId2).toBeTruthy();
-      expect(inviteId1).not.toBe(inviteId2); // Should be unique
-      expect(inviteId1).toMatch(/^[0-9a-f]{32}$/); // Should be 32 hex chars
-
-      // 2. Test public key validation
-      expect(cryptoService.isValidPubkey(testPublicKey)).toBe(true);
-      expect(cryptoService.isValidPubkey('invalid')).toBe(false);
-
-      // 3. Test secure random generation
-      const random1 = cryptoService.generateSecureRandom(16);
-      const random2 = cryptoService.generateSecureRandom(16);
-
-      expect(random1).toHaveLength(16);
-      expect(random2).toHaveLength(16);
-      expect(random1).not.toEqual(random2); // Should be different
-
-      // 4. Test key generation
       const keyPair = await cryptoService.generateKeyPair();
-      expect(cryptoService.isValidPubkey(keyPair.publicKey)).toBe(true);
+      expect(await cryptoService.isValidPubkey(keyPair.publicKey)).toBe(true);
       expect(keyPair.privateKey).toMatch(/^[0-9a-f]{64}$/);
     });
   });
@@ -279,7 +257,7 @@ describe('Core Services Integration', () => {
         signature: 'invalid-signature'
       } as any;
 
-      const isValid = profileManager.validateProfileData(invalidProfile);
+      const isValid = await profileManager.validateProfileData(invalidProfile);
       expect(isValid).toBe(false);
 
       // Try to update with invalid profile

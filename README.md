@@ -32,7 +32,7 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
 - **🌐 Decentralized**: Built on the Nostr protocol with relay-based architecture
 - **👥 Invite-Only**: Secure micro-communities with invitation-based access
 - **📱 Smart Invite System**: QR codes, shareable links, and **Invite Code Search**
-- **🎨 Modern UI**: Subtle gradients, smooth animations, and polished user experience
+- **🎨 Modern UI**: Premium **"Midnight Slate"** aesthetics using OKLCH color spaces, with subtle gradients and smooth animations.
 - **🌙 Theme Support**: Beautiful light and dark themes with system preference detection
 - **🌍 Localized**: Available in English, Chinese (Simplified), and Spanish
 - **🖼️ Media Storage**: Native NIP-96 support for file uploads via external providers (nostr.build, etc.)
@@ -50,14 +50,26 @@ Obscur is built with a "Privacy by Design" philosophy, ensuring that your commun
 - **Session Protection**: Configurable auto-lock timers and clipboard wiping to protect your session when you step away.
 - **No Private Key Sharing**: Your private keys never leave your device.
 
-## 🏗️ Architecture
+## 📚 Comprehensive Documentation
 
-This repository is a PNPM workspace with:
+For a deep dive into the technical details, architecture, and design patterns of Obscur, please refer to our structured documentation in the `/docs` directory. This is the primary source of truth for the project.
 
-- **PWA**: `apps/pwa` (Next.js) - Main web application
-- **API (optional, local dev)**: `apps/api` (Hono on Node) - Development API server
-- **Desktop (Beta)**: `apps/desktop` (Tauri v2 wrapper) - Native desktop app with static PWA bundling and Tor sidecar
-- **Packages**: Shared libraries for crypto, storage, and Nostr functionality
+👉 **Start Here: [Project Context & Documentation Index](docs/PROJECT_CONTEXT.md)**
+
+Inside you will find:
+- [Architecture & File Tree](docs/architecture.md)
+- [Design Patterns & Workflows](docs/DESIGN_PATTERNS.md)
+- [Security Protocols & Cryptography](docs/SECURITY_PROTOCOLS.md)
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
+- [Feature Roadmap](docs/features.md)
+
+## 🏗️ Repository Structure
+
+This repository is a PNPM workspace containing:
+
+- **PWA (`apps/pwa`)**: Main web application (Next.js 16+, React 19)
+- **Desktop (`apps/desktop`)**: Native desktop & mobile app (Tauri v2) with pure Rust networking
+- **Packages (`packages/`)**: Shared cryptographic, storage, and Nostr primitives
 
 ### Native Desktop Networking
 
