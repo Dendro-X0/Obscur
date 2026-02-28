@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Play, Pause, Volume2 } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
-import { cn } from "@/app/lib/cn";
+import { Button } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit";
 
 interface AudioPlayerProps {
     src: string;

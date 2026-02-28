@@ -1,5 +1,5 @@
 import { Attachment, AttachmentKind, UploadError, UploadErrorCode } from "../types";
-import { UploadService } from "./upload-service";
+import { UploadService, getAttachmentKind, getMimeType } from "./upload-service";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { createNostrEvent } from "@dweb/nostr/create-nostr-event";
@@ -64,6 +64,7 @@ const getUrlFromNip96Response = (obj: Nip96Response): string | null => {
     return null;
 };
 
+
 /**
  * Implementation of UploadService using NIP-96 (Nostr HTTP File Upload)
  * Supports NIP-98 Authorization
@@ -100,9 +101,28 @@ export class Nip96UploadService implements UploadService {
     }
 
     uploadFile = async (file: File): Promise<Attachment> => {
-        const providers = this.getProviders();
-        if (providers.length === 0) {
-            throw new UploadError(UploadErrorCode.UNKNOWN, "No NIP-96 providers configured");
+        const kind = getAttachmentKind(file);
+        let providers = this.getProviders();
+
+        // Smart Routing: Preference based on media type
+        if (kind === "video" || kind === "audio") {
+            // Prioritize void.cat or sovbit for video/audio (which allow larger free uploads)
+            providers = [...providers].sort((a, b) => {
+                const isAV1 = a.includes("void.cat") || a.includes("sovbit");
+                const isAV2 = b.includes("void.cat") || b.includes("sovbit");
+                if (isAV1 && !isAV2) return -1;
+                if (!isAV1 && isAV2) return 1;
+                return 0;
+            });
+        } else {
+            // Prioritize nostr.build for images (very reliable for standard images)
+            providers = [...providers].sort((a, b) => {
+                const isNB1 = a.includes("nostr.build");
+                const isNB2 = b.includes("nostr.build");
+                if (isNB1 && !isNB2) return -1;
+                if (!isNB1 && isNB2) return 1;
+                return 0;
+            });
         }
 
         const errors: UploadError[] = [];
@@ -112,6 +132,7 @@ export class Nip96UploadService implements UploadService {
             fileName: file.name,
             fileSize: file.size,
             contentType: file.type,
+            kind,
             providerCount: providers.length,
             isNative: this.isTauri()
         });
@@ -166,7 +187,7 @@ export class Nip96UploadService implements UploadService {
 
     private async uploadViaTauri(file: File, providerUrl: string): Promise<Attachment> {
         const arrayBuffer = await file.arrayBuffer();
-        const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+        const fileBytes = new Uint8Array(arrayBuffer);
 
         const { invoke } = await import("@tauri-apps/api/core");
         interface UploadResult {
@@ -181,7 +202,7 @@ export class Nip96UploadService implements UploadService {
                 apiUrl: providerUrl.trim(),
                 fileBytes,
                 fileName: file.name,
-                contentType: file.type || "application/octet-stream",
+                contentType: file.type || getMimeType(file.name),
             });
 
             if (result.status === "error") {
@@ -198,7 +219,7 @@ export class Nip96UploadService implements UploadService {
             }
 
             return {
-                kind: file.type.startsWith("video/") ? "video" : "image",
+                kind: getAttachmentKind(file),
                 url: result.url,
                 contentType: file.type,
                 fileName: file.name,
@@ -217,65 +238,104 @@ export class Nip96UploadService implements UploadService {
             throw new UploadError(UploadErrorCode.AUTH_MISSING_KEY, "Private key required for NIP-98 authentication");
         }
 
-        let authHeader: string;
-        try {
-            authHeader = await this.signNip98Header(providerUrl, "POST", this.privateKeyHex);
-        } catch (e) {
-            throw new UploadError(UploadErrorCode.AUTH_ERROR, `Failed to sign NIP-98 header: ${e}`);
+        const errors: UploadError[] = [];
+
+        // Some providers are picky about multipart field names.
+        // Keep it aligned with the native uploader retries.
+        const fieldNames = ["file", "files[]", "files"] as const;
+
+        for (const fieldName of fieldNames) {
+            let authHeader: string;
+            try {
+                authHeader = await this.signNip98Header(providerUrl, "POST", this.privateKeyHex, file);
+            } catch (e) {
+                throw new UploadError(UploadErrorCode.AUTH_ERROR, `Failed to sign NIP-98 header: ${e}`);
+            }
+
+            const formData = new FormData();
+            formData.append(fieldName, file);
+            formData.append("caption", file.name);
+
+            let response: Response;
+            try {
+                response = await fetch(providerUrl, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Nostr ${authHeader}`,
+                    },
+                    body: formData,
+                });
+            } catch (e) {
+                const err = new UploadError(UploadErrorCode.NETWORK_ERROR, `Fetch failed: ${e}`);
+                errors.push(err);
+                continue;
+            }
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                const err = new UploadError(UploadErrorCode.PROVIDER_ERROR, `HTTP ${response.status}: ${errorText || response.statusText}`);
+                errors.push(err);
+
+                // Some providers respond with "no files" for mismatched field names.
+                if (response.status === 400 && (errorText || "").toLowerCase().includes("no files")) {
+                    continue;
+                }
+
+                throw err;
+            }
+
+            let result: Nip96Response;
+            try {
+                result = await response.json() as Nip96Response;
+            } catch {
+                const err = new UploadError(UploadErrorCode.PROVIDER_ERROR, "Failed to parse provider response as JSON");
+                errors.push(err);
+                continue;
+            }
+
+            const url = getUrlFromNip96Response(result);
+            if (!url) {
+                const err = new UploadError(UploadErrorCode.PROVIDER_ERROR, "Upload succeeded but no URL found in response");
+                errors.push(err);
+                continue;
+            }
+
+            return {
+                kind: getAttachmentKind(file),
+                url: url,
+                contentType: file.type,
+                fileName: file.name,
+            };
         }
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("caption", file.name);
-
-        let response: Response;
-        try {
-            response = await fetch(providerUrl, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Nostr ${authHeader}`,
-                },
-                body: formData,
-            });
-        } catch (e) {
-            throw new UploadError(UploadErrorCode.NETWORK_ERROR, `Fetch failed: ${e}`);
-        }
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, `HTTP ${response.status}: ${errorText || response.statusText}`);
-        }
-
-        let result: Nip96Response;
-        try {
-            result = await response.json() as Nip96Response;
-        } catch (e) {
-            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Failed to parse provider response as JSON");
-        }
-
-        const url = getUrlFromNip96Response(result);
-
-        if (!url) {
-            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Upload succeeded but no URL found in response");
-        }
-
-        return {
-            kind: file.type.startsWith("video/") ? "video" : "image",
-            url: url,
-            contentType: file.type,
-            fileName: file.name,
-        };
+        throw errors[errors.length - 1] || new UploadError(UploadErrorCode.UNKNOWN, "Upload failed unexpectedly");
     }
 
-    private async signNip98Header(url: string, method: string, privateKeyHex: string): Promise<string> {
+    private async signNip98Header(url: string, method: string, privateKeyHex: string, file?: File): Promise<string> {
+        const tags: Array<[string, string]> = [
+            ["u", url],
+            ["method", method],
+        ];
+
+        // Some NIP-96 servers require payload hashing for authorization,
+        // and video uploads are more likely to trigger strict validation.
+        if (file) {
+            const payloadBytes = new Uint8Array(await file.arrayBuffer());
+            const digest = await crypto.subtle.digest("SHA-256", payloadBytes);
+            const hashHex = Array.from(new Uint8Array(digest))
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("");
+
+            const expirationUnix = Math.floor(Date.now() / 1000) + 120;
+            tags.push(["payload", hashHex]);
+            tags.push(["expiration", String(expirationUnix)]);
+        }
+
         const event = await createNostrEvent({
             kind: 27235,
             content: "",
             privateKeyHex: privateKeyHex as PrivateKeyHex,
-            tags: [
-                ["u", url],
-                ["method", method],
-            ],
+            tags,
         });
 
         return toBase64(new TextEncoder().encode(JSON.stringify(event)));

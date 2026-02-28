@@ -1,4 +1,4 @@
-import type { ContactRequest } from './types';
+import type { ConnectionRequest } from './types';
 import { inviteManager } from './invite-manager';
 import { NostrCompatibilityService } from './nostr-compatibility';
 
@@ -8,7 +8,7 @@ import { NostrCompatibilityService } from './nostr-compatibility';
 export type DeepLinkRoute =
   | { type: 'invite'; shortCode: string; fallback?: boolean }
   | { type: 'qr'; data: string }
-  | { type: 'contact'; publicKey: string }
+  | { type: 'connection'; publicKey: string }
   | { type: 'group'; groupId: string; relay?: string }
   | { type: 'nostr'; data: string }
   | { type: 'unknown'; url: string };
@@ -19,7 +19,7 @@ export type DeepLinkRoute =
 export interface DeepLinkResult {
   success: boolean;
   route?: DeepLinkRoute;
-  contactRequest?: ContactRequest;
+  connectionRequest?: ConnectionRequest;
   error?: string;
   fallbackAction?: 'redirect' | 'show_install' | 'show_web_version';
 }
@@ -83,8 +83,8 @@ export class DeepLinkHandler {
         case 'qr':
           return await this.processQRData(route.data);
 
-        case 'contact':
-          return await this.processDirectContact(route.publicKey);
+        case 'connection':
+          return await this.processDirectConnection(route.publicKey);
 
         case 'nostr':
           return await this.processNostrData(route.data);
@@ -124,8 +124,8 @@ export class DeepLinkHandler {
       return { type: 'qr', data: decodeURIComponent(parts[1]) };
     }
 
-    if (parts[0] === 'contact' && parts[1]) {
-      return { type: 'contact', publicKey: parts[1] };
+    if (parts[0] === 'connect' && parts[1]) {
+      return { type: 'connection', publicKey: parts[1] };
     }
 
     if (parts[0] === 'group' && parts[1]) {
@@ -145,12 +145,12 @@ export class DeepLinkHandler {
 
     // Handle npub format
     if (data.startsWith('npub1')) {
-      return { type: 'contact', publicKey: data };
+      return { type: 'connection', publicKey: data };
     }
 
     // Handle raw hex public keys
     if (/^[0-9a-fA-F]{64}$/.test(data)) {
-      return { type: 'contact', publicKey: data };
+      return { type: 'connection', publicKey: data };
     }
 
     // Handle other Nostr data
@@ -177,7 +177,7 @@ export class DeepLinkHandler {
       }
 
       if (pathParts[0] === 'connect' && pathParts[1]) {
-        return { type: 'contact', publicKey: pathParts[1] };
+        return { type: 'connection', publicKey: pathParts[1] };
       }
 
       if (pathParts[0] === 'groups' && pathParts[1]) {
@@ -210,12 +210,12 @@ export class DeepLinkHandler {
     } catch {
       // Check if it's a public key
       if (/^[0-9a-fA-F]{64}$/.test(url)) {
-        return { type: 'contact', publicKey: url };
+        return { type: 'connection', publicKey: url };
       }
 
       // Check if it's npub format
       if (url.startsWith('npub1')) {
-        return { type: 'contact', publicKey: url };
+        return { type: 'connection', publicKey: url };
       }
     }
 
@@ -228,12 +228,12 @@ export class DeepLinkHandler {
   private static async processInviteLink(shortCode: string, fallback?: boolean): Promise<DeepLinkResult> {
     try {
       const linkData = `${shortCode}`;
-      const contactRequest = await inviteManager.processInviteLink(linkData);
+      const connectionRequest = await inviteManager.processInviteLink(linkData);
 
       return {
         success: true,
         route: { type: 'invite', shortCode, fallback },
-        contactRequest
+        connectionRequest
       };
     } catch (error) {
       return {
@@ -250,12 +250,12 @@ export class DeepLinkHandler {
    */
   private static async processQRData(data: string): Promise<DeepLinkResult> {
     try {
-      const contactRequest = await inviteManager.processQRInvite(data);
+      const connectionRequest = await inviteManager.processQRInvite(data);
 
       return {
         success: true,
         route: { type: 'qr', data },
-        contactRequest
+        connectionRequest
       };
     } catch (error) {
       return {
@@ -268,12 +268,12 @@ export class DeepLinkHandler {
   }
 
   /**
-   * Process direct contact connection
+   * Process direct connection
    */
-  private static async processDirectContact(publicKey: string): Promise<DeepLinkResult> {
+  private static async processDirectConnection(publicKey: string): Promise<DeepLinkResult> {
     try {
-      // Create a minimal contact request for direct connections
-      const contactRequest = await inviteManager.sendContactRequest({
+      // Create a minimal connection request for direct connections
+      await inviteManager.sendConnectionRequest({
         recipientPublicKey: publicKey as any,
         includeProfile: true,
         message: 'Connected via direct link'
@@ -281,12 +281,12 @@ export class DeepLinkHandler {
 
       return {
         success: true,
-        route: { type: 'contact', publicKey }
+        route: { type: 'connection', publicKey }
       };
     } catch (error) {
       return {
         success: false,
-        route: { type: 'contact', publicKey },
+        route: { type: 'connection', publicKey },
         error: error instanceof Error ? error.message : 'Failed to connect to contact',
         fallbackAction: 'show_web_version'
       };
@@ -313,12 +313,12 @@ export class DeepLinkHandler {
       const nostrData = NostrCompatibilityService.parseExternalInvite(data);
       if (nostrData) {
         const qrData = NostrCompatibilityService.fromNostrFormat(nostrData);
-        const contactRequest = await inviteManager.processQRInvite(JSON.stringify(qrData));
+        const connectionRequest = await inviteManager.processQRInvite(JSON.stringify(qrData));
 
         return {
           success: true,
           route: { type: 'nostr', data },
-          contactRequest
+          connectionRequest
         };
       }
 
@@ -356,7 +356,7 @@ export class DeepLinkHandler {
           universalUrl: `${baseUrl}/invite/${route.shortCode}`
         };
 
-      case 'contact':
+      case 'connection':
         return {
           webUrl: `${baseUrl}/web/connect/${route.publicKey}`,
           installUrl: `${baseUrl}/install?redirect=connect/${route.publicKey}`,

@@ -45,7 +45,7 @@ export interface ChatViewProps {
     reactionPicker: { messageId: string; x: number; y: number } | null;
     setReactionPicker: (val: { messageId: string; x: number; y: number } | null) => void;
     reactionPickerRef: React.RefObject<HTMLDivElement | null>;
-    onToggleReaction: (messageId: string, emoji: ReactionEmoji) => void;
+    onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
 
     onRetryMessage: (message: Message) => void;
 
@@ -67,6 +67,8 @@ export interface ChatViewProps {
     relayStatus: RelayStatusSummary;
     composerTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
     onSendVoiceNote?: (file: File) => void;
+    isProcessingMedia: boolean;
+    mediaProcessingProgress: number;
 
     // Media
     isMediaGalleryOpen: boolean;
@@ -202,6 +204,7 @@ export function ChatView(props: ChatViewProps) {
                 </div>
             ) : (
                 <MessageList
+                    key={props.conversation.id}
                     hasHydrated={props.hasHydrated}
                     messages={props.messages}
                     rawMessagesCount={props.rawMessagesCount}
@@ -250,6 +253,8 @@ export function ChatView(props: ChatViewProps) {
                 isPeerAccepted={props.isPeerAccepted}
                 isInitiator={props.isInitiator}
                 onSendVoiceNote={props.onSendVoiceNote}
+                isProcessingMedia={props.isProcessingMedia}
+                mediaProcessingProgress={props.mediaProcessingProgress}
             />
 
             {props.messageMenu && activeMessage && (
@@ -285,7 +290,10 @@ export function ChatView(props: ChatViewProps) {
                     x={props.reactionPicker.x}
                     y={props.reactionPicker.y}
                     onSelect={(emoji) => {
-                        props.onToggleReaction(props.reactionPicker!.messageId, emoji);
+                        const msg = getMessageById(props.reactionPicker!.messageId);
+                        if (msg) {
+                            props.onToggleReaction(msg, emoji);
+                        }
                         props.setReactionPicker(null);
                     }}
                     pickerRef={props.reactionPickerRef}

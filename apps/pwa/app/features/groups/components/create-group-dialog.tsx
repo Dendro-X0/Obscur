@@ -9,7 +9,7 @@ import { Textarea } from "../../../components/ui/textarea";
 import { useTranslation } from "react-i18next";
 import { Users, Info, Camera, X, Check, Globe, Lock } from "lucide-react";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
-import { cn } from "@/app/lib/cn";
+import { cn } from "@dweb/ui-kit";
 import Image from "next/image";
 import type { GroupAccessMode } from "../types";
 

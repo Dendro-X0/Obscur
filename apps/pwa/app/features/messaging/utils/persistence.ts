@@ -6,6 +6,7 @@ import type {
     PersistedConnectionRequest,
     PersistedMessage,
     PersistedContactOverride,
+    PersistedGroupMessage,
     DmConversation,
     GroupConversation,
     Message,
@@ -21,7 +22,7 @@ import type {
 import type { GroupAccessMode } from "../../groups/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
-const MAX_PERSISTED_MESSAGES_PER_CONVERSATION: number = 500;
+const MAX_PERSISTED_MESSAGES_PER_CONVERSATION: number = 5000;
 const PERSISTED_CHAT_STATE_VERSION: number = 2;
 const LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY: string = "dweb.nostr.pwa.chatState";
 const PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX: string = "dweb.nostr.pwa.chatState.v2";
@@ -156,14 +157,20 @@ const parsePersistedContactOverride = (value: unknown): PersistedContactOverride
     if (!isString(lastMessage) || !isNumber(lastMessageTimeMs)) return null;
     return { lastMessage, lastMessageTimeMs };
 };
-
 const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
     if (!isRecord(value)) return null;
-    const { id, kind, content, timestampMs, isOutgoing, status, attachment, replyTo, reactions, deletedAtMs } = value;
+    const { id, kind, content, timestampMs, isOutgoing, status, attachment, replyTo, reactions, deletedAtMs, pubkey } = value;
 
     if (!isString(id) || !isString(content) || !isNumber(timestampMs) || !isBoolean(isOutgoing)) return null;
     if (kind !== undefined && !isMessageKind(kind)) return null;
-    if (status !== "delivered" && status !== "accepted" && status !== "rejected") return null;
+    if (
+        status !== "delivered" &&
+        status !== "sending" &&
+        status !== "accepted" &&
+        status !== "rejected" &&
+        status !== "queued" &&
+        status !== "failed"
+    ) return null;
 
     const parsedAttachments = Array.isArray(value.attachments)
         ? value.attachments
@@ -184,6 +191,7 @@ const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
     return {
         id,
         ...(kind ? { kind } : {}),
+        pubkey: isString(pubkey) ? pubkey : undefined,
         content,
         timestampMs,
         isOutgoing,
@@ -195,9 +203,16 @@ const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
     } as PersistedMessage;
 };
 
+const parsePersistedGroupMessage = (value: unknown): PersistedGroupMessage | null => {
+    if (!isRecord(value)) return null;
+    const { id, pubkey, created_at, content } = value;
+    if (!isString(id) || !isString(pubkey) || !isNumber(created_at) || !isString(content)) return null;
+    return { id, pubkey, created_at, content };
+};
+
 const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
     if (!isRecord(value)) return null;
-    const { version, createdContacts, createdGroups, unreadByConversationId, unreadByContactId, contactOverridesByContactId, messagesByConversationId, messagesByContactId, connectionRequests, pinnedChatIds, hiddenChatIds } = value;
+    const { version, createdContacts, createdGroups, unreadByConversationId, unreadByContactId, contactOverridesByContactId, messagesByConversationId, messagesByContactId, connectionRequests, pinnedChatIds, hiddenChatIds, groupMessages } = value;
 
     if (!isNumber(version) || (version !== 1 && version !== PERSISTED_CHAT_STATE_VERSION)) return null;
     if (!Array.isArray(createdContacts) || !isRecord(contactOverridesByContactId)) return null;
@@ -236,6 +251,17 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
         parsedMessagesByConversationId[conversationId] = parsedList;
     });
 
+    const parsedGroupMessages: Record<string, ReadonlyArray<PersistedGroupMessage>> = {};
+    if (isRecord(groupMessages)) {
+        Object.entries(groupMessages).forEach(([conversationId, listValue]) => {
+            if (!Array.isArray(listValue)) return;
+            const parsedList = listValue
+                .map(m => parsePersistedGroupMessage(m))
+                .filter((m): m is PersistedGroupMessage => m !== null);
+            parsedGroupMessages[conversationId] = parsedList;
+        });
+    }
+
     const parsedConnectionRequests: ReadonlyArray<PersistedConnectionRequest> | undefined = Array.isArray(connectionRequests)
         ? connectionRequests
             .map((cr: unknown) => parsePersistedConnectionRequest(cr))
@@ -257,6 +283,7 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
         unreadByConversationId: parsedUnreadByConversationId,
         contactOverridesByContactId: parsedOverridesByContactId,
         messagesByConversationId: parsedMessagesByConversationId,
+        groupMessages: parsedGroupMessages,
         ...(parsedConnectionRequests ? { connectionRequests: parsedConnectionRequests } : {}),
         pinnedChatIds: parsedPinnedChatIds,
         hiddenChatIds: parsedHiddenChatIds
@@ -389,6 +416,7 @@ export const toPersistedMessagesByConversationId = (messagesByConversationId: Me
         result[conversationId] = limited.map((m): PersistedMessage => ({
             id: m.id,
             ...(m.kind !== "user" ? { kind: m.kind } : {}),
+            pubkey: m.senderPubkey,
             content: m.content,
             timestampMs: m.timestamp.getTime(),
             isOutgoing: m.isOutgoing,
@@ -415,6 +443,7 @@ export const fromPersistedMessagesByConversationId = (messagesByConversationId: 
             return {
                 id: m.id,
                 kind: m.kind ?? "user",
+                senderPubkey: m.pubkey as PublicKeyHex,
                 content: m.content,
                 timestamp: new Date(m.timestampMs),
                 isOutgoing: m.isOutgoing,

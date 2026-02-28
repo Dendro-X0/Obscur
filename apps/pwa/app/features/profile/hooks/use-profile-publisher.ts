@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { powService } from "@/app/features/crypto/pow-service";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useTranslation } from "react-i18next";
@@ -17,6 +18,7 @@ export type PublishProfileParams = Readonly<{
 type UseProfilePublisherResult = Readonly<{
     publishProfile: (params: PublishProfileParams) => Promise<boolean>;
     isPublishing: boolean;
+    isMining: boolean;
     error: string | null;
 }>;
 
@@ -28,6 +30,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
     const { t } = useTranslation();
     const identity = useIdentity();
     const [isPublishing, setIsPublishing] = useState(false);
+    const [isMining, setIsMining] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Use shared relay pool
@@ -93,8 +96,16 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                 pubkey: pubkey,
             };
 
+            // WP-1/WP-2: Apply Proof of Work (NIP-13)
+            // Difficulty 12 provides a solid balance: ~1-3s on mobile, 
+            // but enough to stop bulk registrations.
+            setIsMining(true);
+            const REGISTRATION_DIFFICULTY = 12;
+            const minedEvent = await powService.mineEvent(unsignedEvent, REGISTRATION_DIFFICULTY);
+            setIsMining(false);
+
             // Sign event
-            const signedEvent = await cryptoService.signEvent(unsignedEvent, privkey);
+            const signedEvent = await cryptoService.signEvent(minedEvent as any, privkey);
 
             // Publish to all connected relays
             const payload = JSON.stringify(["EVENT", signedEvent]);
@@ -116,13 +127,15 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             setError(err instanceof Error ? err.message : "Failed to publish profile");
             return false;
         } finally {
+            setIsMining(false);
             setIsPublishing(false);
         }
-    }, [identity.state.publicKeyHex, identity.state.privateKeyHex, enabledRelayUrls, pool, t]);
+    }, [identity, enabledRelayUrls, pool, t]);
 
-    return {
+    return useMemo(() => ({
         publishProfile,
         isPublishing,
+        isMining,
         error
-    };
+    }), [publishProfile, isPublishing, isMining, error]);
 };

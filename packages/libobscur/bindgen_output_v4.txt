@@ -1,0 +1,3 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.29s
+     Running `target\debug\uniffi-bindgen.exe generate --library target/debug/libobscur.dll --language python --out-dir out`
+Warning: Unable to auto-format libobscur.py using yapf: Error { kind: NotFound, message: "program not found" }

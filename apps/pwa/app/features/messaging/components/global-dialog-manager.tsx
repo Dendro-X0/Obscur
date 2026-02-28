@@ -2,12 +2,12 @@
 
 import React, { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@dweb/ui-kit";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { CreateGroupDialog, type GroupCreateInfo } from "@/app/features/groups/components/create-group-dialog";
 import { NewChatDialog } from "@/app/features/messaging/components/new-chat-dialog";
 import { GroupService } from "@/app/features/groups/services/group-service";
@@ -21,7 +21,7 @@ import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enha
 export function GlobalDialogManager() {
     const { t } = useTranslation();
     const identity = useIdentity();
-    const { peerTrust, blocklist, requestsInbox } = useContacts();
+    const { peerTrust, blocklist, requestsInbox } = useNetwork();
     const { relayPool } = useRelay();
 
     const {
@@ -29,7 +29,8 @@ export function GlobalDialogManager() {
         newChatPubkey, setNewChatPubkey,
         newChatDisplayName, setNewChatDisplayName,
         createdContacts, setCreatedContacts,
-        setSelectedConversation
+        setSelectedConversation,
+        unhideConversation
     } = useMessaging();
 
     const {
@@ -61,10 +62,13 @@ export function GlobalDialogManager() {
         }
 
         const existing = createdContacts.find(c => c.pubkey === targetPubkey);
+        const newId = [myPublicKeyHex || '', targetPubkey].sort().join(':');
+
+        unhideConversation(newId); // Ensure it is unhidden if previously hidden
+
         if (existing) {
             setSelectedConversation(existing);
         } else {
-            const newId = [myPublicKeyHex || '', targetPubkey].sort().join(':');
             const newConv: DmConversation = {
                 kind: 'dm',
                 id: newId,
@@ -81,7 +85,7 @@ export function GlobalDialogManager() {
         setNewChatPubkey("");
         setNewChatDisplayName("");
         toast.success(t("messaging.chatCreated", "Conversation started"));
-    }, [newChatPubkey, newChatDisplayName, createdContacts, myPublicKeyHex, setSelectedConversation, setCreatedContacts, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t]);
+    }, [newChatPubkey, newChatDisplayName, createdContacts, myPublicKeyHex, setSelectedConversation, setCreatedContacts, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
 
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
         if (!myPrivateKeyHex || !myPublicKeyHex) {

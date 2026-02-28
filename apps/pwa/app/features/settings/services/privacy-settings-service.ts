@@ -6,6 +6,7 @@ export interface PrivacySettings {
     autoLockTimeout: number; // minutes
     useModernDMs: boolean; // NIP-17 Gift Wraps
     dmPrivacy: 'everyone' | 'contacts-only';
+    biometricLockEnabled: boolean;
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -15,7 +16,8 @@ export const defaultPrivacySettings: PrivacySettings = {
     torProxyUrl: "socks5://127.0.0.1:9050",
     autoLockTimeout: 0,
     useModernDMs: true,
-    dmPrivacy: 'everyone'
+    dmPrivacy: 'everyone',
+    biometricLockEnabled: false
 };
 
 export class PrivacySettingsService {

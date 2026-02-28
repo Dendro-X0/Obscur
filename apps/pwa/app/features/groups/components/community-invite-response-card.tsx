@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { PartyPopper, Ban } from "lucide-react";
-import { cn } from "@/app/lib/cn";
+import { PartyPopper, Ban, X } from "lucide-react";
+import { cn } from "@dweb/ui-kit";
 
 export interface CommunityInviteResponseContent {
     type: "community-invite-response";
@@ -29,34 +29,23 @@ export const CommunityInviteResponseCard: React.FC<CommunityInviteResponseCardPr
             isOutgoing ? "justify-end" : "justify-start"
         )}>
             <div className={cn(
-                "group relative overflow-hidden flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all duration-300",
+                "flex items-center gap-2 py-2.5 px-4 rounded-2xl border transition-all duration-300 max-w-fit shadow-sm",
                 isAccepted
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                     : isDeclined
-                        ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
-                        : "bg-zinc-500/10 border-zinc-500/20 text-zinc-500"
+                        ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
+                        : "bg-zinc-500/10 border-zinc-500/20 text-zinc-500 shadow-none border-zinc-200/50 dark:border-white/5"
             )}>
-                {/* Glossy overlay */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" />
-
-                <div className={cn(
-                    "p-1 rounded-full",
-                    isAccepted ? "bg-emerald-500/20" : isDeclined ? "bg-amber-500/20" : "bg-zinc-500/20"
-                )}>
-                    {isAccepted ? (
-                        <PartyPopper className="w-3.5 h-3.5 animate-bounce" />
-                    ) : (
-                        <Ban className="w-3.5 h-3.5" />
-                    )}
-                </div>
-
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
+                {isAccepted ? (
+                    <PartyPopper className="h-4 w-4 animate-bounce" />
+                ) : isDeclined ? (
+                    <Ban className="h-4 w-4" />
+                ) : (
+                    <X className="h-4 w-4" />
+                )}
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap">
                     {isAccepted ? "Invitation Accepted" : isDeclined ? "Invitation Declined" : "Invitation Canceled"}
                 </span>
-
-                {isAccepted && (
-                    <div className="absolute -right-2 -top-2 w-8 h-8 bg-emerald-500/10 blur-xl rounded-full" />
-                )}
             </div>
         </div>
     );

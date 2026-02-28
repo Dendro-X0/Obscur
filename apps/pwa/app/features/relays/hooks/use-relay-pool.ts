@@ -14,13 +14,18 @@ export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResu
     // Use true as default if we are in dev mode toggle? No, rely on localStorage
     const isDevMode = typeof window !== "undefined" && localStorage.getItem("obscur_dev_mode") === "true";
 
-    if (isDevMode) {
-        // We import dynamically or use the singleton from dev-tools
-        const mockPool = getMockPool();
+    const mockPool = useMemo(() => {
+        if (!isDevMode) {
+            return null;
+        }
+        return getMockPool();
+    }, [isDevMode]);
 
-        // Map MockPool to EnhancedRelayPoolResult interface
-        // eslint-disable-next-line
-        return useMemo(() => ({
+    return useMemo((): EnhancedRelayPoolResult => {
+        if (!isDevMode || !mockPool) {
+            return realPool;
+        }
+        return {
             connections: mockPool.connections,
             healthMetrics: mockPool.healthMetrics,
             sendToOpen: mockPool.sendToOpen.bind(mockPool),
@@ -36,8 +41,6 @@ export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResu
             removeTransientRelay: mockPool.removeTransientRelay.bind(mockPool),
             isConnected: mockPool.isConnected.bind(mockPool),
             waitForConnection: mockPool.waitForConnection.bind(mockPool),
-        }), [mockPool]);
-    }
-
-    return realPool;
+        };
+    }, [isDevMode, mockPool, realPool]);
 };

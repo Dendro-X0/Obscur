@@ -7,6 +7,7 @@ Welcome to the **Obscur** developer documentation. This guide is designed to hel
 **Obscur** is a local-first, privacy-focused messenger built on the **Nostr** protocol. It aims to provide secure, censorship-resistant communication for small, invite-only communities.
 
 **Key Principles:**
+
 - **Privacy by Design**: End-to-end encryption (NIP-04/44), metadata privacy (NIP-17), and Tor network integration.
 - **Local-First**: Data resides on the user's device, encrypted at rest. No central servers store your messages.
 - **Decentralization**: Relies on a distributed network of relays, not a single point of failure.
@@ -18,6 +19,7 @@ Welcome to the **Obscur** developer documentation. This guide is designed to hel
 Obscur is a monorepo managed with **PNPM Workspaces**.
 
 ### **Frontend & PWA (`apps/pwa`)**
+
 - **Framework**: [Next.js 16 (App Router)](https://nextjs.org/)
 - **Language**: TypeScript
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
@@ -25,14 +27,17 @@ Obscur is a monorepo managed with **PNPM Workspaces**.
 - **Protocol**: `nostr-tools` + Custom native bindings
 - **Testing**: `Playwright` (E2E), `Vitest` (Unit), `fast-check` (Property-based)
 
-### **Desktop Application (`apps/desktop`)**
-- **Framework**: [Tauri v2](https://tauri.app/)
-- **Backend**: Rust
-- **Networking**: Native Rust networking stack (reqwest, tokio-tungstenite) to bypass WebView limitations and support Tor.
-- **Security**: Native OS Keychain integration for secure key storage.
+### **Desktop & Mobile Applications (`apps/desktop`)**
+
+- **Framework**: [Tauri v2](https://v2.tauri.app/) for building cross-platform native binaries (Windows, macOS, Linux, iOS, Android).
+- **Backend / Core**: Unified Rust core (`libobscur`) powering business logic across operating systems.
+- **Networking**: Native Rust networking stack (reqwest, tokio-tungstenite) to bypass WebView limitations, support Tor (Desktop), and manage mobile background data sync.
+- **Security**: OS-level hardware-backed keystore integration (Android Keystore, iOS Secure Enclave, Windows Credential Manager) for secure private key storage.
 
 ### **Core Libraries (`packages/`)**
+
 Modular packages used across the apps:
+
 - **`@dweb/core`**: Common utilities and types.
 - **`@dweb/crypto`**: Cryptographic primitives (hashing, signing, encryption).
 - **`@dweb/nostr`**: Nostr protocol implementation, event building, and parsing.
@@ -43,18 +48,23 @@ Modular packages used across the apps:
 ## 🏗️ Architecture Explained
 
 ### 1. Hybrid Networking (Desktop)
+
 On the desktop app, network traffic is handled by a **Native Rust Runtime**:
+
 - **Why?** WebViews have CORS restrictions and lack native SOCKS5 (Tor) support.
 - **How?** The frontend sends commands (e.g., `connect_relay`, `publish_event`, `nip96_upload`) to the Rust backend via Tauri IPC. The Rust backend executes the request using `reqwest` or `tungstenite` and returns the result.
 - **Tor Integration**: When enabled, all Rust networking calls are routed through a bundled Tor sidecar proxy.
 
 ### 2. Smart Invite System
+
 A secure way to connect users without exposing public keys globally:
+
 - **Flow**: User A generates an Invite (QR/Link) -> User B scans it -> Keys are exchanged securely.
 - **Security**: Invites are signed and encrypted. They contain temporal properties (expiration) to prevent replay attacks.
 - **Services**: `InviteService`, `ContactService`, `ProfileService` (located in `apps/pwa/app/lib/invites`).
 
 ### 3. Local-First Data
+
 - **Storage**: IndexedDB (using `idb` or similar wrappers) stores messages, contacts, and profiles locally.
 - **Encryption**: The local database is encrypted at rest using a key derived from the user's passphrase (AES-GCM).
 - **Sync**: The app syncs with relays on startup and periodically, pulling only new events.
@@ -92,14 +102,16 @@ obscur/
 ## 🚀 Setting Up Development Environment
 
 ### Prerequisites
+
 - **Node.js**: v20.11.0 or higher
 - **PNPM**: v9+ (`npm install -g pnpm`)
 - **Rust**: Latest stable (`rustup update`)
 - **Build Tools**:
-    - Windows: C++ Build Tools (Visual Studio)
-    - Linux: `build-essential`, `libwebkit2gtk-4.0-dev`, `libssl-dev`, etc. (See Tauri docs)
+  - Windows: C++ Build Tools (Visual Studio)
+  - Linux: `build-essential`, `libwebkit2gtk-4.0-dev`, `libssl-dev`, etc. (See Tauri docs)
 
 ### Installation
+
 ```bash
 git clone <repo-url>
 cd obscur
@@ -110,6 +122,7 @@ pnpm install
 
 **1. Progressive Web App (Browser Mode)**
 Best for UI development.
+
 ```bash
 pnpm dev:pwa
 # Runs at http://localhost:3000
@@ -117,9 +130,10 @@ pnpm dev:pwa
 
 **2. Desktop App (Tauri Mode)**
 Needed for testing native features (Tor, System Tray, Native Notifications).
+
 ```bash
 pnpm dev:desktop
-# automatically starts the PWA dev server and wraps it
+# Note: This will automatically run `scripts/setup-tor.mjs` first to download the appropriate Tor binary for your platform, then starts the PWA dev server and wraps it.
 ```
 
 ---
@@ -151,6 +165,7 @@ pnpm dev:desktop
 ---
 
 ## 📚 Useful References
+
 - [Nostr Protocol Specs (NIPs)](https://github.com/nostr-protocol/nips)
 - [Tauri v2 Documentation](https://v2.tauri.app/)
 - [Next.js Documentation](https://nextjs.org/docs)

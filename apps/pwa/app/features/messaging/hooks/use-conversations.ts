@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import type { Conversation, DmConversation, GroupConversation, ContactOverridesByContactId } from "@/app/features/messaging/types";
-import { usePeerTrust } from "../../contacts/hooks/use-peer-trust";
+import { usePeerTrust } from "../../network/hooks/use-peer-trust";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 // Storage keys (matching page.tsx for compatibility)

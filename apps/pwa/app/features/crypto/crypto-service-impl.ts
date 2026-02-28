@@ -136,6 +136,26 @@ export class CryptoServiceImpl implements CryptoService {
         }
     }
 
+    async encryptNIP44(plaintext: string, recipientPubkey: PublicKeyHex, senderPrivkey: PrivateKeyHex): Promise<string> {
+        try {
+            const conversationKey = nip44.v2.utils.getConversationKey(this.hexToBytes(senderPrivkey), recipientPubkey);
+            return nip44.v2.encrypt(plaintext, conversationKey);
+        } catch (error) {
+            console.error("NIP-44 encryption failed:", error);
+            throw error;
+        }
+    }
+
+    async decryptNIP44(payload: string, senderPubkey: PublicKeyHex, recipientPrivkey: PrivateKeyHex): Promise<string> {
+        try {
+            const conversationKey = nip44.v2.utils.getConversationKey(this.hexToBytes(recipientPrivkey), senderPubkey);
+            return nip44.v2.decrypt(payload, conversationKey);
+        } catch (error) {
+            console.error("NIP-44 decryption failed:", error);
+            throw error;
+        }
+    }
+
     async signEvent(event: UnsignedNostrEvent, privateKey: PrivateKeyHex): Promise<NostrEvent> {
         return await createNostrEvent({
             kind: event.kind,

@@ -8,7 +8,7 @@ import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { toast } from "../../../components/ui/toast";
 import { cn } from "../../../lib/cn";
-import { useContacts } from "../../contacts/providers/contacts-provider";
+import { useNetwork } from "../../network/providers/network-provider";
 import { useMessaging } from "../../messaging/providers/messaging-provider";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
@@ -27,6 +27,7 @@ interface InviteContactsDialogProps {
     groupId: string;
     roomKeyHex: string;
     metadata: GroupMetadata;
+    currentMemberPubkeys?: ReadonlyArray<string>;
 }
 
 export function InviteContactsDialog({
@@ -34,10 +35,11 @@ export function InviteContactsDialog({
     onClose,
     groupId,
     roomKeyHex,
-    metadata
+    metadata,
+    currentMemberPubkeys = []
 }: InviteContactsDialogProps) {
     const { t } = useTranslation();
-    const { peerTrust } = useContacts();
+    const { peerTrust } = useNetwork();
     const { createdContacts, messagesByConversationId, setMessagesByConversationId } = useMessaging();
     const { relayPool } = useRelay();
     const { state: identityState } = useIdentity();
@@ -67,30 +69,9 @@ export function InviteContactsDialog({
     }, [peerTrust.state.acceptedPeers, createdContacts, searchQuery]);
 
     const handleToggleSelect = (pubkey: string) => {
-        if (!selectedPubkeys.has(pubkey)) {
-            const group = createdGroups.find(g => g.groupId === groupId);
-            if (group?.memberPubkeys.includes(pubkey)) {
-                toast.error(t("groups.alreadyMember", "This user is already a member of the group."));
-                return;
-            }
-
-            const messages = messagesByConversationId[pubkey];
-            if (messages) {
-                for (let i = messages.length - 1; i >= 0; i--) {
-                    const msg = messages[i];
-                    if (msg.isOutgoing) {
-                        try {
-                            const parsed = JSON.parse(msg.content);
-                            if (parsed.type === "community-invite" && parsed.groupId === groupId) {
-                                toast.error(t("groups.spamWarning", "Please wait for this user's confirmation before sending another invite to avoid spam."));
-                                return;
-                            }
-                        } catch (e) {
-                            // ignore parsing errors
-                        }
-                    }
-                }
-            }
+        if (currentMemberPubkeys.includes(pubkey)) {
+            toast.info("This contact is already a member of this community.");
+            return;
         }
 
         setSelectedPubkeys(prev => {
@@ -113,11 +94,13 @@ export function InviteContactsDialog({
             const newMessages: Record<string, Message> = {};
 
             const promises = Array.from(selectedPubkeys).map(async (pubkey) => {
+                const activeRelayUrl = relayPool.connections.find((c: { url: string }) => c.url)?.url;
                 const inviteEvent = await groupService.current!.distributeRoomKey({
                     recipientPubkey: pubkey as PublicKeyHex,
                     groupId,
                     roomKeyHex,
-                    metadata
+                    metadata,
+                    relayUrl: activeRelayUrl
                 });
                 await relayPool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
 
@@ -131,7 +114,6 @@ export function InviteContactsDialog({
                     content: JSON.stringify({
                         type: "community-invite",
                         groupId,
-                        roomKey: roomKeyHex,
                         metadata
                     }),
                     timestamp: new Date(),

@@ -5,9 +5,9 @@ import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import AppShell from "@/app/components/app-shell";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
-import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { ProfileSearchService } from "../search/services/profile-search-service";
 import { SocialGraphService } from "../social-graph/services/social-graph-service";
@@ -22,7 +22,9 @@ import type {
 
 import {
   applyContactOverrides,
+  extractAttachmentsFromContent
 } from "@/app/features/messaging/utils/logic";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 
 import {
   subscribeNowMs,
@@ -61,7 +63,7 @@ const LOAD_EARLIER_STEP = 50;
 function NostrMessengerContent() {
   const { t } = useTranslation();
   const identity = useIdentity();
-  const { blocklist, peerTrust, requestsInbox } = useContacts();
+  const { blocklist, peerTrust, requestsInbox } = useNetwork();
 
   const myPublicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
   const myPrivateKeyHex = identity.state.privateKeyHex || null;
@@ -69,9 +71,8 @@ function NostrMessengerContent() {
 
   const {
     selectedConversation, setSelectedConversation,
-    unreadByConversationId,
+    unreadByConversationId, setUnreadByConversationId,
     contactOverridesByContactId,
-    setMessagesByConversationId, messagesByConversationId,
     visibleMessageCountByConversationId, setVisibleMessageCountByConversationId,
     replyTo, setReplyTo,
     pendingAttachments,
@@ -80,6 +81,7 @@ function NostrMessengerContent() {
     attachmentError,
     hasHydrated, sidebarTab, setSidebarTab,
     messageInput, setMessageInput,
+    isProcessingMedia, mediaProcessingProgress,
     searchQuery, setSearchQuery,
     isNewChatOpen, setIsNewChatOpen,
     isMediaGalleryOpen, setIsMediaGalleryOpen,
@@ -89,7 +91,7 @@ function NostrMessengerContent() {
     messageMenu, setMessageMenu,
     reactionPicker, setReactionPicker,
     pinnedChatIds, togglePin,
-    hiddenChatIds, hideConversation, unhideConversation,
+    hiddenChatIds, deleteConversation, clearHistory, unhideConversation,
     chatsUnreadCount,
     createdContacts, setCreatedContacts
   } = useMessaging();
@@ -97,7 +99,7 @@ function NostrMessengerContent() {
   const { relayPool, relayStatus } = useRelay();
   const {
     createdGroups, isNewGroupOpen, setIsNewGroupOpen,
-    isGroupInfoOpen, setIsGroupInfoOpen,
+    isGroupInfoOpen, setIsGroupInfoOpen, updateGroup,
   } = useGroups();
 
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -112,43 +114,47 @@ function NostrMessengerContent() {
   // No-op - moved to top
 
   const dmController = useEnhancedDmController({
-    myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox
+    myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox,
+    onContactCreated: (pubkey) => {
+      const cid = [myPublicKeyHex || '', pubkey].sort().join(':');
+      setCreatedContacts(prev => {
+        if (prev.some(c => c.id === cid)) return prev;
+        return [...prev, {
+          kind: 'dm',
+          id: cid,
+          pubkey: pubkey as PublicKeyHex,
+          displayName: pubkey.slice(0, 8),
+          lastMessage: '',
+          unreadCount: 0,
+          lastMessageTime: new Date()
+        } as DmConversation];
+      });
+    }
   });
 
-  const { state: groupState } = useSealedCommunity({
+  const { state: groupState, members: groupMembers } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
     groupId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).groupId : '',
     myPublicKeyHex,
     myPrivateKeyHex,
-    enabled: selectedConversation?.kind === 'group'
+    enabled: selectedConversation?.kind === 'group',
+    initialMembers: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).memberPubkeys as ReadonlyArray<PublicKeyHex> : undefined
   });
 
+  // Sync live member list back to the group provider so persistence and UI stay current
   useEffect(() => {
-    if (selectedConversation?.kind !== 'group' || !groupState.messages.length) return;
+    if (selectedConversation?.kind !== 'group' || groupMembers.length === 0) return;
+    const group = selectedConversation as GroupConversation;
+    const current = group.memberPubkeys ?? [];
+    const same = current.length === groupMembers.length &&
+      groupMembers.every(pk => current.includes(pk));
+    if (!same) {
+      updateGroup({ groupId: group.groupId, updates: { memberPubkeys: [...groupMembers] } });
+    }
+  }, [groupMembers, selectedConversation?.id]);
 
-    setMessagesByConversationId(prev => {
-      const existing = prev[selectedConversation.id] ?? [];
-      const newMessages = groupState.messages
-        .filter((m: GroupMessageEvent) => !existing.some(em => em.id === m.id))
-        .map((m: GroupMessageEvent) => ({
-          id: m.id,
-          kind: 'user',
-          content: m.content,
-          timestamp: new Date(m.created_at * 1000),
-          isOutgoing: m.pubkey === myPublicKeyHex,
-          senderPubkey: m.pubkey as PublicKeyHex,
-          status: 'delivered',
-          reactions: {},
-        } as Message));
 
-      if (newMessages.length === 0) return prev;
-      return {
-        ...prev,
-        [selectedConversation.id]: [...existing, ...newMessages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-      };
-    });
-  }, [groupState.messages, selectedConversation, myPublicKeyHex, setMessagesByConversationId]);
 
   const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
 
@@ -156,12 +162,43 @@ function NostrMessengerContent() {
   const { handleSendMessage, deleteMessage, toggleReaction } = useChatActions(dmController);
   const { handleRedeemInvite } = useInviteRedemption(dmController);
   useDeepLinks(handleRedeemInvite);
-  useDmSync(dmController.state.messages, setMessagesByConversationId);
-  useCommandMessages(dmController.state.messages, setMessagesByConversationId);
+  useDmSync(
+    dmController.state.messages,
+    selectedConversation?.id || null,
+    setUnreadByConversationId,
+    dmController.state.status === "ready"
+  );
+  useCommandMessages(dmController.state.messages);
   const { allConversations, filteredConversations, messageSearchResults } = useFilteredConversations(
-    createdContacts, createdGroups, contactOverridesByContactId, messagesByConversationId, searchQuery, peerTrust.isAccepted, myPublicKeyHex
+    createdContacts, createdGroups, contactOverridesByContactId, searchQuery,
+    (params) => {
+      if (peerTrust.isAccepted(params)) return true;
+      const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: params.publicKeyHex as PublicKeyHex });
+      return !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
+    },
+    myPublicKeyHex
   );
   const { pickAttachments, handleFilesSelected, removePendingAttachment, clearPendingAttachments } = useAttachmentHandler();
+
+  const [restoredChatId, setRestoredChatId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasHydrated || !myPublicKeyHex) return;
+    if (restoredChatId === null) {
+      const savedId = localStorage.getItem(`obscur-last-chat-${myPublicKeyHex}`);
+      setRestoredChatId(savedId || "");
+    }
+  }, [hasHydrated, myPublicKeyHex, restoredChatId]);
+
+  useEffect(() => {
+    if (restoredChatId && !selectedConversation) {
+      const found = allConversations.find(c => c.id === restoredChatId);
+      if (found) {
+        setSelectedConversation(found);
+        setRestoredChatId("");
+      }
+    }
+  }, [restoredChatId, allConversations, selectedConversation, setSelectedConversation]);
 
   const selectedConversationView = selectedConversation ? applyContactOverrides(selectedConversation, contactOverridesByContactId) : null;
   const nowMs = useSyncExternalStore(subscribeNowMs, getNowMsSnapshot, getNowMsServerSnapshot);
@@ -212,21 +249,20 @@ function NostrMessengerContent() {
     selectedConversationMediaItems
   } = useChatViewProps({
     selectedConversation,
-    messagesByConversationId,
-    visibleMessageCountByConversationId,
-    setVisibleMessageCountByConversationId,
-    myPublicKeyHex,
-    DEFAULT_VISIBLE_MESSAGES,
-    LOAD_EARLIER_STEP
+    myPublicKeyHex
   });
 
   const updateSidebarTab = (tab: "chats" | "requests") => {
     setSidebarTab(tab);
     localStorage.setItem(LAST_PAGE_STORAGE_KEY, JSON.stringify({ type: 'tab', id: tab }));
-    if (tab === "requests") {
+  };
+
+  // Clear unread marks when switching to invitations tab
+  useEffect(() => {
+    if (sidebarTab === "requests" && requestsInbox.state.items.some(i => i.unreadCount > 0)) {
       requestsInbox.markAllRead();
     }
-  };
+  }, [sidebarTab, requestsInbox.markAllRead, requestsInbox.state.items]);
 
   const isIdentityUnlocked = identity.state.status === "unlocked";
   const shouldShowLockScreen = (isLocked || identity.state.status === "locked") && !!identity.state.stored;
@@ -284,7 +320,8 @@ function NostrMessengerContent() {
             pinnedChatIds={pinnedChatIds}
             togglePin={togglePin}
             hiddenChatIds={hiddenChatIds}
-            hideConversation={hideConversation}
+            deleteConversation={deleteConversation}
+            clearHistory={clearHistory}
             onClearHistory={requestsInbox.clearHistory}
             onAcceptRequest={(pk) => {
               peerTrust.acceptPeer({ publicKeyHex: pk as PublicKeyHex });
@@ -335,7 +372,7 @@ function NostrMessengerContent() {
         ) : null
       }
     >
-      <main className="flex flex-1 flex-col overflow-hidden bg-zinc-50 dark:bg-black">
+      <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
         {!selectedConversationView ? (
           <EmptyConversationView
             onNewChat={() => setIsNewChatOpen(true)}
@@ -378,7 +415,7 @@ function NostrMessengerContent() {
             reactionPicker={reactionPicker}
             setReactionPicker={setReactionPicker}
             reactionPickerRef={reactionPickerRef}
-            onToggleReaction={(id, emoji) => toggleReaction({ conversationId: selectedConversationView.id, messageId: id, emoji })}
+            onToggleReaction={(message, emoji) => toggleReaction({ conversationId: selectedConversationView.id, message, emoji })}
             onRetryMessage={(m) => dmController.retryFailedMessage(m.id)}
             messageInput={messageInput}
             setMessageInput={setMessageInput}
@@ -405,6 +442,8 @@ function NostrMessengerContent() {
             clearPendingAttachment={clearPendingAttachments}
             relayStatus={relayStatus}
             composerTextareaRef={composerTextareaRef}
+            isProcessingMedia={isProcessingMedia}
+            mediaProcessingProgress={mediaProcessingProgress}
             isMediaGalleryOpen={isMediaGalleryOpen}
             setIsMediaGalleryOpen={setIsMediaGalleryOpen}
             selectedConversationMediaItems={selectedConversationMediaItems}

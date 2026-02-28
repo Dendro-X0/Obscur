@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { qrGenerator } from "@/app/features/invites/utils/qr-generator";
 import { inviteManager } from "@/app/features/invites/utils/invite-manager";
-import type { ContactRequest } from "@/app/features/invites/utils/types";
+import type { ConnectionRequest } from "@/app/features/invites/utils/types";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 
@@ -11,7 +11,7 @@ type ScannerState =
   | { status: "idle" }
   | { status: "scanning" }
   | { status: "processing" }
-  | { status: "success"; contactRequest: ContactRequest }
+  | { status: "success"; connectionRequest: ConnectionRequest }
   | { status: "error"; error: string };
 
 export const QRCodeScanner = () => {
@@ -57,9 +57,9 @@ export const QRCodeScanner = () => {
             const qrData = await qrGenerator.scanQR(imageData);
 
             // Process the QR invite
-            const contactRequest = await inviteManager.processQRInvite(JSON.stringify(qrData));
+            const connectionRequest = await inviteManager.processQRInvite(JSON.stringify(qrData));
 
-            setState({ status: "success", contactRequest });
+            setState({ status: "success", connectionRequest });
           } catch (error) {
             setState({
               status: "error",
@@ -148,16 +148,16 @@ export const QRCodeScanner = () => {
               <div className="mt-2 space-y-1 text-xs text-emerald-700 dark:text-emerald-300">
                 <div>
                   <span className="font-medium">From:</span>{" "}
-                  {state.contactRequest.profile.displayName || 
-                   `User ${state.contactRequest.senderPublicKey.slice(0, 8)}...`}
+                  {state.connectionRequest.profile.displayName ||
+                    `User ${state.connectionRequest.senderPublicKey.slice(0, 8)}...`}
                 </div>
-                {state.contactRequest.message && (
+                {state.connectionRequest.message && (
                   <div>
-                    <span className="font-medium">Message:</span> {state.contactRequest.message}
+                    <span className="font-medium">Message:</span> {state.connectionRequest.message}
                   </div>
                 )}
                 <div>
-                  <span className="font-medium">Status:</span> {state.contactRequest.status}
+                  <span className="font-medium">Status:</span> {state.connectionRequest.status}
                 </div>
               </div>
             </div>

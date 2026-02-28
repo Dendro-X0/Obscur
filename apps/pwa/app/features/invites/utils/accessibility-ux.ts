@@ -152,12 +152,12 @@ export class ErrorMessageFormatter {
       severity: 'error'
     });
 
-    this.errorMap.set('CONTACT_EXISTS', {
-      message: 'Contact already exists',
+    this.errorMap.set('CONNECTION_EXISTS', {
+      message: 'Connection already exists',
       userMessage: 'You\'re already connected with this person.',
       suggestions: [
-        'Check your contacts list',
-        'Search for the contact by name'
+        'Check your connections list',
+        'Search for the connection by name'
       ],
       severity: 'info'
     });
@@ -173,8 +173,8 @@ export class ErrorMessageFormatter {
     });
 
     this.errorMap.set('IMPORT_FAILED', {
-      message: 'Contact import failed',
-      userMessage: 'Some contacts could not be imported.',
+      message: 'Connection import failed',
+      userMessage: 'Some connections could not be imported.',
       suggestions: [
         'Check the file format',
         'Verify the file is not corrupted',
@@ -223,21 +223,21 @@ export class ErrorMessageFormatter {
  */
 export class AccessibilityHelper {
   /**
-   * Generate ARIA label for contact
+   * Generate ARIA label for connection
    */
-  static getContactAriaLabel(contact: {
+  static getConnectionAriaLabel(connection: {
     displayName: string;
     trustLevel?: string;
     groups?: string[];
   }): string {
-    const parts = [`Contact: ${contact.displayName}`];
+    const parts = [`Connection: ${connection.displayName}`];
 
-    if (contact.trustLevel) {
-      parts.push(`Trust level: ${contact.trustLevel}`);
+    if (connection.trustLevel) {
+      parts.push(`Trust level: ${connection.trustLevel}`);
     }
 
-    if (contact.groups && contact.groups.length > 0) {
-      parts.push(`Groups: ${contact.groups.length}`);
+    if (connection.groups && connection.groups.length > 0) {
+      parts.push(`Groups: ${connection.groups.length}`);
     }
 
     return parts.join(', ');
@@ -318,11 +318,11 @@ export class AccessibilityHelper {
    */
   static getKeyboardHints(context: 'contact-list' | 'invite-form' | 'qr-scanner'): string[] {
     const hints: Record<string, string[]> = {
-      'contact-list': [
-        'Use arrow keys to navigate contacts',
-        'Press Enter to select a contact',
-        'Press Delete to remove selected contact',
-        'Type to search contacts'
+      'connection-list': [
+        'Use arrow keys to navigate connections',
+        'Press Enter to select a connection',
+        'Press Delete to remove selected connection',
+        'Type to search connections'
       ],
       'invite-form': [
         'Tab to move between fields',
@@ -495,28 +495,28 @@ export class ContextualHelp {
       ]
     });
 
-    this.helpContent.set('contact-organization', {
-      title: 'Organizing Contacts',
-      description: 'Keep your contacts organized with groups and trust levels.',
+    this.helpContent.set('connection-organization', {
+      title: 'Organizing Connections',
+      description: 'Keep your connections organized with groups and trust levels.',
       steps: [
         'Create groups for different categories',
-        'Add contacts to groups',
+        'Add connections to groups',
         'Set trust levels (trusted, neutral, blocked)',
-        'Use search and filters to find contacts'
+        'Use search and filters to find connections'
       ],
       tips: [
-        'Contacts can be in multiple groups',
-        'Blocked contacts cannot message you',
+        'Connections can be in multiple groups',
+        'Blocked connections cannot message you',
         'Use descriptive group names'
       ]
     });
 
-    this.helpContent.set('contact-import', {
-      title: 'Importing Contacts',
-      description: 'Import contacts from other Nostr clients or files.',
+    this.helpContent.set('connection-import', {
+      title: 'Importing Connections',
+      description: 'Import connections from other Nostr clients or files.',
       steps: [
-        'Click "Import Contacts"',
-        'Select your contact file',
+        'Click "Import Connections"',
+        'Select your connection file',
         'Review the import preview',
         'Confirm the import'
       ],

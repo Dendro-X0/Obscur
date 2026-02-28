@@ -15,6 +15,6 @@ export * from './utils';
 
 // Export services
 export * from './invite-manager';
-export * from './contact-store';
+export * from './connection-store';
 export * from './profile-manager';
 export { qrGenerator, useQRGenerator } from './qr-generator';

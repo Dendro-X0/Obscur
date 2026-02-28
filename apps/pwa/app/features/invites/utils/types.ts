@@ -3,7 +3,7 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 // Core invite system types
 export type TrustLevel = "trusted" | "neutral" | "blocked";
 
-export type ContactRequestStatus =
+export type ConnectionRequestStatus =
   | "pending"
   | "accepted"
   | "declined"
@@ -45,7 +45,7 @@ export interface QRCode {
   size: number;
 }
 
-export interface Contact {
+export interface Connection {
   id: string;
   publicKey: PublicKeyHex;
   displayName: string;
@@ -55,16 +55,16 @@ export interface Contact {
   groups: string[];
   addedAt: Date;
   lastSeen?: Date;
-  metadata: ContactMetadata;
+  metadata: ConnectionMetadata;
 }
 
-export interface ContactMetadata {
+export interface ConnectionMetadata {
   source?: 'qr' | 'link' | 'import' | 'manual';
   importedFrom?: string;
   notes?: string;
 }
 
-export interface ContactGroup {
+export interface ConnectionGroup {
   id: string;
   name: string;
   description?: string;
@@ -72,7 +72,7 @@ export interface ContactGroup {
   createdAt: Date;
 }
 
-export interface ContactFilter {
+export interface ConnectionFilter {
   trustLevel?: TrustLevel;
   groups?: string[];
   searchQuery?: string;
@@ -80,19 +80,19 @@ export interface ContactFilter {
   addedBefore?: Date;
 }
 
-export interface ContactRequest {
+export interface ConnectionRequest {
   id: string;
   type: "incoming" | "outgoing";
   senderPublicKey: PublicKeyHex;
   recipientPublicKey: PublicKeyHex;
   profile: ShareableProfile;
   message?: string;
-  status: ContactRequestStatus;
+  status: ConnectionRequestStatus;
   createdAt: Date;
   expiresAt?: Date;
 }
 
-export interface OutgoingContactRequest {
+export interface OutgoingConnectionRequest {
   recipientPublicKey: PublicKeyHex;
   message?: string;
   includeProfile: boolean;
@@ -126,7 +126,7 @@ export interface PrivacySettings {
   shareAvatar: boolean;
   shareBio: boolean;
   shareWebsite: boolean;
-  allowContactRequests: boolean;
+  allowConnectionRequests: boolean;
   requireMessage: boolean;
   autoAcceptTrusted: boolean;
 }
@@ -141,7 +141,7 @@ export interface ShareableProfile {
 }
 
 export interface ImportResult {
-  totalContacts: number;
+  totalConnections: number;
   successfulImports: number;
   failedImports: number;
   duplicates: number;
@@ -154,8 +154,8 @@ export interface ImportError {
   reason: "invalid_key" | "already_exists" | "network_error" | "validation_failed";
 }
 
-export interface NostrContactList {
-  contacts: Array<{
+export interface NostrConnectionList {
+  connections: Array<{
     publicKey: PublicKeyHex;
     relayUrl?: string;
     petname?: string;

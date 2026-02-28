@@ -1,0 +1,75 @@
+    Checking libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0308]: arguments to this function are incorrect
+   --> src\crypto\nip44.rs:24:5
+    |
+ 24 |     nip44::encrypt(&sk, &pk, content, Version::V2).map_err(|e| e.to_string())
+    |     ^^^^^^^^^^^^^^ ---  --- expected `nostr::PublicKey`, found `secp256k1::PublicKey`
+    |                    |
+    |                    expected `nostr::SecretKey`, found `secp256k1::SecretKey`
+    |
+    = note: `secp256k1::SecretKey` and `nostr::SecretKey` have similar names, but are actually distinct types
+note: `secp256k1::SecretKey` is defined in crate `secp256k1`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\secp256k1-0.29.1\src\key.rs:58:1
+    |
+ 58 | pub struct SecretKey([u8; constants::SECRET_KEY_SIZE]);
+    | ^^^^^^^^^^^^^^^^^^^^
+note: `nostr::SecretKey` is defined in crate `nostr`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\key\secret_key.rs:28:1
+    |
+ 28 | pub struct SecretKey {
+    | ^^^^^^^^^^^^^^^^^^^^
+    = note: `secp256k1::PublicKey` and `nostr::PublicKey` have similar names, but are actually distinct types
+note: `secp256k1::PublicKey` is defined in crate `secp256k1`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\secp256k1-0.29.1\src\key.rs:149:1
+    |
+149 | pub struct PublicKey(ffi::PublicKey);
+    | ^^^^^^^^^^^^^^^^^^^^
+note: `nostr::PublicKey` is defined in crate `nostr`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\key\public_key.rs:22:1
+    |
+ 22 | pub struct PublicKey {
+    | ^^^^^^^^^^^^^^^^^^^^
+note: function defined here
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\nips\nip44\mod.rs:102:8
+    |
+102 | pub fn encrypt<T>(
+    |        ^^^^^^^
+
+error[E0308]: arguments to this function are incorrect
+   --> src\crypto\nip44.rs:40:5
+    |
+ 40 |     nip44::decrypt(&sk, &pk, payload).map_err(|e| e.to_string())
+    |     ^^^^^^^^^^^^^^ ---  --- expected `nostr::PublicKey`, found `secp256k1::PublicKey`
+    |                    |
+    |                    expected `nostr::SecretKey`, found `secp256k1::SecretKey`
+    |
+    = note: `secp256k1::SecretKey` and `nostr::SecretKey` have similar names, but are actually distinct types
+note: `secp256k1::SecretKey` is defined in crate `secp256k1`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\secp256k1-0.29.1\src\key.rs:58:1
+    |
+ 58 | pub struct SecretKey([u8; constants::SECRET_KEY_SIZE]);
+    | ^^^^^^^^^^^^^^^^^^^^
+note: `nostr::SecretKey` is defined in crate `nostr`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\key\secret_key.rs:28:1
+    |
+ 28 | pub struct SecretKey {
+    | ^^^^^^^^^^^^^^^^^^^^
+    = note: `secp256k1::PublicKey` and `nostr::PublicKey` have similar names, but are actually distinct types
+note: `secp256k1::PublicKey` is defined in crate `secp256k1`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\secp256k1-0.29.1\src\key.rs:149:1
+    |
+149 | pub struct PublicKey(ffi::PublicKey);
+    | ^^^^^^^^^^^^^^^^^^^^
+note: `nostr::PublicKey` is defined in crate `nostr`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\key\public_key.rs:22:1
+    |
+ 22 | pub struct PublicKey {
+    | ^^^^^^^^^^^^^^^^^^^^
+note: function defined here
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\nips\nip44\mod.rs:138:8
+    |
+138 | pub fn decrypt<T>(
+    |        ^^^^^^^
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `libobscur` (lib) due to 2 previous errors

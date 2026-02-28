@@ -24,6 +24,7 @@ export interface ConversationRowProps {
     isPinned?: boolean;
     onTogglePin?: () => void;
     onHide?: () => void;
+    onDelete?: () => void;
 }
 
 export function ConversationRow({
@@ -34,7 +35,8 @@ export function ConversationRow({
     nowMs,
     isPinned,
     onTogglePin,
-    onHide
+    onHide,
+    onDelete
 }: ConversationRowProps) {
     const { t } = useTranslation();
     const metadata = useProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
@@ -90,8 +92,8 @@ export function ConversationRow({
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded transition-opacity">
-                                <MoreVertical className="h-3 w-3 text-zinc-400" />
+                            <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-opacity md:p-1">
+                                <MoreVertical className="h-5 w-5 text-zinc-400 md:h-3 md:w-3" />
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -101,7 +103,7 @@ export function ConversationRow({
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 className="text-red-600 focus:text-red-600"
-                                onClick={(e) => { e.stopPropagation(); onHide?.(); }}
+                                onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
                             >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 {t("messaging.delete_chat")}

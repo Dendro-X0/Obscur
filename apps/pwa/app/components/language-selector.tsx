@@ -3,6 +3,7 @@
 import { useTranslation } from "react-i18next";
 import { Globe } from "lucide-react";
 import { Button } from "./ui/button";
+import { cn } from "@/app/lib/utils";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -31,17 +32,20 @@ export function LanguageSelector({ variant = "default" }: { variant?: "default" 
         return (
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-full p-0 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                    <Button variant="ghost" size="sm" className="h-12 w-12 rounded-[20px] p-0 border border-black/5 dark:border-white/10 bg-white/50 dark:bg-zinc-900/50 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 backdrop-blur-md">
                         <Globe className="h-5 w-5" />
                         <span className="sr-only">Change Language</span>
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="z-[200] min-w-[150px] rounded-2xl border-black/5 dark:border-white/10 p-2">
                     {LANGUAGES.map((lang) => (
                         <DropdownMenuItem
                             key={lang.code}
                             onClick={() => handleLanguageChange(lang.code)}
-                            className={i18n.language === lang.code ? "bg-zinc-100 font-medium dark:bg-zinc-800" : ""}
+                            className={cn(
+                                "rounded-xl py-2.5 px-3 text-sm font-medium transition-colors cursor-pointer",
+                                i18n.language === lang.code ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white" : "text-zinc-500 hover:bg-black/5 dark:hover:bg-white/5"
+                            )}
                         >
                             {lang.label}
                         </DropdownMenuItem>

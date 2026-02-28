@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion", "emoji-picker-react"]
   },
+  devIndicators: false,
   // Ensure turbopack key is always present to satisfy Next.js 16 build requirements
   turbopack: process.env.VERCEL ? {} : {
     root: repoRoot
@@ -26,7 +27,8 @@ const nextConfig: NextConfig = {
     "@dweb/core",
     "@dweb/crypto",
     "@dweb/nostr",
-    "@dweb/storage"
+    "@dweb/storage",
+    "@dweb/ui-kit"
   ]
 };
 

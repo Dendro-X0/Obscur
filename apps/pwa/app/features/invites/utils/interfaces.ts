@@ -5,19 +5,19 @@ import {
   InviteLinkOptions,
   QRInviteData,
   QRCode,
-  ContactRequest,
-  OutgoingContactRequest,
-  Contact,
-  ContactGroup,
-  ContactFilter,
+  ConnectionRequest,
+  OutgoingConnectionRequest,
+  Connection,
+  ConnectionGroup,
+  ConnectionFilter,
   TrustLevel,
   UserProfile,
   PrivacySettings,
   ShareableProfile,
   InviteLink,
   ImportResult,
-  NostrContactList,
-  ContactRequestStatus
+  NostrConnectionList,
+  ConnectionRequestStatus
 } from './types';
 import type { DeepLinkResult } from './deep-link-handler';
 
@@ -27,11 +27,11 @@ import type { DeepLinkResult } from './deep-link-handler';
 export interface InviteManager {
   // QR Code Operations
   generateQRInvite(options: QRInviteOptions): Promise<QRInviteData>;
-  processQRInvite(qrData: string): Promise<ContactRequest>;
+  processQRInvite(qrData: string): Promise<ConnectionRequest>;
 
   // Link Operations  
   generateInviteLink(options: InviteLinkOptions): Promise<InviteLink>;
-  processInviteLink(linkData: string): Promise<ContactRequest>;
+  processInviteLink(linkData: string): Promise<ConnectionRequest>;
   generateGroupInviteUrl(groupId: string): string;
   revokeInviteLink(linkId: string): Promise<void>;
 
@@ -53,25 +53,25 @@ export interface InviteManager {
 
   // Deep link processing operations
   processDeepLink(url: string): Promise<DeepLinkResult>;
-  handleUrlScheme(url: string): Promise<ContactRequest | null>;
+  handleUrlScheme(url: string): Promise<ConnectionRequest | null>;
 
-  // Contact Request Management
-  sendContactRequest(request: OutgoingContactRequest): Promise<void>;
-  acceptContactRequest(requestId: string): Promise<Contact>;
-  declineContactRequest(requestId: string, block?: boolean): Promise<void>;
-  cancelContactRequest(requestId: string): Promise<void>;
-  getPendingContactRequests(): Promise<ContactRequest[]>;
-  getIncomingContactRequests(): Promise<ContactRequest[]>;
-  getOutgoingContactRequests(): Promise<ContactRequest[]>;
-  getAllContactRequests(): Promise<ContactRequest[]>;
-  getContactRequestsByStatus(status: ContactRequestStatus): Promise<ContactRequest[]>;
+  // Connection Request Management
+  sendConnectionRequest(request: OutgoingConnectionRequest): Promise<void>;
+  acceptConnectionRequest(requestId: string): Promise<Connection>;
+  declineConnectionRequest(requestId: string, block?: boolean): Promise<void>;
+  cancelConnectionRequest(requestId: string): Promise<void>;
+  getPendingConnectionRequests(): Promise<ConnectionRequest[]>;
+  getIncomingConnectionRequests(): Promise<ConnectionRequest[]>;
+  getOutgoingConnectionRequests(): Promise<ConnectionRequest[]>;
+  getAllConnectionRequests(): Promise<ConnectionRequest[]>;
+  getConnectionRequestsByStatus(status: ConnectionRequestStatus): Promise<ConnectionRequest[]>;
 
   // Import/Export
-  importContacts(contactData: NostrContactList): Promise<ImportResult>;
-  exportContacts(): Promise<NostrContactList>;
-  validateContactListFormat(data: unknown): Promise<Readonly<{ isValid: boolean; errors: ReadonlyArray<string> }>>;
-  importContactsFromFile(fileContent: string): Promise<ImportResult>;
-  exportContactsToFile(): Promise<string>;
+  importConnections(contactData: NostrConnectionList): Promise<ImportResult>;
+  exportConnections(): Promise<NostrConnectionList>;
+  validateConnectionListFormat(data: unknown): Promise<Readonly<{ isValid: boolean; errors: ReadonlyArray<string> }>>;
+  importConnectionsFromFile(fileContent: string): Promise<ImportResult>;
+  exportConnectionsToFile(): Promise<string>;
 }
 
 /**
@@ -84,41 +84,45 @@ export interface QRGenerator {
 }
 
 /**
- * Manages contact data, organization, and persistence
+ * Manages connection data, organization, and persistence
  */
-export interface ContactStore {
-  // Contact Management
-  addContact(contact: Contact): Promise<void>;
-  updateContact(contactId: string, updates: Partial<Contact>): Promise<void>;
-  removeContact(contactId: string): Promise<void>;
-  getContact(contactId: string): Promise<Contact | null>;
-  getAllContacts(): Promise<Contact[]>;
+export interface ConnectionStore {
+  // Connection Management
+  // Connection Management
+  addConnection(contact: Connection): Promise<void>;
+  updateConnection(contactId: string, updates: Partial<Connection>): Promise<void>;
+  removeConnection(contactId: string): Promise<void>;
+  getConnection(contactId: string): Promise<Connection | null>;
+  getAllConnections(): Promise<Connection[]>;
 
-  // Contact Organization
-  createGroup(group: ContactGroup): Promise<void>;
+  // Connection Organization
+  createGroup(group: ConnectionGroup): Promise<void>;
   deleteGroup(groupId: string): Promise<void>;
-  getGroup(groupId: string): Promise<ContactGroup | null>;
-  getAllGroups(): Promise<ContactGroup[]>;
-  updateGroup(groupId: string, updates: Partial<ContactGroup>): Promise<void>;
-  addContactToGroup(contactId: string, groupId: string): Promise<void>;
-  removeContactFromGroup(contactId: string, groupId: string): Promise<void>;
-  getContactsByGroup(groupId: string): Promise<Contact[]>;
+  getGroup(groupId: string): Promise<ConnectionGroup | null>;
+  getAllGroups(): Promise<ConnectionGroup[]>;
+  updateGroup(groupId: string, updates: Partial<ConnectionGroup>): Promise<void>;
+  addConnectionToGroup(contactId: string, groupId: string): Promise<void>;
+  removeConnectionFromGroup(contactId: string, groupId: string): Promise<void>;
+  getConnectionsByGroup(groupId: string): Promise<Connection[]>;
 
   // Search and Filtering
-  searchContacts(query: string): Promise<Contact[]>;
-  filterContacts(filter: ContactFilter): Promise<Contact[]>;
+  searchConnections(query: string): Promise<Connection[]>;
+  filterConnections(filter: ConnectionFilter): Promise<Connection[]>;
 
   // Trust Management
-  setTrustLevel(contactId: string, level: TrustLevel): Promise<void>;
-  getTrustedContacts(): Promise<Contact[]>;
-  getBlockedContacts(): Promise<Contact[]>;
-  getNeutralContacts(): Promise<Contact[]>;
-  getContactsByTrustLevel(level: TrustLevel): Promise<Contact[]>;
-  bulkSetTrustLevel(contactIds: string[], level: TrustLevel): Promise<void>;
+  setTrustLevel(connectionId: string, level: TrustLevel): Promise<void>;
+  getTrustedConnections(): Promise<Connection[]>;
+  getBlockedConnections(): Promise<Connection[]>;
+  getNeutralConnections(): Promise<Connection[]>;
+  getConnectionsByTrustLevel(level: TrustLevel): Promise<Connection[]>;
+  bulkSetTrustLevel(connectionIds: string[], level: TrustLevel): Promise<void>;
 
   // Multi-group operations
-  addContactToMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
-  removeContactFromMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
+  addConnectionToMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
+  removeConnectionFromMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
+
+  // Public key lookup
+  getContactByPublicKey(publicKey: string): Promise<Connection | null>;
 }
 
 /**

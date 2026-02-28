@@ -3,10 +3,10 @@
  * Implements caching, pagination, and efficient search algorithms
  */
 
-import type { Contact, ContactGroup } from './types';
+import type { Connection, ConnectionGroup } from './types';
 
 /**
- * LRU Cache implementation for contact data
+ * LRU Cache implementation for connection data
  */
 export class LRUCache<K, V> {
   private cache: Map<K, V>;
@@ -61,7 +61,7 @@ export class LRUCache<K, V> {
 }
 
 /**
- * Pagination helper for large contact lists
+ * Pagination helper for large connection lists
  */
 export interface PaginationOptions {
   page: number;
@@ -124,63 +124,63 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Optimized search using Trie data structure for prefix matching
  */
-export class ContactSearchIndex {
+export class ConnectionSearchIndex {
   private root: TrieNode;
-  private contactMap: Map<string, Contact>;
+  private connectionMap: Map<string, Connection>;
 
   constructor() {
     this.root = new TrieNode();
-    this.contactMap = new Map();
+    this.connectionMap = new Map();
   }
 
   get size(): number {
-    return this.contactMap.size;
+    return this.connectionMap.size;
   }
 
   /**
-   * Add contact to search index
+   * Add connection to search index
    */
-  addContact(contact: Contact): void {
-    this.contactMap.set(contact.id, contact);
+  addConnection(connection: Connection): void {
+    this.connectionMap.set(connection.id, connection);
 
     // Index display name
-    this.insertWord(contact.displayName.toLowerCase(), contact.id);
+    this.insertWord(connection.displayName.toLowerCase(), connection.id);
 
     // Index bio if present
-    if (contact.bio) {
-      const bioWords = contact.bio.toLowerCase().split(/\s+/);
-      bioWords.forEach(word => this.insertWord(word, contact.id));
+    if (connection.bio) {
+      const bioWords = connection.bio.toLowerCase().split(/\s+/);
+      bioWords.forEach(word => this.insertWord(word, connection.id));
     }
 
     // Index public key prefix
-    const pubkeyPrefix = contact.publicKey.substring(0, 16).toLowerCase();
-    this.insertWord(pubkeyPrefix, contact.id);
+    const pubkeyPrefix = connection.publicKey.substring(0, 16).toLowerCase();
+    this.insertWord(pubkeyPrefix, connection.id);
   }
 
   /**
-   * Remove contact from search index
+   * Remove connection from search index
    */
-  removeContact(contactId: string): void {
-    this.contactMap.delete(contactId);
+  removeConnection(connectionId: string): void {
+    this.connectionMap.delete(connectionId);
     // Note: For simplicity, we don't remove from trie
     // In production, implement trie node removal or rebuild index periodically
   }
 
   /**
-   * Search contacts by query
+   * Search connections by query
    */
-  search(query: string): Contact[] {
+  search(query: string): Connection[] {
     if (!query || query.length === 0) {
-      return Array.from(this.contactMap.values());
+      return Array.from(this.connectionMap.values());
     }
 
     const lowercaseQuery = query.toLowerCase();
-    const contactIds = this.searchPrefix(lowercaseQuery);
-    const uniqueIds = new Set(contactIds);
+    const connectionIds = this.searchPrefix(lowercaseQuery);
+    const uniqueIds = new Set(connectionIds);
 
     return Array.from(uniqueIds)
-      .map(id => this.contactMap.get(id))
-      .filter((contact): contact is Contact => contact !== undefined);
+      .map(id => this.connectionMap.get(id))
+      .filter((connection): connection is Connection => connection !== undefined);
   }
 
   /**
@@ -188,18 +188,18 @@ export class ContactSearchIndex {
    */
   clear(): void {
     this.root = new TrieNode();
-    this.contactMap.clear();
+    this.connectionMap.clear();
   }
 
   /**
-   * Rebuild index from contacts
+   * Rebuild index from connections
    */
-  rebuild(contacts: Contact[]): void {
+  rebuild(connections: Connection[]): void {
     this.clear();
-    contacts.forEach(contact => this.addContact(contact));
+    connections.forEach(connection => this.addConnection(connection));
   }
 
-  private insertWord(word: string, contactId: string): void {
+  private insertWord(word: string, connectionId: string): void {
     let node = this.root;
 
     for (const char of word) {
@@ -209,7 +209,7 @@ export class ContactSearchIndex {
       node = node.children.get(char)!;
     }
 
-    node.contactIds.add(contactId);
+    node.connectionIds.add(connectionId);
   }
 
   private searchPrefix(prefix: string): string[] {
@@ -223,19 +223,19 @@ export class ContactSearchIndex {
       node = node.children.get(char)!;
     }
 
-    // Collect all contact IDs from this node and descendants
-    return this.collectContactIds(node);
+    // Collect all connection IDs from this node and descendants
+    return this.collectConnectionIds(node);
   }
 
-  private collectContactIds(node: TrieNode): string[] {
+  private collectConnectionIds(node: TrieNode): string[] {
     const result: string[] = [];
 
-    // Add contact IDs from current node
-    result.push(...Array.from(node.contactIds));
+    // Add connection IDs from current node
+    result.push(...Array.from(node.connectionIds));
 
     // Recursively collect from children
     for (const child of node.children.values()) {
-      result.push(...this.collectContactIds(child));
+      result.push(...this.collectConnectionIds(child));
     }
 
     return result;
@@ -244,11 +244,11 @@ export class ContactSearchIndex {
 
 class TrieNode {
   children: Map<string, TrieNode>;
-  contactIds: Set<string>;
+  connectionIds: Set<string>;
 
   constructor() {
     this.children = new Map();
-    this.contactIds = new Set();
+    this.connectionIds = new Set();
   }
 }
 
@@ -489,6 +489,6 @@ export class PerformanceMonitor {
 /**
  * Singleton instances
  */
-export const contactSearchIndex = new ContactSearchIndex();
+export const connectionSearchIndex = new ConnectionSearchIndex();
 export const qrCodeCache = new QRCodeCache();
 export const performanceMonitor = new PerformanceMonitor();

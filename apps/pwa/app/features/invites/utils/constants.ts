@@ -1,11 +1,11 @@
 // Database and storage constants
 export const INVITE_DB_NAME = 'obscur-invites';
-export const INVITE_DB_VERSION = 1;
+export const INVITE_DB_VERSION = 3;
 
 // Object store names
-export const CONTACTS_STORE = 'contacts';
-export const CONTACT_GROUPS_STORE = 'contact-groups';
-export const CONTACT_REQUESTS_STORE = 'contact-requests';
+export const CONNECTIONS_STORE = 'connections';
+export const CONNECTION_GROUPS_STORE = 'connection-groups';
+export const CONNECTION_REQUESTS_STORE = 'connection-requests';
 export const INVITE_LINKS_STORE = 'invite-links';
 
 // Storage keys
@@ -22,9 +22,9 @@ export const INVITE_LINK_BASE_URL = typeof window !== "undefined" ? `${window.lo
 export const SHORT_CODE_LENGTH = 8;
 export const DEFAULT_INVITE_EXPIRATION_HOURS = 24;
 
-// Contact request limits
+// Connection request limits
 export const MAX_PENDING_REQUESTS = 50;
-export const MAX_CONTACT_REQUEST_MESSAGE_LENGTH = 500;
+export const MAX_CONNECTION_REQUEST_MESSAGE_LENGTH = 500;
 
 // Import/export limits
 export const MAX_IMPORT_BATCH_SIZE = 1000;
@@ -50,8 +50,8 @@ export const ERROR_MESSAGES = {
   INVALID_QR_CODE: 'Invalid QR code format',
   EXPIRED_INVITE: 'This invite has expired',
   INVALID_SIGNATURE: 'Invalid cryptographic signature',
-  CONTACT_NOT_FOUND: 'Contact not found',
-  DUPLICATE_CONTACT: 'Contact already exists',
+  CONNECTION_NOT_FOUND: 'Connection not found',
+  DUPLICATE_CONNECTION: 'Connection already exists',
   INVALID_PUBLIC_KEY: 'Invalid public key format',
   STORAGE_ERROR: 'Failed to access local storage',
   NETWORK_ERROR: 'Network connection failed',

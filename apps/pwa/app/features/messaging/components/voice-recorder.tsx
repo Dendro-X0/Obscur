@@ -2,10 +2,10 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Mic, Trash2, Send, Loader2 } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
-import { cn } from "@/app/lib/cn";
+import { Button } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@dweb/ui-kit";
 
 interface VoiceRecorderProps {
     onRecordingComplete: (file: File) => void;

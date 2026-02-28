@@ -8,7 +8,6 @@ import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { LockScreen } from "@/app/components/lock-screen";
 import { AuthScreen } from "../components/auth-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
-import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 
 interface AuthGatewayProps {
     children: React.ReactNode;
@@ -84,27 +83,21 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         }
     };
 
-    const storedPubkey: string | null = identity.state.stored?.publicKeyHex ?? null;
-    const hasPin: boolean = storedPubkey ? PinLockService.hasPin(storedPubkey) : false;
+    const { settings } = useAutoLock();
 
-    const handleUnlockPin = async (pin: string): Promise<boolean> => {
-        if (!storedPubkey) {
-            return false;
-        }
-        setIsUnlocking(true);
+    const handleBiometricUnlock = async (): Promise<boolean> => {
         try {
-            const unlocked = await PinLockService.unlockWithPin({ publicKeyHex: storedPubkey, pin });
-            if (!unlocked.ok) {
-                return false;
+            const { invoke } = await import('@tauri-apps/api/core');
+            const success = await invoke<boolean>('request_biometric_auth');
+            if (success) {
+                // Biometrics successful, clear inactivity lock
+                clearInactivityLock();
+                return true;
             }
-            await identity.unlockWithPrivateKeyHex({ privateKeyHex: unlocked.privateKeyHex as any });
-            clearInactivityLock();
-            return true;
-        } catch (e) {
-            console.error("[AuthGateway] PIN unlock failed:", e);
             return false;
-        } finally {
-            setIsUnlocking(false);
+        } catch (e) {
+            console.error("[AuthGateway] Biometric unlock error:", e);
+            return false;
         }
     };
 
@@ -127,8 +120,6 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
                 publicKeyHex={identity.state.stored?.publicKeyHex}
                 isUnlocking={false}
                 onUnlock={handleUnlock}
-                hasPin={hasPin}
-                onUnlockPin={handleUnlockPin}
                 onForget={identity.forgetIdentity}
                 errorMessage={identity.state.error ?? "An unknown error occurred. Please try again."}
             />
@@ -149,8 +140,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
                 publicKeyHex={identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex}
                 isUnlocking={isUnlocking}
                 onUnlock={handleUnlock}
-                hasPin={hasPin}
-                onUnlockPin={handleUnlockPin}
+                onUnlockBiometric={settings.biometricLockEnabled ? handleBiometricUnlock : undefined}
                 onForget={identity.forgetIdentity}
             />
         );

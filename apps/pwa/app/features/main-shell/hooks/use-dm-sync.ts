@@ -1,54 +1,70 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Message, MessagesByConversationId } from "@/app/features/messaging/types";
+import type { Message, MessagesByConversationId, UnreadByConversationId } from "@/app/features/messaging/types";
+import { messageBus } from "@/app/features/messaging/services/message-bus";
 
 /**
  * Hook to sync messages from DmController to the unified message store.
  */
 export function useDmSync(
     dmMessages: ReadonlyArray<Message>,
-    setMessagesByConversationId: React.Dispatch<React.SetStateAction<MessagesByConversationId>>
+    selectedConversationId: string | null,
+    setUnreadByConversationId: React.Dispatch<React.SetStateAction<UnreadByConversationId>>,
+    isReady: boolean = true
 ) {
-    const lastProcessedCountRef = useRef(0);
+    const prevMessagesRef = useRef<Record<string, Message>>({});
+    const hasInitializedRef = useRef(false);
 
     useEffect(() => {
-        // We removed the length check to ensure status updates and the first message arrival 
-        // trigger the effect properly.
+        const unreadUpdates: Record<string, number> = {};
+        const currentMessages: Record<string, Message> = {};
 
-        setMessagesByConversationId(prev => {
-            const next = { ...prev };
-            let hasChanged = false;
+        dmMessages.forEach(m => {
+            currentMessages[m.id] = m;
+            const cid = m.conversationId;
+            if (!cid) return;
 
-            dmMessages.forEach(m => {
-                const cid = m.conversationId;
-                if (!cid) return;
+            const prev = prevMessagesRef.current[m.id];
 
-                const existing = next[cid] || [];
-                const existingIndex = existing.findIndex(ex => ex.id === m.id);
+            if (!prev) {
+                // Emit to MessageBus and increment unread ONLY if we are fully initialized
+                // This prevents hydration from treating hundreds of stored messages as "new"
+                if (hasInitializedRef.current) {
+                    messageBus.emitNewMessage(cid, m);
 
-                if (existingIndex === -1) {
-                    // New message
-                    const updated = [...existing, m].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-                    next[cid] = updated;
-                    hasChanged = true;
-                } else {
-                    // Update if status or content or reactions changed
-                    const existingMsg = existing[existingIndex];
-                    if (
-                        existingMsg.status !== m.status ||
-                        existingMsg.content !== m.content ||
-                        JSON.stringify(existingMsg.reactions) !== JSON.stringify(m.reactions)
-                    ) {
-                        const updated = [...existing];
-                        updated[existingIndex] = m;
-                        next[cid] = updated;
-                        hasChanged = true;
+                    // Track for unread count increment if not outgoing and not selected
+                    if (!m.isOutgoing && cid !== selectedConversationId) {
+                        unreadUpdates[cid] = (unreadUpdates[cid] || 0) + 1;
                     }
                 }
-            });
-
-            return hasChanged ? next : prev;
+            } else {
+                // Update if changed
+                if (
+                    prev.status !== m.status ||
+                    prev.content !== m.content ||
+                    JSON.stringify(prev.reactions) !== JSON.stringify(m.reactions)
+                ) {
+                    // Emit update to MessageBus
+                    messageBus.emitMessageUpdated(cid, m);
+                }
+            }
         });
-    }, [dmMessages, setMessagesByConversationId]);
+
+        prevMessagesRef.current = currentMessages;
+
+        if (isReady && !hasInitializedRef.current) {
+            hasInitializedRef.current = true;
+        }
+
+        if (Object.keys(unreadUpdates).length > 0) {
+            setUnreadByConversationId(prev => {
+                const next = { ...prev };
+                Object.entries(unreadUpdates).forEach(([cid, count]) => {
+                    next[cid] = (next[cid] || 0) + count;
+                });
+                return next;
+            });
+        }
+    }, [dmMessages, selectedConversationId, setUnreadByConversationId]);
 }

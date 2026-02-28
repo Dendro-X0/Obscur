@@ -6,8 +6,8 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { inviteManager } from "./invite-manager";
-import { contactStore } from "./contact-store";
-import type { Contact, ContactRequest } from "./types";
+import { connectionStore } from "./connection-store";
+import type { Connection as Contact, ConnectionRequest as ContactRequest } from "./types";
 
 /**
  * Process accepted contact requests and enable messaging
@@ -20,11 +20,11 @@ export const enableMessagingForContact = async (
 ): Promise<Contact> => {
   // Accept the contact request through invite manager
   const contact = await inviteManager.acceptContactRequest(contactRequest.id);
-  
+
   // The contact is now added to the contact store
   // The existing DM controller will automatically handle messaging
   // since it subscribes to all DMs for the user's public key
-  
+
   return contact;
 };
 
@@ -44,7 +44,7 @@ export const sendContactRequestViaDM = async (
     message,
     includeProfile: true
   });
-  
+
   // The contact request is now stored locally
   // In a full implementation, this would also send a Nostr event
   // to notify the recipient through the relay network
@@ -57,17 +57,17 @@ export const canMessageContact = async (
   peerPublicKey: PublicKeyHex
 ): Promise<boolean> => {
   try {
-    const contact = await contactStore.getContactByPublicKey(peerPublicKey);
-    
+    const contact = await connectionStore.getContactByPublicKey(peerPublicKey);
+
     if (!contact) {
       return false;
     }
-    
+
     // Check if contact is blocked
     if (contact.trustLevel === "blocked") {
       return false;
     }
-    
+
     return true;
   } catch {
     return false;
@@ -85,12 +85,12 @@ export const getContactInfo = async (
   trustLevel: "trusted" | "neutral" | "blocked";
 } | null> => {
   try {
-    const contact = await contactStore.getContactByPublicKey(peerPublicKey);
-    
+    const contact = await connectionStore.getContactByPublicKey(peerPublicKey);
+
     if (!contact) {
       return null;
     }
-    
+
     return {
       displayName: contact.displayName,
       avatar: contact.avatar,
@@ -113,7 +113,7 @@ export const syncContactRequestsFromRelays = async (
   // 1. Query relays for contact request events
   // 2. Decrypt and validate them
   // 3. Add them to the local contact request inbox
-  
+
   // For now, this is a placeholder that would integrate with
   // the existing relay pool infrastructure
   console.log("Syncing contact requests from relays...");
@@ -133,6 +133,6 @@ export const handleIncomingContactRequest = async (
   // 2. Validate the signature
   // 3. Create a ContactRequest object
   // 4. Add it to the inbox
-  
+
   console.log("Handling incoming contact request from:", senderPublicKey);
 };

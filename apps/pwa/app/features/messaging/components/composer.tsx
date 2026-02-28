@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
 import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
-import { Paperclip, Send, X, FileText, Loader2, Smile } from "lucide-react";
+import { Paperclip, Send, X, FileText, Loader2, Smile, Play } from "lucide-react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { VoiceRecorder } from "./voice-recorder";
 import type { ReplyTo, RelayStatusSummary } from "../types";
@@ -29,7 +29,10 @@ interface ComposerProps {
     recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
     isPeerAccepted?: boolean;
     isInitiator?: boolean;
+    onInitiateGroupSync?: () => void;
     onSendVoiceNote?: (file: File) => void;
+    isProcessingMedia: boolean;
+    mediaProcessingProgress: number;
 }
 
 export function Composer({
@@ -51,7 +54,9 @@ export function Composer({
     recipientStatus,
     isPeerAccepted = true,
     isInitiator = false,
-    onSendVoiceNote
+    onSendVoiceNote,
+    isProcessingMedia,
+    mediaProcessingProgress
 }: ComposerProps) {
     const { t } = useTranslation();
     const isGated: boolean = isPeerAccepted === false && isInitiator === false;
@@ -108,7 +113,7 @@ export function Composer({
         const files: File[] = [];
 
         for (let i = 0; i < items.length; i++) {
-            if (items[i].type.startsWith("image/")) {
+            if (items[i].type.startsWith("image/") || items[i].type.startsWith("video/")) {
                 const file = items[i].getAsFile();
                 if (file) files.push(file);
             }
@@ -156,7 +161,7 @@ export function Composer({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
+                            className="h-11 w-11 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
                             onClick={() => setReplyTo(null)}
                         >
                             <X className="h-5 w-5" />
@@ -179,6 +184,33 @@ export function Composer({
                                         unoptimized
                                         className="object-cover transition-transform group-hover:scale-110 duration-500"
                                     />
+                                ) : file.type.startsWith("video/") ? (
+                                    <div className="relative h-full w-full flex flex-col items-center justify-center bg-zinc-900 text-white">
+                                        {pendingAttachmentPreviewUrls[index].startsWith("data:image") ? (
+                                            <Image
+                                                src={pendingAttachmentPreviewUrls[index]}
+                                                alt={file.name}
+                                                fill
+                                                unoptimized
+                                                className="object-cover opacity-60"
+                                            />
+                                        ) : null}
+                                        <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md">
+                                            <Play className="h-5 w-5 fill-current" />
+                                        </div>
+                                        <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80 shadow-sm">{t("common.video")}</span>
+                                    </div>
+                                ) : file.type.startsWith("audio/") ? (
+                                    <div className="h-full w-full flex flex-col items-center justify-center bg-purple-600 text-white">
+                                        <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/20">
+                                            <div className="flex gap-0.5 items-end h-4">
+                                                <div className="w-1 h-3 bg-white animate-pulse" />
+                                                <div className="w-1 h-4 bg-white animate-pulse" style={{ animationDelay: '0.1s' }} />
+                                                <div className="w-1 h-2 bg-white animate-pulse" style={{ animationDelay: '0.2s' }} />
+                                            </div>
+                                        </div>
+                                        <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80">Audio</span>
+                                    </div>
                                 ) : (
                                     <div className="h-full w-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
                                         <FileText className="h-8 w-8 text-zinc-400" />
@@ -214,6 +246,26 @@ export function Composer({
                 </div>
             )}
 
+            {isProcessingMedia && (
+                <div className="mb-3 overflow-hidden rounded-xl bg-purple-500/10 p-3 border border-purple-500/20 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin text-purple-600" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400">
+                                {t("messaging.processingMedia")}
+                            </span>
+                        </div>
+                        <span className="text-[10px] font-black text-purple-700 dark:text-purple-400">{mediaProcessingProgress}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 transition-all duration-300 ease-out"
+                            style={{ width: `${mediaProcessingProgress}%` }}
+                        />
+                    </div>
+                </div>
+            )}
+
             {attachmentError && (
                 <div className="mb-3 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 uppercase tracking-wide bg-rose-500/10 p-2 rounded-lg">
                     <div className="h-1 w-1 rounded-full bg-current" />
@@ -224,8 +276,8 @@ export function Composer({
 
             {/* Main Input Area */}
             <div className={cn(
-                "relative flex items-end gap-2 p-1.5 bg-zinc-100/80 dark:bg-zinc-900/80 rounded-[28px] ring-1 ring-black/[0.03] dark:ring-white/[0.03] transition-all duration-300",
-                "focus-within:bg-white dark:focus-within:bg-zinc-900 focus-within:ring-purple-500/20 focus-within:shadow-xl focus-within:shadow-purple-500/5",
+                "relative flex items-end gap-2 p-1.5 bg-black/5 dark:bg-black/40 rounded-[28px] ring-1 ring-black/[0.03] dark:ring-white/[0.05] transition-all duration-300 backdrop-blur-sm",
+                "focus-within:bg-white/80 dark:focus-within:bg-zinc-950 focus-within:ring-purple-500/30 focus-within:shadow-2xl focus-within:shadow-purple-500/10",
                 isGated && "opacity-50 grayscale pointer-events-none"
             )}>
                 <input
@@ -245,7 +297,7 @@ export function Composer({
                     onClick={onSelectFiles}
                     aria-label={t("messaging.media")}
                 >
-                    <Paperclip className="h-6 w-6 text-zinc-500" />
+                    <Paperclip className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
                 </Button>
 
                 <Textarea
@@ -262,7 +314,7 @@ export function Composer({
                         }
                     }}
                     disabled={isGated}
-                    className="min-h-[40px] flex-1 resize-none border-0 bg-transparent py-2.5 text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-400 overflow-y-auto"
+                    className="min-h-[40px] flex-1 resize-none border-0 bg-transparent dark:bg-transparent py-2.5 text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 overflow-y-auto"
                     rows={1}
                 />
 
@@ -279,7 +331,7 @@ export function Composer({
                         disabled={isGated}
                         aria-label={t("messaging.searchEmojis")}
                     >
-                        <Smile className="h-6 w-6 text-zinc-500" />
+                        <Smile className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
                     </Button>
 
                     {showEmojiPicker && (
@@ -314,10 +366,10 @@ export function Composer({
                     disabled={isGated || (!messageInput.trim() && pendingAttachments.length === 0) || isUploadingAttachment}
                     size="icon"
                     className={cn(
-                        "h-11 w-11 rounded-full shrink-0 transition-transform active:scale-95 flex items-center justify-center p-0",
+                        "h-11 w-11 rounded-full shrink-0 transition-all duration-300 active:scale-95 flex items-center justify-center p-0",
                         (messageInput.trim() || pendingAttachments.length > 0) && !isUploadingAttachment
-                            ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                            ? "bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)] hover:scale-105"
+                            : "bg-zinc-100 dark:bg-zinc-800/50 text-zinc-400 cursor-not-allowed border border-black/5 dark:border-white/5 opacity-40 shadow-none"
                     )}
                     aria-label={t("common.send")}
                 >

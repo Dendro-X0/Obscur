@@ -12,6 +12,8 @@ This repository uses a structured documentation approach to quickly establish co
 4. **[Features & Roadmap](features.md)**: Comprehensive list of implemented capabilities, recent updates (Alpha 0.7.x), and upcoming goals.
 5. **[Developer Guide](DEVELOPER_GUIDE.md)**: Instructions covering local development, building, and running tests.
 6. **[Security Protocols](SECURITY_PROTOCOLS.md)**: Detailed breakdown of the cryptographic implementations (NIP-04, NIP-17, NIP-98, etc.).
+7. **[Multimedia Upload & Playback](MULTIMEDIA_UPLOAD_PLAYBACK.md)**: Investigation log for NIP-96 uploads and media playback reliability in Tauri/WebView.
+8. **[Auth & Anti-Bot System (Phase 5)](PHASE_5_AUTH_SYSTEM_SPEC.md)**: Specification for V1 Identity onboarding, blockchain key authentication, and Sybil resistance.
 
 ## Core Philosophy
 - **🔒 Privacy-First**: End-to-end encrypted messaging using established Nostr cryptographic standards.

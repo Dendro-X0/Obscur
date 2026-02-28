@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PrivacySettingsService, type PrivacySettings } from "../services/privacy-settings-service";
 
 const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
@@ -169,7 +169,7 @@ export function useAutoLock() {
             });
             window.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [settings.autoLockTimeout, recordActivity, isLocked]);
+    }, [settings.autoLockTimeout, recordActivity, isLocked, lastActivityTime, lock]);
 
     // Set up inactivity timer
     useEffect(() => {
@@ -226,7 +226,7 @@ export function useAutoLock() {
         setSettings(updated);
     }, [isTauri]);
 
-    return {
+    return useMemo(() => ({
         isLocked,
         settings,
         updateSettings,
@@ -237,5 +237,16 @@ export function useAutoLock() {
         torLogs,
         torRestartRequired,
         isTauri
-    };
+    }), [
+        isLocked,
+        settings,
+        updateSettings,
+        lock,
+        unlock,
+        lastActivityTime,
+        torStatus,
+        torLogs,
+        torRestartRequired,
+        isTauri
+    ]);
 }

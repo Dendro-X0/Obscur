@@ -147,20 +147,62 @@ mod desktop {
     #[tauri::command]
     pub async fn encrypt_nip04(session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
         let keys = ensure_session(&session).await?;
-        let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
+        let sk_hex = keys.secret_key().to_secret_hex();
         
-        nostr::nips::nip04::encrypt(keys.secret_key(), &pubkey, &content)
-            .map_err(|e| e.to_string())
+        libobscur::crypto::nip04::encrypt_nip04(&sk_hex, &public_key, &content)
     }
 
     /// Decrypt content using NIP-04 (Legacy)
     #[tauri::command]
     pub async fn decrypt_nip04(session: State<'_, SessionState>, public_key: String, ciphertext: String) -> Result<String, String> {
         let keys = ensure_session(&session).await?;
-        let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
+        let sk_hex = keys.secret_key().to_secret_hex();
         
-        nostr::nips::nip04::decrypt(keys.secret_key(), &pubkey, &ciphertext)
-            .map_err(|e| e.to_string())
+        libobscur::crypto::nip04::decrypt_nip04(&sk_hex, &public_key, &ciphertext)
+    }
+
+    /// Encrypt content using NIP-44 (Modern)
+    #[tauri::command]
+    pub async fn encrypt_nip44(session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
+        let keys = ensure_session(&session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip44::encrypt_nip44(&sk_hex, &public_key, &content)
+    }
+
+    /// Decrypt content using NIP-44 (Modern)
+    #[tauri::command]
+    pub async fn decrypt_nip44(session: State<'_, SessionState>, public_key: String, payload: String) -> Result<String, String> {
+        let keys = ensure_session(&session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip44::decrypt_nip44(&sk_hex, &public_key, &payload)
+    }
+
+    /// Encrypt content using NIP-17 Gift Wrap
+    #[tauri::command]
+    pub async fn encrypt_gift_wrap(
+        session: State<'_, SessionState>, 
+        recipient_pk: String, 
+        rumor: libobscur::crypto::nip17::Rumor
+    ) -> Result<String, String> {
+        let keys = ensure_session(&session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip17::wrap_rumor(&sk_hex, &recipient_pk, &rumor, None)
+    }
+
+    /// Decrypt content using NIP-17 Gift Wrap
+    #[tauri::command]
+    pub async fn decrypt_gift_wrap(
+        session: State<'_, SessionState>, 
+        gift_wrap_content: String, 
+        gift_wrap_sender_pk: String
+    ) -> Result<libobscur::crypto::nip17::Rumor, String> {
+        let keys = ensure_session(&session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip17::unwrap_gift_wrap(&sk_hex, &gift_wrap_content, &gift_wrap_sender_pk)
     }
 
     /// Get the current session secret key as a hex string.
@@ -309,19 +351,61 @@ mod mobile {
     #[tauri::command]
     pub async fn encrypt_nip04(app: AppHandle, session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
-        let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
+        let sk_hex = keys.secret_key().to_secret_hex();
         
-        nostr::nips::nip04::encrypt(keys.secret_key(), &pubkey, &content)
-            .map_err(|e| e.to_string())
+        libobscur::crypto::nip04::encrypt_nip04(&sk_hex, &public_key, &content)
     }
 
     #[tauri::command]
     pub async fn decrypt_nip04(app: AppHandle, session: State<'_, SessionState>, public_key: String, ciphertext: String) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
-        let pubkey = PublicKey::parse(&public_key).map_err(|e| e.to_string())?;
+        let sk_hex = keys.secret_key().to_secret_hex();
         
-        nostr::nips::nip04::decrypt(keys.secret_key(), &pubkey, &ciphertext)
-            .map_err(|e| e.to_string())
+        libobscur::crypto::nip04::decrypt_nip04(&sk_hex, &public_key, &ciphertext)
+    }
+
+    /// Encrypt content using NIP-44 (Modern)
+    #[tauri::command]
+    pub async fn encrypt_nip44(app: AppHandle, session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
+        let keys = ensure_session(&app, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip44::encrypt_nip44(&sk_hex, &public_key, &content)
+    }
+
+    /// Decrypt content using NIP-44 (Modern)
+    #[tauri::command]
+    pub async fn decrypt_nip44(app: AppHandle, session: State<'_, SessionState>, public_key: String, payload: String) -> Result<String, String> {
+        let keys = ensure_session(&app, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip44::decrypt_nip44(&sk_hex, &public_key, &payload)
+    }
+
+    #[tauri::command]
+    pub async fn encrypt_gift_wrap(
+        app: AppHandle,
+        session: State<'_, SessionState>, 
+        recipient_pk: String, 
+        rumor: libobscur::crypto::nip17::Rumor
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip17::wrap_rumor(&sk_hex, &recipient_pk, &rumor, None)
+    }
+
+    #[tauri::command]
+    pub async fn decrypt_gift_wrap(
+        app: AppHandle,
+        session: State<'_, SessionState>, 
+        gift_wrap_content: String, 
+        gift_wrap_sender_pk: String
+    ) -> Result<libobscur::crypto::nip17::Rumor, String> {
+        let keys = ensure_session(&app, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        
+        libobscur::crypto::nip17::unwrap_gift_wrap(&sk_hex, &gift_wrap_content, &gift_wrap_sender_pk)
     }
 
     #[tauri::command]

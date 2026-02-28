@@ -65,7 +65,10 @@ const useNotificationPreference = (): UseNotificationPreferenceResult => {
       notify();
     };
   }, []);
-  return { state, setEnabled: setEnabledStable };
+  return useMemo(
+    () => ({ state, setEnabled: setEnabledStable }),
+    [state, setEnabledStable]
+  );
 };
 
 export { useNotificationPreference };

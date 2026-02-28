@@ -2,16 +2,25 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
-import { Search, Globe, Users, Loader2, ArrowRight, Lock } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { Card } from "@/app/components/ui/card";
+import { Search, Globe, Users, Loader2, ArrowRight, Lock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@dweb/ui-kit";
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "@dweb/ui-kit";
+import { Input } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@dweb/ui-kit";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { useGroups } from "../providers/group-provider";
-import { cn } from "@/app/lib/cn";
+import { cn } from "@dweb/ui-kit";
 
 interface DiscoveredGroup {
     groupId: string;
@@ -23,14 +32,19 @@ interface DiscoveredGroup {
     memberCount?: number;
 }
 
-export function GroupDiscovery() {
+interface GroupDiscoveryProps {
+    searchQuery?: string;
+}
+
+export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
     const { t } = useTranslation();
     const { relayPool } = useRelay();
     const { addGroup, createdGroups } = useGroups();
     const [searchRelay, setSearchRelay] = useState("wss://relay.nostr.band");
     const [groups, setGroups] = useState<DiscoveredGroup[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6;
 
     const fetchGroups = useCallback(async (relayUrl: string) => {
         setIsLoading(true);
@@ -103,6 +117,16 @@ export function GroupDiscovery() {
         );
     }, [groups, searchQuery]);
 
+    const totalPages = Math.ceil(filteredGroups.length / itemsPerPage);
+    const paginatedGroups = useMemo(() => {
+        return filteredGroups.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [filteredGroups, currentPage, itemsPerPage]);
+
+    // Reset page when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, searchRelay]);
+
     const handleJoin = (group: DiscoveredGroup) => {
         const newGroup: GroupConversation = {
             kind: 'group',
@@ -124,53 +148,51 @@ export function GroupDiscovery() {
     };
 
     return (
-        <div className="flex flex-col h-full space-y-6 max-w-5xl mx-auto px-4 sm:px-6">
-            {/* Header & Search */}
-            <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1 group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 group-focus-within:text-purple-500 transition-colors" />
-                        <Input
-                            placeholder={t("groups.discovery.searchPlaceholder", "Find communities by name, topic or ID...")}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-11 h-12 bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 rounded-2xl focus:ring-2 focus:ring-purple-500/20"
-                        />
-                    </div>
+        <div className="flex flex-col h-full space-y-6 max-w-6xl mx-auto">
+            {/* Header & Relay Control */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-1">
+                <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                        Community Discovery
+                    </h3>
                 </div>
 
-                <div className="flex items-center gap-2 p-1.5 bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl w-fit">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-black/5 dark:border-white/5">
-                        <Globe className="h-4 w-4 text-zinc-400" />
+                <div className="flex items-center gap-2 p-1 bg-muted/80 backdrop-blur-md rounded-xl border border-border shadow-xl">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent focus-within:border-primary/30 transition-all">
+                        <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                         <input
                             type="text"
                             value={searchRelay}
                             onChange={(e) => setSearchRelay(e.target.value)}
-                            className="bg-transparent text-sm font-medium border-none focus:ring-0 p-0 w-48 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+                            className="bg-transparent text-xs font-bold border-none focus:ring-0 p-0 w-44 text-foreground placeholder:text-muted-foreground/60"
+                            placeholder="Relay URL..."
                             onKeyDown={(e) => e.key === 'Enter' && fetchGroups(searchRelay)}
                         />
                     </div>
+                    <div className="w-px h-4 bg-border mx-1" />
                     <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => fetchGroups(searchRelay)}
                         disabled={isLoading}
-                        className="rounded-xl px-4 hover:bg-white dark:hover:bg-zinc-800"
+                        className="h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all"
                     >
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.refresh", "Refresh")}
+                        {isLoading ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                        {t("common.refresh", "Refresh")}
                     </Button>
                 </div>
             </div>
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredGroups.map(group => {
+                {paginatedGroups.map(group => {
                     const isJoined = createdGroups.some(g => g.groupId === group.groupId && g.relayUrl === group.relayUrl);
 
                     return (
-                        <Card key={`${group.relayUrl}-${group.groupId}`} className="group relative overflow-hidden bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl border-black/5 dark:border-white/5 rounded-[32px] hover:border-purple-500/30 transition-all duration-500">
+                        <Card key={`${group.relayUrl}-${group.groupId}`} className="group relative overflow-hidden bg-card/40 backdrop-blur-xl border-border rounded-[32px] hover:border-primary/30 transition-all duration-500 shadow-sm">
                             <div className="p-6 flex flex-col items-center text-center space-y-4">
-                                <div className="h-20 w-20 rounded-[28px] bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center shadow-inner overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+                                <div className="h-20 w-20 rounded-[28px] bg-muted flex items-center justify-center shadow-inner overflow-hidden ring-1 ring-border">
                                     {group.avatar ? (
                                         <Image
                                             src={group.avatar}
@@ -181,20 +203,20 @@ export function GroupDiscovery() {
                                             unoptimized
                                         />
                                     ) : (
-                                        <Users className="h-10 w-10 text-zinc-400" />
+                                        <Users className="h-10 w-10 text-muted-foreground" />
                                     )}
                                 </div>
 
                                 <div className="space-y-1 w-full">
-                                    <h3 className="font-black text-lg text-zinc-900 dark:text-zinc-50 truncate">
+                                    <h3 className="font-black text-lg text-foreground truncate">
                                         {group.name || group.groupId}
                                     </h3>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono truncate">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground font-mono truncate">
                                         {group.groupId}@{new URL(group.relayUrl).hostname}
                                     </p>
                                 </div>
 
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 min-h-[40px]">
+                                <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px]">
                                     {group.about || t("groups.discovery.noDescription", "No description provided.")}
                                 </p>
 
@@ -204,8 +226,8 @@ export function GroupDiscovery() {
                                     className={cn(
                                         "w-full h-12 rounded-2xl font-black uppercase tracking-widest text-xs gap-2 shadow-xl transition-all",
                                         isJoined
-                                            ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 cursor-default"
-                                            : "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20"
+                                            ? "bg-muted text-muted-foreground cursor-default"
+                                            : "bg-primary hover:bg-primary/90 text-primary-foreground shadow-primary/20"
                                     )}
                                 >
                                     {isJoined ? (
@@ -218,9 +240,9 @@ export function GroupDiscovery() {
                                     )}
                                 </Button>
                                 {group.access && group.access !== "open" && (
-                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-full">
-                                        <Users className="h-3 w-3 text-amber-600" />
-                                        <span className="text-[10px] font-bold text-amber-600 capitalize">
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
+                                        <Users className="h-3 w-3 text-amber-500" />
+                                        <span className="text-[10px] font-bold text-amber-500 capitalize">
                                             {group.access === "invite-only" ? "Restricted" : "Listed"}
                                         </span>
                                     </div>
@@ -230,18 +252,73 @@ export function GroupDiscovery() {
                     );
                 })}
 
-                {filteredGroups.length === 0 && !isLoading && (
+                {paginatedGroups.length === 0 && !isLoading && (
                     <div className="col-span-full py-20 flex flex-col items-center justify-center space-y-4 text-center">
-                        <div className="h-20 w-20 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
-                            <Globe className="h-10 w-10 text-zinc-300" />
+                        <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
+                            <Globe className="h-10 w-10 text-muted-foreground/30" />
                         </div>
                         <div className="space-y-1">
-                            <h3 className="font-bold text-zinc-900 dark:text-zinc-100">{t("groups.discovery.noCommunities", "No communities found")}</h3>
-                            <p className="text-sm text-zinc-500 max-w-xs">{t("groups.discovery.tryDifferentRelay", "Try searching on a different relay or check the relay URL.")}</p>
+                            <h3 className="font-bold text-foreground">{t("groups.discovery.noCommunities", "No communities found")}</h3>
+                            <p className="text-sm text-muted-foreground max-w-xs">{t("groups.discovery.tryDifferentRelay", "Try searching on a different relay or check the relay URL.")}</p>
                         </div>
                     </div>
                 )}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="pt-4 pb-8">
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className={currentPage === 1 ? "opacity-30 pointer-events-none" : "cursor-pointer"}
+                                />
+                            </PaginationItem>
+
+                            {/* Page Numbers */}
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                                // Simple logic to show current, first, last and surrounding pages
+                                if (
+                                    page === 1 ||
+                                    page === totalPages ||
+                                    (page >= currentPage - 1 && page <= currentPage + 1)
+                                ) {
+                                    return (
+                                        <PaginationItem key={page}>
+                                            <PaginationLink
+                                                onClick={() => setCurrentPage(page)}
+                                                isActive={currentPage === page}
+                                                className="cursor-pointer"
+                                            >
+                                                {page}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    );
+                                }
+                                if (page === currentPage - 2 || page === currentPage + 2) {
+                                    return (
+                                        <PaginationItem key={page}>
+                                            <PaginationEllipsis />
+                                        </PaginationItem>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className={currentPage === totalPages ? "opacity-30 pointer-events-none" : "cursor-pointer"}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
         </div>
     );
 }

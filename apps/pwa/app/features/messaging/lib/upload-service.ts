@@ -1,10 +1,42 @@
-import { Attachment, AttachmentKind, UploadApiResponse, UploadError, UploadErrorCode } from "@/app/features/messaging/types";
+import { Attachment, AttachmentKind, UploadApiResponse, UploadError, UploadErrorCode } from "../types";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 export interface UploadService {
     uploadFile: (file: File) => Promise<Attachment>;
     pickFiles: () => Promise<File[] | null>;
+}
+
+/**
+ * Enhanced media kind detection with extension fallback
+ */
+export function getAttachmentKind(file: File): AttachmentKind {
+    const type = file.type.toLowerCase();
+    if (type.startsWith("video/")) return "video";
+    if (type.startsWith("audio/")) return "audio";
+    if (type.startsWith("image/")) return "image";
+
+    // Fallback to extension check for cases where browser fails to detect MIME type
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    const videoExtensions = ['mp4', 'mov', 'avi', 'webm', 'ogv', 'm4v', '3gp', 'mkv'];
+    const audioExtensions = ['mp3', 'wav', 'm4a', 'ogg', 'aac', 'flac', 'opus'];
+
+    if (videoExtensions.includes(extension)) return "video";
+    if (audioExtensions.includes(extension)) return "audio";
+
+    return "image";
+}
+
+/**
+ * Common MIME type detection from extension
+ */
+export function getMimeType(fileName: string, defaultType: string = "application/octet-stream"): string {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    const imageTypes: Record<string, string> = { 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp' };
+    const videoTypes: Record<string, string> = { 'mp4': 'video/mp4', 'mov': 'video/quicktime', 'avi': 'video/x-msvideo', 'webm': 'video/webm', 'ogv': 'video/ogg' };
+    const audioTypes: Record<string, string> = { 'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'm4a': 'audio/mp4', 'ogg': 'audio/ogg', 'aac': 'audio/aac', 'flac': 'audio/flac', 'opus': 'audio/opus' };
+
+    return imageTypes[ext] || videoTypes[ext] || audioTypes[ext] || defaultType;
 }
 
 /**
@@ -51,7 +83,7 @@ export class LocalUploadService implements UploadService {
                 : "image";
 
         return {
-            kind,
+            kind: getAttachmentKind(file),
             url: result.url,
             contentType: result.contentType,
             fileName: file.name,
@@ -79,7 +111,7 @@ export async function pickFilesInternal(): Promise<File[] | null> {
                 multiple: true,
                 filters: [{
                     name: "Media",
-                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "mp4", "mov", "avi", "webm", "mp3", "wav", "m4a"]
+                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "mp4", "mov", "avi", "webm", "mkv", "mp3", "wav", "m4a", "ogg", "aac", "flac"]
                 }]
             });
 
@@ -93,15 +125,7 @@ export async function pickFilesInternal(): Promise<File[] | null> {
                 const fileName = path.split(/[\\/]/).pop() || "file";
                 const ext = fileName.split(".").pop()?.toLowerCase() || "";
 
-                let type = "application/octet-stream";
-                if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
-                    type = `image/${ext === "jpg" ? "jpeg" : ext}`;
-                } else if (["mp4", "mov", "avi"].includes(ext)) {
-                    type = `video/${ext === "mov" ? "quicktime" : ext}`;
-                } else if (["webm", "mp3", "wav", "m4a"].includes(ext)) {
-                    type = `audio/${ext === "m4a" ? "mp4" : ext}`;
-                }
-
+                const type = getMimeType(fileName);
                 files.push(new File([data], fileName, { type }));
             }
             return files;
@@ -177,7 +201,9 @@ export const useUploadService = (): UploadService => {
             if (isVercel || isTauri || isLocalhost) {
                 const defaultConfig: Nip96Config = {
                     apiUrls: [
-                        "https://nostr.build/api/v2/upload/files"
+                        "https://nostr.build/api/v2/upload/files",
+                        "https://void.cat/nostr",
+                        "https://api.sovbit.host/api/upload/files"
                     ],
                     enabled: true
                 };

@@ -187,5 +187,8 @@ export const useInvites = (params: Readonly<{ publicKeyHex: string | null }>): U
     (): InvitesState => defaultStateSnapshot
   );
 
-  return { state, saveInvite, removeInvite, clear };
+  return useMemo(
+    () => ({ state, saveInvite, removeInvite, clear }),
+    [state]
+  );
 };

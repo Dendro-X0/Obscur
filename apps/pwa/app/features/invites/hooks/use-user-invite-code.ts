@@ -44,7 +44,7 @@ export const useUserInviteCode = (params: {
         } else {
             setInviteCode(currentCode);
         }
-    }, [publicKeyHex, profile.state.profile.inviteCode, profile.setInviteCode]);
+    }, [publicKeyHex, profile]);
 
     // Generate nprofile from public key and relays (fallback/legacy info if needed)
     const nprofile = useMemo(() => {
@@ -55,7 +55,7 @@ export const useUserInviteCode = (params: {
                 pubkey: publicKeyHex,
                 relays: hints
             });
-        } catch (err) {
+        } catch {
             return null;
         }
     }, [publicKeyHex, enabledRelayUrls]);
@@ -97,10 +97,10 @@ export const useUserInviteCode = (params: {
         }
     }, [publicKeyHex, privateKeyHex, inviteCode, pool, profile.state.profile.username, profile.state.profile.avatarUrl]);
 
-    return {
+    return useMemo(() => ({
         inviteCode,
         publishCode,
         isPublishing,
-        nprofile // Still return nprofile for legacy/alternative use
-    };
+        nprofile
+    }), [inviteCode, publishCode, isPublishing, nprofile]);
 };

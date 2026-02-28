@@ -14,7 +14,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
-import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { toast } from "../../../components/ui/toast";
 import { cn } from "../../../lib/cn";
 import { ProfileSearchService, type ProfileSearchResult } from "../../search/services/profile-search-service";
@@ -34,6 +34,7 @@ interface InviteMemberDialogProps {
     groupId: string;
     roomKeyHex: string;
     metadata: GroupMetadata;
+    currentMemberPubkeys?: ReadonlyArray<string>;
 }
 
 export function InviteMemberDialog({
@@ -41,7 +42,8 @@ export function InviteMemberDialog({
     onClose,
     groupId,
     roomKeyHex,
-    metadata
+    metadata,
+    currentMemberPubkeys = []
 }: InviteMemberDialogProps) {
     const { t } = useTranslation();
     const { relayPool: pool } = useRelay();
@@ -92,39 +94,22 @@ export function InviteMemberDialog({
     };
 
     const handleSendInvite = async (user: ProfileSearchResult) => {
-        const group = createdGroups.find(g => g.groupId === groupId);
-        if (group?.memberPubkeys.includes(user.pubkey)) {
-            toast.error(t("groups.alreadyMember", "This user is already a member of the group."));
+        if (!groupService.current) return;
+
+        if (currentMemberPubkeys.includes(user.pubkey)) {
+            toast.info("This user is already a member of this community.");
             return;
         }
 
-        const messages = messagesByConversationId[user.pubkey];
-        if (messages) {
-            for (let i = messages.length - 1; i >= 0; i--) {
-                const msg = messages[i];
-                if (msg.isOutgoing) {
-                    try {
-                        const parsed = JSON.parse(msg.content);
-                        if (parsed.type === "community-invite" && parsed.groupId === groupId) {
-                            toast.error(t("groups.spamWarning", "Please wait for this user's confirmation before sending another invite to avoid spam."));
-                            return;
-                        }
-                    } catch (e) {
-                        // ignore parsing errors
-                    }
-                }
-            }
-        }
-
-        if (!groupService.current) return;
-
         setSendingInviteTo(user.pubkey);
         try {
+            const activeRelayUrl = pool.connections.find((c: { url: string }) => c.url)?.url;
             const inviteEvent = await groupService.current.distributeRoomKey({
                 recipientPubkey: user.pubkey as PublicKeyHex,
                 groupId,
                 roomKeyHex,
-                metadata
+                metadata,
+                relayUrl: activeRelayUrl
             });
             await pool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
 
@@ -140,7 +125,6 @@ export function InviteMemberDialog({
                 content: JSON.stringify({
                     type: "community-invite",
                     groupId,
-                    roomKey: roomKeyHex,
                     metadata
                 }),
                 timestamp: new Date(),

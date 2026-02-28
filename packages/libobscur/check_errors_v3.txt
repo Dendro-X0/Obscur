@@ -1,0 +1,50 @@
+    Checking libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0599]: no method named `encrypt_padded_mut` found for struct `Encryptor<C>` in the current scope
+   --> src\crypto\nip04.rs:45:35
+    |
+ 45 |     let ciphertext_slice = cipher.encrypt_padded_mut::<Pkcs7>(&mut buffer, plaintext.len())
+    |                                   ^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cipher-0.4.4\src\block.rs:400:8
+    |
+400 |     fn encrypt_padded_mut<P: Padding<Self::BlockSize>>(
+    |        ------------------ the method is available for `Encryptor<Aes256>` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `BlockEncryptMut` which provides `encrypt_padded_mut` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use aes::cipher::BlockEncryptMut;
+    |
+help: there is a method `encrypt_padded_b2b_mut` with a similar name
+    |
+ 45 |     let ciphertext_slice = cipher.encrypt_padded_b2b_mut::<Pkcs7>(&mut buffer, plaintext.len())
+    |                                                  ++++
+
+error[E0599]: no method named `decrypt_padded_mut` found for struct `Decryptor<C>` in the current scope
+   --> src\crypto\nip04.rs:83:34
+    |
+ 83 |     let decrypted_slice = cipher.decrypt_padded_mut::<Pkcs7>(&mut ciphertext)
+    |                                  ^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cipher-0.4.4\src\block.rs:521:8
+    |
+521 |     fn decrypt_padded_mut<P: Padding<Self::BlockSize>>(
+    |        ------------------ the method is available for `Decryptor<Aes256>` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: there is a method `decrypt_padded_b2b_mut` with a similar name, but with different arguments
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cipher-0.4.4\src\block.rs:536:5
+    |
+536 | /     fn decrypt_padded_b2b_mut<'a, P: Padding<Self::BlockSize>>(
+537 | |         self,
+538 | |         in_buf: &[u8],
+539 | |         out_buf: &'a mut [u8],
+540 | |     ) -> Result<&'a [u8], UnpadError> {
+    | |_____________________________________^
+help: trait `BlockDecryptMut` which provides `decrypt_padded_mut` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use aes::cipher::BlockDecryptMut;
+    |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `libobscur` (lib) due to 2 previous errors

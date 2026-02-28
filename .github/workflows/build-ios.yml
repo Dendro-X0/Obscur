@@ -1,0 +1,67 @@
+name: Build and Release iOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Apple Certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build iOS App (Signed)
+        run: pnpm -C apps/desktop tauri ios build --release
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: obscur-ios-ipa
+          path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
+
+      - name: Upload to TestFlight
+        if: github.event_name != 'pull_request' && (github.ref_type == 'tag' || github.event_name == 'workflow_dispatch')
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          api-key-base64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

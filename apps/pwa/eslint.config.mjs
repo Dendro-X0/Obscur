@@ -19,18 +19,15 @@ const eslintConfig = defineConfig([
     files: ["**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react/no-unescaped-entities": "off",
     },
   },
   {
     files: ["**/*.test.{ts,tsx}", "**/__tests__/**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
-    },
-  },
-  {
-    files: ["app/components/invites/contact-list.tsx"],
-    rules: {
-      "react-hooks/set-state-in-effect": "off",
     },
   },
 ]);

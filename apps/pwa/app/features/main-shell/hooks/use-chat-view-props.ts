@@ -2,46 +2,39 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@dweb/ui-kit";
+import { useConversationMessages } from "../../messaging/hooks/use-conversation-messages";
 import type {
     Conversation,
     Message,
-    MessagesByConversationId,
-    MediaItem,
-    Attachment
+    MediaItem
 } from "../../messaging/types";
 
 interface UseChatViewPropsParams {
     selectedConversation: Conversation | null;
-    messagesByConversationId: MessagesByConversationId;
-    visibleMessageCountByConversationId: Readonly<Record<string, number>>;
-    setVisibleMessageCountByConversationId: React.Dispatch<React.SetStateAction<Readonly<Record<string, number>>>>;
     myPublicKeyHex: string | null;
-    DEFAULT_VISIBLE_MESSAGES: number;
-    LOAD_EARLIER_STEP: number;
 }
 
 /**
  * Hook to compute and manage properties for the ChatView component.
+ * Now internally uses useConversationMessages for high-performance localized state.
  */
 export function useChatViewProps({
     selectedConversation,
-    messagesByConversationId,
-    visibleMessageCountByConversationId,
-    setVisibleMessageCountByConversationId,
-    myPublicKeyHex,
-    DEFAULT_VISIBLE_MESSAGES,
-    LOAD_EARLIER_STEP
+    myPublicKeyHex
 }: UseChatViewPropsParams) {
     const { t } = useTranslation();
 
+    const {
+        messages,
+        isLoading,
+        hasEarlier,
+        loadEarlier
+    } = useConversationMessages(selectedConversation?.id || undefined, myPublicKeyHex);
+
     const handleLoadEarlier = useCallback(() => {
-        if (!selectedConversation) return;
-        setVisibleMessageCountByConversationId(prev => ({
-            ...prev,
-            [selectedConversation.id]: (prev[selectedConversation.id] ?? DEFAULT_VISIBLE_MESSAGES) + LOAD_EARLIER_STEP
-        }));
-    }, [selectedConversation, setVisibleMessageCountByConversationId, DEFAULT_VISIBLE_MESSAGES, LOAD_EARLIER_STEP]);
+        loadEarlier();
+    }, [loadEarlier]);
 
     const handleCopyMyPubkey = useCallback(() => {
         if (myPublicKeyHex) {
@@ -58,21 +51,9 @@ export function useChatViewProps({
         }
     }, [myPublicKeyHex, t]);
 
-    const selectedConversationMessages = useMemo(() => {
-        if (!selectedConversation) return [];
-        return messagesByConversationId[selectedConversation.id] ?? [];
-    }, [selectedConversation, messagesByConversationId]);
-
-    const visibleCount = selectedConversation ? (visibleMessageCountByConversationId[selectedConversation.id] ?? DEFAULT_VISIBLE_MESSAGES) : DEFAULT_VISIBLE_MESSAGES;
-    const visibleMessages = useMemo(() => {
-        return selectedConversationMessages.slice(-visibleCount);
-    }, [selectedConversationMessages, visibleCount]);
-
-    const hasEarlierMessages = selectedConversationMessages.length > visibleCount;
-
     const selectedConversationMediaItems = useMemo((): MediaItem[] => {
         const items: MediaItem[] = [];
-        selectedConversationMessages.forEach(m => {
+        messages.forEach(m => {
             if (m.attachments) {
                 m.attachments.forEach(a => {
                     if (a.kind === 'image' || a.kind === 'video') {
@@ -86,15 +67,16 @@ export function useChatViewProps({
             }
         });
         return items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    }, [selectedConversationMessages]);
+    }, [messages]);
 
     return {
         handleLoadEarlier,
         handleCopyMyPubkey,
         handleCopyChatLink,
-        visibleMessages,
-        rawMessagesCount: selectedConversationMessages.length,
-        hasEarlierMessages,
-        selectedConversationMediaItems
+        visibleMessages: messages,
+        rawMessagesCount: messages.length,
+        hasEarlierMessages: hasEarlier,
+        selectedConversationMediaItems,
+        isLoading
     };
 }

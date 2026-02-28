@@ -4,7 +4,7 @@ import { DeepLinkHandler, type DeepLinkResult } from './deep-link-handler';
  * URL scheme registration and handling for PWA
  */
 export class URLSchemeHandler {
-  
+
   /**
    * Register URL scheme handlers for the PWA
    */
@@ -13,10 +13,10 @@ export class URLSchemeHandler {
 
     // Register service worker for URL handling
     this.registerServiceWorkerHandler();
-    
+
     // Register protocol handlers if supported
     this.registerProtocolHandlers();
-    
+
     // Listen for URL changes
     this.setupUrlChangeListener();
   }
@@ -70,21 +70,21 @@ export class URLSchemeHandler {
   private static checkCurrentUrl(): void {
     const url = window.location.href;
     const urlParams = new URLSearchParams(window.location.search);
-    
+
     // Check for various deep link parameters
     const inviteCode = urlParams.get('invite');
     const nostrData = urlParams.get('nostr');
     const qrData = urlParams.get('qr');
-    const contactKey = urlParams.get('contact');
-    
+    const connectionKey = urlParams.get('connection');
+
     if (inviteCode) {
       this.handleDeepLinkMessage(`obscur://invite/${inviteCode}`);
     } else if (nostrData) {
       this.handleDeepLinkMessage(`nostr:${nostrData}`);
     } else if (qrData) {
       this.handleDeepLinkMessage(`obscur://qr/${encodeURIComponent(qrData)}`);
-    } else if (contactKey) {
-      this.handleDeepLinkMessage(`obscur://contact/${contactKey}`);
+    } else if (connectionKey) {
+      this.handleDeepLinkMessage(`obscur://connection/${connectionKey}`);
     }
   }
 
@@ -94,12 +94,12 @@ export class URLSchemeHandler {
   private static async handleDeepLinkMessage(url: string): Promise<void> {
     try {
       const result = await DeepLinkHandler.processDeepLink(url);
-      
+
       // Dispatch custom event for app components to handle
       window.dispatchEvent(new CustomEvent('deeplink', {
         detail: { url, result }
       }));
-      
+
       // Handle fallback actions
       if (!result.success && result.fallbackAction) {
         this.handleFallbackAction(result);
@@ -120,12 +120,12 @@ export class URLSchemeHandler {
           window.location.href = fallbackUrls.universalUrl;
         }
         break;
-        
+
       case 'show_install':
         // Trigger PWA install prompt
         this.showInstallPrompt();
         break;
-        
+
       case 'show_web_version':
         // Navigate to web version
         if (result.route) {

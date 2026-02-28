@@ -17,6 +17,9 @@
     "./encrypt-private-key-hex": "./src/encrypt-private-key-hex.ts",
     "./decrypt-private-key-hex": "./src/decrypt-private-key-hex.ts",
     "./to-array-buffer": "./src/to-array-buffer.ts",
-    "./to-base64": "./src/to-base64.ts"
+    "./to-base64": "./src/to-base64.ts",
+    "./mine-pow": "./src/mine-pow.ts",
+    "./pow.worker": "./src/pow.worker.ts",
+    "./pow-worker-wrapper": "./src/pow-worker-wrapper.ts"
   }
 }

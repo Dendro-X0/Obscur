@@ -2,7 +2,7 @@
 import { useState, useRef } from "react";
 
 
-import type { Conversation, DmConversation, GroupConversation, UnreadByConversationId, ContactOverridesByContactId, MessagesByConversationId, ReplyTo } from "@/app/features/messaging/types";
+import type { Conversation, DmConversation, GroupConversation, UnreadByConversationId, ContactOverridesByContactId, ReplyTo } from "@/app/features/messaging/types";
 
 export function useMainShellState() {
 
@@ -33,7 +33,7 @@ export function useMainShellState() {
     const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
     const [contactOverridesByContactId, setContactOverridesByContactId] = useState<ContactOverridesByContactId>({});
-    const [messagesByConversationId, setMessagesByConversationId] = useState<MessagesByConversationId>({});
+
     const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] = useState<Readonly<Record<string, number>>>({});
 
     const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
@@ -81,7 +81,7 @@ export function useMainShellState() {
             showOnboarding,
             unreadByConversationId,
             contactOverridesByContactId,
-            messagesByConversationId,
+
             visibleMessageCountByConversationId,
             pendingAttachment,
             pendingAttachmentPreviewUrl,
@@ -113,7 +113,7 @@ export function useMainShellState() {
             setShowOnboarding,
             setUnreadByConversationId,
             setContactOverridesByContactId,
-            setMessagesByConversationId,
+
             setVisibleMessageCountByConversationId,
             setPendingAttachment,
             setPendingAttachmentPreviewUrl,

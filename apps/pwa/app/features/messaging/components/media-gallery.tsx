@@ -3,6 +3,7 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
+import { Play, Headphones } from "lucide-react";
 import type { MediaItem } from "../types";
 
 interface MediaGalleryProps {
@@ -49,12 +50,22 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                                 >
                                     <div className="aspect-square">
                                         {item.attachment.kind === "image" ? (
-                                            <Image src={item.attachment.url} alt={item.attachment.fileName} width={480} height={480} unoptimized className="h-full w-full object-cover" />
+                                            <Image src={item.attachment.url} alt={item.attachment.fileName} width={480} height={480} unoptimized className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                                        ) : item.attachment.kind === "audio" ? (
+                                            <div className="flex h-full w-full flex-col items-center justify-center bg-purple-600/90 text-white">
+                                                <Headphones className="h-8 w-8 mb-2" />
+                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Audio</div>
+                                            </div>
                                         ) : (
-                                            <div className="flex h-full w-full items-center justify-center bg-black/80 text-sm font-medium text-white">VIDEO</div>
+                                            <div className="relative flex h-full w-full flex-col items-center justify-center bg-zinc-900 text-white">
+                                                <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-md mb-2">
+                                                    <Play className="h-5 w-5 fill-current ml-0.5" />
+                                                </div>
+                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Video</div>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="absolute inset-x-0 bottom-0 bg-black/40 px-2 py-1 text-left text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-2 text-left text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
                                         <div className="truncate">{item.attachment.fileName}</div>
                                     </div>
                                 </button>

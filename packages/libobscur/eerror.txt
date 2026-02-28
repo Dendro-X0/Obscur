@@ -1,0 +1,100 @@
+  |     ^^^ ambiguous name
+  |
+  = note: ambiguous because of a conflict between a name from a glob import and an outer scope during import or macro resolution
+  = note: `hex` could refer to a crate passed with `--extern`
+  = help: use `::hex` to refer to this crate unambiguously
+note: `hex` could also refer to the module imported here
+ --> src\crypto\nip01.rs:1:5
+  |
+1 | use nostr::prelude::*;
+  |     ^^^^^^^^^^^^^^^^^
+  = help: consider adding an explicit import of `hex` to disambiguate
+  = help: or use `self::hex` to refer to this module unambiguously
+
+error[E0659]: `hex` is ambiguous
+ --> src\crypto\nip17.rs:5:5
+  |
+5 | use hex;
+  |     ^^^ ambiguous name
+  |
+  = note: ambiguous because of a conflict between a name from a glob import and an outer scope during import or macro resolution
+  = note: `hex` could refer to a crate passed with `--extern`
+  = help: use `::hex` to refer to this crate unambiguously
+note: `hex` could also refer to the module imported here
+ --> src\crypto\nip17.rs:3:5
+  |
+3 | use nostr::prelude::*;
+  |     ^^^^^^^^^^^^^^^^^
+  = help: consider adding an explicit import of `hex` to disambiguate
+  = help: or use `self::hex` to refer to this module unambiguously
+
+warning: unused import: `nip01`
+ --> src\crypto\nip17.rs:2:28
+  |
+2 | use crate::crypto::{nip44, nip01};
+  |                            ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0599]: no method named `map_err` found for opaque type `impl Future<Output = Result<Event, Error>>` in the current scope
+   --> src\crypto\nip17.rs:38:22
+    |
+ 35 |       let seal_event = EventBuilder::new(Kind::from(13), sealed_content)
+    |  ______________________-
+ 36 | |         .tag(Tag::public_key(recipient_pk_obj))
+ 37 | |         .custom_created_at(Timestamp::from(rumor.created_at))
+ 38 | |         .sign(&keys).map_err(|e| e.to_string())?;
+    | |                     -^^^^^^^ method not found in `impl Future<Output = Result<Event, Error>>`
+    | |_____________________|
+    |
+    |
+   ::: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-util-0.3.32\src\future\try_future\mod.rs:308:8
+    |
+308 |       fn map_err<E, F>(self, f: F) -> MapErr<Self, F>
+    |          ------- the method is available for `impl std::future::Future<Output = std::result::Result<nostr::Event, nostr::event::builder::Error>>` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+    = note: the full name for the type has been written to 'E:\Web Project\experimental-workspace\newstart\packages\libobscur\target\debug\deps\libobscur-8130fd77ecb4543c.long-type-4194360412824681330.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider `await`ing on the `Future` and calling the method on its `Output`
+    |
+ 38 |         .sign(&keys).await.map_err(|e| e.to_string())?;
+    |                      ++++++
+help: trait `TryFutureExt` which provides `map_err` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use futures_util::future::try_future::TryFutureExt;
+    |
+
+error[E0599]: no method named `map_err` found for opaque type `impl Future<Output = Result<Event, Error>>` in the current scope
+   --> src\crypto\nip17.rs:55:32
+    |
+ 52 |       let gift_wrap = EventBuilder::new(Kind::from(1059), wrapped_content)
+    |  _____________________-
+ 53 | |         .tag(Tag::public_key(recipient_pk_obj))
+ 54 | |         .custom_created_at(Timestamp::from(rumor.created_at))
+ 55 | |         .sign(&ephemeral_keys).map_err(|e| e.to_string())?;
+    | |                               -^^^^^^^ method not found in `impl Future<Output = Result<Event, Error>>`
+    | |_______________________________|
+    |
+    |
+   ::: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-util-0.3.32\src\future\try_future\mod.rs:308:8
+    |
+308 |       fn map_err<E, F>(self, f: F) -> MapErr<Self, F>
+    |          ------- the method is available for `impl std::future::Future<Output = std::result::Result<nostr::Event, nostr::event::builder::Error>>` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+    = note: the full name for the type has been written to 'E:\Web Project\experimental-workspace\newstart\packages\libobscur\target\debug\deps\libobscur-8130fd77ecb4543c.long-type-4130942611004668254.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider `await`ing on the `Future` and calling the method on its `Output`
+    |
+ 55 |         .sign(&ephemeral_keys).await.map_err(|e| e.to_string())?;
+    |                                ++++++
+help: trait `TryFutureExt` which provides `map_err` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use futures_util::future::try_future::TryFutureExt;
+    |
+
+Some errors have detailed explanations: E0599, E0659.
+For more information about an error, try `rustc --explain E0599`.
+warning: `libobscur` (lib) generated 1 warning
+error: could not compile `libobscur` (lib) due to 4 previous errors; 1 warning emitted

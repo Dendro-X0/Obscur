@@ -19,21 +19,21 @@ import {
     AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { Card } from "@/app/components/ui/card";
-import { Label } from "@/app/components/ui/label";
+import { Button } from "@dweb/ui-kit";
+import { Input } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit";
+import { Label } from "@dweb/ui-kit";
 import { cn } from "@/app/lib/utils";
 import { useIdentity } from "../hooks/use-identity";
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { useTranslation } from "react-i18next";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@dweb/ui-kit";
 import type { Passphrase } from "@dweb/crypto/passphrase";
-import { PinLockService } from "../services/pin-lock-service";
 import { decodePrivateKey } from "../utils/decode-private-key";
 import { LanguageSelector } from "@/app/components/language-selector";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
-import { Checkbox } from "@/app/components/ui/checkbox";
+import { Checkbox } from "@dweb/ui-kit";
+import { FlashMessage } from "@/app/components/ui/flash-message";
 
 const generateRandomCode = (): string => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No O, 0, I, 1
@@ -70,6 +70,7 @@ export function AuthScreen() {
     const [rememberMe, setRememberMe] = useState(true);
     const [loginTab, setLoginTab] = useState<"username" | "key">("username");
     const [authError, setAuthError] = useState<string | null>(null);
+    const [acknowledged, setAcknowledged] = useState(false);
 
     // Form states
     const [username, setUsername] = useState("");
@@ -93,16 +94,17 @@ export function AuthScreen() {
         setConfirmPassword("");
         setPrivateKey("");
         setAuthError(null);
+        setAcknowledged(false);
     };
 
     const handleCreateFinal = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!password || password !== confirmPassword) {
-            toast.error("Passwords do not match");
+            setAuthError("Passwords do not match");
             return;
         }
         if (password.length < 8) {
-            toast.error("Password must be at least 8 characters");
+            setAuthError("Password must be at least 8 characters");
             return;
         }
 
@@ -115,13 +117,6 @@ export function AuthScreen() {
 
             const state = identity.getIdentitySnapshot();
             if (state.publicKeyHex && state.privateKeyHex) {
-                // Set Pin/Password for future quick unlocks
-                await PinLockService.setPin({
-                    publicKeyHex: state.publicKeyHex,
-                    privateKeyHex: state.privateKeyHex,
-                    pin: password
-                });
-
                 // Generate and publish invite code
                 const inviteCode = generateRandomCode();
                 await profilePublisher.publishProfile({
@@ -129,22 +124,20 @@ export function AuthScreen() {
                     inviteCode
                 }).catch(console.error);
 
-                // Handle Remember Me logic (TODO: Persist password/token if web)
+                // Handle Remember Me logic
                 if (rememberMe) {
                     localStorage.setItem("obscur_remember_me", "true");
-                    // On Web we might store the password for auto-unlock, 
-                    // though this has security trade-offs as per the plan.
                     localStorage.setItem("obscur_auth_token", password);
                 }
 
-                // Persist profile locally as well
+                // Persist profile locally
                 profile.setUsername({ username });
                 profile.setInviteCode({ inviteCode });
 
                 toast.success("Identity Secured!");
             }
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to create account");
+            setAuthError(error instanceof Error ? error.message : "Failed to create account");
         } finally {
             setIsLoading(false);
         }
@@ -153,7 +146,7 @@ export function AuthScreen() {
     const handleLoginUsername = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!username || !password) {
-            toast.error("Please fill in all fields");
+            setAuthError("Please fill in all fields");
             return;
         }
 
@@ -166,12 +159,18 @@ export function AuthScreen() {
                 return;
             }
             if (stored.username?.toLowerCase() !== username.toLowerCase()) {
-                setAuthError("Invalid username or password");
+                setAuthError(t("auth.error.usernameMismatch"));
                 setIsLoading(false);
                 return;
             }
 
-            await identity.unlockIdentity({ passphrase: password as Passphrase });
+            try {
+                await identity.unlockIdentity({ passphrase: password as Passphrase });
+            } catch (e) {
+                setAuthError(t("auth.error.incorrectPassword"));
+                setIsLoading(false);
+                return;
+            }
 
             const state = identity.getIdentitySnapshot();
             if (state.publicKeyHex && state.privateKeyHex) {
@@ -182,16 +181,24 @@ export function AuthScreen() {
                 toast.success("Welcome Back!");
             }
         } catch (error) {
-            setAuthError(error instanceof Error ? error.message : "Login failed");
+            setAuthError(error instanceof Error ? error.message : "Invalid password or account error");
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleLoginFinal = async (e?: React.FormEvent) => {
+    const handleLoginFinal = async (e?: React.FormEvent, skipPassword = false) => {
         e?.preventDefault();
-        if (!privateKey || !password) {
-            toast.error("Please fill in all fields");
+
+        const finalPassword = skipPassword ? "" : password;
+
+        if (!privateKey) {
+            setAuthError("Private key is required");
+            return;
+        }
+
+        if (!skipPassword && !password) {
+            setAuthError("Please enter a password or skip");
             return;
         }
 
@@ -199,34 +206,30 @@ export function AuthScreen() {
         try {
             const keyToUse = decodePrivateKey(privateKey);
             if (!keyToUse) {
-                toast.error("Invalid key format");
+                setAuthError("Invalid key format");
                 setIsLoading(false);
                 return;
             }
 
             await identity.importIdentity({
                 privateKeyHex: keyToUse,
-                passphrase: password as Passphrase,
+                passphrase: (finalPassword || "") as Passphrase,
                 username: username || undefined
             });
 
             const state = identity.getIdentitySnapshot();
             if (state.publicKeyHex && state.privateKeyHex) {
-                await PinLockService.setPin({
-                    publicKeyHex: state.publicKeyHex,
-                    privateKeyHex: state.privateKeyHex,
-                    pin: password
-                });
-
                 if (rememberMe) {
                     localStorage.setItem("obscur_remember_me", "true");
-                    localStorage.setItem("obscur_auth_token", password);
+                    if (!skipPassword) {
+                        localStorage.setItem("obscur_auth_token", (finalPassword || "") as string);
+                    }
                 }
 
                 toast.success("Welcome Back!");
             }
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Login failed");
+            setAuthError(error instanceof Error ? error.message : "Failed to import key");
         } finally {
             setIsLoading(false);
         }
@@ -288,7 +291,7 @@ export function AuthScreen() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -10 }}
                                 onClick={handleBack}
-                                className="absolute top-8 left-8 p-3 rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 group"
+                                className="absolute top-8 left-8 p-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 group"
                             >
                                 <ChevronLeft className="h-6 w-6 group-hover:-translate-x-0.5 transition-transform" />
                             </motion.button>
@@ -334,7 +337,7 @@ export function AuthScreen() {
                                     <Button
                                         variant="outline"
                                         onClick={() => setMode("login")}
-                                        className="h-16 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-white dark:bg-zinc-900/50 dark:hover:bg-zinc-900 text-lg font-bold transition-all"
+                                        className="h-16 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-lg font-bold transition-all"
                                     >
                                         Log In with Key
                                     </Button>
@@ -461,25 +464,81 @@ export function AuthScreen() {
 
                                         <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex gap-4">
                                             <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                                            <p className="text-xs text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
-                                                There is no password recovery. If you lose this password and your device, your account is gone forever.
-                                            </p>
+                                            <div className="space-y-3">
+                                                <p className="text-xs text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
+                                                    There is no password recovery. If you lose this password and your device, your account is gone forever. You can log in to your account from any device using your private key — never lose it!
+                                                </p>
+                                                <div className="flex items-start space-x-4 pt-1">
+                                                    <Checkbox
+                                                        id="acknowledge-create"
+                                                        checked={acknowledged}
+                                                        onCheckedChange={(checked) => setAcknowledged(checked as boolean)}
+                                                        className="h-4 w-4 rounded border-amber-500/50 data-[state=checked]:bg-amber-500 -ml-1"
+                                                    />
+                                                    <label htmlFor="acknowledge-create" className="text-[10px] font-black uppercase tracking-wider text-amber-600/80 dark:text-amber-400/80 cursor-pointer leading-tight">
+                                                        I understand I am responsible for my keys
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {authError && (
-                                            <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex gap-3 text-red-600 dark:text-red-400 items-start">
-                                                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                                                <p className="text-sm font-bold leading-relaxed">{authError}</p>
-                                            </div>
-                                        )}
+                                        <FlashMessage
+                                            message={authError}
+                                            onClose={() => setAuthError(null)}
+                                            className="mt-4"
+                                        />
 
                                         <Button
                                             type="submit"
-                                            disabled={isLoading || password !== confirmPassword || password.length < 8}
-                                            className="w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20 disabled:opacity-50"
+                                            disabled={isLoading || profilePublisher.isMining || password !== confirmPassword || password.length < 8 || !acknowledged}
+                                            className="w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20 disabled:opacity-50 relative overflow-hidden group"
                                         >
-                                            {isLoading ? "Generating..." : "Generate Safe Identity"}
+                                            {isLoading || profilePublisher.isMining ? (
+                                                <div className="flex items-center gap-2">
+                                                    <motion.div
+                                                        animate={{ rotate: 360 }}
+                                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                                    >
+                                                        <Sparkles className="h-5 w-5" />
+                                                    </motion.div>
+                                                    <span>{profilePublisher.isMining ? "Securing Identity..." : "Generating..."}</span>
+                                                </div>
+                                            ) : (
+                                                "Generate Safe Identity"
+                                            )}
+
+                                            {(isLoading || profilePublisher.isMining) && (
+                                                <motion.div
+                                                    initial={{ x: "-100%" }}
+                                                    animate={{ x: "100%" }}
+                                                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                                                />
+                                            )}
                                         </Button>
+
+                                        <AnimatePresence>
+                                            {profilePublisher.isMining && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    className="flex flex-col items-center gap-3 pt-2"
+                                                >
+                                                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em] animate-pulse">
+                                                        Mining Cryptographic Proof...
+                                                    </p>
+                                                    <div className="w-full h-1 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+                                                        <motion.div
+                                                            initial={{ width: "0%" }}
+                                                            animate={{ width: "100%" }}
+                                                            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                                            className="h-full bg-purple-500"
+                                                        />
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </form>
                                 )}
                             </motion.div>
@@ -498,12 +557,12 @@ export function AuthScreen() {
                             >
                                 <div className="text-center space-y-3">
                                     <h2 className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-white">
-                                        {step === 1 ? "Welcome Back" : "Set App Password"}
+                                        {step === 1 ? "Welcome Back" : "Secure Your Session"}
                                     </h2>
-                                    <p className="text-zinc-500 dark:text-zinc-400 font-medium">
+                                    <p className="text-zinc-500 dark:text-zinc-400 font-medium text-balance">
                                         {step === 1
                                             ? "Log in or import your identity."
-                                            : "Protect your local session."}
+                                            : "You can set a password now, or skip and use your key directly."}
                                     </p>
                                 </div>
 
@@ -554,11 +613,19 @@ export function AuthScreen() {
                                         ) : (
                                             <form onSubmit={handleLoginUsername} className="space-y-6 mt-4">
                                                 <div className="space-y-4">
-                                                    {authError && (
-                                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex gap-3 text-red-600 dark:text-red-400 items-start">
-                                                            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                                                            <p className="text-sm font-bold leading-relaxed">{authError}</p>
-                                                        </div>
+                                                    <FlashMessage
+                                                        message={authError}
+                                                        onClose={() => setAuthError(null)}
+                                                        className="mt-4"
+                                                    />
+                                                    {authError && authError.includes("Private Key") && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setLoginTab("key")}
+                                                            className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline px-4 pt-1"
+                                                        >
+                                                            {t("auth.error.recoveryLink")}
+                                                        </button>
                                                     )}
                                                     <div className="space-y-3">
                                                         <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Username</Label>
@@ -646,20 +713,31 @@ export function AuthScreen() {
                                             </label>
                                         </div>
 
-                                        {authError && (
-                                            <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex gap-3 text-red-600 dark:text-red-400 items-start">
-                                                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                                                <p className="text-sm font-bold leading-relaxed">{authError}</p>
-                                            </div>
-                                        )}
+                                        <FlashMessage
+                                            message={authError}
+                                            onClose={() => setAuthError(null)}
+                                            className="mt-4"
+                                        />
 
-                                        <Button
-                                            type="submit"
-                                            disabled={isLoading || password.length < 8}
-                                            className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
-                                        >
-                                            {isLoading ? "Importing..." : "Import Identity"}
-                                        </Button>
+                                        <div className="flex flex-col gap-3 mt-6">
+                                            <Button
+                                                type="submit"
+                                                disabled={isLoading || (password.length > 0 && password.length < 8)}
+                                                className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20 disabled:opacity-50"
+                                            >
+                                                {isLoading ? t("common.searching") : (password ? t("auth.import.secureAndImport") : t("onboarding.contact.connect"))}
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={isLoading}
+                                                onClick={() => handleLoginFinal(undefined, true)}
+                                                className="w-full h-12 rounded-[20px] border-black/10 dark:border-white/10 text-sm font-bold opacity-70 hover:opacity-100 hover:bg-white/5 transition-all"
+                                            >
+                                                {t("auth.import.skipAndLogin")}
+                                            </Button>
+                                        </div>
                                     </form>
                                 )}
                             </motion.div>

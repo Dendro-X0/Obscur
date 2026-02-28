@@ -208,18 +208,19 @@ export function GroupManagementDialog({
         }
     }, [state.metadata, group.displayName]);
 
-    // Background Sync: Persist discovered members to local state
+    // Background Sync: Replace persisted members with live truth
     useEffect(() => {
         if (!members.length) return;
 
-        const newMembers = members.filter(pk => !group.memberPubkeys.includes(pk));
-        if (newMembers.length > 0) {
-            const updatedMemberPubkeys = [...group.memberPubkeys, ...newMembers];
+        const live = [...members].sort();
+        const cached = [...group.memberPubkeys].sort();
+
+        if (JSON.stringify(live) !== JSON.stringify(cached)) {
             updateGroup({
                 groupId: group.groupId,
                 updates: {
-                    memberPubkeys: updatedMemberPubkeys,
-                    memberCount: updatedMemberPubkeys.length
+                    memberPubkeys: [...members],
+                    memberCount: members.length
                 }
             });
         }
@@ -257,9 +258,10 @@ export function GroupManagementDialog({
 
     // Metadata subscription for member names
     useEffect(() => {
-        if (!isOpen || !group.memberPubkeys.length || !pool) return;
+        const activeMemberList = members.length > 0 ? members : group.memberPubkeys;
+        if (!isOpen || !activeMemberList.length || !pool) return;
         const subId = `mgmt-names-${Math.random().toString(36).substring(7)}`;
-        const filter = { kinds: [0], authors: group.memberPubkeys };
+        const filter = { kinds: [0], authors: activeMemberList as string[] };
 
         const cleanup = pool.subscribeToMessages(({ message }: { message: string }) => {
             try {
@@ -281,7 +283,7 @@ export function GroupManagementDialog({
         return () => {
             try { pool.sendToOpen(JSON.stringify(["CLOSE", subId])); cleanup(); } catch (e) { }
         };
-    }, [isOpen, group.memberPubkeys, pool]);
+    }, [isOpen, members, group.memberPubkeys, pool]);
 
     if (!isOpen) return null;
 
@@ -510,7 +512,7 @@ export function GroupManagementDialog({
                                             <Users className="h-5 w-5 text-indigo-400" />
                                         </div>
                                         <div>
-                                            <p className="text-white font-black text-lg">{group.memberPubkeys.length} Registered Members</p>
+                                            <p className="text-white font-black text-lg">{(members.length || group.memberPubkeys.length)} Registered Members</p>
                                             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">Global Group Registry</p>
                                         </div>
                                     </div>
@@ -535,7 +537,7 @@ export function GroupManagementDialog({
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {group.memberPubkeys
+                                    {(members.length > 0 ? members : group.memberPubkeys)
                                         .filter(pk => {
                                             const q = memberSearchQuery.toLowerCase();
                                             const name = (resolvedNames[pk] || "").toLowerCase();
@@ -792,6 +794,7 @@ export function GroupManagementDialog({
                 onClose={() => setIsInviteModalOpen(false)}
                 groupId={group.groupId}
                 roomKeyHex={roomKeyHex || ""}
+                currentMemberPubkeys={members}
                 metadata={{
                     id: group.groupId,
                     name: state.metadata?.name || group.displayName,

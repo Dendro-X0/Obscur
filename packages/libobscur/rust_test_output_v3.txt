@@ -1,0 +1,97 @@
+   Compiling libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+warning: unused import: `nostr::prelude::*`
+   --> src\crypto\pow.rs:115:9
+    |
+115 |     use nostr::prelude::*;
+    |         ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0599]: no method named `as_vector` found for reference `&nostr::Tag` in the current scope
+  --> src\crypto\pow.rs:37:30
+   |
+37 |         if let Ok(vec) = tag.as_vector() {
+   |                              ^^^^^^^^^ method not found in `&nostr::Tag`
+
+error[E0599]: no method named `as_vector` found for struct `nostr::Tag` in the current scope
+  --> src\crypto\pow.rs:47:37
+   |
+47 |         let mut tag_vec = tags[idx].as_vector().unwrap();
+   |                                     ^^^^^^^^^ method not found in `nostr::Tag`
+
+error[E0599]: no method named `as_vector` found for struct `nostr::Tag` in the current scope
+  --> src\crypto\pow.rs:77:53
+   |
+77 |             let mut tag_vec = local_tags[nonce_idx].as_vector().unwrap();
+   |                                                     ^^^^^^^^^ method not found in `nostr::Tag`
+
+error[E0308]: arguments to this function are incorrect
+  --> src\crypto\pow.rs:83:22
+   |
+83 |             let id = EventId::new(&event.pubkey, event.created_at, &Kind::from(event.kind), &Tags::new(local_tags.clone()), &event.content);
+   |                      ^^^^^^^^^^^^                ---------------- expected `&Timestamp`, found `Timestamp`
+   |
+note: expected `&[Tag]`, found `&Tags`
+  --> src\crypto\pow.rs:83:93
+   |
+83 |             let id = EventId::new(&event.pubkey, event.created_at, &Kind::from(event.kind), &Tags::new(local_tags.clone()), &event.content);
+   |                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: expected reference `&[nostr::Tag]`
+              found reference `&nostr::Tags`
+note: associated function defined here
+  --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\id.rs:69:12
+   |
+69 |     pub fn new(
+   |            ^^^
+help: consider borrowing here
+   |
+83 |             let id = EventId::new(&event.pubkey, &event.created_at, &Kind::from(event.kind), &Tags::new(local_tags.clone()), &event.content);
+   |                                                  +
+
+error[E0599]: no method named `as_vector` found for struct `nostr::Tag` in the current scope
+   --> src\crypto\pow.rs:101:45
+    |
+101 |     let mut final_tag_vec = tags[nonce_idx].as_vector().unwrap();
+    |                                             ^^^^^^^^^ method not found in `nostr::Tag`
+
+error[E0308]: arguments to this function are incorrect
+   --> src\crypto\pow.rs:107:21
+    |
+107 |     event.id = Some(EventId::new(&event.pubkey, event.created_at, &Kind::from(event.kind), &event.tags, &event.content));
+    |                     ^^^^^^^^^^^^                ---------------- expected `&Timestamp`, found `Timestamp`
+    |
+note: expected `&[Tag]`, found `&Tags`
+   --> src\crypto\pow.rs:107:92
+    |
+107 |     event.id = Some(EventId::new(&event.pubkey, event.created_at, &Kind::from(event.kind), &event.tags, &event.content));
+    |                                                                                            ^^^^^^^^^^^
+    = note: expected reference `&[nostr::Tag]`
+               found reference `&nostr::Tags`
+note: associated function defined here
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\id.rs:69:12
+    |
+ 69 |     pub fn new(
+    |            ^^^
+help: consider borrowing here
+    |
+107 |     event.id = Some(EventId::new(&event.pubkey, &event.created_at, &Kind::from(event.kind), &event.tags, &event.content));
+    |                                                 +
+
+error[E0599]: no method named `to_unsigned_event` found for struct `nostr::EventBuilder` in the current scope
+   --> src\crypto\pow.rs:121:32
+    |
+121 |         let unsigned = builder.to_unsigned_event(keys.public_key());
+    |                                ^^^^^^^^^^^^^^^^^ method not found in `nostr::EventBuilder`
+
+error[E0599]: no method named `as_vector` found for reference `&nostr::Tag` in the current scope
+   --> src\crypto\pow.rs:131:27
+    |
+131 |             let vec = tag.as_vector().unwrap();
+    |                           ^^^^^^^^^ method not found in `&nostr::Tag`
+
+Some errors have detailed explanations: E0308, E0599.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `libobscur` (lib) due to 6 previous errors
+warning: build failed, waiting for other jobs to finish...
+warning: `libobscur` (lib test) generated 1 warning
+error: could not compile `libobscur` (lib test) due to 8 previous errors; 1 warning emitted

@@ -13,6 +13,7 @@
         "allow-wallet-commands",
         "http:default",
         "upload:default",
+        "notification:default",
         "core:event:default",
         "core:path:default",
         "core:webview:default"

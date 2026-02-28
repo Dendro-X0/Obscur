@@ -30,7 +30,7 @@
     "longDescription": "Obscur is a local-first Nostr messenger designed for small, invite-only micro-communities. Built with privacy, decentralization, and anti-censorship as core principles.",
     "resources": [],
     "externalBin": [
-      "bin/tor"
+      "tor"
     ],
     "windows": {
       "certificateThumbprint": null,

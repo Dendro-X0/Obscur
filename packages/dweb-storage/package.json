@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./storage-key": "./src/storage-key.ts"
+    "./storage-key": "./src/storage-key.ts",
+    "./indexed-db": "./src/indexed-db.ts"
   }
 }

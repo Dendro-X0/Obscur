@@ -88,6 +88,78 @@ export class GroupService {
     }
 
     /**
+     * Broadcasts that the user is leaving the community.
+     */
+    async sendSealedLeave(params: {
+        groupId: string;
+        roomKeyHex: string;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+
+        const innerPayload = JSON.stringify({
+            type: "leave",
+            pubkey: this.myPublicKeyHex,
+            created_at: nowUnixSeconds
+        });
+
+        const encrypted = await cryptoService.encryptGroupMessage(innerPayload, params.roomKeyHex);
+
+        const unsigned: UnsignedNostrEvent = {
+            kind: 10105,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId], ["t", "leave"]],
+            content: JSON.stringify(encrypted),
+            pubkey: this.myPublicKeyHex
+        };
+
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
+     * Broadcasts that the user is joining the community.
+     */
+    async sendSealedJoin(params: {
+        groupId: string;
+        roomKeyHex: string;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+
+        const innerPayload = JSON.stringify({
+            type: "join",
+            pubkey: this.myPublicKeyHex,
+            created_at: nowUnixSeconds
+        });
+
+        const encrypted = await cryptoService.encryptGroupMessage(innerPayload, params.roomKeyHex);
+
+        const unsigned: UnsignedNostrEvent = {
+            kind: 10105,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId], ["t", "join"]],
+            content: JSON.stringify(encrypted),
+            pubkey: this.myPublicKeyHex
+        };
+
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
+     * Sends a NIP-29 LEAVE event so the relay updates its Kind 39002 roster.
+     */
+    async sendNip29Leave(params: {
+        groupId: string;
+    }): Promise<NostrEvent> {
+        const unsigned: UnsignedNostrEvent = {
+            kind: 9022,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [["h", params.groupId]],
+            content: "",
+            pubkey: this.myPublicKeyHex
+        };
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
      * Distributes a Room Key to a specific user via NIP-17 Gift-Wrapped DM.
      */
     async distributeRoomKey(params: {
@@ -95,6 +167,7 @@ export class GroupService {
         groupId: string;
         roomKeyHex: string;
         metadata: GroupMetadata;
+        relayUrl?: string;
     }): Promise<NostrEvent> {
         const rumor: UnsignedNostrEvent = {
             kind: 1059, // NIP-17 Gift Wrap subtype (Invite)
@@ -104,7 +177,8 @@ export class GroupService {
                 type: "community-invite",
                 groupId: params.groupId,
                 roomKey: params.roomKeyHex,
-                metadata: params.metadata
+                metadata: params.metadata,
+                relayUrl: params.relayUrl
             }),
             pubkey: this.myPublicKeyHex
         };

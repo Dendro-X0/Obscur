@@ -5,15 +5,17 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
+    "predev": "node ../../scripts/setup-tor.mjs",
     "dev": "tauri dev",
+    "prebuild": "node ../../scripts/setup-tor.mjs",
     "build": "tauri build"
   },
   "dependencies": {
-    "@tauri-apps/cli": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-http": "^2.5.7"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "2.0.0-rc.18",
     "cross-env": "^10.1.0"
   }
 }

@@ -3,10 +3,10 @@
 import type React from "react";
 import Link from "next/link";
 import { useState } from "react";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
+import { Button } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit";
+import { Input } from "@dweb/ui-kit";
+import { Label } from "@dweb/ui-kit";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { ProfileSettings } from "../components/invites/profile-settings";
 import { useTranslation } from "react-i18next";

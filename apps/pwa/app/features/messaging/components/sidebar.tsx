@@ -55,7 +55,8 @@ export interface SidebarProps {
     pinnedChatIds: ReadonlyArray<string>;
     togglePin: (conversationId: string) => void;
     hiddenChatIds: ReadonlyArray<string>;
-    hideConversation: (conversationId: string) => void;
+    deleteConversation: (conversationId: string) => void;
+    clearHistory: (conversationId: string) => void;
     onClearHistory: () => void;
 }
 
@@ -84,7 +85,8 @@ export function Sidebar({
     pinnedChatIds,
     togglePin,
     hiddenChatIds,
-    hideConversation,
+    deleteConversation,
+    clearHistory,
     onClearHistory
 }: SidebarProps) {
     const { t } = useTranslation();
@@ -124,7 +126,8 @@ export function Sidebar({
                 nowMs={resolvedNowMs}
                 isPinned={pinnedChatIds.includes(conversation.id)}
                 onTogglePin={() => togglePin(conversation.id)}
-                onHide={() => hideConversation(conversation.id)}
+                onDelete={() => clearHistory(conversation.id)}
+                onHide={() => deleteConversation(conversation.id)}
             />
         ))
     );
@@ -134,8 +137,8 @@ export function Sidebar({
                 <div className="flex items-center gap-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500">
-                                <MoreVertical className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-zinc-500">
+                                <MoreVertical className="h-5 w-5" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="w-48">
@@ -143,14 +146,17 @@ export function Sidebar({
                                 <Pin className="h-4 w-4" />
                                 <span>{t("messaging.pin_chat")}</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600">
+                            <DropdownMenuItem
+                                className="gap-2 text-red-600 focus:text-red-600"
+                                onClick={() => selectedConversation && clearHistory(selectedConversation.id)}
+                            >
                                 <Trash2 className="h-4 w-4" />
                                 <span>{t("messaging.delete_chat")}</span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <div className="flex-1 flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
+                    <div className="flex-1 flex p-1 bg-black/[0.03] dark:bg-white/[0.03] rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
                         <button
                             onClick={() => setActiveTab("chats")}
                             suppressHydrationWarning
@@ -216,7 +222,7 @@ export function Sidebar({
 
                 {activeTab === "chats" && (
                     <div className="flex items-center gap-2">
-                        <div className="flex-1 flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
+                        <div className="flex-1 flex p-1 bg-black/[0.03] dark:bg-white/[0.03] rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
                             <button
                                 onClick={() => setChatViewMode("direct")}
                                 className={cn(
@@ -243,7 +249,7 @@ export function Sidebar({
                         <Button
                             variant="secondary"
                             size="icon"
-                            className="h-10 w-10 shrink-0 rounded-xl border-black/[0.03] dark:border-white/[0.03]"
+                            className="h-11 w-11 shrink-0 rounded-xl border-black/[0.03] dark:border-white/[0.03]"
                             onClick={() => chatViewMode === "direct" ? setIsNewChatOpen(true) : setIsNewGroupOpen(true)}
                         >
                             <Plus className="h-5 w-5" />

@@ -1,8 +1,8 @@
 "use client";
 
 import { useSealedCommunity } from "../hooks/use-sealed-community";
-import { Button } from "@/app/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
+import { Button } from "@dweb/ui-kit";
+import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { Users, ShieldCheck, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRelay } from "../../relays/providers/relay-provider";

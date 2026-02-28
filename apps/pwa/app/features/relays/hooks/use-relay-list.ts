@@ -43,6 +43,7 @@ const getE2eRelayOverride = (): ReadonlyArray<RelayListItem> | null => {
 };
 
 const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
+  { url: "ws://localhost:7001", enabled: true },
   { url: "wss://relay.damus.io", enabled: true },
   { url: "wss://nos.lol", enabled: true },
   { url: "wss://relay.snort.social", enabled: true },
@@ -198,5 +199,8 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
   const state: RelayListState = useMemo((): RelayListState => {
     return { relays };
   }, [relays]);
-  return { state, addRelay, removeRelay, setRelayEnabled, moveRelay, resetRelays };
+  return useMemo(
+    () => ({ state, addRelay, removeRelay, setRelayEnabled, moveRelay, resetRelays }),
+    [state, addRelay, removeRelay, setRelayEnabled, moveRelay, resetRelays]
+  );
 };

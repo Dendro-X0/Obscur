@@ -1,12 +1,14 @@
 # Obscur
+
 > **⚠️ WARNING: EXPERIMENTAL ALPHA SOFTWARE**
 >
 > This project is currently in an early **Alpha** stage and is known to contain logical flaws, invisible functional errors, and stability issues. It is **NOT** ready for production use.
+> 
+> **Release Channels**: This app is currently an immature, underground application, and therefore only has two release channels: [GitHub Releases](../../releases) (the latest packaged version is v0.7.8-alpha) and an official website (not yet deployed).
 >
-> We are actively working to resolve these issues, but fixes may introduce regressions. We invite you to test usage and **report any N issues you find** to help us stabilize the architecture. Use at your own risk.
+> We are actively working to resolve these issues, but fixes may introduce regressions. We invite you to test usage and **report any issues you find** to help us stabilize the architecture. Use at your own risk.
 
 Obscur is a local-first Nostr messenger designed for small, invite-only micro-communities. Built with privacy, decentralization, and anti-censorship as core principles.
-
 
 ## ✨ Features
 
@@ -37,7 +39,7 @@ Obscur is a local-first Nostr messenger designed for small, invite-only micro-co
 - **🌍 Localized**: Available in English, Chinese (Simplified), and Spanish
 - **🖼️ Media Storage**: Native NIP-96 support for file uploads via external providers (nostr.build, etc.)
 - **📱 Progressive Web App**: Installable with offline functionality and push notifications
-- **🖥️ Cross-Platform**: Web app with experimental Desktop and Android versions
+- **🖥️ Cross-Platform**: Web app with native Desktop, Android, and iOS versions powered by Tauri V2
 
 ## 🛡️ Privacy & Security
 
@@ -57,6 +59,7 @@ For a deep dive into the technical details, architecture, and design patterns of
 👉 **Start Here: [Project Context & Documentation Index](docs/PROJECT_CONTEXT.md)**
 
 Inside you will find:
+
 - [Architecture & File Tree](docs/architecture.md)
 - [Design Patterns & Workflows](docs/DESIGN_PATTERNS.md)
 - [Security Protocols & Cryptography](docs/SECURITY_PROTOCOLS.md)
@@ -78,7 +81,7 @@ On Desktop, core networking and identity are handled by the native Rust backend:
 - **🔐 Robust Identity**: Active session keys are managed in an isolated, in-memory Rust state, synchronized with the OS Keychain (Windows Credential Manager / macOS Keychain) for persistence and security.
 - **Relays (WebSocket)**: Connections are established and managed natively for maximum reliability and multi-relay stability.
 - **Uploads (NIP-96)**: File uploads are performed natively via Rust `reqwest`, with cross-provider support (nostr.build, etc.) and native NIP-98 signing.
-- **Tor Routing**: When enabled, all native networking (Relays & Uploads) routes via a bundled SOCKS5 proxy (Tor sidecar).
+- **Tor Routing**: When enabled, all native networking (Relays & Uploads) routes via a bundled SOCKS5 proxy. Tor sidecars are completely cross-platform and auto-downloaded via the `scripts/setup-tor.mjs` setup script during the build or dev step.
 
 For debugging and recovery:
 
@@ -90,6 +93,7 @@ For debugging and recovery:
 ## ⚠️ Known Issues
 
 ### Desktop Application (Windows/Linux/macOS)
+
 - If relay connectivity fails, use the built-in relay probe diagnostics and/or reset app storage to clear stale WebView caches.
 
 ### Smart Invite System
@@ -98,7 +102,7 @@ The Smart Invite System provides secure, user-friendly methods for connecting wi
 
 - **QR Code Generation & Scanning**: Create and scan QR codes for instant connections
 - **Shareable Invite Links**: Generate time-limited, secure invitation links
-- **Contact Management**: Organize contacts with groups, trust levels, and search functionality
+- **Connection Management**: Organize connections with groups, trust levels, and search functionality
 - **Profile Management**: Control what information you share with privacy settings
 - **Cryptographic Security**: All invites are signed and encrypted for maximum security
 - **Property-Based Testing**: Comprehensive validation with 100+ test iterations per property
@@ -148,6 +152,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8787
 ```
 
 Available environment variables:
+
 - `NEXT_PUBLIC_API_BASE_URL` - API base URL (default: `http://localhost:8787`)
 
 ## 🏗️ Build & Deploy
@@ -170,7 +175,7 @@ pnpm build
 - **PWA**: Deploy `apps/pwa` to Vercel, Netlify, or any static hosting service
 - **API**: Optional - the PWA can function without the API server
 - **Desktop**: Built with Tauri v2. Releases managed via GitHub Actions.
-- **Mobile**: Android (APK/AAB) built via GitHub Actions.
+- **Mobile**: Android (APK/AAB) and iOS (IPA) built natively via GitHub Actions.
 
 ### Pre-deployment Checklist
 
@@ -193,7 +198,7 @@ The Smart Invite System enables secure, intuitive connections between users thro
 
 ### Core Services
 
-- **Contact Store Service**: Full CRUD operations, group management, trust levels, and advanced search/filtering
+- **Connection Store Service**: Full CRUD operations, group management, trust levels, and advanced search/filtering
 - **Profile Manager Service**: User profile management with granular privacy controls and shareable profiles
 - **QR Generator Service**: QR code generation, scanning, validation, and automatic expiration handling
 - **Crypto Service Extensions**: Secure invite ID generation, data signing, and encryption/decryption
@@ -202,7 +207,7 @@ The Smart Invite System enables secure, intuitive connections between users thro
 
 - **QR Code Invites**: Generate scannable QR codes with customizable expiration times
 - **Shareable Links**: Create secure, time-limited invitation links
-- **Contact Organization**: Group contacts, assign trust levels, and manage relationships
+- **Connection Organization**: Group connections, assign trust levels, and manage relationships
 - **Privacy Controls**: Fine-grained control over what profile information to share
 - **Cryptographic Security**: All invite data is signed and encrypted
 - **Cross-Platform Compatibility**: Works with other Nostr clients and applications
@@ -213,16 +218,18 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - **Property-Based Testing**: Uses `fast-check` with 100+ iterations per property test
 - **Integration Testing**: End-to-end workflow validation
 - **Error Handling**: Custom error classes for different failure scenarios
-- **Performance Testing**: Optimized for large contact lists and frequent operations
+- **Performance Testing**: Optimized for large connection lists and frequent operations
 
 ### Implementation Status
 
 ✅ **Core Services Complete** (Tasks 1-6)
+
 - All foundational services implemented and tested
 - Property-based tests validate universal correctness properties
 - Integration tests confirm services work together correctly
 
 ✅ **Mobile Parity (v0.7.5)**
+
 - Native Android & iOS support (Tauri v2)
 - Hardware-backed Crypto (`tauri-plugin-store`)
 - Deep linking & Invite redemption (`obscur://`, `nostr:`)
@@ -231,10 +238,11 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - Automatic status bar theming
 - **Download**: Get the latest builds from [GitHub Releases](../../releases)
 
-🚧 **Next Phase**: UI Components and Integration (Tasks 7-15)
+✅ **UI Components and Integration Complete** (Tasks 7-15)
+
 - Invite Manager Service for link and request workflows
-- User interface components for all invite features
-- Integration with existing Obscur messaging system
+- User interface components for all connection features
+- Full integration with Obscur messaging system and "Connections" terminology
 
 ## 🎨 UI/UX Features
 
@@ -254,7 +262,7 @@ The Smart Invite System enables secure, intuitive connections between users thro
 - **PWA**: Service worker, web manifest, and offline functionality
 - **Testing**: Playwright for E2E testing, property-based testing for correctness
 - **Smart Invites**: QR code generation, cryptographic signing, contact management
-- **Data Persistence**: IndexedDB for contacts, profiles, and invite data
+- **Data Persistence**: IndexedDB for connections, profiles, and invite data
 
 ## 📁 Project Structure
 
@@ -311,11 +319,12 @@ Obscur is built on a foundation of **modular, production-ready security protocol
 > **Read the full technical breakdown in [SECURITY_PROTOCOLS.md](docs/SECURITY_PROTOCOLS.md).**
 
 Key innovations include:
+
 - **NIP-17 Metadata Privacy**: Advanced "Rumor → Seal → Gift Wrap" encryption that hides sender/receiver identity from relays.
 - **Local-First Architecture**: Your data lives on your device, encrypted at rest with AES-GCM.
 - **Decentralized Identity**: Keys, not accounts. Portable and censorship-resistant.
 
-*Future iterations will focus heavily on expanding these decentralized encryption capabilities for broader use cases.*
+_Future iterations will focus heavily on expanding these decentralized encryption capabilities for broader use cases._
 
 - **Issues**: [GitHub Issues]
 - **Discussions**: [GitHub Discussions]
@@ -325,7 +334,7 @@ Key innovations include:
 - Built on the [Nostr protocol](https://nostr.com/)
 - Powered by [Next.js](https://nextjs.org/) and [React](https://react.dev/)
 - UI components with [Tailwind CSS](https://tailwindcss.com/)
-- Desktop app with [Tauri](https://tauri.app/) (coming soon)
+- Desktop and Mobile apps powered by [Tauri](https://tauri.app/)
 
 ---
 

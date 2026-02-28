@@ -3,8 +3,8 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Share2, Copy, Link as LinkIcon, Sparkles } from "lucide-react";
-import { Card } from "@/app/components/ui/card";
-import { Button } from "@/app/components/ui/button";
+import { Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit";
 import { cn } from "@/app/lib/utils";
 
 interface EmptyConversationViewProps {
@@ -26,12 +26,12 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
 }) => {
     const { t } = useTranslation();
     return (
-        <div className="flex flex-1 items-center justify-center p-8 bg-dot-zinc-200 dark:bg-dot-white/[0.05]">
-            <div className="w-full max-w-lg space-y-8 text-center relative">
+        <div className="flex flex-col flex-1 h-full w-full items-center justify-center p-8 bg-transparent">
+            <div className="w-full max-w-lg flex flex-col items-center justify-center text-center relative gap-8">
                 {showWelcome && (
-                    <div className="relative group animate-in fade-in zoom-in-95 duration-1000 ease-out">
+                    <div className="relative group animate-in fade-in zoom-in-95 duration-1000 ease-out w-full">
                         <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-[42px] blur opacity-40 group-hover:opacity-75 transition duration-1000 group-hover:duration-200 pointer-events-none"></div>
-                        <div className="relative p-10 rounded-[40px] bg-white/40 dark:bg-black/40 border border-black/5 dark:border-white/5 backdrop-blur-3xl shadow-2xl overflow-hidden">
+                        <div className="relative p-10 rounded-[40px] bg-white/40 dark:bg-black/40 border border-black/5 dark:border-white/5 backdrop-blur-3xl shadow-2xl overflow-hidden w-full">
                             <div className="absolute top-0 right-0 p-4 opacity-20">
                                 <Sparkles className="h-12 w-12 text-purple-500" />
                             </div>
@@ -45,7 +45,7 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
                     </div>
                 )}
 
-                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 w-full flex flex-col items-center">
                     <div className="flex justify-center">
                         <div className="group relative">
                             <div className="absolute -inset-2 bg-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" aria-hidden="true"></div>
@@ -72,7 +72,7 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
                 {myPublicKeyHex ? (
                     <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500">
                         <Card
-                            className="w-full border-purple-500/10 bg-gradient-to-b from-white/50 to-transparent dark:from-zinc-900/50 dark:to-transparent"
+                            className="w-full border-purple-500/10 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl"
                         >
                             <div className="space-y-5 text-left">
                                 <div className="flex items-center gap-3">

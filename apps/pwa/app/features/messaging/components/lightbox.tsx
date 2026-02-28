@@ -3,6 +3,7 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
+import { VideoPlayer } from "./video-player";
 import type { MediaItem } from "../types";
 
 interface LightboxProps {
@@ -26,7 +27,7 @@ export function Lightbox({ item, onClose }: LightboxProps) {
                     {item.attachment.kind === "image" ? (
                         <Image src={item.attachment.url} alt={item.attachment.fileName} width={1280} height={720} unoptimized className="h-auto w-full max-h-[90vh] object-contain" />
                     ) : (
-                        <video src={item.attachment.url} controls className="h-auto w-full max-h-[90vh]" />
+                        <VideoPlayer src={item.attachment.url} isOutgoing={false} className="max-h-[90vh]" />
                     )}
                 </div>
             </div>

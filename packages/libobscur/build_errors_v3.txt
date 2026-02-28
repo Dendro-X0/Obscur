@@ -1,0 +1,11 @@
+   Compiling libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0412]: cannot find type `UniFfiTag` in the crate root
+ --> build.rs:2:5
+  |
+2 |     uniffi::setup_scaffolding!("libobscur");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in the crate root
+  |
+  = note: this error originates in the macro `uniffi::setup_scaffolding` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+For more information about this error, try `rustc --explain E0412`.
+error: could not compile `libobscur` (build script) due to 1 previous error

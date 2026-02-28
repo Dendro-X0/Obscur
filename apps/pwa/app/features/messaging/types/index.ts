@@ -167,6 +167,7 @@ export type PersistedGroupConversation = Readonly<{
 export type PersistedMessage = Readonly<{
     id: string;
     kind?: MessageKind;
+    pubkey?: string;
     content: string;
     timestampMs: number;
     isOutgoing: boolean;
@@ -175,6 +176,13 @@ export type PersistedMessage = Readonly<{
     replyTo?: ReplyTo;
     reactions?: ReactionsByEmoji;
     deletedAtMs?: number;
+}>;
+
+export type PersistedGroupMessage = Readonly<{
+    id: string;
+    pubkey: string;
+    created_at: number;
+    content: string;
 }>;
 
 export type DeleteCommandMessage = Readonly<{ type: "delete"; targetMessageId: string }>;
@@ -216,6 +224,7 @@ export type PersistedChatState = Readonly<{
     unreadByConversationId: Readonly<Record<string, number>>;
     contactOverridesByContactId: Readonly<Record<string, PersistedContactOverride>>;
     messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>;
+    groupMessages?: Readonly<Record<string, ReadonlyArray<PersistedGroupMessage>>>;
     connectionRequests?: ReadonlyArray<PersistedConnectionRequest>;
     pinnedChatIds?: ReadonlyArray<string>;
     hiddenChatIds?: ReadonlyArray<string>;

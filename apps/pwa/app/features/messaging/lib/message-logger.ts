@@ -169,7 +169,7 @@ class MessageLogger {
     const levelStr = LogLevel[entry.level].padEnd(5);
     const messageId = entry.messageId ? ` [${entry.messageId.substring(0, 8)}]` : '';
     const relay = entry.relayUrl ? ` [${entry.relayUrl}]` : '';
-    
+
     const logMessage = `[${timestamp}] [${levelStr}] [${entry.category}]${messageId}${relay} ${entry.message}`;
 
     switch (entry.level) {
@@ -256,7 +256,7 @@ class MessageLogger {
    */
   exportLogs(filter?: LogFilterOptions): string {
     const logs = this.getLogs(filter);
-    
+
     return JSON.stringify({
       timestamp: new Date().toISOString(),
       totalLogs: logs.length,
@@ -282,7 +282,7 @@ class MessageLogger {
    */
   exportLogsCSV(filter?: LogFilterOptions): string {
     const logs = this.getLogs(filter);
-    
+
     const headers = ['Timestamp', 'Level', 'Category', 'Message', 'MessageID', 'RelayURL', 'Error'];
     const rows = logs.map(log => [
       log.timestamp.toISOString(),
@@ -354,12 +354,12 @@ if (typeof window !== 'undefined') {
 // Helper functions for common logging scenarios
 
 export const logMessageSent = (messageId: string, recipientPubkey: string, content: string) => {
-  messageLogger.info('message-send', `Message sent to ${recipientPubkey.substring(0, 8)}`, 
+  messageLogger.info('message-send', `Message sent to ${recipientPubkey.substring(0, 8)}`,
     { content: content.substring(0, 50) }, messageId);
 };
 
 export const logMessageReceived = (messageId: string, senderPubkey: string, content: string) => {
-  messageLogger.info('message-receive', `Message received from ${senderPubkey.substring(0, 8)}`, 
+  messageLogger.info('message-receive', `Message received from ${senderPubkey.substring(0, 8)}`,
     { content: content.substring(0, 50) }, messageId);
 };
 
@@ -372,17 +372,17 @@ export const logRelayPublish = (messageId: string, relayUrl: string, success: bo
 };
 
 export const logEncryptionError = (messageId: string, error: Error) => {
-  messageLogger.error('encryption', 'Encryption failed', error, undefined, messageId);
+  messageLogger.warn('encryption', 'Encryption failed', { error }, messageId);
 };
 
 export const logDecryptionError = (messageId: string, error: Error) => {
-  messageLogger.error('decryption', 'Decryption failed', error, undefined, messageId);
+  messageLogger.warn('decryption', 'Decryption failed', { error }, messageId);
 };
 
 export const logStorageError = (operation: string, error: Error, messageId?: string) => {
-  messageLogger.error('storage', `Storage operation failed: ${operation}`, error, undefined, messageId);
+  messageLogger.warn('storage', `Storage operation failed: ${operation}`, { error }, messageId);
 };
 
 export const logNetworkError = (error: Error, relayUrl?: string) => {
-  messageLogger.error('network', 'Network error occurred', error, undefined, undefined, relayUrl);
+  messageLogger.warn('network', 'Network error occurred', { error }, undefined, relayUrl);
 };

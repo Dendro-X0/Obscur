@@ -1,8 +1,9 @@
 "use client";
 
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { nip19 } from "nostr-tools";
 import {
   User,
   Shield,
@@ -17,29 +18,26 @@ import {
   Activity,
   Bell,
   ShieldAlert,
-  Info,
   Loader2,
-  Trash2,
-  LogOut,
   Wifi,
-  Copy
+  Copy,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { RelayDashboard } from "../components/relay-dashboard";
 import { AvatarUpload } from "../components/avatar-upload";
 import { useTranslation } from "react-i18next";
 import { PageShell } from "@/app/components/page-shell";
 import { cn } from "@/app/lib/utils";
-import { Card } from "@/app/components/ui/card";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
-import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
-import { toast } from "@/app/components/ui/toast";
-import { ShareInviteCard } from "@/app/components/share-invite-card";
+import { Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit";
+import { Input } from "@dweb/ui-kit";
+import { Label } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit";
 import { DesktopUpdater } from "@/app/components/desktop-updater";
 import { ThemeToggle } from "@/app/components/theme-toggle";
 import { LanguageSelector } from "@/app/components/language-selector";
-import { EmptyState } from "@/app/components/ui/empty-state";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
@@ -47,36 +45,20 @@ import { useNotificationPreference } from "@/app/features/notifications/hooks/us
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import type { RelayConnection } from "@/app/features/relays/hooks/relay-connection";
-import { validateRelayUrl } from "@/app/features/relays/hooks/validate-relay-url";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
 import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-lock-settings-panel";
-import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
+import { useBlocklist } from "@/app/features/network/hooks/use-blocklist";
 import type { Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
 import { STORAGE_KEY_NIP96 } from "@/app/features/messaging/lib/nip96-upload-service";
 import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
 import { invoke } from "@tauri-apps/api/core";
 import { useUserInviteCode } from "@/app/features/invites/hooks/use-user-invite-code";
-import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
 
 const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
-
-const RECOMMENDED_STORAGE_PROVIDERS: ReadonlyArray<Readonly<{
-  name: string;
-  url: string;
-  description: string;
-  maxSize?: string;
-}>> = [
-  {
-    name: "nostr.build",
-    url: "https://nostr.build/api/v2/upload/files",
-    description: "Popular NIP-96 provider with good uptime.",
-    maxSize: "~100MB"
-  }
-];
 
 type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
@@ -144,26 +126,156 @@ const GROUPS = [
   },
 ];
 
-const getRelayStatusClassName = (status: RelayConnectionStatus): string => {
-  if (status === "open") {
-    return "text-emerald-700 dark:text-emerald-300";
-  }
-  if (status === "connecting") {
-    return "text-amber-700 dark:text-amber-300";
-  }
-  return "text-red-700 dark:text-red-300";
-};
-
 export default function SettingsPage(): React.JSX.Element {
   const { t } = useTranslation();
   const identity = useIdentity();
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
+
+  const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
+  const [showMobileMenu, setShowMobileMenu] = useState(true);
+
+  return (
+    <PageShell
+      title={t("settings.title")}
+      navBadgeCounts={navBadges.navBadgeCounts}
+      hideHeader={!showMobileMenu}
+    >
+      <div className="mx-auto w-full max-w-6xl p-0 md:p-4">
+        <div className="flex flex-col gap-8 md:flex-row">
+          {/* Sidebar Navigation - Desktop */}
+          <aside className="hidden w-64 shrink-0 md:block">
+            <nav className="flex flex-col gap-6">
+              {GROUPS.map((group) => (
+                <div key={group.id} className="space-y-1">
+                  <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
+                    {t(group.labelKey)}
+                  </h3>
+                  <div className="flex flex-col gap-0.5">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const active = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveTab(item.id as SettingsTabType)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all text-left",
+                            active
+                              ? "bg-zinc-100 border-black/5 text-zinc-900 shadow-sm dark:bg-zinc-900 dark:border-white/5 dark:text-zinc-100"
+                              : "border-transparent text-zinc-600 hover:bg-black/5 hover:border-black/5 dark:text-zinc-400 dark:hover:bg-zinc-900/40 dark:hover:border-white/5"
+                          )}
+                        >
+                          <Icon className={cn("h-4 w-4", active ? "text-purple-600 dark:text-purple-400" : "text-zinc-400")} />
+                          {t(item.labelKey)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </aside>
+
+          {/* Mobile Master-Detail View */}
+          <div className="flex flex-col w-full md:hidden min-h-[calc(100vh-120px)]">
+            <AnimatePresence mode="wait">
+              {showMobileMenu ? (
+                <motion.div
+                  key="menu"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="flex flex-col p-4 space-y-8"
+                >
+                  {GROUPS.map((group) => (
+                    <div key={group.id} className="space-y-3">
+                      <h3 className="px-1 text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                        {t(group.labelKey)}
+                      </h3>
+                      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white/50 backdrop-blur-sm dark:border-white/5 dark:bg-zinc-900/50">
+                        {group.items.map((item, idx) => {
+                          const Icon = item.icon;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                setActiveTab(item.id as SettingsTabType);
+                                setShowMobileMenu(false);
+                              }}
+                              className={cn(
+                                "flex w-full items-center justify-between px-4 py-4 transition-colors hover:bg-black/5 dark:hover:bg-white/5",
+                                idx < group.items.length - 1 && "border-b border-black/5 dark:border-white/5"
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                                  <Icon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                                </div>
+                                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t(item.labelKey)}</span>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-zinc-300" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex flex-col"
+                >
+                  <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-black/5 bg-white/80 p-4 backdrop-blur-md dark:border-white/5 dark:bg-black/80">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowMobileMenu(true)}
+                      className="h-8 w-8 p-0 hover:bg-black/5 dark:hover:bg-white/5"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <h2 className="text-sm font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-200">
+                      {t(GROUPS.flatMap(g => g.items).find(i => i.id === activeTab)?.labelKey || "")}
+                    </h2>
+                  </div>
+                  <div className="p-4 pb-32">
+                    <MainContentSection activeTab={activeTab} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Main Content Area - Desktop */}
+          <main className="hidden min-w-0 flex-1 md:block">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <MainContentSection activeTab={activeTab} />
+            </div>
+          </main>
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+/**
+ * Extracted main content logic to allow reuse between desktop and mobile views
+ */
+function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): React.JSX.Element {
+  const { t } = useTranslation();
+  const identity = useIdentity();
+  const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
+  const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
   const profile = useProfile();
   const notificationPreference = useNotificationPreference();
   const { publishProfile, isPublishing } = useProfilePublisher();
-  const { relayList, relayPool: pool } = useRelay();
+  const { relayPool: pool } = useRelay();
   const blocklist = useBlocklist({ publicKeyHex });
 
   // Ensure we have an invite code generated
@@ -172,56 +284,112 @@ export default function SettingsPage(): React.JSX.Element {
     privateKeyHex: identity.state.privateKeyHex || null
   });
 
-  const [newRelayUrl, setNewRelayUrl] = useState<string>("");
   const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
-  const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isVerifyingNip05, setIsVerifyingNip05] = useState(false);
   const [savedInviteCode, setSavedInviteCode] = useState<string>(profile.state.profile.inviteCode || "");
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => PrivacySettingsService.getSettings());
-  const [quickPassword, setQuickPassword] = useState<string>("");
-  const [quickPasswordConfirm, setQuickPasswordConfirm] = useState<string>("");
-  const [isQuickPasswordVisible, setIsQuickPasswordVisible] = useState<boolean>(false);
-  const [isQuickPasswordConfirmVisible, setIsQuickPasswordConfirmVisible] = useState<boolean>(false);
+  const [isPrivateKeyVisible, setIsPrivateKeyVisible] = useState<boolean>(false);
+  const [nsecKey, setNsecKey] = useState<string | null>(null);
+  const [challangePassword, setChallengePassword] = useState("");
+  const [isChallenging, setIsChallenging] = useState(false);
 
-  const generatePassword = (length: number = 12): string => {
-    const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    let out = "";
-    for (let i = 0; i < length; i++) {
-      out += charset[bytes[i]! % charset.length];
+  const handleRevealToggle = async () => {
+    if (!isPrivateKeyVisible) {
+      // If we have a native key, we might need biometrics/native challenge
+      if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
+        try {
+          const nsec = await invoke<string>("get_session_nsec");
+          setNsecKey(nsec);
+          setIsPrivateKeyVisible(true);
+        } catch (e) {
+          console.error("Failed to fetch native key:", e);
+          toast.error("Security: Failed to fetch key from native storage.");
+          return;
+        }
+      } else {
+        // Web flow: show password challenge
+        setIsChallenging(true);
+      }
+    } else {
+      setIsPrivateKeyVisible(false);
+      setNsecKey(null);
+      setChallengePassword("");
     }
-    return out;
   };
+
+  const handleVerifyChallenge = async () => {
+    if (!challangePassword) return;
+    try {
+      // We attempt to unlock/verify with the provided password
+      // Since identity might already be unlocked, we can just use the password to check if it matches the derivation
+      // In our current implementation, we'll try to use a dummy unlock or check against stored session
+      await identity.unlockIdentity({ passphrase: challangePassword as any });
+
+      const state = identity.getIdentitySnapshot();
+      if (state.privateKeyHex) {
+        const bytes = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) {
+          bytes[i] = parseInt(state.privateKeyHex.slice(i * 2, i * 2 + 2), 16);
+        }
+        setNsecKey(nip19.nsecEncode(bytes));
+        setIsPrivateKeyVisible(true);
+        setIsChallenging(false);
+        setChallengePassword("");
+        toast.success("Identity Unlocked");
+      }
+    } catch (e) {
+      toast.error("Incorrect password");
+    }
+  };
+
+  const copyPrivateKey = async () => {
+    let keyToCopy = nsecKey;
+    if (!keyToCopy && identity.state.privateKeyHex) {
+      if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
+        try {
+          keyToCopy = await invoke<string>("get_session_nsec");
+        } catch (e) {
+          toast.error("Failed to fetch key.");
+          return;
+        }
+      } else {
+        try {
+          const bytes = new Uint8Array(32);
+          for (let i = 0; i < 32; i++) {
+            bytes[i] = parseInt(identity.state.privateKeyHex.slice(i * 2, i * 2 + 2), 16);
+          }
+          keyToCopy = nip19.nsecEncode(bytes);
+        } catch (e) { }
+      }
+    }
+
+    if (keyToCopy) {
+      await navigator.clipboard.writeText(keyToCopy);
+      toast.success(t("common.copied"));
+    }
+  };
+
+  useEffect(() => {
+    if (profile.state.profile.inviteCode && !savedInviteCode) {
+      setSavedInviteCode(profile.state.profile.inviteCode);
+    }
+  }, [profile.state.profile.inviteCode, savedInviteCode]);
+
+  useEffect(() => {
+    return () => {
+      profile.revert();
+    };
+  }, []);
+
   const [nip96Config, setNip96Config] = useState<Nip96Config>(() => {
     const fallback: Nip96Config = { apiUrl: "", enabled: false };
-    if (typeof window === "undefined") {
-      return fallback;
-    }
+    if (typeof window === "undefined") return fallback;
     try {
-      const stored: string | null = localStorage.getItem(STORAGE_KEY_NIP96);
-      if (stored) {
-        const parsed: unknown = JSON.parse(stored);
-        if (parsed && typeof parsed === "object") {
-          const record = parsed as Readonly<Record<string, unknown>>;
-          const apiUrl: unknown = record.apiUrl;
-          const enabled: unknown = record.enabled;
-          return {
-            apiUrl: typeof apiUrl === "string" ? apiUrl : "",
-            enabled: typeof enabled === "boolean" ? enabled : false,
-          };
-        }
+      const stored = localStorage.getItem(STORAGE_KEY_NIP96);
+      if (stored) return JSON.parse(stored);
+      if (window.location.hostname.includes("vercel.app") || "__TAURI__" in window) {
+        return { apiUrl: "https://nostr.build/api/v2/upload/files", enabled: true };
       }
-
-      // Auto-enable on Vercel or Tauri (Desktop)
-      if (typeof window !== "undefined" && (window.location.hostname.includes("vercel.app") || "__TAURI__" in window)) {
-        return {
-          apiUrl: "https://nostr.build/api/v2/upload/files",
-          enabled: true
-        };
-      }
-
       return fallback;
     } catch {
       return fallback;
@@ -244,7 +412,6 @@ export default function SettingsPage(): React.JSX.Element {
       toast.error("Please enter a valid identifier (name@domain.tld)");
       return;
     }
-
     setIsVerifyingNip05(true);
     try {
       const result = await resolveNip05(identifier);
@@ -264,16 +431,6 @@ export default function SettingsPage(): React.JSX.Element {
     }
   };
 
-  const relayStatusByUrl = useMemo((): Readonly<Record<string, RelayConnectionStatus>> => {
-    const result: Record<string, RelayConnectionStatus> = {};
-    pool.connections.forEach((connection: RelayConnection): void => {
-      result[connection.url] = connection.status;
-    });
-    return result;
-  }, [pool.connections]);
-
-
-
   const handleCheckApi = (): void => {
     const baseUrl: string = getApiBaseUrl().replace(/\/$/, "");
     setApiHealth({ status: "checking" });
@@ -285,909 +442,448 @@ export default function SettingsPage(): React.JSX.Element {
           setApiHealth({ status: "error", message: `HTTP ${response.status}`, baseUrl });
           return;
         }
-        const data: unknown = await response.json();
-        if (!data || typeof data !== "object") {
-          setApiHealth({ status: "error", message: "Invalid JSON response", baseUrl });
-          return;
-        }
-        const timeIso: unknown = (data as Readonly<Record<string, unknown>>).timeIso;
-        if (typeof timeIso !== "string") {
-          setApiHealth({ status: "error", message: "Missing timeIso", baseUrl });
-          return;
-        }
-        setApiHealth({ status: "ok", latencyMs, timeIso, baseUrl });
+        const data: any = await response.json();
+        setApiHealth({ status: "ok", latencyMs, timeIso: data.timeIso, baseUrl });
       })
-      .catch((error: unknown): void => {
-        const baseUrlForError: string = baseUrl;
-        const message: string = error instanceof Error ? error.message : "Unknown error";
-        setApiHealth({ status: "error", message, baseUrl: baseUrlForError });
+      .catch((error: any): void => {
+        setApiHealth({ status: "error", message: error.message || "Unknown error", baseUrl });
       });
   };
 
-  const trimmedRelayUrl: string = newRelayUrl.trim();
-  const validatedRelayUrl: Readonly<{ normalizedUrl: string }> | null = validateRelayUrl(trimmedRelayUrl);
-
-
-  const canEnableNotifications: boolean = notificationPreference.state.permission !== "denied";
-
   return (
-    <PageShell
-      title={t("settings.title")}
-      navBadgeCounts={navBadges.navBadgeCounts}
-    >
-      <div className="mx-auto w-full max-w-6xl p-4">
-        <div className="flex flex-col gap-8 md:flex-row">
-          {/* Sidebar Navigation */}
-          <aside className="w-full shrink-0 md:w-64">
-            <nav className="flex flex-col gap-6">
-              {GROUPS.map((group) => (
-                <div key={group.id} className="space-y-1">
-                  <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
-                    {t(group.labelKey)}
-                  </h3>
-                  <div className="flex flex-col gap-0.5">
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-                      const active = activeTab === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => setActiveTab(item.id as SettingsTabType)}
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-left",
-                            active
-                              ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
-                              : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900/40"
-                          )}
-                        >
-                          <Icon className={cn("h-4 w-4", active ? "text-purple-600 dark:text-purple-400" : "text-zinc-400")} />
-                          {t(item.labelKey)}
-                        </button>
-                      );
-                    })}
-                  </div>
+    <div className="grid grid-cols-1 gap-4">
+      {activeTab === "profile" && (
+        <div className="space-y-4">
+          <Card title={t("profile.title")} description={t("profile.description")} className="w-full">
+            <div id="profile" className="space-y-6">
+              <div className="flex flex-col items-center justify-center space-y-4 pt-2">
+                <AvatarUpload
+                  currentAvatarUrl={profile.state.profile.avatarUrl}
+                  onUploadSuccess={(url) => profile.setAvatarUrl({ avatarUrl: url })}
+                  onClear={() => profile.setAvatarUrl({ avatarUrl: "" })}
+                  className="w-full"
+                />
+                <div className="text-xs text-zinc-600 dark:text-zinc-400 text-center">{t("profile.avatarHelp")}</div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile-username">{t("profile.usernameLabel")}</Label>
+                <Input
+                  id="profile-username"
+                  value={profile.state.profile.username}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setUsername({ username: e.target.value })}
+                  placeholder={t("profile.usernamePlaceholder")}
+                />
+                <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile-nip05">{t("profile.nip05Label")}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="profile-nip05"
+                    value={profile.state.profile.nip05 || ""}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setNip05({ nip05: e.target.value })}
+                    placeholder={t("profile.nip05Placeholder")}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleVerifyNip05}
+                    disabled={isVerifyingNip05}
+                  >
+                    {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05")}
+                  </Button>
                 </div>
-              ))}
-            </nav>
-          </aside>
+                <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
+              </div>
 
-          {/* Main Content Area */}
-          <main className="min-w-0 flex-1">
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="grid grid-cols-1 gap-4">
-                {activeTab === "profile" && (
-                  <div className="space-y-4">
-                    <Card title={t("profile.title")} description={t("profile.description")} className="w-full">
-                      <div id="profile" className="space-y-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="profile-username">{t("profile.usernameLabel")}</Label>
-                          <Input
-                            id="profile-username"
-                            value={profile.state.profile.username}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setUsername({ username: e.target.value })}
-                            placeholder={t("profile.usernamePlaceholder")}
-                          />
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
-                        </div>
-                        <div className="space-y-4">
-                          <Label className="text-sm font-semibold">{t("profile.avatarLabel")}</Label>
-                          <AvatarUpload
-                            currentAvatarUrl={profile.state.profile.avatarUrl}
-                            onUploadSuccess={(url) => profile.setAvatarUrl({ avatarUrl: url })}
-                            onClear={() => profile.setAvatarUrl({ avatarUrl: "" })}
-                            className="items-start"
-                          />
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.avatarHelp")}</div>
-                        </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="profile-invite-code">{t("profile.inviteCodeLabel", "Personal Invite Code")}</Label>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="profile-invite-code"
+                    value={profile.state.profile.inviteCode || ""}
+                    readOnly
+                    className="pr-12"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    onClick={() => {
+                      if (profile.state.profile.inviteCode) {
+                        void navigator.clipboard.writeText(profile.state.profile.inviteCode);
+                        toast.success(t("common.copied"));
+                      }
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    const success = await publishProfile({
+                      username: profile.state.profile.username,
+                      about: profile.state.profile.about,
+                      avatarUrl: profile.state.profile.avatarUrl,
+                      nip05: profile.state.profile.nip05,
+                      inviteCode: profile.state.profile.inviteCode
+                    });
+                    if (success) {
+                      profile.save();
+                      toast.success(t("settings.profileSaved"));
+                    } else {
+                      toast.error(t("settings.profilePublishFailed"));
+                    }
+                  }}
+                  disabled={isPublishing}
+                >
+                  {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.publishing")}</> : t("settings.saveAndPublish")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    profile.revert();
+                    toast.info(t("settings.changesReset"));
+                  }}
+                >
+                  {t("profile.reset")}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
-                        <div className="space-y-2">
-                          <Label htmlFor="profile-nip05">{t("profile.nip05Label")}</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              id="profile-nip05"
-                              value={profile.state.profile.nip05 || ""}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setNip05({ nip05: e.target.value })}
-                              placeholder={t("profile.nip05Placeholder")}
-                            />
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              onClick={handleVerifyNip05}
-                              disabled={isVerifyingNip05 || !profile.state.profile.nip05}
-                            >
-                              {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05")}
-                            </Button>
-                          </div>
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="profile-invite-code">{t("profile.inviteCodeLabel", "Personal Invite Code")}</Label>
-                            {profile.state.profile.inviteCode !== savedInviteCode ? (
-                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-[9px] font-black uppercase tracking-tighter text-amber-600 dark:text-amber-500 border border-amber-500/20 animate-pulse">
-                                <ShieldAlert className="h-3 w-3" />
-                                {t("profile.unsavedChanges", "Unsaved Changes")}
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-[9px] font-black uppercase tracking-tighter text-emerald-600 dark:text-emerald-500 border border-emerald-500/20">
-                                <Check className="h-3 w-3" />
-                                {t("profile.searchable", "Active & Searchable")}
-                              </div>
-                            )}
-                          </div>
-                          <div className="relative">
-                            <Input
-                              id="profile-invite-code"
-                              value={profile.state.profile.inviteCode || ""}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                const val = e.target.value.toUpperCase();
-                                if (val.length <= 13) { // OBSCUR- + 6 chars
-                                  profile.setInviteCode({ inviteCode: val });
-                                }
-                              }}
-                              placeholder="OBSCUR-XXXXXX"
-                              className="pr-12"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                              onClick={() => {
-                                if (profile.state.profile.inviteCode) {
-                                  void navigator.clipboard.writeText(profile.state.profile.inviteCode);
-                                  toast.success(t("common.copied"));
-                                }
-                              }}
-                              disabled={!profile.state.profile.inviteCode}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                            {t("profile.inviteCodeHelp", "Share this code with others so they can find you. Format: OBSCUR-XXXXXX")}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            onClick={async () => {
-                              const success = await publishProfile({
-                                username: profile.state.profile.username,
-                                about: profile.state.profile.about,
-                                avatarUrl: profile.state.profile.avatarUrl,
-                                nip05: profile.state.profile.nip05,
-                                inviteCode: profile.state.profile.inviteCode
-                              });
-                              if (success) {
-                                setSavedInviteCode(profile.state.profile.inviteCode);
-                                toast.success(t("settings.profileSaved"));
-                              } else {
-                                toast.error(t("settings.profilePublishFailed"));
-                              }
-                            }}
-                            disabled={isPublishing}
-                          >
-                            {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.publishing")}</> : t("settings.saveAndPublish")}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => {
-                              profile.reset();
-                              toast.info(t("settings.changesReset"));
-                            }}
-                          >
-                            {t("profile.reset")}
-                          </Button>
-                        </div>
-                        <div className="mt-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-                          <p className="font-semibold mb-1">{t("profile.ghostAccountTip")}</p>
-                          <p>{t("profile.ghostAccountDesc")}</p>
-                        </div>
-                      </div>
-                    </Card>
-                    <ShareInviteCard />
+      {activeTab === "health" && (
+        <div className="space-y-6">
+          <Card title={t("settings.health.title")} description={t("settings.health.desc")} className="w-full">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="text-sm font-semibold flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-purple-500" />
+                  {t("settings.health.api")}
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-mono opacity-60 truncate max-w-[250px]">{getApiBaseUrl()}</div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
+                    {apiHealth.status === "checking" ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.health.check")}
+                  </Button>
+                </div>
+                {apiHealth.status === "ok" && (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+                    <Check className="h-3 w-3" />
+                    Operational • {apiHealth.latencyMs}ms
                   </div>
                 )}
-
-                {activeTab === "health" && (
-                  <div className="space-y-6">
-                    <Card title={t("settings.health.title")} description={t("settings.health.desc")} className="w-full">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <div className="text-sm font-semibold flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-purple-500" />
-                            {t("settings.health.api")}
-                          </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
-                            <div className="space-y-0.5">
-                              <div className="text-xs font-mono opacity-60 truncate max-w-[250px]">{getApiBaseUrl()}</div>
-                              {apiHealth.status === "ok" ? (
-                                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                                  Server Connected ({apiHealth.latencyMs}ms)
-                                </div>
-                              ) : apiHealth.status === "error" ? (
-                                <div className="text-sm font-bold text-red-600 dark:text-red-400">Connection Failed</div>
-                              ) : (
-                                <div className="text-sm font-bold opacity-40">Not Checked</div>
-                              )}
-                            </div>
-                            <Button type="button" variant="secondary" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
-                              {apiHealth.status === "checking" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check Health"}
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="text-sm font-semibold flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-blue-500" />
-                            {t("settings.health.identity")}
-                          </div>
-                          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                "h-2 w-2 rounded-full",
-                                identity.state.status === "unlocked" ? "bg-emerald-500 animate-pulse" : "bg-red-500"
-                              )} />
-                              <span className="text-sm font-bold">
-                                {identity.state.status === "unlocked" ? "Securely Initialized" : "Locked / Unavailable"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <div className="space-y-2">
-                      <div className="px-1 text-sm font-bold flex items-center gap-2 opacity-60">
-                        <Wifi className="h-4 w-4" />
-                        Relay Performance Monitor
-                      </div>
-                      <RelayDashboard />
-                    </div>
+                {apiHealth.status === "error" && (
+                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+                    <ShieldAlert className="h-3 w-3" />
+                    {apiHealth.message}
                   </div>
-                )}
-
-                {activeTab === "appearance" && (
-                  <Card title={t("settings.appearance.title")} description={t("settings.appearance.desc")} className="w-full">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>{t("settings.language")}</Label>
-                        <LanguageSelector />
-                        <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.selectLanguageDesc")}</div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>{t("settings.appearance.theme")}</Label>
-                        <ThemeToggle />
-                        <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.appearance.themeDesc")}</div>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
-                {activeTab === "updates" && (
-                  <Card title={t("settings.updates.title")} description={t("settings.updates.desc")} className="w-full">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-                        <span className="text-sm font-medium">{t("settings.updates.currentVersion")}</span>
-                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                          v{APP_VERSION}
-                        </span>
-                      </div>
-                      <DesktopUpdater />
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                        {t("settings.updates.help")}
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
-                {activeTab === "identity" && (
-                  <>
-                    <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="profile-pubkey">{t("identity.publicKeyHex")}</Label>
-                          <Input id="profile-pubkey" value={displayPublicKeyHex} readOnly className="font-mono text-xs" />
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              onClick={(): void => {
-                                void navigator.clipboard.writeText(displayPublicKeyHex);
-                                toast.success(t("common.copied"));
-                              }}
-                              disabled={!displayPublicKeyHex}
-                            >
-                              {t("common.copy")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                              onClick={() => setIsDeleteDialogOpen(true)}
-                            >
-                              <LogOut className="mr-2 h-4 w-4" />
-                              {t("common.disconnect")}
-                            </Button>
-                          </div>
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("messaging.nip04Desc")}</div>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card title={t("settings.dangerZone")} tone="danger" className="mt-8 border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/10">
-                      <div className="space-y-4">
-                        <div className="flex items-start gap-4">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-                            <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
-                          </div>
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.deleteAccount")}</h3>
-                            <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
-                              {t("settings.deleteAccountDesc")}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          className="w-full sm:w-auto px-8"
-                          onClick={() => setIsDeleteDialogOpen(true)}
-                        >
-                          {t("settings.deleteAccountFull")}
-                        </Button>
-                      </div>
-
-                      <ConfirmDialog
-                        isOpen={isDeleteDialogOpen}
-                        onClose={() => setIsDeleteDialogOpen(false)}
-                        onConfirm={async () => {
-                          await identity.forgetIdentity();
-                          localStorage.clear();
-                          toast.success(t("settings.accountDeleted"));
-
-                          // Check if running in Tauri (Desktop/Mobile)
-                          if (typeof window !== "undefined" && "__TAURI__" in window) {
-                            try {
-                              await invoke("restart_app");
-                            } catch (e) {
-                              console.error("Failed to restart app:", e);
-                              // Fallback to reload if restart fails
-                              window.location.reload();
-                            }
-                          } else {
-                            setTimeout(() => {
-                              window.location.href = "/";
-                            }, 1000);
-                          }
-                        }}
-                        title={t("settings.deleteAccountConfirmTitle")}
-                        description={t("settings.deleteAccountConfirm")}
-                        confirmLabel={t("settings.deleteConfirm")}
-                        variant="danger"
-                      />
-                    </Card>
-                  </>
-                )}
-
-                {activeTab === "notifications" && (
-                  <Card title={t("settings.notifications.title")} description={t("settings.notifications.desc")} className="w-full">
-                    <div className="space-y-3">
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                        {notificationPreference.state.permission === "unsupported"
-                          ? t("settings.notifications.unsupported")
-                          : notificationPreference.state.permission === "denied"
-                            ? t("settings.notifications.blocked")
-                            : t("settings.notifications.backgroundDesc")}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          disabled={!canEnableNotifications}
-                          onClick={() => {
-                            void requestNotificationPermission().then((result): void => {
-                              if (result.permission !== "granted") {
-                                notificationPreference.setEnabled({ enabled: false });
-                                return;
-                              }
-                              notificationPreference.setEnabled({ enabled: true });
-                            });
-                          }}
-                        >
-                          {t("settings.notifications.enable")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => notificationPreference.setEnabled({ enabled: false })}
-                        >
-                          {t("settings.notifications.disable")}
-                        </Button>
-                      </div>
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                        {t("settings.notifications.status")}: {notificationPreference.state.enabled ? t("settings.notifications.enabled") : t("settings.notifications.disabled")} · {t("settings.notifications.permission")}: {notificationPreference.state.permission}
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
-                {activeTab === "relays" && (
-                  <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
-                    {identity.state.status === "loading" ? (
-                      <div className="p-4 text-sm text-zinc-500">{t("common.loading")}</div>
-                    ) : !displayPublicKeyHex ? (
-                      <div className="text-sm text-zinc-700 dark:text-zinc-300">{t("settings.relays.unlockToManage")}</div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="space-y-2 opacity-60">
-                          <Label htmlFor="relay-url">{t("settings.relays.addRelay")}</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              id="relay-url"
-                              value={newRelayUrl}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRelayUrl(e.target.value)}
-                              placeholder="wss://relay.example.com"
-                              disabled={true}
-                            />
-                            <Button
-                              type="button"
-                              disabled={true}
-                              onClick={() => {
-                                if (validatedRelayUrl) {
-                                  relayList.addRelay({ url: validatedRelayUrl.normalizedUrl });
-                                }
-                                setNewRelayUrl("");
-                              }}
-                            >
-                              {t("settings.relays.add")}
-                            </Button>
-                          </div>
-                          <div className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
-                            {t("settings.relays.disabledForStabilization", "Custom relay editing is disabled for v0.7 stabilization.")}
-                          </div>
-                        </div>
-
-                        <ul className="space-y-2">
-                          {relayList.state.relays.length === 0 ? (
-                            <div className="py-4">
-                              <EmptyState
-                                type="relays"
-                                title={t("settings.relays.noRelaysTitle")}
-                                description={t("settings.relays.noRelaysDesc")}
-                                className="min-h-[200px]"
-                              />
-                            </div>
-                          ) : (
-                            relayList.state.relays.map((relay) => {
-                              const status: RelayConnectionStatus = relayStatusByUrl[relay.url] ?? "closed";
-                              return (
-                                <li
-                                  key={relay.url}
-                                  className="rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-zinc-950/60"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="min-w-0 flex-1 truncate text-xs font-mono">{relay.url}</span>
-                                    <span className={cn("shrink-0 text-xs font-medium", getRelayStatusClassName(status))}>{status}</span>
-                                  </div>
-                                  <div className="mt-2 flex flex-wrap gap-2 opacity-50">
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      disabled={true}
-                                      onClick={() => relayList.setRelayEnabled({ url: relay.url, enabled: !relay.enabled })}
-                                    >
-                                      {relay.enabled ? t("settings.relays.disable") : t("settings.relays.enable")}
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      disabled={true}
-                                      onClick={() => relayList.moveRelay({ url: relay.url, direction: "up" })}
-                                    >
-                                      {t("settings.relays.up")}
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      disabled={true}
-                                      onClick={() => relayList.moveRelay({ url: relay.url, direction: "down" })}
-                                    >
-                                      {t("settings.relays.down")}
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      disabled={true}
-                                      onClick={() => relayList.removeRelay({ url: relay.url })}
-                                    >
-                                      {t("settings.relays.remove")}
-                                    </Button>
-                                  </div>
-                                </li>
-                              );
-                            })
-                          )}
-                        </ul>
-                        <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("settings.relays.metadataWarning")}</div>
-
-                        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 opacity-60">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            className="w-full sm:w-auto"
-                            disabled={true}
-                            onClick={() => {
-                              relayList.resetRelays();
-                              toast.success(t("settings.relays.resetSuccess"));
-                            }}
-                          >
-                            <RefreshCcw className="mr-2 h-4 w-4" />
-                            {t("settings.relays.resetToDefaults")}
-                          </Button>
-                          <p className="mt-2 text-[10px] text-zinc-500 italic">
-                            {t("settings.relays.disabledForStabilization", "Custom relay editing is disabled for v0.7 stabilization.")}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                )}
-
-
-                {activeTab === "blocklist" && (
-                  <Card title={t("settings.tabs.blocklist")} description={t("settings.blocklist.desc")} className="w-full">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="block-pubkey">{t("settings.blocklist.addLabel")}</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="block-pubkey"
-                            placeholder="npub... or hex"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                const val = (e.target as HTMLInputElement).value;
-                                if (val) {
-                                  blocklist.addBlocked({ publicKeyInput: val });
-                                  (e.target as HTMLInputElement).value = "";
-                                  toast.success(t("settings.blocklist.added"));
-                                }
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">{t("settings.blocklist.blockedUsers")} ({blocklist.state.blockedPublicKeys.length})</h4>
-                        {blocklist.state.blockedPublicKeys.length === 0 ? (
-                          <p className="text-xs text-zinc-500 italic">{t("settings.blocklist.empty")}</p>
-                        ) : (
-                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {blocklist.state.blockedPublicKeys.map((pubkey) => (
-                              <div key={pubkey} className="flex items-center justify-between p-3 rounded-xl border border-black/5 bg-zinc-50 dark:bg-zinc-900/40 dark:border-white/5">
-                                <span className="font-mono text-[10px] truncate flex-1">{pubkey}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                  onClick={() => {
-                                    blocklist.removeBlocked({ publicKeyHex: pubkey });
-                                    toast.info(t("settings.blocklist.removed"));
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
-
-                <Card title={t("settings.tabs.privacyTrust")} description={t("settings.tabs.privacyTrustDesc")} className="w-full">
-                  <div className="mb-6 pb-6 border-b border-zinc-100 dark:border-zinc-800">
-                    <Label className="text-sm font-semibold mb-3 block">{t("groups.directMessagePrivacy")}</Label>
-                    <div className="flex flex-col gap-2">
-                      <p className="text-xs text-zinc-500 mb-2">{t("settings.dmPrivacy.desc")}</p>
-                      <div className="flex gap-2 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl w-fit">
-                        <button
-                          onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: 'everyone' })}
-                          className={cn(
-                            "px-4 py-1.5 rounded-lg text-xs font-medium transition-all",
-                            privacySettings.dmPrivacy === 'everyone'
-                              ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm"
-                              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                          )}
-                        >
-                          {t("settings.dmPrivacy.everyone")}
-                        </button>
-                        <button
-                          onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: 'contacts-only' })}
-                          className={cn(
-                            "px-4 py-1.5 rounded-lg text-xs font-medium transition-all",
-                            privacySettings.dmPrivacy === 'contacts-only'
-                              ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm"
-                              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                          )}
-                        >
-                          {t("settings.dmPrivacy.contactsOnly")}
-                        </button>
-                      </div>
-                      {privacySettings.dmPrivacy === 'contacts-only' && (
-                        <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-1 flex items-center gap-1">
-                          <ShieldAlert className="h-3 w-3" />
-                          {t("settings.dmPrivacy.filterNote")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <TrustSettingsPanel />
-                </Card>
-
-                {activeTab === "security" && (
-                  <div className="max-w-3xl w-full space-y-6">
-                    <Card title="Quick Unlock Password" description="Set a short password to unlock Obscur faster on this device." className="w-full">
-                      <div className="space-y-4">
-                        <div className="text-xs text-zinc-500 leading-relaxed">
-                          This password is stored locally and only protects access on this device. It does not replace your passphrase.
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-2">
-                            <Label htmlFor="quick-password">Password</Label>
-                            <div className="relative">
-                              <Input
-                                id="quick-password"
-                                type={isQuickPasswordVisible ? "text" : "password"}
-                                value={quickPassword}
-                                onChange={(e) => setQuickPassword(e.target.value)}
-                                placeholder="Enter a short password"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setIsQuickPasswordVisible(v => !v)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                                aria-label={isQuickPasswordVisible ? "Hide password" : "Show password"}
-                              >
-                                {isQuickPasswordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </button>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="quick-password-confirm">Confirm</Label>
-                            <div className="relative">
-                              <Input
-                                id="quick-password-confirm"
-                                type={isQuickPasswordConfirmVisible ? "text" : "password"}
-                                value={quickPasswordConfirm}
-                                onChange={(e) => setQuickPasswordConfirm(e.target.value)}
-                                placeholder="Re-enter password"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setIsQuickPasswordConfirmVisible(v => !v)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                                aria-label={isQuickPasswordConfirmVisible ? "Hide password" : "Show password"}
-                              >
-                                {isQuickPasswordConfirmVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => {
-                              const next = generatePassword(12);
-                              setQuickPassword(next);
-                              setQuickPasswordConfirm(next);
-                            }}
-                          >
-                            Generate Password
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={async () => {
-                              if (!publicKeyHex) {
-                                toast.error("No identity found");
-                                return;
-                              }
-                              if (identity.state.status !== "unlocked" || !identity.state.privateKeyHex) {
-                                toast.error("Unlock your identity to set a quick password");
-                                return;
-                              }
-                              if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
-                                toast.error("Quick password cannot be set while using native secure session. Unlock with your passphrase first.");
-                                return;
-                              }
-                              if (!quickPassword || quickPassword.length < 4) {
-                                toast.error("Password must be at least 4 characters");
-                                return;
-                              }
-                              if (quickPassword !== quickPasswordConfirm) {
-                                toast.error("Passwords do not match");
-                                return;
-                              }
-                              await PinLockService.setPin({
-                                publicKeyHex,
-                                privateKeyHex: identity.state.privateKeyHex,
-                                pin: quickPassword
-                              });
-                              setQuickPassword("");
-                              setQuickPasswordConfirm("");
-                              toast.success("Quick password updated");
-                            }}
-                          >
-                            Save Password
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => {
-                              if (!publicKeyHex) {
-                                toast.error("No identity found");
-                                return;
-                              }
-                              PinLockService.removePin(publicKeyHex);
-                              toast.success("Quick password removed");
-                            }}
-                          >
-                            Remove Password
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                    <AutoLockSettingsPanel />
-                    <Card title="Data & Cache" description="Manage your local data and session cache." className="w-full">
-                      <div className="space-y-4">
-                        <div className="flex items-start gap-4">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                            <Database className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
-                          </div>
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-semibold">Clear Local Cache</h3>
-                            <p className="text-xs text-zinc-500 leading-relaxed">
-                              This will wipe your local message cache and temporary icons. Your identity (private key) will remain safe.
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => {
-                            // Clear everything except identity keys
-                            const nsec = localStorage.getItem('obscur_nsec');
-                            const salt = localStorage.getItem('obscur_salt');
-                            const iv = localStorage.getItem('obscur_iv');
-                            const hint = localStorage.getItem('obscur_hint');
-
-                            localStorage.clear();
-
-                            if (nsec) localStorage.setItem('obscur_nsec', nsec);
-                            if (salt) localStorage.setItem('obscur_salt', salt);
-                            if (iv) localStorage.setItem('obscur_iv', iv);
-                            if (hint) localStorage.setItem('obscur_hint', hint);
-
-                            toast.success("Cache cleared. Reloading...");
-                            setTimeout(() => window.location.reload(), 1500);
-                          }}
-                        >
-                          Clear Cache & Reload
-                        </Button>
-                      </div>
-                    </Card>
-                  </div>
-                )}
-
-                {activeTab === "storage" && (
-                  <Card title={t("settings.tabs.storageTitle")} description={t("settings.tabs.storageDesc")} className="w-full">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 rounded-xl border border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60 opacity-60">
-                        <div className="space-y-0.5">
-                          <div className="text-sm font-medium">{t("settings.storage.externalTitle")}</div>
-                          <div className="text-xs text-zinc-500">{t("settings.storage.externalDesc")}</div>
-                        </div>
-                        <Button
-                          variant={nip96Config.enabled ? "primary" : "secondary"}
-                          disabled={true}
-                          onClick={() => saveNip96Config({ ...nip96Config, enabled: !nip96Config.enabled })}
-                        >
-                          {nip96Config.enabled ? t("settings.storage.enabled") : t("settings.storage.disabled")}
-                        </Button>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="space-y-2 opacity-60">
-                          <Label htmlFor="nip96-url">{t("settings.storage.apiUrlLabel")}</Label>
-                          <Input
-                            id="nip96-url"
-                            placeholder="https://nostr.build/api/v2/upload/files"
-                            value={nip96Config.apiUrl}
-                            disabled={true}
-                            onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
-                          />
-                          <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
-                            {t("settings.storage.disabledForStabilization", "Custom storage editing is disabled for v0.7 stabilization.")}
-                          </p>
-                        </div>
-
-                        <div className="space-y-3 opacity-60">
-                          <Label className="text-xs font-semibold flex items-center gap-1.5">
-                            <Check className="h-3 w-3 text-emerald-500" />
-                            {t("settings.storage.recommended")}
-                          </Label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {RECOMMENDED_STORAGE_PROVIDERS.map((provider) => (
-                              <button
-                                key={provider.name}
-                                type="button"
-                                disabled={true}
-                                onClick={() => {
-                                  saveNip96Config({ apiUrl: provider.url, enabled: true });
-                                  toast.success(`${provider.name} selected and enabled`);
-                                }}
-                                className={cn(
-                                  "text-left p-3 rounded-xl border transition-all cursor-not-allowed",
-                                  nip96Config.apiUrl === provider.url
-                                    ? "border-purple-500 bg-purple-500/5 ring-1 ring-purple-500/20"
-                                    : "border-black/5 dark:border-white/5 bg-white dark:bg-zinc-900/40"
-                                )}
-                              >
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs font-bold">{provider.name}</span>
-                                  {provider.maxSize && (
-                                    <span className="text-[9px] font-medium text-zinc-500 uppercase px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10">
-                                      {provider.maxSize}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">
-                                  {provider.description}
-                                </p>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {!nip96Config.enabled && (
-                          <div className="space-y-3 pt-2">
-                            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                              <p className="font-bold mb-1 flex items-center gap-1">
-                                <ShieldAlert className="h-3 w-3" />
-                                {t("settings.storage.localMode")}
-                              </p>
-                              {t("settings.storage.localModeDesc")}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-2">
-                          <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                            <Info className="h-3.5 w-3.5" />
-                            {t("settings.storage.guidance")}
-                          </div>
-                          <ul className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-2 list-disc pl-4">
-                            <li>{t("settings.storage.guidanceWhy")}</li>
-                            <li>{t("settings.storage.guidancePrivacy")}</li>
-                            <li>{t("settings.storage.guidanceCapacity")}</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
                 )}
               </div>
             </div>
-          </main>
-        </div >
-      </div >
-    </PageShell >
+          </Card>
+          <div className="space-y-2">
+            <div className="px-1 text-sm font-bold flex items-center gap-2 opacity-60">
+              <Wifi className="h-4 w-4" />
+              Relay Performance Monitor
+            </div>
+            <RelayDashboard />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "appearance" && (
+        <Card title={t("settings.appearance.title")} description={t("settings.appearance.desc")} className="w-full">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t("settings.language")}</Label>
+              <LanguageSelector />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("settings.appearance.theme")}</Label>
+              <ThemeToggle />
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "updates" && (
+        <Card title={t("settings.updates.title")} description={t("settings.updates.desc")} className="w-full">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <span className="text-sm font-medium">{t("settings.updates.currentVersion")}</span>
+              <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                v{APP_VERSION}
+              </span>
+            </div>
+            <DesktopUpdater />
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "identity" && (
+        <div className="space-y-6">
+          <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="profile-pubkey">{t("identity.publicKeyHex")}</Label>
+                <div className="flex gap-2">
+                  <Input id="profile-pubkey" value={displayPublicKeyHex} readOnly className="font-mono text-xs flex-1" />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={(): void => {
+                      void navigator.clipboard.writeText(displayPublicKeyHex);
+                      toast.success(t("common.copied"));
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    {t("common.copy")}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2">
+                  <Label htmlFor="profile-nsec" className="text-sm font-bold uppercase tracking-wider text-zinc-500">{t("identity.privateKey")}</Label>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {!isPrivateKeyVisible && !isChallenging ? (
+                    <motion.div
+                      key="locked"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                    >
+                      <Button
+                        variant="outline"
+                        className="w-full h-14 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-500/5 group"
+                        onClick={handleRevealToggle}
+                      >
+                        <Lock className="mr-2 h-4 w-4 text-zinc-400 group-hover:text-purple-500" />
+                        Reveal & Export Private Key
+                      </Button>
+                    </motion.div>
+                  ) : isChallenging ? (
+                    <motion.div
+                      key="challenging"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Shield className="h-5 w-5 text-purple-500" />
+                        <span className="text-sm font-bold">Authentication Required</span>
+                      </div>
+                      <p className="text-xs text-zinc-500">Please enter your master password to reveal your secret key.</p>
+                      <div className="flex gap-2">
+                        <Input
+                          type="password"
+                          placeholder="Master Password"
+                          value={challangePassword}
+                          onChange={(e) => setChallengePassword(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleVerifyChallenge()}
+                          autoFocus
+                          className="h-10 text-sm"
+                        />
+                        <Button size="sm" onClick={handleVerifyChallenge}>Unlock</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setIsChallenging(false)}>Cancel</Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="revealed"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            id="profile-nsec"
+                            type="text"
+                            value={nsecKey || "Loading..."}
+                            readOnly
+                            className="font-mono text-xs pr-10 h-12 bg-white/50 dark:bg-zinc-900/50 border-purple-500/30"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                            onClick={handleRevealToggle}
+                          >
+                            <EyeOff className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-12"
+                          onClick={copyPrivateKey}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          {t("common.copy")}
+                        </Button>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex gap-4">
+                        <ShieldAlert className="h-6 w-6 text-red-500 shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-widest">Extreme Caution Required</p>
+                          <p className="text-[11px] text-red-700/80 dark:text-red-300/80 leading-relaxed font-medium">
+                            This key is the only way to recover your account. If you lose it or someone steals it, your identity and messages cannot be recovered. Store it in a safe, offline place.
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "notifications" && (
+        <Card title={t("settings.notifications.title")} description={t("settings.notifications.desc")} className="w-full">
+          <div className="space-y-3">
+            <div className="text-sm text-zinc-700 dark:text-zinc-300">
+              {t("settings.notifications.backgroundDesc")}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                onClick={async () => {
+                  const success = await requestNotificationPermission();
+                  if (success) {
+                    toast.success("Notifications enabled!");
+                  } else {
+                    toast.error("Permission denied");
+                  }
+                }}
+              >
+                {t("settings.notifications.enable")}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "relays" && (
+        <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
+          <div className="space-y-3">
+            <RelayDashboard />
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "blocklist" && (
+        <Card title={t("settings.tabs.blocklist")} description={t("settings.blocklist.desc")} className="w-full">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">{t("settings.blocklist.blockedUsers")} ({blocklist.state.blockedPublicKeys.length})</h4>
+              {blocklist.state.blockedPublicKeys.length === 0 ? (
+                <p className="text-xs text-zinc-500 italic">{t("settings.blocklist.empty")}</p>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {blocklist.state.blockedPublicKeys.map((pubkey) => (
+                    <div key={pubkey} className="flex items-center justify-between p-3 rounded-xl border border-black/5 bg-zinc-50 dark:bg-zinc-900/40 dark:border-white/5">
+                      <span className="font-mono text-[10px] truncate flex-1">{pubkey}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        onClick={() => blocklist.removeBlocked({ publicKeyHex: pubkey as PublicKeyHex })}
+                      >
+                        Unblock
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "privacy" && (
+        <div className="space-y-6">
+          <TrustSettingsPanel />
+          <Card title={t("settings.privacy.global")} description={t("settings.privacy.globalDesc")} className="w-full">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex-1">Enable Modern DMs (Gift Wraps)</Label>
+                <input
+                  type="checkbox"
+                  checked={privacySettings.useModernDMs}
+                  onChange={(e) => handleSavePrivacy({ ...privacySettings, useModernDMs: e.target.checked })}
+                  className="rounded border-zinc-300 text-purple-600 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "security" && (
+        <div className="space-y-6">
+          <AutoLockSettingsPanel />
+          <Card title="Session Management" description="Security settings for your current session." className="w-full">
+            <div className="space-y-4">
+              <Button
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20"
+                onClick={() => {
+                  // Logic for clearing local data
+                  toast.info("Feature coming soon");
+                }}
+              >
+                Clear All Local Data
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "storage" && (
+        <Card title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Media Upload Provider (NIP-96)</Label>
+              <Input
+                value={nip96Config.apiUrl}
+                onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
+                placeholder="https://api.provider.com/upload"
+              />
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  checked={nip96Config.enabled}
+                  onChange={(e) => saveNip96Config({ ...nip96Config, enabled: e.target.checked })}
+                  id="nip96-enabled"
+                />
+                <Label htmlFor="nip96-enabled">Enable Media Uploads</Label>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }

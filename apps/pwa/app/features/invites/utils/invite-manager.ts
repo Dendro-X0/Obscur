@@ -8,23 +8,23 @@ import type {
   QRInviteOptions,
   InviteLinkOptions,
   QRInviteData,
-  ContactRequest,
-  OutgoingContactRequest,
-  Contact,
+  ConnectionRequest,
+  OutgoingConnectionRequest,
+  Connection,
   InviteLink,
   ImportResult,
-  NostrContactList,
-  ContactRequestStatus,
+  NostrConnectionList,
+  ConnectionRequestStatus,
   ShareableProfile
 } from './types';
 import { cryptoService } from '../../crypto/crypto-service';
 import { qrGenerator } from './qr-generator';
-import { contactStore } from './contact-store';
+import { connectionStore } from './connection-store';
 import { profileManager } from './profile-manager';
 import { openInviteDb } from './db/open-invite-db';
 import { getIdentitySnapshot } from '../../auth/hooks/use-identity';
 import {
-  CONTACT_REQUESTS_STORE,
+  CONNECTION_REQUESTS_STORE,
   INVITE_LINKS_STORE,
   MAX_PENDING_REQUESTS,
   DEFAULT_INVITE_EXPIRATION_HOURS,
@@ -35,6 +35,9 @@ import {
   ERROR_MESSAGES
 } from './constants';
 import { generateRandomString, isExpired, delay } from './utils';
+import {
+  connectionSearchIndex
+} from './performance-optimizations';
 import { NostrCompatibilityService } from './nostr-compatibility';
 import { DeepLinkHandler } from './deep-link-handler';
 import {
@@ -42,7 +45,7 @@ import {
   SecureStorage,
   canGenerateQR,
   canGenerateInviteLink,
-  canSendContactRequest,
+  canSendConnectionRequest,
   canProcessInvite
 } from './security-enhancements';
 import { logAppEvent } from '@/app/shared/log-app-event';
@@ -80,18 +83,18 @@ const isString = (value: unknown): value is string => typeof value === "string";
 
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-const parseNostrContactList = (value: unknown): NostrContactList | null => {
+const parseNostrConnectionList = (value: unknown): NostrConnectionList | null => {
   if (!isRecord(value)) {
     return null;
   }
-  const contacts: unknown = value.contacts;
+  const connections: unknown = value.connections;
   const version: unknown = value.version;
   const createdAt: unknown = value.createdAt;
-  if (!Array.isArray(contacts) || !isNumber(version) || !isNumber(createdAt)) {
+  if (!Array.isArray(connections) || !isNumber(version) || !isNumber(createdAt)) {
     return null;
   }
 
-  const parsedContacts: Array<{ publicKey: PublicKeyHex; relayUrl?: string; petname?: string }> = contacts
+  const parsedConnections: Array<{ publicKey: PublicKeyHex; relayUrl?: string; petname?: string }> = connections
     .map((candidate: unknown): { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } | null => {
       if (!isRecord(candidate)) {
         return null;
@@ -107,7 +110,7 @@ const parseNostrContactList = (value: unknown): NostrContactList | null => {
       return { publicKey: publicKey as PublicKeyHex, relayUrl: relayUrlOut, petname: petnameOut };
     })
     .filter((c: { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } | null): c is { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } => c !== null);
-  return { contacts: parsedContacts, version: version as number, createdAt: createdAt as number };
+  return { connections: parsedConnections, version: version as number, createdAt: createdAt as number };
 };
 
 const getCoordinationBaseUrl = (): string | null => {
@@ -340,7 +343,7 @@ class InviteManagerImpl implements InviteManager {
     }
   }
 
-  async processQRInvite(qrData: string): Promise<ContactRequest> {
+  async processQRInvite(qrData: string): Promise<ConnectionRequest> {
     try {
       // Get current user identity for rate limiting
       const identity = await this.getCurrentUserIdentity();
@@ -399,8 +402,8 @@ class InviteManagerImpl implements InviteManager {
         signature: parsedData.signature
       };
 
-      // Create contact request
-      const contactRequest: ContactRequest = {
+      // Create connection request
+      const connectionRequest: ConnectionRequest = {
         id: await cryptoService.generateInviteId(),
         type: 'incoming',
         senderPublicKey: parsedData.publicKey,
@@ -412,10 +415,10 @@ class InviteManagerImpl implements InviteManager {
         expiresAt: new Date(parsedData.expirationTime)
       };
 
-      // Store the contact request
-      await this.storeContactRequest(contactRequest);
+      // Store the connection request
+      await this.storeConnectionRequest(connectionRequest);
 
-      return contactRequest;
+      return connectionRequest;
     } catch (error) {
       throw new Error(`QR invite processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -539,13 +542,13 @@ class InviteManagerImpl implements InviteManager {
     return `${INVITE_LINK_BASE_URL.replace('/invite', '/group')}/${groupId}`;
   }
 
-  async processInviteLink(linkData: string): Promise<ContactRequest> {
+  async processInviteLink(linkData: string): Promise<ConnectionRequest> {
     try {
       // Check if this is a deep link URL that needs parsing
       if (linkData.includes('://') || linkData.includes('nostr:')) {
         const deepLinkResult = await DeepLinkHandler.processDeepLink(linkData);
-        if (deepLinkResult.success && deepLinkResult.contactRequest) {
-          return deepLinkResult.contactRequest;
+        if (deepLinkResult.success && deepLinkResult.connectionRequest) {
+          return deepLinkResult.connectionRequest;
         }
         throw new Error(deepLinkResult.error || 'Failed to process deep link');
       }
@@ -562,7 +565,7 @@ class InviteManagerImpl implements InviteManager {
         const identity = await this.getCurrentUserIdentity();
         const redeemed = await coordinationRedeemInvite({ token: shortCode, redeemerPubkey: identity.publicKey });
         const senderPublicKey: string = redeemed.inviterPubkey;
-        const contactRequest: ContactRequest = {
+        const connectionRequest: ConnectionRequest = {
           id: await cryptoService.generateInviteId(),
           type: 'incoming',
           senderPublicKey: senderPublicKey as PublicKeyHex,
@@ -576,8 +579,8 @@ class InviteManagerImpl implements InviteManager {
           createdAt: new Date(),
           expiresAt: redeemed.expiresAtUnixSeconds ? new Date(redeemed.expiresAtUnixSeconds * 1000) : undefined
         };
-        await this.storeContactRequest(contactRequest);
-        return contactRequest;
+        await this.storeConnectionRequest(connectionRequest);
+        return connectionRequest;
       }
 
       // Check if link is active
@@ -598,8 +601,8 @@ class InviteManagerImpl implements InviteManager {
       // Get current user identity
       const identity = await this.getCurrentUserIdentity();
 
-      // Create contact request
-      const contactRequest: ContactRequest = {
+      // Create connection request
+      const connectionRequest: ConnectionRequest = {
         id: await cryptoService.generateInviteId(),
         type: 'incoming',
         senderPublicKey: inviteLink.createdBy,
@@ -611,13 +614,13 @@ class InviteManagerImpl implements InviteManager {
         expiresAt: inviteLink.expiresAt
       };
 
-      // Store the contact request
-      await this.storeContactRequest(contactRequest);
+      // Store the connection request
+      await this.storeConnectionRequest(connectionRequest);
 
       // Increment usage count
       await this.incrementInviteLinkUsage(inviteLink.id);
 
-      return contactRequest;
+      return connectionRequest;
     } catch (error) {
       throw new Error(`Invite link processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -631,11 +634,11 @@ class InviteManagerImpl implements InviteManager {
     }
   }
 
-  async handleUrlScheme(url: string): Promise<ContactRequest | null> {
+  async handleUrlScheme(url: string): Promise<ConnectionRequest | null> {
     try {
       const result = await this.processDeepLink(url);
-      if (result.success && result.contactRequest) {
-        return result.contactRequest;
+      if (result.success && result.connectionRequest) {
+        return result.connectionRequest;
       }
       if (result.fallbackAction) {
         throw new Error(`Deep link failed: ${result.error}. Fallback action: ${result.fallbackAction}`);
@@ -678,15 +681,15 @@ class InviteManagerImpl implements InviteManager {
     }
   }
 
-  // Contact Request Management
-  async sendContactRequest(request: OutgoingContactRequest): Promise<void> {
+  // Connection Request Management
+  async sendConnectionRequest(request: OutgoingConnectionRequest): Promise<void> {
     try {
       // Get current user identity
       const identity = await this.getCurrentUserIdentity();
 
       // Rate limiting check
-      if (!canSendContactRequest(identity.publicKey)) {
-        throw new Error('Rate limit exceeded for contact requests. Please try again later.');
+      if (!canSendConnectionRequest(identity.publicKey)) {
+        throw new Error('Rate limit exceeded for connection requests. Please try again later.');
       }
 
       // Validate recipient public key
@@ -724,8 +727,8 @@ class InviteManagerImpl implements InviteManager {
         };
       }
 
-      // Create contact request
-      const contactRequest: ContactRequest = {
+      // Create connection request
+      const connectionRequest: ConnectionRequest = {
         id: await cryptoService.generateInviteId(),
         type: 'outgoing',
         senderPublicKey: identity.publicKey,
@@ -736,125 +739,125 @@ class InviteManagerImpl implements InviteManager {
         createdAt: new Date()
       };
 
-      // Store the contact request
-      await this.storeContactRequest(contactRequest);
+      // Store the connection request
+      await this.storeConnectionRequest(connectionRequest);
 
-      // TODO: Send the contact request via Nostr relay
+      // TODO: Send the connection request via Nostr relay
       // This would involve creating a Nostr event and publishing it
       // For now, we just store it locally
     } catch (error) {
-      throw new Error(`Contact request sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Connection request sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async acceptContactRequest(requestId: string): Promise<Contact> {
+  async acceptConnectionRequest(requestId: string): Promise<Connection> {
     try {
-      // Get the contact request
-      const contactRequest = await this.getContactRequest(requestId);
-      if (!contactRequest) {
-        throw new Error('Contact request not found');
+      // Get the connection request
+      const connectionRequest = await this.getConnectionRequest(requestId);
+      if (!connectionRequest) {
+        throw new Error('Connection request not found');
       }
 
-      if (contactRequest.status !== 'pending') {
-        throw new Error('Contact request is not pending');
+      if (connectionRequest.status !== 'pending') {
+        throw new Error('Connection request is not pending');
       }
 
-      // Create contact from the request
-      const contact: Contact = {
+      // Create connection from the request
+      const connection: Connection = {
         id: await cryptoService.generateInviteId(),
-        publicKey: contactRequest.senderPublicKey,
-        displayName: contactRequest.profile.displayName || `User ${contactRequest.senderPublicKey.slice(0, 8)}`,
-        avatar: contactRequest.profile.avatar,
-        bio: contactRequest.profile.bio,
+        publicKey: connectionRequest.senderPublicKey,
+        displayName: connectionRequest.profile.displayName || `User ${connectionRequest.senderPublicKey.slice(0, 8)}`,
+        avatar: connectionRequest.profile.avatar,
+        bio: connectionRequest.profile.bio,
         trustLevel: 'neutral',
         groups: [],
         addedAt: new Date(),
         metadata: {
           source: 'qr', // This could be 'qr' or 'link' depending on how the request was created
-          notes: contactRequest.message
+          notes: connectionRequest.message
         }
       };
 
-      // Add contact to store
-      await contactStore.addContact(contact);
+      // Add connection to store
+      await connectionStore.addConnection(connection);
 
-      // Update contact request status
-      await this.updateContactRequestStatus(requestId, 'accepted');
+      // Update connection request status
+      await this.updateConnectionRequestStatus(requestId, 'accepted');
 
-      return contact;
+      return connection;
     } catch (error) {
-      throw new Error(`Contact request acceptance failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Connection request acceptance failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async declineContactRequest(requestId: string, block?: boolean): Promise<void> {
+  async declineConnectionRequest(requestId: string, block?: boolean): Promise<void> {
     try {
-      // Get the contact request
-      const contactRequest = await this.getContactRequest(requestId);
-      if (!contactRequest) {
-        throw new Error('Contact request not found');
+      // Get the connection request
+      const connectionRequest = await this.getConnectionRequest(requestId);
+      if (!connectionRequest) {
+        throw new Error('Connection request not found');
       }
 
-      if (contactRequest.status !== 'pending') {
-        throw new Error('Contact request is not pending');
+      if (connectionRequest.status !== 'pending') {
+        throw new Error('Connection request is not pending');
       }
 
-      // Update contact request status
-      await this.updateContactRequestStatus(requestId, 'declined');
+      // Update connection request status
+      await this.updateConnectionRequestStatus(requestId, 'declined');
 
-      // If blocking is requested, add to blocked contacts
+      // If blocking is requested, add to blocked connections
       if (block) {
-        const blockedContact: Contact = {
+        const blockedConnection: Connection = {
           id: await cryptoService.generateInviteId(),
-          publicKey: contactRequest.senderPublicKey,
-          displayName: `Blocked ${contactRequest.senderPublicKey.slice(0, 8)}`,
+          publicKey: connectionRequest.senderPublicKey,
+          displayName: `Blocked ${connectionRequest.senderPublicKey.slice(0, 8)}`,
           trustLevel: 'blocked',
           groups: [],
           addedAt: new Date(),
           metadata: {
             source: 'qr',
-            notes: 'Blocked from contact request'
+            notes: 'Blocked from connection request'
           }
         };
 
-        await contactStore.addContact(blockedContact);
+        await connectionStore.addConnection(blockedConnection);
       }
     } catch (error) {
-      throw new Error(`Contact request decline failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Connection request decline failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async cancelContactRequest(requestId: string): Promise<void> {
+  async cancelConnectionRequest(requestId: string): Promise<void> {
     try {
-      // Get the contact request
-      const contactRequest = await this.getContactRequest(requestId);
-      if (!contactRequest) {
-        throw new Error('Contact request not found');
+      // Get the connection request
+      const connectionRequest = await this.getConnectionRequest(requestId);
+      if (!connectionRequest) {
+        throw new Error('Connection request not found');
       }
 
-      if (contactRequest.type !== 'outgoing') {
-        throw new Error('Can only cancel outgoing contact requests');
+      if (connectionRequest.type !== 'outgoing') {
+        throw new Error('Can only cancel outgoing connection requests');
       }
 
-      if (contactRequest.status !== 'pending') {
-        throw new Error('Contact request is not pending');
+      if (connectionRequest.status !== 'pending') {
+        throw new Error('Connection request is not pending');
       }
 
-      // Update contact request status
-      await this.updateContactRequestStatus(requestId, 'cancelled');
+      // Update connection request status
+      await this.updateConnectionRequestStatus(requestId, 'cancelled');
     } catch (error) {
-      throw new Error(`Contact request cancellation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Connection request cancellation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  // Additional Contact Request Management Methods
-  async getPendingContactRequests(): Promise<ContactRequest[]> {
+  // Additional Connection Request Management Methods
+  async getPendingConnectionRequests(): Promise<ConnectionRequest[]> {
     try {
       const db = await openInviteDb();
 
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
-        const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
+        const transaction = db.transaction([CONNECTION_REQUESTS_STORE], 'readonly');
+        const store = transaction.objectStore(CONNECTION_REQUESTS_STORE);
         const index = store.index('status');
 
         const request = index.getAll('pending');
@@ -863,35 +866,35 @@ class InviteManagerImpl implements InviteManager {
         request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       });
     } catch (error) {
-      throw new Error(`Failed to get pending contact requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get pending connection requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async getIncomingContactRequests(): Promise<ContactRequest[]> {
+  async getIncomingConnectionRequests(): Promise<ConnectionRequest[]> {
     try {
-      const pendingRequests = await this.getPendingContactRequests();
+      const pendingRequests = await this.getPendingConnectionRequests();
       return pendingRequests.filter(request => request.type === 'incoming');
     } catch (error) {
-      throw new Error(`Failed to get incoming contact requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get incoming connection requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async getOutgoingContactRequests(): Promise<ContactRequest[]> {
+  async getOutgoingConnectionRequests(): Promise<ConnectionRequest[]> {
     try {
-      const pendingRequests = await this.getPendingContactRequests();
+      const pendingRequests = await this.getPendingConnectionRequests();
       return pendingRequests.filter(request => request.type === 'outgoing');
     } catch (error) {
-      throw new Error(`Failed to get outgoing contact requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get outgoing connection requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async getAllContactRequests(): Promise<ContactRequest[]> {
+  async getAllConnectionRequests(): Promise<ConnectionRequest[]> {
     try {
       const db = await openInviteDb();
 
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
-        const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
+        const transaction = db.transaction([CONNECTION_REQUESTS_STORE], 'readonly');
+        const store = transaction.objectStore(CONNECTION_REQUESTS_STORE);
 
         const request = store.getAll();
 
@@ -899,17 +902,17 @@ class InviteManagerImpl implements InviteManager {
         request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       });
     } catch (error) {
-      throw new Error(`Failed to get all contact requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get all connection requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async getContactRequestsByStatus(status: ContactRequestStatus): Promise<ContactRequest[]> {
+  async getConnectionRequestsByStatus(status: ConnectionRequestStatus): Promise<ConnectionRequest[]> {
     try {
       const db = await openInviteDb();
 
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
-        const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
+        const transaction = db.transaction([CONNECTION_REQUESTS_STORE], 'readonly');
+        const store = transaction.objectStore(CONNECTION_REQUESTS_STORE);
         const index = store.index('status');
 
         const request = index.getAll(status);
@@ -918,30 +921,30 @@ class InviteManagerImpl implements InviteManager {
         request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       });
     } catch (error) {
-      throw new Error(`Failed to get contact requests by status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get connection requests by status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async cleanupExpiredContactRequests(): Promise<number> {
+  async cleanupExpiredConnectionRequests(): Promise<number> {
     try {
-      const allRequests = await this.getAllContactRequests();
+      const allRequests = await this.getAllConnectionRequests();
       const now = new Date();
       let cleanedCount = 0;
 
       for (const request of allRequests) {
         if (request.expiresAt && request.expiresAt < now && request.status === 'pending') {
-          await this.updateContactRequestStatus(request.id, 'expired');
+          await this.updateConnectionRequestStatus(request.id, 'expired');
           cleanedCount++;
         }
       }
 
       return cleanedCount;
     } catch (error) {
-      throw new Error(`Failed to cleanup expired contact requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to cleanup expired connection requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async bulkSendContactRequests(requests: OutgoingContactRequest[]): Promise<{ successful: number; failed: number; errors: string[] }> {
+  async bulkSendConnectionRequests(requests: OutgoingConnectionRequest[]): Promise<{ successful: number; failed: number; errors: string[] }> {
     const result = {
       successful: 0,
       failed: 0,
@@ -950,7 +953,7 @@ class InviteManagerImpl implements InviteManager {
 
     for (const request of requests) {
       try {
-        await this.sendContactRequest(request);
+        await this.sendConnectionRequest(request);
         result.successful++;
 
         // Rate limiting to avoid overwhelming the system
@@ -965,25 +968,26 @@ class InviteManagerImpl implements InviteManager {
   }
 
   // Import/Export
-  async importContacts(contactData: NostrContactList): Promise<ImportResult> {
+  async importConnections(connectionData: NostrConnectionList): Promise<ImportResult> {
     try {
       const result: ImportResult = {
-        totalContacts: contactData.contacts.length,
+        totalConnections: connectionData.connections.length,
         successfulImports: 0,
         failedImports: 0,
         duplicates: 0,
         errors: []
       };
 
-      // Get existing contacts for deduplication
-      const existingContacts = await contactStore.getAllContacts();
-      const existingPublicKeys = new Set(existingContacts.map(c => c.publicKey));
+      // Get existing connections for deduplication
+      const existingConnections = await connectionStore.getAllConnections();
+      const existingPublicKeys = new Set(existingConnections.map((c: Connection) => c.publicKey));
 
-      // Process contacts in batches to avoid overwhelming the system
-      const batchSize = Math.min(MAX_IMPORT_BATCH_SIZE, contactData.contacts.length);
+      // Ensure search index is populated
+      connectionSearchIndex.rebuild(existingConnections);
 
-      for (let i = 0; i < contactData.contacts.length; i += batchSize) {
-        const batch = contactData.contacts.slice(i, i + batchSize);
+      // Process connections in batches to avoid overwhelming the system
+      for (let i = 0; i < connectionData.connections.length; i += MAX_IMPORT_BATCH_SIZE) {
+        const batch = connectionData.connections.slice(i, i + MAX_IMPORT_BATCH_SIZE);
 
         for (const contactInfo of batch) {
           try {
@@ -1024,8 +1028,8 @@ class InviteManagerImpl implements InviteManager {
               }
             }
 
-            // Create contact
-            const contact: Contact = {
+            // Create connection
+            const connection: Connection = {
               id: await cryptoService.generateInviteId(),
               publicKey: normalizedPubkey,
               displayName: displayName || `User ${normalizedPubkey.slice(0, 8)}`,
@@ -1038,12 +1042,12 @@ class InviteManagerImpl implements InviteManager {
               }
             };
 
-            await contactStore.addContact(contact);
+            await connectionStore.addConnection(connection);
             existingPublicKeys.add(normalizedPubkey); // Prevent duplicates within the same import
             result.successfulImports++;
 
             // Rate limiting to avoid overwhelming the system
-            if (i < contactData.contacts.length - 1) {
+            if (i < connectionData.connections.length - 1) {
               await delay(IMPORT_RATE_LIMIT_MS);
             }
           } catch (error) {
@@ -1059,33 +1063,30 @@ class InviteManagerImpl implements InviteManager {
 
       return result;
     } catch (error) {
-      throw new Error(`Contact import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Connection import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async exportContacts(): Promise<NostrContactList> {
+  async exportConnections(): Promise<NostrConnectionList> {
     try {
-      const contacts = await contactStore.getAllContacts();
+      const connections = await connectionStore.getAllConnections();
+      const nostrConnections = connections.map((c: Connection) => ({
+        publicKey: c.publicKey,
+        relayUrl: undefined, // Not stored yet
+        petname: c.displayName
+      }));
 
-      const exportData: NostrContactList = {
-        contacts: contacts
-          .filter(contact => contact.trustLevel !== 'blocked') // Don't export blocked contacts
-          .map(contact => ({
-            publicKey: contact.publicKey,
-            petname: contact.displayName,
-            relayUrl: contact.metadata.importedFrom
-          })),
+      return {
+        connections: nostrConnections,
         version: 1,
-        createdAt: Date.now()
+        createdAt: Math.floor(Date.now() / 1000)
       };
-
-      return exportData;
     } catch (error) {
-      throw new Error(`Contact export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Connection export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async validateContactListFormat(data: unknown): Promise<{ isValid: boolean; errors: string[] }> {
+  async validateConnectionListFormat(data: unknown): Promise<{ isValid: boolean; errors: string[] }> {
     const errors: string[] = [];
 
     if (!isRecord(data)) {
@@ -1140,7 +1141,7 @@ class InviteManagerImpl implements InviteManager {
     return { isValid: errors.length === 0, errors };
   }
 
-  async importContactsFromFile(fileContent: string): Promise<ImportResult> {
+  async importConnectionsFromFile(fileContent: string): Promise<ImportResult> {
     try {
       // Parse JSON
       let contactData: unknown;
@@ -1150,27 +1151,27 @@ class InviteManagerImpl implements InviteManager {
         throw new Error('Invalid JSON format');
       }
 
-      const parsed: NostrContactList | null = parseNostrContactList(contactData);
+      const parsed: NostrConnectionList | null = parseNostrConnectionList(contactData);
       if (!parsed) {
-        throw new Error('Invalid contact list format');
+        throw new Error('Invalid connection list format');
       }
 
       // Validate format
-      const validation = await this.validateContactListFormat(contactData);
+      const validation = await this.validateConnectionListFormat(contactData);
       if (!validation.isValid) {
-        throw new Error(`Invalid contact list format: ${validation.errors.join(', ')}`);
+        throw new Error(`Invalid connection list format: ${validation.errors.join(', ')}`);
       }
 
-      // Import contacts
-      return await this.importContacts(parsed);
+      // Import connections
+      return await this.importConnections(parsed);
     } catch (error) {
       throw new Error(`File import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async exportContactsToFile(): Promise<string> {
+  async exportConnectionsToFile(): Promise<string> {
     try {
-      const contactData = await this.exportContacts();
+      const contactData = await this.exportConnections();
       return JSON.stringify(contactData, null, 2);
     } catch (error) {
       throw new Error(`File export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1223,17 +1224,17 @@ class InviteManagerImpl implements InviteManager {
     }
   }
 
-  private async storeContactRequest(contactRequest: ContactRequest): Promise<void> {
+  private async storeConnectionRequest(connectionRequest: ConnectionRequest): Promise<void> {
     // Check pending request limits
     await this.enforcePendingRequestLimits();
 
     const db = await openInviteDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readwrite');
-      const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
+      const transaction = db.transaction([CONNECTION_REQUESTS_STORE], 'readwrite');
+      const store = transaction.objectStore(CONNECTION_REQUESTS_STORE);
 
-      const request = store.add(contactRequest);
+      const request = store.add(connectionRequest);
 
       request.onsuccess = () => resolve();
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
@@ -1295,12 +1296,12 @@ class InviteManagerImpl implements InviteManager {
     });
   }
 
-  private async getContactRequest(requestId: string): Promise<ContactRequest | null> {
+  private async getConnectionRequest(requestId: string): Promise<ConnectionRequest | null> {
     const db = await openInviteDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readonly');
-      const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
+      const transaction = db.transaction([CONNECTION_REQUESTS_STORE], 'readonly');
+      const store = transaction.objectStore(CONNECTION_REQUESTS_STORE);
 
       const request = store.get(requestId);
 
@@ -1309,25 +1310,25 @@ class InviteManagerImpl implements InviteManager {
     });
   }
 
-  private async updateContactRequestStatus(requestId: string, status: ContactRequestStatus): Promise<void> {
+  private async updateConnectionRequestStatus(requestId: string, status: ConnectionRequestStatus): Promise<void> {
     const db = await openInviteDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readwrite');
-      const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
+      const transaction = db.transaction([CONNECTION_REQUESTS_STORE], 'readwrite');
+      const store = transaction.objectStore(CONNECTION_REQUESTS_STORE);
 
       const getRequest = store.get(requestId);
 
       getRequest.onsuccess = () => {
-        const contactRequest = getRequest.result;
-        if (!contactRequest) {
-          reject(new Error('Contact request not found'));
+        const connectionRequest = getRequest.result;
+        if (!connectionRequest) {
+          reject(new Error('Connection request not found'));
           return;
         }
 
-        contactRequest.status = status;
+        connectionRequest.status = status;
 
-        const putRequest = store.put(contactRequest);
+        const putRequest = store.put(connectionRequest);
         putRequest.onsuccess = () => resolve();
         putRequest.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
       };
@@ -1336,10 +1337,10 @@ class InviteManagerImpl implements InviteManager {
     });
   }
 
-  private async findContactByPublicKey(publicKey: PublicKeyHex): Promise<Contact | null> {
+  private async findConnectionByPublicKey(publicKey: PublicKeyHex): Promise<Connection | null> {
     try {
-      const contacts = await contactStore.getAllContacts();
-      return contacts.find(contact => contact.publicKey === publicKey) || null;
+      const connections = await connectionStore.getAllConnections();
+      return connections.find((contact: Connection) => contact.publicKey === publicKey) || null;
     } catch {
       return null;
     }
@@ -1349,8 +1350,8 @@ class InviteManagerImpl implements InviteManager {
     const db = await openInviteDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([CONTACT_REQUESTS_STORE], 'readwrite');
-      const store = transaction.objectStore(CONTACT_REQUESTS_STORE);
+      const transaction = db.transaction([CONNECTION_REQUESTS_STORE], 'readwrite');
+      const store = transaction.objectStore(CONNECTION_REQUESTS_STORE);
       const index = store.index('status');
 
       const request = index.getAll('pending');

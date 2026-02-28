@@ -12,7 +12,7 @@ import type { Message } from "./message-queue";
 /**
  * Batch operation types
  */
-type BatchOperation = 
+type BatchOperation =
   | { type: 'persist'; message: Message }
   | { type: 'updateStatus'; messageId: string; status: string }
   | { type: 'markSynced'; messageIds: string[] };
@@ -138,7 +138,7 @@ export class MessageBatchProcessor {
     // In a real implementation, this would use a transaction or bulk insert
     // For now, we'll just log the batch size
     console.log(`Batch persisting ${messages.length} messages`);
-    
+
     // Actual persistence would happen here
     // This is a placeholder for the batching logic
   }
@@ -148,7 +148,7 @@ export class MessageBatchProcessor {
    */
   private async batchUpdateStatus(updates: Array<{ messageId: string; status: string }>): Promise<void> {
     console.log(`Batch updating ${updates.length} message statuses`);
-    
+
     // Actual status updates would happen here
     // This is a placeholder for the batching logic
   }
@@ -159,7 +159,7 @@ export class MessageBatchProcessor {
   private async batchMarkSynced(operations: Array<{ messageIds: string[] }>): Promise<void> {
     const allMessageIds = operations.flatMap(op => op.messageIds);
     console.log(`Batch marking ${allMessageIds.length} messages as synced`);
-    
+
     // Actual sync marking would happen here
     // This is a placeholder for the batching logic
   }
@@ -183,7 +183,7 @@ export class MessageBatchProcessor {
  */
 export class MessageMemoryManager {
   private config: MemoryConfig;
-  private conversationCache: Map<string, Message[]> = new Map();
+  private conversationCache: Map<string, ReadonlyArray<Message>> = new Map();
   private accessTimestamps: Map<string, number> = new Map();
 
   constructor(config: Partial<MemoryConfig> = {}) {
@@ -197,16 +197,16 @@ export class MessageMemoryManager {
   /**
    * Add messages to memory cache
    */
-  addMessages(conversationId: string, messages: Message[]): void {
+  addMessages(conversationId: string, messages: ReadonlyArray<Message>): void {
     // Update access timestamp
     this.accessTimestamps.set(conversationId, Date.now());
 
     // Get existing messages or create new array
     const existing = this.conversationCache.get(conversationId) || [];
-    
+
     // Merge and deduplicate
     const merged = this.mergeMessages(existing, messages);
-    
+
     // Store in cache
     this.conversationCache.set(conversationId, merged);
 
@@ -217,10 +217,10 @@ export class MessageMemoryManager {
   /**
    * Get messages from memory cache
    */
-  getMessages(conversationId: string): Message[] | null {
+  getMessages(conversationId: string): ReadonlyArray<Message> | null {
     // Update access timestamp
     this.accessTimestamps.set(conversationId, Date.now());
-    
+
     return this.conversationCache.get(conversationId) || null;
   }
 
@@ -269,8 +269,8 @@ export class MessageMemoryManager {
     }
 
     for (const [conversationId] of sorted) {
-      if (totalMessages <= this.config.maxMessagesInMemory && 
-          this.conversationCache.size <= this.config.conversationCacheSize) {
+      if (totalMessages <= this.config.maxMessagesInMemory &&
+        this.conversationCache.size <= this.config.conversationCacheSize) {
         break;
       }
 
@@ -285,7 +285,7 @@ export class MessageMemoryManager {
   /**
    * Merge messages and deduplicate
    */
-  private mergeMessages(existing: Message[], newMessages: Message[]): Message[] {
+  private mergeMessages(existing: ReadonlyArray<Message>, newMessages: ReadonlyArray<Message>): ReadonlyArray<Message> {
     const messageMap = new Map<string, Message>();
 
     // Add existing messages
@@ -318,8 +318,8 @@ export class MessageMemoryManager {
     }
 
     const conversationCount = this.conversationCache.size;
-    const averageMessagesPerConversation = conversationCount > 0 
-      ? totalMessages / conversationCount 
+    const averageMessagesPerConversation = conversationCount > 0
+      ? totalMessages / conversationCount
       : 0;
 
     return {
@@ -459,7 +459,7 @@ export class WebSocketOptimizer {
    */
   cleanup(relayUrl: string): void {
     this.stopHeartbeat(relayUrl);
-    
+
     const timer = this.publishTimers.get(relayUrl);
     if (timer) {
       clearTimeout(timer);

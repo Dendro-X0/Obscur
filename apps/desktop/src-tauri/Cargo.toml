@@ -38,6 +38,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-socks = "0.5.2"
 rustls-native-certs = "0.8.1"
 rustls = { version = "0.23.23", default-features = false, features = ["std"] }
+libobscur = { path = "../../../packages/libobscur" }
 
 # Platform-specific dependencies
 [target.'cfg(not(target_os = "android"))'.dependencies]

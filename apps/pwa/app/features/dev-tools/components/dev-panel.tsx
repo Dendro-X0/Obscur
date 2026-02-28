@@ -2,17 +2,17 @@
 
 import React, { useState } from "react";
 import { Ghost, Bot, Zap, Settings, ChevronUp, ChevronDown, Trash2, Play, MessageSquare, UserPlus } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
-import { Card } from "@/app/components/ui/card";
+import { Button } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit";
 import { useDevMode } from "../hooks/use-dev-mode";
 import { SCENARIOS } from "../scenarios";
-import { cn } from "@/app/lib/cn";
-import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+import { cn } from "@dweb/ui-kit";
+import { useNetwork } from "@/app/features/network/providers/network-provider";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const { isDevMode, toggleDevMode, botEngine, mockPool } = useDevMode();
-    const { requestsInbox } = useContacts();
+    const { requestsInbox } = useNetwork();
     const [isOpen, setIsOpen] = useState(false);
     const [activeScenario, setActiveScenario] = useState<string | null>(null);
     const [stopScenario, setStopScenario] = useState<(() => void) | null>(null);
@@ -77,7 +77,7 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
     };
 
     return (
-        <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-2">
+        <div className="fixed bottom-20 md:bottom-4 right-4 z-[9999] flex flex-col items-end gap-2 pb-[env(safe-area-inset-bottom)]">
             {!isOpen && (
                 <Button
                     variant="secondary"

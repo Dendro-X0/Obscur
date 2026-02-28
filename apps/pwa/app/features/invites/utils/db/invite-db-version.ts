@@ -1,1 +1,1 @@
-export const inviteDbVersion: number = 1;
+export const inviteDbVersion: number = 3;

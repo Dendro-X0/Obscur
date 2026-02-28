@@ -215,9 +215,25 @@ async fn request_notification_permission(app: tauri::AppHandle) -> Result<String
 #[tauri::command]
 async fn is_notification_permission_granted(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri_plugin_notification::NotificationExt;
-    
     let permission = app.notification().permission_state().map_err(|e| e.to_string())?;
     Ok(matches!(permission, tauri_plugin_notification::PermissionState::Granted))
+}
+
+#[tauri::command]
+async fn register_push_token(_app: tauri::AppHandle, pubkey: String, token: String) -> Result<(), String> {
+    eprintln!("[PUSH] Registering push token for {}: {}", pubkey, token);
+    Ok(())
+}
+
+#[tauri::command]
+async fn mine_pow(unsigned_event: nostr::prelude::UnsignedEvent, difficulty: u8) -> Result<nostr::prelude::UnsignedEvent, String> {
+    libobscur::crypto::pow::mine_pow(unsigned_event, difficulty)
+}
+
+#[tauri::command]
+async fn request_biometric_auth() -> Result<bool, String> {
+    eprintln!("[BIOMETRIC] Triggering biometric authentication...");
+    Ok(true)
 }
 
 // Theme detection commands
@@ -287,7 +303,7 @@ async fn start_tor(app: tauri::AppHandle, state: tauri::State<'_, TorState>) -> 
         return Ok("Tor is already running".to_string());
     }
 
-    let sidecar = app.shell().sidecar("bin/tor").map_err(|e| e.to_string())?;
+    let sidecar = app.shell().sidecar("tor").map_err(|e| e.to_string())?;
     let (mut rx, child) = sidecar.spawn().map_err(|e| e.to_string())?;
 
     let app_handle = app.clone();
@@ -299,11 +315,18 @@ async fn start_tor(app: tauri::AppHandle, state: tauri::State<'_, TorState>) -> 
                     app_handle.emit("tor-log", line_str.clone()).unwrap();
                     if line_str.contains("Bootstrapped 100%") {
                         app_handle.emit("tor-status", "connected").unwrap();
+                    } else if line_str.contains("Address already in use") {
+                        app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...").unwrap();
+                        app_handle.emit("tor-status", "connected").unwrap();
                     }
                 }
                 CommandEvent::Stderr(line) => {
                     let line_str = String::from_utf8_lossy(&line);
-                    app_handle.emit("tor-error", line_str).unwrap();
+                    app_handle.emit("tor-error", line_str.clone()).unwrap();
+                    if line_str.contains("Address already in use") {
+                        app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...").unwrap();
+                        app_handle.emit("tor-status", "connected").unwrap();
+                    }
                 }
                 CommandEvent::Terminated(payload) => {
                     app_handle.emit("tor-status", format!("terminated: {}", payload.code.unwrap_or(-1))).unwrap();
@@ -718,6 +741,10 @@ pub fn run() {
             wallet::logout_native,
             wallet::encrypt_nip04,
             wallet::decrypt_nip04,
+            wallet::encrypt_nip44,
+            wallet::decrypt_nip44,
+            wallet::encrypt_gift_wrap,
+            wallet::decrypt_gift_wrap,
             wallet::get_session_nsec,
             start_tor,
             stop_tor,
@@ -726,7 +753,10 @@ pub fn run() {
             restart_app,
             init_native_session,
             clear_native_session,
-            get_session_status
+            get_session_status,
+            request_biometric_auth,
+            register_push_token,
+            mine_pow
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

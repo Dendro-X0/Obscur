@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import type { GroupConversation } from "@/app/features/messaging/types";
-import { loadPersistedChatState, fromPersistedGroupConversation, savePersistedChatState, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { fromPersistedGroupConversation, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 
 interface GroupContextType {
@@ -41,7 +42,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const pk = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
         if (!pk) return;
 
-        const persisted = loadPersistedChatState(pk);
+        const persisted = chatStateStoreService.load(pk);
         if (persisted && persisted.createdGroups) {
             const groups = persisted.createdGroups.map(fromPersistedGroupConversation);
             queueMicrotask(() => {
@@ -55,18 +56,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCreatedGroups(prev => {
             if (prev.find(g => g.groupId === group.groupId)) return prev;
             const next = [...prev, group];
-            const persisted = loadPersistedChatState(identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) || {
-                version: 2,
-                createdGroups: [],
-                createdContacts: [],
-                unreadByConversationId: {},
-                contactOverridesByContactId: {},
-                messagesByConversationId: {},
-            };
-            savePersistedChatState({
-                ...persisted,
-                createdGroups: next.map(g => toPersistedGroupConversation(g))
-            }, identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
+            const pk = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
+            if (pk) {
+                chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
+            }
             return next;
         });
     }, [identity.state.publicKeyHex, identity.state.stored?.publicKeyHex]);
@@ -78,18 +71,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const next = [...prev];
             next[index] = { ...next[index], ...params.updates };
             const pk = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
-            const persisted = loadPersistedChatState(pk) || {
-                version: 2,
-                createdGroups: [],
-                createdContacts: [],
-                unreadByConversationId: {},
-                contactOverridesByContactId: {},
-                messagesByConversationId: {},
-            };
-            savePersistedChatState({
-                ...persisted,
-                createdGroups: next.map(g => toPersistedGroupConversation(g))
-            }, pk);
+            if (pk) {
+                chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
+            }
             return next;
         });
     }, [identity.state.publicKeyHex, identity.state.stored?.publicKeyHex]);
@@ -97,18 +81,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const leaveGroup = useCallback((groupId: string) => {
         setCreatedGroups(prev => {
             const next = prev.filter(g => g.groupId !== groupId);
-            const persisted = loadPersistedChatState(identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) || {
-                version: 2,
-                createdGroups: [],
-                createdContacts: [],
-                unreadByConversationId: {},
-                contactOverridesByContactId: {},
-                messagesByConversationId: {},
-            };
-            savePersistedChatState({
-                ...persisted,
-                createdGroups: next.map(g => toPersistedGroupConversation(g))
-            }, identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
+            const pk = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
+            if (pk) {
+                chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
+            }
             return next;
         });
     }, [identity.state.publicKeyHex, identity.state.stored?.publicKeyHex]);

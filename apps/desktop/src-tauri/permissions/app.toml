@@ -64,6 +64,10 @@ commands.allow = [
     "clear_native_session",
     "encrypt_nip04",
     "decrypt_nip04",
+    "encrypt_nip44",
+    "decrypt_nip44",
+    "encrypt_gift_wrap",
+    "decrypt_gift_wrap",
     "get_session_nsec",
     "get_session_status"
 ]

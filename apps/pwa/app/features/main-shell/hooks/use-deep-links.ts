@@ -13,7 +13,7 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
     const searchParams = useSearchParams();
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
-    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdContacts, setSelectedConversation } = useMessaging();
+    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdContacts, setCreatedContacts, setSelectedConversation, unhideConversation } = useMessaging();
     const { createdGroups } = useGroups();
     const handledSearchParamRef = useRef<string | null>(null);
 
@@ -47,9 +47,26 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                             const parsed = parsePublicKeyInput(pubkey);
                             if (parsed.ok) {
                                 queueMicrotask(() => {
-                                    setNewChatPubkey(parsed.publicKeyHex);
-                                    setNewChatDisplayName("");
-                                    setIsNewChatOpen(true);
+                                    const myPk = identity.state.publicKeyHex || "";
+                                    const cid = [myPk, parsed.publicKeyHex].sort().join(':');
+                                    const existingContact = createdContacts.find(c => c.id === cid);
+                                    if (existingContact) {
+                                        setSelectedConversation(existingContact);
+                                        unhideConversation(cid);
+                                    } else {
+                                        const newConv: any = {
+                                            kind: 'dm',
+                                            id: cid,
+                                            pubkey: parsed.publicKeyHex,
+                                            displayName: parsed.publicKeyHex.slice(0, 8),
+                                            lastMessage: '',
+                                            unreadCount: 0,
+                                            lastMessageTime: new Date()
+                                        };
+                                        setCreatedContacts((prev: any) => [...prev, newConv]);
+                                        setSelectedConversation(newConv);
+                                    }
+                                    router.replace("/");
                                 });
                             }
                         }
@@ -92,9 +109,24 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
             const parsed = parsePublicKeyInput(pubkey);
             if (parsed.ok) {
                 queueMicrotask(() => {
-                    setNewChatPubkey(parsed.publicKeyHex);
-                    setNewChatDisplayName("");
-                    setIsNewChatOpen(true);
+                    const cid = [myPk, parsed.publicKeyHex].sort().join(':');
+                    const existingContact = createdContacts.find(c => c.id === cid);
+                    if (existingContact) {
+                        setSelectedConversation(existingContact);
+                        unhideConversation(cid);
+                    } else {
+                        const newConv: any = {
+                            kind: 'dm',
+                            id: cid,
+                            pubkey: parsed.publicKeyHex,
+                            displayName: parsed.publicKeyHex.slice(0, 8),
+                            lastMessage: '',
+                            unreadCount: 0,
+                            lastMessageTime: new Date()
+                        };
+                        setCreatedContacts((prev: any) => [...prev, newConv]);
+                        setSelectedConversation(newConv);
+                    }
                     router.replace("/");
                 });
             }

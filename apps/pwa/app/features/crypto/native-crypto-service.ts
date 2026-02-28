@@ -135,7 +135,7 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
             try {
                 return await this.invokeWithTimeout<string>("encrypt_nip04", { publicKey: recipientPubkey, content: plaintext });
             } catch (e) {
-                console.error("Native encryption failed:", e);
+                console.warn("Native encryption failed:", e);
                 throw e;
             }
         }
@@ -148,22 +148,52 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
             try {
                 return await this.invokeWithTimeout<string>("decrypt_nip04", { publicKey: senderPubkey, ciphertext });
             } catch (e) {
-                console.error("Native decryption failed:", e);
+                console.warn("Native decryption failed:", e);
                 throw e;
             }
         }
         return super.decryptDM(ciphertext, senderPubkey, recipientPrivkey);
     }
 
-    async encryptGiftWrap(rumor: UnsignedNostrEvent, senderPrivkey: PrivateKeyHex, recipientPubkey: PublicKeyHex): Promise<NostrEvent> {
-        // Since Rust backend doesn't support NIP-17 yet, we resolve the sentinel to the actual key
-        // and delegate to the JS implementation.
+    async encryptNIP44(plaintext: string, recipientPubkey: PublicKeyHex, senderPrivkey: PrivateKeyHex): Promise<string> {
         if (senderPrivkey === NATIVE_KEY_SENTINEL) {
             try {
-                const actualKey = await this.getActualKey();
-                return super.encryptGiftWrap(rumor, actualKey, recipientPubkey);
+                return await this.invokeWithTimeout<string>("encrypt_nip44", { publicKey: recipientPubkey, content: plaintext });
             } catch (e) {
-                console.error("Failed to resolve native key for encryptGiftWrap:", e);
+                console.warn("Native NIP-44 encryption failed:", e);
+                throw e;
+            }
+        }
+        return super.encryptNIP44(plaintext, recipientPubkey, senderPrivkey);
+    }
+
+    async decryptNIP44(payload: string, senderPubkey: PublicKeyHex, recipientPrivkey: PrivateKeyHex): Promise<string> {
+        if (recipientPrivkey === NATIVE_KEY_SENTINEL) {
+            try {
+                return await this.invokeWithTimeout<string>("decrypt_nip44", { publicKey: senderPubkey, payload });
+            } catch (e) {
+                console.warn("Native NIP-44 decryption failed:", e);
+                throw e;
+            }
+        }
+        return super.decryptNIP44(payload, senderPubkey, recipientPrivkey);
+    }
+
+    async encryptGiftWrap(rumor: UnsignedNostrEvent, senderPrivkey: PrivateKeyHex, recipientPubkey: PublicKeyHex): Promise<NostrEvent> {
+        if (senderPrivkey === NATIVE_KEY_SENTINEL) {
+            try {
+                // Now using native NIP-17 wrapping from libobscur
+                const rumorForNative = {
+                    ...rumor,
+                    id: "" // Rust will ignore or we can generate a placeholder
+                };
+                const signedGiftWrapJson = await this.invokeWithTimeout<string>("encrypt_gift_wrap", {
+                    recipientPk: recipientPubkey,
+                    rumor: rumorForNative
+                });
+                return JSON.parse(signedGiftWrapJson);
+            } catch (e) {
+                console.error("Native encryptGiftWrap failed:", e);
                 throw e;
             }
         }
@@ -171,14 +201,26 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
     }
 
     async decryptGiftWrap(giftWrap: NostrEvent, recipientPrivkey: PrivateKeyHex): Promise<NostrEvent> {
-        // Since Rust backend doesn't support NIP-17 yet, we resolve the sentinel to the actual key
-        // and delegate to the JS implementation.
         if (recipientPrivkey === NATIVE_KEY_SENTINEL) {
             try {
-                const actualKey = await this.getActualKey();
-                return super.decryptGiftWrap(giftWrap, actualKey);
+                // Now using native NIP-17 unwrapping from libobscur
+                const rumor = await this.invokeWithTimeout<UnsignedNostrEvent>("decrypt_gift_wrap", {
+                    giftWrapContent: giftWrap.content,
+                    giftWrapSenderPk: giftWrap.pubkey
+                });
+
+                // Return as a signed event placeholder (NIP-17 rumors are usually treated as events)
+                // If rumor has no id, it might be an unsigned rumor, we should ideally compute it or the Rust side should provide it.
+                // For now, ensure we satisfy the NostrEvent interface.
+                const hydratedRumor = {
+                    ...rumor,
+                    id: (rumor as any).id || "computed-locally",
+                    sig: (rumor as any).sig || ""
+                } as unknown as NostrEvent;
+
+                return hydratedRumor;
             } catch (e) {
-                console.error("Failed to resolve native key for decryptGiftWrap:", e);
+                console.error("Native decryptGiftWrap failed:", e);
                 throw e;
             }
         }

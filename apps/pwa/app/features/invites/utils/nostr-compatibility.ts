@@ -7,7 +7,7 @@ import { createRelayWebSocket } from '../../relays/hooks/create-relay-websocket'
  * Nostr Improvement Proposal (NIP) constants for cross-platform compatibility
  */
 export const NOSTR_INVITE_KINDS = {
-  CONTACT_LIST: 3,        // NIP-02: Contact List
+  CONNECTION_LIST: 3,        // NIP-02: Contact List (Legacy naming)
   PROFILE_METADATA: 0,    // NIP-01: Profile Metadata
   INVITE_REQUEST: 30078,  // Custom kind for invite requests
   INVITE_RESPONSE: 30079, // Custom kind for invite responses
@@ -143,7 +143,7 @@ export class NostrCompatibilityService {
     message?: string
   ): Promise<NostrEvent> {
     const content = JSON.stringify({
-      type: 'contact_request',
+      type: 'connection_request',
       profile: {
         name: profile.displayName,
         picture: profile.avatar,
@@ -155,7 +155,7 @@ export class NostrCompatibilityService {
 
     const tags = [
       ['p', recipientPublicKey], // Recipient public key
-      ['t', 'contact-request'],  // Tag for filtering
+      ['t', 'connection-request'],  // Tag for filtering
     ];
 
     // Create event structure

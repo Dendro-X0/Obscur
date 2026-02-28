@@ -19,6 +19,8 @@ type UseProfileResult = Readonly<{
   setAvatarUrl: (params: Readonly<{ avatarUrl: string }>) => void;
   setNip05: (params: Readonly<{ nip05: string }>) => void;
   setInviteCode: (params: Readonly<{ inviteCode: string }>) => void;
+  save: () => void;
+  revert: () => void;
   reset: () => void;
 }>;
 
@@ -122,11 +124,15 @@ const subscribe = (listener: () => void): (() => void) => {
 
 const getSnapshot = (): ProfileState => currentState;
 
-const updateAndPersist = (updater: (prev: ProfileState) => ProfileState): void => {
+const updateStateOnly = (updater: (prev: ProfileState) => ProfileState): void => {
   ensureLoaded();
   const next: ProfileState = updater(currentState);
   setState(next);
-  saveToStorage(next);
+};
+
+const updateAndPersist = (updater: (prev: ProfileState) => ProfileState): void => {
+  updateStateOnly(updater);
+  saveToStorage(currentState);
 };
 
 export const useProfile = (): UseProfileResult => {
@@ -168,9 +174,16 @@ export const useProfile = (): UseProfileResult => {
         }));
       },
       setInviteCode: (params: Readonly<{ inviteCode: string }>): void => {
-        updateAndPersist((prev: ProfileState): ProfileState => ({
+        // Invite code changes are transient until explicitly saved via save()
+        updateStateOnly((prev: ProfileState): ProfileState => ({
           profile: { ...prev.profile, inviteCode: params.inviteCode },
         }));
+      },
+      save: (): void => {
+        saveToStorage(getSnapshot());
+      },
+      revert: (): void => {
+        setState(loadFromStorage());
       },
       reset: (): void => {
         updateAndPersist((): ProfileState => defaultState);

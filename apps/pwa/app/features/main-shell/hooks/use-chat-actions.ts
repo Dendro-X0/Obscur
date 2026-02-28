@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback } from "react";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@dweb/ui-kit";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { createEmptyReactions, toReactionsByEmoji } from "@/app/features/messaging/utils/logic";
 import { type Message, type ReactionEmoji, UploadError, UploadErrorCode } from "@/app/features/messaging/types";
 import type { UseEnhancedDMControllerResult } from "../../messaging/controllers/enhanced-dm-controller";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { useUploadService } from "../../messaging/lib/upload-service";
+import { messageBus } from "../../messaging/services/message-bus";
 
 /**
  * Hook to manage chat actions like sending, deleting, and reacting to messages.
@@ -19,7 +20,6 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         selectedConversation,
         messageInput, setMessageInput,
         replyTo, setReplyTo,
-        setMessagesByConversationId,
         pendingAttachments, setPendingAttachments,
         setPendingAttachmentPreviewUrls,
         setContactOverridesByContactId,
@@ -28,7 +28,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
     } = useMessaging();
     const identity = useIdentity();
     const uploadService = useUploadService();
-    const { peerTrust, requestsInbox } = useContacts();
+    const { peerTrust, requestsInbox } = useNetwork();
 
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;
@@ -121,6 +121,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     }
                 }));
 
+                // Decoupled: useDmSync will emit the message once it hits the dmController state
             } else if (selectedConversation.kind === 'group') {
                 if (!identity.state.publicKeyHex || !identity.state.privateKeyHex) {
                     throw new Error("Identity not unlocked");
@@ -155,18 +156,14 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     attachments: attachments // Now we have actual attachments!
                 };
 
-                setMessagesByConversationId(prev => ({
-                    ...prev,
-                    [conversationId]: [...(prev[conversationId] ?? []), optimisticMessage]
-                }));
+                // Emit optimistic message to MessageBus
+                messageBus.emitNewMessage(conversationId, optimisticMessage);
             }
         } catch (error: any) {
             console.error("Failed to send message:", error);
             toast.error("Failed to send message");
             // Restore input on failure
             setMessageInput(currentInput);
-            // Note: We don't restore attachments here because they are mostly already uploaded 
-            // and it complicates the logic. User can re-select. 
         }
     }, [
         selectedConversation,
@@ -181,7 +178,6 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setPendingAttachmentPreviewUrls,
         setReplyTo,
         setContactOverridesByContactId,
-        setMessagesByConversationId,
         setIsUploadingAttachment,
         setAttachmentError,
         uploadService,
@@ -189,13 +185,8 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
     ]);
 
     const deleteMessage = useCallback(async (params: { conversationId: string; messageId: string }) => {
-        setMessagesByConversationId(prev => {
-            const next = { ...prev };
-            if (next[params.conversationId]) {
-                next[params.conversationId] = next[params.conversationId].filter(m => m.id !== params.messageId);
-            }
-            return next;
-        });
+        // Emit deletion to MessageBus
+        messageBus.emit({ type: 'message_deleted', conversationId: params.conversationId, messageId: params.messageId });
 
         if (selectedConversation?.kind === 'group') {
             try {
@@ -210,26 +201,20 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 console.error("Failed to delete group message:", error);
             }
         }
-    }, [setMessagesByConversationId, selectedConversation, identity.state]);
+    }, [selectedConversation, identity.state]);
 
-    const toggleReaction = useCallback(async (params: { conversationId: string; messageId: string; emoji: string }) => {
+    const toggleReaction = useCallback(async (params: { conversationId: string; message: Message; emoji: string }) => {
         const reactionEmoji = params.emoji as ReactionEmoji;
+        const msg = params.message;
 
-        setMessagesByConversationId(prev => {
-            const next = { ...prev };
-            if (next[params.conversationId]) {
-                next[params.conversationId] = next[params.conversationId].map(m => {
-                    if (m.id === params.messageId) {
-                        const reactions = { ...(m.reactions || createEmptyReactions()) } as Record<ReactionEmoji, number>;
-                        const current = reactions[reactionEmoji] || 0;
-                        reactions[reactionEmoji] = current > 0 ? current - 1 : current + 1;
-                        return { ...m, reactions: toReactionsByEmoji(reactions) };
-                    }
-                    return m;
-                });
-            }
-            return next;
-        });
+        // Optimistic update for the bus
+        const reactions = { ...(msg.reactions || createEmptyReactions()) } as Record<ReactionEmoji, number>;
+        const current = reactions[reactionEmoji] || 0;
+        reactions[reactionEmoji] = current > 0 ? current - 1 : current + 1;
+        const updatedMsg = { ...msg, reactions: toReactionsByEmoji(reactions) };
+
+        // Emit update to MessageBus (for reactions)
+        messageBus.emitMessageUpdated(params.conversationId, updatedMsg);
 
         if (selectedConversation?.kind === 'group') {
             try {
@@ -237,7 +222,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     const groupService = new GroupService(identity.state.publicKeyHex, identity.state.privateKeyHex);
                     await groupService.sendSealedReaction({
                         groupId: selectedConversation.groupId,
-                        eventId: params.messageId,
+                        eventId: msg.id,
                         emoji: params.emoji
                     });
                 }
@@ -245,7 +230,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 console.error("Failed to send group reaction:", error);
             }
         }
-    }, [setMessagesByConversationId, selectedConversation, identity.state]);
+    }, [selectedConversation, identity.state]);
 
     return { handleSendMessage, deleteMessage, toggleReaction };
 }

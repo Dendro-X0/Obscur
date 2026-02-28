@@ -6,13 +6,14 @@ Obscur uses a local-first, dual-environment architecture providing a unified Pro
 
 ### Core Components
 1. **Frontend PWA (`apps/pwa`)**: The primary user interface. Handles local rendering, state, and user interactions. Interfaces seamlessly with the native backend when wrapped by Tauri, or falls back to WASM/browser capabilities when loaded purely on the web.
-2. **Native Rust Backend (`apps/desktop/src-tauri`)**: Represents the native capability layer. Contains logic for:
-   - Synchronizing with the OS Keychain (in-memory sessions).
-   - Establishing and managing resilient Nostr WebSocket relay connections.
+2. **Native Rust Backend (`apps/desktop/src-tauri` & `packages/libobscur`)**: Represents the native capability layer. Contains logic for:
+   - Secure private key management via OS Keychain, Android Keystore, and iOS Secure Enclave.
+   - Establishing and managing resilient Nostr WebSocket relay connections (including background sync).
    - Using native HTTP clients (`reqwest`) for multipart file uploads (NIP-96) and authentication (NIP-98).
-   - Tor sidecar integration for masked routing.
+   - Tor sidecar integration for masked routing on Desktop.
 3. **Shared Packages (`packages/*`)**: Contains strictly typed, framework-agnostic utilities:
-   - `dweb-crypto`: Specialized cryptographic primitives (AES-GCM, private/public key derivations).
+   - `libobscur`: Unified Rust core providing FFI bindings and business logic for all native targets.
+   - `dweb-crypto`: Specialized cryptographic primitives (AES-GCM, private/public key derivations) for the web fallback.
    - `dweb-nostr`: Pure implementation of the Nostr protocol (events, relays, signatures).
    - `dweb-core`: Core primitives (user IDs, identity records).
 

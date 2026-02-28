@@ -23,6 +23,10 @@ export interface CryptoService {
     encryptDM(plaintext: string, recipientPubkey: PublicKeyHex, senderPrivkey: PrivateKeyHex): Promise<string>;
     decryptDM(ciphertext: string, senderPubkey: PublicKeyHex, recipientPrivkey: PrivateKeyHex): Promise<string>;
 
+    // NIP-44 Operations
+    encryptNIP44(plaintext: string, recipientPubkey: PublicKeyHex, senderPrivkey: PrivateKeyHex): Promise<string>;
+    decryptNIP44(payload: string, senderPubkey: PublicKeyHex, recipientPrivkey: PrivateKeyHex): Promise<string>;
+
     // Event Operations
     signEvent(event: UnsignedNostrEvent, privateKey: PrivateKeyHex): Promise<NostrEvent>;
     verifyEventSignature(event: NostrEvent): Promise<boolean>;

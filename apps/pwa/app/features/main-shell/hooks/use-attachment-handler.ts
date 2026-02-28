@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect } from "react";
 import { useMessaging } from "../../messaging/providers/messaging-provider";
+import {
+    shouldCompress,
+    compressImage,
+    compressVideo,
+    generateVideoThumbnail
+} from "../../messaging/lib/media-processor";
 
 /**
  * Hook to manage attachment file selection, validation, and preview URLs.
@@ -11,14 +17,16 @@ export function useAttachmentHandler() {
         setPendingAttachments,
         setPendingAttachmentPreviewUrls,
         pendingAttachmentPreviewUrls,
-        setAttachmentError
+        setAttachmentError,
+        setIsProcessingMedia,
+        setMediaProcessingProgress
     } = useMessaging();
 
     // Cleanup preview URLs on unmount
     useEffect(() => {
         return () => {
             pendingAttachmentPreviewUrls.forEach(url => {
-                if (url.startsWith('blob:')) {
+                if (url.startsWith('blob:') || url.startsWith('data:')) {
                     URL.revokeObjectURL(url);
                 }
             });
@@ -27,7 +35,7 @@ export function useAttachmentHandler() {
 
     const clearPendingAttachments = useCallback(() => {
         pendingAttachmentPreviewUrls.forEach(url => {
-            if (url.startsWith('blob:')) {
+            if (url.startsWith('blob:') || url.startsWith('data:')) {
                 URL.revokeObjectURL(url);
             }
         });
@@ -37,38 +45,83 @@ export function useAttachmentHandler() {
     }, [pendingAttachmentPreviewUrls, setPendingAttachments, setPendingAttachmentPreviewUrls, setAttachmentError]);
 
     const removePendingAttachment = useCallback((index: number) => {
-        setPendingAttachmentPreviewUrls(prev => {
+        setPendingAttachmentPreviewUrls((prev: ReadonlyArray<string>) => {
             const url = prev[index];
-            if (url && url.startsWith('blob:')) {
+            if (url && (url.startsWith('blob:') || url.startsWith('data:'))) {
                 URL.revokeObjectURL(url);
             }
             return prev.filter((_, i) => i !== index);
         });
-        setPendingAttachments(prev => prev.filter((_, i) => i !== index));
+        setPendingAttachments((prev: ReadonlyArray<File>) => prev.filter((_, i) => i !== index));
     }, [setPendingAttachments, setPendingAttachmentPreviewUrls]);
 
-    const handleFilesSelected = useCallback((files: FileList | File[]) => {
+    const handleFilesSelected = useCallback(async (files: FileList | File[]) => {
         const fileList = Array.from(files);
-        const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+        const MAX_SIZE = 500 * 1024 * 1024; // 500MB pre-compression limit
 
-        const validFiles: File[] = [];
+        const processedFiles: File[] = [];
         const newPreviewUrls: string[] = [];
 
-        for (const file of fileList) {
-            if (file.size > MAX_SIZE) {
-                setAttachmentError(`File ${file.name} is too large (max 100MB)`);
-                continue;
-            }
-            validFiles.push(file);
-            newPreviewUrls.push(URL.createObjectURL(file));
-        }
+        setIsProcessingMedia(true);
+        setMediaProcessingProgress(0);
 
-        if (validFiles.length > 0) {
-            setPendingAttachments(prev => [...prev, ...validFiles]);
-            setPendingAttachmentPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-            setAttachmentError(null);
+        try {
+            for (let i = 0; i < fileList.length; i++) {
+                let file = fileList[i];
+
+                if (file.size > MAX_SIZE) {
+                    setAttachmentError(`File ${file.name} is too large (max 500MB)`);
+                    continue;
+                }
+
+                let previewUrl = URL.createObjectURL(file);
+
+                if (shouldCompress(file)) {
+                    setMediaProcessingProgress(Math.round((i / fileList.length) * 100));
+
+                    if (file.type.startsWith("image/")) {
+                        const originalUrl = previewUrl;
+                        file = await compressImage(file);
+                        previewUrl = URL.createObjectURL(file);
+                        URL.revokeObjectURL(originalUrl);
+                    } else if (file.type.startsWith("video/")) {
+                        // Generate thumbnail first (using original file is usually fine and faster)
+                        const thumbDataUrl = await generateVideoThumbnail(file);
+
+                        const originalUrl = previewUrl;
+                        file = await compressVideo(file, (progress: number) => {
+                            // Local progress for this specific file
+                            const totalProgress = Math.round(((i + (progress / 100)) / fileList.length) * 100);
+                            setMediaProcessingProgress(totalProgress);
+                        });
+
+                        if (thumbDataUrl) {
+                            previewUrl = thumbDataUrl; // Use thumbnail for preview
+                            URL.revokeObjectURL(originalUrl);
+                        } else {
+                            previewUrl = URL.createObjectURL(file);
+                            URL.revokeObjectURL(originalUrl);
+                        }
+                    }
+                }
+
+                processedFiles.push(file);
+                newPreviewUrls.push(previewUrl);
+            }
+
+            if (processedFiles.length > 0) {
+                setPendingAttachments((prev: ReadonlyArray<File>) => [...prev, ...processedFiles]);
+                setPendingAttachmentPreviewUrls((prev: ReadonlyArray<string>) => [...prev, ...newPreviewUrls]);
+                setAttachmentError(null);
+            }
+        } catch (error) {
+            console.error("Media processing failed:", error);
+            setAttachmentError("Failed to process some files.");
+        } finally {
+            setIsProcessingMedia(false);
+            setMediaProcessingProgress(0);
         }
-    }, [setPendingAttachments, setPendingAttachmentPreviewUrls, setAttachmentError]);
+    }, [setPendingAttachments, setPendingAttachmentPreviewUrls, setAttachmentError, setIsProcessingMedia, setMediaProcessingProgress]);
 
     const pickAttachments = useCallback(() => {
         const input = document.createElement('input');

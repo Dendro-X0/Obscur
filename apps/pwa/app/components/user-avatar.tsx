@@ -14,7 +14,7 @@ type UserAvatarProps = Readonly<{
 
 const UserAvatar = (props: UserAvatarProps): React.JSX.Element => {
   const sizePx: number = props.sizePx ?? 32;
-  const initial: string = props.username.trim().slice(0, 1).toUpperCase();
+  const initial: string = (props.username || "?").trim().slice(0, 1).toUpperCase();
   const showInitial: boolean = initial.length > 0;
   const showImage: boolean = props.avatarUrl.trim().length > 0;
   return (

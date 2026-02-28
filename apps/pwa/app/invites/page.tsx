@@ -15,19 +15,19 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { PageShell } from "../components/page-shell";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
+import { Button } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit";
 import { IdentityCard } from "../components/identity-card";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { QRCodeGenerator } from "../components/invites/qr-code-generator";
 import { InviteLinkCreator } from "../components/invites/invite-link-creator";
-import { ContactRequestInbox } from "../components/invites/contact-request-inbox";
+import { ConnectionRequestInbox } from "../components/invites/connection-request-inbox";
 import { QRCodeScanner } from "../components/invites/qr-code-scanner";
 import { InviteLinkManager } from "../components/invites/invite-link-manager";
-import { OutgoingContactRequests } from "../components/invites/outgoing-contact-requests";
-import { ContactImportExport } from "../components/invites/contact-import-export";
+import { OutgoingConnectionRequests } from "../components/invites/outgoing-connection-requests";
+import { ConnectionImportExport } from "../components/invites/connection-import-export";
 import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -64,7 +64,7 @@ export default function InvitesPage(): React.JSX.Element {
 
   return (
     <PageShell title={t("invites.title")} navBadgeCounts={navBadges.navBadgeCounts}>
-      <div className="mx-auto w-full max-w-5xl p-4">
+      <div className="mx-auto w-full max-w-5xl p-4 pb-32 md:pb-4">
         {!coordinationConfigured ? (
           <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100">
             <div className="font-semibold">{t("invites.serverNotConfigured")}</div>
@@ -137,14 +137,14 @@ export default function InvitesPage(): React.JSX.Element {
                   <Inbox className="h-4 w-4" />
                   {t("invites.requestsInbox")}
                 </h2>
-                <ContactRequestInbox />
+                <ConnectionRequestInbox />
               </div>
               <div className="space-y-4">
                 <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-zinc-500">
                   <Send className="h-4 w-4" />
                   {t("invites.requestsSent")}
                 </h2>
-                <OutgoingContactRequests />
+                <OutgoingConnectionRequests />
               </div>
             </div>
           )}
@@ -163,7 +163,7 @@ export default function InvitesPage(): React.JSX.Element {
                   <Download className="h-4 w-4" />
                   {t("invites.importExport")}
                 </h2>
-                <ContactImportExport />
+                <ConnectionImportExport />
               </div>
             </div>
           )}

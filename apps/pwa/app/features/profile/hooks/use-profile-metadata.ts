@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
-import { contactStore } from "../../invites/utils/contact-store";
+import { connectionStore } from "../../invites/utils/connection-store";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 
 export interface ProfileMetadata {
@@ -41,7 +41,7 @@ export const useProfileMetadata = (pubkey: string | null): ProfileMetadata | nul
         // 2. Check persistent store
         const loadFromStore = async () => {
             try {
-                const contact = await contactStore.getContactByPublicKey(pubkey);
+                const contact = await connectionStore.getContactByPublicKey(pubkey);
                 if (contact && (contact.displayName || contact.avatar)) {
                     const fromStore: ProfileMetadata = {
                         pubkey: pubkey as PublicKeyHex,

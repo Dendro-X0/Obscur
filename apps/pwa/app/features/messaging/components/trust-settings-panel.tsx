@@ -4,7 +4,7 @@ import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { User, ShieldCheck, ShieldOff, VolumeX, Volume2, Search, Trash2, EyeOff, ShieldAlert } from "lucide-react";
-import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { useState } from "react";
@@ -18,7 +18,7 @@ import { UserAvatar } from "../../profile/components/user-avatar";
 
 export function TrustSettingsPanel() {
     const { t } = useTranslation();
-    const { identity, peerTrust, blocklist, requestsInbox } = useContacts();
+    const { identity, peerTrust, blocklist, requestsInbox } = useNetwork();
     const myPublicKeyHex = identity.state.publicKeyHex ?? null;
     const [searchQuery, setSearchQuery] = useState("");
     const [confirmUntrustPk, setConfirmUntrustPk] = useState<string | null>(null);

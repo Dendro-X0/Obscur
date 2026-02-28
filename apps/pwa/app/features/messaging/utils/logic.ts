@@ -43,7 +43,7 @@ const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
 const IMAGE_HOSTS = ['image.nostr.build', 'nostr.build', 'blossom.', 'imgprxy.', 'void.cat'];
 
 export const extractAttachmentsFromContent = (content: string): Attachment[] => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlRegex = /(https?:\/\/[^\s]+|\/uploads\/[^\s]+)/g;
     const matches = content.match(urlRegex);
 
     if (!matches) return [];
@@ -54,6 +54,17 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
         // Clean trailing punctuation that might be captured
         const cleanUrl = url.replace(/[.,;:!?)]+$/, '');
         const lowerUrl = cleanUrl.toLowerCase();
+
+        const isVideo = VIDEO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
+        if (isVideo) {
+            attachments.push({
+                kind: 'video',
+                url: cleanUrl,
+                contentType: 'video/*',
+                fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'video'
+            });
+            continue;
+        }
 
         // Host-based detection for known image services
         const isKnownImageHost = IMAGE_HOSTS.some(host => lowerUrl.includes(host));
@@ -66,17 +77,6 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
                 url: cleanUrl,
                 contentType: 'image/*',
                 fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'image'
-            });
-            continue;
-        }
-
-        const isVideo = VIDEO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
-        if (isVideo) {
-            attachments.push({
-                kind: 'video',
-                url: cleanUrl,
-                contentType: 'video/*',
-                fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'video'
             });
         }
     }

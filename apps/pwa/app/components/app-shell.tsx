@@ -1,10 +1,10 @@
 "use client";
 
-import type React from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, UserPlus, Users, X } from "lucide-react";
+import { Bell, FolderLock, Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, Users, X } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import type { NavItem } from "../lib/navigation/nav-item";
@@ -14,6 +14,7 @@ import { useKeyboardShortcuts } from "@/app/features/desktop/hooks/use-keyboard-
 import { useDesktopLayout } from "@/app/features/desktop/hooks/use-desktop-layout";
 import { RelayStatusBadge } from "./relay-status-badge";
 import { useTranslation } from "react-i18next";
+import { MobileTabBar } from "./mobile-tab-bar";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
@@ -22,14 +23,15 @@ type AppShellProps = Readonly<{
   children: React.ReactNode;
   navBadgeCounts?: Readonly<Record<string, number>>;
   hideSidebar?: boolean;
+  hideHeader?: boolean;
 }>;
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.sidebarExpanded";
 
 const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
   "/": MessageSquare,
-  "/contacts": Users,
-  "/invites": UserPlus,
+  "/network": Users,
+  "/vault": FolderLock,
   "/search": Search,
   "/requests": Bell,
   "/settings": Settings,
@@ -100,67 +102,48 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       hasMounted && isDesktop && "desktop-mode"
     )}>
       {mobileSidebarOpen ? (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-black/50"
             onClick={(): void => setMobileSidebarOpen(false)}
             aria-label="Close navigation"
           />
-          <div className="absolute left-0 top-0 flex h-full w-[86vw] max-w-sm flex-col border-r border-black/10 bg-white dark:border-white/10 dark:bg-black shadow-2xl safe-top safe-bottom">
-            <div className="flex items-center justify-between border-b border-black/10 px-3 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] dark:border-white/10">
-              <div className="text-sm font-semibold">Obscur</div>
+          <div className="absolute left-0 top-0 flex h-full w-[86vw] max-w-sm flex-col border-r border-black/10 bg-white/90 dark:bg-black/90 backdrop-blur-xl shadow-2xl safe-top safe-bottom">
+            <div className="flex items-center justify-between border-b border-black/10 px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] dark:border-white/10">
+              <div className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">{t("nav.menu")}</div>
               <button
                 type="button"
-                className="btn-enhanced inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
+                className="btn-enhanced inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
                 onClick={(): void => setMobileSidebarOpen(false)}
                 aria-label="Close menu"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="border-b border-black/10 p-3 dark:border-white/10">
-              <div className="flex flex-col gap-2">
-                {NAV_ITEMS.map((item: NavItem) => {
-                  const Icon: NavIcon | undefined = ICON_BY_HREF[item.href];
-                  const isActive: boolean = activeHref === item.href;
-                  const badgeCount: number = navBadgeCounts[item.href] ?? 0;
-                  const label = item.i18nKey ? t(item.i18nKey) : item.label;
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      suppressHydrationWarning
-                      className={cn(
-                        "nav-link relative flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-sm font-semibold transition-all",
-                        isActive
-                          ? "border-purple-500/20 bg-purple-500/10 text-purple-600 dark:border-purple-400/20 dark:bg-purple-400/10 dark:text-purple-400 shadow-sm shadow-purple-500/10"
-                          : "border-black/5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 dark:border-white/5 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:bg-zinc-900/60"
-                      )}
-                      onClick={(): void => setMobileSidebarOpen(false)}
-                      aria-label={label}
-                    >
-                      {Icon ? (
-                        <div className={cn("transition-transform group-hover:scale-110", isActive ? "scale-110" : "")}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                      ) : null}
-                      <span className="flex-1">{label}</span>
-                      {badgeCount > 0 ? (
-                        <span
-                          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white shadow-lg shadow-red-600/20"
-                          aria-label={`${label} unread count ${badgeCount}`}
-                        >
-                          {badgeCount > 99 ? "99+" : badgeCount}
-                        </span>
-                      ) : null}
-                    </Link>
-                  );
-                })}
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+              {props.sidebarContent ? (
+                <div className="space-y-6">
+                  {props.sidebarContent}
+                </div>
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center text-center opacity-40">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                    <Menu className="h-6 w-6 text-zinc-400" />
+                  </div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t("common.noContent", "No Options")}</h3>
+                  <p className="mt-1 text-[10px] px-8 leading-relaxed">
+                    {t("nav.menuEmptyDesc", "Specific options for this page appear here.")}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="border-t border-black/5 p-4 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50 safe-bottom">
+              <div className="flex items-center justify-between opacity-50">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Obscur v0.7.8</span>
+                <RelayStatusBadge />
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">{props.sidebarContent}</div>
           </div>
         </div>
       ) : null}
@@ -220,74 +203,50 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           </div>
 
           {props.sidebarContent ? (
-            <div className="w-80 border-r border-black/10 bg-white dark:border-white/10 dark:bg-black shadow-lg">
-              {expanded ? (
-                <div className="flex h-full flex-col">
-                  <div className="border-b border-black/10 p-3 dark:border-white/10">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{t("nav.menu")}</div>
-                    <div className="mt-2 flex flex-col gap-2">
-                      {NAV_ITEMS.map((item: NavItem) => {
-                        const Icon: NavIcon | undefined = ICON_BY_HREF[item.href];
-                        const badgeCount: number = navBadgeCounts[item.href] ?? 0;
-                        const label = item.i18nKey ? t(item.i18nKey) : item.label;
-
-                        return (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            suppressHydrationWarning
-                            className={cn(
-                              "nav-link flex items-center gap-3 rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
-                              activeHref === item.href && "active bg-zinc-100 dark:bg-zinc-900/40"
-                            )}
-                            onClick={() => setExpanded(false)}
-                          >
-                            {Icon ? <Icon className="h-4 w-4" /> : null}
-                            <span className="flex-1">{label}</span>
-                            {badgeCount > 0 ? (
-                              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
-                                {badgeCount > 99 ? "99+" : badgeCount}
-                              </span>
-                            ) : null}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto">{props.sidebarContent}</div>
-                  <div className="border-t border-black/5 p-3 dark:border-white/5">
-                    <div className="px-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                      Obscur v0.7.6-alpha
-                    </div>
+            <div className="w-80 border-r border-black/10 bg-white/60 dark:bg-black/60 backdrop-blur-xl shadow-lg">
+              <div className="flex h-full flex-col">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {props.sidebarContent}
+                </div>
+                <div className="border-t border-black/5 p-4 dark:border-white/5 opacity-50">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                    Obscur v0.7.8
                   </div>
                 </div>
-              ) : (
-                props.sidebarContent
-              )}
+              </div>
             </div>
           ) : null}
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col h-full min-h-0 overflow-y-auto overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
-          {!props.hideSidebar && (
-            <button
-              type="button"
-              className="btn-enhanced inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
-              onClick={(): void => setMobileSidebarOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-          )}
-          <div className="min-w-0 flex-1 px-3">
-            <div className="truncate text-sm font-semibold">Obscur</div>
-          </div>
-          <UserAvatarMenu compact />
-        </header>
-        {props.children}
+      <div className="flex min-w-0 flex-1 flex-col h-full min-h-0 overflow-hidden">
+        {!props.hideHeader && (
+          <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
+            {!props.hideSidebar && (
+              <button
+                type="button"
+                className="btn-enhanced inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
+                onClick={(): void => setMobileSidebarOpen(true)}
+                aria-label="Open menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            )}
+            <div className="min-w-0 flex-1 px-3">
+              <div className="truncate text-sm font-semibold text-center uppercase tracking-widest text-zinc-500">Obscur</div>
+            </div>
+            <div className="w-11" /> {/* Spacer to balance hamburger menu */}
+          </header>
+        )}
+        <div className="flex flex-1 flex-col min-h-0 pb-[calc(env(safe-area-inset-bottom)+5rem)] md:pb-0">
+          <React.Suspense fallback={null}>
+            {props.children}
+          </React.Suspense>
+          {/* Explicit mobile spacer to force scroll clearance for fixed bottom bar */}
+          <div className="h-10 md:hidden flex-none pointer-events-none opacity-0" aria-hidden="true" />
+        </div>
       </div>
+      {!props.hideSidebar && <MobileTabBar navBadgeCounts={navBadgeCounts} />}
     </div>
   );
 };

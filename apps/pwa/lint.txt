@@ -1,0 +1,1263 @@
+
+> pwa@0.7.8-alpha lint E:\Web Project\experimental-workspace\newstart\apps\pwa
+> eslint
+
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\identity-card.tsx
+  34:14  warning  '_' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\__tests__\contact-import-export.test.tsx
+  246:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  247:81  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  248:81  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\__tests__\contact-list.test.tsx
+  13:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\__tests__\contact-request-inbox.test.tsx
+  14:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  17:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\__tests__\invite-link-creator.test.tsx
+   19:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   21:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   56:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   57:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   80:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  186:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  221:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\__tests__\qr-code-generator.test.tsx
+   40:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   41:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  146:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  199:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\connection-list.tsx
+  43:10  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\connection-list.tsx:43:10
+  41 |
+  42 |   useEffect(() => {
+> 43 |     void loadData();
+     |          ^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |   }, []);
+  45 |
+  46 |   const handleSearch = useCallback(async () => {                                                           react-hooks/set-state-in-effect
+  75:10  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\connection-list.tsx:75:10
+  73 |
+  74 |   useEffect(() => {
+> 75 |     void handleSearch();
+     |          ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  76 |   }, [handleSearch]);
+  77 |
+  78 |   const handleTrustLevelChange = async (contactId: string, newLevel: TrustLevel) => {  react-hooks/set-state-in-effect
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\messaging-card.tsx
+  33:7  warning  'createErrorState' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\mobile-tab-bar.tsx
+   6:49  warning  'UserPlus' is defined but never used      @typescript-eslint/no-unused-vars
+  12:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\onboarding-wizard.tsx
+  51:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\page-shell.tsx
+   4:8   warning  'Link' is defined but never used               @typescript-eslint/no-unused-vars
+   7:10  warning  'cn' is defined but never used                 @typescript-eslint/no-unused-vars
+   8:10  warning  'NAV_ITEMS' is defined but never used          @typescript-eslint/no-unused-vars
+  23:11  warning  't' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  24:9   warning  'pathname' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  28:9   warning  'navRef' is assigned a value but never used    @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\relay-dashboard.tsx
+   5:38  warning  'BarChart3' is defined but never used           @typescript-eslint/no-unused-vars
+   5:49  warning  'Wifi' is defined but never used                @typescript-eslint/no-unused-vars
+  47:11  warning  'isHealthy' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\relay-status-badge.tsx
+  3:17  warning  'useMemo' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\root-error-boundary.tsx
+  24:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\auth\components\auth-gateway.tsx
+  23:11  warning  'profile' is assigned a value but never used                                                                     @typescript-eslint/no-unused-vars
+  60:8   warning  React Hook useEffect has a missing dependency: 'handleUnlock'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\auth\components\auth-screen.tsx
+    3:27  warning  'useCallback' is defined but never used   @typescript-eslint/no-unused-vars
+    6:5   warning  'UserPlus' is defined but never used      @typescript-eslint/no-unused-vars
+    7:5   warning  'LogIn' is defined but never used         @typescript-eslint/no-unused-vars
+   15:5   warning  'CheckCircle2' is defined but never used  @typescript-eslint/no-unused-vars
+  169:22  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\auth\services\session-api.ts
+  27:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\crypto\__tests__\crypto-service-impl.test.ts
+    2:8   warning  'fc' is defined but never used                          @typescript-eslint/no-unused-vars
+    5:15  warning  'InviteData' is defined but never used                  @typescript-eslint/no-unused-vars
+   59:11  warning  'anotherPublicKey' is assigned a value but never used   @typescript-eslint/no-unused-vars
+   60:11  warning  'anotherPrivateKey' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   73:74  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   74:72  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   84:14  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  112:65  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\crypto\__tests__\crypto-service.test.ts
+   112:114  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   120:112  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   169:79   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   201:79   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   208:19   warning  'encId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   236:55   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   236:72   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   254:62   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   254:73   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   254:89   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   399:17   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   400:22   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   401:16   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   402:15   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   443:30   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   444:35   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   445:52   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   446:77   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   447:47   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   448:72   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   460:31   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   461:36   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   463:71   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   464:96   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   476:17   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   477:22   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   478:15   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   479:25   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   480:39   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   481:56   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   482:28   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   945:17   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   946:22   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   947:28   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   948:15   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   949:37   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   961:75   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   982:17   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   983:22   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1042:72   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1043:77   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1044:82   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1109:65   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1109:78   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1110:70   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1111:71   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1112:84   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1299:28   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  1302:16   warning  'error' is defined but never used           @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\crypto\crypto-interfaces.ts
+  15:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\crypto\crypto-service-impl.ts
+   20:5   warning  'InviteData' is defined but never used    @typescript-eslint/no-unused-vars
+   67:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   67:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   73:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  397:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\crypto\crypto-service.ts
+  26:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\crypto\native-crypto-service.ts
+   17:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   44:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  217:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  218:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\crypto\pow-service.ts
+  23:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\desktop\hooks\use-deep-link.ts
+  76:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  78:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\desktop\utils\tauri-api.ts
+   67:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\dev-tools\bot-engine.ts
+  1:15  warning  'NostrEvent' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\dev-tools\components\dev-panel.tsx
+   4:22  warning  'Zap' is defined but never used           @typescript-eslint/no-unused-vars
+   4:37  warning  'ChevronUp' is defined but never used     @typescript-eslint/no-unused-vars
+  13:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\dev-tools\mock-pool.ts
+    4:15  warning  'PublicKeyHex' is defined but never used  @typescript-eslint/no-unused-vars
+   41:21  warning  '_' is assigned a value but never used    @typescript-eslint/no-unused-vars
+   78:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+   97:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  156:20  warning  '_url' is defined but never used          @typescript-eslint/no-unused-vars
+  157:23  warning  '_url' is defined but never used          @typescript-eslint/no-unused-vars
+  158:23  warning  '_url' is defined but never used          @typescript-eslint/no-unused-vars
+  159:26  warning  '_url' is defined but never used          @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\community-invite-card.tsx
+    4:10  warning  'Card' is defined but never used          @typescript-eslint/no-unused-vars
+   60:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+   72:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  174:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\community-invite-response-card.tsx
+  24:11  warning  'isCanceled' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\create-group-dialog.tsx
+  10:17  warning  'Info' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\group-discovery.tsx
+    5:10  warning  'Search' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+    5:53  warning  'Lock' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+    5:59  warning  'ChevronLeft' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+    5:72  warning  'ChevronRight' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   16:10  warning  'Input' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  127:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\group-discovery.tsx:127:9
+  125 |     // Reset page when search changes
+  126 |     useEffect(() => {
+> 127 |         setCurrentPage(1);
+      |         ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  128 |     }, [searchQuery, searchRelay]);
+  129 |
+  130 |     const handleJoin = (group: DiscoveredGroup) => {  react-hooks/set-state-in-effect
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\group-join-dialog.tsx
+  39:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\group-management-dialog.tsx
+   10:5   warning  'ShieldCheck' is defined but never used                      @typescript-eslint/no-unused-vars
+   14:5   warning  'UserCog' is defined but never used                          @typescript-eslint/no-unused-vars
+   21:5   warning  'Check' is defined but never used                            @typescript-eslint/no-unused-vars
+   29:5   warning  'UserCheck' is defined but never used                        @typescript-eslint/no-unused-vars
+   62:11  warning  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+   64:22  warning  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+   77:13  warning  't' is assigned a value but never used                       @typescript-eslint/no-unused-vars
+   81:9   warning  'approveJoin' is assigned a value but never used             @typescript-eslint/no-unused-vars
+   82:9   warning  'denyJoin' is assigned a value but never used                @typescript-eslint/no-unused-vars
+   83:9   warning  'approveAllJoinRequests' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   84:9   warning  'denyAllJoinRequests' is assigned a value but never used     @typescript-eslint/no-unused-vars
+   86:9   warning  'putUser' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+   87:9   warning  'removeUser' is assigned a value but never used              @typescript-eslint/no-unused-vars
+   88:9   warning  'promoteUser' is assigned a value but never used             @typescript-eslint/no-unused-vars
+   89:9   warning  'demoteUser' is assigned a value but never used              @typescript-eslint/no-unused-vars
+   90:9   warning  'setGroupStatus' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  176:22  warning  'e' is defined but never used                                @typescript-eslint/no-unused-vars
+  236:18  warning  'error' is defined but never used                            @typescript-eslint/no-unused-vars
+  251:18  warning  'error' is defined but never used                            @typescript-eslint/no-unused-vars
+  276:34  warning  'e' is defined but never used                                @typescript-eslint/no-unused-vars
+  279:22  warning  'e' is defined but never used                                @typescript-eslint/no-unused-vars
+  284:90  warning  'e' is defined but never used                                @typescript-eslint/no-unused-vars
+  304:18  warning  'error' is defined but never used                            @typescript-eslint/no-unused-vars
+  549:51  warning  'isMod' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\invite-contacts-dialog.tsx
+   41:13  warning  't' is assigned a value but never used                         @typescript-eslint/no-unused-vars
+   43:30  warning  'messagesByConversationId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   46:13  warning  'createdGroups' is assigned a value but never used             @typescript-eslint/no-unused-vars
+   58:48  warning  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  127:58  warning  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\invite-member-dialog.tsx
+    9:5   warning  'X' is defined but never used                                  @typescript-eslint/no-unused-vars
+   11:5   warning  'CheckCircle2' is defined but never used                       @typescript-eslint/no-unused-vars
+   48:13  warning  't' is assigned a value but never used                         @typescript-eslint/no-unused-vars
+   51:13  warning  'messagesByConversationId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   52:13  warning  'createdGroups' is assigned a value but never used             @typescript-eslint/no-unused-vars
+   66:25  warning  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+   72:48  warning  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  139:54  warning  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\join-group-input-dialog.tsx
+  18:13  warning  't' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\hooks\use-sealed-community.ts
+    7:15   warning  'UnsignedNostrEvent' is defined but never used                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+    9:10   warning  'logAppEvent' is defined but never used                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   10:10   warning  'CommunityAccessGuard' is defined but never used                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+   13:64   warning  'GroupAccessMode' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  129:7    warning  'createRandomId' is assigned a value but never used                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+  175:20   warning  'e' is defined but never used                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  237:96   warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  266:103  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  402:6    warning  React Hook useEffect has a missing dependency: 'params.myPublicKeyHex'. Either include it or remove the dependency array. If 'setState' needs the current value of 'params.myPublicKeyHex', you can also switch to useReducer instead of useState and read 'params.myPublicKeyHex' in the reducer  react-hooks/exhaustive-deps
+  453:17   warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  476:17   warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  513:17   warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  516:6    warning  React Hook useCallback has a missing dependency: 'params.relayUrl'. Either include it or remove the dependency array                                                                                                                                                                               react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\services\community-access-guard.ts
+  1:15  warning  'PublicKeyHex' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\types\index.ts
+  1:15  warning  'PublicKeyHex' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\accessibility-integration.test.ts
+  314:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\core-services-integration.test.ts
+   33:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  258:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  267:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  288:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\cross-platform-compatibility.test.ts
+    5:10  warning  'URLSchemeHandler' is defined but never used    @typescript-eslint/no-unused-vars
+    6:29  warning  'ShareableProfile' is defined but never used    @typescript-eslint/no-unused-vars
+   29:7   warning  'hexString' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  150:45  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  157:16  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  293:36  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  296:36  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  308:34  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\import-export.test.ts
+   11:33  warning  'ImportResult' is defined but never used  @typescript-eslint/no-unused-vars
+   81:22  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  168:22  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  207:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  244:22  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\integration.test.ts
+   12:3   warning  'InviteLink' is defined but never used         @typescript-eslint/no-unused-vars
+   13:3   warning  'ContactRequest' is defined but never used     @typescript-eslint/no-unused-vars
+   14:3   warning  'Contact' is defined but never used            @typescript-eslint/no-unused-vars
+   16:3   warning  'QRCode' is defined but never used             @typescript-eslint/no-unused-vars
+  131:26  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  132:27  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  391:13  warning  'contact1' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  399:13  warning  'request2' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\invite-manager.test.ts
+    5:10  warning  'contactStore' is defined but never used                @typescript-eslint/no-unused-vars
+    6:10  warning  'profileManager' is defined but never used              @typescript-eslint/no-unused-vars
+    9:3   warning  'inviteLinkOptionsArbitrary' is defined but never used  @typescript-eslint/no-unused-vars
+   14:15  warning  'InviteLink' is defined but never used                  @typescript-eslint/no-unused-vars
+   28:31  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  129:51  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  130:53  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  132:47  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  174:57  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\performance-integration.test.ts
+   19:24  warning  'ContactGroup' is defined but never used    @typescript-eslint/no-unused-vars
+  394:44  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  445:26  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  446:27  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  449:13  warning  'time1' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\privacy-security-properties.test.ts
+   13:10  warning  'openInviteDb' is defined but never used             @typescript-eslint/no-unused-vars
+   14:10  warning  'INVITE_LINKS_STORE' is defined but never used       @typescript-eslint/no-unused-vars
+   30:32  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   31:33  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   39:7   warning  'publicKeyArb' is assigned a value but never used    @typescript-eslint/no-unused-vars
+   78:31  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   97:45  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  100:31  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  100:93  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  105:31  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  108:11  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  112:31  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  117:11  warning  'originalRevoke' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  231:60  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  234:75  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\profile-manager.test.ts
+    6:10  warning  'contactStore' is defined but never used   @typescript-eslint/no-unused-vars
+    7:10  warning  'cryptoService' is defined but never used  @typescript-eslint/no-unused-vars
+  367:62  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  395:70  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  431:68  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\qr-generator.test.ts
+  253:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  254:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  255:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  256:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  257:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  264:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  323:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\system-e2e.test.ts
+   15:3   warning  'PrivacySettings' is defined but never used   @typescript-eslint/no-unused-vars
+  211:26  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  212:27  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  249:26  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  250:27  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  319:51  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  386:13  warning  'result1' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  437:26  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  438:27  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\__tests__\test-utils.ts
+  4:3  warning  'QRInviteOptions' is defined but never used    @typescript-eslint/no-unused-vars
+  5:3  warning  'InviteLinkOptions' is defined but never used  @typescript-eslint/no-unused-vars
+  6:3  warning  'Contact' is defined but never used            @typescript-eslint/no-unused-vars
+  7:3  warning  'ContactGroup' is defined but never used       @typescript-eslint/no-unused-vars
+  8:3  warning  'UserProfile' is defined but never used        @typescript-eslint/no-unused-vars
+  9:3  warning  'PrivacySettings' is defined but never used    @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\deep-link-handler.ts
+   67:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  277:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  412:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  420:34  warning  'url' is defined but never used           @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\messaging-integration.ts
+   18:3  warning  'myPublicKey' is defined but never used       @typescript-eslint/no-unused-vars
+   19:3  warning  'myPrivateKey' is defined but never used      @typescript-eslint/no-unused-vars
+   38:3  warning  'myPublicKey' is defined but never used       @typescript-eslint/no-unused-vars
+   39:3  warning  'myPrivateKey' is defined but never used      @typescript-eslint/no-unused-vars
+  109:3  warning  'myPublicKey' is defined but never used       @typescript-eslint/no-unused-vars
+  110:3  warning  'myPrivateKey' is defined but never used      @typescript-eslint/no-unused-vars
+  128:3  warning  'encryptedPayload' is defined but never used  @typescript-eslint/no-unused-vars
+  129:3  warning  'myPrivateKey' is defined but never used      @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\nostr-compatibility.ts
+    3:10  warning  'cryptoService' is defined but never used  @typescript-eslint/no-unused-vars
+  209:39  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  223:46  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  332:39  warning  'eventData' is defined but never used      @typescript-eslint/no-unused-vars
+  332:50  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  332:55  warning  'privateKey' is defined but never used     @typescript-eslint/no-unused-vars
+  341:41  warning  'eventData' is defined but never used      @typescript-eslint/no-unused-vars
+  341:52  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  401:44  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  437:14  warning  'error' is defined but never used          @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\performance-optimizations.ts
+    6:27  warning  'ConnectionGroup' is defined but never used  @typescript-eslint/no-unused-vars
+  105:46  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  105:56  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  322:43  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  372:45  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  372:55  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  394:46  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  394:56  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\profile-manager.ts
+  344:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  372:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  381:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\url-scheme-handler.ts
+  71:11  warning  'url' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\use-invite-relay-integration.ts
+  12:3   warning  'handleIncomingContactRequest' is defined but never used  @typescript-eslint/no-unused-vars
+  29:3   warning  'relayUrls' is defined but never used                     @typescript-eslint/no-unused-vars
+  60:59  warning  'url' is defined but never used                           @typescript-eslint/no-unused-vars
+  69:17  warning  'event' is assigned a value but never used                @typescript-eslint/no-unused-vars
+  75:16  warning  'error' is defined but never used                         @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\use-invite-resolver.ts
+  16:13  warning  'myPublicKeyHex' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  36:37  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  36:42  warning  '_url' is defined but never used                     @typescript-eslint/no-unused-vars
+  42:65  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\invites\utils\utils.ts
+  79:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  79:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\components\locked-identity-view.tsx
+  114:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-attachment-handler.ts
+  34:8  warning  React Hook useEffect has a missing dependency: 'pendingAttachmentPreviewUrls'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-chat-actions.ts
+   56:29  warning  Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+  162:25  warning  Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+  168:8   warning  React Hook useCallback has a missing dependency: 'requestsInbox'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-chat-view-props.ts
+  9:5  warning  'Message' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-command-messages.ts
+  4:24  warning  'MessagesByConversationId' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-deep-links.ts
+   57:56  warning  Unexpected any. Specify a different type                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   66:67  warning  Unexpected any. Specify a different type                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   77:22  warning  'e' is defined but never used                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   85:8   warning  React Hook useEffect has missing dependencies: 'createdContacts', 'identity.state.publicKeyHex', 'router', 'setCreatedContacts', 'setSelectedConversation', and 'unhideConversation'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  118:40  warning  Unexpected any. Specify a different type                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  127:51  warning  Unexpected any. Specify a different type                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  148:8   warning  React Hook useEffect has missing dependencies: 'setCreatedContacts' and 'unhideConversation'. Either include them or remove the dependency array                                                                                          react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-dm-sync.ts
+   4:24  warning  'MessagesByConversationId' is defined but never used                                                        @typescript-eslint/no-unused-vars
+  69:8   warning  React Hook useEffect has a missing dependency: 'isReady'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-filtered-conversations.ts
+   4:15  warning  'PublicKeyHex' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   5:15  warning  'Conversation' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   5:64  warning  'Message' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   5:73  warning  'MessagesByConversationId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   6:33  warning  'isVisibleUserMessage' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   7:10  warning  'parseCommandMessage' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+  16:5   warning  'myPublicKeyHex' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+  39:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-filtered-conversations.ts:39:13
+  37 |     useEffect(() => {
+  38 |         if (!normalizedSearchQuery || normalizedSearchQuery.length < 2) {
+> 39 |             setMessageSearchResults([]);
+     |             ^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  40 |             return;
+  41 |         }
+  42 |  react-hooks/set-state-in-effect
+  45:88  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-invite-redemption.ts
+   76:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\main-shell.tsx
+   12:10  warning  'ProfileSearchService' is defined but never used                                                                                             @typescript-eslint/no-unused-vars
+   18:3   warning  'Message' is defined but never used                                                                                                          @typescript-eslint/no-unused-vars
+   25:3   warning  'extractAttachmentsFromContent' is defined but never used                                                                                    @typescript-eslint/no-unused-vars
+   27:10  warning  'chatStateStoreService' is defined but never used                                                                                            @typescript-eslint/no-unused-vars
+   39:35  warning  'GroupMessageEvent' is defined but never used                                                                                                @typescript-eslint/no-unused-vars
+   60:7   warning  'DEFAULT_VISIBLE_MESSAGES' is assigned a value but never used                                                                                @typescript-eslint/no-unused-vars
+   61:7   warning  'LOAD_EARLIER_STEP' is assigned a value but never used                                                                                       @typescript-eslint/no-unused-vars
+   76:5   warning  'visibleMessageCountByConversationId' is assigned a value but never used                                                                     @typescript-eslint/no-unused-vars
+   76:42  warning  'setVisibleMessageCountByConversationId' is assigned a value but never used                                                                  @typescript-eslint/no-unused-vars
+   90:5   warning  'pendingScrollTarget' is assigned a value but never used                                                                                     @typescript-eslint/no-unused-vars
+   94:54  warning  'unhideConversation' is assigned a value but never used                                                                                      @typescript-eslint/no-unused-vars
+  155:6   warning  React Hook useEffect has missing dependencies: 'selectedConversation' and 'updateGroup'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  159:9   warning  'socialGraph' is assigned a value but never used                                                                                             @typescript-eslint/no-unused-vars
+  212:14  warning  'error' is defined but never used                                                                                                            @typescript-eslint/no-unused-vars
+  232:89  warning  Unexpected any. Specify a different type                                                                                                     @typescript-eslint/no-explicit-any
+  265:6   warning  React Hook useEffect has a missing dependency: 'requestsInbox'. Either include it or remove the dependency array                             react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\audio-player.tsx
+  3:35  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\chat-view.tsx
+  140:8  warning  React Hook React.useEffect has a missing dependency: 'props'. Either include it or remove the dependency array. However, 'props' will change when *any* prop changes, so the preferred fix is to destructure the 'props' object outside of the useEffect call and refer to those specific props inside React.useEffect  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\conversation-row.tsx
+  38:5  warning  'onHide' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\global-dialog-manager.tsx
+  111:23  warning  'metadataEvent' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  140:25  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  146:8   warning  React Hook useCallback has an unnecessary dependency: 'relayPool'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\message-list.tsx
+    6:65  warning  'useAnimation' is defined but never used                   @typescript-eslint/no-unused-vars
+   59:5   warning  'isGroup' is defined but never used                        @typescript-eslint/no-unused-vars
+   66:11  warning  'isReactableMessageId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   86:98  warning  Unexpected any. Specify a different type                   @typescript-eslint/no-explicit-any
+  467:82  warning  'e' is defined but never used                              @typescript-eslint/no-unused-vars
+  566:13  warning  't' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\message-menu.tsx
+  5:24  warning  'ReactionEmoji' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\sidebar-user-search.tsx
+  31:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\sidebar.tsx
+    8:10  warning  'formatTime' is defined but never used          @typescript-eslint/no-unused-vars
+    8:22  warning  'highlightText' is defined but never used       @typescript-eslint/no-unused-vars
+   15:10  warning  'useProfileMetadata' is defined but never used  @typescript-eslint/no-unused-vars
+  202:55  warning  'user' is defined but never used                @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\stranger-warning-banner.tsx
+   4:23  warning  'Check' is defined but never used      @typescript-eslint/no-unused-vars
+   4:30  warning  'X' is defined but never used          @typescript-eslint/no-unused-vars
+   4:33  warning  'ShieldOff' is defined but never used  @typescript-eslint/no-unused-vars
+   5:10  warning  'Button' is defined but never used     @typescript-eslint/no-unused-vars
+  16:87  warning  'onBlock' is defined but never used    @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\trust-settings-panel.tsx
+    6:10   warning  'User' is defined but never used                     @typescript-eslint/no-unused-vars
+    6:66   warning  'Trash2' is defined but never used                   @typescript-eslint/no-unused-vars
+    9:10   warning  'Label' is defined but never used                    @typescript-eslint/no-unused-vars
+   11:10   warning  'cn' is defined but never used                       @typescript-eslint/no-unused-vars
+   22:11   warning  'myPublicKeyHex' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  121:100  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  165:73   warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  204:61   warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  234:64   warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\components\voice-recorder.tsx
+  3:35  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\controllers\dm-subscription-manager.ts
+  4:15  warning  'RelayPool' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\controllers\dm-sync-orchestrator.ts
+  72:25  warning  '_' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+  96:13  error    'syncedCount' is never reassigned. Use 'const' instead  prefer-const
+  97:13  error    'errorCount' is never reassigned. Use 'const' instead   prefer-const
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\controllers\enhanced-dm-controller.ts
+   13:63  warning  'OutgoingMessage' is defined but never used                 @typescript-eslint/no-unused-vars
+   14:10  warning  'extractAttachmentsFromContent' is defined but never used   @typescript-eslint/no-unused-vars
+   15:10  warning  'PrivacySettingsService' is defined but never used          @typescript-eslint/no-unused-vars
+   18:10  warning  'offlineQueueManager' is defined but never used             @typescript-eslint/no-unused-vars
+   20:50  warning  'loadingStateManager' is defined but never used             @typescript-eslint/no-unused-vars
+   25:10  warning  'parsePublicKeyInput' is defined but never used             @typescript-eslint/no-unused-vars
+   26:10  warning  'NOSTR_SAFETY_LIMITS' is defined but never used             @typescript-eslint/no-unused-vars
+   28:10  warning  'logAppEvent' is defined but never used                     @typescript-eslint/no-unused-vars
+   29:10  warning  'buildDmEvent' is defined but never used                    @typescript-eslint/no-unused-vars
+   29:29  warning  'DmEventBuildResult' is defined but never used              @typescript-eslint/no-unused-vars
+   29:54  warning  'DmFormat' is defined but never used                        @typescript-eslint/no-unused-vars
+   31:3   warning  'generateSubscriptionId' is defined but never used          @typescript-eslint/no-unused-vars
+   41:8   warning  'NostrFilter' is defined but never used                     @typescript-eslint/no-unused-vars
+   44:38  warning  'IncomingDmParams' is defined but never used                @typescript-eslint/no-unused-vars
+   45:10  warning  'publishOutgoingDm' is defined but never used               @typescript-eslint/no-unused-vars
+   45:29  warning  'publishOutgoingDmFireAndForget' is defined but never used  @typescript-eslint/no-unused-vars
+   45:61  warning  'publishQueuedOutgoingMessage' is defined but never used    @typescript-eslint/no-unused-vars
+   45:91  warning  'queueOutgoingDmForRetry' is defined but never used         @typescript-eslint/no-unused-vars
+   46:10  warning  'prepareOutgoingDm' is defined but never used               @typescript-eslint/no-unused-vars
+   47:10  warning  'applyRecipientRelayHints' is defined but never used        @typescript-eslint/no-unused-vars
+  149:86  warning  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  235:18  warning  'prev' is defined but never used                            @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\controllers\outgoing-dm-orchestrator.ts
+  37:87  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\controllers\outgoing-dm-send-preparer.ts
+  18:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  19:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  66:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\controllers\recipient-discovery-service.ts
+   16:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   27:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   51:22  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  121:90  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:34  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  132:22  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  137:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\controllers\relay-ok-message-handler.ts
+  14:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  96:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\hooks\use-conversation-messages.ts
+    3:44  warning  'useMemo' is defined but never used                  @typescript-eslint/no-unused-vars
+    4:24  warning  'Conversation' is defined but never used             @typescript-eslint/no-unused-vars
+   26:5   warning  'publicKeyHex' is defined but never used             @typescript-eslint/no-unused-vars
+   31:12  warning  'loadedCount' is assigned a value but never used     @typescript-eslint/no-unused-vars
+   31:25  warning  'setLoadedCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   39:68  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   48:72  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   95:69  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  104:77  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\hooks\use-requests-inbox.ts
+   67:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\hooks\use-requests-inbox.ts:67:7
+  65 |   useEffect((): void => {
+  66 |     if (!params.publicKeyHex) {
+> 67 |       setStored(createDefaultState());
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  68 |       return;
+  69 |     }
+  70 |     const persisted = chatStateStoreService.load(params.publicKeyHex);  react-hooks/set-state-in-effect
+  201:16  warning  'prev' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  237:26  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\checkpoint-9-core-messaging-complete.test.ts
+   16:10  warning  'errorHandler' is defined but never used         @typescript-eslint/no-unused-vars
+   17:10  warning  'offlineQueueManager' is defined but never used  @typescript-eslint/no-unused-vars
+   26:36  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   41:40  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   53:46  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   74:17  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   96:44  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  128:23  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  151:47  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  179:51  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  205:23  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  269:23  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  283:49  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  317:42  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  366:23  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  420:44  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  457:23  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  465:13  warning  'messageId' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\checkpoint-basic-sending.test.ts
+   33:40   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   45:46   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:30   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:22   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   97:41   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:44   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  271:38   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  393:47   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  535:125  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\enhanced-dm-controller.test.ts
+   10:10  warning  'MessageQueue' is defined but never used     @typescript-eslint/no-unused-vars
+   64:17  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   65:26  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   66:24  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  252:50  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  328:50  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  390:80  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  449:15  warning  'result' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  469:84  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  492:15  warning  'result' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  510:84  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\integration-complete-flows.test.ts
+   22:36  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   38:40  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   52:29  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   54:46  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  107:17  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  130:44  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  174:47  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  220:51  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  259:51  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  288:13  warning  'subId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  290:68  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  322:45  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  388:45  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  435:34  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  481:24  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  493:25  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  526:68  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  560:65  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  587:68  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  631:46  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  632:48  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\integration-multi-relay-failover.test.ts
+   13:10  warning  'cryptoService' is defined but never used  @typescript-eslint/no-unused-vars
+   22:36  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   49:40  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   61:46  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  109:17  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  156:23  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  204:23  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  260:23  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  305:23  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  359:23  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  439:23  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  486:23  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  544:41  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  551:18  warning  'e' is defined but never used              @typescript-eslint/no-unused-vars
+  574:46  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\integration-offline-online.test.ts
+   13:10  warning  'cryptoService' is defined but never used      @typescript-eslint/no-unused-vars
+   22:36  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   38:40  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   50:46  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   98:17  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  130:46  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  149:23  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  163:49  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  216:45  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  242:23  warning  'rerender' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  265:49  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  303:46  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  336:42  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  468:46  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  492:68  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  520:34  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  533:70  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  553:46  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\message-queue.test.ts
+  29:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  55:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\message-receiving.test.ts
+   34:17  warning  '_publicKey' is defined but never used              @typescript-eslint/no-unused-vars
+   34:38  warning  '_privateKey' is defined but never used             @typescript-eslint/no-unused-vars
+   61:17  warning  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+   90:15  warning  'result' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  104:41  warning  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  187:43  warning  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  207:13  warning  'mockPeerTrust' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  389:15  warning  'result' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  431:13  warning  'mockPeerTrust' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\__tests__\message-sync.test.ts
+   35:17  warning  'publicKey' is defined but never used     @typescript-eslint/no-unused-vars
+   35:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   59:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\error-handler.ts
+   37:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  193:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  223:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  241:86  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  304:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  339:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  368:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  392:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\media-processor.ts
+  6:10  warning  'AttachmentKind' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\message-flow-debugger.ts
+   10:15  warning  'Message' is defined but never used                @typescript-eslint/no-unused-vars
+   11:15  warning  'NostrEvent' is defined but never used             @typescript-eslint/no-unused-vars
+   39:28  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  144:30  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  270:11  warning  'createdEvent' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  392:17  warning  'relayUrl' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  453:14  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\message-logger.ts
+   28:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  131:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  351:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\message-queue.ts
+  121:7   warning  'MAX_MESSAGES_PER_CONVERSATION' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  303:31  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  304:56  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  305:36  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  333:41  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  359:33  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  360:58  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  361:38  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  404:43  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  434:41  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  460:33  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  461:58  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  462:38  warning  Unexpected any. Specify a different type                            @typescript-eslint/no-explicit-any
+  496:28  warning  'olderThan' is defined but never used                               @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\nip96-upload-service.ts
+    1:22   warning  'AttachmentKind' is defined but never used  @typescript-eslint/no-unused-vars
+   93:112  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  156:27   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  197:27   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  227:23   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\offline-queue-manager.ts
+  13:15  warning  'NostrEvent' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\performance-monitor.ts
+  369:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  370:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  480:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\retry-manager.test.ts
+   11:29  warning  'RetryConfig' is defined but never used                @typescript-eslint/no-unused-vars
+  121:17  warning  'callbackExecuted' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\retry-manager.ts
+  140:40  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\ui-performance.ts
+  332:20  warning  The ref value 'throttlerRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'throttlerRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\lib\upload-service.ts
+   79:15  warning  'kind' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  126:23  warning  'ext' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx
+   11:5   warning  'MessagesByConversationId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   14:5   warning  'Message' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   16:5   warning  'PersistedGroupMessage' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   17:5   warning  'PublicKeyHex' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   23:5   warning  'fromPersistedMessagesByConversationId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   24:5   warning  'toPersistedMessagesByConversationId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  207:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:207:13
+  205 |                 .filter((c: DmConversation | null): c is DmConversation => c !== null);
+  206 |
+> 207 |             setCreatedContacts(nextCreatedContacts);
+      |             ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  208 |             setUnreadByConversationId(persisted.unreadByConversationId);
+  209 |             setContactOverridesByContactId(fromPersistedOverridesByContactId(persisted.contactOverridesByContactId));
+  210 |                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/set-state-in-effect
+  234:8   warning  React Hook useEffect has a missing dependency: 'selectedConversation'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `updateCreatedContacts`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,              react-hooks/preserve-manual-memoization
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `setSelectedConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,            react-hooks/preserve-manual-memoization
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `updateUnreadByConversationId`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,       react-hooks/preserve-manual-memoization
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `updateContactOverridesByContactId`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,  react-hooks/preserve-manual-memoization
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `togglePin`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                          react-hooks/preserve-manual-memoization
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `hideConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                   react-hooks/preserve-manual-memoization
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `unhideConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                 react-hooks/preserve-manual-memoization
+  272:27  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `deleteConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                 react-hooks/preserve-manual-memoization
+  330:9   warning  React Hook useMemo has missing dependencies: 'deleteConversation', 'hideConversation', 'setSelectedConversation', 'togglePin', 'unhideConversation', 'updateContactOverridesByContactId', 'updateCreatedContacts', and 'updateUnreadByConversationId'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\services\message-persistence-service.ts
+  63:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  66:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:97  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  81:86  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  82:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\state-machines\message-delivery-machine.ts
+  68:86  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\native\components\error-panel.tsx
+  9:10  warning  'cn' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\network\components\add-connection-modal.tsx
+  39:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\network\components\group-card.tsx
+  19:29  warning  'id' is defined but never used                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  23:14  warning  'e' is defined but never used                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  39:29  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  86:25  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\network\components\invite-to-group-dialog.tsx
+   5:25  warning  'Loader2' is defined but never used  @typescript-eslint/no-unused-vars
+  11:10  warning  'cn' is defined but never used       @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\network\components\network-dashboard.tsx
+    7:5    warning  'UserPlus' is defined but never used                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   49:8    warning  'QRCode' is defined but never used                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   50:33   warning  'DialogHeader' is defined but never used                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   50:47   warning  'DialogTitle' is defined but never used                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   51:10   warning  'QRScanner' is defined but never used                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+   53:10   warning  'ConnectionImportExport' is defined but never used                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   75:13   warning  'addToast' is assigned a value but never used                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   87:51   warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  101:8    warning  React Hook React.useEffect has a missing dependency: 'requestsInbox'. Either include it or remove the dependency array                                                                                                                                                                   react-hooks/exhaustive-deps
+  677:107  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                          react/no-unescaped-entities
+  784:10   warning  'MyPassportDialog' is defined but never used                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+  798:39   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\network\components\network-profile-view.tsx
+   54:11  warning  'dmController' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  138:86  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  174:54  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\network\hooks\use-peer-trust.ts
+  129:20  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  130:17  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  162:6   warning  React Hook useEffect has a missing dependency: 'hasHydrated'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\profile\hooks\use-profile-metadata.ts
+  3:31  warning  'useMemo' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\profile\hooks\use-profile-publisher.ts
+  108:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\profile\utils\parse-public-key-input.ts
+  152:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\relays\hooks\create-relay-websocket.ts
+  1:10  warning  'PrivacySettingsService' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\relays\utils\nip65-service.ts
+   2:10  warning  'cryptoService' is defined but never used  @typescript-eslint/no-unused-vars
+  35:72  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  65:28  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\search\components\search-results-list.tsx
+  4:10  warning  'CheckCircle2' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\search\services\profile-search-service.ts
+   21:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:38  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+   67:26  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+   99:26  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  112:75  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:30  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  164:26  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\social-graph\services\social-graph-service.ts
+  12:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  79:26  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\vault\components\vault-media-grid.tsx
+  77:29  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\vault\components\vault-upload-modal.tsx
+   5:5   warning  'Dialog' is defined but never used             @typescript-eslint/no-unused-vars
+   6:5   warning  'DialogContent' is defined but never used      @typescript-eslint/no-unused-vars
+   7:5   warning  'DialogHeader' is defined but never used       @typescript-eslint/no-unused-vars
+   8:5   warning  'DialogTitle' is defined but never used        @typescript-eslint/no-unused-vars
+   9:5   warning  'DialogDescription' is defined but never used  @typescript-eslint/no-unused-vars
+  62:23  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\groups\[...id]\page.tsx
+   31:10  warning  'useUploadService' is defined but never used                                                                                        @typescript-eslint/no-unused-vars
+   60:9   warning  'updateMetadata' is assigned a value but never used                                                                                 @typescript-eslint/no-unused-vars
+   91:8   warning  React Hook React.useEffect has missing dependencies: 'group' and 'updateGroup'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  109:8   warning  React Hook React.useEffect has a missing dependency: 'group'. Either include it or remove the dependency array                      react-hooks/exhaustive-deps
+  127:18  warning  'error' is defined but never used                                                                                                   @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\lib\background-service.ts
+  27:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\lib\i18n\config.ts
+  17:6  warning  'I18nResources' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\lib\mobile-theme.ts
+  5:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\settings\page.tsx
+    4:10  warning  'useMemo' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+   15:3   warning  'Eye' is defined but never used                                                                             @typescript-eslint/no-unused-vars
+   47:15  warning  'RelayConnection' is defined but never used                                                                 @typescript-eslint/no-unused-vars
+   63:6   warning  'RelayConnectionStatus' is defined but never used                                                           @typescript-eslint/no-unused-vars
+  276:9   warning  'notificationPreference' is assigned a value but never used                                                 @typescript-eslint/no-unused-vars
+  278:22  warning  'pool' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  326:72  warning  Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  340:14  warning  'e' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  351:18  warning  'e' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  362:18  warning  'e' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+  382:6   warning  React Hook useEffect has a missing dependency: 'profile'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  445:21  warning  Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  448:22  warning  Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\vault\page.tsx
+  12:16  warning  'HardDrive' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 726 problems (17 errors, 709 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+
+ ELIFECYCLE  Command failed with exit code 1.

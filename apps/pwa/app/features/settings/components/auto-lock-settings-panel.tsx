@@ -136,6 +136,59 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 </div>
             </div>
 
+            {/* Biometric Lock (Mobile/Desktop) */}
+            <div className={cn(
+                "p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300 shadow-sm",
+                isTauri
+                    ? "bg-white dark:bg-zinc-900/40 border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10 group"
+                    : "bg-zinc-50 dark:bg-zinc-900/20 border-black/5 dark:border-white/10 opacity-50 grayscale"
+            )}>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 group-hover:scale-110 transition-transform">
+                            <Shield className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                        </div>
+                        <div className="space-y-0.5">
+                            <Label className="text-base text-zinc-900 dark:text-white font-bold tracking-tight">{t("settings.security.biometric.title", "Biometric Lock")}</Label>
+                            <p className="text-zinc-500 dark:text-zinc-400 text-xs max-w-[240px] leading-relaxed font-medium">{t("settings.security.biometric.desc", "Use fingerprint or face ID to unlock the app.")}</p>
+                        </div>
+                    </div>
+                    {isTauri ? (
+                        <button
+                            onClick={async () => {
+                                if (!settings.biometricLockEnabled) {
+                                    // Verify biometrics before enabling
+                                    try {
+                                        const { invoke } = await import('@tauri-apps/api/core');
+                                        const success = await invoke<boolean>('request_biometric_auth');
+                                        if (success) {
+                                            updateSettings({ biometricLockEnabled: true });
+                                        }
+                                    } catch (e) {
+                                        console.error("Biometric verification failed:", e);
+                                    }
+                                } else {
+                                    updateSettings({ biometricLockEnabled: false });
+                                }
+                            }}
+                            className={cn(
+                                "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none",
+                                settings.biometricLockEnabled ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800'
+                            )}
+                        >
+                            <span className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 shadow-sm",
+                                settings.biometricLockEnabled ? 'translate-x-[22px]' : 'translate-x-1'
+                            )} />
+                        </button>
+                    ) : (
+                        <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest">
+                            {t("settings.security.tauriOnly")}
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Network Privacy (Tor) */}
             <div className={cn(
                 "p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300 shadow-sm",

@@ -13,7 +13,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 
 import { SearchResultsList } from "../../search/components/search-results-list";
 import { QRScanner } from "../../invites/components/qr-scanner";
-import { SendRequestDialog } from "../../contacts/components/send-request-dialog";
+import { SendRequestDialog } from "../../network/components/send-request-dialog";
 import type { ProfileSearchResult } from "../../search/services/profile-search-service";
 import type { SendResult } from "../controllers/enhanced-dm-controller";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -311,7 +311,7 @@ export function NewChatDialog({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-            <Card title={t("contacts.addContact", "Add New Contact")} description={t("contacts.addContactDesc", "Search for people by username, public key, or NIP-05.")} className="w-full max-w-md shadow-2xl border-white/10">
+            <Card title={t("network.addContact", "Add New Connection")} description={t("network.addContactDesc", "Search for people by username, public key, or NIP-05.")} className="w-full max-w-md shadow-2xl border-white/10">
                 <div className="space-y-6">
                     <div className="space-y-3">
                         <Label htmlFor="new-chat-pubkey" className="text-xs font-bold uppercase tracking-wider text-zinc-500">{t("messaging.findRecipient")}</Label>
@@ -470,7 +470,7 @@ export function NewChatDialog({
                             ) : resolvedPubkeyHex && !isAccepted(resolvedPubkeyHex) ? (
                                 <span className="flex items-center gap-2">
                                     <UserPlus className="h-4 w-4" />
-                                    {t("contacts.connect")}
+                                    {t("network.connect")}
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-2">

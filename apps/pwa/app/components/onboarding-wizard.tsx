@@ -22,7 +22,7 @@ import { QRScanner } from "./qr-scanner";
 import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 import { getStoredIdentity } from "@/app/features/auth/utils/get-stored-identity";
 
-type OnboardingStep = "welcome" | "creating" | "username" | "add-contact" | "complete";
+type OnboardingStep = "welcome" | "creating" | "username" | "join-network" | "complete";
 
 type OnboardingWizardProps = Readonly<{
   onComplete?: () => void;
@@ -125,11 +125,11 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
         return;
       }
     }
-    setStep("add-contact");
+    setStep("join-network");
   };
 
   const handleSkipUsername = (): void => {
-    setStep("add-contact");
+    setStep("join-network");
   };
 
   const handleResolveInvite = async (): Promise<void> => {
@@ -144,7 +144,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
     }
   };
 
-  const handleAddContact = (): void => {
+  const handleJoinNetwork = (): void => {
     // In a real app, we'd add them to peer trust here
     // For now, we'll just move to complete
     setStep("complete");
@@ -153,7 +153,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
     }, 2000);
   };
 
-  const handleSkipContact = (): void => {
+  const handleSkipNetwork = (): void => {
     setStep("complete");
     setTimeout(() => {
       props.onComplete?.();
@@ -411,8 +411,8 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
     );
   }
 
-  // Add First Contact Screen
-  if (step === "add-contact") {
+  // Join Network Screen
+  if (step === "join-network") {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         {showScanner && (
@@ -488,12 +488,12 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={handleSkipContact} className="flex-1">
+              <Button type="button" variant="ghost" onClick={handleSkipNetwork} className="flex-1">
                 {t("onboarding.contact.skip")}
               </Button>
               <Button
                 type="button"
-                onClick={handleAddContact}
+                onClick={handleJoinNetwork}
                 disabled={!resolvedProfile}
                 className="flex-1"
               >
