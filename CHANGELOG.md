@@ -1,10 +1,20 @@
 ## [Unreleased]
 
+### Added
+
+- **Multimedia Support (WP-6)**: Implemented full video and audio upload support in chat via NIP-96.
+  - Client-side compression for videos using `@ffmpeg/ffmpeg` (WASM) to transcode to 720p/128k before upload.
+  - Automatic logic for generating lightweight thumbnails for video previews directly in the browser.
+  - Smart NIP-96 provider routing: images are routed to `nostr.build`, while larger video/audio files are routed to `void.cat` and `sovbit`.
+  - Added custom, aesthetically pleasing `VideoPlayer` and `AudioPlayer` components for inline media playback within the chat UI.
+  - Complete internationalization (i18n) for media statuses in Chinese, Spanish, and English.
+
 ### Fixed
 
 - **Tor Network Integration (WP-5)**: Fixed "os error 3" and "os error 193" when activating Tor by correcting Sidecar paths for Tauri v2.
   - Wrote a Node.js pre-script (`scripts/setup-tor.mjs`) to auto-download and extract the correct Tor Expert Bundle binary for the host OS/architecture.
   - Re-configured `tauri.conf.json` and capabilities to use the flattened `tor` executable path.
+- **Media CORS Issues**: Removed overly restrictive COOP/COEP headers from `next.config.ts`, unlocking CORS capabilities for playing media from third-party storage providers inside the `VideoPlayer`.
 - **UI/UX Enhancements**:
   - Implemented a unified animated `AuthScreen` with FlashMessages, replacing native toasts.
   - Reordered the Profile Settings page to center the user avatar above the username.
