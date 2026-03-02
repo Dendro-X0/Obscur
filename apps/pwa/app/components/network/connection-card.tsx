@@ -2,15 +2,15 @@
 
 import type React from "react";
 import Image from "next/image";
-import type { Contact, ContactGroup } from "@/app/features/invites/utils/types";
+import type { Connection, ConnectionGroup } from "@/app/features/invites/utils/types";
 import { MessageSquare, MoreVertical, Shield, ShieldCheck, ShieldOff, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 
 interface ConnectionCardProps {
-    contact: Contact;
-    groups: ContactGroup[];
-    onSelect: (contact: Contact) => void;
+    contact: Connection;
+    groups: ConnectionGroup[];
+    onSelect: (contact: Connection) => void;
 }
 
 export const ConnectionCard = ({ contact, groups, onSelect }: ConnectionCardProps) => {

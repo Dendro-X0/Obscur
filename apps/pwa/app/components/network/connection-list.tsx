@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { contactStore } from "@/app/features/invites/utils/contact-store";
-import type { Contact, ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
+import { connectionStore } from "@/app/features/invites/utils/connection-store";
+import type { Connection, ConnectionGroup, TrustLevel } from "@/app/features/invites/utils/types";
 import { ConnectionCard } from "./connection-card";
 import { ConnectionFilters } from "./connection-filters";
 import { Users } from "lucide-react";
@@ -13,8 +13,8 @@ import { useTranslation } from "react-i18next";
 export const ConnectionList = () => {
     const { t } = useTranslation();
     const router = useRouter();
-    const [contacts, setContacts] = useState<Contact[]>([]);
-    const [groups, setGroups] = useState<ContactGroup[]>([]);
+    const [contacts, setContacts] = useState<Connection[]>([]);
+    const [groups, setGroups] = useState<ConnectionGroup[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -25,8 +25,8 @@ export const ConnectionList = () => {
         setLoading(true);
         try {
             const [allContacts, allGroups] = await Promise.all([
-                contactStore.getAllContacts(),
-                contactStore.getAllGroups()
+                connectionStore.getAllConnections(),
+                connectionStore.getAllGroups()
             ]);
 
             let filtered = allContacts;
@@ -99,8 +99,8 @@ export const ConnectionList = () => {
                             key={contact.id}
                             contact={contact}
                             groups={groups}
-                            onSelect={(c: Contact) => {
-                                console.log("Selected contact:", c);
+                            onSelect={(c: Connection) => {
+                                console.log("Selected connection:", c);
                             }}
                         />
                     ))}

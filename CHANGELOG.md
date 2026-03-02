@@ -11,7 +11,8 @@
 - **Multimedia Improvements**:
   - Enhanced `extractAttachmentsFromContent` to support native audio file detection and categorization.
   - Hardened NIP-96 upload service by downgrading intermediate provider failures to `warn` (avoiding blocking Next.js dev overlays) and optimizing retry logic.
-  - Fixed a syntax error in the attachment upload loop within `use-chat-actions.ts`.
+  - **Build & Types Standardization**: Fixed a critical TypeScript build error in the PWA by standardizing terminology from `Contact` to `Connection` and `ContactGroup` to `ConnectionGroup` across the network components, aligning them with the core invite system types.
+- **Store Refactoring**: Renamed internal `contactStore` references to `connectionStore` for architectural consistency.
 
 ### [Unreleased]
 

@@ -3,7 +3,7 @@
 import type React from "react";
 import { Search, Filter, Users } from "lucide-react";
 import { Input } from "../ui/input";
-import type { ContactGroup, TrustLevel } from "@/app/features/invites/utils/types";
+import type { ConnectionGroup, TrustLevel } from "@/app/features/invites/utils/types";
 
 interface ConnectionFiltersProps {
     searchQuery: string;
@@ -12,7 +12,7 @@ interface ConnectionFiltersProps {
     onTrustLevelChange: (level: TrustLevel | "all") => void;
     groupId: string | "all";
     onGroupChange: (id: string | "all") => void;
-    groups: ContactGroup[];
+    groups: ConnectionGroup[];
 }
 
 import { useTranslation } from "react-i18next";
