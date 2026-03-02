@@ -1,70 +1,70 @@
 /**
  * Integration layer between the invite system and existing messaging system
- * Connects contact requests with the enhanced DM controller
+ * Connects connection requests with the enhanced DM controller
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { inviteManager } from "./invite-manager";
 import { connectionStore } from "./connection-store";
-import type { Connection as Contact, ConnectionRequest as ContactRequest } from "./types";
+import type { Connection, ConnectionRequest } from "./types";
 
 /**
- * Process accepted contact requests and enable messaging
+ * Process accepted connection requests and enable messaging
  * This integrates with the existing DM controller to enable direct messaging
  */
-export const enableMessagingForContact = async (
-  contactRequest: ContactRequest,
+export const enableMessagingForConnection = async (
+  connectionRequest: ConnectionRequest,
   myPublicKey: PublicKeyHex,
   myPrivateKey: PrivateKeyHex
-): Promise<Contact> => {
-  // Accept the contact request through invite manager
-  const contact = await inviteManager.acceptContactRequest(contactRequest.id);
+): Promise<Connection> => {
+  // Accept the connection request through invite manager
+  const connection = await inviteManager.acceptConnectionRequest(connectionRequest.id);
 
-  // The contact is now added to the contact store
+  // The connection is now added to the connection store
   // The existing DM controller will automatically handle messaging
   // since it subscribes to all DMs for the user's public key
 
-  return contact;
+  return connection;
 };
 
 /**
- * Send a contact request as a Nostr DM
- * This allows contact requests to be sent through the existing relay infrastructure
+ * Send a connection request as a Nostr DM
+ * This allows connection requests to be sent through the existing relay infrastructure
  */
-export const sendContactRequestViaDM = async (
+export const sendConnectionRequestViaDM = async (
   recipientPublicKey: PublicKeyHex,
   message: string | undefined,
   myPublicKey: PublicKeyHex,
   myPrivateKey: PrivateKeyHex
 ): Promise<void> => {
-  // Create the contact request
-  await inviteManager.sendContactRequest({
+  // Create the connection request
+  await inviteManager.sendConnectionRequest({
     recipientPublicKey,
     message,
     includeProfile: true
   });
 
-  // The contact request is now stored locally
+  // The connection request is now stored locally
   // In a full implementation, this would also send a Nostr event
   // to notify the recipient through the relay network
 };
 
 /**
- * Check if a contact exists before allowing messaging
+ * Check if a connection exists before allowing messaging
  */
-export const canMessageContact = async (
+export const canMessageConnection = async (
   peerPublicKey: PublicKeyHex
 ): Promise<boolean> => {
   try {
-    const contact = await connectionStore.getContactByPublicKey(peerPublicKey);
+    const connection = await connectionStore.getConnectionByPublicKey(peerPublicKey);
 
-    if (!contact) {
+    if (!connection) {
       return false;
     }
 
-    // Check if contact is blocked
-    if (contact.trustLevel === "blocked") {
+    // Check if connection is blocked
+    if (connection.trustLevel === "blocked") {
       return false;
     }
 
@@ -75,9 +75,9 @@ export const canMessageContact = async (
 };
 
 /**
- * Get contact information for display in messaging UI
+ * Get connection information for display in messaging UI
  */
-export const getContactInfo = async (
+export const getConnectionInfo = async (
   peerPublicKey: PublicKeyHex
 ): Promise<{
   displayName: string;
@@ -85,16 +85,16 @@ export const getContactInfo = async (
   trustLevel: "trusted" | "neutral" | "blocked";
 } | null> => {
   try {
-    const contact = await connectionStore.getContactByPublicKey(peerPublicKey);
+    const connection = await connectionStore.getConnectionByPublicKey(peerPublicKey);
 
-    if (!contact) {
+    if (!connection) {
       return null;
     }
 
     return {
-      displayName: contact.displayName,
-      avatar: contact.avatar,
-      trustLevel: contact.trustLevel
+      displayName: connection.displayName,
+      avatar: connection.avatar,
+      trustLevel: connection.trustLevel
     };
   } catch {
     return null;
@@ -102,37 +102,37 @@ export const getContactInfo = async (
 };
 
 /**
- * Sync contact requests with relay network
- * This would fetch pending contact requests from relays
+ * Sync connection requests with relay network
+ * This would fetch pending connection requests from relays
  */
-export const syncContactRequestsFromRelays = async (
+export const syncConnectionRequestsFromRelays = async (
   myPublicKey: PublicKeyHex,
   myPrivateKey: PrivateKeyHex
 ): Promise<void> => {
   // In a full implementation, this would:
-  // 1. Query relays for contact request events
+  // 1. Query relays for connection request events
   // 2. Decrypt and validate them
-  // 3. Add them to the local contact request inbox
+  // 3. Add them to the local connection request inbox
 
   // For now, this is a placeholder that would integrate with
   // the existing relay pool infrastructure
-  console.log("Syncing contact requests from relays...");
+  console.log("Syncing connection requests from relays...");
 };
 
 /**
- * Handle incoming contact request from relay
+ * Handle incoming connection request from relay
  * This would be called by the relay message handler
  */
-export const handleIncomingContactRequest = async (
-  senderPublicKey: PublicKeyHex,
-  encryptedPayload: string,
-  myPrivateKey: PrivateKeyHex
+export const handleIncomingConnectionRequest = async (
+  event: any,
+  myPublicKey: PublicKeyHex | null,
+  myPrivateKey: PrivateKeyHex | null
 ): Promise<void> => {
   // In a full implementation, this would:
-  // 1. Decrypt the contact request payload
+  // 1. Decrypt the connection request payload
   // 2. Validate the signature
-  // 3. Create a ContactRequest object
+  // 3. Create a ConnectionRequest object
   // 4. Add it to the inbox
 
-  console.log("Handling incoming contact request from:", senderPublicKey);
+  console.log("Handling incoming connection request from:", event.pubkey);
 };
