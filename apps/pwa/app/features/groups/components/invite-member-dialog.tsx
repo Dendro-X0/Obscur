@@ -22,7 +22,6 @@ import { useIdentity } from "../../auth/hooks/use-identity";
 import { GroupService } from "../services/group-service";
 import type { GroupMetadata } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { useMessaging } from "../../messaging/providers/messaging-provider";
 import { messageBus } from "../../messaging/services/message-bus";
 import { MessageQueue } from "../../messaging/lib/message-queue";
 import type { Message } from "../../messaging/types";
@@ -47,7 +46,6 @@ export function InviteMemberDialog({
     const { t } = useTranslation();
     const { relayPool: pool } = useRelay();
     const { state: identityState } = useIdentity();
-    const { createdConnections } = useMessaging();
 
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<ProfileSearchResult[]>([]);
