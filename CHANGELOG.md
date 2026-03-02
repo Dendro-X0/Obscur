@@ -1,4 +1,19 @@
-## [Unreleased]
+## [v0.7.12-alpha] - 2026-03-01
+
+### Fixed
+
+- **NIP-04 Protocol Fix**: Resolved "Failed to decrypt message" errors by removing incorrect SHA256 hashing of the shared secret X-coordinate, ensuring full NIP-04 compliance and interoperability with other Nostr clients.
+- **UI Interaction Stability**:
+  - Replaced fragile Tailwind-only animations with robust `modal-transition` CSS to fix the "invisible mask" issue in the "Add Connection" and "Send Request" dialogs.
+  - Fixed action button clipping in the Network Dashboard by increasing vertical padding in the action header.
+  - Refined "Create New Group" UI by removing unnecessary shadows from footer buttons.
+- **Messaging Responsiveness**: Optimized NIP-20 `OK` acknowledgment timeout (10s -> 4s) to improve UI snappy-ness after broadcasting events.
+- **Multimedia Improvements**:
+  - Enhanced `extractAttachmentsFromContent` to support native audio file detection and categorization.
+  - Hardened NIP-96 upload service by downgrading intermediate provider failures to `warn` (avoiding blocking Next.js dev overlays) and optimizing retry logic.
+  - Fixed a syntax error in the attachment upload loop within `use-chat-actions.ts`.
+
+### [Unreleased]
 
 ### Added
 

@@ -32,6 +32,7 @@ import { PageShell } from "@/app/components/page-shell";
 import { cn } from "@/app/lib/utils";
 import { Card } from "@dweb/ui-kit";
 import { Button } from "@dweb/ui-kit";
+import { ConfirmDialog } from "@dweb/ui-kit";
 import { Input } from "@dweb/ui-kit";
 import { Label } from "@dweb/ui-kit";
 import { toast } from "@dweb/ui-kit";
@@ -48,6 +49,7 @@ import type { RelayConnection } from "@/app/features/relays/hooks/relay-connecti
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
+import { PasswordResetPanel } from "@/app/features/settings/components/password-reset-panel";
 import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-lock-settings-panel";
 import { useBlocklist } from "@/app/features/network/hooks/use-blocklist";
 import type { Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
@@ -292,6 +294,52 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const [nsecKey, setNsecKey] = useState<string | null>(null);
   const [challangePassword, setChallengePassword] = useState("");
   const [isChallenging, setIsChallenging] = useState(false);
+  const [isClearDataDialogOpen, setIsClearDataDialogOpen] = useState(false);
+  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
+
+  const handleClearData = async () => {
+    try {
+      localStorage.clear();
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        if (db.name) indexedDB.deleteDatabase(db.name);
+      }
+      if (typeof window !== "undefined") window.location.reload();
+    } catch (e) {
+      console.error(e);
+      if (typeof window !== "undefined") window.location.reload();
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      // 1. Wipe the public profile on the Nostr network
+      await publishProfile({
+        username: "Deleted Account",
+        about: "This account has been deleted.",
+        avatarUrl: "",
+        nip05: "",
+        lud16: "",
+        inviteCode: ""
+      });
+
+      // 2. Clear local identity
+      await identity.forgetIdentity();
+
+      // 3. Clear all browser storage
+      localStorage.clear();
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        if (db.name) indexedDB.deleteDatabase(db.name);
+      }
+
+      // 4. Reload to reset state
+      if (typeof window !== "undefined") window.location.reload();
+    } catch (e) {
+      console.error(e);
+      if (typeof window !== "undefined") window.location.reload();
+    }
+  };
 
   const handleRevealToggle = async () => {
     if (!isPrivateKeyVisible) {
@@ -756,6 +804,26 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 </AnimatePresence>
               </div>
             </div>
+
+            <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/10">
+              <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.dangerZone", "Danger Zone")}</h3>
+              <p className="mt-1 text-xs text-red-700 dark:text-red-300 font-medium">
+                {t("settings.deleteAccountDesc", "This will permanently remove your account key from this device and wipe your public profile.")}
+              </p>
+              <p className="mt-2 text-[10px] text-red-600/80 dark:text-red-400/80 leading-relaxed italic">
+                Note on Decentralized Identity: Your cryptographic private key is a mathematical concept and cannot be "destroyed." While this action will overwrite your public profile with a "Deleted Account" status and erase all local data, anyone possessing the exact private key string could technically log in again.
+              </p>
+              <Button
+                type="button"
+                variant="danger"
+                className="mt-4"
+                disabled={isPublishing}
+                onClick={() => setIsDeleteAccountDialogOpen(true)}
+              >
+                {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {isPublishing ? "Wiping Profile & Deleting Data..." : t("settings.deleteAccount", "Wipe Profile & Delete Data")}
+              </Button>
+            </div>
           </Card>
         </div>
       )}
@@ -843,18 +911,16 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
       {activeTab === "security" && (
         <div className="space-y-6">
+          <PasswordResetPanel />
           <AutoLockSettingsPanel />
           <Card title="Session Management" description="Security settings for your current session." className="w-full">
             <div className="space-y-4">
               <Button
                 variant="outline"
                 className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20"
-                onClick={() => {
-                  // Logic for clearing local data
-                  toast.info("Feature coming soon");
-                }}
+                onClick={() => setIsClearDataDialogOpen(true)}
               >
-                Clear All Local Data
+                {t("settings.actions.clearData", "Clear All Local Data")}
               </Button>
             </div>
           </Card>
@@ -884,6 +950,26 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
           </div>
         </Card>
       )}
+
+      <ConfirmDialog
+        isOpen={isClearDataDialogOpen}
+        onClose={() => setIsClearDataDialogOpen(false)}
+        onConfirm={handleClearData}
+        title={t("settings.dialogs.clearDataTitle", "Clear Local Data")}
+        description={t("settings.dialogs.clearDataDesc", "Are you sure you want to clear all local data? This will clear local caches and databases but will not delete your account.")}
+        confirmLabel={t("settings.actions.clear", "Clear Data")}
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteAccountDialogOpen}
+        onClose={() => setIsDeleteAccountDialogOpen(false)}
+        onConfirm={handleDeleteAccount}
+        title={t("settings.dialogs.deleteAccountTitle", "Wipe Profile & Delete Account")}
+        description={t("settings.dialogs.deleteAccountDesc", "Are you sure you want to completely erase your network profile and local data? This action will overwrite your public profile and remove your key from this device.")}
+        confirmLabel={t("settings.actions.delete", "Wipe & Delete Account")}
+        variant="danger"
+      />
     </div>
   );
 }

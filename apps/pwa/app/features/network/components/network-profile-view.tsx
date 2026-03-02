@@ -13,7 +13,10 @@ import {
     Shield,
     Share2,
     CheckCircle2,
-    Plus
+    Plus,
+    UserPlus,
+    Loader2,
+    Clock
 } from "lucide-react";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Button } from "@dweb/ui-kit";
@@ -34,6 +37,7 @@ import type { GroupMetadata } from "@/app/features/groups/types";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import type { Message, DmConversation } from "@/app/features/messaging/types";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
+import { ConnectRequestDialog } from "./connect-request-dialog";
 
 export default function ConnectionProfileView() {
     const { pubkey } = useParams();
@@ -47,6 +51,7 @@ export default function ConnectionProfileView() {
     const [isRemoveDialogOpen, setIsRemoveDialogOpen] = React.useState(false);
     const [isBlockDialogOpen, setIsBlockDialogOpen] = React.useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false);
+    const [isConnectDialogOpen, setIsConnectDialogOpen] = React.useState(false);
 
     const myPublicKeyHex = identity.state.publicKeyHex || null;
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
@@ -67,10 +72,35 @@ export default function ConnectionProfileView() {
 
     const isTrusted = peerTrust?.state?.acceptedPeers?.includes(pk as PublicKeyHex) ?? false;
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes(pk as PublicKeyHex) ?? false;
+    const requestStatus = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk as PublicKeyHex });
+    const isRequestPending = requestStatus?.status === 'pending' && requestStatus.isOutgoing;
     const contact = createdContacts.find(c => c.kind === 'dm' && c.pubkey === pk);
 
     const resolvedName = metadata?.displayName || contact?.displayName || pk.slice(0, 8);
     const displayHandle = resolvedName ? `@${resolvedName}` : `@${pk.slice(0, 8)}...${pk.slice(-8)}`;
+
+    const handleConnect = async () => {
+        setIsConnectDialogOpen(true);
+    };
+
+
+    const confirmConnect = async (introMessage: string) => {
+        try {
+            const result = await dmController.sendConnectionRequest({
+                peerPublicKeyHex: pk as PublicKeyHex,
+                introMessage
+            });
+            if (result.success) {
+                setIsConnectDialogOpen(false);
+                toast.success(t("network.notifications.requestSent", "Connection request sent to {{name}}", { name: resolvedName }));
+            } else {
+                toast.error(result.error || t("network.notifications.requestFailed", "Failed to send connection request"));
+            }
+        } catch (error) {
+            console.error("Failed to send connection request:", error);
+            toast.error(t("network.notifications.requestFailed", "Failed to send connection request"));
+        }
+    };
 
     const handleMessage = () => {
         const myPk = identity.state.publicKeyHex || "";
@@ -300,8 +330,13 @@ export default function ConnectionProfileView() {
                                             Trusted Connection
                                         </div>
                                     ) : (
-                                        <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-500 text-xs font-black uppercase tracking-widest">
-                                            Stranger
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-500 text-xs font-black uppercase tracking-widest">
+                                                Stranger
+                                            </div>
+                                            <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
+                                                Send a message to request a connection
+                                            </p>
                                         </div>
                                     )}
                                 </motion.div>
@@ -310,20 +345,23 @@ export default function ConnectionProfileView() {
                             {/* Premium Action Bar */}
                             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
                                 <Button
-                                    onClick={handleMessage}
+                                    onClick={isTrusted ? handleMessage : handleConnect}
+                                    disabled={isRequestPending && !isTrusted}
                                     className="h-16 px-10 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-lg shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-3"
                                 >
-                                    <MessageSquare className="h-6 w-6" />
-                                    {t("network.actions.message", "Message")}
+                                    {isTrusted ? <MessageSquare className="h-6 w-6" /> : (isRequestPending ? <Clock className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />)}
+                                    {isTrusted ? t("network.actions.message", "Message") : (isRequestPending ? t("network.actions.pending", "Request Pending") : t("network.actions.connect", "Connect"))}
                                 </Button>
 
-                                <Button
-                                    onClick={() => setIsInviteDialogOpen(true)}
-                                    className="h-16 px-8 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-white font-black border border-white/5 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 gap-3"
-                                >
-                                    <Plus className="h-6 w-6" />
-                                    {t("network.actions.invite", "Invite")}
-                                </Button>
+                                {isTrusted && (
+                                    <Button
+                                        onClick={() => setIsInviteDialogOpen(true)}
+                                        className="h-16 px-8 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-white font-black border border-white/5 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                    >
+                                        <Plus className="h-6 w-6" />
+                                        {t("network.actions.invite", "Invite")}
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </Card>
@@ -442,6 +480,13 @@ export default function ConnectionProfileView() {
                 isOpen={isInviteDialogOpen}
                 onClose={() => setIsInviteDialogOpen(false)}
                 onInvite={handleInviteToGroup}
+            />
+
+            <ConnectRequestDialog
+                isOpen={isConnectDialogOpen}
+                onClose={() => setIsConnectDialogOpen(false)}
+                onSend={confirmConnect}
+                displayName={resolvedName}
             />
         </div>
     );

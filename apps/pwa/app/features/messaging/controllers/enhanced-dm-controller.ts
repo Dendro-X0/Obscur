@@ -276,7 +276,7 @@ export const useEnhancedDMController = (
     params.pool.connections.forEach(connection => {
       if (connection.status === 'open') {
         webSocketOptimizer.registerActivity(connection.url);
-        webSocketOptimizer.startHeartbeat(connection.url, () => console.log(`Sending heartbeat to ${connection.url}`));
+        webSocketOptimizer.startHeartbeat(connection.url, () => console.debug(`Sending heartbeat to ${connection.url}`));
       } else {
         webSocketOptimizer.cleanup(connection.url);
       }

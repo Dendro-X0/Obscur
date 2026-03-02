@@ -63,7 +63,6 @@ const saveExpanded = (expanded: boolean): void => {
 const AppShell = (props: AppShellProps): React.JSX.Element => {
   const { t } = useTranslation();
   const pathname: string = usePathname();
-  const [expanded, setExpanded] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [hasMounted, setHasMounted] = useState<boolean>(false);
   const isDesktop = useIsDesktop();
@@ -78,14 +77,6 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     });
   }, []);
 
-  useEffect((): void => {
-    queueMicrotask((): void => {
-      setExpanded(loadExpanded());
-    });
-  }, []);
-  useEffect((): void => {
-    saveExpanded(expanded);
-  }, [expanded]);
 
   const activeHref: string = useMemo((): string => {
     const exact: NavItem | undefined = NAV_ITEMS.find((item: NavItem): boolean => item.href === pathname);
@@ -152,14 +143,6 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         <div className="relative hidden md:flex">
           <div className="flex w-14 flex-col items-center justify-between border-r border-black/10 bg-gradient-sidebar py-3 dark:border-white/10">
             <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                className="btn-enhanced inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
-                onClick={() => setExpanded((v: boolean): boolean => !v)}
-                aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
-              >
-                {expanded ? <SidebarClose className="h-4 w-4" /> : <SidebarOpen className="h-4 w-4" />}
-              </button>
 
               {NAV_ITEMS.map((item: NavItem) => {
                 const Icon: NavIcon | undefined = ICON_BY_HREF[item.href];

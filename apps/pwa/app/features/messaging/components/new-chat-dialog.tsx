@@ -4,6 +4,7 @@ import { Card } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { useTranslation } from "react-i18next";
+import { toast } from "@dweb/ui-kit";
 import { Camera, Loader2, Search, UserCheck, UserX, Check, MessageSquare, UserPlus } from "lucide-react";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { nip19 } from "nostr-tools";
@@ -304,13 +305,16 @@ export function NewChatDialog({
             // Also create the conversation locally so it appears in the sidebar using the resolved hex
             onCreate(resolvedPubkeyHex);
             onClose();
+            toast.success(t("network.notifications.requestSent", "Connection request sent"));
+        } else {
+            toast.error(result.error || t("network.notifications.requestFailed", "Failed to send connection request"));
         }
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm modal-transition">
             <Card title={t("network.addContact", "Add New Connection")} description={t("network.addContactDesc", "Search for people by username, public key, or NIP-05.")} className="w-full max-w-md shadow-2xl border-white/10">
                 <div className="space-y-6">
                     <div className="space-y-3">
@@ -371,7 +375,7 @@ export function NewChatDialog({
                         )}
 
                         {isScannerOpen && (
-                            <div className="animate-in fade-in zoom-in-95 duration-200 rounded-xl overflow-hidden border border-black/10 shadow-lg">
+                            <div className="modal-transition rounded-xl overflow-hidden border border-black/10 shadow-lg">
                                 <QRScanner
                                     onScan={handleScan}
                                     onClose={() => setIsScannerOpen(false)}

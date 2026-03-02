@@ -10,16 +10,14 @@ type Nip04EncryptParams = Readonly<{
   plaintext: string;
 }>;
 
-const sha256 = async (bytes: Uint8Array): Promise<Uint8Array> => {
-  const digest: ArrayBuffer = await crypto.subtle.digest("SHA-256", toArrayBuffer(bytes));
-  return new Uint8Array(digest);
-};
+
 
 const deriveNip04KeyBytes = async (params: Readonly<{ senderPrivateKeyHex: PrivateKeyHex; recipientPublicKeyHex: PublicKeyHex }>): Promise<Uint8Array> => {
   const recipientCompressedHex: string = `02${params.recipientPublicKeyHex}`;
-  const secret: Uint8Array = getSharedSecret(params.senderPrivateKeyHex, recipientCompressedHex, true);
-  const secretX: Uint8Array = secret.slice(1);
-  return sha256(secretX);
+  const secret: Uint8Array = getSharedSecret(params.senderPrivateKeyHex, recipientCompressedHex);
+  // NIP-04 shared secret is the X coordinate of the shared point (32 bytes).
+  // With noble-secp256k1, the first byte is the prefix (02/03/04), so we take the next 32 bytes.
+  return secret.slice(1, 33);
 };
 
 export const nip04Encrypt = async (params: Nip04EncryptParams): Promise<string> => {

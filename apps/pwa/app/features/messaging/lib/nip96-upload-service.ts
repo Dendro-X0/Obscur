@@ -158,12 +158,13 @@ export class Nip96UploadService implements UploadService {
                     ? err
                     : new UploadError(UploadErrorCode.UNKNOWN, err.message || String(err));
 
-                console.error(`[NIP96] Failed for ${providerUrl}:`, uploadError.message);
+                // Log only if it's the last provider or a fatal one, otherwise stay silent to avoid dev overlays
                 errors.push(uploadError);
 
                 // If it's a fatal error (like no session), don't bother retrying other providers
                 if (uploadError.code === UploadErrorCode.NO_SESSION ||
                     uploadError.code === UploadErrorCode.AUTH_MISSING_KEY) {
+                    console.error("[NIP96] Fatal error occurred, stopping upload.");
                     break;
                 }
             }
@@ -268,6 +269,11 @@ export class Nip96UploadService implements UploadService {
             } catch (e) {
                 const err = new UploadError(UploadErrorCode.NETWORK_ERROR, `Fetch failed: ${e}`);
                 errors.push(err);
+                // If it's a network error (like TypeError: Failed to fetch), retrying different field names 
+                // for the same provider is unlikely to fix it.
+                if (e instanceof TypeError || String(e).includes("Fetch failed")) {
+                    break;
+                }
                 continue;
             }
 

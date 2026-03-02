@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { isValidInviteCode } from "./invite-parser";
@@ -82,9 +82,9 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
         });
     }, [pool]);
 
-    return {
+    return useMemo(() => ({
         resolveCode,
         isResolving,
         error
-    };
+    }), [resolveCode, isResolving, error]);
 };

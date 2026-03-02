@@ -291,10 +291,13 @@ function NostrMessengerContent() {
     return <AuthScreen />;
   }
 
+  const visibleChatsList = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
+  const accurateChatsUnreadCount = visibleChatsList.reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
+
   return (
     <AppShell
       hideSidebar={!isIdentityUnlocked}
-      navBadgeCounts={{ "/": chatsUnreadCount }}
+      navBadgeCounts={{ "/": accurateChatsUnreadCount }}
       sidebarContent={
         isIdentityUnlocked ? (
           <Sidebar

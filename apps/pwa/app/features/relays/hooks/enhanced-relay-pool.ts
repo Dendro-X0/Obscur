@@ -154,7 +154,7 @@ const pendingOkResolvers: Map<string, {
   startTime: number;
 }> = new Map();
 
-const DEFAULT_PUBLISH_TIMEOUT_MS = 10000;
+const DEFAULT_PUBLISH_TIMEOUT_MS = 4000;
 
 const notifyListeners = (): void => {
   if (notifyScheduled) {

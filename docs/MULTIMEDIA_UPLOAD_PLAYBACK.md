@@ -134,14 +134,19 @@ A proxy can:
 
 But this introduces a centralized component that may conflict with project goals.
 
+## Recent Improvements (v0.7.12)
+
+### 1) Native Audio Support
+The `extractAttachmentsFromContent` logic has been expanded to detect and categorize common audio formats (MP3, WAV, OGG, M4A). These are now rendered using a dedicated, aesthetically pleasing custom `AudioPlayer` component.
+
+### 2) Hardened Upload Pipeline
+- **Log Noise Suppression**: Downgraded individual NIP-96 provider failures to `console.warn` to prevent Next.js development overlays from blocking the UI during automatic fallback.
+- **Fail-Fast Error Handling**: Network/fetch errors now trigger immediate provider fallback without waiting for a full 10s timeout, significantly speeding up the upload process when a provider is unreachable.
+- **Resolved Sync Issues**: Improved the multipart request builder to be more resilient to specific NIP-96 provider variations (e.g. `nostr.build` vs `void.cat`).
+
 ## Known Related Issues
-
-- IndexedDB object store NotFoundError may indicate a missing migration or schema mismatch.
-  - If it impacts core UX, it should be fixed.
-  - Otherwise, it should be documented as a known issue with remediation steps.
-
 ## Status
 
-- Upload reliability improved (browser matches native NIP-98/NIP-96 behavior better).
-- Embedded MP4 playback in Tauri/WebView remains unreliable for certain external MP4s.
-- Fallback UX exists (open externally), but root cause data (MediaError code + headers) still needs to be captured and stored here.
+- **Upload Reliability**: Greatly improved for browser/PWA (matches native NIP-98/NIP-96 behavior).
+- **Audio Support**: Complete as of v0.7.12.
+- **Video Playback**: Embedded MP4 playback in Tauri/WebView remains a "best effort" due to codec limitations; fallback "Open Externally" is the recommended path for incompatible videos.

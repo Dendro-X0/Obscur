@@ -61,14 +61,14 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
   }
 
   if (params.processingEvents.has(event.id)) {
-    console.log("Already processing event:", event.id);
+    console.debug("Already processing event:", event.id);
     endTracking();
     return;
   }
 
   const isDuplicateInMemory = params.existingMessages.some(m => m.eventId === event.id);
   if (isDuplicateInMemory) {
-    console.log("Ignoring duplicate message (in memory):", event.id);
+    console.debug("Ignoring duplicate message (in memory):", event.id);
     endTracking();
     return;
   }
@@ -144,7 +144,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         decryptError instanceof Error ? decryptError : new Error("Decryption failed"),
         { eventId: event.id, sender: senderPubkey }
       );
-      console.warn("Failed to decrypt message:", event.id, decryptError);
+      console.info("Info: Incoming message could not be decrypted (maybe intended for another key or malformed):", event.id);
       return;
     }
 
@@ -179,7 +179,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     if (params.messageQueue) {
       const existingMessage = await params.messageQueue.getMessage(usedEventId);
       if (existingMessage) {
-        console.log("Ignoring duplicate message (found in storage):", usedEventId);
+        console.debug("Ignoring duplicate message (found in storage):", usedEventId);
         return;
       }
     }
@@ -249,7 +249,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         const p = prev;
         const alreadyExists = p.messages.some((m: Message) => m.eventId === event.id);
         if (alreadyExists) {
-          console.log("Ignoring duplicate message (race condition caught):", event.id);
+          console.debug("Ignoring duplicate message (race condition caught):", event.id);
           return prev;
         }
 

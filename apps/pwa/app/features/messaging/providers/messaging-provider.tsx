@@ -225,7 +225,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const conversationId = selectedConversation.id;
         queueMicrotask(() => {
             setUnreadByConversationId(prev => {
-                if (!prev[conversationId] || prev[conversationId] === 0) return prev;
+                if (prev[conversationId] === 0) return prev;
                 const next = { ...prev, [conversationId]: 0 };
                 if (publicKeyHex) chatStateStoreService.updateUnreadCounts(publicKeyHex, next);
                 return next;

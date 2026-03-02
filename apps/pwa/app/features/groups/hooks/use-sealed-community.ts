@@ -561,7 +561,17 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const noop = async () => { };
   const updateMetadata = noop;
   const setGroupStatus = noop;
-  const requestJoin = noop;
+  const requestJoin = useCallback(async (): Promise<void> => {
+    if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
+    try {
+      const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
+      const joinEvent = await groupService.sendNip29Join({ groupId: params.groupId });
+      await params.pool.publishToAll(JSON.stringify(["EVENT", joinEvent]));
+      toast.success("Join request sent to relay");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to send join request");
+    }
+  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool]);
   const approveJoin = noop;
   const denyJoin = noop;
   const approveAllJoinRequests = noop;

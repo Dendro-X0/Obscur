@@ -47,17 +47,17 @@ export function SendRequestDialog({
             <Card
                 title={t("network.sendRequestTitle", "Send Connection Request")}
                 description={t("network.sendRequestDesc", { name: recipientLabel })}
-                className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+                className="w-full max-w-md shadow-2xl border-white/10 bg-white dark:bg-zinc-950 dark:border-zinc-800 modal-transition"
             >
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="intro-message">{t("network.introMessage", "Introduction (optional)")}</Label>
+                        <Label htmlFor="intro-message" className="text-zinc-500 dark:text-zinc-400 font-bold">{t("network.introMessage", "Introduction (optional)")}</Label>
                         <Textarea
                             id="intro-message"
                             placeholder={t("network.introPlaceholder", "Hi! I'd like to connect with you...")}
                             value={introMessage}
                             onChange={(e) => setIntroMessage(e.target.value)}
-                            className="h-32 resize-none rounded-xl"
+                            className="h-32 resize-none rounded-xl bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-950 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 transition-all shadow-sm"
                             maxLength={280}
                         />
                         <div className="flex justify-end">

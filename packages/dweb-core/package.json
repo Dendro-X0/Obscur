@@ -1,6 +1,6 @@
 {
   "name": "@dweb/core",
-  "version": "0.7.8-alpha",
+  "version": "0.7.12-alpha",
   "private": true,
   "type": "module",
   "dependencies": {

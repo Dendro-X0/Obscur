@@ -53,30 +53,21 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 } else {
                     finalContent = urls;
                 }
+                setIsUploadingAttachment(false);
             } catch (error: any) {
-                console.error("Failed to upload attachment:", error);
+                console.warn("Failed to upload attachment:", error);
                 setIsUploadingAttachment(false);
 
-                if (error instanceof UploadError) {
-                    switch (error.code) {
-                        case UploadErrorCode.NO_SESSION:
-                            setAttachmentError("Session expired. Please lock/unlock.");
-                            break;
-                        case UploadErrorCode.AUTH_MISSING_KEY:
-                            setAttachmentError("Login required for upload.");
-                            break;
-                        case UploadErrorCode.FILE_TOO_LARGE:
-                            setAttachmentError("File too large.");
-                            break;
-                        case UploadErrorCode.NETWORK_ERROR:
-                            setAttachmentError("Network error. Check connection.");
-                            break;
-                        default:
-                            setAttachmentError(error.message || "Upload failed");
-                    }
-                } else {
-                    setAttachmentError("Upload failed unexpectedly");
-                }
+                const errorMessage = error instanceof UploadError
+                    ? (error.code === UploadErrorCode.NO_SESSION ? "Session expired. Please lock/unlock." :
+                        error.code === UploadErrorCode.AUTH_MISSING_KEY ? "Login required for upload." :
+                            error.code === UploadErrorCode.FILE_TOO_LARGE ? "File too large." :
+                                error.code === UploadErrorCode.NETWORK_ERROR ? "Network error. Check connection." :
+                                    error.message || "Upload failed")
+                    : "Upload failed unexpectedly";
+
+                setAttachmentError(errorMessage);
+                toast.error(errorMessage);
                 return; // Stop sending
             }
         }

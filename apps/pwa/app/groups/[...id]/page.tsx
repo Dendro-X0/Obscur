@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
     Users,
@@ -16,13 +16,15 @@ import {
     BellOff,
     LogOut,
     Loader2,
-    UserPlus
+    UserPlus,
+    Ban
 } from "lucide-react";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { PageShell } from "@/app/components/page-shell";
 import { Button } from "@dweb/ui-kit";
+import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Card } from "@dweb/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteContactsDialog } from "@/app/features/groups/components/invite-contacts-dialog";
@@ -42,6 +44,9 @@ export default function GroupHomePage() {
     const { createdGroups, leaveGroup, updateGroup } = useGroups();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
+    const { blocklist } = useNetwork();
+    const searchParams = useSearchParams();
+    const discoveredRelay = searchParams.get("relay");
     const [isLeaving, setIsLeaving] = useState(false);
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
     const [isInviteContactsOpen, setIsInviteContactsOpen] = useState(false);
@@ -55,18 +60,22 @@ export default function GroupHomePage() {
         id.includes(g.id)
     ) : undefined;
 
+    const effectiveRelay = group?.relayUrl || discoveredRelay || "";
+    const isGuest = !group;
+
     const {
         state: groupState,
         updateMetadata,
         leaveGroup: leaveNip29Group,
+        requestJoin: requestJoinNip29,
         members: discoveredMembers
     } = useSealedCommunity({
-        groupId: group?.groupId || "",
-        relayUrl: group?.relayUrl || "",
+        groupId: group?.groupId || id || "",
+        relayUrl: effectiveRelay,
         pool: relayPool,
         myPublicKeyHex: identityState.publicKeyHex || null,
         myPrivateKeyHex: identityState.privateKeyHex || null,
-        enabled: !!group,
+        enabled: !!(group || discoveredRelay),
         initialMembers: group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined
     });
 
@@ -117,6 +126,19 @@ export default function GroupHomePage() {
         }
     };
 
+    const handleToggleBlock = () => {
+        const identifier = group?.groupId || id || "";
+        if (blocklist.state.blockedPublicKeys.includes(identifier as any)) {
+            blocklist.removeBlocked({ publicKeyHex: identifier as any });
+            toast.success("Community unblocked");
+        } else {
+            blocklist.addBlocked({ publicKeyInput: identifier });
+            toast.success("Community blocked");
+        }
+    };
+
+    const isBlocked = blocklist?.state?.blockedPublicKeys?.includes((group?.groupId || id || "") as any) ?? false;
+
     const handleLeave = async () => {
         setIsLeaving(true);
         try {
@@ -136,7 +158,7 @@ export default function GroupHomePage() {
     const aboutText = groupState.metadata?.about || group?.about || "This resilient community is built on decentralized protocols. Privacy first, always.";
     const avatarUrl = groupState.metadata?.picture || group?.avatar;
 
-    if (!group) {
+    if (!group && !discoveredRelay) {
         return (
             <PageShell title="Group Not Found">
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -154,7 +176,7 @@ export default function GroupHomePage() {
     }
 
     return (
-        <PageShell title={group.displayName}>
+        <PageShell title={displayName}>
             <div className="max-w-5xl mx-auto w-full pt-20 pb-20 md:pb-0 px-4 sm:px-6 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {/* Back Button */}
                 <div className="pt-6">
@@ -226,7 +248,7 @@ export default function GroupHomePage() {
                                         >
                                             <Globe className="h-3.5 w-3.5 text-purple-400" />
                                             <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
-                                                {group.relayUrl.replace("wss://", "")}
+                                                {effectiveRelay.replace("wss://", "")}
                                             </span>
                                         </motion.div>
                                     </div>
@@ -237,56 +259,76 @@ export default function GroupHomePage() {
 
                                 {/* Premium Action Bar */}
                                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                                    <Button
-                                        onClick={() => router.push(`/?convId=${encodeURIComponent(group.id)}`)}
-                                        className="h-16 px-10 rounded-2xl bg-white text-black hover:bg-zinc-200 font-black text-lg shadow-2xl shadow-white/5 transition-all hover:scale-[1.02] active:scale-95 gap-3"
-                                    >
-                                        <MessageSquare className="h-6 w-6" />
-                                        Enter Community Chat
-                                    </Button>
+                                    {!isGuest ? (
+                                        <Button
+                                            onClick={() => router.push(`/?convId=${encodeURIComponent(group.id)}`)}
+                                            className="h-16 px-10 rounded-2xl bg-white text-black hover:bg-zinc-200 font-black text-lg shadow-2xl shadow-white/5 transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                        >
+                                            <MessageSquare className="h-6 w-6" />
+                                            Enter Community Chat
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            onClick={requestJoinNip29}
+                                            className="h-16 px-10 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-lg shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                        >
+                                            <UserPlus className="h-6 w-6" />
+                                            Join Community
+                                        </Button>
+                                    )}
 
-                                    <Button
-                                        onClick={() => setIsInviteContactsOpen(true)}
-                                        className="h-16 px-8 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-black border border-white/5 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 gap-3"
-                                    >
-                                        <UserPlus className="h-5 w-5" />
-                                        Invite
-                                    </Button>
+                                    {!isGuest && (
+                                        <Button
+                                            onClick={() => setIsInviteContactsOpen(true)}
+                                            className="h-16 px-8 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-black border border-white/5 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                        >
+                                            <UserPlus className="h-5 w-5" />
+                                            Invite
+                                        </Button>
+                                    )}
 
                                     <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl backdrop-blur-md">
-                                        <Button
-                                            variant="ghost"
-                                            onClick={toggleNotifications}
-                                            className={cn(
-                                                "h-14 w-14 rounded-xl transition-all hover:bg-white/5",
-                                                notificationsEnabled ? "text-purple-400" : "text-zinc-500"
-                                            )}
-                                        >
-                                            {notificationsEnabled ? <Bell className="h-6 w-6" /> : <BellOff className="h-6 w-6" />}
-                                        </Button>
+                                        {!isGuest && (
+                                            <Button
+                                                variant="ghost"
+                                                onClick={toggleNotifications}
+                                                className={cn(
+                                                    "h-14 w-14 rounded-xl transition-all hover:bg-white/5",
+                                                    notificationsEnabled ? "text-purple-400" : "text-zinc-500"
+                                                )}
+                                            >
+                                                {notificationsEnabled ? <Bell className="h-6 w-6" /> : <BellOff className="h-6 w-6" />}
+                                            </Button>
+                                        )}
 
-                                        <Button
-                                            variant="ghost"
-                                            className="h-14 w-14 rounded-xl text-zinc-400 hover:text-white transition-all hover:bg-white/5"
-                                            onClick={() => {
-                                                const url = `${window.location.origin}/groups/${encodeURIComponent(group.id)}`;
-                                                navigator.clipboard.writeText(url);
-                                                toast.success("Discovery link copied");
-                                            }}
-                                        >
-                                            <Share2 className="h-6 w-6" />
-                                        </Button>
+                                        {!isGuest && (
+                                            <Button
+                                                variant="ghost"
+                                                className="h-14 w-14 rounded-xl text-zinc-400 hover:text-white transition-all hover:bg-white/5"
+                                                onClick={() => {
+                                                    const url = `${window.location.origin}/groups/${encodeURIComponent(group?.id || id || "")}`;
+                                                    navigator.clipboard.writeText(url);
+                                                    toast.success("Discovery link copied");
+                                                }}
+                                            >
+                                                <Share2 className="h-6 w-6" />
+                                            </Button>
+                                        )}
 
-                                        <div className="w-[1px] h-8 bg-white/10 mx-1" />
+                                        {!isGuest && (
+                                            <>
+                                                <div className="w-[1px] h-8 bg-white/10 mx-1" />
 
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => setIsLeaveConfirmOpen(true)}
-                                            disabled={isLeaving}
-                                            className="h-14 w-14 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all hover:scale-110 active:scale-90"
-                                        >
-                                            {isLeaving ? <Loader2 className="h-6 w-6 animate-spin" /> : <LogOut className="h-6 w-6" />}
-                                        </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    onClick={() => setIsLeaveConfirmOpen(true)}
+                                                    disabled={isLeaving}
+                                                    className="h-14 w-14 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all hover:scale-110 active:scale-90"
+                                                >
+                                                    {isLeaving ? <Loader2 className="h-6 w-6 animate-spin" /> : <LogOut className="h-6 w-6" />}
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -366,7 +408,7 @@ export default function GroupHomePage() {
                             </div>
                             <div className="space-y-1">
                                 <h3 className="text-2xl font-black text-white">Relay Infrastructure</h3>
-                                <p className="text-sm text-zinc-500 font-medium font-mono opacity-80">{group.relayUrl}</p>
+                                <p className="text-sm text-zinc-500 font-medium font-mono opacity-80">{effectiveRelay}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-8">
@@ -381,20 +423,55 @@ export default function GroupHomePage() {
                     </Card>
                 </div>
 
-                <InviteContactsDialog
-                    isOpen={isInviteContactsOpen}
-                    onClose={() => setIsInviteContactsOpen(false)}
-                    groupId={group.groupId}
-                    roomKeyHex={roomKeyHex || ""}
-                    currentMemberPubkeys={activeMembers}
-                    metadata={{
-                        id: group.groupId,
-                        name: displayName,
-                        about: aboutText,
-                        picture: avatarUrl || "",
-                        access: groupState.metadata?.access || "invite-only"
-                    }}
-                />
+                {/* Management Controls */}
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3 px-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600">
+                            Management Controls
+                        </h3>
+                    </div>
+
+                    <Card className="overflow-hidden border-white/[0.03] bg-[#0C0C0E]/40 backdrop-blur-xl rounded-[40px]">
+                        <div className="flex flex-col">
+                            <button
+                                onClick={handleToggleBlock}
+                                className="flex items-center justify-between p-8 hover:bg-rose-500/[0.02] transition-colors group/item"
+                            >
+                                <div className="flex items-center gap-6">
+                                    <div className="h-14 w-14 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover/item:scale-110 transition-transform">
+                                        <Ban className="h-6 w-6 text-rose-500" />
+                                    </div>
+                                    <div className="text-left space-y-1">
+                                        <p className="text-xl font-black text-white group-hover/item:text-rose-500 transition-colors">
+                                            {isBlocked ? "Unblock community" : "Block community"}
+                                        </p>
+                                        <p className="text-sm text-zinc-500 font-medium">
+                                            {isBlocked ? "Allow this community to appear in your network" : "Hide this community and ignore its events"}
+                                        </p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </Card>
+                </div>
+
+                {!isGuest && group && (
+                    <InviteContactsDialog
+                        isOpen={isInviteContactsOpen}
+                        onClose={() => setIsInviteContactsOpen(false)}
+                        groupId={group.groupId}
+                        roomKeyHex={roomKeyHex || ""}
+                        currentMemberPubkeys={activeMembers}
+                        metadata={{
+                            id: group.groupId,
+                            name: displayName,
+                            about: aboutText,
+                            picture: avatarUrl || "",
+                            access: groupState.metadata?.access || "invite-only"
+                        }}
+                    />
+                )}
 
                 <ConfirmDialog
                     isOpen={isLeaveConfirmOpen}

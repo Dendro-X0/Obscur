@@ -68,8 +68,6 @@ export function NetworkDashboard() {
     const [activeTab, setActiveTab] = useState<TabId>("all");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
     const [searchQuery, setSearchQuery] = useState("");
-    const [isSearching, setIsSearching] = useState(false);
-    const [searchResults, setSearchResults] = useState<Array<{ pubkey: string, name: string, display_name?: string, picture?: string }>>([]);
     const [revealedByPubkey, setRevealedByPubkey] = useState<Readonly<Record<string, boolean>>>({});
     const [isAddConnectionOpen, setIsAddConnectionOpen] = useState(false);
     const { addToast } = useToasts();
@@ -103,25 +101,26 @@ export function NetworkDashboard() {
     const filteredRequests = useMemo(() => {
         return requestsInbox.state.items
             .filter(req => req.status === 'pending')
-            .filter(req => req.peerPublicKeyHex.toLowerCase().includes(searchQuery.toLowerCase()));
+            .filter(req => (req.peerPublicKeyHex || "").toLowerCase().includes(searchQuery.toLowerCase()));
     }, [requestsInbox.state.items, searchQuery]);
 
     const filteredDeclined = useMemo(() => {
         return requestsInbox.state.items
             .filter(req => req.status === 'declined' || req.status === 'canceled')
-            .filter(req => req.peerPublicKeyHex.toLowerCase().includes(searchQuery.toLowerCase()));
+            .filter(req => (req.peerPublicKeyHex || "").toLowerCase().includes(searchQuery.toLowerCase()));
     }, [requestsInbox.state.items, searchQuery]);
 
     const filteredBlocked = useMemo(() => {
         return blocklist.state.blockedPublicKeys.filter(pk =>
-            pk.toLowerCase().includes(searchQuery.toLowerCase())
+            (pk || "").toLowerCase().includes(searchQuery.toLowerCase())
         );
     }, [blocklist.state.blockedPublicKeys, searchQuery]);
 
     const filteredGroups = useMemo(() => {
-        return createdGroups.filter(group =>
-            group.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        return createdGroups.filter(group => {
+            const name = group.displayName || group.id || "";
+            return name.toLowerCase().includes(searchQuery.toLowerCase());
+        });
     }, [createdGroups, searchQuery]);
 
     const filteredAcceptedPeers = useMemo(() => {
@@ -136,78 +135,24 @@ export function NetworkDashboard() {
         const trimmedQuery = searchQuery.trim();
         if (!trimmedQuery) return;
 
-        // Reset
-        setSearchResults([]);
-        setIsSearching(true);
-
-        // Check for Invite Code
-        const code = trimmedQuery.toUpperCase();
-        if (isValidInviteCode(code)) {
-            const resolved = await inviteResolver.resolveCode(code);
-            setIsSearching(false);
-            if (resolved) {
-                setSearchResults([{
-                    pubkey: resolved.publicKeyHex,
-                    name: resolved.displayName || t("common.unknown"),
-                    display_name: resolved.displayName,
-                    picture: resolved.avatar
-                }]);
-            }
-            return;
-        }
-
         // Check for exact pubkey
         const parsed = parsePublicKeyInput(trimmedQuery);
         if (parsed.ok) {
-            router.push(`/?pubkey=${encodeURIComponent(parsed.publicKeyHex)}`);
-            setIsSearching(false);
+            router.push(`/network/${parsed.publicKeyHex}`);
             return;
         }
 
-        // Check for group identifier
-        const parsedGroup = parseNip29GroupIdentifier(trimmedQuery);
-        if (parsedGroup.ok) {
-            router.push(`/groups/${encodeURIComponent(parsedGroup.identifier)}`);
-            setIsSearching(false);
-            return;
-        }
-
-        // Search by name via Relay
-        const subId = Math.random().toString(36).substring(7);
-        const filter = { kinds: [0], limit: 12, search: trimmedQuery };
-        const req = JSON.stringify(["REQ", subId, filter]);
-
-        void pool.broadcastEvent(req);
-
-        const cleanup = pool.subscribeToMessages(({ message }: { message: string }) => {
-            try {
-                const parsedMessage = JSON.parse(message);
-                if (parsedMessage[0] === "EVENT" && parsedMessage[1] === subId) {
-                    const event = parsedMessage[2];
-                    const content = JSON.parse(event.content);
-                    setSearchResults(prev => {
-                        if (prev.some(r => r.pubkey === event.pubkey)) return prev;
-                        return [...prev, {
-                            pubkey: event.pubkey,
-                            name: content.name || content.display_name || t("common.unknown"),
-                            display_name: content.display_name,
-                            picture: content.picture
-                        }];
-                    });
-                }
-                if (parsedMessage[0] === "EOSE" && parsedMessage[1] === subId) {
-                    setIsSearching(false);
-                }
-            } catch (err) {
-                console.error("Dashboard search parse failed:", err);
+        // Check for group identifier (only if specifically formatted as host'id)
+        if (trimmedQuery.includes("'")) {
+            const parsedGroup = parseNip29GroupIdentifier(trimmedQuery);
+            if (parsedGroup.ok) {
+                router.push(`/groups/${encodeURIComponent(parsedGroup.identifier)}`);
+                return;
             }
-        });
+        }
 
-        setTimeout(() => {
-            pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
-            cleanup();
-            setIsSearching(false);
-        }, 5000);
+        // Redirect to the new dedicated search page for everything else
+        router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
     };
 
     const renderEmptyState = (title: string, description: string, icon: React.ElementType, action?: { label: string, onClick: () => void }) => (
@@ -246,11 +191,7 @@ export function NetworkDashboard() {
                             }}
                             className="pl-10 h-10 bg-muted/30 border-input text-foreground rounded-xl text-sm font-medium transition-all focus:ring-primary/30 focus:border-primary/30 w-full"
                         />
-                        {isSearching && (
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                <LoaderIcon className="h-4 w-4 animate-spin text-primary" />
-                            </div>
-                        )}
+
                     </div>
 
                     {/* View Toggle - Integrated next to search */}
@@ -273,69 +214,11 @@ export function NetworkDashboard() {
                         </Button>
                     </div>
 
-                    {/* Global Search Results Popup */}
-                    {searchResults.length > 0 && (
-                        <div className="absolute top-full left-0 mt-3 w-[calc(100%+80px)] bg-popover border border-border rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2">
-                            <div className="flex items-center justify-between mb-4 px-1">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                                        {t("network.searchTitle", "Network Search")}
-                                    </h3>
-                                </div>
-                                <button
-                                    onClick={() => setSearchResults([])}
-                                    className="text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-widest"
-                                >
-                                    Dismiss
-                                </button>
-                            </div>
-                            <div className="flex flex-col gap-1.5 max-h-[60vh] overflow-y-auto scrollbar-thin">
-                                {searchResults.map((result) => (
-                                    <div
-                                        key={result.pubkey}
-                                        role="button"
-                                        tabIndex={0}
-                                        className="p-3 bg-card hover:bg-accent border border-transparent hover:border-primary/20 transition-all rounded-xl cursor-pointer flex items-center gap-4 group"
-                                        onClick={() => {
-                                            router.push(`/network/${result.pubkey}`);
-                                            setSearchResults([]);
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                router.push(`/network/${result.pubkey}`);
-                                                setSearchResults([]);
-                                            }
-                                        }}
-                                    >
-                                        <div className="relative">
-                                            <Avatar className="h-11 w-11 border border-border shadow-sm">
-                                                {result.picture ? (
-                                                    <Image src={result.picture} alt={result.name} width={44} height={44} className="object-cover" />
-                                                ) : (
-                                                    <AvatarFallback className="bg-muted">
-                                                        <UserIcon className="h-5 w-5 text-muted-foreground" />
-                                                    </AvatarFallback>
-                                                )}
-                                            </Avatar>
-                                            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-primary rounded-full border-2 border-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <PlusCircle className="h-2 w-2 text-primary-foreground" />
-                                            </div>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">{result.name}</h4>
-                                            <p className="text-[10px] text-muted-foreground font-mono mt-0.5 opacity-60 truncate">{result.pubkey}</p>
-                                        </div>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {/* Global Search Results Popup - Removed, handled by /search page */}
                 </div>
 
                 {/* Compact Action Buttons */}
-                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0">
+                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto py-4 px-2 scrollbar-none shrink-0">
                     <Button
                         onClick={() => setIsAddConnectionOpen(true)}
                         size="sm"
@@ -771,10 +654,12 @@ export function NetworkDashboard() {
                 onSuccess={() => { }}
             />
 
-            <AddConnectionModal
-                open={isAddConnectionOpen}
-                onOpenChange={setIsAddConnectionOpen}
-            />
+            {isAddConnectionOpen && (
+                <AddConnectionModal
+                    open={isAddConnectionOpen}
+                    onOpenChange={setIsAddConnectionOpen}
+                />
+            )}
 
 
         </div >

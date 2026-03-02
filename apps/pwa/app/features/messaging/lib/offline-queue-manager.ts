@@ -122,9 +122,9 @@ export class OfflineQueueManager {
     try {
       // Get queued messages
       const queuedMessages = await getQueuedMessages();
-      
+
       if (queuedMessages.length === 0) {
-        console.log('No messages in queue');
+        console.debug('No messages in queue');
         return result;
       }
 
@@ -140,7 +140,7 @@ export class OfflineQueueManager {
 
           if (success) {
             result.succeeded++;
-            
+
             // Remove from queue on success
             try {
               await removeFromQueue(message.id);
@@ -192,7 +192,7 @@ export class OfflineQueueManager {
   ): Promise<QueueStatus> {
     try {
       const messages = await getQueuedMessages();
-      
+
       if (messages.length === 0) {
         return {
           totalQueued: 0,
@@ -291,7 +291,7 @@ export class OfflineQueueManager {
 
       console.log(`Cleared ${cleared} messages from queue`);
       this.notifyListeners();
-      
+
       return cleared;
     } catch (error) {
       console.error('Failed to clear queue:', error);

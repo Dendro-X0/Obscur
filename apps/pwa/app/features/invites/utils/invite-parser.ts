@@ -1,6 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
-const INVITE_CODE_PATTERN = /^OBSCUR-([A-Z0-9]{6})$/;
+const INVITE_CODE_PATTERN = /^OBSCUR-([A-Z0-9]{5,10})$/;
 
 export type InviteData = Readonly<{
     code: string;

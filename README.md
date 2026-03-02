@@ -4,7 +4,7 @@
 >
 > This project is currently in an early **Alpha** stage and is known to contain logical flaws, invisible functional errors, and stability issues. It is **NOT** ready for production use.
 > 
-> **Release Channels**: This app is currently an immature, underground application, and therefore only has two release channels: [GitHub Releases](../../releases) (the latest packaged version is v0.7.8-alpha) and an official website (not yet deployed).
+> **Release Channels**: This app is currently an immature, underground application, and therefore only has two release channels: [GitHub Releases](../../releases) (the latest packaged version is v0.7.12-alpha) and an official website (not yet deployed).
 >
 > We are actively working to resolve these issues, but fixes may introduce regressions. We invite you to test usage and **report any issues you find** to help us stabilize the architecture. Use at your own risk.
 

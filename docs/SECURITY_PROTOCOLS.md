@@ -7,7 +7,8 @@ Obscur is more than just a chat application; it is a reference implementation of
 ### 1. End-to-End Encryption (E2EE)
 Obscur guarantees that only the sender and the intended recipient can read messages. Relays (servers) only transport encrypted blobs and never have access to cleartext data.
 
-- **Algorithm**: We use **NIP-44 (Version 2)**, which employs **XChaCha20-Poly1305** for authenticated encryption.
+- **Native DM Encryption (NIP-04)**: Standard direct messages are encrypted using AES-256-CBC. In v0.7.12, we fixed a critical shared-secret derivation bug (removed incorrect SHA256 hashing) to ensure full compatibility with the official Nostr spec and other third-party clients.
+- **Modern Encryption (NIP-44)**: Used for high-privacy metadata-hidden DMs (NIP-17), employing **XChaCha20-Poly1305** for authenticated encryption.
 - **Key Exchange**: Shared secrets are derived using **secp256k1** Elliptic Curve Diffie-Hellman (ECDH).
 - **Forward Secrecy**: (Future Roadmap) Implementation of ratchet mechanisms (Double Ratchet) for perfect forward secrecy.
 

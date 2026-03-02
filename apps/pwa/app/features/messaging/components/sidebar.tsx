@@ -99,7 +99,9 @@ export function Sidebar({
 
     const resolvedNowMs: number = nowMs ?? localNowMs;
 
-    const chatsUnreadTotal = Object.values(unreadByConversationId).reduce((a: number, b: number) => a + b, 0);
+    const visibleConversations = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
+
+    const chatsUnreadTotal = visibleConversations.reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
     const requestsUnreadTotal = requests.reduce((sum: number, r: RequestsInboxItem) => sum + r.unreadCount, 0);
     const pendingRequestsCount = requests.filter(r => r.status === 'pending').length;
 
@@ -107,13 +109,16 @@ export function Sidebar({
     const [isCommunitiesExpanded, setIsCommunitiesExpanded] = useState(true);
     const [chatViewMode, setChatViewMode] = useState<"direct" | "community">("direct");
 
-    const visibleConversations = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
+
 
     const pinnedConversations = visibleConversations.filter(c => pinnedChatIds.includes(c.id));
     const unpinnedConversations = visibleConversations.filter(c => !pinnedChatIds.includes(c.id));
 
     const dms = unpinnedConversations.filter(c => c.kind === 'dm');
     const communities = unpinnedConversations.filter(c => c.kind === 'group');
+
+    const dmsUnread = visibleConversations.filter(c => c.kind === 'dm').reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
+    const groupsUnread = visibleConversations.filter(c => c.kind === 'group').reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
 
     const renderConversationList = (list: ReadonlyArray<Conversation>) => (
         list.map((conversation) => (
@@ -233,6 +238,11 @@ export function Sidebar({
                                 )}
                             >
                                 {t("messaging.chat")}
+                                {dmsUnread > 0 && (
+                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] text-white shadow-sm">
+                                        {dmsUnread}
+                                    </span>
+                                )}
                             </button>
                             <button
                                 onClick={() => setChatViewMode("community")}
@@ -244,6 +254,11 @@ export function Sidebar({
                                 )}
                             >
                                 {t("messaging.group")}
+                                {groupsUnread > 0 && (
+                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] text-white shadow-sm">
+                                        {groupsUnread}
+                                    </span>
+                                )}
                             </button>
                         </div>
                         <Button

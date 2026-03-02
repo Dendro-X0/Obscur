@@ -160,6 +160,23 @@ export class GroupService {
     }
 
     /**
+     * Sends a NIP-29 JOIN event to the relay.
+     */
+    async sendNip29Join(params: {
+        groupId: string;
+        reason?: string;
+    }): Promise<NostrEvent> {
+        const unsigned: UnsignedNostrEvent = {
+            kind: 9021,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [["h", params.groupId]],
+            content: params.reason ?? "",
+            pubkey: this.myPublicKeyHex
+        };
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
      * Distributes a Room Key to a specific user via NIP-17 Gift-Wrapped DM.
      */
     async distributeRoomKey(params: {

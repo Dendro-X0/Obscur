@@ -60,13 +60,13 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
             <Card
-                className="w-full max-w-lg bg-[#0a0a0c] border-[#1a1a1c] shadow-2xl p-0 overflow-hidden rounded-[24px]"
+                className="w-full max-w-lg bg-white dark:bg-[#0a0a0c] border-zinc-200 dark:border-[#1a1a1c] shadow-2xl p-0 overflow-hidden rounded-[24px]"
             >
                 <div className="p-6 space-y-8">
                     {/* Header */}
                     <div className="space-y-1">
-                        <h2 className="text-xl font-black text-white">{t("groups.createTitle", "Create New Group")}</h2>
-                        <p className="text-sm font-medium text-zinc-400">{t("groups.createDescription", "Start a new relay-based group chat.")}</p>
+                        <h2 className="text-xl font-black text-zinc-900 dark:text-white">{t("groups.createTitle", "Create New Group")}</h2>
+                        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{t("groups.createDescription", "Start a new relay-based group chat.")}</p>
                     </div>
                     <div className="space-y-6">
                         <div className="flex gap-6 items-start">
@@ -82,7 +82,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                             value={info.host}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInfo(prev => ({ ...prev, host: e.target.value }))}
                                             placeholder="e.g. groups.fiatjaf.com"
-                                            className="bg-[#121214] border-[#222224] text-white rounded-2xl h-12 focus-visible:ring-purple-500/50"
+                                            className="bg-zinc-50 dark:bg-[#121214] border-zinc-200 dark:border-[#222224] text-zinc-900 dark:text-white rounded-2xl h-12 focus-visible:ring-purple-500/50"
                                         />
                                         <div className="flex flex-wrap gap-2 mt-3">
                                             {RELAY_SUGGESTIONS.map(relay => (
@@ -93,8 +93,8 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                                     className={cn(
                                                         "text-[10px] px-3 py-1.5 rounded-xl border transition-all font-bold",
                                                         info.host === relay.url
-                                                            ? "bg-purple-900/40 border-purple-500/50 text-purple-400"
-                                                            : "bg-[#121214] border-[#222224] text-zinc-500 hover:border-[#333336] hover:text-zinc-300"
+                                                            ? "bg-purple-500/10 dark:bg-purple-900/40 border-purple-500/50 text-purple-600 dark:text-purple-400"
+                                                            : "bg-white dark:bg-[#121214] border-zinc-200 dark:border-[#222224] text-zinc-500 hover:border-zinc-300 dark:hover:border-[#333336] hover:text-zinc-700 dark:hover:text-zinc-300"
                                                     )}
                                                 >
                                                     {relay.url} <span className="opacity-50 font-medium">({relay.type})</span>
@@ -125,12 +125,12 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                             setIsUploading(false);
                                         }
                                     }}
-                                    className="group relative h-[100px] w-[100px] rounded-[32px] bg-[#121214] flex items-center justify-center border-2 border-dashed border-[#222224] hover:border-purple-500/50 transition-colors overflow-hidden shrink-0"
+                                    className="group relative h-[100px] w-[100px] rounded-[32px] bg-zinc-50 dark:bg-[#121214] flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-[#222224] hover:border-purple-500/50 transition-colors overflow-hidden shrink-0"
                                 >
                                     {info.avatar ? (
                                         <Image src={info.avatar} alt="Group avatar" fill unoptimized className="object-cover" />
                                     ) : (
-                                        <Camera className="h-8 w-8 text-zinc-600 group-hover:text-purple-400 transition-colors" />
+                                        <Camera className="h-8 w-8 text-zinc-400 dark:text-zinc-600 group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors" />
                                     )}
                                     {isUploading && (
                                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -138,13 +138,13 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                         </div>
                                     )}
                                 </button>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Avatar</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{t("common.avatar", "Avatar")}</span>
                             </div>
                         </div>
 
                         {/* Name Section */}
                         <div className="space-y-3">
-                            <Label htmlFor="group-name" className="text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                            <Label htmlFor="group-name" className="text-[11px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
                                 {t("groups.nameLabel", "Group Name")}
                             </Label>
                             <Input
@@ -152,13 +152,13 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                 value={info.name}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInfo(prev => ({ ...prev, name: e.target.value }))}
                                 placeholder="Club1"
-                                className="bg-[#121214] border-[#222224] text-white rounded-2xl h-12 focus-visible:ring-purple-500/50 text-base"
+                                className="bg-zinc-50 dark:bg-[#121214] border-zinc-200 dark:border-[#222224] text-zinc-900 dark:text-white rounded-2xl h-12 focus-visible:ring-purple-500/50 text-base"
                             />
                         </div>
 
                         {/* About Section */}
                         <div className="space-y-3">
-                            <Label htmlFor="group-about" className="text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                            <Label htmlFor="group-about" className="text-[11px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
                                 {t("groups.aboutLabel", "Description")}
                             </Label>
                             <Textarea
@@ -166,24 +166,23 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                 value={info.about}
                                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInfo(prev => ({ ...prev, about: e.target.value }))}
                                 placeholder="What is this group about?"
-                                className="bg-[#121214] border-[#222224] text-white rounded-2xl min-h-[100px] resize-none focus-visible:ring-purple-500/50 placeholder:text-zinc-600"
+                                className="bg-zinc-50 dark:bg-[#121214] border-zinc-200 dark:border-[#222224] text-zinc-900 dark:text-white rounded-2xl min-h-[100px] resize-none focus-visible:ring-purple-500/50 placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
                             />
                         </div>
 
-                        {/* Privacy Section */}
                         <div className="space-y-3">
-                            <Label className="text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                            <Label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
                                 {t("groups.privacyLabel", "Privacy Policy")}
                             </Label>
-                            <div className="flex bg-[#121214] border border-[#222224] rounded-[20px] p-1.5 gap-1.5">
+                            <div className="flex bg-zinc-50 dark:bg-[#121214] border border-zinc-200 dark:border-[#222224] rounded-[20px] p-1.5 gap-1.5">
                                 <button
                                     type="button"
                                     onClick={() => setInfo(prev => ({ ...prev, access: "open" }))}
                                     className={cn(
                                         "flex-1 flex flex-col items-center justify-center py-3 rounded-[16px] transition-all",
                                         info.access === "open"
-                                            ? "bg-[#222224] text-zinc-100 shadow-sm"
-                                            : "text-zinc-500 hover:bg-[#1a1a1c] hover:text-zinc-400"
+                                            ? "bg-white dark:bg-[#222224] text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-transparent"
+                                            : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-[#1a1a1c] hover:text-zinc-700 dark:hover:text-zinc-400"
                                     )}
                                 >
                                     <Globe className={cn("h-5 w-5 mb-2", info.access === "open" ? "text-purple-400" : "opacity-70")} />
@@ -195,8 +194,8 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                     className={cn(
                                         "flex-1 flex flex-col items-center justify-center py-3 rounded-[16px] transition-all",
                                         info.access === "discoverable"
-                                            ? "bg-[#222224] text-zinc-100 shadow-sm"
-                                            : "text-zinc-500 hover:bg-[#1a1a1c] hover:text-zinc-400"
+                                            ? "bg-white dark:bg-[#222224] text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-transparent"
+                                            : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-[#1a1a1c] hover:text-zinc-700 dark:hover:text-zinc-400"
                                     )}
                                 >
                                     <Users className={cn("h-5 w-5 mb-2", info.access === "discoverable" ? "text-purple-400" : "opacity-70")} />
@@ -208,8 +207,8 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                     className={cn(
                                         "flex-1 flex flex-col items-center justify-center py-3 rounded-[16px] transition-all",
                                         info.access === "invite-only"
-                                            ? "bg-[#222224] text-zinc-100 shadow-sm"
-                                            : "text-zinc-500 hover:bg-[#1a1a1c] hover:text-zinc-400"
+                                            ? "bg-white dark:bg-[#222224] text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-transparent"
+                                            : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-[#1a1a1c] hover:text-zinc-700 dark:hover:text-zinc-400"
                                     )}
                                 >
                                     <Lock className={cn("h-5 w-5 mb-2", info.access === "invite-only" ? "text-rose-400" : "opacity-70")} />
@@ -225,27 +224,27 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                     </div>
 
                     {/* Footer */}
-                    <div className="flex gap-4 p-6 pt-2 bg-[#0a0a0c]">
+                    <div className="flex gap-4 p-6 pt-2">
                         <Button
                             variant="ghost"
                             onClick={onClose}
                             disabled={isCreating}
-                            className="flex-1 h-14 rounded-[16px] bg-[#121214] hover:bg-[#1a1a1c] text-zinc-400 hover:text-white border border-[#222224] font-black tracking-wide"
+                            className="flex-1 h-14 rounded-[16px] bg-zinc-50 dark:bg-[#121214] hover:bg-zinc-100 dark:hover:bg-[#1a1a1c] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-[#222224] font-black tracking-wide transition-all shadow-none"
                         >
                             <X className="h-5 w-5 mr-2" />
-                            Cancel
+                            {t("common.cancel")}
                         </Button>
                         <Button
                             onClick={() => onCreate(info)}
                             disabled={!isValid || isCreating}
-                            className="flex-1 h-14 rounded-[16px] bg-[#6366f1] hover:bg-[#4f46e5] text-white font-black tracking-wide shadow-xl shadow-indigo-500/20 disabled:opacity-50 disabled:bg-[#222224] disabled:text-zinc-500 disabled:shadow-none"
+                            className="flex-1 h-14 rounded-[16px] bg-[#6366f1] hover:bg-[#4f46e5] text-white font-black tracking-wide disabled:opacity-50 disabled:bg-zinc-200 dark:disabled:bg-[#222224] disabled:text-zinc-400 dark:disabled:text-zinc-500 transition-all text-sm shadow-none"
                         >
                             {isCreating ? (
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white mr-2" />
                             ) : (
                                 <Check className="h-5 w-5 mr-2" />
                             )}
-                            Create
+                            {t("common.create")}
                         </Button>
                     </div>
                 </div>
