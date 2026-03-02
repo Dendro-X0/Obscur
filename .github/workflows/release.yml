@@ -106,6 +106,41 @@ jobs:
           java-version: '17'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
+      - name: Resolve Android NDK path
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidates=(
+            "${ANDROID_NDK_HOME:-}"
+            "${ANDROID_NDK_ROOT:-}"
+            "${ANDROID_NDK_LATEST_HOME:-}"
+            "${ANDROID_SDK_ROOT:-}/ndk-bundle"
+            "${ANDROID_HOME:-}/ndk-bundle"
+          )
+
+          if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "${ANDROID_SDK_ROOT}/ndk" ]; then
+            latest="$(ls -1 "${ANDROID_SDK_ROOT}/ndk" | sort -V | tail -n1 || true)"
+            if [ -n "${latest}" ]; then
+              candidates+=("${ANDROID_SDK_ROOT}/ndk/${latest}")
+            fi
+          fi
+
+          for path in "${candidates[@]}"; do
+            if [ -n "${path}" ] && [ -d "${path}" ]; then
+              echo "NDK_HOME=${path}" >> "$GITHUB_ENV"
+              echo "ANDROID_NDK_HOME=${path}" >> "$GITHUB_ENV"
+              echo "Resolved Android NDK: ${path}"
+              exit 0
+            fi
+          done
+
+          echo "Failed to resolve Android NDK path." >&2
+          echo "ANDROID_NDK_HOME=${ANDROID_NDK_HOME:-<unset>}" >&2
+          echo "ANDROID_NDK_ROOT=${ANDROID_NDK_ROOT:-<unset>}" >&2
+          echo "ANDROID_NDK_LATEST_HOME=${ANDROID_NDK_LATEST_HOME:-<unset>}" >&2
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<unset>}" >&2
+          echo "ANDROID_HOME=${ANDROID_HOME:-<unset>}" >&2
+          exit 1
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -144,8 +179,6 @@ jobs:
 
       - name: Build Android APK
         run: pnpm -C apps/desktop tauri android build --apk
-        env:
-           NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
       - name: Prepare APK
         run: |
