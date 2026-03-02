@@ -8,6 +8,7 @@ on:
 
 jobs:
   build-ios:
+    if: ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEVELOPMENT_TEAM != '' }}
     runs-on: macos-latest
     steps:
       - name: Checkout repository
