@@ -25,6 +25,8 @@ describe('QRCodeGenerator', () => {
       importIdentity: vi.fn(),
       forgetIdentity: vi.fn(),
       unlockWithPrivateKeyHex: vi.fn(),
+      changePassphrase: vi.fn(),
+      resetPassphraseWithPrivateKey: vi.fn(),
       getIdentitySnapshot: vi.fn(),
     });
 
@@ -46,6 +48,8 @@ describe('QRCodeGenerator', () => {
       importIdentity: vi.fn(),
       forgetIdentity: vi.fn(),
       unlockWithPrivateKeyHex: vi.fn(),
+      changePassphrase: vi.fn(),
+      resetPassphraseWithPrivateKey: vi.fn(),
       getIdentitySnapshot: vi.fn(),
     });
 
@@ -77,6 +81,8 @@ describe('QRCodeGenerator', () => {
       importIdentity: vi.fn(),
       forgetIdentity: vi.fn(),
       unlockWithPrivateKeyHex: vi.fn(),
+      changePassphrase: vi.fn(),
+      resetPassphraseWithPrivateKey: vi.fn(),
       getIdentitySnapshot: vi.fn(),
     });
 
@@ -114,6 +120,8 @@ describe('QRCodeGenerator', () => {
       importIdentity: vi.fn(),
       forgetIdentity: vi.fn(),
       unlockWithPrivateKeyHex: vi.fn(),
+      changePassphrase: vi.fn(),
+      resetPassphraseWithPrivateKey: vi.fn(),
       getIdentitySnapshot: vi.fn(),
     });
 
@@ -151,6 +159,8 @@ describe('QRCodeGenerator', () => {
       importIdentity: vi.fn(),
       forgetIdentity: vi.fn(),
       unlockWithPrivateKeyHex: vi.fn(),
+      changePassphrase: vi.fn(),
+      resetPassphraseWithPrivateKey: vi.fn(),
       getIdentitySnapshot: vi.fn(),
     });
 
@@ -204,6 +214,8 @@ describe('QRCodeGenerator', () => {
       importIdentity: vi.fn(),
       forgetIdentity: vi.fn(),
       unlockWithPrivateKeyHex: vi.fn(),
+      changePassphrase: vi.fn(),
+      resetPassphraseWithPrivateKey: vi.fn(),
       getIdentitySnapshot: vi.fn(),
     });
 
@@ -221,3 +233,4 @@ describe('QRCodeGenerator', () => {
     });
   });
 });
+

@@ -5,10 +5,11 @@ import { cryptoService } from '../../crypto/crypto-service';
 import { qrCodeCache, performanceMonitor } from './performance-optimizations';
 
 /**
- * QR code data structure for invite information
+ * QR code data structure for connection information
  */
-export interface QRInviteData {
+export interface QRConnectionData {
   version: string;
+  type?: string;
   publicKey: PublicKeyHex;
   displayName?: string;
   avatar?: string;
@@ -31,7 +32,7 @@ export interface QRCode {
 /**
  * Options for QR code generation
  */
-export interface QRInviteOptions {
+export interface QRConnectionOptions {
   displayName?: string;
   avatar?: string;
   message?: string;
@@ -40,14 +41,15 @@ export interface QRInviteOptions {
 }
 
 /**
- * QR Generator Service for creating and processing invite QR codes
+ * QR Generator Service for creating and processing connection QR codes
  */
 export interface QRGenerator {
-  generateQR(data: QRInviteData): Promise<QRCode>;
-  scanQR(imageData: ImageData): Promise<QRInviteData>;
+  generateQR(data: QRConnectionData): Promise<QRCode>;
+  scanQR(imageData: ImageData): Promise<QRConnectionData>;
   validateQRData(data: string): boolean;
-  createInviteQR(publicKey: PublicKeyHex, privateKey: PrivateKeyHex, options?: QRInviteOptions): Promise<QRCode>;
-  parseQRData(rawData: string): QRInviteData | null;
+  createConnectionQR(publicKey: PublicKeyHex, privateKey: PrivateKeyHex, options?: QRConnectionOptions): Promise<QRCode>;
+  createInviteQR(publicKey: PublicKeyHex, privateKey: PrivateKeyHex, options?: QRConnectionOptions): Promise<QRCode>;
+  parseQRData(rawData: string): QRConnectionData | null;
 }
 
 /**
@@ -56,20 +58,21 @@ export interface QRGenerator {
 class QRGeneratorImpl implements QRGenerator {
   private readonly QR_VERSION = '1.0';
   private readonly DEFAULT_EXPIRATION_HOURS = 24;
-  private readonly QR_PREFIX = 'obscur-invite:';
+  private readonly QR_PREFIX = 'obscur-connection:';
+  private readonly LEGACY_QR_PREFIX = 'obscur-invite:';
 
   /**
-   * Generate QR code from invite data
+   * Generate QR code from connection data
    */
-  async generateQR(data: QRInviteData): Promise<QRCode> {
+  async generateQR(data: QRConnectionData): Promise<QRCode> {
     const endTiming = performanceMonitor.start('qr-generation');
 
     try {
       // Validate input data
-      await this.validateInviteData(data);
+      await this.validateConnectionData(data);
 
       // Create the raw data string
-      const rawData = this.serializeInviteData(data);
+      const rawData = this.serializeConnectionData(data);
 
       // Check cache first
       const cacheKey = qrCodeCache.generateKey(data.publicKey, {
@@ -131,12 +134,12 @@ class QRGeneratorImpl implements QRGenerator {
   }
 
   /**
-   * Create invite QR code from user data
+   * Create connection QR code from user data
    */
-  async createInviteQR(
+  async createConnectionQR(
     publicKey: PublicKeyHex,
     privateKey: PrivateKeyHex,
-    options: QRInviteOptions = {}
+    options: QRConnectionOptions = {}
   ): Promise<QRCode> {
     try {
       const now = Date.now();
@@ -145,8 +148,8 @@ class QRGeneratorImpl implements QRGenerator {
 
       const inviteId: string = await cryptoService.generateInviteId();
 
-      // Create invite data structure
-      const inviteData = {
+      // Create connection data structure
+      const connectionData = {
         publicKey,
         displayName: options.includeProfile ? options.displayName : undefined,
         avatar: options.includeProfile ? options.avatar : undefined,
@@ -156,31 +159,43 @@ class QRGeneratorImpl implements QRGenerator {
         inviteId
       };
 
-      // Sign the invite data
-      const signature = await cryptoService.signInviteData(inviteData, privateKey);
+      // Sign the connection data
+      const signature = await cryptoService.signInviteData(connectionData, privateKey);
 
-      // Create QR invite data
-      const qrData: QRInviteData = {
+      // Create QR connection data
+      const qrData: QRConnectionData = {
         version: this.QR_VERSION,
+        type: 'qr',
         publicKey,
-        displayName: inviteData.displayName,
-        avatar: inviteData.avatar,
-        message: inviteData.message,
-        timestamp: inviteData.timestamp,
-        expirationTime: inviteData.expirationTime,
+        displayName: connectionData.displayName,
+        avatar: connectionData.avatar,
+        message: connectionData.message,
+        timestamp: connectionData.timestamp,
+        expirationTime: connectionData.expirationTime,
         signature
       };
 
       return await this.generateQR(qrData);
     } catch (error) {
-      throw new Error(`Invite QR creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Connection QR creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Backward-compatible alias kept for older call sites/tests.
+   */
+  async createInviteQR(
+    publicKey: PublicKeyHex,
+    privateKey: PrivateKeyHex,
+    options: QRConnectionOptions = {}
+  ): Promise<QRCode> {
+    return this.createConnectionQR(publicKey, privateKey, options);
   }
 
   /**
    * Scan QR code from image data
    */
-  async scanQR(imageData: ImageData): Promise<QRInviteData> {
+  async scanQR(imageData: ImageData): Promise<QRConnectionData> {
     // Import the scanning utility
     const { scanQRFromImageData } = await import('./qr-scanner-utils');
     return await scanQRFromImageData(imageData);
@@ -195,8 +210,8 @@ class QRGeneratorImpl implements QRGenerator {
         return false;
       }
 
-      // Check if it starts with our prefix
-      if (!data.startsWith(this.QR_PREFIX)) {
+      // Check if it starts with a known prefix
+      if (!this.getMatchingPrefix(data)) {
         return false;
       }
 
@@ -209,79 +224,90 @@ class QRGeneratorImpl implements QRGenerator {
   }
 
   /**
-   * Parse QR data string into invite data
+   * Parse QR data string into connection data
    */
-  parseQRData(rawData: string): QRInviteData | null {
+  parseQRData(rawData: string): QRConnectionData | null {
     try {
-      if (!rawData.startsWith(this.QR_PREFIX)) {
+      const prefix = this.getMatchingPrefix(rawData);
+      if (!prefix) {
         return null;
       }
 
       // Remove prefix and decode
-      const jsonData = rawData.slice(this.QR_PREFIX.length);
+      const jsonData = rawData.slice(prefix.length);
       const parsed = JSON.parse(jsonData);
 
       // Validate required fields
-      if (!this.isValidQRInviteData(parsed)) {
+      if (!this.isValidQRConnectionData(parsed)) {
         return null;
       }
 
-      return parsed as QRInviteData;
+      return parsed as QRConnectionData;
     } catch {
       return null;
     }
   }
 
   /**
-   * Serialize invite data to string format
+   * Serialize connection data to string format
    */
-  private serializeInviteData(data: QRInviteData): string {
+  private serializeConnectionData(data: QRConnectionData): string {
     const jsonData = JSON.stringify(data);
     return `${this.QR_PREFIX}${jsonData}`;
   }
 
+  private getMatchingPrefix(rawData: string): string | null {
+    if (rawData.startsWith(this.QR_PREFIX)) {
+      return this.QR_PREFIX;
+    }
+    if (rawData.startsWith(this.LEGACY_QR_PREFIX)) {
+      return this.LEGACY_QR_PREFIX;
+    }
+    return null;
+  }
+
   /**
-   * Validate invite data structure
+   * Validate connection data structure
    */
-  private async validateInviteData(data: QRInviteData): Promise<void> {
+  private async validateConnectionData(data: QRConnectionData): Promise<void> {
     if (!data || typeof data !== 'object') {
-      throw new Error('Invalid invite data: must be object');
+      throw new Error('Invalid connection data: must be object');
     }
 
     if (!data.version || typeof data.version !== 'string') {
-      throw new Error('Invalid invite data: version required');
+      throw new Error('Invalid connection data: version required');
     }
 
     if (!data.publicKey || typeof data.publicKey !== 'string') {
-      throw new Error('Invalid invite data: publicKey required');
+      throw new Error('Invalid connection data: publicKey required');
     }
 
     if (!(await cryptoService.isValidPubkey(data.publicKey))) {
-      throw new Error('Invalid invite data: invalid publicKey format');
+      throw new Error('Invalid connection data: invalid publicKey format');
     }
 
     if (typeof data.timestamp !== 'number' || data.timestamp <= 0) {
-      throw new Error('Invalid invite data: valid timestamp required');
+      throw new Error('Invalid connection data: valid timestamp required');
     }
 
     if (typeof data.expirationTime !== 'number' || data.expirationTime <= data.timestamp) {
-      throw new Error('Invalid invite data: valid expirationTime required');
+      throw new Error('Invalid connection data: valid expirationTime required');
     }
 
     if (!data.signature || typeof data.signature !== 'string') {
-      throw new Error('Invalid invite data: signature required');
+      throw new Error('Invalid connection data: signature required');
     }
 
     // Check if expired
     if (Date.now() > data.expirationTime) {
-      throw new Error('Invite has expired');
+      throw new Error('Connection has expired');
     }
   }
 
   /**
-   * Check if parsed data has valid QR invite structure
+   * Check if parsed data has valid QR connection structure
    */
-  private isValidQRInviteData(data: unknown): data is QRInviteData {
+  private isValidQRConnectionData(data: unknown): data is QRConnectionData {
     if (!data || typeof data !== 'object') {
       return false;
     }

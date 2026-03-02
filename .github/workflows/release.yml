@@ -1,6 +1,7 @@
 name: Obscur Full Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -142,7 +143,7 @@ jobs:
           done
 
       - name: Build Android APK
-        run: pnpm -C apps/desktop tauri android build --apk true
+        run: pnpm -C apps/desktop tauri android build --apk
         env:
            NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 

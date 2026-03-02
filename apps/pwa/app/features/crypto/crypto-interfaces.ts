@@ -89,6 +89,7 @@ export interface InviteSignaturePayload {
 }
 
 export interface UnsignedNostrEvent {
+    id?: string;
     kind: number;
     created_at: number;
     tags: string[][];

@@ -29,6 +29,7 @@ export interface InviteLinkOptions {
 
 export interface QRInviteData {
   version: string;
+  type?: string;
   publicKey: PublicKeyHex;
   displayName?: string;
   avatar?: string;
@@ -44,6 +45,10 @@ export interface QRCode {
   rawData: string;
   size: number;
 }
+
+// Backward-compatible aliases for existing imports/tests.
+export type QRConnectionOptions = QRInviteOptions;
+export type QRConnectionData = QRInviteData;
 
 export interface Connection {
   id: string;
