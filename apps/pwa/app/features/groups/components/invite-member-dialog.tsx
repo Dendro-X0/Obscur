@@ -8,7 +8,6 @@ import {
     Loader2,
     X,
     Send,
-    CheckCircle2,
     Users as InviteIcon
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
@@ -24,7 +23,7 @@ import { GroupService } from "../services/group-service";
 import type { GroupMetadata } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useMessaging } from "../../messaging/providers/messaging-provider";
-import { useGroups } from "../providers/group-provider";
+import { messageBus } from "../../messaging/services/message-bus";
 import { MessageQueue } from "../../messaging/lib/message-queue";
 import type { Message } from "../../messaging/types";
 
@@ -48,8 +47,7 @@ export function InviteMemberDialog({
     const { t } = useTranslation();
     const { relayPool: pool } = useRelay();
     const { state: identityState } = useIdentity();
-    const { messagesByConversationId, setMessagesByConversationId } = useMessaging();
-    const { createdGroups } = useGroups();
+    const { createdConnections } = useMessaging();
 
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<ProfileSearchResult[]>([]);
@@ -138,11 +136,8 @@ export function InviteMemberDialog({
             const mq = new MessageQueue(identityState.publicKeyHex!);
             await mq.persistMessage(inviteMessage as any);
 
-            // Update UI optimistically
-            setMessagesByConversationId(prev => ({
-                ...prev,
-                [conversationId]: [...(prev[conversationId] ?? []), inviteMessage]
-            }));
+            // Update UI optimistically via message bus
+            messageBus.emitNewMessage(conversationId, inviteMessage);
 
             toast.success(`Invite sent successfully to ${user.displayName || user.name || 'user'}`);
         } catch (error) {
