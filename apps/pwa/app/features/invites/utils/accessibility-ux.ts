@@ -145,7 +145,7 @@ export class ErrorMessageFormatter {
       message: 'Storage quota exceeded',
       userMessage: 'Your device storage is full. Please free up some space.',
       suggestions: [
-        'Delete old contacts or messages',
+        'Delete old connections or messages',
         'Clear browser cache',
         'Remove unused data from your device'
       ],
@@ -316,7 +316,7 @@ export class AccessibilityHelper {
   /**
    * Generate keyboard navigation hints
    */
-  static getKeyboardHints(context: 'contact-list' | 'invite-form' | 'qr-scanner'): string[] {
+  static getKeyboardHints(context: 'connection-list' | 'invite-form' | 'qr-scanner'): string[] {
     const hints: Record<string, string[]> = {
       'connection-list': [
         'Use arrow keys to navigate connections',

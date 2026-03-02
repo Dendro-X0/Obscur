@@ -120,7 +120,7 @@ describe('Accessibility and UX Integration', () => {
       expect(networkError.suggestions).toContain('Check your internet connection');
 
       const storageError = formatter.getErrorInfo('STORAGE_FULL');
-      expect(storageError.suggestions).toContain('Delete old contacts or messages');
+      expect(storageError.suggestions).toContain('Delete old connections or messages');
 
       const qrError = formatter.getErrorInfo('INVALID_QR_CODE');
       expect(qrError.suggestions).toContain('Ensure the QR code is clearly visible');
@@ -128,14 +128,14 @@ describe('Accessibility and UX Integration', () => {
   });
 
   describe('Accessibility Helper', () => {
-    it('should generate contact ARIA labels', () => {
-      const label = AccessibilityHelper.getContactAriaLabel({
+    it('should generate connection ARIA labels', () => {
+      const label = AccessibilityHelper.getConnectionAriaLabel({
         displayName: 'Alice Smith',
         trustLevel: 'trusted',
         groups: ['friends', 'work']
       });
 
-      expect(label).toContain('Contact: Alice Smith');
+      expect(label).toContain('Connection: Alice Smith');
       expect(label).toContain('Trust level: trusted');
       expect(label).toContain('Groups: 2');
     });
@@ -166,9 +166,9 @@ describe('Accessibility and UX Integration', () => {
     });
 
     it('should provide keyboard navigation hints', () => {
-      const contactListHints = AccessibilityHelper.getKeyboardHints('contact-list');
-      expect(contactListHints).toContain('Use arrow keys to navigate contacts');
-      expect(contactListHints).toContain('Press Enter to select a contact');
+      const connectionListHints = AccessibilityHelper.getKeyboardHints('connection-list');
+      expect(connectionListHints).toContain('Use arrow keys to navigate connections');
+      expect(connectionListHints).toContain('Press Enter to select a connection');
 
       const inviteFormHints = AccessibilityHelper.getKeyboardHints('invite-form');
       expect(inviteFormHints).toContain('Tab to move between fields');
@@ -290,8 +290,8 @@ describe('Accessibility and UX Integration', () => {
       expect(contexts).toContain('qr-generation');
       expect(contexts).toContain('qr-scanning');
       expect(contexts).toContain('invite-links');
-      expect(contexts).toContain('contact-organization');
-      expect(contexts).toContain('contact-import');
+      expect(contexts).toContain('connection-organization');
+      expect(contexts).toContain('connection-import');
     });
 
     it('should provide comprehensive help for each feature', () => {
@@ -313,18 +313,18 @@ describe('Accessibility and UX Integration', () => {
       const manager = new LoadingStateManager();
       const states: any[] = [];
 
-      manager.subscribe('import-contacts', (state) => {
+      manager.subscribe('import-connections', (state) => {
         states.push({ ...state });
       });
 
       // Start loading
-      manager.setLoading('import-contacts', 'Importing contacts...', 0);
+      manager.setLoading('import-connections', 'Importing connections...', 0);
 
       // Update progress
-      manager.setLoading('import-contacts', 'Processing contacts...', 50);
+      manager.setLoading('import-connections', 'Processing connections...', 50);
 
       // Complete
-      manager.clearLoading('import-contacts');
+      manager.clearLoading('import-connections');
 
       expect(states).toHaveLength(3);
       expect(states[0].isLoading).toBe(true);
@@ -347,29 +347,29 @@ describe('Accessibility and UX Integration', () => {
       expect(errorInfo.suggestions[0]).toContain('internet connection');
     });
 
-    it('should provide accessible experience for contact management', () => {
-      const contact = {
+    it('should provide accessible experience for connection management', () => {
+      const connection = {
         displayName: 'Test User',
         trustLevel: 'trusted',
         groups: ['friends']
       };
 
-      const ariaLabel = AccessibilityHelper.getContactAriaLabel(contact);
-      const keyboardHints = AccessibilityHelper.getKeyboardHints('contact-list');
+      const ariaLabel = AccessibilityHelper.getConnectionAriaLabel(connection);
+      const keyboardHints = AccessibilityHelper.getKeyboardHints('connection-list');
 
-      expect(ariaLabel).toContain('Contact: Test User');
+      expect(ariaLabel).toContain('Connection: Test User');
       expect(keyboardHints.length).toBeGreaterThan(0);
     });
 
     it('should track progress for bulk operations', () => {
-      const tracker = new ProgressTracker(100, 'Importing contacts');
+      const tracker = new ProgressTracker(100, 'Importing connections');
       const progressUpdates: number[] = [];
 
       tracker.subscribe((progress) => {
         progressUpdates.push(progress.percentage);
       });
 
-      // Simulate importing 100 contacts
+      // Simulate importing 100 connections
       for (let i = 0; i < 100; i++) {
         tracker.increment();
       }

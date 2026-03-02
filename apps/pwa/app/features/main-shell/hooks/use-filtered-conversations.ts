@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { Conversation, DmConversation, GroupConversation, Message, MessagesByConversationId, ContactOverridesByContactId } from "@/app/features/messaging/types";
-import { applyContactOverrides, isVisibleUserMessage } from "@/app/features/messaging/utils/logic";
+import type { Conversation, DmConversation, GroupConversation, Message, MessagesByConversationId, ConnectionOverridesByConnectionId } from "@/app/features/messaging/types";
+import { applyConnectionOverrides, isVisibleUserMessage } from "@/app/features/messaging/utils/logic";
 import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 
 export function useFilteredConversations(
-    createdContacts: ReadonlyArray<DmConversation>,
+    createdConnections: ReadonlyArray<DmConversation>,
     createdGroups: ReadonlyArray<GroupConversation>,
-    contactOverridesByContactId: ContactOverridesByContactId,
+    connectionOverridesByConnectionId: ConnectionOverridesByConnectionId,
     searchQuery: string,
     isPeerAccepted: (params: { publicKeyHex: string }) => boolean,
     myPublicKeyHex: string | null
@@ -18,8 +18,8 @@ export function useFilteredConversations(
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
     const allConversations = useMemo(() => {
-        const visibleContacts = createdContacts.filter(c => isPeerAccepted({ publicKeyHex: c.pubkey }));
-        const all = [...visibleContacts, ...createdGroups];
+        const visibleConnections = createdConnections.filter(c => isPeerAccepted({ publicKeyHex: c.pubkey }));
+        const all = [...visibleConnections, ...createdGroups];
 
         // Deduplicate
         const seenIds = new Set<string>();
@@ -29,8 +29,8 @@ export function useFilteredConversations(
             return true;
         });
 
-        return unique.map(c => applyContactOverrides(c, contactOverridesByContactId));
-    }, [createdContacts, createdGroups, contactOverridesByContactId, isPeerAccepted]);
+        return unique.map(c => applyConnectionOverrides(c, connectionOverridesByConnectionId));
+    }, [createdConnections, createdGroups, connectionOverridesByConnectionId, isPeerAccepted]);
 
     const [messageSearchResults, setMessageSearchResults] = useState<ReadonlyArray<{ conversationId: string; messageId: string; timestamp: Date; preview: string }>>([]);
 

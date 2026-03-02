@@ -1,6 +1,6 @@
 # Smart Invite System
 
-This directory contains the core implementation of the Smart Invite System for Obscur, providing intuitive and secure methods for users to connect with each other through QR codes, shareable links, and contact management.
+This directory contains the core implementation of the Smart Invite System for Obscur, providing intuitive and secure methods for users to connect with each other through QR codes, shareable links, and connection management.
 
 ## Directory Structure
 
@@ -21,8 +21,8 @@ invites/
 ## Core Components
 
 ### Types (`types.ts`)
-- **Contact**: User contact information and metadata
-- **ContactRequest**: Pending connection invitations
+- **Connection**: User connection information and metadata
+- **ConnectionRequest**: Pending connection invitations
 - **QRInviteData**: QR code payload structure
 - **InviteLink**: Shareable link data structure
 - **UserProfile**: User profile information
@@ -31,7 +31,7 @@ invites/
 ### Interfaces (`interfaces.ts`)
 - **InviteManager**: Central orchestrator for invite operations
 - **QRGenerator**: QR code generation and scanning
-- **ContactStore**: Contact data persistence and management
+- **ConnectionStore**: Connection data persistence and management
 - **ProfileManager**: User profile and privacy management
 - **InviteCryptoService**: Cryptographic operations for invites
 
@@ -39,7 +39,7 @@ invites/
 Custom error classes for different failure scenarios:
 - `QRCodeError`: QR code operation failures
 - `InviteLinkError`: Invite link validation/processing errors
-- `ContactError`: Contact management failures
+- `ConnectionError`: Connection management failures
 - `CryptoError`: Cryptographic operation failures
 - `StorageError`: Data persistence failures
 - `ValidationError`: Input validation failures
@@ -56,7 +56,7 @@ Common utility functions:
 System-wide configuration:
 - Database and storage configuration
 - QR code and invite link settings
-- Contact request limits
+- Connection request limits
 - Error messages
 - UI configuration (colors, timeouts)
 
@@ -78,7 +78,7 @@ The system uses a dual testing approach:
 ### Test Utilities (`__tests__/test-utils.ts`)
 Provides arbitraries (generators) for:
 - Valid public keys and profiles
-- Contact data and groups
+- Connection data and groups
 - Invite options and configurations
 - Privacy settings
 - Timestamps and expiration data
@@ -89,9 +89,9 @@ Provides arbitraries (generators) for:
 import {
   InviteManager,
   QRGenerator,
-  ContactStore,
+  ConnectionStore,
   ProfileManager,
-  Contact,
+  Connection,
   QRInviteOptions,
   InviteLinkOptions
 } from '@/lib/invites';
@@ -120,7 +120,7 @@ const qrInvite = await inviteManager.generateQRInvite({
 This system integrates with:
 - Existing Obscur messaging system
 - IndexedDB for local storage
-- Nostr relay network for contact requests
+- Nostr relay network for connection requests
 - Web Crypto API for cryptographic operations
 - Camera API for QR code scanning (future implementation)
 
@@ -129,7 +129,7 @@ This system integrates with:
 The interfaces and types are now ready for implementation. The next tasks will implement:
 1. Crypto service enhancements
 2. QR code generation and scanning
-3. Contact store persistence
+3. Connection store persistence
 4. Profile management
 5. UI components
 6. Integration with existing Obscur features

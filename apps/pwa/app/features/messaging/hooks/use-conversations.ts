@@ -1,54 +1,45 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import type { Conversation, DmConversation, GroupConversation, ContactOverridesByContactId } from "@/app/features/messaging/types";
+import type { Conversation, DmConversation, GroupConversation, ConnectionOverridesByConnectionId } from "@/app/features/messaging/types";
 import { usePeerTrust } from "../../network/hooks/use-peer-trust";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
-// Storage keys (matching page.tsx for compatibility)
-const PERSISTED_CHAT_STATE_STORAGE_KEY: string = "dweb.nostr.pwa.chatState";
+import { loadPersistedChatState } from "../utils/persistence";
 
 export function useConversations(params: { publicKeyHex: PublicKeyHex | null }) {
-    const [createdContacts, setCreatedContacts] = useState<ReadonlyArray<DmConversation>>([]);
+    const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
-    const [contactOverridesByContactId, setContactOverridesByContactId] = useState<ContactOverridesByContactId>({});
+    const [connectionOverridesByConnectionId, setConnectionOverridesByConnectionId] = useState<ConnectionOverridesByConnectionId>({});
     const { isAccepted } = usePeerTrust({ publicKeyHex: params.publicKeyHex });
 
-    // Persistence logic (Simplified version of page.tsx logic for now)
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem(PERSISTED_CHAT_STATE_STORAGE_KEY);
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                // We'll trust the parsing for now, or use a safer approach if needed
-                if (parsed.createdContacts) {
-                    // Mapping would happen here normally
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load chat state", e);
+        const state = loadPersistedChatState(params.publicKeyHex);
+        if (state) {
+            // We'll trust the parsing for now, or use a safer approach if needed
+            // TODO: properly hydrate from state if this hook is intended to be the source of truth
         }
-    }, []);
+    }, [params.publicKeyHex]);
 
-    const visibleCreatedContacts = useMemo(() => {
-        return createdContacts.filter((c) => isAccepted({ publicKeyHex: c.pubkey }));
-    }, [createdContacts, isAccepted]);
+    const visibleCreatedConnections = useMemo(() => {
+        return createdConnections.filter((c) => isAccepted({ publicKeyHex: c.pubkey }));
+    }, [createdConnections, isAccepted]);
 
     const allConversations: ReadonlyArray<Conversation> = useMemo(() => {
-        return [...visibleCreatedContacts, ...createdGroups].map(c => {
-            const override = contactOverridesByContactId[c.id];
+        return [...visibleCreatedConnections, ...createdGroups].map(c => {
+            const override = connectionOverridesByConnectionId[c.id];
             if (!override) return c;
             return { ...c, lastMessage: override.lastMessage, lastMessageTime: override.lastMessageTime };
         });
-    }, [visibleCreatedContacts, createdGroups, contactOverridesByContactId]);
+    }, [visibleCreatedConnections, createdGroups, connectionOverridesByConnectionId]);
 
     return {
         allConversations,
-        createdContacts,
-        setCreatedContacts,
+        createdConnections,
+        setCreatedConnections,
         createdGroups,
         setCreatedGroups,
-        contactOverridesByContactId,
-        setContactOverridesByContactId
+        connectionOverridesByConnectionId,
+        setConnectionOverridesByConnectionId
     };
 }

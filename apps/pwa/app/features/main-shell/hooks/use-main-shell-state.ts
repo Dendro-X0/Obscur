@@ -2,7 +2,7 @@
 import { useState, useRef } from "react";
 
 
-import type { Conversation, DmConversation, GroupConversation, UnreadByConversationId, ContactOverridesByContactId, ReplyTo } from "@/app/features/messaging/types";
+import type { Conversation, DmConversation, GroupConversation, UnreadByConversationId, ConnectionOverridesByConnectionId, ReplyTo } from "@/app/features/messaging/types";
 
 export function useMainShellState() {
 
@@ -32,7 +32,7 @@ export function useMainShellState() {
 
     const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
-    const [contactOverridesByContactId, setContactOverridesByContactId] = useState<ContactOverridesByContactId>({});
+    const [connectionOverridesByConnectionId, setConnectionOverridesByConnectionId] = useState<ConnectionOverridesByConnectionId>({});
 
     const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] = useState<Readonly<Record<string, number>>>({});
 
@@ -51,7 +51,7 @@ export function useMainShellState() {
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [sidebarTab, setSidebarTab] = useState<"chats" | "requests">("chats");
 
-    const [createdContacts, setCreatedContacts] = useState<ReadonlyArray<DmConversation>>([]);
+    const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
     const [recipientVerificationStatus, setRecipientVerificationStatus] = useState<Readonly<Record<string, 'idle' | 'found' | 'not_found' | 'verifying'>>>({});
 
@@ -80,7 +80,7 @@ export function useMainShellState() {
             newGroupMemberPubkeys,
             showOnboarding,
             unreadByConversationId,
-            contactOverridesByContactId,
+            connectionOverridesByConnectionId,
 
             visibleMessageCountByConversationId,
             pendingAttachment,
@@ -95,7 +95,7 @@ export function useMainShellState() {
             isMediaGalleryOpen,
             lightboxIndex,
             sidebarTab,
-            createdContacts,
+            createdConnections,
             createdGroups,
             recipientVerificationStatus,
         },
@@ -112,7 +112,7 @@ export function useMainShellState() {
             setNewGroupMemberPubkeys,
             setShowOnboarding,
             setUnreadByConversationId,
-            setContactOverridesByContactId,
+            setConnectionOverridesByConnectionId,
 
             setVisibleMessageCountByConversationId,
             setPendingAttachment,
@@ -127,7 +127,7 @@ export function useMainShellState() {
             setIsMediaGalleryOpen,
             setLightboxIndex,
             setSidebarTab,
-            setCreatedContacts,
+            setCreatedConnections,
             setCreatedGroups,
             setRecipientVerificationStatus,
         }

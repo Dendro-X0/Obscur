@@ -14,7 +14,7 @@ class ProfileManagerImpl implements ProfileManager {
     shareAvatar: true,
     shareBio: false,
     shareWebsite: false,
-    allowContactRequests: true,
+    allowConnectionRequests: true,
     requireMessage: false,
     autoAcceptTrusted: false,
   };
@@ -27,11 +27,11 @@ class ProfileManagerImpl implements ProfileManager {
     try {
       // Validate settings
       this.validatePrivacySettings(settings);
-      
+
       // Store the new settings - they will be applied to future invites
       // via getShareableProfile() which reads these settings
       await this.updatePrivacySettings(settings);
-      
+
       // Note: Existing connections are NOT affected by this change
       // Only new invites generated after this point will use the new settings
     } catch (error) {
@@ -63,7 +63,7 @@ class ProfileManagerImpl implements ProfileManager {
   async updateFieldPrivacy(field: 'displayName' | 'avatar' | 'bio' | 'website', share: boolean): Promise<void> {
     try {
       const settings = await this.getPrivacySettings();
-      
+
       switch (field) {
         case 'displayName':
           settings.shareDisplayName = share;
@@ -78,7 +78,7 @@ class ProfileManagerImpl implements ProfileManager {
           settings.shareWebsite = share;
           break;
       }
-      
+
       await this.updatePrivacySettings(settings);
     } catch (error) {
       throw new Error(`Failed to update field privacy: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -99,7 +99,7 @@ class ProfileManagerImpl implements ProfileManager {
   async updateProfile(profile: UserProfile): Promise<void> {
     try {
       this.validateProfile(profile);
-      
+
       // Store in localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
@@ -141,7 +141,7 @@ class ProfileManagerImpl implements ProfileManager {
   async updatePrivacySettings(settings: PrivacySettings): Promise<void> {
     try {
       this.validatePrivacySettings(settings);
-      
+
       // Store in localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(PRIVACY_SETTINGS_KEY, JSON.stringify(settings));
@@ -360,10 +360,10 @@ class ProfileManagerImpl implements ProfileManager {
 
     const booleanFields = [
       'shareDisplayName',
-      'shareAvatar', 
+      'shareAvatar',
       'shareBio',
       'shareWebsite',
-      'allowContactRequests',
+      'allowConnectionRequests',
       'requireMessage',
       'autoAcceptTrusted'
     ];

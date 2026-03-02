@@ -361,10 +361,10 @@ export const ProfileSettings = () => {
 
           <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
             <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Contact Request Settings
+              Connection Request Settings
             </div>
             <div className="text-xs text-zinc-600 dark:text-zinc-400">
-              Control how you receive and manage contact requests
+              Control how you receive and manage connection requests
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer">
@@ -397,7 +397,7 @@ export const ProfileSettings = () => {
                   Require Message
                 </div>
                 <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Require a personal message with contact requests
+                  Require a personal message with connection requests
                 </div>
               </div>
             </label>
@@ -415,7 +415,7 @@ export const ProfileSettings = () => {
                   Auto-Accept Trusted
                 </div>
                 <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Automatically accept requests from trusted contacts
+                  Automatically accept requests from trusted connections
                 </div>
               </div>
             </label>

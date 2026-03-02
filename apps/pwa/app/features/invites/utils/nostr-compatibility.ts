@@ -1,5 +1,5 @@
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
-import type { QRInviteData, ShareableProfile, InviteLink } from './types';
+import type { QRConnectionData, ShareableProfile, InviteLink } from './types';
 import { cryptoService } from '../../crypto/crypto-service';
 import { createRelayWebSocket } from '../../relays/hooks/create-relay-websocket';
 
@@ -63,9 +63,9 @@ export interface UniversalInviteLink {
 export class NostrCompatibilityService {
 
   /**
-   * Convert internal QR invite data to Nostr-compatible format
+   * Convert internal QR connection data to Nostr-compatible format
    */
-  static toNostrFormat(qrData: QRInviteData): NostrInviteData {
+  static toNostrFormat(qrData: QRConnectionData): NostrInviteData {
     return {
       version: '1.0',
       type: 'qr',
@@ -81,11 +81,12 @@ export class NostrCompatibilityService {
   }
 
   /**
-   * Convert Nostr-compatible format to internal QR invite data
+   * Convert Nostr-compatible format to internal QR connection data
    */
-  static fromNostrFormat(nostrData: NostrInviteData): QRInviteData {
+  static fromNostrFormat(nostrData: NostrInviteData): QRConnectionData {
     return {
       version: nostrData.version,
+      type: nostrData.type,
       publicKey: nostrData.publicKey,
       displayName: nostrData.profile?.name,
       avatar: nostrData.profile?.picture,
@@ -347,7 +348,7 @@ export class NostrCompatibilityService {
   /**
    * Generate QR code data in multiple formats for compatibility
    */
-  static generateCompatibleQRData(qrData: QRInviteData): {
+  static generateCompatibleQRData(qrData: QRConnectionData): {
     obscur: string;
     nostr: string;
     universal: string;
@@ -375,7 +376,7 @@ export class NostrCompatibilityService {
   /**
    * Detect and parse any supported invite format
    */
-  static parseAnyFormat(data: string): QRInviteData | null {
+  static parseAnyFormat(data: string): QRConnectionData | null {
     // Try parsing as Nostr format first
     const nostrData = this.parseExternalInvite(data);
     if (nostrData) {
@@ -385,7 +386,7 @@ export class NostrCompatibilityService {
     // Try parsing as native Obscur format
     try {
       const parsed = JSON.parse(data);
-      if (this.isValidQRInviteData(parsed)) {
+      if (this.isValidQRConnectionData(parsed)) {
         return parsed;
       }
     } catch {
@@ -396,9 +397,9 @@ export class NostrCompatibilityService {
   }
 
   /**
-   * Validate internal QR invite data structure
+   * Validate internal QR connection data structure
    */
-  private static isValidQRInviteData(data: any): data is QRInviteData {
+  private static isValidQRConnectionData(data: any): data is QRConnectionData {
     return (
       typeof data === 'object' &&
       data !== null &&

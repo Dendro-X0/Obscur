@@ -68,14 +68,13 @@ export class URLSchemeHandler {
    * Check current URL for deep link parameters
    */
   private static checkCurrentUrl(): void {
-    const url = window.location.href;
     const urlParams = new URLSearchParams(window.location.search);
 
     // Check for various deep link parameters
     const inviteCode = urlParams.get('invite');
     const nostrData = urlParams.get('nostr');
     const qrData = urlParams.get('qr');
-    const connectionKey = urlParams.get('connection');
+    const connectionKey = urlParams.get('connection') || urlParams.get('connect');
 
     if (inviteCode) {
       this.handleDeepLinkMessage(`obscur://invite/${inviteCode}`);

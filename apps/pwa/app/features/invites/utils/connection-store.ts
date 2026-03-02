@@ -34,34 +34,34 @@ export class ConnectionStoreImpl implements ConnectionStore {
   }
 
   // Connection Management
-  async addConnection(contact: Connection): Promise<void> {
+  async addConnection(connection: Connection): Promise<void> {
     const db = await openInviteDb();
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([CONNECTIONS_STORE], 'readwrite');
       const store = transaction.objectStore(CONNECTIONS_STORE);
 
-      const request = store.add(contact);
+      const request = store.add(connection);
 
       request.onsuccess = () => {
         // Update caches
-        this.connectionCache.set(contact.id, contact);
+        this.connectionCache.set(connection.id, connection);
         this.allConnectionsCache = null; // Invalidate all connections cache
-        connectionSearchIndex.addConnection(contact);
+        connectionSearchIndex.addConnection(connection);
         resolve();
       };
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
   }
 
-  async updateConnection(contactId: string, updates: Partial<Connection>): Promise<void> {
+  async updateConnection(connectionId: string, updates: Partial<Connection>): Promise<void> {
     const db = await openInviteDb();
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([CONNECTIONS_STORE], 'readwrite');
       const store = transaction.objectStore(CONNECTIONS_STORE);
 
-      const getRequest = store.get(contactId);
+      const getRequest = store.get(connectionId);
 
       getRequest.onsuccess = () => {
         const existingConnection = getRequest.result;
@@ -75,9 +75,9 @@ export class ConnectionStoreImpl implements ConnectionStore {
 
         putRequest.onsuccess = () => {
           // Update caches
-          this.connectionCache.set(contactId, updatedConnection);
+          this.connectionCache.set(connectionId, updatedConnection);
           this.allConnectionsCache = null; // Invalidate all connections cache
-          connectionSearchIndex.removeConnection(contactId);
+          connectionSearchIndex.removeConnection(connectionId);
           connectionSearchIndex.addConnection(updatedConnection);
           resolve();
         };
@@ -88,29 +88,29 @@ export class ConnectionStoreImpl implements ConnectionStore {
     });
   }
 
-  async removeConnection(contactId: string): Promise<void> {
+  async removeConnection(connectionId: string): Promise<void> {
     const db = await openInviteDb();
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([CONNECTIONS_STORE], 'readwrite');
       const store = transaction.objectStore(CONNECTIONS_STORE);
 
-      const request = store.delete(contactId);
+      const request = store.delete(connectionId);
 
       request.onsuccess = () => {
         // Update caches
         this.connectionCache.clear(); // Clear cache entry
         this.allConnectionsCache = null; // Invalidate all connections cache
-        connectionSearchIndex.removeConnection(contactId);
+        connectionSearchIndex.removeConnection(connectionId);
         resolve();
       };
       request.onerror = () => reject(new Error(ERROR_MESSAGES.STORAGE_ERROR));
     });
   }
 
-  async getConnection(contactId: string): Promise<Connection | null> {
+  async getConnection(connectionId: string): Promise<Connection | null> {
     // Check cache first
-    const cached = this.connectionCache.get(contactId);
+    const cached = this.connectionCache.get(connectionId);
     if (cached) {
       return cached;
     }
@@ -121,12 +121,12 @@ export class ConnectionStoreImpl implements ConnectionStore {
       const transaction = db.transaction([CONNECTIONS_STORE], 'readonly');
       const store = transaction.objectStore(CONNECTIONS_STORE);
 
-      const request = store.get(contactId);
+      const request = store.get(connectionId);
 
       request.onsuccess = () => {
         const connection = request.result || null;
         if (connection) {
-          this.connectionCache.set(contactId, connection);
+          this.connectionCache.set(connectionId, connection);
         }
         resolve(connection);
       };
@@ -173,9 +173,9 @@ export class ConnectionStoreImpl implements ConnectionStore {
     return paginateArray(allConnections, options);
   }
 
-  async getContactByPublicKey(publicKey: string): Promise<Connection | null> {
+  async getConnectionByPublicKey(publicKey: string): Promise<Connection | null> {
     const allConnections = await this.getAllConnections();
-    return allConnections.find((contact: Connection) => contact.publicKey === publicKey) || null;
+    return allConnections.find((connection: Connection) => connection.publicKey === publicKey) || null;
   }
 
   // Connection Organization
@@ -198,10 +198,10 @@ export class ConnectionStoreImpl implements ConnectionStore {
 
     // First, remove this group from all connections
     const allConnections = await this.getAllConnections();
-    const connectionsInGroup = allConnections.filter((contact: Connection) => contact.groups.includes(groupId));
+    const connectionsInGroup = allConnections.filter((connection: Connection) => connection.groups.includes(groupId));
 
-    for (const contact of connectionsInGroup) {
-      await this.removeConnectionFromGroup(contact.id, groupId);
+    for (const connection of connectionsInGroup) {
+      await this.removeConnectionFromGroup(connection.id, groupId);
     }
 
     // Then delete the group itself
@@ -271,9 +271,9 @@ export class ConnectionStoreImpl implements ConnectionStore {
     });
   }
 
-  async addConnectionToGroup(contactId: string, groupId: string): Promise<void> {
-    const contact = await this.getConnection(contactId);
-    if (!contact) {
+  async addConnectionToGroup(connectionId: string, groupId: string): Promise<void> {
+    const connection = await this.getConnection(connectionId);
+    if (!connection) {
       throw new Error(ERROR_MESSAGES.CONNECTION_NOT_FOUND);
     }
 
@@ -283,27 +283,27 @@ export class ConnectionStoreImpl implements ConnectionStore {
       throw new Error('Group not found');
     }
 
-    // Add group to contact's groups array if not already present
-    if (!contact.groups.includes(groupId)) {
-      const updatedGroups = [...contact.groups, groupId];
-      await this.updateConnection(contactId, { groups: updatedGroups });
+    // Add group to connection's groups array if not already present
+    if (!connection.groups.includes(groupId)) {
+      const updatedGroups = [...connection.groups, groupId];
+      await this.updateConnection(connectionId, { groups: updatedGroups });
     }
   }
 
-  async removeConnectionFromGroup(contactId: string, groupId: string): Promise<void> {
-    const contact = await this.getConnection(contactId);
-    if (!contact) {
+  async removeConnectionFromGroup(connectionId: string, groupId: string): Promise<void> {
+    const connection = await this.getConnection(connectionId);
+    if (!connection) {
       throw new Error(ERROR_MESSAGES.CONNECTION_NOT_FOUND);
     }
 
-    // Remove group from contact's groups array
-    const updatedGroups = contact.groups.filter((id: string) => id !== groupId);
-    await this.updateConnection(contactId, { groups: updatedGroups });
+    // Remove group from connection's groups array
+    const updatedGroups = connection.groups.filter((id: string) => id !== groupId);
+    await this.updateConnection(connectionId, { groups: updatedGroups });
   }
 
-  async addConnectionToMultipleGroups(contactId: string, groupIds: string[]): Promise<void> {
-    const contact = await this.getConnection(contactId);
-    if (!contact) {
+  async addConnectionToMultipleGroups(connectionId: string, groupIds: string[]): Promise<void> {
+    const connection = await this.getConnection(connectionId);
+    if (!connection) {
       throw new Error(ERROR_MESSAGES.CONNECTION_NOT_FOUND);
     }
 
@@ -315,32 +315,32 @@ export class ConnectionStoreImpl implements ConnectionStore {
       }
     }
 
-    // Add all new groups to contact's groups array
-    const existingGroups = new Set(contact.groups);
+    // Add all new groups to connection's groups array
+    const existingGroups = new Set(connection.groups);
     const newGroups = groupIds.filter(groupId => !existingGroups.has(groupId));
 
     if (newGroups.length > 0) {
-      const updatedGroups = [...contact.groups, ...newGroups];
-      await this.updateConnection(contactId, { groups: updatedGroups });
+      const updatedGroups = [...connection.groups, ...newGroups];
+      await this.updateConnection(connectionId, { groups: updatedGroups });
     }
   }
 
-  async removeConnectionFromMultipleGroups(contactId: string, groupIds: string[]): Promise<void> {
-    const contact = await this.getConnection(contactId);
-    if (!contact) {
+  async removeConnectionFromMultipleGroups(connectionId: string, groupIds: string[]): Promise<void> {
+    const connection = await this.getConnection(connectionId);
+    if (!connection) {
       throw new Error(ERROR_MESSAGES.CONNECTION_NOT_FOUND);
     }
 
-    // Remove all specified groups from contact's groups array
+    // Remove all specified groups from connection's groups array
     const groupsToRemove = new Set(groupIds);
-    const updatedGroups = contact.groups.filter((groupId: string) => !groupsToRemove.has(groupId));
+    const updatedGroups = connection.groups.filter((groupId: string) => !groupsToRemove.has(groupId));
 
-    await this.updateConnection(contactId, { groups: updatedGroups });
+    await this.updateConnection(connectionId, { groups: updatedGroups });
   }
 
   async getConnectionsByGroup(groupId: string): Promise<Connection[]> {
     const allConnections = await this.getAllConnections();
-    return allConnections.filter((contact: Connection) => contact.groups.includes(groupId));
+    return allConnections.filter((connection: Connection) => connection.groups.includes(groupId));
   }
 
   // Search and Filtering
@@ -374,16 +374,16 @@ export class ConnectionStoreImpl implements ConnectionStore {
   async filterConnections(filter: ConnectionFilter): Promise<Connection[]> {
     const allConnections = await this.getAllConnections();
 
-    return allConnections.filter((contact: Connection) => {
+    return allConnections.filter((connection: Connection) => {
       // Filter by trust level
-      if (filter.trustLevel && contact.trustLevel !== filter.trustLevel) {
+      if (filter.trustLevel && connection.trustLevel !== filter.trustLevel) {
         return false;
       }
 
       // Filter by groups
       if (filter.groups && filter.groups.length > 0) {
         const hasMatchingGroup = filter.groups.some((groupId: string) =>
-          contact.groups.includes(groupId)
+          connection.groups.includes(groupId)
         );
         if (!hasMatchingGroup) {
           return false;
@@ -394,10 +394,10 @@ export class ConnectionStoreImpl implements ConnectionStore {
       if (filter.searchQuery) {
         const lowercaseQuery = filter.searchQuery.toLowerCase();
         const matchesQuery =
-          contact.displayName.toLowerCase().includes(lowercaseQuery) ||
-          contact.bio?.toLowerCase().includes(lowercaseQuery) ||
-          contact.publicKey.toLowerCase().includes(lowercaseQuery) ||
-          contact.metadata.notes?.toLowerCase().includes(lowercaseQuery);
+          connection.displayName.toLowerCase().includes(lowercaseQuery) ||
+          connection.bio?.toLowerCase().includes(lowercaseQuery) ||
+          connection.publicKey.toLowerCase().includes(lowercaseQuery) ||
+          connection.metadata.notes?.toLowerCase().includes(lowercaseQuery);
 
         if (!matchesQuery) {
           return false;
@@ -405,11 +405,11 @@ export class ConnectionStoreImpl implements ConnectionStore {
       }
 
       // Filter by date range
-      if (filter.addedAfter && contact.addedAt < filter.addedAfter) {
+      if (filter.addedAfter && connection.addedAt < filter.addedAfter) {
         return false;
       }
 
-      if (filter.addedBefore && contact.addedAt > filter.addedBefore) {
+      if (filter.addedBefore && connection.addedAt > filter.addedBefore) {
         return false;
       }
 

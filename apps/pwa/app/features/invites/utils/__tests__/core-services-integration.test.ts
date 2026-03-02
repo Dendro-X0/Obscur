@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { contactStore } from '../contact-store';
+import { connectionStore } from '../connection-store';
 import { profileManager } from '../profile-manager';
 import { qrGenerator } from '../qr-generator';
 import { cryptoService } from '@/app/features/crypto/crypto-service';
-import type { Contact, ContactGroup, UserProfile, PrivacySettings } from '../types';
+import type { Connection, ConnectionGroup, UserProfile, PrivacySettings } from '../types';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 
@@ -21,14 +21,14 @@ describe('Core Services Integration', () => {
   beforeEach(async () => {
     // Clear any existing data before each test
     try {
-      const allContacts = await contactStore.getAllContacts();
-      for (const contact of allContacts) {
-        await contactStore.removeContact(contact.id);
+      const allConnections = await connectionStore.getAllConnections();
+      for (const connection of allConnections) {
+        await connectionStore.removeConnection(connection.id);
       }
 
-      const allGroups = await contactStore.getAllGroups();
+      const allGroups = await connectionStore.getAllGroups();
       for (const group of allGroups) {
-        await contactStore.deleteGroup(group.id);
+        await connectionStore.deleteGroup(group.id);
       }
     } catch (error) {
       // Ignore cleanup errors
@@ -37,27 +37,27 @@ describe('Core Services Integration', () => {
 
   describe('Service Availability', () => {
     it('should have all core services available', () => {
-      expect(contactStore).toBeDefined();
+      expect(connectionStore).toBeDefined();
       expect(profileManager).toBeDefined();
       expect(qrGenerator).toBeDefined();
       expect(cryptoService).toBeDefined();
     });
 
-    it('should have all required methods on ContactStore', () => {
-      expect(typeof contactStore.addContact).toBe('function');
-      expect(typeof contactStore.updateContact).toBe('function');
-      expect(typeof contactStore.removeContact).toBe('function');
-      expect(typeof contactStore.getContact).toBe('function');
-      expect(typeof contactStore.getAllContacts).toBe('function');
-      expect(typeof contactStore.createGroup).toBe('function');
-      expect(typeof contactStore.deleteGroup).toBe('function');
-      expect(typeof contactStore.addContactToGroup).toBe('function');
-      expect(typeof contactStore.removeContactFromGroup).toBe('function');
-      expect(typeof contactStore.searchContacts).toBe('function');
-      expect(typeof contactStore.filterContacts).toBe('function');
-      expect(typeof contactStore.setTrustLevel).toBe('function');
-      expect(typeof contactStore.getTrustedContacts).toBe('function');
-      expect(typeof contactStore.getBlockedContacts).toBe('function');
+    it('should have all required methods on ConnectionStore', () => {
+      expect(typeof connectionStore.addConnection).toBe('function');
+      expect(typeof connectionStore.updateConnection).toBe('function');
+      expect(typeof connectionStore.removeConnection).toBe('function');
+      expect(typeof connectionStore.getConnection).toBe('function');
+      expect(typeof connectionStore.getAllConnections).toBe('function');
+      expect(typeof connectionStore.createGroup).toBe('function');
+      expect(typeof connectionStore.deleteGroup).toBe('function');
+      expect(typeof connectionStore.addConnectionToGroup).toBe('function');
+      expect(typeof connectionStore.removeConnectionFromGroup).toBe('function');
+      expect(typeof connectionStore.searchConnections).toBe('function');
+      expect(typeof connectionStore.filterConnections).toBe('function');
+      expect(typeof connectionStore.setTrustLevel).toBe('function');
+      expect(typeof connectionStore.getTrustedConnections).toBe('function');
+      expect(typeof connectionStore.getBlockedConnections).toBe('function');
     });
 
     it('should have all required methods on ProfileManager', () => {
@@ -94,9 +94,9 @@ describe('Core Services Integration', () => {
   });
 
   describe('Service Integration Workflows', () => {
-    it('should create a complete contact workflow', async () => {
-      // 1. Create a contact group
-      const group: ContactGroup = {
+    it('should create a complete connection workflow', async () => {
+      // 1. Create a connection group
+      const group: ConnectionGroup = {
         id: 'test-group-1',
         name: 'Test Friends',
         description: 'Test group for integration',
@@ -104,14 +104,14 @@ describe('Core Services Integration', () => {
         createdAt: new Date()
       };
 
-      await contactStore.createGroup(group);
-      const retrievedGroup = await contactStore.getGroup(group.id);
+      await connectionStore.createGroup(group);
+      const retrievedGroup = await connectionStore.getGroup(group.id);
       expect(retrievedGroup).toEqual(group);
 
-      // 2. Create a contact
-      const contact: Contact = {
-        id: 'test-contact-1',
-        publicKey: testPublicKey,
+      // 2. Create a connection
+      const connection: Connection = {
+        id: 'test-connection-1',
+        publicKey: testPublicKey as any,
         displayName: 'Test User',
         avatar: 'https://example.com/avatar.jpg',
         bio: 'Test user for integration',
@@ -124,26 +124,26 @@ describe('Core Services Integration', () => {
         }
       };
 
-      await contactStore.addContact(contact);
-      const retrievedContact = await contactStore.getContact(contact.id);
-      expect(retrievedContact).toEqual(contact);
+      await connectionStore.addConnection(connection);
+      const retrievedConnection = await connectionStore.getConnection(connection.id);
+      expect(retrievedConnection).toEqual(connection);
 
-      // 3. Add contact to group
-      await contactStore.addContactToGroup(contact.id, group.id);
-      const contactsInGroup = await contactStore.getContactsByGroup(group.id);
-      expect(contactsInGroup).toHaveLength(1);
-      expect(contactsInGroup[0].id).toBe(contact.id);
+      // 3. Add connection to group
+      await connectionStore.addConnectionToGroup(connection.id, group.id);
+      const connectionsInGroup = await connectionStore.getConnectionsByGroup(group.id);
+      expect(connectionsInGroup).toHaveLength(1);
+      expect(connectionsInGroup[0].id).toBe(connection.id);
 
       // 4. Update trust level
-      await contactStore.setTrustLevel(contact.id, 'trusted');
-      const trustedContacts = await contactStore.getTrustedContacts();
-      expect(trustedContacts).toHaveLength(1);
-      expect(trustedContacts[0].id).toBe(contact.id);
+      await connectionStore.setTrustLevel(connection.id, 'trusted');
+      const trustedConnections = await connectionStore.getTrustedConnections();
+      expect(trustedConnections).toHaveLength(1);
+      expect(trustedConnections[0].id).toBe(connection.id);
 
-      // 5. Search for contact
-      const searchResults = await contactStore.searchContacts('Test User');
+      // 5. Search for connection
+      const searchResults = await connectionStore.searchConnections('Test User');
       expect(searchResults).toHaveLength(1);
-      expect(searchResults[0].id).toBe(contact.id);
+      expect(searchResults[0].id).toBe(connection.id);
     });
 
     it('should create a complete profile and QR workflow', async () => {
@@ -167,7 +167,7 @@ describe('Core Services Integration', () => {
         shareAvatar: true,
         shareBio: false,
         shareWebsite: false,
-        allowContactRequests: true,
+        allowConnectionRequests: true,
         requireMessage: true,
         autoAcceptTrusted: false
       };
@@ -221,20 +221,20 @@ describe('Core Services Integration', () => {
   });
 
   describe('Error Handling Integration', () => {
-    it('should handle contact store errors gracefully', async () => {
-      // Try to get non-existent contact
-      const nonExistentContact = await contactStore.getContact('non-existent');
-      expect(nonExistentContact).toBeNull();
+    it('should handle connection store errors gracefully', async () => {
+      // Try to get non-existent connection
+      const nonExistentConnection = await connectionStore.getConnection('non-existent');
+      expect(nonExistentConnection).toBeNull();
 
-      // Try to update non-existent contact
+      // Try to update non-existent connection
       await expect(
-        contactStore.updateContact('non-existent', { displayName: 'Updated' })
+        connectionStore.updateConnection('non-existent', { displayName: 'Updated' })
       ).rejects.toThrow();
 
-      // Try to add contact to non-existent group
-      const contact: Contact = {
-        id: 'test-contact-error',
-        publicKey: testPublicKey,
+      // Try to add connection to non-existent group
+      const connection: Connection = {
+        id: 'test-connection-error',
+        publicKey: testPublicKey as any,
         displayName: 'Error Test',
         trustLevel: 'neutral',
         groups: [],
@@ -242,10 +242,10 @@ describe('Core Services Integration', () => {
         metadata: { source: 'manual' }
       };
 
-      await contactStore.addContact(contact);
+      await connectionStore.addConnection(connection);
 
       await expect(
-        contactStore.addContactToGroup(contact.id, 'non-existent-group')
+        connectionStore.addConnectionToGroup(connection.id, 'non-existent-group')
       ).rejects.toThrow();
     });
 
@@ -295,10 +295,10 @@ describe('Core Services Integration', () => {
 
   describe('Data Consistency', () => {
     it('should maintain data consistency across services', async () => {
-      // Create a contact with specific data
-      const contact: Contact = {
+      // Create a connection with specific data
+      const connection: Connection = {
         id: 'consistency-test',
-        publicKey: testPublicKey,
+        publicKey: testPublicKey as any,
         displayName: 'Consistency Test User',
         trustLevel: 'neutral',
         groups: [],
@@ -306,22 +306,22 @@ describe('Core Services Integration', () => {
         metadata: { source: 'manual' }
       };
 
-      await contactStore.addContact(contact);
+      await connectionStore.addConnection(connection);
 
-      // Verify the contact can be retrieved with exact same data
-      const retrieved = await contactStore.getContact(contact.id);
-      expect(retrieved).toEqual(contact);
+      // Verify the connection can be retrieved with exact same data
+      const retrieved = await connectionStore.getConnection(connection.id);
+      expect(retrieved).toEqual(connection);
 
-      // Update the contact
+      // Update the connection
       const updates = { displayName: 'Updated Name', trustLevel: 'trusted' as const };
-      await contactStore.updateContact(contact.id, updates);
+      await connectionStore.updateConnection(connection.id, updates);
 
       // Verify updates are applied correctly
-      const updated = await contactStore.getContact(contact.id);
+      const updated = await connectionStore.getConnection(connection.id);
       expect(updated!.displayName).toBe(updates.displayName);
       expect(updated!.trustLevel).toBe(updates.trustLevel);
-      expect(updated!.id).toBe(contact.id); // ID should remain the same
-      expect(updated!.publicKey).toBe(contact.publicKey); // Public key should remain the same
+      expect(updated!.id).toBe(connection.id); // ID should remain the same
+      expect(updated!.publicKey).toBe(connection.publicKey); // Public key should remain the same
     });
 
     it('should maintain profile consistency', async () => {

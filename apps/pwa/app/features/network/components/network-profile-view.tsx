@@ -44,7 +44,7 @@ export default function ConnectionProfileView() {
     const router = useRouter();
     const { t } = useTranslation();
     const { peerTrust, requestsInbox, blocklist } = useNetwork();
-    const { createdContacts, setCreatedContacts, setSelectedConversation } = useMessaging();
+    const { createdConnections, setCreatedConnections, setSelectedConversation } = useMessaging();
     const { relayPool } = useRelay();
     const identity = useIdentity();
 
@@ -74,9 +74,9 @@ export default function ConnectionProfileView() {
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes(pk as PublicKeyHex) ?? false;
     const requestStatus = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk as PublicKeyHex });
     const isRequestPending = requestStatus?.status === 'pending' && requestStatus.isOutgoing;
-    const contact = createdContacts.find(c => c.kind === 'dm' && c.pubkey === pk);
+    const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
 
-    const resolvedName = metadata?.displayName || contact?.displayName || pk.slice(0, 8);
+    const resolvedName = metadata?.displayName || connection?.displayName || pk.slice(0, 8);
     const displayHandle = resolvedName ? `@${resolvedName}` : `@${pk.slice(0, 8)}...${pk.slice(-8)}`;
 
     const handleConnect = async () => {
@@ -105,7 +105,7 @@ export default function ConnectionProfileView() {
     const handleMessage = () => {
         const myPk = identity.state.publicKeyHex || "";
         const cid = [myPk, pk].sort().join(':');
-        const existing = createdContacts.find(c => c.id === cid);
+        const existing = createdConnections.find(c => c.id === cid);
 
         if (existing) {
             setSelectedConversation(existing);
@@ -119,7 +119,7 @@ export default function ConnectionProfileView() {
                 unreadCount: 0,
                 lastMessageTime: new Date()
             };
-            setCreatedContacts(prev => [...prev, newConv]);
+            setCreatedConnections(prev => [...prev, newConv]);
             setSelectedConversation(newConv);
         }
         router.push("/");
@@ -140,7 +140,7 @@ export default function ConnectionProfileView() {
         toast.success(t("network.notifications.blocked", "User blocked"));
     };
 
-    const handleRemoveContact = () => {
+    const handleRemoveConnection = () => {
         setIsRemoveDialogOpen(true);
     };
 
@@ -433,7 +433,7 @@ export default function ConnectionProfileView() {
 
                             {isTrusted && (
                                 <button
-                                    onClick={handleRemoveContact}
+                                    onClick={handleRemoveConnection}
                                     className="flex items-center justify-between p-8 hover:bg-rose-500/[0.02] transition-colors group/item"
                                 >
                                     <div className="flex items-center gap-6">

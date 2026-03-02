@@ -1,5 +1,5 @@
 import jsQR from 'jsqr';
-import type { QRInviteData } from './qr-generator';
+import type { QRConnectionData } from './qr-generator';
 import { qrGenerator } from './qr-generator';
 
 type NavigatorLike = Readonly<{
@@ -34,7 +34,7 @@ const getNavigatorRef = (): NavigatorLike | undefined => {
 /**
  * Scan QR code from image file
  */
-export async function scanQRFromFile(file: File): Promise<QRInviteData> {
+export async function scanQRFromFile(file: File): Promise<QRConnectionData> {
   try {
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -57,7 +57,7 @@ export async function scanQRFromFile(file: File): Promise<QRInviteData> {
           canvas.width = img.width;
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
-          
+
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           resolve(imageData);
         } catch (error) {
@@ -66,7 +66,7 @@ export async function scanQRFromFile(file: File): Promise<QRInviteData> {
       };
 
       img.onerror = () => reject(new Error('Failed to load image'));
-      
+
       // Convert file to data URL
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -85,7 +85,7 @@ export async function scanQRFromFile(file: File): Promise<QRInviteData> {
 /**
  * Scan QR code from camera stream
  */
-export async function scanQRFromCamera(): Promise<QRInviteData> {
+export async function scanQRFromCamera(): Promise<QRConnectionData> {
   try {
     const navigatorRef = getNavigatorRef();
     const getUserMedia = navigatorRef?.mediaDevices?.getUserMedia;
@@ -124,12 +124,12 @@ export async function scanQRFromCamera(): Promise<QRInviteData> {
     canvas.height = video.videoHeight;
 
     // Scan frames until QR code is found
-    return new Promise<QRInviteData>((resolve, reject) => {
+    return new Promise<QRConnectionData>((resolve, reject) => {
       const scanFrame = () => {
         try {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          
+
           scanQRFromImageData(imageData)
             .then((result) => {
               // Stop camera stream
@@ -163,7 +163,7 @@ export async function scanQRFromCamera(): Promise<QRInviteData> {
 /**
  * Scan QR code from ImageData
  */
-export async function scanQRFromImageData(imageData: ImageData): Promise<QRInviteData> {
+export async function scanQRFromImageData(imageData: ImageData): Promise<QRConnectionData> {
   try {
     // Use jsQR to decode the QR code
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
@@ -176,21 +176,21 @@ export async function scanQRFromImageData(imageData: ImageData): Promise<QRInvit
 
     // Validate QR data format
     if (!qrGenerator.validateQRData(code.data)) {
-      throw new Error('Invalid QR code format - not an Obscur invite');
+      throw new Error('Invalid QR code format - not an Obscur connection');
     }
 
     // Parse QR data
-    const inviteData = qrGenerator.parseQRData(code.data);
-    if (!inviteData) {
+    const connectionData = qrGenerator.parseQRData(code.data);
+    if (!connectionData) {
       throw new Error('Failed to parse QR code data');
     }
 
     // Check expiration
-    if (Date.now() > inviteData.expirationTime) {
-      throw new Error('Invite has expired');
+    if (Date.now() > connectionData.expirationTime) {
+      throw new Error('Connection has expired');
     }
 
-    return inviteData;
+    return connectionData;
   } catch (error) {
     throw new Error(`QR scan failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
@@ -199,7 +199,7 @@ export async function scanQRFromImageData(imageData: ImageData): Promise<QRInvit
 /**
  * Process QR code from clipboard (if it contains a data URL)
  */
-export async function scanQRFromClipboard(): Promise<QRInviteData> {
+export async function scanQRFromClipboard(): Promise<QRConnectionData> {
   try {
     const navigatorRef = getNavigatorRef();
     // Check if clipboard API is available
@@ -209,7 +209,7 @@ export async function scanQRFromClipboard(): Promise<QRInviteData> {
 
     // Read clipboard items
     const clipboardItems = await navigatorRef.clipboard.read();
-    
+
     for (const item of clipboardItems) {
       // Look for image data
       for (const type of item.types) {

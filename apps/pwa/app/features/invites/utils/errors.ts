@@ -33,12 +33,12 @@ export class InviteLinkError extends InviteError {
 }
 
 /**
- * Error thrown when contact operations fail
+ * Error thrown when connection operations fail
  */
-export class ContactError extends InviteError {
+export class ConnectionError extends InviteError {
   constructor(message: string, cause?: Error) {
-    super(message, 'CONTACT_ERROR', cause);
-    this.name = 'ContactError';
+    super(message, 'CONNECTION_ERROR', cause);
+    this.name = 'ConnectionError';
   }
 }
 

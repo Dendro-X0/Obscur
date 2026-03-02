@@ -56,7 +56,7 @@ const privacySettingsArb = (): fc.Arbitrary<PrivacySettings> =>
     shareAvatar: fc.boolean(),
     shareBio: fc.boolean(),
     shareWebsite: fc.boolean(),
-    allowContactRequests: fc.boolean(),
+    allowConnectionRequests: fc.boolean(),
     requireMessage: fc.boolean(),
     autoAcceptTrusted: fc.boolean(),
   });
@@ -258,7 +258,7 @@ describe('Privacy and Security Properties', () => {
             shareAvatar: true,
             shareBio: true,
             shareWebsite: true,
-            allowContactRequests: true,
+            allowConnectionRequests: true,
             requireMessage: false,
             autoAcceptTrusted: false,
           });

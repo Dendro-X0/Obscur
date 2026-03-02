@@ -67,7 +67,7 @@ export interface InviteManager {
   getConnectionRequestsByStatus(status: ConnectionRequestStatus): Promise<ConnectionRequest[]>;
 
   // Import/Export
-  importConnections(contactData: NostrConnectionList): Promise<ImportResult>;
+  importConnections(connectionData: NostrConnectionList): Promise<ImportResult>;
   exportConnections(): Promise<NostrConnectionList>;
   validateConnectionListFormat(data: unknown): Promise<Readonly<{ isValid: boolean; errors: ReadonlyArray<string> }>>;
   importConnectionsFromFile(fileContent: string): Promise<ImportResult>;
@@ -88,11 +88,10 @@ export interface QRGenerator {
  */
 export interface ConnectionStore {
   // Connection Management
-  // Connection Management
-  addConnection(contact: Connection): Promise<void>;
-  updateConnection(contactId: string, updates: Partial<Connection>): Promise<void>;
-  removeConnection(contactId: string): Promise<void>;
-  getConnection(contactId: string): Promise<Connection | null>;
+  addConnection(connection: Connection): Promise<void>;
+  updateConnection(connectionId: string, updates: Partial<Connection>): Promise<void>;
+  removeConnection(connectionId: string): Promise<void>;
+  getConnection(connectionId: string): Promise<Connection | null>;
   getAllConnections(): Promise<Connection[]>;
 
   // Connection Organization
@@ -101,8 +100,8 @@ export interface ConnectionStore {
   getGroup(groupId: string): Promise<ConnectionGroup | null>;
   getAllGroups(): Promise<ConnectionGroup[]>;
   updateGroup(groupId: string, updates: Partial<ConnectionGroup>): Promise<void>;
-  addConnectionToGroup(contactId: string, groupId: string): Promise<void>;
-  removeConnectionFromGroup(contactId: string, groupId: string): Promise<void>;
+  addConnectionToGroup(connectionId: string, groupId: string): Promise<void>;
+  removeConnectionFromGroup(connectionId: string, groupId: string): Promise<void>;
   getConnectionsByGroup(groupId: string): Promise<Connection[]>;
 
   // Search and Filtering
@@ -118,11 +117,11 @@ export interface ConnectionStore {
   bulkSetTrustLevel(connectionIds: string[], level: TrustLevel): Promise<void>;
 
   // Multi-group operations
-  addConnectionToMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
-  removeConnectionFromMultipleGroups(contactId: string, groupIds: string[]): Promise<void>;
+  addConnectionToMultipleGroups(connectionId: string, groupIds: string[]): Promise<void>;
+  removeConnectionFromMultipleGroups(connectionId: string, groupIds: string[]): Promise<void>;
 
   // Public key lookup
-  getContactByPublicKey(publicKey: string): Promise<Connection | null>;
+  getConnectionByPublicKey(publicKey: string): Promise<Connection | null>;
 }
 
 /**

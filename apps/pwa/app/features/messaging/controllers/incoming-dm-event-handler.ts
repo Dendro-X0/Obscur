@@ -32,7 +32,7 @@ export type IncomingDmParams = Readonly<{
     setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>) => void;
   };
   onNewMessage?: (message: Message) => void;
-  onContactCreated?: (pubkey: PublicKeyHex) => void;
+  onConnectionCreated?: (pubkey: PublicKeyHex) => void;
 }>;
 
 export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: ReadonlyArray<Message> }>>(params: Readonly<{
@@ -154,7 +154,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
 
     const privacySettings = PrivacySettingsService.getSettings();
     if (privacySettings.dmPrivacy === "contacts-only" && !isAcceptedContact && !hasOutgoingPending) {
-      console.log("Filtered message from stranger due to \"Contacts Only\" privacy setting:", actualSenderPubkey);
+      console.log("Filtered message from stranger due to \"Connections Only\" privacy setting:", actualSenderPubkey);
       return;
     }
 
@@ -211,7 +211,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
           status: "accepted",
           isOutgoing: true
         });
-        currentParams.onContactCreated?.(actualSenderPubkey);
+        currentParams.onConnectionCreated?.(actualSenderPubkey);
       }
     }
 
@@ -226,7 +226,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
           status: "accepted",
           eventId: usedEventId
         });
-        currentParams.onContactCreated?.(actualSenderPubkey);
+        currentParams.onConnectionCreated?.(actualSenderPubkey);
       } else {
         if (currentParams.requestsInbox) {
           currentParams.requestsInbox.upsertIncoming({
@@ -266,7 +266,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       });
     });
 
-    console.log("Processed incoming message from accepted contact:", event.id);
+    console.log("Processed incoming message from accepted connection:", event.id);
 
     if (currentParams.onNewMessage) {
       currentParams.onNewMessage(message);

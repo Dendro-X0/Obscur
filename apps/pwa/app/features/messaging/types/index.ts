@@ -121,7 +121,7 @@ export interface SendDirectMessageResult {
 
 export type UnreadByConversationId = Readonly<Record<string, number>>;
 
-export type ContactOverridesByContactId = Readonly<
+export type ConnectionOverridesByConnectionId = Readonly<
     Record<string, Readonly<{ lastMessage: string; lastMessageTime: Date }>>
 >;
 
@@ -187,7 +187,7 @@ export type PersistedGroupMessage = Readonly<{
 
 export type DeleteCommandMessage = Readonly<{ type: "delete"; targetMessageId: string }>;
 
-export type PersistedContactOverride = Readonly<{ lastMessage: string; lastMessageTimeMs: number }>;
+export type PersistedConnectionOverride = Readonly<{ lastMessage: string; lastMessageTimeMs: number }>;
 
 export type ConnectionRequestStatusValue = "pending" | "accepted" | "declined" | "canceled";
 
@@ -219,10 +219,10 @@ export type RequestsInboxItem = Readonly<{
 
 export type PersistedChatState = Readonly<{
     version: number;
-    createdContacts: ReadonlyArray<PersistedDmConversation>;
+    createdConnections: ReadonlyArray<PersistedDmConversation>;
     createdGroups: ReadonlyArray<PersistedGroupConversation>;
     unreadByConversationId: Readonly<Record<string, number>>;
-    contactOverridesByContactId: Readonly<Record<string, PersistedContactOverride>>;
+    connectionOverridesByConnectionId: Readonly<Record<string, PersistedConnectionOverride>>;
     messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>;
     groupMessages?: Readonly<Record<string, ReadonlyArray<PersistedGroupMessage>>>;
     connectionRequests?: ReadonlyArray<PersistedConnectionRequest>;

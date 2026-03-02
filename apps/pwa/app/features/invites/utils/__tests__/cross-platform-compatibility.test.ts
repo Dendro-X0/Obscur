@@ -3,7 +3,7 @@ import fc from 'fast-check';
 import { NostrCompatibilityService, NostrRelayValidator } from '../nostr-compatibility';
 import { DeepLinkHandler } from '../deep-link-handler';
 import { URLSchemeHandler } from '../url-scheme-handler';
-import type { QRInviteData, ShareableProfile, InviteLink } from '../types';
+import type { QRConnectionData, ShareableProfile, InviteLink } from '../types';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 
 // Mock dependencies
@@ -21,7 +21,7 @@ vi.mock('../invite-manager', () => ({
   inviteManager: {
     processQRInvite: vi.fn(),
     processInviteLink: vi.fn(),
-    sendContactRequest: vi.fn()
+    sendConnectionRequest: vi.fn()
   }
 }));
 
@@ -59,7 +59,7 @@ describe('Cross-Platform Compatibility Tests', () => {
           signature: fc.string({ minLength: 10, maxLength: 100 })
         }),
         async (qrData) => {
-          const typedQrData: QRInviteData = {
+          const typedQrData: QRConnectionData = {
             version: '1.0',
             publicKey: qrData.publicKey as PublicKeyHex,
             displayName: qrData.displayName ?? undefined,
@@ -233,7 +233,7 @@ describe('Cross-Platform Compatibility Tests', () => {
               type: fc.constant('obscur'),
               path: fc.oneof(
                 fc.tuple(fc.constant('invite'), shortCodeGen()),
-                fc.tuple(fc.constant('contact'), publicKeyGen()),
+                fc.tuple(fc.constant('connection'), publicKeyGen()),
                 fc.tuple(fc.constant('qr'), fc.string({ minLength: 10, maxLength: 200 }))
               )
             }),
@@ -291,8 +291,8 @@ describe('Cross-Platform Compatibility Tests', () => {
                 if (linkData.path[0] === 'invite') {
                   expect(route.type).toBe('invite');
                   expect((route as any).shortCode).toBeDefined();
-                } else if (linkData.path[0] === 'contact' || linkData.path[0] === 'connect') {
-                  expect(route.type).toBe('contact');
+                } else if (linkData.path[0] === 'connection' || linkData.path[0] === 'connect') {
+                  expect(route.type).toBe('connection');
                   expect((route as any).publicKey).toBeDefined();
                 }
               }

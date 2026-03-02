@@ -37,7 +37,7 @@ import { JoinGroupInputDialog } from "@/app/features/groups/components/join-grou
 import { GroupJoinDialog } from "@/app/features/groups/components/group-join-dialog";
 import { AddConnectionModal } from "./add-connection-modal";
 
-import { ConnectionCard } from "./network-contact-card";
+import { ConnectionCard } from "./network-connection-card";
 import { GroupCard } from "./group-card";
 import { GroupDiscovery } from "@/app/features/groups/components/group-discovery";
 import { Loader2 as LoaderIcon, QrCode, Scan, Download, Upload, User as UserIcon, Shield, Copy, CheckCircle2, ChevronRight } from "lucide-react";
@@ -60,7 +60,7 @@ export function NetworkDashboard() {
     const { createdGroups, setIsNewGroupOpen } = useGroups();
     const {
         setIsNewChatOpen,
-        createdContacts,
+        createdConnections,
         hasHydrated,
     } = useMessaging();
     const router = useRouter();
@@ -125,11 +125,11 @@ export function NetworkDashboard() {
 
     const filteredAcceptedPeers = useMemo(() => {
         return peerTrust.state.acceptedPeers.filter(pk => {
-            const contact = createdContacts.find(c => c.kind === 'dm' && c.pubkey === pk);
-            const searchStr = (contact?.displayName || pk).toLowerCase();
+            const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
+            const searchStr = (connection?.displayName || pk).toLowerCase();
             return searchStr.includes(searchQuery.toLowerCase());
         });
-    }, [peerTrust.state.acceptedPeers, createdContacts, searchQuery]);
+    }, [peerTrust.state.acceptedPeers, createdConnections, searchQuery]);
 
     const handleGlobalSearch = async () => {
         const trimmedQuery = searchQuery.trim();
@@ -291,20 +291,20 @@ export function NetworkDashboard() {
                                     </div>
                                 ) : filteredAcceptedPeers.length === 0 ? (
                                     renderEmptyState(
-                                        t("network.noContactsFound"),
-                                        t("network.noContactsDesc"),
+                                        t("network.noConnectionsFound"),
+                                        t("network.noConnectionsDesc"),
                                         UserCheck,
                                         { label: t("network.findPeople"), onClick: () => setIsNewChatOpen(true) }
                                     )
                                 ) : (
                                     <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col"}>
                                         {filteredAcceptedPeers.map(pk => {
-                                            const contact = createdContacts.find(c => c.kind === 'dm' && c.pubkey === pk);
+                                            const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
                                             return (
                                                 <ConnectionCard
                                                     key={pk}
                                                     pubkey={pk}
-                                                    displayName={contact?.displayName}
+                                                    displayName={connection?.displayName}
                                                     onClick={() => router.push(`/network/${pk}`)}
                                                     viewMode={viewMode}
                                                 />
@@ -578,7 +578,7 @@ export function NetworkDashboard() {
                                             <Upload className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-foreground text-sm">Import Contacts</h4>
+                                            <h4 className="font-bold text-foreground text-sm">Import Connections</h4>
                                             <p className="text-xs text-muted-foreground">Restore your social graph (NIP-02).</p>
                                         </div>
                                     </div>
@@ -622,7 +622,7 @@ export function NetworkDashboard() {
 
                             <div className="mt-4 px-2">
                                 <p className="text-xs text-muted-foreground leading-relaxed">
-                                    Manage your decentralized social graph. Import following lists from other relays or export your local contacts to take them with you.
+                                    Manage your decentralized social graph. Import following lists from other relays or export your local connections to take them with you.
                                 </p>
                             </div>
                         </div>

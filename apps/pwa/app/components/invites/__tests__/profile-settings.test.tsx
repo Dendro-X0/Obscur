@@ -22,7 +22,7 @@ describe('ProfileSettings', () => {
     shareAvatar: true,
     shareBio: false,
     shareWebsite: false,
-    allowContactRequests: true,
+    allowConnectionRequests: true,
     requireMessage: false,
     autoAcceptTrusted: false,
   };
@@ -33,10 +33,10 @@ describe('ProfileSettings', () => {
 
   it('should render loading state initially', () => {
     vi.mocked(profileManagerModule.profileManager.getProfile).mockImplementation(
-      () => new Promise(() => {})
+      () => new Promise(() => { })
     );
     vi.mocked(profileManagerModule.profileManager.getPrivacySettings).mockImplementation(
-      () => new Promise(() => {})
+      () => new Promise(() => { })
     );
 
     render(<ProfileSettings />);
@@ -219,8 +219,8 @@ describe('ProfileSettings', () => {
     });
   });
 
-  it('should disable dependent privacy settings when contact requests are disabled', async () => {
-    const privacyWithDisabledRequests = { ...mockPrivacy, allowContactRequests: false };
+  it('should disable dependent privacy settings when connection requests are disabled', async () => {
+    const privacyWithDisabledRequests = { ...mockPrivacy, allowConnectionRequests: false };
     vi.mocked(profileManagerModule.profileManager.getProfile).mockResolvedValue(mockProfile);
     vi.mocked(profileManagerModule.profileManager.getPrivacySettings).mockResolvedValue(privacyWithDisabledRequests);
 

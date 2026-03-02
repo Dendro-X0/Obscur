@@ -124,7 +124,7 @@ export class DeepLinkHandler {
       return { type: 'qr', data: decodeURIComponent(parts[1]) };
     }
 
-    if (parts[0] === 'connect' && parts[1]) {
+    if ((parts[0] === 'connect' || parts[0] === 'connection') && parts[1]) {
       return { type: 'connection', publicKey: parts[1] };
     }
 
@@ -176,7 +176,7 @@ export class DeepLinkHandler {
         return { type: 'qr', data: parsed.searchParams.get('data')! };
       }
 
-      if (pathParts[0] === 'connect' && pathParts[1]) {
+      if ((pathParts[0] === 'connect' || pathParts[0] === 'connection') && pathParts[1]) {
         return { type: 'connection', publicKey: pathParts[1] };
       }
 
@@ -202,7 +202,7 @@ export class DeepLinkHandler {
    * Parse alternative formats (direct data, etc.)
    */
   private static parseAlternativeFormat(url: string): DeepLinkRoute {
-    // Try to detect if it's QR data or contact data
+    // Try to detect if it's QR data or connection data
     try {
       // Check if it's JSON (QR data)
       JSON.parse(url);
@@ -287,7 +287,7 @@ export class DeepLinkHandler {
       return {
         success: false,
         route: { type: 'connection', publicKey },
-        error: error instanceof Error ? error.message : 'Failed to connect to contact',
+        error: error instanceof Error ? error.message : 'Failed to connect to user',
         fallbackAction: 'show_web_version'
       };
     }
@@ -313,13 +313,15 @@ export class DeepLinkHandler {
       const nostrData = NostrCompatibilityService.parseExternalInvite(data);
       if (nostrData) {
         const qrData = NostrCompatibilityService.fromNostrFormat(nostrData);
-        const connectionRequest = await inviteManager.processQRInvite(JSON.stringify(qrData));
+        if (qrData.type === 'qr') {
+          const connectionRequest = await inviteManager.processQRInvite(JSON.stringify(qrData));
 
-        return {
-          success: true,
-          route: { type: 'nostr', data },
-          connectionRequest
-        };
+          return {
+            success: true,
+            route: { type: 'nostr', data },
+            connectionRequest
+          };
+        }
       }
 
       return {

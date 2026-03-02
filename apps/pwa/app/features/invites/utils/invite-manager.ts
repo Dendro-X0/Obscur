@@ -109,7 +109,7 @@ const parseNostrConnectionList = (value: unknown): NostrConnectionList | null =>
       const petnameOut: string | undefined = isString(petname) && petname.trim().length > 0 ? petname.trim() : undefined;
       return { publicKey: publicKey as PublicKeyHex, relayUrl: relayUrlOut, petname: petnameOut };
     })
-    .filter((c: { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } | null): c is { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } => c !== null);
+    .filter((connection: { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } | null): connection is { publicKey: PublicKeyHex; relayUrl?: string; petname?: string } => connection !== null);
   return { connections: parsedConnections, version: version as number, createdAt: createdAt as number };
 };
 
@@ -980,7 +980,7 @@ class InviteManagerImpl implements InviteManager {
 
       // Get existing connections for deduplication
       const existingConnections = await connectionStore.getAllConnections();
-      const existingPublicKeys = new Set(existingConnections.map((c: Connection) => c.publicKey));
+      const existingPublicKeys = new Set(existingConnections.map((connection: Connection) => connection.publicKey));
 
       // Ensure search index is populated
       connectionSearchIndex.rebuild(existingConnections);
@@ -989,14 +989,14 @@ class InviteManagerImpl implements InviteManager {
       for (let i = 0; i < connectionData.connections.length; i += MAX_IMPORT_BATCH_SIZE) {
         const batch = connectionData.connections.slice(i, i + MAX_IMPORT_BATCH_SIZE);
 
-        for (const contactInfo of batch) {
+        for (const connectionInfo of batch) {
           try {
             // Validate public key format using InputValidator
-            const pkValidation = await InputValidator.validatePublicKey(contactInfo.publicKey);
+            const pkValidation = await InputValidator.validatePublicKey(connectionInfo.publicKey);
             if (!pkValidation.isValid) {
               result.failedImports++;
               result.errors.push({
-                publicKey: contactInfo.publicKey || 'unknown',
+                publicKey: connectionInfo.publicKey || 'unknown',
                 error: pkValidation.error || 'Invalid public key',
                 reason: 'invalid_key'
               });
@@ -1013,18 +1013,18 @@ class InviteManagerImpl implements InviteManager {
 
             // Validate and sanitize optional fields
             let displayName: string | undefined;
-            if (contactInfo.petname) {
-              const nameValidation = InputValidator.validateDisplayName(contactInfo.petname);
+            if (connectionInfo.petname) {
+              const nameValidation = InputValidator.validateDisplayName(connectionInfo.petname);
               if (nameValidation.isValid) {
                 displayName = nameValidation.sanitized;
               }
             }
 
             let relayUrl: string | undefined;
-            if (contactInfo.relayUrl) {
-              const urlValidation = InputValidator.validateRelayUrl(contactInfo.relayUrl);
+            if (connectionInfo.relayUrl) {
+              const urlValidation = InputValidator.validateRelayUrl(connectionInfo.relayUrl);
               if (urlValidation.isValid) {
-                relayUrl = contactInfo.relayUrl;
+                relayUrl = connectionInfo.relayUrl;
               }
             }
 
@@ -1053,7 +1053,7 @@ class InviteManagerImpl implements InviteManager {
           } catch (error) {
             result.failedImports++;
             result.errors.push({
-              publicKey: contactInfo.publicKey || 'unknown',
+              publicKey: connectionInfo.publicKey || 'unknown',
               error: error instanceof Error ? error.message : 'Unknown error',
               reason: 'validation_failed'
             });
@@ -1070,10 +1070,10 @@ class InviteManagerImpl implements InviteManager {
   async exportConnections(): Promise<NostrConnectionList> {
     try {
       const connections = await connectionStore.getAllConnections();
-      const nostrConnections = connections.map((c: Connection) => ({
-        publicKey: c.publicKey,
+      const nostrConnections = connections.map((connection: Connection) => ({
+        publicKey: connection.publicKey,
         relayUrl: undefined, // Not stored yet
-        petname: c.displayName
+        petname: connection.displayName
       }));
 
       return {
@@ -1094,9 +1094,9 @@ class InviteManagerImpl implements InviteManager {
       return { isValid: false, errors };
     }
 
-    const contactsRaw: unknown = data.contacts;
-    if (!Array.isArray(contactsRaw)) {
-      errors.push('contacts field must be an array');
+    const connectionsRaw: unknown = data.connections;
+    if (!Array.isArray(connectionsRaw)) {
+      errors.push('connections field must be an array');
       return { isValid: false, errors };
     }
 
@@ -1108,33 +1108,33 @@ class InviteManagerImpl implements InviteManager {
       errors.push('createdAt field must be a number');
     }
 
-    // Validate each contact
-    for (let i = 0; i < contactsRaw.length; i++) {
-      const contact: unknown = contactsRaw[i];
+    // Validate each connection
+    for (let i = 0; i < connectionsRaw.length; i++) {
+      const connection: unknown = connectionsRaw[i];
 
-      if (!isRecord(contact)) {
-        errors.push(`Contact at index ${i} must be an object`);
+      if (!isRecord(connection)) {
+        errors.push(`Connection at index ${i} must be an object`);
         continue;
       }
 
-      const publicKey: unknown = contact.publicKey;
+      const publicKey: unknown = connection.publicKey;
       if (!isString(publicKey) || publicKey.length === 0) {
-        errors.push(`Contact at index ${i} missing valid publicKey`);
+        errors.push(`Connection at index ${i} missing valid publicKey`);
         continue;
       }
 
       if (!cryptoService.isValidPubkey(publicKey)) {
-        errors.push(`Contact at index ${i} has invalid publicKey format`);
+        errors.push(`Connection at index ${i} has invalid publicKey format`);
       }
 
-      const petname: unknown = contact.petname;
+      const petname: unknown = connection.petname;
       if (petname !== undefined && petname !== null && !isString(petname)) {
-        errors.push(`Contact at index ${i} petname must be a string`);
+        errors.push(`Connection at index ${i} petname must be a string`);
       }
 
-      const relayUrl: unknown = contact.relayUrl;
+      const relayUrl: unknown = connection.relayUrl;
       if (relayUrl !== undefined && relayUrl !== null && !isString(relayUrl)) {
-        errors.push(`Contact at index ${i} relayUrl must be a string`);
+        errors.push(`Connection at index ${i} relayUrl must be a string`);
       }
     }
 
@@ -1144,20 +1144,20 @@ class InviteManagerImpl implements InviteManager {
   async importConnectionsFromFile(fileContent: string): Promise<ImportResult> {
     try {
       // Parse JSON
-      let contactData: unknown;
+      let connectionData: unknown;
       try {
-        contactData = JSON.parse(fileContent);
+        connectionData = JSON.parse(fileContent);
       } catch {
         throw new Error('Invalid JSON format');
       }
 
-      const parsed: NostrConnectionList | null = parseNostrConnectionList(contactData);
+      const parsed: NostrConnectionList | null = parseNostrConnectionList(connectionData);
       if (!parsed) {
         throw new Error('Invalid connection list format');
       }
 
       // Validate format
-      const validation = await this.validateConnectionListFormat(contactData);
+      const validation = await this.validateConnectionListFormat(connectionData);
       if (!validation.isValid) {
         throw new Error(`Invalid connection list format: ${validation.errors.join(', ')}`);
       }
@@ -1171,10 +1171,10 @@ class InviteManagerImpl implements InviteManager {
 
   async exportConnectionsToFile(): Promise<string> {
     try {
-      const contactData = await this.exportConnections();
-      return JSON.stringify(contactData, null, 2);
-    } catch (error) {
-      throw new Error(`File export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const connectionData = await this.exportConnections();
+      return JSON.stringify(connectionData, null, 2);
+    } catch {
+      throw new Error('File export failed');
     }
   }
 
@@ -1339,8 +1339,8 @@ class InviteManagerImpl implements InviteManager {
 
   private async findConnectionByPublicKey(publicKey: PublicKeyHex): Promise<Connection | null> {
     try {
-      const connections = await connectionStore.getAllConnections();
-      return connections.find((contact: Connection) => contact.publicKey === publicKey) || null;
+      const connection = await connectionStore.getConnectionByPublicKey(publicKey);
+      return connection;
     } catch {
       return null;
     }

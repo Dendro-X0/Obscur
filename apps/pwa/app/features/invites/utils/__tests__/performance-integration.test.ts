@@ -4,33 +4,33 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { contactStore } from '../contact-store';
+import { connectionStore } from '../connection-store';
 import { qrGenerator } from '../qr-generator';
 import {
   LRUCache,
   paginateArray,
-  ContactSearchIndex,
+  ConnectionSearchIndex,
   QRCodeCache,
   PerformanceMonitor,
   debounce,
   throttle,
   memoize
 } from '../performance-optimizations';
-import type { Contact, ContactGroup } from '../types';
+import type { Connection, ConnectionGroup } from '../types';
 
 describe('Performance Optimizations Integration', () => {
   beforeEach(async () => {
     // Clean up
-    const contacts = await contactStore.getAllContacts();
-    for (const contact of contacts) {
-      await contactStore.removeContact(contact.id);
+    const connections = await connectionStore.getAllConnections();
+    for (const connection of connections) {
+      await connectionStore.removeConnection(connection.id);
     }
   });
 
   afterEach(async () => {
-    const contacts = await contactStore.getAllContacts();
-    for (const contact of contacts) {
-      await contactStore.removeContact(contact.id);
+    const connections = await connectionStore.getAllConnections();
+    for (const connection of connections) {
+      await connectionStore.removeConnection(connection.id);
     }
   });
 
@@ -115,14 +115,14 @@ describe('Performance Optimizations Integration', () => {
     });
   });
 
-  describe('Contact Search Index', () => {
-    it('should index and search contacts efficiently', () => {
-      const searchIndex = new ContactSearchIndex();
+  describe('Connection Search Index', () => {
+    it('should index and search connections efficiently', () => {
+      const searchIndex = new ConnectionSearchIndex();
 
-      const contacts: Contact[] = [
+      const connections: Connection[] = [
         {
           id: '1',
-          publicKey: 'a'.repeat(64),
+          publicKey: 'a'.repeat(64) as any,
           displayName: 'Alice Smith',
           trustLevel: 'neutral',
           groups: [],
@@ -131,7 +131,7 @@ describe('Performance Optimizations Integration', () => {
         },
         {
           id: '2',
-          publicKey: 'b'.repeat(64),
+          publicKey: 'b'.repeat(64) as any,
           displayName: 'Bob Johnson',
           trustLevel: 'neutral',
           groups: [],
@@ -140,7 +140,7 @@ describe('Performance Optimizations Integration', () => {
         },
         {
           id: '3',
-          publicKey: 'c'.repeat(64),
+          publicKey: 'c'.repeat(64) as any,
           displayName: 'Alice Brown',
           trustLevel: 'neutral',
           groups: [],
@@ -149,7 +149,7 @@ describe('Performance Optimizations Integration', () => {
         }
       ];
 
-      contacts.forEach(contact => searchIndex.addContact(contact));
+      connections.forEach(connection => searchIndex.addConnection(connection));
 
       // Search by name
       const aliceResults = searchIndex.search('alice');
@@ -162,11 +162,11 @@ describe('Performance Optimizations Integration', () => {
     });
 
     it('should handle prefix matching', () => {
-      const searchIndex = new ContactSearchIndex();
+      const searchIndex = new ConnectionSearchIndex();
 
-      const contact: Contact = {
+      const connection: Connection = {
         id: '1',
-        publicKey: 'a'.repeat(64),
+        publicKey: 'a'.repeat(64) as any,
         displayName: 'Alexander',
         trustLevel: 'neutral',
         groups: [],
@@ -174,7 +174,7 @@ describe('Performance Optimizations Integration', () => {
         metadata: {}
       };
 
-      searchIndex.addContact(contact);
+      searchIndex.addConnection(connection);
 
       expect(searchIndex.search('alex')).toHaveLength(1);
       expect(searchIndex.search('ale')).toHaveLength(1);
@@ -183,12 +183,12 @@ describe('Performance Optimizations Integration', () => {
     });
 
     it('should rebuild index correctly', () => {
-      const searchIndex = new ContactSearchIndex();
+      const searchIndex = new ConnectionSearchIndex();
 
-      const contacts: Contact[] = [
+      const connections: Connection[] = [
         {
           id: '1',
-          publicKey: 'a'.repeat(64),
+          publicKey: 'a'.repeat(64) as any,
           displayName: 'Alice',
           trustLevel: 'neutral',
           groups: [],
@@ -197,7 +197,7 @@ describe('Performance Optimizations Integration', () => {
         },
         {
           id: '2',
-          publicKey: 'b'.repeat(64),
+          publicKey: 'b'.repeat(64) as any,
           displayName: 'Bob',
           trustLevel: 'neutral',
           groups: [],
@@ -206,7 +206,7 @@ describe('Performance Optimizations Integration', () => {
         }
       ];
 
-      searchIndex.rebuild(contacts);
+      searchIndex.rebuild(connections);
 
       expect(searchIndex.search('alice')).toHaveLength(1);
       expect(searchIndex.search('bob')).toHaveLength(1);
@@ -364,12 +364,12 @@ describe('Performance Optimizations Integration', () => {
     });
   });
 
-  describe('Contact Store Performance', () => {
-    it('should handle large contact lists efficiently', async () => {
-      // Create 100 contacts
-      const contacts: Contact[] = Array.from({ length: 100 }, (_, i) => ({
-        id: `contact-${i}`,
-        publicKey: i.toString().repeat(64).substring(0, 64),
+  describe('Connection Store Performance', () => {
+    it('should handle large connection lists efficiently', async () => {
+      // Create 100 connections
+      const connections: Connection[] = Array.from({ length: 100 }, (_, i) => ({
+        id: `connection-${i}`,
+        publicKey: i.toString().repeat(64).substring(0, 64) as any,
         displayName: `User ${i}`,
         trustLevel: 'neutral' as const,
         groups: [],
@@ -377,21 +377,21 @@ describe('Performance Optimizations Integration', () => {
         metadata: {}
       }));
 
-      // Add all contacts
-      for (const contact of contacts) {
-        await contactStore.addContact(contact);
+      // Add all connections
+      for (const connection of connections) {
+        await connectionStore.addConnection(connection);
       }
 
       // Test search performance
       const startTime = Date.now();
-      const results = await contactStore.searchContacts('User 50');
+      const results = await connectionStore.searchConnections('User 50');
       const searchTime = Date.now() - startTime;
 
       expect(results.length).toBeGreaterThan(0);
       expect(searchTime).toBeLessThan(100); // Should complete within 100ms
 
       // Test pagination
-      const page1 = await (contactStore as any).getPaginatedContacts({
+      const page1 = await (connectionStore as any).getPaginatedConnections({
         page: 1,
         pageSize: 20
       });
@@ -400,10 +400,10 @@ describe('Performance Optimizations Integration', () => {
       expect(page1.totalPages).toBe(5);
     });
 
-    it('should cache frequently accessed contacts', async () => {
-      const contact: Contact = {
-        id: 'test-contact',
-        publicKey: 'a'.repeat(64),
+    it('should cache frequently accessed connections', async () => {
+      const connection: Connection = {
+        id: 'test-connection',
+        publicKey: 'a'.repeat(64) as any,
         displayName: 'Test User',
         trustLevel: 'neutral',
         groups: [],
@@ -411,16 +411,16 @@ describe('Performance Optimizations Integration', () => {
         metadata: {}
       };
 
-      await contactStore.addContact(contact);
+      await connectionStore.addConnection(connection);
 
       // First access (from database)
       const start1 = Date.now();
-      await contactStore.getContact('test-contact');
+      await connectionStore.getConnection('test-connection');
       const time1 = Date.now() - start1;
 
       // Second access (from cache)
       const start2 = Date.now();
-      await contactStore.getContact('test-contact');
+      await connectionStore.getConnection('test-connection');
       const time2 = Date.now() - start2;
 
       // Cached access should be faster

@@ -80,7 +80,8 @@ export async function compressVideo(file: File, onProgress?: (p: number) => void
         ]);
 
         const data = await instance.readFile(outputName);
-        const compressedBlob = new Blob([(data as Uint8Array).buffer], { type: "video/mp4" });
+        const buffer = typeof data === "string" ? new TextEncoder().encode(data) : data;
+        const compressedBlob = new Blob([buffer as any], { type: "video/mp4" });
 
         // Cleanup
         await instance.deleteFile(inputName);

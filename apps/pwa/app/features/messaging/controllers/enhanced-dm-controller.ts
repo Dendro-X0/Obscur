@@ -124,7 +124,7 @@ type UseEnhancedDMControllerParams = Readonly<{
     setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>) => void;
   };
   onNewMessage?: (message: Message) => void;
-  onContactCreated?: (pubkey: PublicKeyHex) => void;
+  onConnectionCreated?: (pubkey: PublicKeyHex) => void;
 }>;
 
 /**
@@ -305,7 +305,8 @@ export const useEnhancedDMController = (
         blocklist: p.blocklist,
         peerTrust: p.peerTrust,
         requestsInbox: p.requestsInbox,
-        onNewMessage: p.onNewMessage
+        onNewMessage: p.onNewMessage,
+        onConnectionCreated: p.onConnectionCreated
       },
       messageQueue,
       processingEvents: processingEvents.current,

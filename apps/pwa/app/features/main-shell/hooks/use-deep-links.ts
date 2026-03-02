@@ -13,7 +13,7 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
     const searchParams = useSearchParams();
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
-    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdContacts, setCreatedContacts, setSelectedConversation, unhideConversation } = useMessaging();
+    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdConnections, setCreatedConnections, setSelectedConversation, unhideConversation } = useMessaging();
     const { createdGroups } = useGroups();
     const handledSearchParamRef = useRef<string | null>(null);
 
@@ -49,9 +49,9 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                                 queueMicrotask(() => {
                                     const myPk = identity.state.publicKeyHex || "";
                                     const cid = [myPk, parsed.publicKeyHex].sort().join(':');
-                                    const existingContact = createdContacts.find(c => c.id === cid);
-                                    if (existingContact) {
-                                        setSelectedConversation(existingContact);
+                                    const existingConnection = createdConnections.find(c => c.id === cid);
+                                    if (existingConnection) {
+                                        setSelectedConversation(existingConnection);
                                         unhideConversation(cid);
                                     } else {
                                         const newConv: any = {
@@ -63,7 +63,7 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                                             unreadCount: 0,
                                             lastMessageTime: new Date()
                                         };
-                                        setCreatedContacts((prev: any) => [...prev, newConv]);
+                                        setCreatedConnections((prev: any) => [...prev, newConv]);
                                         setSelectedConversation(newConv);
                                     }
                                     router.replace("/");
@@ -110,9 +110,9 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
             if (parsed.ok) {
                 queueMicrotask(() => {
                     const cid = [myPk, parsed.publicKeyHex].sort().join(':');
-                    const existingContact = createdContacts.find(c => c.id === cid);
-                    if (existingContact) {
-                        setSelectedConversation(existingContact);
+                    const existingConnection = createdConnections.find(c => c.id === cid);
+                    if (existingConnection) {
+                        setSelectedConversation(existingConnection);
                         unhideConversation(cid);
                     } else {
                         const newConv: any = {
@@ -124,7 +124,7 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                             unreadCount: 0,
                             lastMessageTime: new Date()
                         };
-                        setCreatedContacts((prev: any) => [...prev, newConv]);
+                        setCreatedConnections((prev: any) => [...prev, newConv]);
                         setSelectedConversation(newConv);
                     }
                     router.replace("/");
@@ -138,12 +138,12 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                 setSelectedConversation(group);
                 router.replace("/");
             } else {
-                const contact = createdContacts.find(c => c.id === convId);
-                if (contact) {
-                    setSelectedConversation(contact);
+                const connection = createdConnections.find(c => c.id === convId);
+                if (connection) {
+                    setSelectedConversation(connection);
                     router.replace("/");
                 }
             }
         }
-    }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdContacts, setSelectedConversation]);
+    }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdConnections, setSelectedConversation]);
 }

@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ContactImportExport } from '../contact-import-export';
+import { ConnectionImportExport } from '../connection-import-export';
 import * as inviteManagerModule from '../../../features/invites/utils/invite-manager';
 import type { ImportResult } from '../../../features/invites/utils/types';
 
 // Mock the invite manager
 vi.mock('../../../features/invites/utils/invite-manager');
 
-describe('ContactImportExport', () => {
+describe('ConnectionImportExport', () => {
   const mockImportResult: ImportResult = {
-    totalContacts: 10,
+    totalConnections: 10,
     successfulImports: 8,
     failedImports: 1,
     duplicates: 1,
@@ -27,31 +27,31 @@ describe('ContactImportExport', () => {
   });
 
   it('should render import and export sections', () => {
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
-    expect(screen.getByText(/import contacts/i)).toBeInTheDocument();
-    expect(screen.getByText(/export contacts/i)).toBeInTheDocument();
+    expect(screen.getByText(/import connections/i)).toBeInTheDocument();
+    expect(screen.getByText(/export connections/i)).toBeInTheDocument();
   });
 
   it('should handle file selection for import', async () => {
     const mockFileContent = JSON.stringify({
-      contacts: [
+      connections: [
         { publicKey: '0'.repeat(64), petname: 'Alice' },
       ],
       version: 1,
       createdAt: Date.now(),
     });
 
-    vi.mocked(inviteManagerModule.inviteManager.validateContactListFormat).mockResolvedValue({
+    vi.mocked(inviteManagerModule.inviteManager.validateConnectionListFormat).mockResolvedValue({
       isValid: true,
       errors: [],
     });
-    vi.mocked(inviteManagerModule.inviteManager.importContactsFromFile).mockResolvedValue(mockImportResult);
+    vi.mocked(inviteManagerModule.inviteManager.importConnectionsFromFile).mockResolvedValue(mockImportResult);
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     const fileInput = screen.getByLabelText(/select file/i);
-    const file = new File([mockFileContent], 'contacts.json', { type: 'application/json' });
+    const file = new File([mockFileContent], 'connections.json', { type: 'application/json' });
 
     Object.defineProperty(fileInput, 'files', {
       value: [file],
@@ -61,29 +61,29 @@ describe('ContactImportExport', () => {
     fireEvent.change(fileInput);
 
     await waitFor(() => {
-      expect(inviteManagerModule.inviteManager.validateContactListFormat).toHaveBeenCalled();
+      expect(inviteManagerModule.inviteManager.validateConnectionListFormat).toHaveBeenCalled();
     });
   });
 
   it('should display import results after successful import', async () => {
     const mockFileContent = JSON.stringify({
-      contacts: [
+      connections: [
         { publicKey: '0'.repeat(64), petname: 'Alice' },
       ],
       version: 1,
       createdAt: Date.now(),
     });
 
-    vi.mocked(inviteManagerModule.inviteManager.validateContactListFormat).mockResolvedValue({
+    vi.mocked(inviteManagerModule.inviteManager.validateConnectionListFormat).mockResolvedValue({
       isValid: true,
       errors: [],
     });
-    vi.mocked(inviteManagerModule.inviteManager.importContactsFromFile).mockResolvedValue(mockImportResult);
+    vi.mocked(inviteManagerModule.inviteManager.importConnectionsFromFile).mockResolvedValue(mockImportResult);
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     const fileInput = screen.getByLabelText(/select file/i);
-    const file = new File([mockFileContent], 'contacts.json', { type: 'application/json' });
+    const file = new File([mockFileContent], 'connections.json', { type: 'application/json' });
 
     Object.defineProperty(fileInput, 'files', {
       value: [file],
@@ -94,7 +94,7 @@ describe('ContactImportExport', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/import completed/i)).toBeInTheDocument();
-      expect(screen.getByText(/total contacts: 10/i)).toBeInTheDocument();
+      expect(screen.getByText(/total connections: 10/i)).toBeInTheDocument();
       expect(screen.getByText(/successfully imported: 8/i)).toBeInTheDocument();
       expect(screen.getByText(/duplicates skipped: 1/i)).toBeInTheDocument();
       expect(screen.getByText(/failed: 1/i)).toBeInTheDocument();
@@ -103,23 +103,23 @@ describe('ContactImportExport', () => {
 
   it('should display import errors', async () => {
     const mockFileContent = JSON.stringify({
-      contacts: [
+      connections: [
         { publicKey: 'invalid', petname: 'Alice' },
       ],
       version: 1,
       createdAt: Date.now(),
     });
 
-    vi.mocked(inviteManagerModule.inviteManager.validateContactListFormat).mockResolvedValue({
+    vi.mocked(inviteManagerModule.inviteManager.validateConnectionListFormat).mockResolvedValue({
       isValid: true,
       errors: [],
     });
-    vi.mocked(inviteManagerModule.inviteManager.importContactsFromFile).mockResolvedValue(mockImportResult);
+    vi.mocked(inviteManagerModule.inviteManager.importConnectionsFromFile).mockResolvedValue(mockImportResult);
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     const fileInput = screen.getByLabelText(/select file/i);
-    const file = new File([mockFileContent], 'contacts.json', { type: 'application/json' });
+    const file = new File([mockFileContent], 'connections.json', { type: 'application/json' });
 
     Object.defineProperty(fileInput, 'files', {
       value: [file],
@@ -138,10 +138,10 @@ describe('ContactImportExport', () => {
   it('should handle invalid file format', async () => {
     const mockFileContent = 'invalid json';
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     const fileInput = screen.getByLabelText(/select file/i);
-    const file = new File([mockFileContent], 'contacts.json', { type: 'application/json' });
+    const file = new File([mockFileContent], 'connections.json', { type: 'application/json' });
 
     Object.defineProperty(fileInput, 'files', {
       value: [file],
@@ -157,20 +157,20 @@ describe('ContactImportExport', () => {
 
   it('should handle validation errors', async () => {
     const mockFileContent = JSON.stringify({
-      contacts: [],
+      connections: [],
       version: 1,
       createdAt: Date.now(),
     });
 
-    vi.mocked(inviteManagerModule.inviteManager.validateContactListFormat).mockResolvedValue({
+    vi.mocked(inviteManagerModule.inviteManager.validateConnectionListFormat).mockResolvedValue({
       isValid: false,
-      errors: ['contacts field must be an array'],
+      errors: ['connections field must be an array'],
     });
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     const fileInput = screen.getByLabelText(/select file/i);
-    const file = new File([mockFileContent], 'contacts.json', { type: 'application/json' });
+    const file = new File([mockFileContent], 'connections.json', { type: 'application/json' });
 
     Object.defineProperty(fileInput, 'files', {
       value: [file],
@@ -186,23 +186,23 @@ describe('ContactImportExport', () => {
 
   it('should allow importing another file after completion', async () => {
     const mockFileContent = JSON.stringify({
-      contacts: [
+      connections: [
         { publicKey: '0'.repeat(64), petname: 'Alice' },
       ],
       version: 1,
       createdAt: Date.now(),
     });
 
-    vi.mocked(inviteManagerModule.inviteManager.validateContactListFormat).mockResolvedValue({
+    vi.mocked(inviteManagerModule.inviteManager.validateConnectionListFormat).mockResolvedValue({
       isValid: true,
       errors: [],
     });
-    vi.mocked(inviteManagerModule.inviteManager.importContactsFromFile).mockResolvedValue(mockImportResult);
+    vi.mocked(inviteManagerModule.inviteManager.importConnectionsFromFile).mockResolvedValue(mockImportResult);
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     const fileInput = screen.getByLabelText(/select file/i);
-    const file = new File([mockFileContent], 'contacts.json', { type: 'application/json' });
+    const file = new File([mockFileContent], 'connections.json', { type: 'application/json' });
 
     Object.defineProperty(fileInput, 'files', {
       value: [file],
@@ -225,14 +225,14 @@ describe('ContactImportExport', () => {
 
   it('should handle export action', async () => {
     const mockExportData = JSON.stringify({
-      contacts: [
+      connections: [
         { publicKey: '0'.repeat(64), petname: 'Alice' },
       ],
       version: 1,
       createdAt: Date.now(),
     });
 
-    vi.mocked(inviteManagerModule.inviteManager.exportContactsToFile).mockResolvedValue(mockExportData);
+    vi.mocked(inviteManagerModule.inviteManager.exportConnectionsToFile).mockResolvedValue(mockExportData);
 
     // Mock URL.createObjectURL and related functions
     global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
@@ -247,27 +247,27 @@ describe('ContactImportExport', () => {
     vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any);
     vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any);
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
-    const exportButton = screen.getByRole('button', { name: /export contacts/i });
+    const exportButton = screen.getByRole('button', { name: /export connections/i });
     fireEvent.click(exportButton);
 
     await waitFor(() => {
-      expect(inviteManagerModule.inviteManager.exportContactsToFile).toHaveBeenCalled();
+      expect(inviteManagerModule.inviteManager.exportConnectionsToFile).toHaveBeenCalled();
       expect(mockLink.click).toHaveBeenCalled();
     });
   });
 
   it('should display supported formats information', () => {
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     expect(screen.getByText(/supported formats/i)).toBeInTheDocument();
-    expect(screen.getByText(/nostr contact lists \(nip-02\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/obscur contact exports/i)).toBeInTheDocument();
+    expect(screen.getByText(/nostr connection lists \(nip-02\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/obscur connection exports/i)).toBeInTheDocument();
   });
 
   it('should display import instructions', () => {
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     expect(screen.getByText(/import instructions/i)).toBeInTheDocument();
     expect(screen.getByText(/file format/i)).toBeInTheDocument();
@@ -277,21 +277,21 @@ describe('ContactImportExport', () => {
 
   it('should show validating state during file processing', async () => {
     const mockFileContent = JSON.stringify({
-      contacts: [
+      connections: [
         { publicKey: '0'.repeat(64), petname: 'Alice' },
       ],
       version: 1,
       createdAt: Date.now(),
     });
 
-    vi.mocked(inviteManagerModule.inviteManager.validateContactListFormat).mockImplementation(
+    vi.mocked(inviteManagerModule.inviteManager.validateConnectionListFormat).mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve({ isValid: true, errors: [] }), 100))
     );
 
-    render(<ContactImportExport />);
+    render(<ConnectionImportExport />);
 
     const fileInput = screen.getByLabelText(/select file/i);
-    const file = new File([mockFileContent], 'contacts.json', { type: 'application/json' });
+    const file = new File([mockFileContent], 'connections.json', { type: 'application/json' });
 
     Object.defineProperty(fileInput, 'files', {
       value: [file],

@@ -4,11 +4,11 @@ import type {
     PersistedDmConversation,
     PersistedGroupConversation,
     PersistedGroupMessage,
-    PersistedContactOverride,
+    PersistedConnectionOverride,
     PersistedMessage,
     PersistedConnectionRequest
 } from "../types";
-import { loadPersistedChatState, savePersistedChatState } from "../utils/persistence";
+import { loadPersistedChatState, savePersistedChatState, toPersistedOverridesByConnectionId } from "../utils/persistence";
 import { messagingDB } from "@dweb/storage/indexed-db";
 
 type SaveOptions = Readonly<{
@@ -94,8 +94,8 @@ class ChatStateStore {
     /**
      * Atomic updates for specific state slices
      */
-    updateContacts(publicKeyHex: PublicKeyHex, contacts: ReadonlyArray<PersistedDmConversation>): void {
-        this.update(publicKeyHex, prev => ({ ...prev, createdContacts: contacts }));
+    updateConnections(publicKeyHex: PublicKeyHex, connections: ReadonlyArray<PersistedDmConversation>): void {
+        this.update(publicKeyHex, prev => ({ ...prev, createdConnections: connections }));
     }
 
     updateGroups(publicKeyHex: PublicKeyHex, groups: ReadonlyArray<PersistedGroupConversation>): void {
@@ -120,8 +120,8 @@ class ChatStateStore {
         this.update(publicKeyHex, prev => ({ ...prev, unreadByConversationId }));
     }
 
-    updateContactOverrides(publicKeyHex: PublicKeyHex, overrides: Record<string, PersistedContactOverride>): void {
-        this.update(publicKeyHex, prev => ({ ...prev, contactOverridesByContactId: overrides }));
+    updateConnectionOverrides(publicKeyHex: PublicKeyHex, overrides: Record<string, PersistedConnectionOverride>): void {
+        this.update(publicKeyHex, prev => ({ ...prev, connectionOverridesByConnectionId: overrides }));
     }
 
     updateConnectionRequests(publicKeyHex: PublicKeyHex, requests: ReadonlyArray<PersistedConnectionRequest>): void {
@@ -212,10 +212,10 @@ class ChatStateStore {
     private createInitialState(): PersistedChatState {
         return {
             version: 2,
-            createdContacts: [],
+            createdConnections: [],
             createdGroups: [],
             unreadByConversationId: {},
-            contactOverridesByContactId: {},
+            connectionOverridesByConnectionId: {},
             messagesByConversationId: {},
             groupMessages: {},
             connectionRequests: [],

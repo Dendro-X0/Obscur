@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { inviteManager } from '../invite-manager';
 import { cryptoService } from '@/app/features/crypto/crypto-service';
-import { contactStore } from '../contact-store';
+import { connectionStore } from '../connection-store';
 import { profileManager } from '../profile-manager';
 import {
   publicKeyArbitrary,
@@ -11,11 +11,11 @@ import {
   propertyTestConfig,
   displayNameArbitrary
 } from './test-utils';
-import type { InviteLink, ContactRequest, OutgoingContactRequest } from '../types';
+import type { InviteLink, ConnectionRequest, OutgoingConnectionRequest } from '../types';
 
 // Mock the dependencies
 vi.mock('../../crypto/crypto-service');
-vi.mock('../contact-store');
+vi.mock('../connection-store');
 vi.mock('../profile-manager');
 vi.mock('../db/open-invite-db');
 
@@ -71,7 +71,7 @@ describe('Invite Manager Property Tests', () => {
   describe('Property 5: Invite Link Processing Consistency', () => {
     /**
      * Feature: smart-invite-system, Property 5: Invite Link Processing Consistency
-     * For any valid invite link, processing it should correctly pre-populate a contact request with the original sender's information
+     * For any valid invite link, processing it should correctly pre-populate a connection request with the original sender's information
      * Validates: Requirements 2.2
      */
     it('should extract short codes from invite links consistently', () => {
@@ -109,21 +109,21 @@ describe('Invite Manager Property Tests', () => {
     });
   });
 
-  describe('Property 7: Contact Request State Management', () => {
+  describe('Property 7: Connection Request State Management', () => {
     /**
-     * Feature: smart-invite-system, Property 7: Contact Request State Management
-     * For any contact request, accepting it should add the contact to the store and enable messaging, while declining should remove it from pending requests
+     * Feature: smart-invite-system, Property 7: Connection Request State Management
+     * For any connection request, accepting it should add the connection to the store and enable messaging, while declining should remove it from pending requests
      * Validates: Requirements 3.2, 3.3
      */
-    it('should create contacts with correct properties from contact requests', () => {
+    it('should create connections with correct properties from connection requests', () => {
       fc.assert(
         fc.property(
           publicKeyArbitrary,
           displayNameArbitrary,
           messageArbitrary,
           (senderPublicKey, displayName, message) => {
-            // Test the contact creation logic
-            const mockContactRequest: ContactRequest = {
+            // Test the connection creation logic
+            const mockConnectionRequest: ConnectionRequest = {
               id: 'test-request-id',
               type: 'incoming',
               senderPublicKey: senderPublicKey as any,
@@ -139,16 +139,16 @@ describe('Invite Manager Property Tests', () => {
               createdAt: new Date()
             };
 
-            // Test contact creation properties
+            // Test connection creation properties
             const expectedDisplayName = displayName || `User ${senderPublicKey.slice(0, 8)}`;
 
-            expect(mockContactRequest.senderPublicKey).toBe(senderPublicKey);
-            expect(mockContactRequest.profile.displayName).toBe(displayName);
-            expect(mockContactRequest.message).toBe(message);
-            expect(mockContactRequest.type).toBe('incoming');
-            expect(mockContactRequest.status).toBe('pending');
+            expect(mockConnectionRequest.senderPublicKey).toBe(senderPublicKey);
+            expect(mockConnectionRequest.profile.displayName).toBe(displayName);
+            expect(mockConnectionRequest.message).toBe(message);
+            expect(mockConnectionRequest.type).toBe('incoming');
+            expect(mockConnectionRequest.status).toBe('pending');
 
-            // Verify the expected contact properties
+            // Verify the expected connection properties
             expect(expectedDisplayName).toBeTruthy();
             expect(expectedDisplayName.length).toBeGreaterThan(0);
           }
@@ -158,19 +158,19 @@ describe('Invite Manager Property Tests', () => {
     });
   });
 
-  describe('Property 8: Contact Request Message Inclusion', () => {
+  describe('Property 8: Connection Request Message Inclusion', () => {
     /**
-     * Feature: smart-invite-system, Property 8: Contact Request Message Inclusion
-     * For any contact request created with a personal message, the message should be preserved and available to the recipient
+     * Feature: smart-invite-system, Property 8: Connection Request Message Inclusion
+     * For any connection request created with a personal message, the message should be preserved and available to the recipient
      * Validates: Requirements 3.4
      */
-    it('should preserve messages in contact request data structures', () => {
+    it('should preserve messages in connection request data structures', () => {
       fc.assert(
         fc.property(
           publicKeyArbitrary,
           messageArbitrary.filter(msg => msg.length > 0),
           (recipientPublicKey, message) => {
-            const outgoingRequest: OutgoingContactRequest = {
+            const outgoingRequest: OutgoingConnectionRequest = {
               recipientPublicKey: recipientPublicKey as any,
               message,
               includeProfile: true
@@ -191,10 +191,10 @@ describe('Invite Manager Property Tests', () => {
     });
   });
 
-  describe('Property 9: Contact Request Queue Management', () => {
+  describe('Property 9: Connection Request Queue Management', () => {
     /**
-     * Feature: smart-invite-system, Property 9: Contact Request Queue Management
-     * For any contact request queue exceeding 50 items, the system should automatically remove the oldest unresponded requests to maintain the limit
+     * Feature: smart-invite-system, Property 9: Connection Request Queue Management
+     * For any connection request queue exceeding 50 items, the system should automatically remove the oldest unresponded requests to maintain the limit
      * Validates: Requirements 3.6
      */
     it('should calculate correct number of requests to remove for queue management', () => {

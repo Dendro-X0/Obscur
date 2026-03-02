@@ -1,14 +1,14 @@
 
 import type { DmConversation, GroupConversation, MessagesByConversationId, Message } from "../types";
 
-let nextContactId: number = 4;
+let nextConnectionId: number = 4;
 let nextGroupId: number = 1;
 const INITIAL_MESSAGE_ID: number = 1000;
 let nextMessageId: number = INITIAL_MESSAGE_ID;
 
-export const createContactId = (): string => {
-    const id: string = String(nextContactId);
-    nextContactId += 1;
+export const createConnectionId = (): string => {
+    const id: string = String(nextConnectionId);
+    nextConnectionId += 1;
     return id;
 };
 
@@ -24,12 +24,12 @@ export const createMessageId = (): string => {
     return id;
 };
 
-export const syncIdCountersFromState = (params: Readonly<{ createdContacts: ReadonlyArray<DmConversation>; createdGroups: ReadonlyArray<GroupConversation>; messagesByConversationId: MessagesByConversationId }>): void => {
-    const contactIds: number[] = params.createdContacts
+export const syncIdCountersFromState = (params: Readonly<{ createdConnections: ReadonlyArray<DmConversation>; createdGroups: ReadonlyArray<GroupConversation>; messagesByConversationId: MessagesByConversationId }>): void => {
+    const connectionIds: number[] = params.createdConnections
         .map((c: DmConversation): number => Number.parseInt(c.id, 10))
         .filter((n: number): boolean => Number.isFinite(n));
-    const maxContactId: number = contactIds.length > 0 ? Math.max(...contactIds) : nextContactId - 1;
-    nextContactId = Math.max(nextContactId, maxContactId + 1);
+    const maxConnectionId: number = connectionIds.length > 0 ? Math.max(...connectionIds) : nextConnectionId - 1;
+    nextConnectionId = Math.max(nextConnectionId, maxConnectionId + 1);
     const groupNumbers: number[] = params.createdGroups
         .map((g: GroupConversation): number => {
             const match: RegExpMatchArray | null = g.id.match(/^g(\d+)$/);

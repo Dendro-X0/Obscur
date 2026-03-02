@@ -1,14 +1,14 @@
 import * as fc from 'fast-check';
 import { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import {
-  QRInviteOptions,
+  QRConnectionOptions,
   InviteLinkOptions,
-  Contact,
-  ContactGroup,
+  Connection,
+  ConnectionGroup,
   UserProfile,
   PrivacySettings,
   TrustLevel,
-  ContactRequestStatus,
+  ConnectionRequestStatus,
 } from '../types';
 
 /**
@@ -33,7 +33,7 @@ export const avatarUrlArbitrary = fc.webUrl();
 export const bioArbitrary = fc.string({ maxLength: 200 });
 
 /**
- * Generates a valid contact message
+ * Generates a valid connection message
  */
 export const messageArbitrary = fc.string({ maxLength: 500 });
 
@@ -43,16 +43,16 @@ export const messageArbitrary = fc.string({ maxLength: 500 });
 export const trustLevelArbitrary = fc.constantFrom<TrustLevel>('trusted', 'neutral', 'blocked');
 
 /**
- * Generates a contact request status
+ * Generates a connection request status
  */
-export const contactRequestStatusArbitrary = fc.constantFrom<ContactRequestStatus>(
+export const connectionRequestStatusArbitrary = fc.constantFrom<ConnectionRequestStatus>(
   'pending', 'accepted', 'declined', 'cancelled', 'expired'
 );
 
 /**
- * Generates QR invite options
+ * Generates QR connection options
  */
-export const qrInviteOptionsArbitrary = fc.record({
+export const qrConnectionOptionsArbitrary = fc.record({
   displayName: fc.option(displayNameArbitrary, { nil: undefined }),
   avatar: fc.option(avatarUrlArbitrary, { nil: undefined }),
   message: fc.option(messageArbitrary, { nil: undefined }),
@@ -73,9 +73,9 @@ export const inviteLinkOptionsArbitrary = fc.record({
 });
 
 /**
- * Generates a contact
+ * Generates a connection
  */
-export const contactArbitrary = fc.record({
+export const connectionArbitrary = fc.record({
   id: fc.uuid(),
   publicKey: publicKeyArbitrary as fc.Arbitrary<PublicKeyHex>,
   displayName: displayNameArbitrary,
@@ -93,9 +93,9 @@ export const contactArbitrary = fc.record({
 });
 
 /**
- * Generates a contact group
+ * Generates a connection group
  */
-export const contactGroupArbitrary = fc.record({
+export const connectionGroupArbitrary = fc.record({
   id: fc.uuid(),
   name: fc.string({ minLength: 1, maxLength: 30 }),
   description: fc.option(fc.string({ maxLength: 100 }), { nil: undefined }),
@@ -124,7 +124,7 @@ export const privacySettingsArbitrary = fc.record({
   shareAvatar: fc.boolean(),
   shareBio: fc.boolean(),
   shareWebsite: fc.boolean(),
-  allowContactRequests: fc.boolean(),
+  allowConnectionRequests: fc.boolean(),
   requireMessage: fc.boolean(),
   autoAcceptTrusted: fc.boolean(),
 });

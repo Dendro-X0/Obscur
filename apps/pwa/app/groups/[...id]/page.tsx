@@ -27,7 +27,7 @@ import { Button } from "@dweb/ui-kit";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Card } from "@dweb/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
-import { InviteContactsDialog } from "@/app/features/groups/components/invite-contacts-dialog";
+import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { cn } from "@dweb/ui-kit";
 import { useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
@@ -49,7 +49,7 @@ export default function GroupHomePage() {
     const discoveredRelay = searchParams.get("relay");
     const [isLeaving, setIsLeaving] = useState(false);
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
-    const [isInviteContactsOpen, setIsInviteContactsOpen] = useState(false);
+    const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
 
     // Resilience: Try to find group by ID or by matching identifier
@@ -279,7 +279,7 @@ export default function GroupHomePage() {
 
                                     {!isGuest && (
                                         <Button
-                                            onClick={() => setIsInviteContactsOpen(true)}
+                                            onClick={() => setIsInviteConnectionsOpen(true)}
                                             className="h-16 px-8 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-black border border-white/5 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 gap-3"
                                         >
                                             <UserPlus className="h-5 w-5" />
@@ -371,7 +371,7 @@ export default function GroupHomePage() {
                                 )}
                             </div>
                             <div className="h-1.5 w-1.5 rounded-full bg-zinc-700 mx-2" />
-                            <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t("contacts.status.active", "Online Now")}</span>
+                            <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t("connections.status.active", "Online Now")}</span>
                         </div>
                     </Card>
 
@@ -457,9 +457,9 @@ export default function GroupHomePage() {
                 </div>
 
                 {!isGuest && group && (
-                    <InviteContactsDialog
-                        isOpen={isInviteContactsOpen}
-                        onClose={() => setIsInviteContactsOpen(false)}
+                    <InviteConnectionsDialog
+                        isOpen={isInviteConnectionsOpen}
+                        onClose={() => setIsInviteConnectionsOpen(false)}
                         groupId={group.groupId}
                         roomKeyHex={roomKeyHex || ""}
                         currentMemberPubkeys={activeMembers}

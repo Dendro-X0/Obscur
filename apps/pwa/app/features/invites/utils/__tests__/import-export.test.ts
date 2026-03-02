@@ -2,18 +2,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { inviteManager } from '../invite-manager';
 import { cryptoService } from '../../../crypto/crypto-service';
-import { contactStore } from '../contact-store';
+import { connectionStore } from '../connection-store';
 import {
   publicKeyArbitrary,
   propertyTestConfig,
   displayNameArbitrary
 } from './test-utils';
-import type { NostrContactList, ImportResult } from '../types';
+import type { NostrConnectionList, ImportResult } from '../types';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 
 // Mock the dependencies
 vi.mock('../../crypto/crypto-service');
-vi.mock('../contact-store');
+vi.mock('../connection-store');
 vi.mock('../db/open-invite-db');
 
 describe('Import/Export Property Tests', () => {
@@ -22,13 +22,13 @@ describe('Import/Export Property Tests', () => {
     vi.clearAllMocks();
   });
 
-  describe('Property 13: Contact Import Format Support', () => {
+  describe('Property 13: Connection Import Format Support', () => {
     /**
-     * Feature: smart-invite-system, Property 13: Contact Import Format Support
-     * For any valid NIP-02 contact list format, the import process should successfully parse and import all valid contacts
+     * Feature: smart-invite-system, Property 13: Connection Import Format Support
+     * For any valid NIP-02 connection list format, the import process should successfully parse and import all valid connections
      * Validates: Requirements 5.1
      */
-    it('should support valid NIP-02 contact list formats', async () => {
+    it('should support valid NIP-02 connection list formats', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.array(
@@ -39,10 +39,10 @@ describe('Import/Export Property Tests', () => {
             }),
             { minLength: 1, maxLength: 10 }
           ),
-          async (contacts) => {
-            // Create a valid NIP-02 contact list
-            const contactList: NostrContactList = {
-              contacts: contacts.map(c => ({
+          async (connections) => {
+            // Create a valid NIP-02 connection list
+            const connectionList: NostrConnectionList = {
+              connections: connections.map(c => ({
                 ...c,
                 petname: c.petname ?? undefined,
                 relayUrl: c.relayUrl ?? undefined
@@ -56,26 +56,26 @@ describe('Import/Export Property Tests', () => {
             vi.spyOn(cryptoService, 'normalizeKey').mockImplementation(async (key: string) => key.toLowerCase());
             vi.spyOn(cryptoService, 'generateInviteId').mockImplementation(async () => Math.random().toString(36));
 
-            // Mock contact store to return empty contacts (no duplicates)
-            vi.spyOn(contactStore, 'getAllContacts').mockResolvedValue([]);
-            vi.spyOn(contactStore, 'addContact').mockResolvedValue();
+            // Mock connection store to return empty connections (no duplicates)
+            vi.spyOn(connectionStore, 'getAllConnections').mockResolvedValue([]);
+            vi.spyOn(connectionStore, 'addConnection').mockResolvedValue();
 
             try {
-              const result = await inviteManager.importContacts(contactList);
+              const result = await inviteManager.importConnections(connectionList);
 
               // Verify the import result structure
-              expect(result).toHaveProperty('totalContacts');
+              expect(result).toHaveProperty('totalConnections');
               expect(result).toHaveProperty('successfulImports');
               expect(result).toHaveProperty('failedImports');
               expect(result).toHaveProperty('duplicates');
               expect(result).toHaveProperty('errors');
 
               // Total should equal the sum of successful, failed, and duplicates
-              expect(result.totalContacts).toBe(contacts.length);
-              expect(result.successfulImports + result.failedImports + result.duplicates).toBe(result.totalContacts);
+              expect(result.totalConnections).toBe(connections.length);
+              expect(result.successfulImports + result.failedImports + result.duplicates).toBe(result.totalConnections);
 
-              // For valid contacts, successful imports should be > 0
-              if (contacts.length > 0) {
+              // For valid connections, successful imports should be > 0
+              if (connections.length > 0) {
                 expect(result.successfulImports).toBeGreaterThan(0);
               }
             } catch (error) {
@@ -88,13 +88,13 @@ describe('Import/Export Property Tests', () => {
     });
   });
 
-  describe('Property 14: Contact Import Validation', () => {
+  describe('Property 14: Connection Import Validation', () => {
     /**
-     * Feature: smart-invite-system, Property 14: Contact Import Validation
-     * For any contact import operation, invalid public keys should be rejected while valid ones are accepted, with detailed error reporting
+     * Feature: smart-invite-system, Property 14: Connection Import Validation
+     * For any connection import operation, invalid public keys should be rejected while valid ones are accepted, with detailed error reporting
      * Validates: Requirements 5.2, 5.5
      */
-    it('should validate contacts during import and provide detailed error reporting', async () => {
+    it('should validate connections during import and provide detailed error reporting', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.array(
@@ -111,9 +111,9 @@ describe('Import/Export Property Tests', () => {
             }),
             { minLength: 1, maxLength: 10 }
           ),
-          async (contacts) => {
-            const contactList: NostrContactList = {
-              contacts: contacts.map(c => ({
+          async (connections) => {
+            const connectionList: NostrConnectionList = {
+              connections: connections.map(c => ({
                 ...c,
                 petname: c.petname ?? undefined,
                 relayUrl: c.relayUrl ?? undefined
@@ -129,26 +129,26 @@ describe('Import/Export Property Tests', () => {
             vi.spyOn(cryptoService, 'normalizeKey').mockImplementation(async (key: string) => key.toLowerCase());
             vi.spyOn(cryptoService, 'generateInviteId').mockImplementation(async () => Math.random().toString(36));
 
-            // Mock contact store
-            vi.spyOn(contactStore, 'getAllContacts').mockResolvedValue([]);
-            vi.spyOn(contactStore, 'addContact').mockResolvedValue();
+            // Mock connection store
+            vi.spyOn(connectionStore, 'getAllConnections').mockResolvedValue([]);
+            vi.spyOn(connectionStore, 'addConnection').mockResolvedValue();
 
             try {
-              const result = await inviteManager.importContacts(contactList);
+              const result = await inviteManager.importConnections(connectionList);
 
-              // Count expected valid and invalid contacts
-              const validContacts = contacts.filter(c =>
-                typeof c.publicKey === 'string' && /^[0-9a-fA-F]{64}$/.test(c.publicKey)
+              // Count expected valid and invalid connections
+              const validConnections = connections.filter(c =>
+                typeof c.publicKey === 'string' && /^[0-9a-fA-F]{64}$/.test(c.publicKey as string)
               );
-              const invalidContacts = contacts.filter(c =>
+              const invalidConnections = connections.filter(c =>
                 !c.publicKey || typeof c.publicKey !== 'string' || !/^[0-9a-fA-F]{64}$/.test(c.publicKey)
               );
 
               // Verify validation results
-              expect(result.totalContacts).toBe(contacts.length);
+              expect(result.totalConnections).toBe(connections.length);
 
-              // If there are invalid contacts, there should be failures and errors
-              if (invalidContacts.length > 0) {
+              // If there are invalid connections, there should be failures and errors
+              if (invalidConnections.length > 0) {
                 expect(result.failedImports).toBeGreaterThan(0);
                 expect(result.errors.length).toBeGreaterThan(0);
 
@@ -161,8 +161,8 @@ describe('Import/Export Property Tests', () => {
                 });
               }
 
-              // If there are valid contacts, there should be successful imports
-              if (validContacts.length > 0) {
+              // If there are valid connections, there should be successful imports
+              if (validConnections.length > 0) {
                 expect(result.successfulImports).toBeGreaterThan(0);
               }
             } catch (error) {
@@ -175,13 +175,13 @@ describe('Import/Export Property Tests', () => {
     });
   });
 
-  describe('Property 15: Contact Import Deduplication', () => {
+  describe('Property 15: Connection Import Deduplication', () => {
     /**
-     * Feature: smart-invite-system, Property 15: Contact Import Deduplication
-     * For any contact import containing existing contacts, the system should merge data without creating duplicates
+     * Feature: smart-invite-system, Property 15: Connection Import Deduplication
+     * For any connection import containing existing connections, the system should merge data without creating duplicates
      * Validates: Requirements 5.3
      */
-    it('should deduplicate contacts during import', async () => {
+    it('should deduplicate connections during import', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.array(publicKeyArbitrary, { minLength: 2, maxLength: 5 }),
@@ -191,8 +191,8 @@ describe('Import/Export Property Tests', () => {
             const duplicateKeys = existingKeys.slice(0, Math.min(existingKeys.length, newKeys.length));
             const allNewKeys = [...newKeys, ...duplicateKeys];
 
-            const contactList: NostrContactList = {
-              contacts: allNewKeys.map(key => ({
+            const connectionList: NostrConnectionList = {
+              connections: allNewKeys.map(key => ({
                 publicKey: key as PublicKeyHex,
                 petname: `User ${key.slice(0, 8)}`,
                 relayUrl: 'wss://relay.example.com'
@@ -201,8 +201,8 @@ describe('Import/Export Property Tests', () => {
               createdAt: Date.now()
             };
 
-            // Mock existing contacts in the store
-            const existingContacts = existingKeys.map(key => ({
+            // Mock existing connections in the store
+            const existingConnections = existingKeys.map(key => ({
               id: `existing-${key}`,
               publicKey: key as any,
               displayName: `Existing ${key.slice(0, 8)}`,
@@ -217,28 +217,28 @@ describe('Import/Export Property Tests', () => {
             vi.spyOn(cryptoService, 'normalizeKey').mockImplementation(async (key: string) => key.toLowerCase());
             vi.spyOn(cryptoService, 'generateInviteId').mockImplementation(async () => Math.random().toString(36));
 
-            // Mock contact store to return existing contacts
-            vi.spyOn(contactStore, 'getAllContacts').mockResolvedValue(existingContacts);
-            vi.spyOn(contactStore, 'addContact').mockResolvedValue();
+            // Mock connection store to return existing connections
+            vi.spyOn(connectionStore, 'getAllConnections').mockResolvedValue(existingConnections as any);
+            vi.spyOn(connectionStore, 'addConnection').mockResolvedValue();
 
             try {
-              const result = await inviteManager.importContacts(contactList);
+              const result = await inviteManager.importConnections(connectionList);
 
               // Verify deduplication
-              expect(result.totalContacts).toBe(allNewKeys.length);
+              expect(result.totalConnections).toBe(allNewKeys.length);
 
               // Calculate expected duplicates
               const expectedDuplicates = duplicateKeys.length;
-              const expectedNewContacts = allNewKeys.length - expectedDuplicates;
+              const expectedNewConnections = allNewKeys.length - expectedDuplicates;
 
               // Verify the counts make sense
               expect(result.duplicates).toBe(expectedDuplicates);
-              expect(result.successfulImports).toBe(expectedNewContacts);
-              expect(result.successfulImports + result.duplicates + result.failedImports).toBe(result.totalContacts);
+              expect(result.successfulImports).toBe(expectedNewConnections);
+              expect(result.successfulImports + result.duplicates + result.failedImports).toBe(result.totalConnections);
 
-              // Verify no duplicate contacts were added to the store
-              const addContactCalls = vi.mocked(contactStore.addContact as unknown as ReturnType<typeof vi.fn>).mock.calls;
-              const addedPublicKeys = addContactCalls.map(call => call[0].publicKey);
+              // Verify no duplicate connections were added to the store
+              const addConnectionCalls = vi.mocked(connectionStore.addConnection as unknown as ReturnType<typeof vi.fn>).mock.calls;
+              const addedPublicKeys = addConnectionCalls.map(call => call[0].publicKey);
               const uniqueAddedKeys = new Set(addedPublicKeys);
               expect(uniqueAddedKeys.size).toBe(addedPublicKeys.length);
             } catch (error) {
@@ -251,15 +251,15 @@ describe('Import/Export Property Tests', () => {
     });
   });
 
-  describe('Contact List Format Validation', () => {
+  describe('Connection List Format Validation', () => {
     /**
      * Additional property test for format validation
      */
-    it('should validate contact list format correctly', async () => {
+    it('should validate connection list format correctly', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            contacts: fc.array(
+            connections: fc.array(
               fc.record({
                 publicKey: publicKeyArbitrary,
                 petname: fc.option(displayNameArbitrary),
@@ -270,10 +270,10 @@ describe('Import/Export Property Tests', () => {
             version: fc.integer({ min: 1, max: 10 }),
             createdAt: fc.integer({ min: 0, max: Date.now() })
           }),
-          async (validContactList) => {
-            const validation = await inviteManager.validateContactListFormat(validContactList);
+          async (validConnectionList) => {
+            const validation = await inviteManager.validateConnectionListFormat(validConnectionList);
 
-            // Valid contact lists should pass validation
+            // Valid connection lists should pass validation
             expect(validation.isValid).toBe(true);
             expect(validation.errors).toHaveLength(0);
           }
@@ -282,18 +282,18 @@ describe('Import/Export Property Tests', () => {
       );
     });
 
-    it('should reject invalid contact list formats', async () => {
+    it('should reject invalid connection list formats', async () => {
       // Test specific cases that should fail
       const invalidCases = [
         null,
         "",
         42,
-        { contacts: "not-an-array" },
-        { contacts: ["not-an-object"] }
+        { connections: "not-an-array" },
+        { connections: ["not-an-object"] }
       ];
 
       for (const invalidData of invalidCases) {
-        const validation = await inviteManager.validateContactListFormat(invalidData);
+        const validation = await inviteManager.validateConnectionListFormat(invalidData);
         expect(validation.isValid).toBe(false);
         expect(validation.errors.length).toBeGreaterThan(0);
       }

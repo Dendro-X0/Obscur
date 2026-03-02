@@ -96,16 +96,16 @@ export function delay(ms: number): Promise<void> {
 }
 
 /**
- * Validates contact display name
+ * Validates connection display name
  */
 export function validateDisplayName(name: string): boolean {
   return name.length > 0 && name.length <= 50 && name.trim() === name;
 }
 
 /**
- * Validates contact message
+ * Validates connection message
  */
-export function validateContactMessage(message: string): boolean {
+export function validateConnectionMessage(message: string): boolean {
   return message.length <= 500;
 }
 

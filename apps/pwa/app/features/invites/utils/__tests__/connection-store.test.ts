@@ -1,21 +1,21 @@
 /**
- * Property-based tests for ContactStore
+ * Property-based tests for ConnectionStore
  * 
  * Tests the correctness properties defined in the smart invite system spec:
- * - Property 16: Contact Group Management
+ * - Property 16: Connection Group Management
  * - Property 17: Trust Level Assignment
- * - Property 18: Contact Search and Filtering
+ * - Property 18: Connection Search and Filtering
  * - Validates Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fc from 'fast-check';
-import { Contact, ContactGroup, TrustLevel, ContactFilter } from '../types';
+import { Connection, ConnectionGroup, TrustLevel, ConnectionFilter } from '../types';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 
-describe('ContactStore Property Tests', () => {
-  let ContactStoreImplCtor: typeof import('../contact-store').ContactStoreImpl;
-  let contactStore: InstanceType<typeof ContactStoreImplCtor>;
+describe('ConnectionStore Property Tests', () => {
+  let ConnectionStoreImplCtor: typeof import('../connection-store').ConnectionStoreImpl;
+  let connectionStore: InstanceType<typeof ConnectionStoreImplCtor>;
 
   const mockLocalStorage = {
     getItem: vi.fn(() => null as string | null),
@@ -43,9 +43,9 @@ describe('ContactStore Property Tests', () => {
     vi.resetModules();
     vi.stubGlobal('localStorage', mockLocalStorage);
 
-    const mod = await import('../contact-store');
-    ContactStoreImplCtor = mod.ContactStoreImpl;
-    contactStore = new ContactStoreImplCtor();
+    const mod = await import('../connection-store');
+    ConnectionStoreImplCtor = mod.ConnectionStoreImpl;
+    connectionStore = new ConnectionStoreImplCtor();
   });
 
   afterEach(async () => {
@@ -71,13 +71,13 @@ describe('ContactStore Property Tests', () => {
   const groupId = fc.uuid();
   const groupName = fc.string({ minLength: 1, maxLength: 100 });
 
-  const contactMetadata = fc.record({
+  const connectionMetadata = fc.record({
     source: fc.constantFrom('qr', 'link', 'import', 'manual'),
     importedFrom: fc.option(fc.string()),
     notes: fc.option(fc.string({ maxLength: 500 }))
   });
 
-  const contact = fc
+  const connection = fc
     .record({
       publicKey: validPubkey,
       displayName: displayName,
@@ -87,57 +87,57 @@ describe('ContactStore Property Tests', () => {
       groups: fc.array(groupId, { maxLength: 10 }),
       addedAt: fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') }),
       lastSeen: fc.option(fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') })),
-      metadata: contactMetadata
+      metadata: connectionMetadata
     })
     .map((c) => ({
       ...c,
       id: c.publicKey,
-    })) as fc.Arbitrary<Contact>;
+    })) as fc.Arbitrary<Connection>;
 
-  const contactGroup = fc.record({
+  const connectionGroup = fc.record({
     id: groupId,
     name: groupName,
     description: fc.option(fc.string({ maxLength: 200 })),
     color: fc.option(fc.array(fc.integer({ min: 0, max: 15 }), { minLength: 6, maxLength: 6 })
       .map(arr => arr.map(n => n.toString(16)).join(''))),
     createdAt: fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') })
-  }) as fc.Arbitrary<ContactGroup>;
+  }) as fc.Arbitrary<ConnectionGroup>;
 
-  describe('Property 16: Contact Group Management', () => {
-    it('should support adding contacts to multiple groups simultaneously', () => {
+  describe('Property 16: Connection Group Management', () => {
+    it('should support adding connections to multiple groups simultaneously', () => {
       fc.assert(
         fc.asyncProperty(
-          contact,
-          fc.uniqueArray(contactGroup, { minLength: 1, maxLength: 5, selector: (g) => g.id }),
-          async (testContact, testGroups) => {
+          connection,
+          fc.uniqueArray(connectionGroup, { minLength: 1, maxLength: 5, selector: (g) => g.id }),
+          async (testConnection, testGroups) => {
             await resetInviteDb();
-            contactStore = new ContactStoreImplCtor();
+            connectionStore = new ConnectionStoreImplCtor();
             // Create groups first
             for (const group of testGroups) {
-              await contactStore.createGroup(group);
+              await connectionStore.createGroup(group);
             }
 
             await flushMicrotasks();
 
-            // Add contact
-            await contactStore.addContact(testContact);
+            // Add connection
+            await connectionStore.addConnection(testConnection);
 
             await flushMicrotasks();
 
-            // Add contact to multiple groups
+            // Add connection to multiple groups
             const groupIds = testGroups.map(g => g.id);
             for (const groupId of groupIds) {
-              await contactStore.addContactToGroup(testContact.id, groupId);
+              await connectionStore.addConnectionToGroup(testConnection.id, groupId);
             }
 
-            // Verify contact is in all groups
-            const updatedContact = await contactStore.getContact(testContact.id);
-            expect(updatedContact).not.toBeNull();
+            // Verify connection is in all groups
+            const updatedConnection = await connectionStore.getConnection(testConnection.id);
+            expect(updatedConnection).not.toBeNull();
 
             for (const groupId of groupIds) {
-              expect(updatedContact!.groups).toContain(groupId);
-              const contactsInGroup = await contactStore.getContactsByGroup(groupId);
-              expect(contactsInGroup.some((c: Contact) => c.id === testContact.id)).toBe(true);
+              expect(updatedConnection!.groups).toContain(groupId);
+              const connectionsInGroup = await connectionStore.getConnectionsByGroup(groupId);
+              expect(connectionsInGroup.some((c: Connection) => c.id === testConnection.id)).toBe(true);
             }
           }
         ),
@@ -145,35 +145,35 @@ describe('ContactStore Property Tests', () => {
       );
     });
 
-    it('should preserve contact data when group is deleted', () => {
+    it('should preserve connection data when group is deleted', () => {
       fc.assert(
         fc.asyncProperty(
-          contact,
-          contactGroup,
-          async (testContact, testGroup) => {
+          connection,
+          connectionGroup,
+          async (testConnection, testGroup) => {
             await resetInviteDb();
-            contactStore = new ContactStoreImplCtor();
-            // Create group and add contact
-            await contactStore.createGroup(testGroup);
-            await contactStore.addContact(testContact);
+            connectionStore = new ConnectionStoreImplCtor();
+            // Create group and add connection
+            await connectionStore.createGroup(testGroup);
+            await connectionStore.addConnection(testConnection);
 
             await flushMicrotasks();
 
-            await contactStore.addContactToGroup(testContact.id, testGroup.id);
+            await connectionStore.addConnectionToGroup(testConnection.id, testGroup.id);
 
-            // Verify contact is in group
-            let updatedContact = await contactStore.getContact(testContact.id);
-            expect(updatedContact!.groups).toContain(testGroup.id);
+            // Verify connection is in group
+            let updatedConnection = await connectionStore.getConnection(testConnection.id);
+            expect(updatedConnection!.groups).toContain(testGroup.id);
 
             // Delete group
-            await contactStore.deleteGroup(testGroup.id);
+            await connectionStore.deleteGroup(testGroup.id);
 
-            // Verify contact still exists but group association is removed
-            updatedContact = await contactStore.getContact(testContact.id);
-            expect(updatedContact).not.toBeNull();
-            expect(updatedContact!.groups).not.toContain(testGroup.id);
-            expect(updatedContact!.displayName).toBe(testContact.displayName);
-            expect(updatedContact!.publicKey).toBe(testContact.publicKey);
+            // Verify connection still exists but group association is removed
+            updatedConnection = await connectionStore.getConnection(testConnection.id);
+            expect(updatedConnection).not.toBeNull();
+            expect(updatedConnection!.groups).not.toContain(testGroup.id);
+            expect(updatedConnection!.displayName).toBe(testConnection.displayName);
+            expect(updatedConnection!.publicKey).toBe(testConnection.publicKey);
           }
         ),
         { numRuns: 25 }
@@ -182,34 +182,34 @@ describe('ContactStore Property Tests', () => {
   });
 
   describe('Property 17: Trust Level Assignment', () => {
-    it('should persist trust level and affect system behavior for blocked contacts', () => {
+    it('should persist trust level and affect system behavior for blocked connections', () => {
       fc.assert(
         fc.asyncProperty(
-          contact,
+          connection,
           trustLevel,
-          async (testContact, newTrustLevel) => {
+          async (testConnection, newTrustLevel) => {
             await resetInviteDb();
-            contactStore = new ContactStoreImplCtor();
-            // Add contact
-            await contactStore.addContact(testContact);
+            connectionStore = new ConnectionStoreImplCtor();
+            // Add connection
+            await connectionStore.addConnection(testConnection);
 
             await flushMicrotasks();
 
             // Set trust level
-            await contactStore.setTrustLevel(testContact.id, newTrustLevel);
+            await connectionStore.setTrustLevel(testConnection.id, newTrustLevel);
 
             // Verify trust level is persisted
-            const updatedContact = await contactStore.getContact(testContact.id);
-            expect(updatedContact!.trustLevel).toBe(newTrustLevel);
+            const updatedConnection = await connectionStore.getConnection(testConnection.id);
+            expect(updatedConnection!.trustLevel).toBe(newTrustLevel);
 
             // Verify trust level filtering works
-            const contactsByTrustLevel = await contactStore.getContactsByTrustLevel(newTrustLevel);
-            expect(contactsByTrustLevel.some((c: Contact) => c.id === testContact.id)).toBe(true);
+            const connectionsByTrustLevel = await connectionStore.getConnectionsByTrustLevel(newTrustLevel);
+            expect(connectionsByTrustLevel.some((c: Connection) => c.id === testConnection.id)).toBe(true);
 
-            // Verify blocked contacts are properly filtered
+            // Verify blocked connections are properly filtered
             if (newTrustLevel === 'blocked') {
-              const blockedContacts = await contactStore.getBlockedContacts();
-              expect(blockedContacts.some((c: Contact) => c.id === testContact.id)).toBe(true);
+              const blockedConnections = await connectionStore.getBlockedConnections();
+              expect(blockedConnections.some((c: Connection) => c.id === testConnection.id)).toBe(true);
             }
           }
         ),
@@ -220,32 +220,32 @@ describe('ContactStore Property Tests', () => {
     it('should support bulk trust level assignment', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.uniqueArray(contact, { minLength: 2, maxLength: 10, selector: (c) => c.publicKey }),
+          fc.uniqueArray(connection, { minLength: 2, maxLength: 10, selector: (c) => c.publicKey }),
           trustLevel,
-          async (testContacts, newTrustLevel) => {
+          async (testConnections, newTrustLevel) => {
             await resetInviteDb();
-            contactStore = new ContactStoreImplCtor();
-            // Add all contacts
-            for (const testContact of testContacts) {
-              await contactStore.addContact(testContact);
+            connectionStore = new ConnectionStoreImplCtor();
+            // Add all connections
+            for (const testConnection of testConnections) {
+              await connectionStore.addConnection(testConnection);
             }
 
             await flushMicrotasks();
 
             // Bulk set trust level
-            const contactIds = testContacts.map(c => c.id);
-            await contactStore.bulkSetTrustLevel(contactIds, newTrustLevel);
+            const connectionIds = testConnections.map(c => c.id);
+            await connectionStore.bulkSetTrustLevel(connectionIds, newTrustLevel);
 
-            // Verify all contacts have the new trust level
-            for (const contactId of contactIds) {
-              const updatedContact = await contactStore.getContact(contactId);
-              expect(updatedContact!.trustLevel).toBe(newTrustLevel);
+            // Verify all connections have the new trust level
+            for (const connectionId of connectionIds) {
+              const updatedConnection = await connectionStore.getConnection(connectionId);
+              expect(updatedConnection!.trustLevel).toBe(newTrustLevel);
             }
 
-            // Verify trust level filtering includes all contacts
-            const contactsByTrustLevel = await contactStore.getContactsByTrustLevel(newTrustLevel);
-            for (const contactId of contactIds) {
-              expect(contactsByTrustLevel.some((c: Contact) => c.id === contactId)).toBe(true);
+            // Verify trust level filtering includes all connections
+            const connectionsByTrustLevel = await connectionStore.getConnectionsByTrustLevel(newTrustLevel);
+            for (const connectionId of connectionIds) {
+              expect(connectionsByTrustLevel.some((c: Connection) => c.id === connectionId)).toBe(true);
             }
           }
         ),
@@ -254,24 +254,24 @@ describe('ContactStore Property Tests', () => {
     });
   });
 
-  describe('Property 18: Contact Search and Filtering', () => {
-    it('should return only contacts that match search criteria', () => {
+  describe('Property 18: Connection Search and Filtering', () => {
+    it('should return only connections that match search criteria', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.uniqueArray(contact, { minLength: 5, maxLength: 20, selector: (c) => c.publicKey }),
+          fc.uniqueArray(connection, { minLength: 5, maxLength: 20, selector: (c) => c.publicKey }),
           fc.string({ minLength: 1, maxLength: 10 }),
-          async (testContacts, searchQuery) => {
+          async (testConnections, searchQuery) => {
             await resetInviteDb();
-            contactStore = new ContactStoreImplCtor();
-            // Add all contacts
-            for (const testContact of testContacts) {
-              await contactStore.addContact(testContact);
+            connectionStore = new ConnectionStoreImplCtor();
+            // Add all connections
+            for (const testConnection of testConnections) {
+              await connectionStore.addConnection(testConnection);
             }
 
             await flushMicrotasks();
 
-            // Search contacts
-            const searchResults = await contactStore.searchContacts(searchQuery);
+            // Search connections
+            const searchResults = await connectionStore.searchConnections(searchQuery);
 
             // Verify all results match the search query
             const lowercaseQuery = searchQuery.toLowerCase();
@@ -290,29 +290,29 @@ describe('ContactStore Property Tests', () => {
       );
     });
 
-    it('should filter contacts by multiple criteria correctly', () => {
+    it('should filter connections by multiple criteria correctly', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.uniqueArray(contact, { minLength: 10, maxLength: 30, selector: (c) => c.publicKey }),
+          fc.uniqueArray(connection, { minLength: 10, maxLength: 30, selector: (c) => c.publicKey }),
           fc.record({
             trustLevel: fc.option(trustLevel),
             groups: fc.option(fc.array(groupId, { minLength: 1, maxLength: 3 })),
             searchQuery: fc.option(fc.string({ minLength: 1, maxLength: 10 })),
             addedAfter: fc.option(fc.date({ min: new Date('2020-01-01'), max: new Date('2025-01-01') })),
             addedBefore: fc.option(fc.date({ min: new Date('2025-01-01'), max: new Date('2030-01-01') }))
-          }) as fc.Arbitrary<ContactFilter>,
-          async (testContacts, filter) => {
+          }) as fc.Arbitrary<ConnectionFilter>,
+          async (testConnections, filter) => {
             await resetInviteDb();
-            contactStore = new ContactStoreImplCtor();
-            // Add all contacts
-            for (const testContact of testContacts) {
-              await contactStore.addContact(testContact);
+            connectionStore = new ConnectionStoreImplCtor();
+            // Add all connections
+            for (const testConnection of testConnections) {
+              await connectionStore.addConnection(testConnection);
             }
 
             await flushMicrotasks();
 
             // Apply filter
-            const filteredResults = await contactStore.filterContacts(filter);
+            const filteredResults = await connectionStore.filterConnections(filter);
 
             // Verify all results match the filter criteria
             for (const result of filteredResults) {
@@ -359,20 +359,20 @@ describe('ContactStore Property Tests', () => {
     it('should handle empty search results correctly', () => {
       fc.assert(
         fc.asyncProperty(
-          fc.uniqueArray(contact, { minLength: 1, maxLength: 10, selector: (c) => c.publicKey }),
+          fc.uniqueArray(connection, { minLength: 1, maxLength: 10, selector: (c) => c.publicKey }),
           fc.string({ minLength: 20, maxLength: 50 }), // Long random string unlikely to match
-          async (testContacts, unlikelyQuery) => {
+          async (testConnections, unlikelyQuery) => {
             await resetInviteDb();
-            contactStore = new ContactStoreImplCtor();
-            // Add all contacts
-            for (const testContact of testContacts) {
-              await contactStore.addContact(testContact);
+            connectionStore = new ConnectionStoreImplCtor();
+            // Add all connections
+            for (const testConnection of testConnections) {
+              await connectionStore.addConnection(testConnection);
             }
 
             await flushMicrotasks();
 
             // Search with unlikely query
-            const searchResults = await contactStore.searchContacts(unlikelyQuery);
+            const searchResults = await connectionStore.searchConnections(unlikelyQuery);
 
             // If no results, that's valid behavior
             // If there are results, they must match the query

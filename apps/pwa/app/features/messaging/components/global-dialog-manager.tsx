@@ -28,7 +28,7 @@ export function GlobalDialogManager() {
         isNewChatOpen, setIsNewChatOpen,
         newChatPubkey, setNewChatPubkey,
         newChatDisplayName, setNewChatDisplayName,
-        createdContacts, setCreatedContacts,
+        createdConnections, setCreatedConnections,
         setSelectedConversation,
         unhideConversation
     } = useMessaging();
@@ -61,7 +61,7 @@ export function GlobalDialogManager() {
             });
         }
 
-        const existing = createdContacts.find(c => c.pubkey === targetPubkey);
+        const existing = createdConnections.find(c => c.pubkey === targetPubkey);
         const newId = [myPublicKeyHex || '', targetPubkey].sort().join(':');
 
         unhideConversation(newId); // Ensure it is unhidden if previously hidden
@@ -78,14 +78,14 @@ export function GlobalDialogManager() {
                 unreadCount: 0,
                 lastMessageTime: new Date()
             };
-            setCreatedContacts(prev => [...prev, newConv]);
+            setCreatedConnections(prev => [...prev, newConv]);
             setSelectedConversation(newConv);
         }
         setIsNewChatOpen(false);
         setNewChatPubkey("");
         setNewChatDisplayName("");
         toast.success(t("messaging.chatCreated", "Conversation started"));
-    }, [newChatPubkey, newChatDisplayName, createdContacts, myPublicKeyHex, setSelectedConversation, setCreatedContacts, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
+    }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setSelectedConversation, setCreatedConnections, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
 
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
         if (!myPrivateKeyHex || !myPublicKeyHex) {

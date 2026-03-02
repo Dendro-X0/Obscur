@@ -5,7 +5,7 @@ import type {
     PersistedGroupConversation,
     PersistedConnectionRequest,
     PersistedMessage,
-    PersistedContactOverride,
+    PersistedConnectionOverride,
     PersistedGroupMessage,
     DmConversation,
     GroupConversation,
@@ -15,7 +15,7 @@ import type {
     ReplyTo,
     ReactionEmoji,
     ReactionsByEmoji,
-    ContactOverridesByContactId,
+    ConnectionOverridesByConnectionId,
     MessagesByConversationId,
     LastSeenByConversationId
 } from "../types";
@@ -151,7 +151,7 @@ const parsePersistedConnectionRequest = (value: unknown): PersistedConnectionReq
     };
 };
 
-const parsePersistedContactOverride = (value: unknown): PersistedContactOverride | null => {
+const parsePersistedConnectionOverride = (value: unknown): PersistedConnectionOverride | null => {
     if (!isRecord(value)) return null;
     const { lastMessage, lastMessageTimeMs } = value;
     if (!isString(lastMessage) || !isNumber(lastMessageTimeMs)) return null;
@@ -212,12 +212,12 @@ const parsePersistedGroupMessage = (value: unknown): PersistedGroupMessage | nul
 
 const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
     if (!isRecord(value)) return null;
-    const { version, createdContacts, createdGroups, unreadByConversationId, unreadByContactId, contactOverridesByContactId, messagesByConversationId, messagesByContactId, connectionRequests, pinnedChatIds, hiddenChatIds, groupMessages } = value;
+    const { version, createdConnections, createdContacts, createdGroups, unreadByConversationId, unreadByContactId, connectionOverridesByConnectionId, contactOverridesByContactId, messagesByConversationId, messagesByContactId, connectionRequests, pinnedChatIds, hiddenChatIds, groupMessages } = value;
 
     if (!isNumber(version) || (version !== 1 && version !== PERSISTED_CHAT_STATE_VERSION)) return null;
-    if (!Array.isArray(createdContacts) || !isRecord(contactOverridesByContactId)) return null;
 
-    const parsedCreatedContacts = createdContacts
+    const connectionsSource = (Array.isArray(createdConnections) ? createdConnections : (Array.isArray(createdContacts) ? createdContacts : []));
+    const parsedCreatedConnections = connectionsSource
         .map(c => parsePersistedDmConversation(c))
         .filter((c): c is PersistedDmConversation => c !== null);
 
@@ -233,10 +233,11 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
         });
     }
 
-    const parsedOverridesByContactId: Record<string, PersistedContactOverride> = {};
-    Object.entries(contactOverridesByContactId).forEach(([key, v]) => {
-        const parsed = parsePersistedContactOverride(v);
-        if (parsed) parsedOverridesByContactId[key] = parsed;
+    const parsedOverridesByConnectionId: Record<string, PersistedConnectionOverride> = {};
+    const overridesSource = isRecord(connectionOverridesByConnectionId) ? connectionOverridesByConnectionId : (isRecord(contactOverridesByContactId) ? contactOverridesByContactId : {});
+    Object.entries(overridesSource).forEach(([key, v]) => {
+        const parsed = parsePersistedConnectionOverride(v);
+        if (parsed) parsedOverridesByConnectionId[key] = parsed;
     });
 
     const parsedMessagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {};
@@ -278,10 +279,10 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
 
     return {
         version: PERSISTED_CHAT_STATE_VERSION,
-        createdContacts: parsedCreatedContacts,
+        createdConnections: parsedCreatedConnections,
         createdGroups: parsedCreatedGroups,
         unreadByConversationId: parsedUnreadByConversationId,
-        contactOverridesByContactId: parsedOverridesByContactId,
+        connectionOverridesByConnectionId: parsedOverridesByConnectionId,
         messagesByConversationId: parsedMessagesByConversationId,
         groupMessages: parsedGroupMessages,
         ...(parsedConnectionRequests ? { connectionRequests: parsedConnectionRequests } : {}),
@@ -332,26 +333,26 @@ export const savePersistedChatState = (state: PersistedChatState, publicKeyHex?:
     }
 };
 
-export const toPersistedDmConversation = (contact: DmConversation): PersistedDmConversation => ({
-    id: contact.id,
-    displayName: contact.displayName,
-    pubkey: String(contact.pubkey),
-    lastMessage: contact.lastMessage,
-    unreadCount: contact.unreadCount,
-    lastMessageTimeMs: contact.lastMessageTime.getTime(),
+export const toPersistedDmConversation = (connection: DmConversation): PersistedDmConversation => ({
+    id: connection.id,
+    displayName: connection.displayName,
+    pubkey: String(connection.pubkey),
+    lastMessage: connection.lastMessage,
+    unreadCount: connection.unreadCount,
+    lastMessageTimeMs: connection.lastMessageTime.getTime(),
 });
 
-export const fromPersistedDmConversation = (contact: PersistedDmConversation): DmConversation | null => {
-    const parsed = parsePublicKeyInput(contact.pubkey);
+export const fromPersistedDmConversation = (connection: PersistedDmConversation): DmConversation | null => {
+    const parsed = parsePublicKeyInput(connection.pubkey);
     if (!parsed.ok) return null;
     return {
         kind: "dm",
-        id: contact.id,
-        displayName: contact.displayName,
+        id: connection.id,
+        displayName: connection.displayName,
         pubkey: parsed.publicKeyHex,
-        lastMessage: contact.lastMessage,
-        unreadCount: contact.unreadCount,
-        lastMessageTime: new Date(contact.lastMessageTimeMs),
+        lastMessage: connection.lastMessage,
+        unreadCount: connection.unreadCount,
+        lastMessageTime: new Date(connection.lastMessageTimeMs),
     };
 };
 
@@ -388,19 +389,19 @@ export const fromPersistedGroupConversation = (group: PersistedGroupConversation
     about: group.about,
 });
 
-export const toPersistedOverridesByContactId = (
-    overrides: ContactOverridesByContactId
-): Readonly<Record<string, PersistedContactOverride>> => {
-    const result: Record<string, PersistedContactOverride> = {};
+export const toPersistedOverridesByConnectionId = (
+    overrides: ConnectionOverridesByConnectionId
+): Readonly<Record<string, PersistedConnectionOverride>> => {
+    const result: Record<string, PersistedConnectionOverride> = {};
     Object.entries(overrides).forEach(([key, value]) => {
         result[key] = { lastMessage: value.lastMessage, lastMessageTimeMs: value.lastMessageTime.getTime() };
     });
     return result;
 };
 
-export const fromPersistedOverridesByContactId = (
-    overrides: Readonly<Record<string, PersistedContactOverride>>
-): ContactOverridesByContactId => {
+export const fromPersistedOverridesByConnectionId = (
+    overrides: Readonly<Record<string, PersistedConnectionOverride>>
+): ConnectionOverridesByConnectionId => {
     const result: Record<string, Readonly<{ lastMessage: string; lastMessageTime: Date }>> = {};
     Object.entries(overrides).forEach(([key, value]) => {
         result[key] = { lastMessage: value.lastMessage, lastMessageTime: new Date(value.lastMessageTimeMs) };

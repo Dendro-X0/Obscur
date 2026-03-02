@@ -22,7 +22,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         replyTo, setReplyTo,
         pendingAttachments, setPendingAttachments,
         setPendingAttachmentPreviewUrls,
-        setContactOverridesByContactId,
+        setConnectionOverridesByConnectionId,
         setIsUploadingAttachment,
         setAttachmentError
     } = useMessaging();
@@ -103,8 +103,8 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     peerTrust.acceptPeer({ publicKeyHex: selectedConversation.pubkey });
                 }
 
-                // Update contact overrides to show last message in sidebar
-                setContactOverridesByContactId(prev => ({
+                // Update connection overrides to show last message in sidebar
+                setConnectionOverridesByConnectionId(prev => ({
                     ...prev,
                     [conversationId]: {
                         lastMessage: currentInput.slice(0, 100),
@@ -168,7 +168,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setPendingAttachments,
         setPendingAttachmentPreviewUrls,
         setReplyTo,
-        setContactOverridesByContactId,
+        setConnectionOverridesByConnectionId,
         setIsUploadingAttachment,
         setAttachmentError,
         uploadService,

@@ -21,7 +21,7 @@ import type {
 } from "@/app/features/messaging/types";
 
 import {
-  applyContactOverrides,
+  applyConnectionOverrides,
   extractAttachmentsFromContent
 } from "@/app/features/messaging/utils/logic";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
@@ -72,7 +72,7 @@ function NostrMessengerContent() {
   const {
     selectedConversation, setSelectedConversation,
     unreadByConversationId, setUnreadByConversationId,
-    contactOverridesByContactId,
+    connectionOverridesByConnectionId,
     visibleMessageCountByConversationId, setVisibleMessageCountByConversationId,
     replyTo, setReplyTo,
     pendingAttachments,
@@ -93,7 +93,7 @@ function NostrMessengerContent() {
     pinnedChatIds, togglePin,
     hiddenChatIds, deleteConversation, clearHistory, unhideConversation,
     chatsUnreadCount,
-    createdContacts, setCreatedContacts
+    createdConnections, setCreatedConnections
   } = useMessaging();
 
   const { relayPool, relayStatus } = useRelay();
@@ -115,9 +115,9 @@ function NostrMessengerContent() {
 
   const dmController = useEnhancedDmController({
     myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox,
-    onContactCreated: (pubkey) => {
+    onConnectionCreated: (pubkey) => {
       const cid = [myPublicKeyHex || '', pubkey].sort().join(':');
-      setCreatedContacts(prev => {
+      setCreatedConnections(prev => {
         if (prev.some(c => c.id === cid)) return prev;
         return [...prev, {
           kind: 'dm',
@@ -170,7 +170,7 @@ function NostrMessengerContent() {
   );
   useCommandMessages(dmController.state.messages);
   const { allConversations, filteredConversations, messageSearchResults } = useFilteredConversations(
-    createdContacts, createdGroups, contactOverridesByContactId, searchQuery,
+    createdConnections, createdGroups, connectionOverridesByConnectionId, searchQuery,
     (params) => {
       if (peerTrust.isAccepted(params)) return true;
       const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: params.publicKeyHex as PublicKeyHex });
@@ -200,7 +200,7 @@ function NostrMessengerContent() {
     }
   }, [restoredChatId, allConversations, selectedConversation, setSelectedConversation]);
 
-  const selectedConversationView = selectedConversation ? applyContactOverrides(selectedConversation, contactOverridesByContactId) : null;
+  const selectedConversationView = selectedConversation ? applyConnectionOverrides(selectedConversation, connectionOverridesByConnectionId) : null;
   const nowMs = useSyncExternalStore(subscribeNowMs, getNowMsSnapshot, getNowMsServerSnapshot);
 
   const handleUnlock = async (passphrase: string) => {
@@ -347,8 +347,8 @@ function NostrMessengerContent() {
                 lastMessageTime: new Date()
               };
 
-              // Ensure it's in createdContacts
-              setCreatedContacts(prev => {
+              // Ensure it's in createdConnections
+              setCreatedConnections(prev => {
                 if (prev.some(c => c.id === cid)) return prev;
                 return [...prev, newConv];
               });

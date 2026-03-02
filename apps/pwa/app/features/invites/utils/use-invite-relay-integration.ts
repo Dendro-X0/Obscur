@@ -8,8 +8,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
 import {
-  syncContactRequestsFromRelays,
-  handleIncomingContactRequest
+  syncConnectionRequestsFromRelays,
+  handleIncomingConnectionRequest
 } from "./messaging-integration";
 
 type UseInviteRelayIntegrationParams = {
@@ -21,7 +21,7 @@ type UseInviteRelayIntegrationParams = {
 
 /**
  * Integrates the invite system with the existing relay pool
- * Handles syncing contact requests and processing incoming requests
+ * Handles syncing connection requests and processing incoming requests
  */
 export const useInviteRelayIntegration = ({
   myPublicKey,
@@ -32,7 +32,7 @@ export const useInviteRelayIntegration = ({
   const { relayPool: pool } = useRelay();
 
 
-  // Sync contact requests when relays connect
+  // Sync connection requests when relays connect
   useEffect(() => {
     if (!enabled || !myPublicKey || !myPrivateKey) {
       return;
@@ -41,25 +41,25 @@ export const useInviteRelayIntegration = ({
     const hasOpenConnection = pool.connections.some(conn => conn.status === "open");
 
     if (hasOpenConnection) {
-      // Sync contact requests from relays
-      syncContactRequestsFromRelays(myPublicKey, myPrivateKey).catch(error => {
-        console.error("Failed to sync contact requests:", error);
+      // Sync connection requests from relays
+      syncConnectionRequestsFromRelays(myPublicKey, myPrivateKey).catch(error => {
+        console.error("Failed to sync connection requests:", error);
       });
     }
   }, [enabled, myPublicKey, myPrivateKey, pool.connections]);
 
-  // Subscribe to incoming contact request events
+  // Subscribe to incoming connection request events
   useEffect(() => {
     if (!enabled || !myPublicKey || !myPrivateKey) {
       return;
     }
 
-    // In a full implementation, this would subscribe to contact request events
+    // In a full implementation, this would subscribe to connection request events
     // For now, we rely on the existing DM subscription which handles kind 4 events
 
     const unsubscribe = pool.subscribeToMessages(async ({ url, message }) => {
-      // Parse and handle contact request events
-      // This would check for specific event kinds related to contact requests
+      // Parse and handle connection request events
+      // This would check for specific event kinds related to connection requests
 
       try {
         const parsed = JSON.parse(message);
@@ -68,9 +68,12 @@ export const useInviteRelayIntegration = ({
         if (Array.isArray(parsed) && parsed[0] === "EVENT") {
           const event = parsed[2];
 
-          // Check if this is a contact request event (would use a specific kind)
+          // Check if this is a connection request event (would use a specific kind)
           // For now, we'll let the existing DM handler process these
-          // In a full implementation, we'd have a dedicated kind for contact requests
+          // In a full implementation, we'd have a dedicated kind for connection requests
+          if (event.kind === 4) {
+            await handleIncomingConnectionRequest(event, myPublicKey, myPrivateKey);
+          }
         }
       } catch (error) {
         // Ignore parse errors
@@ -87,7 +90,7 @@ export const useInviteRelayIntegration = ({
       return;
     }
 
-    await syncContactRequestsFromRelays(myPublicKey, myPrivateKey);
+    await syncConnectionRequestsFromRelays(myPublicKey, myPrivateKey);
   }, [myPublicKey, myPrivateKey]);
 
   return {

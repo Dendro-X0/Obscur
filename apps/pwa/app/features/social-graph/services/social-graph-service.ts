@@ -6,7 +6,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
  * and calculate trust metrics like mutual connections.
  */
 export class SocialGraphService {
-    private contactListCache = new Map<PublicKeyHex, PublicKeyHex[]>();
+    private followListCache = new Map<PublicKeyHex, PublicKeyHex[]>();
     private inflightRequests = new Map<PublicKeyHex, Promise<PublicKeyHex[]>>();
 
     constructor(private pool: any) { }
@@ -16,8 +16,8 @@ export class SocialGraphService {
      */
     async getFollowing(pubkey: PublicKeyHex): Promise<PublicKeyHex[]> {
         // Check cache first
-        if (this.contactListCache.has(pubkey)) {
-            return this.contactListCache.get(pubkey)!;
+        if (this.followListCache.has(pubkey)) {
+            return this.followListCache.get(pubkey)!;
         }
 
         // Check if a request is already in flight for this pubkey
@@ -30,7 +30,7 @@ export class SocialGraphService {
 
         try {
             const following = await request;
-            this.contactListCache.set(pubkey, following);
+            this.followListCache.set(pubkey, following);
             return following;
         } finally {
             this.inflightRequests.delete(pubkey);

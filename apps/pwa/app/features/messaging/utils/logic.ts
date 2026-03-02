@@ -1,5 +1,5 @@
 
-import type { Conversation, ContactOverridesByContactId, Message, ReactionEmoji, ReactionsByEmoji, Attachment } from "../types";
+import type { Conversation, ConnectionOverridesByConnectionId, Message, ReactionEmoji, ReactionsByEmoji, Attachment } from "../types";
 
 export const createEmptyReactions = (): Record<ReactionEmoji, number> => ({
     "👍": 0,
@@ -17,15 +17,15 @@ export const toReactionsByEmoji = (value: Record<ReactionEmoji, number>): Reacti
     "👏": value["👏"],
 });
 
-export const applyContactOverrides = (
+export const applyConnectionOverrides = (
     conversation: Conversation,
-    overridesByContactId: ContactOverridesByContactId
+    overridesByConnectionId: ConnectionOverridesByConnectionId
 ): Conversation => {
     if (conversation.kind === "group") {
         return conversation;
     }
     const overrides: Readonly<{ lastMessage: string; lastMessageTime: Date }> | undefined =
-        overridesByContactId[conversation.id];
+        overridesByConnectionId[conversation.id];
     if (!overrides) {
         return conversation;
     }

@@ -5,15 +5,15 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { inviteManager } from '../invite-manager';
-import { contactStore } from '../contact-store';
+import { connectionStore } from '../connection-store';
 import { profileManager } from '../profile-manager';
 import { qrGenerator } from '../qr-generator';
-import type { 
-  InviteLink, 
-  ContactRequest, 
-  Contact, 
+import type {
+  InviteLink,
+  ConnectionRequest,
+  Connection,
   UserProfile,
-  QRCode 
+  QRCode
 } from '../types';
 
 const identityRef = vi.hoisted(() => ({
@@ -57,14 +57,14 @@ describe('Invite System Integration', () => {
   // Clean up after each test
   afterEach(async () => {
     // Clear all data from stores
-    const contacts = await contactStore.getAllContacts();
-    for (const contact of contacts) {
-      await contactStore.removeContact(contact.id);
+    const connections = await connectionStore.getAllConnections();
+    for (const connection of connections) {
+      await connectionStore.removeConnection(connection.id);
     }
-    
-    const groups = await contactStore.getAllGroups();
+
+    const groups = await connectionStore.getAllGroups();
     for (const group of groups) {
-      await contactStore.deleteGroup(group.id);
+      await connectionStore.deleteGroup(group.id);
     }
   });
 
@@ -82,7 +82,7 @@ describe('Invite System Integration', () => {
         shareAvatar: true,
         shareBio: true,
         shareWebsite: true,
-        allowContactRequests: true,
+        allowConnectionRequests: true,
         requireMessage: false,
         autoAcceptTrusted: false,
       });
@@ -100,25 +100,25 @@ describe('Invite System Integration', () => {
       expect(inviteLink.isActive).toBe(true);
 
       // 2. Process the invite link (simulating recipient)
-      const contactRequest = await inviteManager.processInviteLink(inviteLink.url);
+      const connectionRequest = await inviteManager.processInviteLink(inviteLink.url);
 
-      expect(contactRequest).toBeDefined();
-      expect(contactRequest.type).toBe('incoming');
-      expect(contactRequest.status).toBe('pending');
-      expect(contactRequest.profile.displayName).toBe('Test User');
-      expect(contactRequest.message).toBe('Let\'s connect!');
+      expect(connectionRequest).toBeDefined();
+      expect(connectionRequest.type).toBe('incoming');
+      expect(connectionRequest.status).toBe('pending');
+      expect(connectionRequest.profile.displayName).toBe('Test User');
+      expect(connectionRequest.message).toBe('Let\'s connect!');
 
-      // 3. Accept the contact request
-      const contact = await inviteManager.acceptContactRequest(contactRequest.id);
+      // 3. Accept the connection request
+      const connection = await inviteManager.acceptConnectionRequest(connectionRequest.id);
 
-      expect(contact).toBeDefined();
-      expect(contact.displayName).toBe('Test User');
-      expect(contact.trustLevel).toBe('neutral');
+      expect(connection).toBeDefined();
+      expect(connection.displayName).toBe('Test User');
+      expect(connection.trustLevel).toBe('neutral');
 
-      // 4. Verify contact was added to store
-      const storedContact = await contactStore.getContact(contact.id);
-      expect(storedContact).toBeDefined();
-      expect(storedContact?.id).toBe(contact.id);
+      // 4. Verify connection was added to store
+      const storedConnection = await connectionStore.getConnection(connection.id);
+      expect(storedConnection).toBeDefined();
+      expect(storedConnection?.id).toBe(connection.id);
     });
 
     it('should complete full QR code workflow', async () => {
@@ -143,78 +143,78 @@ describe('Invite System Integration', () => {
       expect(qrCode.rawData).toBeTruthy();
 
       // 2. Scan and process QR code
-      const contactRequest = await inviteManager.processQRInvite(qrCode.rawData);
+      const connectionRequest = await inviteManager.processQRInvite(qrCode.rawData);
 
-      expect(contactRequest).toBeDefined();
-      expect(contactRequest.type).toBe('incoming');
-      expect(contactRequest.profile.displayName).toBe('QR Test User');
+      expect(connectionRequest).toBeDefined();
+      expect(connectionRequest.type).toBe('incoming');
+      expect(connectionRequest.profile.displayName).toBe('QR Test User');
 
-      // 3. Accept the contact request
-      const contact = await inviteManager.acceptContactRequest(contactRequest.id);
+      // 3. Accept the connection request
+      const connection = await inviteManager.acceptConnectionRequest(connectionRequest.id);
 
-      expect(contact).toBeDefined();
-      expect(contact.displayName).toBe('QR Test User');
+      expect(connection).toBeDefined();
+      expect(connection.displayName).toBe('QR Test User');
     });
   });
 
-  describe('Contact Management Integration', () => {
-    it('should integrate contact requests with contact store', async () => {
-      // Create a contact request
+  describe('Connection Management Integration', () => {
+    it('should integrate connection requests with connection store', async () => {
+      // Create a connection request
       const inviteLink = await inviteManager.generateInviteLink({
         displayName: 'Integration Test',
         includeProfile: true
       });
 
-      const contactRequest = await inviteManager.processInviteLink(inviteLink.url);
-      
-      // Accept and verify it's in the contact store
-      const contact = await inviteManager.acceptContactRequest(contactRequest.id);
-      
-      const allContacts = await contactStore.getAllContacts();
-      expect(allContacts).toHaveLength(1);
-      expect(allContacts[0].id).toBe(contact.id);
+      const connectionRequest = await inviteManager.processInviteLink(inviteLink.url);
 
-      // Add contact to a group
+      // Accept and verify it's in the connection store
+      const connection = await inviteManager.acceptConnectionRequest(connectionRequest.id);
+
+      const allConnections = await connectionStore.getAllConnections();
+      expect(allConnections).toHaveLength(1);
+      expect(allConnections[0].id).toBe(connection.id);
+
+      // Add connection to a group
       const group = {
         id: 'test-group',
         name: 'Test Group',
         createdAt: new Date()
       };
-      await contactStore.createGroup(group);
-      await contactStore.addContactToGroup(contact.id, group.id);
+      await connectionStore.createGroup(group);
+      await connectionStore.addConnectionToGroup(connection.id, group.id);
 
-      // Verify contact is in group
-      const contactsInGroup = await contactStore.getContactsByGroup(group.id);
-      expect(contactsInGroup).toHaveLength(1);
-      expect(contactsInGroup[0].id).toBe(contact.id);
+      // Verify connection is in group
+      const connectionsInGroup = await connectionStore.getConnectionsByGroup(group.id);
+      expect(connectionsInGroup).toHaveLength(1);
+      expect(connectionsInGroup[0].id).toBe(connection.id);
     });
 
-    it('should handle contact trust levels', async () => {
-      // Create and accept a contact
+    it('should handle connection trust levels', async () => {
+      // Create and accept a connection
       const inviteLink = await inviteManager.generateInviteLink({
         displayName: 'Trust Test',
         includeProfile: true
       });
 
-      const contactRequest = await inviteManager.processInviteLink(inviteLink.url);
-      const contact = await inviteManager.acceptContactRequest(contactRequest.id);
+      const connectionRequest = await inviteManager.processInviteLink(inviteLink.url);
+      const connection = await inviteManager.acceptConnectionRequest(connectionRequest.id);
 
       // Verify initial trust level
-      expect(contact.trustLevel).toBe('neutral');
+      expect(connection.trustLevel).toBe('neutral');
 
       // Change trust level to trusted
-      await contactStore.setTrustLevel(contact.id, 'trusted');
-      
-      const trustedContacts = await contactStore.getTrustedContacts();
-      expect(trustedContacts).toHaveLength(1);
-      expect(trustedContacts[0].id).toBe(contact.id);
+      await connectionStore.setTrustLevel(connection.id, 'trusted');
+
+      const trustedConnections = await connectionStore.getTrustedConnections();
+      expect(trustedConnections).toHaveLength(1);
+      expect(trustedConnections[0].id).toBe(connection.id);
 
       // Change to blocked
-      await contactStore.setTrustLevel(contact.id, 'blocked');
-      
-      const blockedContacts = await contactStore.getBlockedContacts();
-      expect(blockedContacts).toHaveLength(1);
-      expect(blockedContacts[0].id).toBe(contact.id);
+      await connectionStore.setTrustLevel(connection.id, 'blocked');
+
+      const blockedConnections = await connectionStore.getBlockedConnections();
+      expect(blockedConnections).toHaveLength(1);
+      expect(blockedConnections[0].id).toBe(connection.id);
     });
   });
 
@@ -236,10 +236,10 @@ describe('Invite System Integration', () => {
       });
 
       // Process and verify profile data is included
-      const contactRequest = await inviteManager.processInviteLink(inviteLink.url);
-      
-      expect(contactRequest.profile.displayName).toBe('Profile Test User');
-      expect(contactRequest.profile.avatar).toBe('https://example.com/avatar.png');
+      const connectionRequest = await inviteManager.processInviteLink(inviteLink.url);
+
+      expect(connectionRequest.profile.displayName).toBe('Profile Test User');
+      expect(connectionRequest.profile.avatar).toBe('https://example.com/avatar.png');
     });
 
     it('should respect privacy settings', async () => {
@@ -258,7 +258,7 @@ describe('Invite System Integration', () => {
         shareAvatar: false,
         shareBio: false,
         shareWebsite: false,
-        allowContactRequests: true,
+        allowConnectionRequests: true,
         requireMessage: false,
         autoAcceptTrusted: false
       });
@@ -269,11 +269,11 @@ describe('Invite System Integration', () => {
       });
 
       // Process and verify only allowed data is included
-      const contactRequest = await inviteManager.processInviteLink(inviteLink.url);
-      
-      expect(contactRequest.profile.displayName).toBe('Private User');
-      expect(contactRequest.profile.avatar).toBeUndefined();
-      expect(contactRequest.profile.bio).toBeUndefined();
+      const connectionRequest = await inviteManager.processInviteLink(inviteLink.url);
+
+      expect(connectionRequest.profile.displayName).toBe('Private User');
+      expect(connectionRequest.profile.avatar).toBeUndefined();
+      expect(connectionRequest.profile.bio).toBeUndefined();
     });
   });
 
@@ -287,27 +287,27 @@ describe('Invite System Integration', () => {
       });
 
       // Process invite
-      const contactRequest = await inviteManager.processInviteLink(inviteLink.url);
+      const connectionRequest = await inviteManager.processInviteLink(inviteLink.url);
 
-      // Accept contact
-      const contact = await inviteManager.acceptContactRequest(contactRequest.id);
+      // Accept connection
+      const connection = await inviteManager.acceptConnectionRequest(connectionRequest.id);
 
       // Verify data consistency
-      const storedContact = await contactStore.getContact(contact.id);
-      expect(storedContact?.displayName).toBe(contact.displayName);
-      expect(storedContact?.publicKey).toBe(contact.publicKey);
-      expect(storedContact?.trustLevel).toBe(contact.trustLevel);
+      const storedConnection = await connectionStore.getConnection(connection.id);
+      expect(storedConnection?.displayName).toBe(connection.displayName);
+      expect(storedConnection?.publicKey).toBe(connection.publicKey);
+      expect(storedConnection?.trustLevel).toBe(connection.trustLevel);
 
-      // Update contact
-      await contactStore.updateContact(contact.id, {
+      // Update connection
+      await connectionStore.updateConnection(connection.id, {
         displayName: 'Updated Name',
         bio: 'Updated bio'
       });
 
       // Verify update
-      const updatedContact = await contactStore.getContact(contact.id);
-      expect(updatedContact?.displayName).toBe('Updated Name');
-      expect(updatedContact?.bio).toBe('Updated bio');
+      const updatedConnection = await connectionStore.getConnection(connection.id);
+      expect(updatedConnection?.displayName).toBe('Updated Name');
+      expect(updatedConnection?.bio).toBe('Updated bio');
     });
 
     it('should handle concurrent operations', async () => {
@@ -334,17 +334,17 @@ describe('Invite System Integration', () => {
       const requests = await Promise.all(requestPromises);
 
       // Accept all requests concurrently
-      const contactPromises = requests.map(req =>
-        inviteManager.acceptContactRequest(req.id)
+      const connectionPromises = requests.map(req =>
+        inviteManager.acceptConnectionRequest(req.id)
       );
 
-      const contacts = await Promise.all(contactPromises);
+      const connections = await Promise.all(connectionPromises);
 
-      // Verify all contacts were created
-      expect(contacts).toHaveLength(5);
-      
-      const allContacts = await contactStore.getAllContacts();
-      expect(allContacts).toHaveLength(5);
+      // Verify all connections were created
+      expect(connections).toHaveLength(5);
+
+      const allConnections = await connectionStore.getAllConnections();
+      expect(allConnections).toHaveLength(5);
     });
   });
 
@@ -370,38 +370,38 @@ describe('Invite System Integration', () => {
         inviteManager.processInviteLink('invalid-url')
       ).rejects.toThrow();
 
-      // Try to accept non-existent contact request
+      // Try to accept non-existent connection request
       await expect(
-        inviteManager.acceptContactRequest('non-existent-id')
+        inviteManager.acceptConnectionRequest('non-existent-id')
       ).rejects.toThrow();
 
-      // Try to get non-existent contact
-      const contact = await contactStore.getContact('non-existent-id');
-      expect(contact).toBeNull();
+      // Try to get non-existent connection
+      const connection = await connectionStore.getConnection('non-existent-id');
+      expect(connection).toBeNull();
     });
 
-    it('should handle duplicate contacts', async () => {
-      // Create and accept first contact
+    it('should handle duplicate connections', async () => {
+      // Create and accept first connection
       const inviteLink1 = await inviteManager.generateInviteLink({
         displayName: 'Duplicate Test',
         includeProfile: true
       });
 
       const request1 = await inviteManager.processInviteLink(inviteLink1.url);
-      const contact1 = await inviteManager.acceptContactRequest(request1.id);
+      const connection1 = await inviteManager.acceptConnectionRequest(request1.id);
 
-      // Try to add same contact again (should handle gracefully)
+      // Try to add same connection again (should handle gracefully)
       const inviteLink2 = await inviteManager.generateInviteLink({
         displayName: 'Duplicate Test',
         includeProfile: true
       });
 
       const request2 = await inviteManager.processInviteLink(inviteLink2.url);
-      
+
       // This should either merge or reject duplicate
       // Implementation depends on business logic
-      const allContacts = await contactStore.getAllContacts();
-      expect(allContacts.length).toBeGreaterThanOrEqual(1);
+      const allConnections = await connectionStore.getAllConnections();
+      expect(allConnections.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

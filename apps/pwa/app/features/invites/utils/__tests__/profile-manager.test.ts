@@ -3,7 +3,7 @@ import fc from 'fast-check';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import { profileManager } from '../profile-manager';
-import { contactStore } from '../contact-store';
+import { connectionStore } from '../connection-store';
 import { cryptoService } from '../../../crypto/crypto-service';
 
 import type { UserProfile, PrivacySettings, ShareableProfile } from '../types';
@@ -73,7 +73,7 @@ describe('Profile Manager Property Tests', () => {
             shareAvatar: fc.boolean(),
             shareBio: fc.boolean(),
             shareWebsite: fc.boolean(),
-            allowContactRequests: fc.boolean(),
+            allowConnectionRequests: fc.boolean(),
             requireMessage: fc.boolean(),
             autoAcceptTrusted: fc.boolean()
           }),
@@ -136,7 +136,7 @@ describe('Profile Manager Property Tests', () => {
         shareAvatar: true,
         shareBio: true,
         shareWebsite: true, // Even if true, website shouldn't be in shareable profile
-        allowContactRequests: true,
+        allowConnectionRequests: true,
         requireMessage: false,
         autoAcceptTrusted: false
       };
@@ -207,7 +207,7 @@ describe('Profile Manager Property Tests', () => {
       // Should return defaults
       expect(profile.displayName).toBe('');
       expect(privacySettings.shareDisplayName).toBe(true);
-      expect(privacySettings.allowContactRequests).toBe(true);
+      expect(privacySettings.allowConnectionRequests).toBe(true);
     });
   });
 
@@ -261,7 +261,7 @@ describe('Profile Manager Property Tests', () => {
             shareAvatar: fc.boolean(),
             shareBio: fc.boolean(),
             shareWebsite: fc.boolean(),
-            allowContactRequests: fc.boolean(),
+            allowConnectionRequests: fc.boolean(),
             requireMessage: fc.boolean(),
             autoAcceptTrusted: fc.boolean()
           }),
@@ -302,7 +302,7 @@ describe('Profile Manager Property Tests', () => {
         shareAvatar: true,
         shareBio: true,
         shareWebsite: false,
-        allowContactRequests: true,
+        allowConnectionRequests: true,
         requireMessage: false,
         autoAcceptTrusted: false
       };
@@ -374,7 +374,7 @@ describe('Profile Manager Property Tests', () => {
         shareAvatar: false,
         shareBio: true,
         shareWebsite: false,
-        allowContactRequests: true,
+        allowConnectionRequests: true,
         requireMessage: false,
         autoAcceptTrusted: false
       };
@@ -490,7 +490,7 @@ describe('Profile Manager Property Tests', () => {
           shareAvatar: true,
           shareBio: false,
           shareWebsite: false,
-          allowContactRequests: true,
+          allowConnectionRequests: true,
           requireMessage: false,
           autoAcceptTrusted: false
         });

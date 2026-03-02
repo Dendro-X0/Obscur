@@ -7,7 +7,7 @@ import { messagePersistenceService } from "../services/message-persistence-servi
 import type {
     Conversation,
     UnreadByConversationId,
-    ContactOverridesByContactId,
+    ConnectionOverridesByConnectionId,
     MessagesByConversationId,
     ReplyTo,
     DmConversation,
@@ -22,19 +22,19 @@ import {
     fromPersistedDmConversation,
     fromPersistedMessagesByConversationId,
     toPersistedMessagesByConversationId,
-    fromPersistedOverridesByContactId,
-    toPersistedOverridesByContactId,
+    fromPersistedOverridesByConnectionId,
+    toPersistedOverridesByConnectionId,
 } from "../utils/persistence";
 
 interface MessagingContextType {
-    createdContacts: ReadonlyArray<DmConversation>;
-    setCreatedContacts: React.Dispatch<React.SetStateAction<ReadonlyArray<DmConversation>>>;
+    createdConnections: ReadonlyArray<DmConversation>;
+    setCreatedConnections: React.Dispatch<React.SetStateAction<ReadonlyArray<DmConversation>>>;
     selectedConversation: Conversation | null;
     setSelectedConversation: (conv: Conversation | null) => void;
     unreadByConversationId: UnreadByConversationId;
     setUnreadByConversationId: React.Dispatch<React.SetStateAction<UnreadByConversationId>>;
-    contactOverridesByContactId: ContactOverridesByContactId;
-    setContactOverridesByContactId: React.Dispatch<React.SetStateAction<ContactOverridesByContactId>>;
+    connectionOverridesByConnectionId: ConnectionOverridesByConnectionId;
+    setConnectionOverridesByConnectionId: React.Dispatch<React.SetStateAction<ConnectionOverridesByConnectionId>>;
     visibleMessageCountByConversationId: Readonly<Record<string, number>>;
     setVisibleMessageCountByConversationId: React.Dispatch<React.SetStateAction<Readonly<Record<string, number>>>>;
     replyTo: ReplyTo | null;
@@ -99,10 +99,10 @@ const MessagingContext = createContext<MessagingContextType | null>(null);
 
 export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
-    const [createdContacts, setCreatedContacts] = useState<ReadonlyArray<DmConversation>>([]);
+    const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [selectedConversationState, setSelectedConversationState] = useState<Conversation | null>(null);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
-    const [contactOverridesByContactId, setContactOverridesByContactId] = useState<ContactOverridesByContactId>({});
+    const [connectionOverridesByConnectionId, setConnectionOverridesByConnectionId] = useState<ConnectionOverridesByConnectionId>({});
     // Removed: const [messagesByConversationId, setMessagesByConversationId] = useState<MessagesByConversationId>({});
     const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] = useState<Readonly<Record<string, number>>>({});
     const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
@@ -183,7 +183,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         chatStateStoreService.deleteConversationMessages(conversationId);
         messageBus.emit({ type: 'message_deleted', conversationId, messageId: 'all' });
         // Also update the conversation list last message preview
-        setCreatedContacts(prev => prev.map(c =>
+        setCreatedConnections(prev => prev.map(c =>
             c.id === conversationId ? { ...c, lastMessage: '', lastMessageTime: new Date() } : c
         ));
     };
@@ -200,13 +200,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         const persisted = chatStateStoreService.load(publicKeyHex);
         if (persisted) {
-            const nextCreatedContacts: ReadonlyArray<DmConversation> = persisted.createdContacts
+            const nextCreatedConnections: ReadonlyArray<DmConversation> = persisted.createdConnections
                 .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
                 .filter((c: DmConversation | null): c is DmConversation => c !== null);
 
-            setCreatedContacts(nextCreatedContacts);
+            setCreatedConnections(nextCreatedConnections);
             setUnreadByConversationId(persisted.unreadByConversationId);
-            setContactOverridesByContactId(fromPersistedOverridesByContactId(persisted.contactOverridesByContactId));
+            setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
 
             if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
             if (persisted.hiddenChatIds) setHiddenChatIds(persisted.hiddenChatIds);
@@ -233,11 +233,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
     }, [selectedConversation?.id, hasHydrated, publicKeyHex]);
 
-    const updateCreatedContacts: React.Dispatch<React.SetStateAction<ReadonlyArray<DmConversation>>> = (updater) => {
-        setCreatedContacts(prev => {
+    const updateCreatedConnections: React.Dispatch<React.SetStateAction<ReadonlyArray<DmConversation>>> = (updater) => {
+        setCreatedConnections(prev => {
             const next = typeof updater === "function" ? updater(prev) : updater;
             if (publicKeyHex) {
-                chatStateStoreService.updateContacts(publicKeyHex, next.map(c => toPersistedDmConversation(c)));
+                chatStateStoreService.updateConnections(publicKeyHex, next.map(c => toPersistedDmConversation(c)));
             }
             return next;
         });
@@ -253,11 +253,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
     };
 
-    const updateContactOverridesByContactId: React.Dispatch<React.SetStateAction<ContactOverridesByContactId>> = (updater) => {
-        setContactOverridesByContactId(prev => {
+    const updateConnectionOverridesByConnectionId: React.Dispatch<React.SetStateAction<ConnectionOverridesByConnectionId>> = (updater) => {
+        setConnectionOverridesByConnectionId(prev => {
             const next = typeof updater === "function" ? updater(prev) : updater;
             if (publicKeyHex) {
-                chatStateStoreService.updateContactOverrides(publicKeyHex, toPersistedOverridesByContactId(next));
+                chatStateStoreService.updateConnectionOverrides(publicKeyHex, toPersistedOverridesByConnectionId(next));
             }
             return next;
         });
@@ -270,14 +270,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, [unreadByConversationId]);
 
     const value = useMemo(() => ({
-        createdContacts,
-        setCreatedContacts: updateCreatedContacts,
+        createdConnections,
+        setCreatedConnections: updateCreatedConnections,
         selectedConversation,
         setSelectedConversation,
         unreadByConversationId,
         setUnreadByConversationId: updateUnreadByConversationId,
-        contactOverridesByContactId,
-        setContactOverridesByContactId: updateContactOverridesByContactId,
+        connectionOverridesByConnectionId,
+        setConnectionOverridesByConnectionId: updateConnectionOverridesByConnectionId,
         visibleMessageCountByConversationId,
         setVisibleMessageCountByConversationId,
         replyTo,
@@ -328,10 +328,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         clearHistory,
         chatsUnreadCount
     }), [
-        createdContacts,
+        createdConnections,
         selectedConversation,
         unreadByConversationId,
-        contactOverridesByContactId,
+        connectionOverridesByConnectionId,
         visibleMessageCountByConversationId,
         replyTo,
         pendingAttachments,

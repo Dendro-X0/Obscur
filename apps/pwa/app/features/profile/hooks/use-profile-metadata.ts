@@ -41,12 +41,12 @@ export const useProfileMetadata = (pubkey: string | null): ProfileMetadata | nul
         // 2. Check persistent store
         const loadFromStore = async () => {
             try {
-                const contact = await connectionStore.getContactByPublicKey(pubkey);
-                if (contact && (contact.displayName || contact.avatar)) {
+                const connection = await connectionStore.getConnectionByPublicKey(pubkey);
+                if (connection && (connection.displayName || connection.avatar)) {
                     const fromStore: ProfileMetadata = {
                         pubkey: pubkey as PublicKeyHex,
-                        displayName: contact.displayName,
-                        avatarUrl: contact.avatar,
+                        displayName: connection.displayName,
+                        avatarUrl: connection.avatar,
                     };
                     metadataCache.set(pubkey, fromStore);
                     queueMicrotask(() => {
