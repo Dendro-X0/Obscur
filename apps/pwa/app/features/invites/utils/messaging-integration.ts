@@ -9,6 +9,23 @@ import { inviteManager } from "./invite-manager";
 import { connectionStore } from "./connection-store";
 import type { Connection, ConnectionRequest } from "./types";
 
+const getConnectionByPublicKeyCompat = async (
+  peerPublicKey: PublicKeyHex
+): Promise<Connection | null> => {
+  const store = connectionStore as unknown as {
+    getConnectionByPublicKey?: (publicKey: string) => Promise<Connection | null>;
+    getContactByPublicKey?: (publicKey: string) => Promise<Connection | null>;
+  };
+
+  if (store.getConnectionByPublicKey) {
+    return store.getConnectionByPublicKey(peerPublicKey);
+  }
+  if (store.getContactByPublicKey) {
+    return store.getContactByPublicKey(peerPublicKey);
+  }
+  return null;
+};
+
 /**
  * Process accepted connection requests and enable messaging
  * This integrates with the existing DM controller to enable direct messaging
@@ -57,7 +74,7 @@ export const canMessageConnection = async (
   peerPublicKey: PublicKeyHex
 ): Promise<boolean> => {
   try {
-    const connection = await connectionStore.getConnectionByPublicKey(peerPublicKey);
+    const connection = await getConnectionByPublicKeyCompat(peerPublicKey);
 
     if (!connection) {
       return false;
@@ -85,7 +102,7 @@ export const getConnectionInfo = async (
   trustLevel: "trusted" | "neutral" | "blocked";
 } | null> => {
   try {
-    const connection = await connectionStore.getConnectionByPublicKey(peerPublicKey);
+    const connection = await getConnectionByPublicKeyCompat(peerPublicKey);
 
     if (!connection) {
       return null;
