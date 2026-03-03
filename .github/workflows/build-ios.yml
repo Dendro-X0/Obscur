@@ -7,8 +7,31 @@ on:
       - 'v*'
 
 jobs:
+  ios-precheck:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check required iOS signing secrets
+        id: check
+        shell: bash
+        run: |
+          missing=()
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" ]] || missing+=("APPLE_CERTIFICATE_BASE64")
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ]] || missing+=("APPLE_CERTIFICATE_PASSWORD")
+          [[ -n "${{ secrets.APPLE_DEVELOPMENT_TEAM }}" ]] || missing+=("APPLE_DEVELOPMENT_TEAM")
+
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "iOS precheck passed: all required signing secrets are set." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "iOS precheck failed: missing secrets -> ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   build-ios:
-    if: ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_DEVELOPMENT_TEAM != '' }}
+    needs: ios-precheck
+    if: ${{ needs.ios-precheck.outputs.ready == 'true' }}
     runs-on: macos-latest
     steps:
       - name: Checkout repository
