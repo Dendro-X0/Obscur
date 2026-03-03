@@ -83,7 +83,7 @@ jobs:
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > apps/desktop/src-tauri/release.jks
 
       - name: Build Android App (Signed)
-        run: pnpm -C apps/desktop tauri android build --release
+        run: pnpm -C apps/desktop tauri android build --apk --aab --ci
         env:
           TAURI_ANDROID_KEYSTORE_PATH: "release.jks"
           TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}

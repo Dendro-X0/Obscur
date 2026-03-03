@@ -40,7 +40,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build iOS App (Signed)
-        run: pnpm -C apps/desktop tauri ios build --release
+        run: pnpm -C apps/desktop tauri ios build --ci
         env:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
 
