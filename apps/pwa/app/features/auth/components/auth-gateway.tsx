@@ -9,6 +9,9 @@ import { LockScreen } from "@/app/components/lock-screen";
 import { AuthScreen } from "../components/auth-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 
+const REMEMBER_ME_KEY = "obscur_remember_me";
+const AUTH_TOKEN_KEY = "obscur_auth_token";
+
 interface AuthGatewayProps {
     children: React.ReactNode;
 }
@@ -33,8 +36,8 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     useEffect(() => {
         const attemptAutoUnlock = async () => {
             if (isIdentityLocked && hasStoredIdentity && !hasAttemptedAutoUnlock) {
-                const isRemembered = localStorage.getItem("obscur_remember_me") === "true";
-                const token = localStorage.getItem("obscur_auth_token");
+                const isRemembered = localStorage.getItem(REMEMBER_ME_KEY) === "true";
+                const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
                 if (isRemembered && token) {
                     try {
@@ -45,9 +48,13 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
                         } else {
                             // If it failed (maybe password changed?), clear it or let user manually unlock
                             console.warn("[AuthGateway] Auto-unlock failed.");
+                            localStorage.setItem(REMEMBER_ME_KEY, "false");
+                            localStorage.removeItem(AUTH_TOKEN_KEY);
                         }
                     } catch (e) {
                         console.error("[AuthGateway] Auto-unlock error:", e);
+                        localStorage.setItem(REMEMBER_ME_KEY, "false");
+                        localStorage.removeItem(AUTH_TOKEN_KEY);
                     }
                 }
                 setHasAttemptedAutoUnlock(true);

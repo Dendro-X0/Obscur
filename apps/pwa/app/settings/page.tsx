@@ -63,6 +63,7 @@ import {
   getLocalMediaStorageConfig,
   getLocalMediaStorageAbsolutePath,
   openLocalMediaStoragePath,
+  pickLocalMediaStorageRootPath,
   purgeLocalMediaCache,
   saveLocalMediaStorageConfig,
   type LocalMediaStorageConfig
@@ -961,7 +962,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
         <Card title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label>Media Upload Provider (NIP-96)</Label>
+              <Label>{t("settings.storage.providerLabel", "Media Upload Provider (NIP-96)")}</Label>
               <Input
                 value={nip96Config.apiUrl}
                 onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
@@ -974,15 +975,15 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   onChange={(e) => saveNip96Config({ ...nip96Config, enabled: e.target.checked })}
                   id="nip96-enabled"
                 />
-                <Label htmlFor="nip96-enabled">Enable Media Uploads</Label>
+                <Label htmlFor="nip96-enabled">{t("settings.storage.enableUploads", "Enable Media Uploads")}</Label>
               </div>
             </div>
 
             <div className="space-y-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
               <div>
-                <Label className="font-semibold">Local Vault Data (Desktop)</Label>
+                <Label className="font-semibold">{t("settings.storage.localVaultTitle", "Local Vault Data (Desktop)")}</Label>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Cache sent and received files locally. Relays are used for encrypted transmission only.
+                  {t("settings.storage.localVaultDesc", "Cache sent and received files locally. Relays are used for encrypted transmission only.")}
                 </p>
               </div>
 
@@ -993,11 +994,24 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, enabled: e.target.checked })}
                   id="local-media-enabled"
                 />
-                <Label htmlFor="local-media-enabled">Enable local media cache</Label>
+                <Label htmlFor="local-media-enabled">{t("settings.storage.enableLocalCache", "Enable local media cache")}</Label>
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="local-media-subdir">Local data folder (inside app data)</Label>
+                <Label htmlFor="local-media-root-path">{t("settings.storage.localRootLabel", "Local data root folder")}</Label>
+                <Input
+                  id="local-media-root-path"
+                  value={localMediaConfig.customRootPath || ""}
+                  onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, customRootPath: e.target.value })}
+                  placeholder={t("settings.storage.localRootPlaceholder", "Leave empty to use app data")}
+                />
+                <p className="text-[11px] text-zinc-500">
+                  {t("settings.storage.localRootHelp", "Choose a custom folder in File Explorer for local media storage.")}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="local-media-subdir">{t("settings.storage.localSubdirLabel", "Local data folder name")}</Label>
                 <Input
                   id="local-media-subdir"
                   value={localMediaConfig.subdir}
@@ -1013,7 +1027,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     checked={localMediaConfig.cacheSentFiles}
                     onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, cacheSentFiles: e.target.checked })}
                   />
-                  Cache sent files
+                  {t("settings.storage.cacheSent", "Cache sent files")}
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -1021,30 +1035,56 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     checked={localMediaConfig.cacheReceivedFiles}
                     onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, cacheReceivedFiles: e.target.checked })}
                   />
-                  Cache received files
+                  {t("settings.storage.cacheReceived", "Cache received files")}
                 </label>
               </div>
 
               <div className="rounded-lg bg-zinc-50 p-3 text-xs font-mono text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
-                {isResolvingLocalPath ? "Resolving local data path..." : (localMediaAbsolutePath || "Local path is available in desktop runtime")}
+                {isResolvingLocalPath
+                  ? t("settings.storage.resolvingPath", "Resolving local data path...")
+                  : (localMediaAbsolutePath || t("settings.storage.pathAvailableInDesktop", "Local path is available in desktop runtime"))}
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={async () => {
+                    const selected = await pickLocalMediaStorageRootPath();
+                    if (!selected) return;
+                    saveLocalMediaConfig({ ...localMediaConfig, customRootPath: selected });
+                    await refreshLocalMediaAbsolutePath();
+                    toast.success(t("settings.storage.pathSelected", "Local data path selected."));
+                  }}
+                >
+                  {t("settings.storage.chooseFolder", "Choose Folder")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    saveLocalMediaConfig({ ...localMediaConfig, customRootPath: "" });
+                    await refreshLocalMediaAbsolutePath();
+                    toast.success(t("settings.storage.pathResetToDefault", "Reset to default app-data path."));
+                  }}
+                >
+                  {t("settings.storage.useDefaultPath", "Use Default Path")}
+                </Button>
                 <Button type="button" variant="secondary" onClick={() => void openLocalMediaStoragePath()}>
-                  Open Local Data Folder
+                  {t("settings.storage.openFolder", "Open Local Data Folder")}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={async () => {
                     await purgeLocalMediaCache();
-                    toast.success("Local media cache cleared.");
+                    toast.success(t("settings.storage.cacheCleared", "Local media cache cleared."));
                   }}
                 >
-                  Clear Local Media Cache
+                  {t("settings.storage.clearCache", "Clear Local Media Cache")}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => void refreshLocalMediaAbsolutePath()}>
-                  Refresh Path
+                  {t("settings.storage.refreshPath", "Refresh Path")}
                 </Button>
               </div>
             </div>

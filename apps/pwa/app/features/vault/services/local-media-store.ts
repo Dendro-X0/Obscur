@@ -16,6 +16,7 @@ type LocalMediaIndex = Record<string, LocalMediaIndexEntry>;
 export type LocalMediaStorageConfig = Readonly<{
     enabled: boolean;
     subdir: string;
+    customRootPath: string;
     cacheSentFiles: boolean;
     cacheReceivedFiles: boolean;
 }>;
@@ -37,6 +38,7 @@ const DEFAULT_SUBDIR = "vault-media";
 const DEFAULT_CONFIG: LocalMediaStorageConfig = {
     enabled: true,
     subdir: DEFAULT_SUBDIR,
+    customRootPath: "",
     cacheSentFiles: true,
     cacheReceivedFiles: true,
 };
@@ -115,6 +117,7 @@ export const getLocalMediaStorageConfig = (): LocalMediaStorageConfig => {
         return {
             enabled: parsed.enabled ?? DEFAULT_CONFIG.enabled,
             subdir: sanitizeSubdir(parsed.subdir ?? DEFAULT_CONFIG.subdir),
+            customRootPath: typeof parsed.customRootPath === "string" ? parsed.customRootPath.trim() : DEFAULT_CONFIG.customRootPath,
             cacheSentFiles: parsed.cacheSentFiles ?? DEFAULT_CONFIG.cacheSentFiles,
             cacheReceivedFiles: parsed.cacheReceivedFiles ?? DEFAULT_CONFIG.cacheReceivedFiles,
         };
@@ -127,6 +130,7 @@ export const saveLocalMediaStorageConfig = (config: LocalMediaStorageConfig): Lo
     const normalized: LocalMediaStorageConfig = {
         enabled: config.enabled,
         subdir: sanitizeSubdir(config.subdir),
+        customRootPath: config.customRootPath.trim(),
         cacheSentFiles: config.cacheSentFiles,
         cacheReceivedFiles: config.cacheReceivedFiles,
     };
@@ -148,10 +152,29 @@ const buildAbsolutePath = async (relativePath: string): Promise<string> => {
     return join(root, relativePath);
 };
 
+const resolveStorageAbsolutePath = async (): Promise<string> => {
+    const cfg = getLocalMediaStorageConfig();
+    const { join } = await import("@tauri-apps/api/path");
+    if (cfg.customRootPath.trim().length > 0) {
+        return join(cfg.customRootPath, cfg.subdir);
+    }
+    return buildAbsolutePath(cfg.subdir);
+};
+
+const ensureStorageAbsoluteDir = async (): Promise<void> => {
+    const cfg = getLocalMediaStorageConfig();
+    if (cfg.customRootPath.trim().length > 0) {
+        const { mkdir } = await import("@tauri-apps/plugin-fs");
+        const absolutePath = await resolveStorageAbsolutePath();
+        await mkdir(absolutePath, { recursive: true });
+        return;
+    }
+    await ensureStorageDir(cfg.subdir);
+};
+
 export const getLocalMediaStorageAbsolutePath = async (): Promise<string | null> => {
     if (!isTauriRuntime()) return null;
-    const cfg = getLocalMediaStorageConfig();
-    return buildAbsolutePath(cfg.subdir);
+    return resolveStorageAbsolutePath();
 };
 
 export const openLocalMediaStoragePath = async (): Promise<void> => {
@@ -169,14 +192,22 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
     if (!entry) return null;
     try {
         const { exists } = await import("@tauri-apps/plugin-fs");
-        const { BaseDirectory } = await import("@tauri-apps/api/path");
-        const hasFile = await exists(entry.relativePath, { baseDir: BaseDirectory.AppData });
+        const cfg = getLocalMediaStorageConfig();
+        let hasFile = false;
+        if (cfg.customRootPath.trim().length > 0) {
+            hasFile = await exists(entry.relativePath);
+        } else {
+            const { BaseDirectory } = await import("@tauri-apps/api/path");
+            hasFile = await exists(entry.relativePath, { baseDir: BaseDirectory.AppData });
+        }
         if (!hasFile) {
             delete index[remoteUrl];
             saveIndex(index);
             return null;
         }
-        const absolutePath = await buildAbsolutePath(entry.relativePath);
+        const absolutePath = cfg.customRootPath.trim().length > 0
+            ? entry.relativePath
+            : await buildAbsolutePath(entry.relativePath);
         const { convertFileSrc } = await import("@tauri-apps/api/core");
         return convertFileSrc(absolutePath);
     } catch {
@@ -233,17 +264,23 @@ export const cacheAttachmentLocally = async (
     if (existing) return existing;
 
     try {
-        await ensureStorageDir(cfg.subdir);
+        await ensureStorageAbsoluteDir();
         const bytes = await fetchBytes(attachment.url);
         const urlHash = await hashUrl(attachment.url);
         const ext = inferExtension(attachment);
         const baseName = sanitizeFileName(attachment.fileName.replace(/\.[^.]+$/, ""));
         const fileName = `${Date.now()}-${urlHash}-${baseName}.${ext}`;
-        const relativePath = `${cfg.subdir}/${fileName}`;
+        const relativePath = cfg.customRootPath.trim().length > 0
+            ? await (await import("@tauri-apps/api/path")).join(await resolveStorageAbsolutePath(), fileName)
+            : `${cfg.subdir}/${fileName}`;
 
         const { writeFile } = await import("@tauri-apps/plugin-fs");
-        const { BaseDirectory } = await import("@tauri-apps/api/path");
-        await writeFile(relativePath, bytes, { baseDir: BaseDirectory.AppData, create: true });
+        if (cfg.customRootPath.trim().length > 0) {
+            await writeFile(relativePath, bytes);
+        } else {
+            const { BaseDirectory } = await import("@tauri-apps/api/path");
+            await writeFile(relativePath, bytes, { baseDir: BaseDirectory.AppData, create: true });
+        }
 
         index[attachment.url] = {
             remoteUrl: attachment.url,
@@ -266,8 +303,12 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
     const cfg = getLocalMediaStorageConfig();
     try {
         const { remove } = await import("@tauri-apps/plugin-fs");
-        const { BaseDirectory } = await import("@tauri-apps/api/path");
-        await remove(cfg.subdir, { baseDir: BaseDirectory.AppData, recursive: true });
+        if (cfg.customRootPath.trim().length > 0) {
+            await remove(await resolveStorageAbsolutePath(), { recursive: true });
+        } else {
+            const { BaseDirectory } = await import("@tauri-apps/api/path");
+            await remove(cfg.subdir, { baseDir: BaseDirectory.AppData, recursive: true });
+        }
     } catch {
         // ignore
     }
@@ -284,8 +325,13 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
 
     try {
         const { remove } = await import("@tauri-apps/plugin-fs");
-        const { BaseDirectory } = await import("@tauri-apps/api/path");
-        await remove(entry.relativePath, { baseDir: BaseDirectory.AppData });
+        const cfg = getLocalMediaStorageConfig();
+        if (cfg.customRootPath.trim().length > 0) {
+            await remove(entry.relativePath);
+        } else {
+            const { BaseDirectory } = await import("@tauri-apps/api/path");
+            await remove(entry.relativePath, { baseDir: BaseDirectory.AppData });
+        }
     } catch {
         // Ignore file removal failures; still clean stale index below.
     }
@@ -293,4 +339,16 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
     delete index[remoteUrl];
     saveIndex(index);
     return true;
+};
+
+export const pickLocalMediaStorageRootPath = async (): Promise<string | null> => {
+    if (!isTauriRuntime()) return null;
+    try {
+        const { open } = await import("@tauri-apps/plugin-dialog");
+        const selected = await open({ directory: true, multiple: false });
+        if (typeof selected !== "string" || selected.trim().length === 0) return null;
+        return selected;
+    } catch {
+        return null;
+    }
 };

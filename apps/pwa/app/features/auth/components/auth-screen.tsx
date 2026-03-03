@@ -35,6 +35,9 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { Checkbox } from "@dweb/ui-kit";
 import { FlashMessage } from "@/app/components/ui/flash-message";
 
+const REMEMBER_ME_KEY = "obscur_remember_me";
+const AUTH_TOKEN_KEY = "obscur_auth_token";
+
 const generateRandomCode = (): string => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No O, 0, I, 1
     let result = "";
@@ -77,6 +80,31 @@ export function AuthScreen() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [privateKey, setPrivateKey] = useState("");
+
+    const persistRememberMe = useCallback((params: Readonly<{ remember: boolean; token?: string }>) => {
+        localStorage.setItem(REMEMBER_ME_KEY, params.remember ? "true" : "false");
+        if (params.remember && params.token) {
+            localStorage.setItem(AUTH_TOKEN_KEY, params.token);
+        } else {
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        const remembered = localStorage.getItem(REMEMBER_ME_KEY);
+        if (remembered === "true") {
+            setRememberMe(true);
+        } else if (remembered === "false") {
+            setRememberMe(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        if (!rememberMe) {
+            localStorage.setItem(REMEMBER_ME_KEY, "false");
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+        }
+    }, [rememberMe]);
 
     const handleBack = () => {
         if (step > 1) {
@@ -125,10 +153,7 @@ export function AuthScreen() {
                 }).catch(console.error);
 
                 // Handle Remember Me logic
-                if (rememberMe) {
-                    localStorage.setItem("obscur_remember_me", "true");
-                    localStorage.setItem("obscur_auth_token", password);
-                }
+                persistRememberMe({ remember: rememberMe, token: password });
 
                 // Persist profile locally
                 profile.setUsername({ username });
@@ -174,10 +199,7 @@ export function AuthScreen() {
 
             const state = identity.getIdentitySnapshot();
             if (state.publicKeyHex && state.privateKeyHex) {
-                if (rememberMe) {
-                    localStorage.setItem("obscur_remember_me", "true");
-                    localStorage.setItem("obscur_auth_token", password);
-                }
+                persistRememberMe({ remember: rememberMe, token: password });
                 toast.success("Welcome Back!");
             }
         } catch (error) {
@@ -219,12 +241,7 @@ export function AuthScreen() {
 
             const state = identity.getIdentitySnapshot();
             if (state.publicKeyHex && state.privateKeyHex) {
-                if (rememberMe) {
-                    localStorage.setItem("obscur_remember_me", "true");
-                    if (!skipPassword) {
-                        localStorage.setItem("obscur_auth_token", (finalPassword || "") as string);
-                    }
-                }
+                persistRememberMe({ remember: rememberMe, token: skipPassword ? undefined : (finalPassword || "") as string });
 
                 toast.success("Welcome Back!");
             }
@@ -674,6 +691,18 @@ export function AuthScreen() {
                                                 >
                                                     {isLoading ? "Logging in..." : "Log In"}
                                                 </Button>
+
+                                                <div className="flex items-center space-x-3 px-2">
+                                                    <Checkbox
+                                                        id="remember-login-username"
+                                                        checked={rememberMe}
+                                                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                                                        className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
+                                                    />
+                                                    <label htmlFor="remember-login-username" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                                                        {t("auth.rememberMe", "Keep me logged in on this device")}
+                                                    </label>
+                                                </div>
                                             </form>
                                         )}
                                     </div>
@@ -709,7 +738,7 @@ export function AuthScreen() {
                                                 className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
                                             />
                                             <label htmlFor="remember-login" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                                Keep me logged in on this device
+                                                {t("auth.rememberMe", "Keep me logged in on this device")}
                                             </label>
                                         </div>
 
@@ -725,7 +754,7 @@ export function AuthScreen() {
                                                 disabled={isLoading || (password.length > 0 && password.length < 8)}
                                                 className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20 disabled:opacity-50"
                                             >
-                                                {isLoading ? t("common.searching") : (password ? t("auth.import.secureAndImport") : t("onboarding.contact.connect"))}
+                                                {isLoading ? t("common.searching") : (password ? t("auth.import.secureAndImport") : t("auth.continueWithoutPassword", "Continue"))}
                                             </Button>
 
                                             <Button
