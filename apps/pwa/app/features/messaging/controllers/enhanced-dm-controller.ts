@@ -211,6 +211,7 @@ export const useEnhancedDMController = (
     conversationTimestamps: new Map()
   });
   const processingEvents = useRef<Set<string>>(new Set());
+  const failedDecryptEvents = useRef<Set<string>>(new Set());
   const recipientRelayCheckCache = useRef<Set<string>>(new Set());
   const initialSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasTriggeredInitialSync = useRef(false);
@@ -310,6 +311,7 @@ export const useEnhancedDMController = (
       },
       messageQueue,
       processingEvents: processingEvents.current,
+      failedDecryptEvents: failedDecryptEvents.current,
       existingMessages: state.messages,
       maxMessagesInMemory: MAX_MESSAGES_IN_MEMORY,
       syncConversationTimestamps: syncStateRef.current.conversationTimestamps,

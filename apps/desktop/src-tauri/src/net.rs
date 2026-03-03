@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use std::time::Duration;
 
 use tokio_tungstenite::tungstenite;
 
@@ -31,7 +32,12 @@ impl NativeNetworkRuntime {
     }
 
     pub fn build_reqwest_client(&self) -> Result<reqwest::Client, reqwest::Error> {
-        let mut builder = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none());
+        let mut builder = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_secs(12))
+            .timeout(Duration::from_secs(45))
+            .pool_idle_timeout(Duration::from_secs(30))
+            .tcp_keepalive(Duration::from_secs(15));
         if self.is_tor_enabled() {
             let proxy = reqwest::Proxy::all(self.get_proxy_url())?;
             builder = builder.proxy(proxy);

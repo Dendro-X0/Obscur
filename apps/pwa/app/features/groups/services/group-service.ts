@@ -144,6 +144,36 @@ export class GroupService {
     }
 
     /**
+     * Emits a sealed community genesis event. This signed event id is used as Community V2 genesis identity seed.
+     */
+    async sendSealedCommunityCreated(params: {
+        groupId: string;
+        roomKeyHex: string;
+        metadata: GroupMetadata;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+
+        const innerPayload = JSON.stringify({
+            type: "community.created",
+            pubkey: this.myPublicKeyHex,
+            created_at: nowUnixSeconds,
+            metadata: params.metadata
+        });
+
+        const encrypted = await cryptoService.encryptGroupMessage(innerPayload, params.roomKeyHex);
+
+        const unsigned: UnsignedNostrEvent = {
+            kind: 10105,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId], ["t", "community.created"]],
+            content: JSON.stringify(encrypted),
+            pubkey: this.myPublicKeyHex
+        };
+
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
      * Sends a NIP-29 LEAVE event so the relay updates its Kind 39002 roster.
      */
     async sendNip29Leave(params: {
@@ -185,6 +215,9 @@ export class GroupService {
         roomKeyHex: string;
         metadata: GroupMetadata;
         relayUrl?: string;
+        communityId?: string;
+        genesisEventId?: string;
+        creatorPubkey?: string;
     }): Promise<NostrEvent> {
         const rumor: UnsignedNostrEvent = {
             kind: 1059, // NIP-17 Gift Wrap subtype (Invite)
@@ -195,7 +228,10 @@ export class GroupService {
                 groupId: params.groupId,
                 roomKey: params.roomKeyHex,
                 metadata: params.metadata,
-                relayUrl: params.relayUrl
+                relayUrl: params.relayUrl,
+                communityId: params.communityId,
+                genesisEventId: params.genesisEventId,
+                creatorPubkey: params.creatorPubkey
             }),
             pubkey: this.myPublicKeyHex
         };

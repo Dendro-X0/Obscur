@@ -13,6 +13,16 @@ const PwaServiceWorkerRegistrar = (): PwaServiceWorkerRegistrarResult => {
     if (!("serviceWorker" in navigator)) {
       return;
     }
+    if (process.env.NODE_ENV !== "production") {
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          void registration.unregister();
+        });
+      }).catch((): void => {
+        return;
+      });
+      return;
+    }
     void navigator.serviceWorker.register("/sw.js").catch((): void => {
       return;
     });

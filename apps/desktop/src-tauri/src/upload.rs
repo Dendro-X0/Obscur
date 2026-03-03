@@ -15,8 +15,10 @@ use nostr::hashes::{sha256, Hash};
 // use zeroize::Zeroizing;
 use std::borrow::Cow;
 use base64::Engine;
+use std::time::Duration;
 
-const BUILD_VERSION: &str = "2026-02-08-OPTION-C-V2-RETRY";
+const BUILD_VERSION: &str = "2026-03-02-OPTION-C-V2-TIMEOUTS";
+const REQUEST_TIMEOUT_SECS: u64 = 35;
 // const APP_SERVICE: &str = "app.obscur.desktop";
 // const KEY_NAME: &str = "nsec";
 
@@ -37,8 +39,18 @@ pub struct NativeError {
 
 impl From<reqwest::Error> for NativeError {
     fn from(err: reqwest::Error) -> Self {
+        let code = if err.is_timeout() {
+            "NETWORK_TIMEOUT"
+        } else if err.is_connect() {
+            "NETWORK_CONNECT_ERROR"
+        } else if err.is_request() {
+            "NETWORK_REQUEST_ERROR"
+        } else {
+            "NETWORK_ERROR"
+        };
+
         NativeError {
-            code: "NETWORK_ERROR".to_string(),
+            code: code.to_string(),
             message: err.to_string(),
         }
     }
@@ -164,6 +176,7 @@ async fn send_multipart_request(
     if let Some(auth) = auth_header {
         request = request.header("Authorization", auth);
     }
+    request = request.timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS));
     
     let response = request.send().await?;
     let status = response.status();
@@ -294,7 +307,7 @@ pub async fn nip96_upload_v2(
                 }
             },
             Err(e) => {
-                last_error = format!("Network Error: {}", e.message);
+                last_error = format!("{}: {}", e.code, e.message);
                 eprintln!("[NIP96-V2] Network Error: {}", last_error);
             }
         }

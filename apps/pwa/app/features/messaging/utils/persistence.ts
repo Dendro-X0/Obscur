@@ -21,6 +21,8 @@ import type {
 } from "../types";
 import type { GroupAccessMode } from "../../groups/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 
 const MAX_PERSISTED_MESSAGES_PER_CONVERSATION: number = 5000;
 const PERSISTED_CHAT_STATE_VERSION: number = 2;
@@ -49,6 +51,337 @@ const isMessageKind = (value: unknown): value is MessageKind => value === "user"
 const isReactionEmoji = (value: unknown): value is ReactionEmoji =>
     value === "👍" || value === "❤️" || value === "😂" || value === "🔥" || value === "👏";
 
+const isHashedCommunityId = (communityId: string | null | undefined): boolean => {
+    const trimmed = communityId?.trim() ?? "";
+    return /^v2_[0-9a-f]{64}$/i.test(trimmed);
+};
+
+type ParsedLegacyGroupConversationKey = Readonly<{
+    groupId: string;
+    relayUrl: string;
+}>;
+
+const normalizeGroupRelayUrl = (relayUrl: string | null | undefined): string => {
+    if (!relayUrl) return "unknown";
+    const trimmed = relayUrl.trim();
+    return trimmed.length > 0 ? trimmed : "unknown";
+};
+
+const parseLegacyGroupConversationKey = (conversationId: string): ParsedLegacyGroupConversationKey | null => {
+    const trimmed = conversationId.trim();
+    if (trimmed.length === 0) return null;
+
+    if (trimmed.startsWith("community:") || trimmed.startsWith("group:")) {
+        const raw = trimmed.startsWith("community:")
+            ? trimmed.slice("community:".length)
+            : trimmed.slice("group:".length);
+        const separatorIndex = raw.indexOf(":");
+        if (separatorIndex <= 0) return null;
+        const rawGroupId = raw.slice(0, separatorIndex).trim();
+        const rawRelay = raw.slice(separatorIndex + 1).trim();
+        if (rawGroupId.length === 0) return null;
+        return { groupId: rawGroupId, relayUrl: normalizeGroupRelayUrl(rawRelay) };
+    }
+
+    if (trimmed.includes("@")) {
+        const [rawGroupId, ...relayParts] = trimmed.split("@");
+        const groupId = rawGroupId.trim();
+        const relayHost = relayParts.join("@").trim();
+        if (groupId.length === 0 || relayHost.length === 0) return null;
+        const relayUrl = relayHost.startsWith("ws://") || relayHost.startsWith("wss://")
+            ? relayHost
+            : `wss://${relayHost}`;
+        return { groupId, relayUrl: normalizeGroupRelayUrl(relayUrl) };
+    }
+
+    return null;
+};
+
+const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    values.forEach((value) => {
+        const normalized = value.trim();
+        if (normalized.length === 0 || seen.has(normalized)) return;
+        seen.add(normalized);
+        result.push(normalized);
+    });
+    return result;
+};
+
+const mergePersistedMessages = (
+    left: ReadonlyArray<PersistedMessage>,
+    right: ReadonlyArray<PersistedMessage>
+): ReadonlyArray<PersistedMessage> => {
+    const byId = new Map<string, PersistedMessage>();
+    [...left, ...right].forEach((message) => {
+        const existing = byId.get(message.id);
+        if (!existing || message.timestampMs >= existing.timestampMs) {
+            byId.set(message.id, message);
+        }
+    });
+    return Array.from(byId.values())
+        .sort((a, b) => a.timestampMs - b.timestampMs)
+        .slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
+};
+
+const mergePersistedGroupMessages = (
+    left: ReadonlyArray<PersistedGroupMessage>,
+    right: ReadonlyArray<PersistedGroupMessage>
+): ReadonlyArray<PersistedGroupMessage> => {
+    const byId = new Map<string, PersistedGroupMessage>();
+    [...left, ...right].forEach((message) => {
+        const existing = byId.get(message.id);
+        if (!existing || message.created_at >= existing.created_at) {
+            byId.set(message.id, message);
+        }
+    });
+    return Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
+};
+
+const normalizePersistedGroupConversations = (groups: ReadonlyArray<PersistedGroupConversation>): Readonly<{
+    groups: ReadonlyArray<PersistedGroupConversation>;
+    idMigration: ReadonlyMap<string, string>;
+}> => {
+    const idMigration = new Map<string, string>();
+    const groupsByCanonicalKey = new Map<string, PersistedGroupConversation>();
+
+    groups.forEach((group) => {
+        const parsedFromId = parseLegacyGroupConversationKey(group.id);
+        const groupId = (group.groupId || parsedFromId?.groupId || "").trim();
+        if (!groupId) return;
+
+        const relayUrl = normalizeGroupRelayUrl(group.relayUrl || parsedFromId?.relayUrl);
+        const existingCommunityId = (group.communityId ?? "").trim() || undefined;
+        const shouldPromoteLegacyIdentity =
+            !isHashedCommunityId(existingCommunityId) &&
+            typeof group.genesisEventId === "string" &&
+            group.genesisEventId.trim().length > 0 &&
+            typeof group.creatorPubkey === "string" &&
+            group.creatorPubkey.trim().length > 0;
+        const communityId = deriveCommunityId({
+            existingCommunityId: shouldPromoteLegacyIdentity ? undefined : existingCommunityId,
+            groupId,
+            relayUrl,
+            genesisEventId: group.genesisEventId,
+            creatorPubkey: group.creatorPubkey
+        });
+        const canonicalId = toGroupConversationId({ groupId, relayUrl, communityId });
+        idMigration.set(group.id, canonicalId);
+
+        const normalized: PersistedGroupConversation = {
+            ...group,
+            id: canonicalId,
+            communityId,
+            groupId,
+            relayUrl,
+            displayName: group.displayName.trim() || "Private Group",
+            memberPubkeys: uniqueStrings(group.memberPubkeys),
+            adminPubkeys: uniqueStrings(group.adminPubkeys ?? []),
+        };
+
+        const dedupeKey = `${groupId}@@${relayUrl}`;
+        const existing = groupsByCanonicalKey.get(dedupeKey);
+        if (!existing) {
+            groupsByCanonicalKey.set(dedupeKey, {
+                ...normalized,
+                memberCount: Math.max(
+                    normalized.memberCount ?? 0,
+                    normalized.memberPubkeys.length
+                ),
+            });
+            return;
+        }
+
+        const mergedMemberPubkeys = uniqueStrings([
+            ...existing.memberPubkeys,
+            ...normalized.memberPubkeys
+        ]);
+        const mergedAdminPubkeys = uniqueStrings([
+            ...(existing.adminPubkeys ?? []),
+            ...(normalized.adminPubkeys ?? [])
+        ]);
+        const shouldUseNormalizedAsPrimary = normalized.lastMessageTimeMs >= existing.lastMessageTimeMs;
+        const primary = shouldUseNormalizedAsPrimary ? normalized : existing;
+
+        groupsByCanonicalKey.set(dedupeKey, {
+            ...primary,
+            id: canonicalId,
+            groupId,
+            relayUrl,
+            memberPubkeys: mergedMemberPubkeys,
+            adminPubkeys: mergedAdminPubkeys,
+            memberCount: Math.max(
+                existing.memberCount ?? 0,
+                normalized.memberCount ?? 0,
+                mergedMemberPubkeys.length
+            ),
+        });
+    });
+
+    return {
+        groups: Array.from(groupsByCanonicalKey.values()),
+        idMigration
+    };
+};
+
+const remapConversationId = (
+    conversationId: string,
+    idMigration: ReadonlyMap<string, string>,
+    canonicalIdByGroupRelay: ReadonlyMap<string, string>,
+    canonicalIdByGroupId: ReadonlyMap<string, string>
+): string => {
+    const fromKnownMigration = idMigration.get(conversationId);
+    if (fromKnownMigration) return fromKnownMigration;
+
+    const parsedLegacy = parseLegacyGroupConversationKey(conversationId);
+    if (!parsedLegacy) return conversationId;
+
+    const relayScopedKey = `${parsedLegacy.groupId}@@${parsedLegacy.relayUrl}`;
+    const relayScopedCanonical = canonicalIdByGroupRelay.get(relayScopedKey);
+    if (relayScopedCanonical) return relayScopedCanonical;
+
+    const groupIdCanonical = canonicalIdByGroupId.get(parsedLegacy.groupId);
+    if (groupIdCanonical) return groupIdCanonical;
+
+    return conversationId;
+};
+
+const remapNumberRecordByConversationId = (
+    source: Readonly<Record<string, number>>,
+    idMigration: ReadonlyMap<string, string>,
+    canonicalIdByGroupRelay: ReadonlyMap<string, string>,
+    canonicalIdByGroupId: ReadonlyMap<string, string>
+): Readonly<Record<string, number>> => {
+    const next: Record<string, number> = {};
+    Object.entries(source).forEach(([conversationId, value]) => {
+        const remappedId = remapConversationId(
+            conversationId,
+            idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        );
+        next[remappedId] = Math.max(next[remappedId] ?? 0, value);
+    });
+    return next;
+};
+
+const remapMessagesRecordByConversationId = (
+    source: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>,
+    idMigration: ReadonlyMap<string, string>,
+    canonicalIdByGroupRelay: ReadonlyMap<string, string>,
+    canonicalIdByGroupId: ReadonlyMap<string, string>
+): Readonly<Record<string, ReadonlyArray<PersistedMessage>>> => {
+    const next: Record<string, ReadonlyArray<PersistedMessage>> = {};
+    Object.entries(source).forEach(([conversationId, list]) => {
+        const remappedId = remapConversationId(
+            conversationId,
+            idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        );
+        const existing = next[remappedId] ?? [];
+        next[remappedId] = mergePersistedMessages(existing, list);
+    });
+    return next;
+};
+
+const remapGroupMessagesRecordByConversationId = (
+    source: Readonly<Record<string, ReadonlyArray<PersistedGroupMessage>>> | undefined,
+    idMigration: ReadonlyMap<string, string>,
+    canonicalIdByGroupRelay: ReadonlyMap<string, string>,
+    canonicalIdByGroupId: ReadonlyMap<string, string>
+): Readonly<Record<string, ReadonlyArray<PersistedGroupMessage>>> | undefined => {
+    if (!source) return undefined;
+    const next: Record<string, ReadonlyArray<PersistedGroupMessage>> = {};
+    Object.entries(source).forEach(([conversationId, list]) => {
+        const remappedId = remapConversationId(
+            conversationId,
+            idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        );
+        const existing = next[remappedId] ?? [];
+        next[remappedId] = mergePersistedGroupMessages(existing, list);
+    });
+    return next;
+};
+
+const remapConversationIdList = (
+    source: ReadonlyArray<string> | undefined,
+    idMigration: ReadonlyMap<string, string>,
+    canonicalIdByGroupRelay: ReadonlyMap<string, string>,
+    canonicalIdByGroupId: ReadonlyMap<string, string>
+): ReadonlyArray<string> | undefined => {
+    if (!source) return undefined;
+    const seen = new Set<string>();
+    const result: string[] = [];
+    source.forEach((conversationId) => {
+        const remappedId = remapConversationId(
+            conversationId,
+            idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        );
+        if (seen.has(remappedId)) return;
+        seen.add(remappedId);
+        result.push(remappedId);
+    });
+    return result;
+};
+
+export const normalizePersistedGroupState = (state: PersistedChatState): PersistedChatState => {
+    const normalizedGroups = normalizePersistedGroupConversations(state.createdGroups);
+    const canonicalIdByGroupRelay = new Map<string, string>();
+    const canonicalIdByGroupId = new Map<string, string>();
+    const groupIdCounts = new Map<string, number>();
+
+    normalizedGroups.groups.forEach((group) => {
+        canonicalIdByGroupRelay.set(`${group.groupId}@@${group.relayUrl}`, group.id);
+        groupIdCounts.set(group.groupId, (groupIdCounts.get(group.groupId) ?? 0) + 1);
+    });
+    normalizedGroups.groups.forEach((group) => {
+        if ((groupIdCounts.get(group.groupId) ?? 0) === 1) {
+            canonicalIdByGroupId.set(group.groupId, group.id);
+        }
+    });
+
+    return {
+        ...state,
+        createdGroups: normalizedGroups.groups,
+        unreadByConversationId: remapNumberRecordByConversationId(
+            state.unreadByConversationId,
+            normalizedGroups.idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        ),
+        messagesByConversationId: remapMessagesRecordByConversationId(
+            state.messagesByConversationId,
+            normalizedGroups.idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        ),
+        groupMessages: remapGroupMessagesRecordByConversationId(
+            state.groupMessages,
+            normalizedGroups.idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        ),
+        pinnedChatIds: remapConversationIdList(
+            state.pinnedChatIds,
+            normalizedGroups.idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        ),
+        hiddenChatIds: remapConversationIdList(
+            state.hiddenChatIds,
+            normalizedGroups.idMigration,
+            canonicalIdByGroupRelay,
+            canonicalIdByGroupId
+        )
+    };
+};
+
 // Parsing functions
 const parseAttachment = (value: unknown): Attachment | null => {
     if (!isRecord(value)) return null;
@@ -56,7 +389,7 @@ const parseAttachment = (value: unknown): Attachment | null => {
     const url: unknown = value.url;
     const contentType: unknown = value.contentType;
     const fileName: unknown = value.fileName;
-    if (kind !== "image" && kind !== "video") return null;
+    if (kind !== "image" && kind !== "video" && kind !== "audio") return null;
     if (!isString(url) || !isString(contentType) || !isString(fileName)) return null;
     return { kind, url, contentType, fileName };
 };
@@ -127,8 +460,34 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
         : [];
     const about: string | undefined = isString(value.about) ? value.about : undefined;
     const avatar: string | undefined = isString(value.avatar) ? value.avatar : undefined;
+    const communityId: string | undefined = isString(value.communityId) && value.communityId.trim().length > 0
+        ? value.communityId.trim()
+        : undefined;
+    const genesisEventId: string | undefined = isString(value.genesisEventId) && value.genesisEventId.trim().length > 0
+        ? value.genesisEventId.trim()
+        : undefined;
+    const creatorPubkey: string | undefined = isString(value.creatorPubkey) && value.creatorPubkey.trim().length > 0
+        ? value.creatorPubkey.trim()
+        : undefined;
 
-    return { id, groupId, relayUrl, displayName, memberPubkeys: parsedMemberPubkeys, lastMessage, unreadCount, lastMessageTimeMs, access, memberCount, adminPubkeys, about, avatar };
+    return {
+        id,
+        communityId,
+        genesisEventId,
+        creatorPubkey,
+        groupId,
+        relayUrl,
+        displayName,
+        memberPubkeys: parsedMemberPubkeys,
+        lastMessage,
+        unreadCount,
+        lastMessageTimeMs,
+        access,
+        memberCount,
+        adminPubkeys,
+        about,
+        avatar
+    };
 };
 
 const parsePersistedConnectionRequest = (value: unknown): PersistedConnectionRequest | null => {
@@ -277,7 +636,7 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
         ? hiddenChatIds.filter(isString)
         : undefined;
 
-    return {
+    const parsedState: PersistedChatState = {
         version: PERSISTED_CHAT_STATE_VERSION,
         createdConnections: parsedCreatedConnections,
         createdGroups: parsedCreatedGroups,
@@ -289,6 +648,7 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
         pinnedChatIds: parsedPinnedChatIds,
         hiddenChatIds: parsedHiddenChatIds
     };
+    return normalizePersistedGroupState(parsedState);
 };
 
 // Public persistence API
@@ -358,6 +718,9 @@ export const fromPersistedDmConversation = (connection: PersistedDmConversation)
 
 export const toPersistedGroupConversation = (group: GroupConversation): PersistedGroupConversation => ({
     id: group.id,
+    communityId: group.communityId,
+    genesisEventId: group.genesisEventId,
+    creatorPubkey: group.creatorPubkey,
     groupId: group.groupId,
     relayUrl: group.relayUrl,
     displayName: group.displayName,
@@ -375,6 +738,9 @@ export const toPersistedGroupConversation = (group: GroupConversation): Persiste
 export const fromPersistedGroupConversation = (group: PersistedGroupConversation): GroupConversation => ({
     kind: "group",
     id: group.id,
+    communityId: group.communityId,
+    genesisEventId: group.genesisEventId,
+    creatorPubkey: group.creatorPubkey,
     groupId: group.groupId,
     relayUrl: group.relayUrl,
     displayName: group.displayName,

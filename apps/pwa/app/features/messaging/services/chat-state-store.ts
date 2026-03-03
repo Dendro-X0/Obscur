@@ -8,7 +8,7 @@ import type {
     PersistedMessage,
     PersistedConnectionRequest
 } from "../types";
-import { loadPersistedChatState, savePersistedChatState, toPersistedOverridesByConnectionId } from "../utils/persistence";
+import { loadPersistedChatState, normalizePersistedGroupState, savePersistedChatState, toPersistedOverridesByConnectionId } from "../utils/persistence";
 import { messagingDB } from "@dweb/storage/indexed-db";
 
 type SaveOptions = Readonly<{
@@ -65,15 +65,17 @@ class ChatStateStore {
             const dbState = await messagingDB.get<PersistedChatState>("chatState", publicKeyHex);
             if (dbState) {
                 this.update(publicKeyHex, prev => ({
-                    ...prev,
-                    messagesByConversationId: {
-                        ...prev.messagesByConversationId,
-                        ...dbState.messagesByConversationId
-                    },
-                    groupMessages: {
-                        ...prev.groupMessages,
-                        ...dbState.groupMessages
-                    }
+                    ...normalizePersistedGroupState({
+                        ...prev,
+                        messagesByConversationId: {
+                            ...prev.messagesByConversationId,
+                            ...dbState.messagesByConversationId
+                        },
+                        groupMessages: {
+                            ...prev.groupMessages,
+                            ...dbState.groupMessages
+                        }
+                    })
                 }));
             }
         } catch (e) {

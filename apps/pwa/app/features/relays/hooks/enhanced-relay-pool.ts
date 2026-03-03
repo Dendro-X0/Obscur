@@ -28,6 +28,8 @@ export type EnhancedRelayPoolResult = Readonly<{
   connections: ReadonlyArray<RelayConnection>;
   healthMetrics: ReadonlyArray<RelayHealthMetrics>;
   sendToOpen: (payload: string) => void;
+  publishToUrl: (url: string, payload: string) => Promise<PublishResult>;
+  publishToUrls: (urls: ReadonlyArray<string>, payload: string) => Promise<MultiRelayPublishResult>;
   publishToRelay: (url: string, payload: string) => Promise<PublishResult>;
   publishToAll: (payload: string) => Promise<MultiRelayPublishResult>;
   broadcastEvent: (payload: string) => Promise<MultiRelayPublishResult>;
@@ -634,6 +636,41 @@ const publishToAll = async (payload: string): Promise<MultiRelayPublishResult> =
   };
 };
 
+const publishToUrl = async (url: string, payload: string): Promise<PublishResult> => {
+  return publishToRelay(url, payload);
+};
+
+const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Promise<MultiRelayPublishResult> => {
+  const normalized = Array.from(new Set(urls.map((url) => url.trim()).filter((url) => url.length > 0)));
+  const connected = normalized.filter((url) => {
+    const socket = socketsByUrl[url];
+    return !!socket && socket.readyState === WebSocket.OPEN;
+  });
+
+  if (connected.length === 0) {
+    return {
+      success: false,
+      successCount: 0,
+      totalRelays: normalized.length,
+      results: [],
+      overallError: "No scoped relays are currently connected"
+    };
+  }
+
+  const results = await Promise.all(connected.map((url) => publishToRelay(url, payload)));
+  const successCount = results.filter((r) => r.success).length;
+  const success = successCount > 0;
+  const overallError = success ? undefined : (results[0]?.error ?? "Unknown failure");
+
+  return {
+    success,
+    successCount,
+    totalRelays: normalized.length,
+    results,
+    overallError
+  };
+};
+
 /**
  * @deprecated Use broadcastEvent
  */
@@ -727,6 +764,8 @@ export const useEnhancedRelayPool = (urls: ReadonlyArray<string>): EnhancedRelay
     connections: snapshot.connections,
     healthMetrics: snapshot.healthMetrics,
     sendToOpen,
+    publishToUrl,
+    publishToUrls,
     publishToRelay,
     publishToAll,
     broadcastEvent,

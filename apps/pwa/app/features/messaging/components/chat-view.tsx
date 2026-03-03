@@ -55,6 +55,7 @@ export interface ChatViewProps {
     handleSendMessage: () => void;
     onSendDirectMessage?: (params: SendDirectMessageParams) => Promise<SendDirectMessageResult>;
     isUploadingAttachment: boolean;
+    uploadStage: "idle" | "encrypting" | "uploading" | "sending";
     pendingAttachments: ReadonlyArray<File>;
     pendingAttachmentPreviewUrls: ReadonlyArray<string>;
     attachmentError: string | null;
@@ -238,6 +239,7 @@ export function ChatView(props: ChatViewProps) {
                 setMessageInput={props.setMessageInput}
                 handleSendMessage={props.handleSendMessage}
                 isUploadingAttachment={props.isUploadingAttachment}
+                uploadStage={props.uploadStage}
                 pendingAttachments={props.pendingAttachments}
                 pendingAttachmentPreviewUrls={props.pendingAttachmentPreviewUrls}
                 attachmentError={props.attachmentError}

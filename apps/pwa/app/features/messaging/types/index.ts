@@ -22,6 +22,9 @@ export type DmConversation = Readonly<{
 export type GroupConversation = Readonly<{
     kind: "group";
     id: string; // Internal UUID or similar
+    communityId?: string; // Canonical logical identity for Community V2
+    genesisEventId?: string;
+    creatorPubkey?: string;
     groupId: string; // NIP-29 groupId
     relayUrl: string; // NIP-29 host relay
     displayName: string;
@@ -150,6 +153,9 @@ export type PersistedDmConversation = Readonly<{
 
 export type PersistedGroupConversation = Readonly<{
     id: string;
+    communityId?: string;
+    genesisEventId?: string;
+    creatorPubkey?: string;
     groupId: string;
     relayUrl: string;
     displayName: string;

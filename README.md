@@ -52,6 +52,32 @@ Obscur is built with a "Privacy by Design" philosophy, ensuring that your commun
 - **Session Protection**: Configurable auto-lock timers and clipboard wiping to protect your session when you step away.
 - **No Private Key Sharing**: Your private keys never leave your device.
 
+## 📦 Media Upload Model (No Cloud Budget)
+
+Obscur currently has **no dedicated cloud storage backend**. Media uploads are handled through public NIP-96 providers, so delivery is best-effort rather than guaranteed.
+
+Why this approach:
+
+- Keeps operating costs near zero for OSS maintenance.
+- Preserves decentralization and avoids vendor lock-in.
+- Lets the app function without running your own file servers.
+
+Practical constraints:
+
+- Provider reliability, limits, and retention vary.
+- Large files can time out or be rejected.
+- Availability can change without notice.
+
+Current client strategy:
+
+- Multi-provider failover for NIP-96 uploads.
+- Automatic media preprocessing (image compression; video preprocessing in composer flow).
+- Hard upload limits tuned for public-provider stability:
+  - Images: up to 8 MB
+  - Audio: up to 20 MB
+  - Video: up to 35 MB
+- Clear UX messaging that storage is best-effort, with recommendation to share external links for important/large media.
+
 ## 📚 Comprehensive Documentation
 
 For a deep dive into the technical details, architecture, and design patterns of Obscur, please refer to our structured documentation in the `/docs` directory. This is the primary source of truth for the project.

@@ -11,6 +11,8 @@ import type { UseEnhancedDMControllerResult } from "../../messaging/controllers/
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { useUploadService } from "../../messaging/lib/upload-service";
 import { messageBus } from "../../messaging/services/message-bus";
+import { BEST_EFFORT_STORAGE_NOTE } from "../../messaging/lib/media-upload-policy";
+import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 
 /**
  * Hook to manage chat actions like sending, deleting, and reacting to messages.
@@ -24,12 +26,12 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setPendingAttachmentPreviewUrls,
         setConnectionOverridesByConnectionId,
         setIsUploadingAttachment,
+        setUploadStage,
         setAttachmentError
     } = useMessaging();
     const identity = useIdentity();
     const uploadService = useUploadService();
     const { peerTrust, requestsInbox } = useNetwork();
-
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;
 
@@ -39,12 +41,32 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
 
         if (pendingAttachments.length > 0) {
             setIsUploadingAttachment(true);
+            setUploadStage("encrypting");
             setAttachmentError(null);
 
             try {
-                // Upload all files in parallel
-                const results = await Promise.all(pendingAttachments.map(file => uploadService.uploadFile(file)));
-                attachments.push(...results);
+                const uploadErrors: UploadError[] = [];
+                setUploadStage("uploading");
+
+                // Upload sequentially to reduce provider rate-limit contention in dev mode.
+                for (const file of pendingAttachments) {
+                    try {
+                        const uploaded = await uploadService.uploadFile(file);
+                        attachments.push(uploaded);
+                    } catch (error) {
+                        const uploadError = error instanceof UploadError
+                            ? error
+                            : new UploadError(UploadErrorCode.UNKNOWN, String(error));
+                        uploadErrors.push(uploadError);
+                    }
+                }
+
+                if (attachments.length === 0) {
+                    throw uploadErrors[0] || new UploadError(UploadErrorCode.UNKNOWN, "All uploads failed");
+                }
+                if (uploadErrors.length > 0) {
+                    toast.warning(`Uploaded ${attachments.length}/${pendingAttachments.length} files. Some files failed.`);
+                }
 
                 // Append URLs to content (NIP-96 standard behavior for clients)
                 const urls = attachments.map(a => a.url).join(" ");
@@ -53,21 +75,32 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 } else {
                     finalContent = urls;
                 }
-                setIsUploadingAttachment(false);
+
+                // Do not block send path on local caching.
+                void Promise.all(
+                    attachments.map((attachment) => cacheAttachmentLocally(attachment, "sent"))
+                ).catch((e) => {
+                    console.warn("[Vault] Failed to cache sent attachments locally:", e);
+                });
             } catch (error: any) {
                 console.warn("Failed to upload attachment:", error);
-                setIsUploadingAttachment(false);
 
                 const errorMessage = error instanceof UploadError
                     ? (error.code === UploadErrorCode.NO_SESSION ? "Session expired. Please lock/unlock." :
                         error.code === UploadErrorCode.AUTH_MISSING_KEY ? "Login required for upload." :
-                            error.code === UploadErrorCode.FILE_TOO_LARGE ? "File too large." :
-                                error.code === UploadErrorCode.NETWORK_ERROR ? "Network error. Check connection." :
+                            error.code === UploadErrorCode.FILE_TOO_LARGE ? error.message :
+                                error.code === UploadErrorCode.NETWORK_ERROR
+                                    ? (error.message.toLowerCase().includes("timeout")
+                                        ? `Upload timed out. ${BEST_EFFORT_STORAGE_NOTE}`
+                                        : "Network error. Check connection.")
+                                    :
                                     error.message || "Upload failed")
-                    : "Upload failed unexpectedly";
+                    : `Upload failed unexpectedly. ${BEST_EFFORT_STORAGE_NOTE}`;
 
                 setAttachmentError(errorMessage);
                 toast.error(errorMessage);
+                setUploadStage("idle");
+                setIsUploadingAttachment(false);
                 return; // Stop sending
             }
         }
@@ -82,7 +115,9 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setPendingAttachments([]);
         setPendingAttachmentPreviewUrls([]);
         setReplyTo(null);
-        setIsUploadingAttachment(false); // Done uploading
+        if (attachments.length > 0) {
+            setUploadStage("sending");
+        }
 
         try {
             if (selectedConversation.kind === 'dm') {
@@ -150,11 +185,15 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 // Emit optimistic message to MessageBus
                 messageBus.emitNewMessage(conversationId, optimisticMessage);
             }
+            setUploadStage("idle");
+            setIsUploadingAttachment(false);
         } catch (error: any) {
             console.error("Failed to send message:", error);
             toast.error("Failed to send message");
             // Restore input on failure
             setMessageInput(currentInput);
+            setUploadStage("idle");
+            setIsUploadingAttachment(false);
         }
     }, [
         selectedConversation,
@@ -170,6 +209,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setReplyTo,
         setConnectionOverridesByConnectionId,
         setIsUploadingAttachment,
+        setUploadStage,
         setAttachmentError,
         uploadService,
         peerTrust

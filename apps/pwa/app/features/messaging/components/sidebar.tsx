@@ -131,7 +131,7 @@ export function Sidebar({
                 nowMs={resolvedNowMs}
                 isPinned={pinnedChatIds.includes(conversation.id)}
                 onTogglePin={() => togglePin(conversation.id)}
-                onDelete={() => clearHistory(conversation.id)}
+                onDelete={() => deleteConversation(conversation.id)}
                 onHide={() => deleteConversation(conversation.id)}
             />
         ))

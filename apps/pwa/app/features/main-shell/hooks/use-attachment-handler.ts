@@ -3,11 +3,15 @@
 import { useCallback, useEffect } from "react";
 import { useMessaging } from "../../messaging/providers/messaging-provider";
 import {
-    shouldCompress,
     compressImage,
     compressVideo,
     generateVideoThumbnail
 } from "../../messaging/lib/media-processor";
+import {
+    BEST_EFFORT_STORAGE_NOTE,
+    shouldCompressByPolicy,
+    validateMediaFileForBestEffortUpload
+} from "../../messaging/lib/media-upload-policy";
 
 /**
  * Hook to manage attachment file selection, validation, and preview URLs.
@@ -57,10 +61,10 @@ export function useAttachmentHandler() {
 
     const handleFilesSelected = useCallback(async (files: FileList | File[]) => {
         const fileList = Array.from(files);
-        const MAX_SIZE = 500 * 1024 * 1024; // 500MB pre-compression limit
 
         const processedFiles: File[] = [];
         const newPreviewUrls: string[] = [];
+        const skippedReasons: string[] = [];
 
         setIsProcessingMedia(true);
         setMediaProcessingProgress(0);
@@ -69,14 +73,15 @@ export function useAttachmentHandler() {
             for (let i = 0; i < fileList.length; i++) {
                 let file = fileList[i];
 
-                if (file.size > MAX_SIZE) {
-                    setAttachmentError(`File ${file.name} is too large (max 500MB)`);
+                const validationError = validateMediaFileForBestEffortUpload(file);
+                if (validationError) {
+                    skippedReasons.push(validationError);
                     continue;
                 }
 
                 let previewUrl = URL.createObjectURL(file);
 
-                if (shouldCompress(file)) {
+                if (shouldCompressByPolicy(file)) {
                     setMediaProcessingProgress(Math.round((i / fileList.length) * 100));
 
                     if (file.type.startsWith("image/")) {
@@ -105,6 +110,15 @@ export function useAttachmentHandler() {
                     }
                 }
 
+                const postProcessValidationError = validateMediaFileForBestEffortUpload(file);
+                if (postProcessValidationError) {
+                    skippedReasons.push(postProcessValidationError);
+                    if (previewUrl.startsWith("blob:") || previewUrl.startsWith("data:")) {
+                        URL.revokeObjectURL(previewUrl);
+                    }
+                    continue;
+                }
+
                 processedFiles.push(file);
                 newPreviewUrls.push(previewUrl);
             }
@@ -112,11 +126,17 @@ export function useAttachmentHandler() {
             if (processedFiles.length > 0) {
                 setPendingAttachments((prev: ReadonlyArray<File>) => [...prev, ...processedFiles]);
                 setPendingAttachmentPreviewUrls((prev: ReadonlyArray<string>) => [...prev, ...newPreviewUrls]);
-                setAttachmentError(null);
+                if (skippedReasons.length > 0) {
+                    setAttachmentError(skippedReasons[0]);
+                } else {
+                    setAttachmentError(null);
+                }
+            } else if (skippedReasons.length > 0) {
+                setAttachmentError(skippedReasons[0]);
             }
         } catch (error) {
             console.error("Media processing failed:", error);
-            setAttachmentError("Failed to process some files.");
+            setAttachmentError(`Failed to process some files. ${BEST_EFFORT_STORAGE_NOTE}`);
         } finally {
             setIsProcessingMedia(false);
             setMediaProcessingProgress(0);

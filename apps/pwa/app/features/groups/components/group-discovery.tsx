@@ -21,6 +21,7 @@ import { toast } from "@dweb/ui-kit";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { useGroups } from "../providers/group-provider";
 import { cn } from "@dweb/ui-kit";
+import { toGroupConversationId } from "../utils/group-conversation-id";
 
 interface DiscoveredGroup {
     groupId: string;
@@ -130,7 +131,7 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
     const handleJoin = (group: DiscoveredGroup) => {
         const newGroup: GroupConversation = {
             kind: 'group',
-            id: `group:${group.groupId}:${group.relayUrl}`,
+            id: toGroupConversationId({ groupId: group.groupId, relayUrl: group.relayUrl }),
             groupId: group.groupId,
             relayUrl: group.relayUrl,
             displayName: group.name || group.groupId,
@@ -143,7 +144,7 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
             adminPubkeys: [], // Will be hydrated from relay
             avatar: group.avatar
         };
-        addGroup(newGroup);
+        addGroup(newGroup, { allowRevive: true });
         toast.success(t("groups.notifications.joined", { name: group.name || group.groupId }));
     };
 

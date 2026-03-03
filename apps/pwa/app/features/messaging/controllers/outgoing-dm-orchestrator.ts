@@ -141,6 +141,23 @@ export const orchestrateOutgoingDm = async (
             return { success: publishResult.success, messageId: finalMessage.id, relayResults: publishResult.results, error: publishResult.overallError };
         } else {
             const { relayResults } = publishOutgoingDmFireAndForget({ pool, openRelays, signedEvent: build.signedEvent });
+            const acceptedMessage: Message = {
+                ...prepared.initialMessage,
+                status: "accepted",
+                relayResults
+            };
+
+            if (messageQueue) {
+                await messageQueue.updateMessageStatus(prepared.messageId, "accepted");
+            }
+
+            setState((prev: EnhancedDMControllerState) => {
+                const updatedMessages = prev.messages.map((m: Message) => (
+                    m.id === prepared.messageId ? acceptedMessage : m
+                ));
+                return createReadyState(updatedMessages);
+            });
+
             return { success: true, messageId: prepared.messageId, relayResults };
         }
     } catch (error) {

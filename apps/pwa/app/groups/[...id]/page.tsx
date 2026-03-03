@@ -52,12 +52,10 @@ export default function GroupHomePage() {
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
 
-    // Resilience: Try to find group by ID or by matching identifier
+    // Strict identity matching only to prevent accidental ghost-group resolution.
     const group = id ? createdGroups.find(g =>
         g.id === id ||
-        encodeURIComponent(g.id) === id ||
-        g.id.includes(id) ||
-        id.includes(g.id)
+        encodeURIComponent(g.id) === id
     ) : undefined;
 
     const effectiveRelay = group?.relayUrl || discoveredRelay || "";
@@ -72,6 +70,7 @@ export default function GroupHomePage() {
     } = useSealedCommunity({
         groupId: group?.groupId || id || "",
         relayUrl: effectiveRelay,
+        communityId: group?.communityId,
         pool: relayPool,
         myPublicKeyHex: identityState.publicKeyHex || null,
         myPrivateKeyHex: identityState.privateKeyHex || null,
@@ -95,7 +94,12 @@ export default function GroupHomePage() {
         const same = current.length === discoveredMembers.length &&
             discoveredMembers.every(pk => current.includes(pk));
         if (!same) {
-            updateGroup({ groupId: group.groupId, updates: { memberPubkeys: [...discoveredMembers] } });
+            updateGroup({
+                groupId: group.groupId,
+                relayUrl: group.relayUrl,
+                conversationId: group.id,
+                updates: { memberPubkeys: [...discoveredMembers] }
+            });
         }
     }, [discoveredMembers, group?.groupId]);
 
@@ -143,7 +147,7 @@ export default function GroupHomePage() {
         setIsLeaving(true);
         try {
             await leaveNip29Group();
-            leaveGroup(group!.groupId);
+            leaveGroup({ groupId: group!.groupId, relayUrl: group!.relayUrl, conversationId: group!.id });
             router.push("/network");
             toast.success("Left community");
         } catch (error) {
@@ -462,6 +466,9 @@ export default function GroupHomePage() {
                         onClose={() => setIsInviteConnectionsOpen(false)}
                         groupId={group.groupId}
                         roomKeyHex={roomKeyHex || ""}
+                        communityId={group.communityId}
+                        genesisEventId={group.genesisEventId}
+                        creatorPubkey={group.creatorPubkey}
                         currentMemberPubkeys={activeMembers}
                         metadata={{
                             id: group.groupId,

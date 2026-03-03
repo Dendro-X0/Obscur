@@ -8,6 +8,7 @@ import { extractAttachmentsFromContent } from "../utils/logic";
 import type { Message, IMessageQueue } from "../lib/message-queue";
 import type { Subscription } from "./dm-controller-state";
 import type { Dispatch, SetStateAction } from "react";
+import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 
 export type IncomingDmParams = Readonly<{
   myPrivateKeyHex: string;
@@ -40,6 +41,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
   currentParams: IncomingDmParams;
   messageQueue: IMessageQueue | null;
   processingEvents: Set<string>;
+  failedDecryptEvents: Set<string>;
   existingMessages: ReadonlyArray<Message>;
   maxMessagesInMemory: number;
   syncConversationTimestamps: Map<string, Date>;
@@ -62,6 +64,12 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
 
   if (params.processingEvents.has(event.id)) {
     console.debug("Already processing event:", event.id);
+    endTracking();
+    return;
+  }
+
+  if (params.failedDecryptEvents.has(event.id)) {
+    console.debug("Skipping known undecryptable event:", event.id);
     endTracking();
     return;
   }
@@ -95,6 +103,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     }
 
     let plaintext: string;
+    let effectiveTags = event.tags;
     let actualSenderPubkey = senderPubkey;
     let usedEventId = event.id;
     let usedCreatedAt = event.created_at;
@@ -102,37 +111,10 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     try {
       if (event.kind === 1059) {
         const rumor = await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex);
-
-        if (rumor.kind === 10104) {
-          try {
-            const payload = JSON.parse(rumor.content);
-            if (payload.type === "group_invite") {
-              const { roomKeyStore } = await import("../../crypto/room-key-store");
-              await roomKeyStore.saveRoomKey(payload.groupId, payload.roomKeyHex);
-
-              const newGroup = {
-                kind: "group",
-                id: `group:${payload.groupId}:${payload.relayUrl}`,
-                groupId: payload.groupId,
-                relayUrl: payload.relayUrl,
-                displayName: payload.name || "Private Group",
-                memberPubkeys: [currentParams.myPublicKeyHex],
-                lastMessage: "Joined private encrypted group",
-                unreadCount: 1,
-                lastMessageTime: new Date(rumor.created_at * 1000),
-                access: "private",
-                memberCount: 1
-              };
-
-              window.dispatchEvent(new CustomEvent("obscur:group-invite", { detail: newGroup }));
-            }
-          } catch (e) {
-            console.warn("Failed to process group invite", e);
-          }
-          return;
-        }
-
+        // Never auto-join from an incoming invite payload. The UI invite card
+        // must be explicitly accepted by the user before any local membership changes.
         plaintext = rumor.content;
+        effectiveTags = rumor.tags;
         actualSenderPubkey = rumor.pubkey as PublicKeyHex;
         usedEventId = rumor.id;
         usedCreatedAt = rumor.created_at;
@@ -145,6 +127,10 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         { eventId: event.id, sender: senderPubkey }
       );
       console.info("Info: Incoming message could not be decrypted (maybe intended for another key or malformed):", event.id);
+      params.failedDecryptEvents.add(event.id);
+      if (params.failedDecryptEvents.size > 2000) {
+        params.failedDecryptEvents.clear();
+      }
       return;
     }
 
@@ -176,6 +162,14 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       attachments: extractAttachmentsFromContent(plaintext)
     };
 
+    if (message.attachments && message.attachments.length > 0) {
+      void Promise.all(
+        message.attachments.map((attachment) => cacheAttachmentLocally(attachment, "received"))
+      ).catch((e) => {
+        console.warn("[Vault] Failed to cache received attachments locally:", e);
+      });
+    }
+
     if (params.messageQueue) {
       const existingMessage = await params.messageQueue.getMessage(usedEventId);
       if (existingMessage) {
@@ -196,7 +190,6 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       }
     }
 
-    const effectiveTags = event.kind === 1059 ? (await cryptoService.decryptGiftWrap(event, currentParams.myPrivateKeyHex)).tags : event.tags;
     const isConnectionRequest = effectiveTags?.some(tag => tag[0] === "t" && tag[1] === "connection-request");
     const isConnectionAccept = effectiveTags?.some(tag => tag[0] === "t" && tag[1] === "connection-accept");
 
@@ -247,9 +240,9 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     params.scheduleUiUpdate(() => {
       params.setState((prev: TState) => {
         const p = prev;
-        const alreadyExists = p.messages.some((m: Message) => m.eventId === event.id);
+        const alreadyExists = p.messages.some((m: Message) => m.eventId === usedEventId);
         if (alreadyExists) {
-          console.debug("Ignoring duplicate message (race condition caught):", event.id);
+          console.debug("Ignoring duplicate message (race condition caught):", usedEventId);
           return prev;
         }
 

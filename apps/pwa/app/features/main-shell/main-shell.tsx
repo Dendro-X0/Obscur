@@ -78,6 +78,7 @@ function NostrMessengerContent() {
     pendingAttachments,
     pendingAttachmentPreviewUrls,
     isUploadingAttachment,
+    uploadStage,
     attachmentError,
     hasHydrated, sidebarTab, setSidebarTab,
     messageInput, setMessageInput,
@@ -136,6 +137,7 @@ function NostrMessengerContent() {
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
     groupId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).groupId : '',
+    communityId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).communityId : undefined,
     myPublicKeyHex,
     myPrivateKeyHex,
     enabled: selectedConversation?.kind === 'group',
@@ -150,7 +152,12 @@ function NostrMessengerContent() {
     const same = current.length === groupMembers.length &&
       groupMembers.every(pk => current.includes(pk));
     if (!same) {
-      updateGroup({ groupId: group.groupId, updates: { memberPubkeys: [...groupMembers] } });
+      updateGroup({
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+        conversationId: group.id,
+        updates: { memberPubkeys: [...groupMembers] }
+      });
     }
   }, [groupMembers, selectedConversation?.id]);
 
@@ -434,6 +441,7 @@ function NostrMessengerContent() {
               return { success: false, messageId: '', relayResults: [], error: 'DM Controller not ready' };
             }}
             isUploadingAttachment={isUploadingAttachment}
+            uploadStage={uploadStage}
             pendingAttachments={pendingAttachments}
             pendingAttachmentPreviewUrls={pendingAttachmentPreviewUrls}
             attachmentError={attachmentError}

@@ -10,14 +10,21 @@ import { toast } from "@dweb/ui-kit";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
-import type { Message, SendDirectMessageParams, SendDirectMessageResult } from "@/app/features/messaging/types";
+import type { GroupConversation, Message, SendDirectMessageParams, SendDirectMessageResult } from "@/app/features/messaging/types";
+import type { GroupAccessMode } from "../types";
+import { toGroupConversationId } from "../utils/group-conversation-id";
+import { deriveCommunityId } from "../utils/community-identity";
 
 export interface InvitePayload {
     type: "community-invite";
     groupId: string;
     roomKey: string;
+    communityId?: string;
+    genesisEventId?: string;
+    creatorPubkey?: string;
     metadata: {
         id: string;
         name: string;
@@ -47,6 +54,7 @@ export const CommunityInviteCard = ({
     const { t } = useTranslation();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
+    const { addGroup } = useGroups();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
@@ -84,9 +92,28 @@ export const CommunityInviteCard = ({
             // open relay in the pool rather than a hardcoded address.
             const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
             const relayUrl = invite.relayUrl || fallbackRelay;
-            const newGroup = {
+            const creatorPubkey = invite.creatorPubkey ?? message.senderPubkey;
+            const genesisEventId = invite.genesisEventId ?? message.eventId ?? message.id;
+            const communityId = deriveCommunityId({
+                existingCommunityId: invite.communityId,
+                groupId: invite.groupId,
+                relayUrl,
+                genesisEventId,
+                creatorPubkey
+            });
+            const accessMode: GroupAccessMode =
+                invite.metadata.access === "discoverable"
+                    ? "discoverable"
+                    : invite.metadata.access === "invite-only" || invite.metadata.access === "private"
+                        ? "invite-only"
+                        : "open";
+
+            const newGroup: GroupConversation = {
                 kind: 'group',
-                id: `group:${invite.groupId}:${relayUrl}`,
+                id: toGroupConversationId({ groupId: invite.groupId, relayUrl, communityId }),
+                communityId,
+                creatorPubkey,
+                genesisEventId,
                 groupId: invite.groupId,
                 relayUrl: relayUrl,
                 displayName: invite.metadata.name || "Private Group",
@@ -98,12 +125,12 @@ export const CommunityInviteCard = ({
                 lastMessage: t("groups.joined", "Joined private encrypted group"),
                 unreadCount: 1,
                 lastMessageTime: new Date(),
-                access: invite.metadata.access || "private",
+                access: accessMode,
                 memberCount: 2,
                 avatar: invite.metadata.picture
             };
 
-            window.dispatchEvent(new CustomEvent('obscur:group-invite', { detail: newGroup }));
+            addGroup(newGroup, { allowRevive: true });
 
             await onSendDirectMessage({
                 recipientPubkey: message.senderPubkey || "",
@@ -126,7 +153,15 @@ export const CommunityInviteCard = ({
                     groupId: invite.groupId,
                     roomKeyHex: invite.roomKey
                 });
-                await relayPool.publishToAll(JSON.stringify(["EVENT", signedEvent]));
+                const payload = JSON.stringify(["EVENT", signedEvent]);
+                const targetRelay = relayUrl.trim();
+                if (targetRelay.length > 0 && typeof relayPool.publishToUrls === "function") {
+                    await relayPool.publishToUrls([targetRelay], payload);
+                } else if (targetRelay.length > 0 && typeof relayPool.publishToUrl === "function") {
+                    await relayPool.publishToUrl(targetRelay, payload);
+                } else {
+                    await relayPool.publishToAll(payload);
+                }
             } catch (e) {
                 console.error("Failed to broadcast join event to community:", e);
             }

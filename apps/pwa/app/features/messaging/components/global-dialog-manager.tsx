@@ -17,6 +17,8 @@ import { SocialGraphService } from "@/app/features/social-graph/services/social-
 import { ProfileSearchService } from "@/app/features/search/services/profile-search-service";
 import type { DmConversation, GroupConversation, PublicKeyHex } from "@/app/features/messaging/types";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
+import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 
 export function GlobalDialogManager() {
     const { t } = useTranslation();
@@ -96,15 +98,44 @@ export function GlobalDialogManager() {
         try {
             const { groupId, host, name, about, avatar, access } = info;
             const relayUrl = host.startsWith("ws") ? host : `wss://${host}`;
+            const creatorPubkey = myPublicKeyHex;
 
             // 1. Generate and store Room Key (Essential for ALL Sealed Communities)
             const roomKeyHex = await cryptoService.generateRoomKey();
             await roomKeyStore.saveRoomKey(groupId, roomKeyHex);
 
+            const metadata = {
+                id: groupId,
+                name,
+                about,
+                picture: avatar,
+                access
+            } as const;
+
+            const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex);
+            const createdEvent = await groupService.sendSealedCommunityCreated({
+                groupId,
+                roomKeyHex,
+                metadata
+            });
+
+            const createdPayload = JSON.stringify(["EVENT", createdEvent]);
+            if (typeof relayPool.publishToUrls === "function") {
+                await relayPool.publishToUrls([relayUrl], createdPayload);
+            } else if (typeof relayPool.publishToUrl === "function") {
+                await relayPool.publishToUrl(relayUrl, createdPayload);
+            } else if (typeof relayPool.publishToRelay === "function") {
+                await relayPool.publishToRelay(relayUrl, createdPayload);
+            } else {
+                await relayPool.publishToAll(createdPayload);
+            }
+
+            const genesisEventId = createdEvent.id;
+            const communityId = deriveCommunityId({ groupId, relayUrl, genesisEventId, creatorPubkey });
+
             // 2. Discoverability (Kind 39000 Hint)
             // If not invite-only, we publish a hint so others know where to look.
             if (access !== "invite-only") {
-                const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex);
                 // We publish the metadata as a public Kind 39000 but WITHOUT the room key.
                 // In the future (Phase 4), we might include a Room Key for "open" groups.
                 // For now, this just marks the community's presence on the relay.
@@ -119,7 +150,10 @@ export function GlobalDialogManager() {
 
             const newGroup: GroupConversation = {
                 kind: 'group',
-                id: `group:${groupId}:${relayUrl}`,
+                id: toGroupConversationId({ groupId, relayUrl, communityId }),
+                communityId,
+                genesisEventId,
+                creatorPubkey,
                 groupId,
                 relayUrl,
                 displayName: name,

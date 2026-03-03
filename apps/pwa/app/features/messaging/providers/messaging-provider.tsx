@@ -17,6 +17,7 @@ import type {
     PublicKeyHex
 } from "../types";
 import { chatStateStoreService } from "../services/chat-state-store";
+import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import {
     toPersistedDmConversation,
     fromPersistedDmConversation,
@@ -47,6 +48,8 @@ interface MessagingContextType {
     setPendingAttachmentPreviewUrls: React.Dispatch<React.SetStateAction<ReadonlyArray<string>>>;
     isUploadingAttachment: boolean;
     setIsUploadingAttachment: (uploading: boolean) => void;
+    uploadStage: "idle" | "encrypting" | "uploading" | "sending";
+    setUploadStage: (stage: "idle" | "encrypting" | "uploading" | "sending") => void;
     attachmentError: string | null;
     setAttachmentError: (error: string | null) => void;
     isProcessingMedia: boolean;
@@ -127,6 +130,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [pendingAttachments, setPendingAttachments] = useState<ReadonlyArray<File>>([]);
     const [pendingAttachmentPreviewUrls, setPendingAttachmentPreviewUrls] = useState<ReadonlyArray<string>>([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState<boolean>(false);
+    const [uploadStage, setUploadStage] = useState<"idle" | "encrypting" | "uploading" | "sending">("idle");
     const [attachmentError, setAttachmentError] = useState<string | null>(null);
     const [isProcessingMedia, setIsProcessingMedia] = useState<boolean>(false);
     const [mediaProcessingProgress, setMediaProcessingProgress] = useState<number>(0);
@@ -189,6 +193,16 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     const deleteConversation = (conversationId: string) => {
+        if (isGroupConversationId(conversationId) && publicKeyHex) {
+            const persisted = chatStateStoreService.load(publicKeyHex);
+            if (persisted?.createdGroups) {
+                const nextGroups = persisted.createdGroups.filter((g) => g.id !== conversationId);
+                chatStateStoreService.updateGroups(publicKeyHex, nextGroups);
+            }
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("obscur:group-remove", { detail: conversationId }));
+            }
+        }
         hideConversation(conversationId);
         clearHistory(conversationId);
     };
@@ -288,6 +302,8 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setPendingAttachmentPreviewUrls,
         isUploadingAttachment,
         setIsUploadingAttachment,
+        uploadStage,
+        setUploadStage,
         attachmentError,
         setAttachmentError,
         isProcessingMedia,
@@ -337,6 +353,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         pendingAttachments,
         pendingAttachmentPreviewUrls,
         isUploadingAttachment,
+        uploadStage,
         attachmentError,
         isProcessingMedia,
         mediaProcessingProgress,

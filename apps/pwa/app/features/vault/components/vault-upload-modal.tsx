@@ -23,6 +23,7 @@ import { Nip96UploadService } from "../../messaging/lib/nip96-upload-service";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
+import { cacheAttachmentLocally } from "../services/local-media-store";
 
 interface VaultUploadModalProps {
     readonly isOpen: boolean;
@@ -57,6 +58,7 @@ export function VaultUploadModal({ isOpen, onClose, onUploadComplete }: VaultUpl
             );
 
             const attachment = await uploadService.uploadFile(file);
+            void cacheAttachmentLocally(attachment, "sent");
             setSuccessUrl(attachment.url);
             onUploadComplete?.(attachment.url);
         } catch (err: any) {

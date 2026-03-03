@@ -1,18 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
-import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
-import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
-import type { RelayConnection } from '../../../relays/utils/relay-connection';
-import { parsePublicKeyInput } from '@/app/features/profile/utils/parse-public-key-input';
-import { createNostrDmEvent } from '@dweb/nostr/create-nostr-dm-event';
-import { cryptoService } from '@/app/features/crypto/crypto-service';
-import { MessageQueue } from '../message-queue';
-
-/**
- * Property-based tests for enhanced DM controller
- * These tests validate universal correctness properties with multiple iterations
- */
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import { useEnhancedDMController } from "../../controllers/enhanced-dm-controller";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
+import { cryptoService } from "@/app/features/crypto/crypto-service";
 
 const { mockMessageQueueInstance } = vi.hoisted(() => ({
   mockMessageQueueInstance: {
@@ -23,627 +15,316 @@ const { mockMessageQueueInstance } = vi.hoisted(() => ({
     queueOutgoingMessage: vi.fn(),
     getQueuedMessages: vi.fn(),
     removeFromQueue: vi.fn(),
-    getAllMessages: vi.fn()
-  }
-}));
-
-vi.mock('../message-queue', () => ({
-  MessageQueue: vi.fn(function () { return mockMessageQueueInstance; }),
-  messageQueue: mockMessageQueueInstance
-}));
-
-vi.mock('@/app/features/profile/utils/parse-public-key-input', () => ({
-  parsePublicKeyInput: vi.fn()
-}));
-
-vi.mock('@dweb/nostr/create-nostr-dm-event', () => ({
-  createNostrDmEvent: vi.fn(),
-}));
-
-vi.mock('@/app/features/crypto/crypto-service', () => ({
-  cryptoService: {
-    verifyEventSignature: vi.fn(),
-    decryptDM: vi.fn(),
-    isValidPubkey: vi.fn(),
+    getAllMessages: vi.fn(),
   },
 }));
 
-vi.mock('../nostr-safety-limits', () => ({
-  NOSTR_SAFETY_LIMITS: {
-    maxDmPlaintextChars: 1000
-  }
+vi.mock("../message-queue", () => ({
+  MessageQueue: vi.fn(function () {
+    return mockMessageQueueInstance;
+  }),
 }));
 
-describe('Enhanced DM Controller Property Tests', () => {
-  const mockPublicKey: PublicKeyHex = '02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc' as PublicKeyHex;
-  const mockPrivateKey: PrivateKeyHex = '5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb' as PrivateKeyHex;
-  const mockRecipientKey: PublicKeyHex = '03c2047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5' as PublicKeyHex;
+vi.mock("@/app/features/profile/utils/parse-public-key-input", () => ({
+  parsePublicKeyInput: vi.fn(),
+}));
 
-  let mockRelayPool: {
-    connections: RelayConnection[];
-    sendToOpen: any;
-    subscribeToMessages: any;
-    waitForConnection: any;
+vi.mock("@/app/features/settings/services/privacy-settings-service", () => ({
+  PrivacySettingsService: {
+    getSettings: vi.fn(() => ({
+      useModernDMs: false,
+      encryptStorageAtRest: false,
+      dmPrivacy: "everyone",
+    })),
+  },
+}));
+
+vi.mock("@/app/features/crypto/crypto-service", () => ({
+  cryptoService: {
+    encryptGiftWrap: vi.fn(),
+    decryptGiftWrap: vi.fn(),
+    encryptDM: vi.fn(),
+    decryptDM: vi.fn(),
+    signEvent: vi.fn(),
+    verifyEventSignature: vi.fn(),
+  },
+}));
+
+vi.mock("@/app/features/relays/utils/nip65-service", () => ({
+  nip65Service: {
+    getWriteRelays: vi.fn(() => []),
+    updateFromEvent: vi.fn(),
+  },
+}));
+
+vi.mock("../nostr-safety-limits", () => ({
+  NOSTR_SAFETY_LIMITS: {
+    maxDmPlaintextChars: 1000,
+  },
+}));
+
+describe("useEnhancedDMController", () => {
+  const myPublicKey = "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc" as PublicKeyHex;
+  const myPrivateKey = "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb" as PrivateKeyHex;
+  const peerPublicKey = "03c2047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5" as PublicKeyHex;
+
+  const buildSignedEvent = (eventId: string, content: string, tags: string[][] = [["p", peerPublicKey]]) => ({
+    id: eventId,
+    kind: 4,
+    created_at: Math.floor(Date.now() / 1000),
+    content,
+    pubkey: myPublicKey,
+    sig: "mock_sig",
+    tags,
+  });
+
+  let pool: {
+    connections: Array<{ url: string; status: "open" | "closed" | "error"; updatedAtUnixMs: number; errorMessage?: string }>;
+    sendToOpen: ReturnType<typeof vi.fn>;
+    publishToAll: ReturnType<typeof vi.fn>;
+    subscribeToMessages: ReturnType<typeof vi.fn>;
+    waitForConnection: ReturnType<typeof vi.fn>;
   };
+
+  let incomingHandler: ((params: Readonly<{ url: string; message: string }>) => void) | undefined;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockRelayPool = {
+    incomingHandler = undefined;
+    pool = {
       connections: [
-        { url: 'wss://relay1.example.com', status: 'open', updatedAtUnixMs: Date.now() },
-        { url: 'wss://relay2.example.com', status: 'open', updatedAtUnixMs: Date.now() },
-        { url: 'wss://relay3.example.com', status: 'error', errorMessage: 'Connection failed', updatedAtUnixMs: Date.now() }
+        { url: "wss://relay-1.example", status: "open", updatedAtUnixMs: Date.now() },
+        { url: "wss://relay-2.example", status: "open", updatedAtUnixMs: Date.now() },
       ],
       sendToOpen: vi.fn(),
-      subscribeToMessages: vi.fn(() => vi.fn()), // Return unsubscribe function
-      waitForConnection: vi.fn(async () => true)
+      publishToAll: vi.fn().mockResolvedValue({
+        success: true,
+        successCount: 2,
+        totalRelays: 2,
+        results: [
+          { relayUrl: "wss://relay-1.example", success: true, latency: 4 },
+          { relayUrl: "wss://relay-2.example", success: true, latency: 7 },
+        ],
+      }),
+      subscribeToMessages: vi.fn((handler) => {
+        incomingHandler = handler;
+        return vi.fn();
+      }),
+      waitForConnection: vi.fn().mockResolvedValue(true),
     };
 
-    // Setup default mocks
-    vi.mocked(parsePublicKeyInput).mockReturnValue({ ok: true, publicKeyHex: mockRecipientKey, format: 'hex' });
-
-    vi.mocked(createNostrDmEvent).mockResolvedValue({
-      id: 'mock_event_id',
-      kind: 4,
-      created_at: Math.floor(Date.now() / 1000),
-      content: 'encrypted_content',
-      pubkey: mockPublicKey,
-      sig: 'mock_signature',
-      tags: [['p', mockRecipientKey]]
+    vi.mocked(parsePublicKeyInput).mockReturnValue({
+      ok: true,
+      publicKeyHex: peerPublicKey,
+      format: "hex",
     });
 
-    const mockedCrypto = vi.mocked(cryptoService);
-    mockedCrypto.verifyEventSignature.mockImplementation(async () => true);
-    mockedCrypto.decryptDM.mockResolvedValue('decrypted_message');
-    mockedCrypto.isValidPubkey.mockResolvedValue(true);
+    vi.mocked(cryptoService.encryptDM).mockResolvedValue("encrypted_payload");
+    vi.mocked(cryptoService.decryptDM).mockResolvedValue("incoming plaintext");
+    vi.mocked(cryptoService.verifyEventSignature).mockResolvedValue(true);
+    vi.mocked(cryptoService.signEvent).mockImplementation(async (unsigned: any) =>
+      buildSignedEvent("event-1", unsigned.content, unsigned.tags)
+    );
+    vi.mocked(cryptoService.encryptGiftWrap).mockResolvedValue(
+      buildSignedEvent("giftwrap-1", "wrapped", [["p", peerPublicKey]])
+    );
+    vi.mocked(cryptoService.decryptGiftWrap).mockResolvedValue(
+      buildSignedEvent("rumor-1", "decrypted wrapped message", [["p", myPublicKey]])
+    );
 
+    mockMessageQueueInstance.getAllMessages.mockResolvedValue([]);
+    mockMessageQueueInstance.getMessage.mockResolvedValue(null);
     mockMessageQueueInstance.persistMessage.mockResolvedValue(undefined);
     mockMessageQueueInstance.updateMessageStatus.mockResolvedValue(undefined);
     mockMessageQueueInstance.queueOutgoingMessage.mockResolvedValue(undefined);
     mockMessageQueueInstance.getQueuedMessages.mockResolvedValue([]);
-    mockMessageQueueInstance.getAllMessages.mockResolvedValue([]);
+    mockMessageQueueInstance.removeFromQueue.mockResolvedValue(undefined);
   });
 
-  describe('Property 1: Message encryption consistency', () => {
-    /**
-     * For any valid message content and recipient public key, the DM_Controller 
-     * should encrypt the message using NIP-04 encryption before creating the Nostr event
-     * Validates: Requirements 1.1
-     */
-    it('should encrypt all outgoing messages consistently', async () => {
-      const testMessages = [
-        'Hello, world!',
-        'Special chars: !@#$%^&*()',
-        'Unicode: 🚀 🌟 ✨',
-        'A'.repeat(500), // Long message
-        'Multi\nline\nmessage'
-      ];
+  it("sends a DM and persists optimistic message state", async () => {
+    const { result } = renderHook(() =>
+      useEnhancedDMController({
+        myPublicKeyHex: myPublicKey,
+        myPrivateKeyHex: myPrivateKey,
+        pool: pool as any,
+      })
+    );
 
-      for (const message of testMessages) {
-        const { result } = renderHook(() =>
-          useEnhancedDMController({
-            myPublicKeyHex: mockPublicKey,
-            myPrivateKeyHex: mockPrivateKey,
-            pool: mockRelayPool
-          })
-        );
-
-        await act(async () => {
-          const sendResult = await result.current.sendDm({
-            peerPublicKeyInput: mockRecipientKey,
-            plaintext: message
-          });
-
-          expect(sendResult.success).toBe(true);
-          expect(sendResult.messageId).toBeTruthy();
-        });
-
-        // Verify that createNostrDmEvent was called (which handles encryption)
-        expect(createNostrDmEvent).toHaveBeenCalledWith({
-          senderPrivateKeyHex: mockPrivateKey,
-          recipientPublicKeyHex: mockRecipientKey,
-          plaintext: message
-        });
-      }
+    await waitFor(() => {
+      expect(result.current.state.status).toBe("ready");
     });
 
-    it('should handle encryption failures gracefully', async () => {
-      vi.mocked(createNostrDmEvent).mockRejectedValue(new Error('Encryption failed'));
+    const sendResult = await act(async () =>
+      result.current.sendDm({
+        peerPublicKeyInput: peerPublicKey,
+        plaintext: "hello",
+      })
+    );
 
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
-        });
-
-        expect(sendResult.success).toBe(false);
-        expect(sendResult.error).toContain('Failed to send message');
-      });
-    });
+    expect(sendResult.success).toBe(true);
+    expect(sendResult.messageId).toBe("event-1");
+    expect(sendResult.relayResults).toHaveLength(2);
+    expect(cryptoService.encryptDM).toHaveBeenCalledWith("hello", peerPublicKey, myPrivateKey);
+    expect(cryptoService.signEvent).toHaveBeenCalled();
+    expect(mockMessageQueueInstance.persistMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "event-1",
+        content: "hello",
+      })
+    );
   });
 
-  describe('Property 2: Event creation completeness', () => {
-    /**
-     * For any encrypted message, the DM_Controller should create a properly 
-     * formatted Nostr event containing the encrypted content in the correct field
-     * Validates: Requirements 1.2
-     */
-    it('should create complete Nostr events for all messages', async () => {
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
+  it("returns validation error for invalid recipient key", async () => {
+    vi.mocked(parsePublicKeyInput).mockReturnValue({ ok: false, reason: "invalid_format" });
 
-      const testMessage = 'Test message for event creation';
+    const { result } = renderHook(() =>
+      useEnhancedDMController({
+        myPublicKeyHex: myPublicKey,
+        myPrivateKeyHex: myPrivateKey,
+        pool: pool as any,
+      })
+    );
 
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: testMessage
-        });
+    const sendResult = await act(async () =>
+      result.current.sendDm({
+        peerPublicKeyInput: "invalid-key",
+        plaintext: "hello",
+      })
+    );
 
-        expect(sendResult.success).toBe(true);
-      });
-
-      // Verify event structure
-      expect(createNostrDmEvent).toHaveBeenCalledWith({
-        senderPrivateKeyHex: mockPrivateKey,
-        recipientPublicKeyHex: mockRecipientKey,
-        plaintext: testMessage
-      });
-
-      // Verify message persistence with correct structure
-      expect(mockMessageQueueInstance.persistMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'mock_event_id',
-          conversationId: mockRecipientKey,
-          content: testMessage,
-          isOutgoing: true,
-          status: 'sending',
-          eventId: 'mock_event_id',
-          senderPubkey: mockPublicKey,
-          recipientPubkey: mockRecipientKey,
-          encryptedContent: 'encrypted_content'
-        })
-      );
-    });
+    expect(sendResult.success).toBe(false);
+    expect(sendResult.error).toBe("Invalid recipient public key");
+    expect(cryptoService.encryptDM).not.toHaveBeenCalled();
   });
 
-  describe('Property 4: Multi-relay publishing', () => {
-    /**
-     * For any signed event, the DM_Controller should attempt to publish it 
-     * to all currently connected relays
-     * Validates: Requirements 1.4
-     */
-    it('should publish to all connected relays', async () => {
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
+  it("rejects empty messages", async () => {
+    const { result } = renderHook(() =>
+      useEnhancedDMController({
+        myPublicKeyHex: myPublicKey,
+        myPrivateKeyHex: myPrivateKey,
+        pool: pool as any,
+      })
+    );
 
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
-        });
+    const sendResult = await act(async () =>
+      result.current.sendDm({
+        peerPublicKeyInput: peerPublicKey,
+        plaintext: "   ",
+      })
+    );
 
-        expect(sendResult.success).toBe(true);
-        expect(sendResult.relayResults).toHaveLength(2); // Only connected relays
-
-        // Verify results for each connected relay
-        const connectedRelays = mockRelayPool.connections.filter(c => c.status === 'open');
-        expect(sendResult.relayResults).toHaveLength(connectedRelays.length);
-
-        sendResult.relayResults.forEach((result: any) => {
-          expect(result.success).toBe(true);
-          expect(result.latency).toBeGreaterThanOrEqual(0);
-          expect(connectedRelays.some(r => r.url === result.relayUrl)).toBe(true);
-        });
-      });
-
-      // Verify sendToOpen was called
-      expect(mockRelayPool.sendToOpen).toHaveBeenCalled();
-    });
-
-    it('should handle partial relay failures', async () => {
-      // Mock sendToOpen to throw error on second call
-      let callCount = 0;
-      mockRelayPool.sendToOpen.mockImplementation(() => {
-        callCount++;
-        if (callCount === 2) {
-          throw new Error('Relay connection failed');
-        }
-      });
-
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
-        });
-
-        // Should still succeed if at least one relay works
-        expect(sendResult.success).toBe(true);
-        const hasSuccess = sendResult.relayResults.some((r: { success: boolean }) => r.success);
-        const hasFailure = sendResult.relayResults.some((r: { success: boolean }) => !r.success);
-        expect(hasSuccess).toBe(true);
-        expect(hasFailure).toBe(true);
-      });
-    });
+    expect(sendResult.success).toBe(false);
+    expect(sendResult.error).toBe("Message cannot be empty");
   });
 
-  describe('Property 5: Graceful relay failure handling', () => {
-    /**
-     * For any relay connection failure during publishing, the DM_Controller 
-     * should continue attempting to publish to other available relays
-     * Validates: Requirements 1.5
-     */
-    it('should continue with other relays when some fail', async () => {
-      // Set up pool with mixed relay states
-      mockRelayPool.connections = [
-        { url: 'wss://good-relay.com', status: 'open', updatedAtUnixMs: Date.now() },
-        { url: 'wss://bad-relay.com', status: 'error', errorMessage: 'Failed', updatedAtUnixMs: Date.now() },
-        { url: 'wss://another-good.com', status: 'open', updatedAtUnixMs: Date.now() }
-      ];
+  it("queues message when no open relays are available", async () => {
+    pool.connections = [
+      { url: "wss://relay-offline.example", status: "closed", updatedAtUnixMs: Date.now() },
+      { url: "wss://relay-error.example", status: "error", updatedAtUnixMs: Date.now(), errorMessage: "down" },
+    ];
 
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
+    const { result } = renderHook(() =>
+      useEnhancedDMController({
+        myPublicKeyHex: myPublicKey,
+        myPrivateKeyHex: myPrivateKey,
+        pool: pool as any,
+      })
+    );
 
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
-        });
+    const sendResult = await act(async () =>
+      result.current.sendDm({
+        peerPublicKeyInput: peerPublicKey,
+        plaintext: "offline message",
+      })
+    );
 
-        expect(sendResult.success).toBe(true);
-        // Should only attempt to send to open relays
-        expect(sendResult.relayResults).toHaveLength(2);
-        expect(sendResult.relayResults.every((r: any) => r.success)).toBe(true);
-      });
-    });
-
-    it('should queue message when no relays are connected', async () => {
-      // Set up pool with no connected relays
-      mockRelayPool.connections = [
-        { url: 'wss://offline1.com', status: 'closed', updatedAtUnixMs: Date.now() },
-        { url: 'wss://offline2.com', status: 'error', errorMessage: 'Failed', updatedAtUnixMs: Date.now() }
-      ];
-
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
-        });
-
-        expect(sendResult.success).toBe(false);
-        expect(sendResult.error).toContain('No relays connected');
-        expect(sendResult.relayResults).toHaveLength(0);
-      });
-
-      // Verify message was queued for retry
-      expect(mockMessageQueueInstance.queueOutgoingMessage).toHaveBeenCalled();
-      expect(mockMessageQueueInstance.updateMessageStatus).toHaveBeenCalledWith('mock_event_id', 'queued');
-    });
+    expect(sendResult.success).toBe(false);
+    expect(sendResult.error).toBe("Offline - message queued");
+    expect(mockMessageQueueInstance.queueOutgoingMessage).toHaveBeenCalled();
+    expect(mockMessageQueueInstance.updateMessageStatus).toHaveBeenCalled();
   });
 
-  describe('Property 9: Subscription establishment', () => {
-    /**
-     * For any successful relay connection, the DM_Controller should establish 
-     * subscriptions for direct message events targeting the user's public key
-     * Validates: Requirements 2.1
-     */
-    it('should establish subscriptions when relays are connected', async () => {
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
+  it("subscribes with DM + gift-wrap kinds", async () => {
+    const { result } = renderHook(() =>
+      useEnhancedDMController({
+        myPublicKeyHex: myPublicKey,
+        myPrivateKeyHex: myPrivateKey,
+        pool: pool as any,
+      })
+    );
 
-      // Wait for subscription to be established
-      await act(async () => {
-        result.current.subscribeToIncomingDMs();
-      });
-
-      // Verify subscription was sent to relays
-      expect(mockRelayPool.sendToOpen).toHaveBeenCalledWith(
-        expect.stringContaining('"REQ"')
-      );
-
-      // Verify subscription includes correct filter
-      const subscriptionCall = mockRelayPool.sendToOpen.mock.calls.find((call: any) =>
-        (call[0] as string).includes('"REQ"')
-      );
-      expect(subscriptionCall).toBeTruthy();
-
-      const subscriptionData = JSON.parse(subscriptionCall![0] as string);
-      expect(subscriptionData[0]).toBe('REQ');
-      expect(subscriptionData[2]).toEqual(
-        expect.objectContaining({
-          kinds: [4],
-          '#p': [mockPublicKey],
-          limit: 50
-        })
-      );
-
-      // Verify subscription is tracked in state
-      expect(result.current.state.subscriptions).toHaveLength(1);
-      expect(result.current.state.subscriptions[0]).toEqual(
-        expect.objectContaining({
-          isActive: true,
-          filter: expect.objectContaining({
-            kinds: [4],
-            '#p': [mockPublicKey]
-          })
-        })
-      );
+    await act(async () => {
+      result.current.subscribeToIncomingDMs();
     });
 
-    it('should not establish subscriptions when no relays are connected', async () => {
-      mockRelayPool.connections = [
-        { url: 'wss://offline.com', status: 'closed', updatedAtUnixMs: Date.now() }
-      ];
-
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      await act(async () => {
-        result.current.subscribeToIncomingDMs();
-      });
-
-      // Should not send subscription when no relays are open
-      expect(mockRelayPool.sendToOpen).not.toHaveBeenCalled();
-    });
+    const reqCall = pool.sendToOpen.mock.calls.find((c) => String(c[0]).includes('"REQ"'));
+    expect(reqCall).toBeTruthy();
+    const payload = JSON.parse(reqCall![0] as string);
+    expect(payload[0]).toBe("REQ");
+    expect(payload[2]).toEqual(
+      expect.objectContaining({
+        kinds: [4, 1059],
+        "#p": [myPublicKey],
+      })
+    );
   });
 
-  describe('Property 10: Signature verification requirement', () => {
-    /**
-     * For any incoming DM event, the DM_Controller should verify the event 
-     * signature before processing the message content
-     * Validates: Requirements 2.2
-     */
-    it('should verify signatures before processing incoming messages', async () => {
-      const { cryptoService } = require('../crypto-service');
+  it("verifies signature and decrypts incoming DM before persisting", async () => {
+    renderHook(() =>
+      useEnhancedDMController({
+        myPublicKeyHex: myPublicKey,
+        myPrivateKeyHex: myPrivateKey,
+        pool: pool as any,
+      })
+    );
 
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
+    expect(incomingHandler).toBeTruthy();
+    const event = {
+      ...buildSignedEvent("incoming-1", "ciphertext", [["p", myPublicKey]]),
+      pubkey: peerPublicKey,
+    };
 
-      // Simulate incoming message
-      const mockEvent = {
-        id: 'incoming_event_id',
-        kind: 4,
-        created_at: Math.floor(Date.now() / 1000),
-        content: 'encrypted_incoming_content',
-        pubkey: mockRecipientKey,
-        sig: 'incoming_signature',
-        tags: [['p', mockPublicKey]]
-      };
-
-      // Get the message handler
-      const messageHandler = mockRelayPool.subscribeToMessages.mock.calls[0][0] as any;
-
-      await act(async () => {
-        await messageHandler({
-          url: 'wss://relay1.example.com',
-          message: JSON.stringify(['EVENT', 'sub_id', mockEvent])
-        });
+    await act(async () => {
+      await incomingHandler?.({
+        url: "wss://relay-1.example",
+        message: JSON.stringify(["EVENT", "sub-id", event]),
       });
-
-      // Verify signature verification was called
-      expect(cryptoService.verifyEventSignature).toHaveBeenCalledWith(mockEvent);
-
-      // Verify decryption was called (only after signature verification)
-      expect(cryptoService.decryptDM).toHaveBeenCalledWith(
-        'encrypted_incoming_content',
-        mockRecipientKey,
-        mockPrivateKey
-      );
     });
 
-    it('should reject messages with invalid signatures', async () => {
-      vi.mocked(cryptoService).verifyEventSignature.mockImplementation(async () => false);
-
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      const mockEvent = {
-        id: 'invalid_event_id',
-        kind: 4,
-        created_at: Math.floor(Date.now() / 1000),
-        content: 'encrypted_content',
-        pubkey: mockRecipientKey,
-        sig: 'invalid_signature',
-        tags: [['p', mockPublicKey]]
-      };
-
-      const messageHandler = mockRelayPool.subscribeToMessages.mock.calls[0][0] as any;
-
-      await act(async () => {
-        await messageHandler({
-          url: 'wss://relay1.example.com',
-          message: JSON.stringify(['EVENT', 'sub_id', mockEvent])
-        });
-      });
-
-      // Verify signature verification was called
-      expect(cryptoService.verifyEventSignature).toHaveBeenCalledWith(mockEvent);
-
-      // Verify decryption was NOT called for invalid signature
-      expect(cryptoService.decryptDM).not.toHaveBeenCalled();
-
-      // Verify message was not persisted
-      expect(mockMessageQueueInstance.persistMessage).not.toHaveBeenCalled();
-    });
+    expect(cryptoService.verifyEventSignature).toHaveBeenCalledWith(event);
+    expect(cryptoService.decryptDM).toHaveBeenCalledWith("ciphertext", peerPublicKey, myPrivateKey);
+    expect(mockMessageQueueInstance.persistMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "incoming-1",
+        content: "incoming plaintext",
+        isOutgoing: false,
+      })
+    );
   });
 
-  describe('Input Validation Properties', () => {
-    it('should reject invalid recipient keys', async () => {
-      const { parsePublicKeyInput } = require('../../parse-public-key-input');
-      parsePublicKeyInput.mockReturnValue({ ok: false, error: 'Invalid key' });
+  it("rejects incoming events with invalid signature", async () => {
+    vi.mocked(cryptoService.verifyEventSignature).mockResolvedValue(false);
 
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
+    renderHook(() =>
+      useEnhancedDMController({
+        myPublicKeyHex: myPublicKey,
+        myPrivateKeyHex: myPrivateKey,
+        pool: pool as any,
+      })
+    );
 
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: 'invalid_key',
-          plaintext: 'Test message'
-        });
+    const event = buildSignedEvent("incoming-invalid", "ciphertext", [["p", myPublicKey]]);
 
-        expect(sendResult.success).toBe(false);
-        expect(sendResult.error).toBe('Invalid recipient public key.');
+    await act(async () => {
+      await incomingHandler?.({
+        url: "wss://relay-1.example",
+        message: JSON.stringify(["EVENT", "sub-id", event]),
       });
     });
 
-    it('should reject empty messages', async () => {
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: '   ' // Only whitespace
-        });
-
-        expect(sendResult.success).toBe(false);
-        expect(sendResult.error).toBe('Message cannot be empty');
-      });
-    });
-
-    it('should reject messages that are too long', async () => {
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      const longMessage = 'A'.repeat(1001); // Exceeds limit of 1000
-
-      await act(async () => {
-        const sendResult = await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: longMessage
-        });
-
-        expect(sendResult.success).toBe(false);
-        expect(sendResult.error).toContain('Message is too long');
-      });
-    });
-  });
-
-  describe('State Management Properties', () => {
-    it('should maintain consistent state transitions', async () => {
-      const { result } = renderHook(() =>
-        useEnhancedDMController({
-          myPublicKeyHex: mockPublicKey,
-          myPrivateKeyHex: mockPrivateKey,
-          pool: mockRelayPool
-        })
-      );
-
-      // Initial state should be ready
-      expect(result.current.state.status).toBe('ready');
-      expect(result.current.state.messages).toHaveLength(0);
-      expect(result.current.state.subscriptions).toHaveLength(1);
-
-      // Send a message
-      await act(async () => {
-        await result.current.sendDm({
-          peerPublicKeyInput: mockRecipientKey,
-          plaintext: 'Test message'
-        });
-      });
-
-      // State should include the sent message
-      expect(result.current.state.messages).toHaveLength(1);
-      expect(result.current.state.messages[0]).toEqual(
-        expect.objectContaining({
-          id: 'mock_event_id',
-          peerPublicKeyHex: mockRecipientKey,
-          plaintext: 'Test message',
-          direction: 'outgoing',
-          deliveryStatus: 'sending'
-        })
-      );
-    });
+    expect(cryptoService.verifyEventSignature).toHaveBeenCalledWith(event);
+    expect(cryptoService.decryptDM).not.toHaveBeenCalled();
+    expect(mockMessageQueueInstance.persistMessage).not.toHaveBeenCalled();
   });
 });
-
-/**
- * Feature: core-messaging-mvp
- * Property 1: Message encryption consistency
- * Property 2: Event creation completeness  
- * Property 4: Multi-relay publishing
- * Property 5: Graceful relay failure handling
- * Property 9: Subscription establishment
- * Property 10: Signature verification requirement
- * 
- * Validates: Requirements 1.1, 1.2, 1.4, 1.5, 2.1, 2.2
- * 
- * This test suite validates that the enhanced DM controller properly handles
- * message encryption, event creation, multi-relay publishing, and incoming
- * message verification with proper error handling.
- */

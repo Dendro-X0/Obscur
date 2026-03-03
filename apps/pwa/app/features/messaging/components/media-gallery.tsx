@@ -5,6 +5,7 @@ import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
 import { Play, Headphones } from "lucide-react";
 import type { MediaItem } from "../types";
+import { inferAttachmentKind } from "../utils/logic";
 
 interface MediaGalleryProps {
     isOpen: boolean;
@@ -42,6 +43,9 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                     ) : (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                             {mediaItems.map((item, index) => (
+                                (() => {
+                                    const effectiveKind = inferAttachmentKind(item.attachment);
+                                    return (
                                 <button
                                     key={item.messageId}
                                     type="button"
@@ -49,9 +53,9 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                                     onClick={() => onSelect(index)}
                                 >
                                     <div className="aspect-square">
-                                        {item.attachment.kind === "image" ? (
+                                        {effectiveKind === "image" ? (
                                             <Image src={item.attachment.url} alt={item.attachment.fileName} width={480} height={480} unoptimized className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                                        ) : item.attachment.kind === "audio" ? (
+                                        ) : effectiveKind === "audio" ? (
                                             <div className="flex h-full w-full flex-col items-center justify-center bg-purple-600/90 text-white">
                                                 <Headphones className="h-8 w-8 mb-2" />
                                                 <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Audio</div>
@@ -69,6 +73,8 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                                         <div className="truncate">{item.attachment.fileName}</div>
                                     </div>
                                 </button>
+                                    );
+                                })()
                             ))}
                         </div>
                     )}

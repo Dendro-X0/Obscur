@@ -29,6 +29,9 @@ interface InviteConnectionsDialogProps {
     roomKeyHex: string;
     metadata: GroupMetadata;
     currentMemberPubkeys?: ReadonlyArray<string>;
+    communityId?: string;
+    genesisEventId?: string;
+    creatorPubkey?: string;
 }
 
 export function InviteConnectionsDialog({
@@ -37,7 +40,10 @@ export function InviteConnectionsDialog({
     groupId,
     roomKeyHex,
     metadata,
-    currentMemberPubkeys = []
+    currentMemberPubkeys = [],
+    communityId,
+    genesisEventId,
+    creatorPubkey
 }: InviteConnectionsDialogProps) {
     const { t } = useTranslation();
     const { peerTrust } = useNetwork();
@@ -101,7 +107,10 @@ export function InviteConnectionsDialog({
                     groupId,
                     roomKeyHex,
                     metadata,
-                    relayUrl: activeRelayUrl
+                    relayUrl: activeRelayUrl,
+                    communityId,
+                    genesisEventId,
+                    creatorPubkey
                 });
                 await relayPool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
 
@@ -115,7 +124,10 @@ export function InviteConnectionsDialog({
                     content: JSON.stringify({
                         type: "community-invite",
                         groupId,
-                        metadata
+                        metadata,
+                        communityId,
+                        genesisEventId,
+                        creatorPubkey
                     }),
                     timestamp: new Date(),
                     isOutgoing: true,

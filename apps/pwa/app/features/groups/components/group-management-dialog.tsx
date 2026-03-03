@@ -96,6 +96,7 @@ export function GroupManagementDialog({
     } = useSealedCommunity({
         groupId: group.groupId,
         relayUrl: group.relayUrl,
+        communityId: group.communityId,
         pool,
         myPublicKeyHex,
         myPrivateKeyHex,
@@ -218,6 +219,8 @@ export function GroupManagementDialog({
         if (JSON.stringify(live) !== JSON.stringify(cached)) {
             updateGroup({
                 groupId: group.groupId,
+                relayUrl: group.relayUrl,
+                conversationId: group.id,
                 updates: {
                     memberPubkeys: [...members],
                     memberCount: members.length
@@ -230,7 +233,7 @@ export function GroupManagementDialog({
         setIsProcessing(true);
         try {
             await leaveNip29Group();
-            leaveGroup(group.groupId);
+            leaveGroup({ groupId: group.groupId, relayUrl: group.relayUrl, conversationId: group.id });
             onClose();
             toast.success("Connection Severed");
         } catch (error) {
@@ -245,7 +248,7 @@ export function GroupManagementDialog({
         setIsProcessing(true);
         try {
             await leaveNip29Group();
-            leaveGroup(group.groupId);
+            leaveGroup({ groupId: group.groupId, relayUrl: group.relayUrl, conversationId: group.id });
             onClose();
             toast.success("Community Purged");
         } catch (error) {
@@ -794,6 +797,9 @@ export function GroupManagementDialog({
                 onClose={() => setIsInviteModalOpen(false)}
                 groupId={group.groupId}
                 roomKeyHex={roomKeyHex || ""}
+                communityId={group.communityId}
+                genesisEventId={group.genesisEventId}
+                creatorPubkey={group.creatorPubkey}
                 currentMemberPubkeys={members}
                 metadata={{
                     id: group.groupId,

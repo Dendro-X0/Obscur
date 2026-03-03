@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { useGroups } from "../providers/group-provider";
+import { toGroupConversationId } from "../utils/group-conversation-id";
 
 /**
  * Props for GroupJoinDialog
@@ -55,7 +56,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
             // Add to local state for immediate UI update
             addGroup({
                 kind: "group",
-                id: `${groupId}@${new URL(relayUrl).hostname}`,
+                id: toGroupConversationId({ groupId, relayUrl }),
                 groupId,
                 relayUrl,
                 displayName: groupState.metadata?.name || groupId,
@@ -67,7 +68,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 memberCount: 0,
                 adminPubkeys: [], // Will be hydrated
                 avatar: groupState.metadata?.picture
-            });
+            }, { allowRevive: true });
 
             onSuccess?.();
             onOpenChange(false);

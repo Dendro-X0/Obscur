@@ -24,6 +24,15 @@
   - Smart NIP-96 provider routing: images are routed to `nostr.build`, while larger video/audio files are routed to `void.cat` and `sovbit`.
   - Added custom, aesthetically pleasing `VideoPlayer` and `AudioPlayer` components for inline media playback within the chat UI.
   - Complete internationalization (i18n) for media statuses in Chinese, Spanish, and English.
+  - Added an explicit **best-effort storage model** for OSS/no-cloud operation, including in-app guidance that uploads depend on public NIP-96 providers and external-link fallback for critical media.
+
+### Changed
+
+- **Media Upload Reliability Policy**:
+  - Introduced shared upload limits tuned for public providers: image 8MB, audio 20MB, video 35MB.
+  - Added final pre-upload validation in `Nip96UploadService` so all upload entrypoints (chat + group/avatar flows) enforce the same constraints.
+  - Added policy-based image preprocessing before upload, plus stricter UX messaging for timeout/size failures.
+  - Updated composer UI copy to explain why media delivery is best-effort without dedicated cloud infrastructure.
 
 ### Fixed
 

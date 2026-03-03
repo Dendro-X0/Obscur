@@ -9,12 +9,14 @@ import { Paperclip, Send, X, FileText, Loader2, Smile, Play } from "lucide-react
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { VoiceRecorder } from "./voice-recorder";
 import type { ReplyTo, RelayStatusSummary } from "../types";
+import { BEST_EFFORT_STORAGE_NOTE } from "../lib/media-upload-policy";
 
 interface ComposerProps {
     messageInput: string;
     setMessageInput: (val: string) => void;
     handleSendMessage: () => void;
     isUploadingAttachment: boolean;
+    uploadStage: "idle" | "encrypting" | "uploading" | "sending";
     pendingAttachments: ReadonlyArray<File>;
     pendingAttachmentPreviewUrls: ReadonlyArray<string>;
     attachmentError: string | null;
@@ -40,6 +42,7 @@ export function Composer({
     setMessageInput,
     handleSendMessage,
     isUploadingAttachment,
+    uploadStage,
     pendingAttachments,
     pendingAttachmentPreviewUrls,
     attachmentError,
@@ -172,77 +175,82 @@ export function Composer({
 
             {/* Attachment Preview (Multiple) */}
             {pendingAttachments.length > 0 && (
-                <div className="mb-3 flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-                    {pendingAttachments.map((file, index) => (
-                        <div key={index} className="relative shrink-0 w-32 group animate-in zoom-in-95 duration-200">
-                            <div className="relative rounded-xl overflow-hidden aspect-square border border-black/5 dark:border-white/5 bg-black/5">
-                                {file.type.startsWith("image/") ? (
-                                    <Image
-                                        src={pendingAttachmentPreviewUrls[index]}
-                                        alt={file.name}
-                                        fill
-                                        unoptimized
-                                        className="object-cover transition-transform group-hover:scale-110 duration-500"
-                                    />
-                                ) : file.type.startsWith("video/") ? (
-                                    <div className="relative h-full w-full flex flex-col items-center justify-center bg-zinc-900 text-white">
-                                        {pendingAttachmentPreviewUrls[index].startsWith("data:image") ? (
-                                            <Image
-                                                src={pendingAttachmentPreviewUrls[index]}
-                                                alt={file.name}
-                                                fill
-                                                unoptimized
-                                                className="object-cover opacity-60"
-                                            />
-                                        ) : null}
-                                        <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md">
-                                            <Play className="h-5 w-5 fill-current" />
-                                        </div>
-                                        <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80 shadow-sm">{t("common.video")}</span>
-                                    </div>
-                                ) : file.type.startsWith("audio/") ? (
-                                    <div className="h-full w-full flex flex-col items-center justify-center bg-purple-600 text-white">
-                                        <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/20">
-                                            <div className="flex gap-0.5 items-end h-4">
-                                                <div className="w-1 h-3 bg-white animate-pulse" />
-                                                <div className="w-1 h-4 bg-white animate-pulse" style={{ animationDelay: '0.1s' }} />
-                                                <div className="w-1 h-2 bg-white animate-pulse" style={{ animationDelay: '0.2s' }} />
+                <div className="mb-3">
+                    <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+                        {pendingAttachments.map((file, index) => (
+                            <div key={index} className="relative shrink-0 w-32 group animate-in zoom-in-95 duration-200">
+                                <div className="relative rounded-xl overflow-hidden aspect-square border border-black/5 dark:border-white/5 bg-black/5">
+                                    {file.type.startsWith("image/") ? (
+                                        <Image
+                                            src={pendingAttachmentPreviewUrls[index]}
+                                            alt={file.name}
+                                            fill
+                                            unoptimized
+                                            className="object-cover transition-transform group-hover:scale-110 duration-500"
+                                        />
+                                    ) : file.type.startsWith("video/") ? (
+                                        <div className="relative h-full w-full flex flex-col items-center justify-center bg-zinc-900 text-white">
+                                            {pendingAttachmentPreviewUrls[index].startsWith("data:image") ? (
+                                                <Image
+                                                    src={pendingAttachmentPreviewUrls[index]}
+                                                    alt={file.name}
+                                                    fill
+                                                    unoptimized
+                                                    className="object-cover opacity-60"
+                                                />
+                                            ) : null}
+                                            <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md">
+                                                <Play className="h-5 w-5 fill-current" />
                                             </div>
+                                            <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80 shadow-sm">{t("common.video")}</span>
                                         </div>
-                                        <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80">Audio</span>
+                                    ) : file.type.startsWith("audio/") ? (
+                                        <div className="h-full w-full flex flex-col items-center justify-center bg-purple-600 text-white">
+                                            <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/20">
+                                                <div className="flex gap-0.5 items-end h-4">
+                                                    <div className="w-1 h-3 bg-white animate-pulse" />
+                                                    <div className="w-1 h-4 bg-white animate-pulse" style={{ animationDelay: '0.1s' }} />
+                                                    <div className="w-1 h-2 bg-white animate-pulse" style={{ animationDelay: '0.2s' }} />
+                                                </div>
+                                            </div>
+                                            <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80">Audio</span>
+                                        </div>
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
+                                            <FileText className="h-8 w-8 text-zinc-400" />
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Button
+                                            type="button"
+                                            variant="danger"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-full shadow-lg"
+                                            onClick={() => removePendingAttachment(index)}
+                                        >
+                                            <X className="h-5 w-5" />
+                                        </Button>
                                     </div>
-                                ) : (
-                                    <div className="h-full w-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
-                                        <FileText className="h-8 w-8 text-zinc-400" />
-                                    </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Button
-                                        type="button"
-                                        variant="danger"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full shadow-lg"
-                                        onClick={() => removePendingAttachment(index)}
-                                    >
-                                        <X className="h-5 w-5" />
-                                    </Button>
+                                </div>
+                                <div className="mt-1 text-[9px] font-medium text-zinc-500 truncate px-1">
+                                    {file.name}
                                 </div>
                             </div>
-                            <div className="mt-1 text-[9px] font-medium text-zinc-500 truncate px-1">
-                                {file.name}
-                            </div>
-                        </div>
-                    ))}
+                        ))}
 
-                    {/* Add More Button */}
-                    <button
-                        type="button"
-                        onClick={onSelectFiles}
-                        className="shrink-0 w-32 aspect-square rounded-xl border-2 border-dashed border-black/5 dark:border-white/10 flex flex-col items-center justify-center hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-zinc-400 hover:text-purple-500 group"
-                    >
-                        <Paperclip className="h-6 w-6 mb-1 transition-transform group-hover:rotate-12" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{t("common.addMore")}</span>
-                    </button>
+                        {/* Add More Button */}
+                        <button
+                            type="button"
+                            onClick={onSelectFiles}
+                            className="shrink-0 w-32 aspect-square rounded-xl border-2 border-dashed border-black/5 dark:border-white/10 flex flex-col items-center justify-center hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-zinc-400 hover:text-purple-500 group"
+                        >
+                            <Paperclip className="h-6 w-6 mb-1 transition-transform group-hover:rotate-12" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{t("common.addMore")}</span>
+                        </button>
+                    </div>
+                    <p className="mt-1 px-2 text-[10px] font-medium text-zinc-500">
+                        {BEST_EFFORT_STORAGE_NOTE}
+                    </p>
                 </div>
             )}
 
@@ -263,6 +271,42 @@ export function Composer({
                             style={{ width: `${mediaProcessingProgress}%` }}
                         />
                     </div>
+                </div>
+            )}
+
+            {isUploadingAttachment && pendingAttachments.length > 0 && (
+                <div className="mb-3 overflow-hidden rounded-xl bg-indigo-500/10 p-3 border border-indigo-500/20 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">
+                                {uploadStage === "encrypting"
+                                    ? t("messaging.uploadStageEncrypting", "Encrypting files...")
+                                    : uploadStage === "uploading"
+                                        ? t("messaging.uploadStageUploading", "Uploading files...")
+                                        : t("messaging.uploadStageSending", "Sending message...")}
+                            </span>
+                        </div>
+                        <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300">
+                            {pendingAttachments.length} {pendingAttachments.length === 1 ? t("common.file", "file") : t("common.files", "files")}
+                        </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full w-1/3 bg-gradient-to-r from-indigo-500 to-cyan-400 animate-[vault-upload-bar_1.2s_ease-in-out_infinite] [transform-origin:left_center]" />
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-indigo-700/80 dark:text-indigo-300/80">
+                        <span className={cn(uploadStage === "encrypting" ? "text-indigo-700 dark:text-indigo-200" : "opacity-50")}>Encrypting</span>
+                        <span className="opacity-50">-</span>
+                        <span className={cn(uploadStage === "uploading" ? "text-indigo-700 dark:text-indigo-200" : "opacity-50")}>Uploading</span>
+                        <span className="opacity-50">-</span>
+                        <span className={cn(uploadStage === "sending" ? "text-indigo-700 dark:text-indigo-200" : "opacity-50")}>Sending</span>
+                    </div>
+                    <style jsx>{`
+                        @keyframes vault-upload-bar {
+                            0% { transform: translateX(-120%); }
+                            100% { transform: translateX(320%); }
+                        }
+                    `}</style>
                 </div>
             )}
 

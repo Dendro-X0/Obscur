@@ -19,6 +19,8 @@ import { UserAvatar } from "../../profile/components/user-avatar";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { CommunityInviteCard } from "../../groups/components/community-invite-card";
 import { CommunityInviteResponseCard } from "../../groups/components/community-invite-response-card";
+import { inferAttachmentKind } from "../utils/logic";
+import { getLocalMediaIndexEntryByRemoteUrl } from "@/app/features/vault/services/local-media-store";
 
 interface MessageListProps {
     hasHydrated: boolean;
@@ -142,6 +144,19 @@ export function MessageList({
     const refreshRotate = useTransform(y, [0, 80], [0, 180]);
     const refreshScale = useTransform(y, [0, 80], [0.5, 1]);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
+    const [localAttachmentUrlSet, setLocalAttachmentUrlSet] = React.useState<ReadonlySet<string>>(new Set());
+
+    React.useEffect(() => {
+        const urls = new Set<string>();
+        messages.forEach((message) => {
+            message.attachments?.forEach((attachment) => {
+                if (getLocalMediaIndexEntryByRemoteUrl(attachment.url)) {
+                    urls.add(attachment.url);
+                }
+            });
+        });
+        setLocalAttachmentUrlSet(urls);
+    }, [messages]);
 
     const handleDragEnd = async () => {
         if (y.get() > 80 && !isRefreshing && onRefresh) {
@@ -386,7 +401,9 @@ export function MessageList({
 
                                                                 {(message.attachments && message.attachments.length > 0) && (
                                                                     <div className="mb-2 grid gap-1 grid-cols-2">
-                                                                        {message.attachments.map((attachment, index) => (
+                                                                        {message.attachments.map((attachment, index) => {
+                                                                            const effectiveKind = inferAttachmentKind(attachment);
+                                                                            return (
                                                                             <div
                                                                                 key={`${attachment.url}-${index}`}
                                                                                 className={cn(
@@ -396,7 +413,12 @@ export function MessageList({
                                                                                         : "aspect-square"
                                                                                 )}
                                                                             >
-                                                                                {attachment.kind === "image" ? (
+                                                                                {localAttachmentUrlSet.has(attachment.url) ? (
+                                                                                    <div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
+                                                                                        Vault
+                                                                                    </div>
+                                                                                ) : null}
+                                                                                {effectiveKind === "image" ? (
                                                                                     <OptimizedImage
                                                                                         src={attachment.url}
                                                                                         alt={attachment.fileName}
@@ -404,11 +426,11 @@ export function MessageList({
                                                                                         className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
                                                                                         onClick={() => onImageClick?.(attachment.url)}
                                                                                     />
-                                                                                ) : attachment.kind === "audio" ? (
+                                                                                ) : effectiveKind === "audio" ? (
                                                                                     <div className="h-full w-full flex items-center justify-center p-2">
                                                                                         <AudioPlayer src={attachment.url} isOutgoing={message.isOutgoing} />
                                                                                     </div>
-                                                                                ) : attachment.kind === "video" ? (
+                                                                                ) : effectiveKind === "video" ? (
                                                                                     <VideoPlayer
                                                                                         src={attachment.url}
                                                                                         isOutgoing={message.isOutgoing}
@@ -441,7 +463,7 @@ export function MessageList({
                                                                                     </div>
                                                                                 )}
                                                                             </div>
-                                                                        ))}
+                                                                        )})}
                                                                     </div>
                                                                 )}
 

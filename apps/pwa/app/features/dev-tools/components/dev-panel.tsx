@@ -4,18 +4,36 @@ import React, { useState } from "react";
 import { Ghost, Bot, Zap, Settings, ChevronUp, ChevronDown, Trash2, Play, MessageSquare, UserPlus } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { Card } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit";
 import { useDevMode } from "../hooks/use-dev-mode";
 import { SCENARIOS } from "../scenarios";
 import { cn } from "@dweb/ui-kit";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { loadGroupTombstones } from "@/app/features/groups/services/group-tombstone-store";
+import {
+    auditCommunityMigrationState,
+    type CommunityMigrationAuditReport
+} from "@/app/features/groups/services/community-migration-audit";
 
 export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const { isDevMode, toggleDevMode, botEngine, mockPool } = useDevMode();
     const { requestsInbox } = useNetwork();
+    const identity = useIdentity();
     const [isOpen, setIsOpen] = useState(false);
     const [activeScenario, setActiveScenario] = useState<string | null>(null);
     const [stopScenario, setStopScenario] = useState<(() => void) | null>(null);
+    const [migrationAuditReport, setMigrationAuditReport] = useState<CommunityMigrationAuditReport | null>(null);
+    const [isCopyingAudit, setIsCopyingAudit] = useState(false);
+    const [isCopyingAffectedKeys, setIsCopyingAffectedKeys] = useState(false);
+    const [isRunAndCopyingAudit, setIsRunAndCopyingAudit] = useState(false);
+    const [affectedCommunities, setAffectedCommunities] = useState<ReadonlyArray<Readonly<{
+        key: string;
+        conversationId: string;
+        displayName: string;
+    }>>>([]);
 
     if (!isDevMode && process.env.NODE_ENV !== "development") {
         return null;
@@ -74,6 +92,106 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
             isRequest: true,
             status: 'pending'
         });
+    };
+
+    const runCommunityMigrationAudit = (): Readonly<{
+        report: CommunityMigrationAuditReport;
+        affected: ReadonlyArray<Readonly<{
+            key: string;
+            conversationId: string;
+            displayName: string;
+        }>>;
+    }> | null => {
+        const publicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
+        if (!publicKeyHex) {
+            setMigrationAuditReport(null);
+            setAffectedCommunities([]);
+            return null;
+        }
+        const state = chatStateStoreService.load(publicKeyHex as PublicKeyHex);
+        if (!state) {
+            setMigrationAuditReport(null);
+            setAffectedCommunities([]);
+            return null;
+        }
+        const tombstones = loadGroupTombstones(publicKeyHex);
+        const report = auditCommunityMigrationState({ state, tombstones });
+        setMigrationAuditReport(report);
+        const affected = state.createdGroups
+            .filter((group) => report.missingGenesisIdentityKeys.includes(`${group.groupId}@@${group.relayUrl}`))
+            .map((group) => ({
+                key: `${group.groupId}@@${group.relayUrl}`,
+                conversationId: group.id,
+                displayName: group.displayName || group.groupId
+            }));
+        setAffectedCommunities(affected);
+        return { report, affected };
+    };
+
+    const copyCommunityMigrationAudit = async () => {
+        if (!migrationAuditReport) return;
+        if (typeof navigator === "undefined" || !navigator.clipboard) return;
+        try {
+            setIsCopyingAudit(true);
+            await navigator.clipboard.writeText(JSON.stringify(migrationAuditReport, null, 2));
+            toast.success("Audit JSON copied");
+        } catch {
+            toast.error("Failed to copy audit JSON");
+        } finally {
+            setIsCopyingAudit(false);
+        }
+    };
+
+    const copyAffectedCommunityKeys = async () => {
+        if (!migrationAuditReport) return;
+        if (migrationAuditReport.missingGenesisIdentityKeys.length === 0) return;
+        if (typeof navigator === "undefined" || !navigator.clipboard) return;
+        try {
+            setIsCopyingAffectedKeys(true);
+            await navigator.clipboard.writeText(
+                JSON.stringify(
+                    {
+                        missingGenesisIdentityKeys: migrationAuditReport.missingGenesisIdentityKeys
+                    },
+                    null,
+                    2
+                )
+            );
+            toast.success("Affected keys copied");
+        } catch {
+            toast.error("Failed to copy affected keys");
+        } finally {
+            setIsCopyingAffectedKeys(false);
+        }
+    };
+
+    const runAndCopyCommunityMigrationAudit = async () => {
+        if (typeof navigator === "undefined" || !navigator.clipboard) return;
+        try {
+            setIsRunAndCopyingAudit(true);
+            const result = runCommunityMigrationAudit();
+            if (!result) return;
+            await navigator.clipboard.writeText(
+                JSON.stringify(
+                    {
+                        report: result.report,
+                        affectedCommunities: result.affected
+                    },
+                    null,
+                    2
+                )
+            );
+            toast.success("Audit report and affected communities copied");
+        } catch {
+            toast.error("Failed to run and copy audit");
+        } finally {
+            setIsRunAndCopyingAudit(false);
+        }
+    };
+
+    const openCommunity = (conversationId: string) => {
+        if (typeof window === "undefined") return;
+        window.location.href = `/?convId=${encodeURIComponent(conversationId)}`;
     };
 
     return (
@@ -212,6 +330,122 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                                 >
                                     {isDevMode ? "Disable & Reload" : "Enable Dev Mode"}
                                 </Button>
+                            </div>
+                        </div>
+
+                        {/* Community V2 Audit */}
+                        <div className="border-t pt-4 dark:border-white/10">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                                    Community Migration Audit
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-[10px]"
+                                        onClick={runCommunityMigrationAudit}
+                                    >
+                                        Run
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-[10px]"
+                                        onClick={copyCommunityMigrationAudit}
+                                        disabled={!migrationAuditReport || isCopyingAudit}
+                                    >
+                                        {isCopyingAudit ? "Copying..." : "Copy Audit JSON"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-[10px]"
+                                        onClick={runAndCopyCommunityMigrationAudit}
+                                        disabled={isRunAndCopyingAudit}
+                                    >
+                                        {isRunAndCopyingAudit ? "Running..." : "Run + Copy all"}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 dark:bg-zinc-800/50">
+                                {!migrationAuditReport ? (
+                                    <div className="text-[11px] text-zinc-500">No report yet.</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-[11px] text-zinc-500">Status</div>
+                                            <span
+                                                className={cn(
+                                                    "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                                                    migrationAuditReport.ok
+                                                        ? "bg-emerald-500/20 text-emerald-600"
+                                                        : "bg-rose-500/20 text-rose-600"
+                                                )}
+                                            >
+                                                {migrationAuditReport.ok ? "PASS" : "FAIL"}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                            <div className="rounded bg-white/70 p-1.5 dark:bg-black/20">
+                                                duplicates: {migrationAuditReport.duplicateActiveCommunityKeys.length}
+                                            </div>
+                                            <div className="rounded bg-white/70 p-1.5 dark:bg-black/20">
+                                                tombstone conflicts: {migrationAuditReport.tombstonedActiveCommunityKeys.length}
+                                            </div>
+                                            <div className="rounded bg-white/70 p-1.5 dark:bg-black/20">
+                                                missing genesis ids: {migrationAuditReport.missingGenesisIdentityKeys.length}
+                                            </div>
+                                            <div className="rounded bg-white/70 p-1.5 dark:bg-black/20">
+                                                orphan ids: {migrationAuditReport.orphanConversationIds.length}
+                                            </div>
+                                            <div className="rounded bg-white/70 p-1.5 dark:bg-black/20">
+                                                non-canonical ids: {migrationAuditReport.nonCanonicalKnownConversationIds.length}
+                                            </div>
+                                        </div>
+                                        {migrationAuditReport.missingGenesisIdentityKeys.length > 0 && (
+                                            <div className="space-y-2 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-700 dark:text-amber-300">
+                                                <div>
+                                                    Found communities missing genesis identity fields. Rejoin or recreate these communities to complete V2 identity migration.
+                                                </div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {affectedCommunities.slice(0, 4).map((community) => (
+                                                        <Button
+                                                            key={community.key}
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-6 text-[10px]"
+                                                            onClick={() => openCommunity(community.conversationId)}
+                                                        >
+                                                            Open {community.displayName}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                                {affectedCommunities.length > 4 && (
+                                                    <div className="text-[10px] opacity-80">
+                                                        +{affectedCommunities.length - 4} more affected communities
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-6 text-[10px]"
+                                                        onClick={copyAffectedCommunityKeys}
+                                                        disabled={isCopyingAffectedKeys}
+                                                    >
+                                                        {isCopyingAffectedKeys ? "Copying..." : "Export affected keys"}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {!migrationAuditReport.ok && (
+                                            <pre className="max-h-32 overflow-auto rounded bg-black/80 p-2 text-[10px] text-zinc-100">
+                                                {JSON.stringify(migrationAuditReport, null, 2)}
+                                            </pre>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

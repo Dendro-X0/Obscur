@@ -3,6 +3,18 @@
 import { useEffect, useState, useMemo } from "react";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import type { Message, MediaItem } from "../../messaging/types";
+import {
+    deleteLocalMediaCacheItem,
+    getLocalMediaIndexEntryByRemoteUrl,
+    resolveLocalMediaUrl
+} from "../services/local-media-store";
+
+export type VaultMediaItem = Readonly<MediaItem & {
+    id: string;
+    remoteUrl: string;
+    isLocalCached: boolean;
+    localRelativePath: string | null;
+}>;
 
 /**
  * useVaultMedia
@@ -11,7 +23,7 @@ import type { Message, MediaItem } from "../../messaging/types";
  * This is the core data provider for "The Vault".
  */
 export function useVaultMedia() {
-    const [mediaItems, setMediaItems] = useState<ReadonlyArray<MediaItem>>([]);
+    const [mediaItems, setMediaItems] = useState<ReadonlyArray<VaultMediaItem>>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
@@ -21,22 +33,33 @@ export function useVaultMedia() {
             // Get all messages from IndexedDB
             const allMessages = await messagingDB.getAll<Message>("messages");
 
-            const aggregated: MediaItem[] = [];
+            const aggregated: VaultMediaItem[] = [];
 
-            allMessages.forEach(msg => {
-                if (msg.attachments && msg.attachments.length > 0) {
-                    msg.attachments.forEach(attachment => {
-                        // We only want images and videos for now
-                        if (attachment.kind === "image" || attachment.kind === "video") {
-                            aggregated.push({
-                                messageId: msg.id,
-                                attachment,
-                                timestamp: new Date(msg.timestamp)
-                            });
-                        }
-                    });
-                }
+            const mediaCandidates: Array<{ msg: Message; attachment: NonNullable<Message["attachments"]>[number] }> = [];
+            allMessages.forEach((msg) => {
+                if (!msg.attachments || msg.attachments.length === 0) return;
+                msg.attachments.forEach((attachment) => {
+                    if (attachment.kind === "image" || attachment.kind === "video" || attachment.kind === "audio") {
+                        mediaCandidates.push({ msg, attachment });
+                    }
+                });
             });
+
+            const resolvedItems = await Promise.all(mediaCandidates.map(async ({ msg, attachment }, idx) => {
+                const localUrl = await resolveLocalMediaUrl(attachment.url);
+                const indexEntry = getLocalMediaIndexEntryByRemoteUrl(attachment.url);
+                return {
+                    id: `${msg.id}-${idx}-${attachment.url}`,
+                    messageId: msg.id,
+                    attachment: localUrl ? { ...attachment, url: localUrl } : attachment,
+                    timestamp: new Date(msg.timestamp),
+                    remoteUrl: attachment.url,
+                    isLocalCached: !!localUrl,
+                    localRelativePath: indexEntry?.relativePath ?? null
+                } as VaultMediaItem;
+            }));
+
+            aggregated.push(...resolvedItems);
 
             // Sort by timestamp descending
             aggregated.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -66,6 +89,10 @@ export function useVaultMedia() {
         isLoading,
         error,
         refresh,
+        deleteLocalCopy: async (remoteUrl: string) => {
+            await deleteLocalMediaCacheItem(remoteUrl);
+            await refresh();
+        },
         stats
     };
 }

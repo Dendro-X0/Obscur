@@ -43,6 +43,23 @@ const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', '.ogv'];
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.opus'];
 const IMAGE_HOSTS = ['image.nostr.build', 'nostr.build', 'blossom.', 'imgprxy.', 'void.cat'];
 
+export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] => {
+    const lowerUrl = attachment.url.toLowerCase();
+    const lowerContentType = attachment.contentType.toLowerCase();
+
+    if (AUDIO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) || lowerContentType.startsWith("audio/")) {
+        return "audio";
+    }
+    if (VIDEO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) || lowerContentType.startsWith("video/")) {
+        return "video";
+    }
+    if (IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) || lowerContentType.startsWith("image/")) {
+        return "image";
+    }
+
+    return attachment.kind;
+};
+
 export const extractAttachmentsFromContent = (content: string): Attachment[] => {
     const urlRegex = /(https?:\/\/[^\s]+|\/uploads\/[^\s]+)/g;
     const matches = content.match(urlRegex);

@@ -29,6 +29,22 @@ export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResu
             connections: mockPool.connections,
             healthMetrics: mockPool.healthMetrics,
             sendToOpen: mockPool.sendToOpen.bind(mockPool),
+            publishToUrl: mockPool.publishToRelay.bind(mockPool),
+            publishToUrls: async (urls: ReadonlyArray<string>, payload: string) => {
+                const unique = Array.from(new Set(urls));
+                if (unique.length === 0) {
+                    return { success: false, successCount: 0, totalRelays: 0, results: [], overallError: "No scoped relays provided" };
+                }
+                const results = await Promise.all(unique.map((url) => mockPool.publishToRelay(url, payload)));
+                const successCount = results.filter((r) => r.success).length;
+                return {
+                    success: successCount > 0,
+                    successCount,
+                    totalRelays: unique.length,
+                    results,
+                    overallError: successCount > 0 ? undefined : (results[0]?.error ?? "Unknown failure")
+                };
+            },
             publishToRelay: mockPool.publishToRelay.bind(mockPool),
             publishToAll: mockPool.publishToAll.bind(mockPool),
             broadcastEvent: mockPool.publishToAll.bind(mockPool),

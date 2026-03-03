@@ -59,6 +59,14 @@ import { PrivacySettingsService, type PrivacySettings } from "@/app/features/set
 import { invoke } from "@tauri-apps/api/core";
 import { useUserInviteCode } from "@/app/features/invites/hooks/use-user-invite-code";
 import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
+import {
+  getLocalMediaStorageConfig,
+  getLocalMediaStorageAbsolutePath,
+  openLocalMediaStoragePath,
+  purgeLocalMediaCache,
+  saveLocalMediaStorageConfig,
+  type LocalMediaStorageConfig
+} from "@/app/features/vault/services/local-media-store";
 
 const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 
@@ -443,11 +451,33 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       return fallback;
     }
   });
+  const [localMediaConfig, setLocalMediaConfig] = useState<LocalMediaStorageConfig>(() => getLocalMediaStorageConfig());
+  const [localMediaAbsolutePath, setLocalMediaAbsolutePath] = useState<string>("");
+  const [isResolvingLocalPath, setIsResolvingLocalPath] = useState<boolean>(false);
 
   const saveNip96Config = (newConfig: Nip96Config) => {
     setNip96Config(newConfig);
     localStorage.setItem(STORAGE_KEY_NIP96, JSON.stringify(newConfig));
   };
+
+  const saveLocalMediaConfig = (newConfig: LocalMediaStorageConfig): void => {
+    const normalized = saveLocalMediaStorageConfig(newConfig);
+    setLocalMediaConfig(normalized);
+  };
+
+  const refreshLocalMediaAbsolutePath = async (): Promise<void> => {
+    setIsResolvingLocalPath(true);
+    try {
+      const resolved = await getLocalMediaStorageAbsolutePath();
+      setLocalMediaAbsolutePath(resolved || "");
+    } finally {
+      setIsResolvingLocalPath(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshLocalMediaAbsolutePath();
+  }, [localMediaConfig.subdir]);
 
   const handleSavePrivacy = (newSettings: PrivacySettings) => {
     setPrivacySettings(newSettings);
@@ -929,7 +959,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
       {activeTab === "storage" && (
         <Card title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="space-y-2">
               <Label>Media Upload Provider (NIP-96)</Label>
               <Input
@@ -945,6 +975,77 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   id="nip96-enabled"
                 />
                 <Label htmlFor="nip96-enabled">Enable Media Uploads</Label>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
+              <div>
+                <Label className="font-semibold">Local Vault Data (Desktop)</Label>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Cache sent and received files locally. Relays are used for encrypted transmission only.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={localMediaConfig.enabled}
+                  onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, enabled: e.target.checked })}
+                  id="local-media-enabled"
+                />
+                <Label htmlFor="local-media-enabled">Enable local media cache</Label>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="local-media-subdir">Local data folder (inside app data)</Label>
+                <Input
+                  id="local-media-subdir"
+                  value={localMediaConfig.subdir}
+                  onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, subdir: e.target.value })}
+                  placeholder="vault-media"
+                />
+              </div>
+
+              <div className="grid gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={localMediaConfig.cacheSentFiles}
+                    onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, cacheSentFiles: e.target.checked })}
+                  />
+                  Cache sent files
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={localMediaConfig.cacheReceivedFiles}
+                    onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, cacheReceivedFiles: e.target.checked })}
+                  />
+                  Cache received files
+                </label>
+              </div>
+
+              <div className="rounded-lg bg-zinc-50 p-3 text-xs font-mono text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+                {isResolvingLocalPath ? "Resolving local data path..." : (localMediaAbsolutePath || "Local path is available in desktop runtime")}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={() => void openLocalMediaStoragePath()}>
+                  Open Local Data Folder
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    await purgeLocalMediaCache();
+                    toast.success("Local media cache cleared.");
+                  }}
+                >
+                  Clear Local Media Cache
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => void refreshLocalMediaAbsolutePath()}>
+                  Refresh Path
+                </Button>
               </div>
             </div>
           </div>

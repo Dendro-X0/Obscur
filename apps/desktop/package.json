@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "predev": "node ../../scripts/setup-tor.mjs",
+    "predev": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
     "dev": "tauri dev",
-    "prebuild": "node ../../scripts/setup-tor.mjs",
+    "prebuild": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
     "build": "tauri build"
   },
   "dependencies": {

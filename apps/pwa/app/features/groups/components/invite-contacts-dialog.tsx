@@ -11,6 +11,9 @@ interface InviteContactsDialogProps {
   roomKeyHex: string;
   metadata: GroupMetadata;
   currentMemberPubkeys?: ReadonlyArray<string>;
+  communityId?: string;
+  genesisEventId?: string;
+  creatorPubkey?: string;
 }
 
 // Backward-compatible alias: "contacts" terminology now maps to "connections".
