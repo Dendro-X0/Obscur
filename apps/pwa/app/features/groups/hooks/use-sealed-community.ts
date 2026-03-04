@@ -17,6 +17,7 @@ import {
 import { messageBus } from "../../messaging/services/message-bus";
 import type { Message } from "../../messaging/types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import {
   createCommunityLedgerState,
   reduceCommunityLedger,
@@ -71,6 +72,13 @@ type RelayOkFeedback = Readonly<{
 type RelayFeedback = Readonly<{
   lastOk?: RelayOkFeedback;
   lastNotice?: string;
+  rejectionStats?: Readonly<{
+    totalRejected: number;
+    relayScopeMismatch: number;
+    lastReason?: string;
+    lastReceivedRelay?: string;
+    updatedAt: number;
+  }>;
 }>;
 
 export type GroupMessageEvent = Readonly<{
@@ -133,8 +141,77 @@ const GROUP_KIND_SEALED = 10105;
 const GROUP_KIND_DELETE = 5;
 const GROUP_KIND_METADATA = 39000;
 const GROUP_KIND_MEMBERS = 39002;
+const MAX_GROUP_MESSAGES = 200;
+const GROUP_DELETE_TOMBSTONE_TTL_MS = 2 * 60 * 1000;
+
+export const mergeGroupMessagesDescending = (params: Readonly<{
+  previous: ReadonlyArray<GroupMessageEvent>;
+  incoming: ReadonlyArray<GroupMessageEvent>;
+}>): ReadonlyArray<GroupMessageEvent> => {
+  if (params.incoming.length === 0) return params.previous;
+  if (params.previous.length === 0) {
+    return [...params.incoming]
+      .sort((a, b) => b.created_at - a.created_at)
+      .slice(0, MAX_GROUP_MESSAGES);
+  }
+
+  // Fast path: most realtime updates are a single event at either timeline boundary.
+  if (params.incoming.length === 1) {
+    const incoming = params.incoming[0];
+    const existingIndex = params.previous.findIndex((message) => message.id === incoming.id);
+    if (existingIndex >= 0) {
+      const existing = params.previous[existingIndex];
+      if (
+        existing.created_at === incoming.created_at &&
+        existing.content === incoming.content &&
+        existing.pubkey === incoming.pubkey
+      ) {
+        return params.previous;
+      }
+
+      const replaced = [...params.previous];
+      replaced[existingIndex] = incoming;
+      const prevIsOrdered = existingIndex === 0 || replaced[existingIndex - 1].created_at >= incoming.created_at;
+      const nextIsOrdered = existingIndex === replaced.length - 1 || replaced[existingIndex + 1].created_at <= incoming.created_at;
+      if (prevIsOrdered && nextIsOrdered) {
+        return replaced.slice(0, MAX_GROUP_MESSAGES);
+      }
+    } else {
+      if (incoming.created_at >= params.previous[0].created_at) {
+        return [incoming, ...params.previous].slice(0, MAX_GROUP_MESSAGES);
+      }
+      if (incoming.created_at <= params.previous[params.previous.length - 1].created_at) {
+        return [...params.previous, incoming].slice(0, MAX_GROUP_MESSAGES);
+      }
+    }
+  }
+
+  const byId = new Map<string, GroupMessageEvent>();
+  params.previous.forEach((message) => {
+    byId.set(message.id, message);
+  });
+  params.incoming.forEach((message) => {
+    byId.set(message.id, message);
+  });
+  return Array.from(byId.values())
+    .sort((a, b) => b.created_at - a.created_at)
+    .slice(0, MAX_GROUP_MESSAGES);
+};
 
 export const normalizeRelayUrl = (url: string): string => url.trim().toLowerCase().replace(/\/+$/, "");
+
+const UNKNOWN_RELAY_SENTINELS = new Set(["unknown", "null", "undefined", "n/a", "none"]);
+
+export const isValidScopedRelayUrl = (relayUrl: string): boolean => {
+  const normalized = normalizeRelayUrl(relayUrl);
+  if (normalized.length === 0) return false;
+  if (UNKNOWN_RELAY_SENTINELS.has(normalized)) return false;
+  return /^wss?:\/\/.+/.test(normalized);
+};
+
+export const toScopedRelayUrl = (relayUrl: string): string | null => {
+  return isValidScopedRelayUrl(relayUrl) ? normalizeRelayUrl(relayUrl) : null;
+};
 
 export const isScopedRelayEvent = (params: Readonly<{ scopedRelayUrl: string; eventRelayUrl: string }>): boolean => {
   return normalizeRelayUrl(params.eventRelayUrl) === normalizeRelayUrl(params.scopedRelayUrl);
@@ -167,10 +244,12 @@ const createInitialState = (): Nip29GroupState => {
 };
 
 const createRandomId = (): string => Math.random().toString(36).slice(2);
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedCommunityResult => {
   const [state, setState] = useState<Nip29GroupState>(() => createInitialState());
   const [members, setMembers] = useState<ReadonlyArray<PublicKeyHex>>(() => params.initialMembers ?? []);
+  const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
   const ledgerRef = useRef<CommunityLedgerState>(createCommunityLedgerState(params.initialMembers ?? []));
   const initialMembersKey = useMemo(() => (params.initialMembers ?? []).join(","), [params.initialMembers]);
   const membersRef = useRef<ReadonlyArray<PublicKeyHex>>(params.initialMembers ?? []);
@@ -178,10 +257,34 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const expelledMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(state.expelledMembers);
   const disbandedAtRef = useRef<number | undefined>(state.disbandedAt);
   const disbandHandledRef = useRef(false);
+  const rejectionLogStateRef = useRef<Record<string, { emitted: number; suppressed: number }>>({});
+  const rejectionStatsRef = useRef<{
+    totalRejected: number;
+    relayScopeMismatch: number;
+    lastReason?: string;
+    lastReceivedRelay?: string;
+  }>({
+    totalRejected: 0,
+    relayScopeMismatch: 0
+  });
+  const pendingRealtimeMessagesRef = useRef<Array<Readonly<{ groupMessage: GroupMessageEvent; unifiedMessage: Message }>>>([]);
+  const realtimeFlushFrameRef = useRef<number | null>(null);
+  const deletedMessageTombstonesRef = useRef<Map<string, number>>(new Map());
   const conversationId = useMemo(
     () => toGroupConversationId({ groupId: params.groupId, relayUrl: params.relayUrl, communityId: params.communityId }),
     [params.groupId, params.relayUrl, params.communityId]
   );
+
+  useEffect(() => {
+    const onPrivacySettingsChanged = () => {
+      setChatPerformanceV2Enabled(PrivacySettingsService.getSettings().chatPerformanceV2);
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("privacy-settings-changed", onPrivacySettingsChanged);
+      return () => window.removeEventListener("privacy-settings-changed", onPrivacySettingsChanged);
+    }
+    return;
+  }, []);
 
   const applyLedgerEvent = useCallback((event: CommunityLedgerEvent): void => {
     const nextLedger = reduceCommunityLedger(ledgerRef.current, event);
@@ -202,9 +305,164 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     }));
   }, [params.myPublicKeyHex]);
 
+  const flushRealtimeMessages = useCallback((): void => {
+    realtimeFlushFrameRef.current = null;
+    const queued = pendingRealtimeMessagesRef.current;
+    pendingRealtimeMessagesRef.current = [];
+    if (queued.length === 0) return;
+
+    const dedupedById = new Map<string, Readonly<{ groupMessage: GroupMessageEvent; unifiedMessage: Message }>>();
+    queued.forEach((entry) => {
+      dedupedById.set(entry.groupMessage.id, entry);
+    });
+    const deduped = Array.from(dedupedById.values());
+    const nowMs = Date.now();
+    for (const [messageId, deletedAt] of deletedMessageTombstonesRef.current.entries()) {
+      if (nowMs - deletedAt > GROUP_DELETE_TOMBSTONE_TTL_MS) {
+        deletedMessageTombstonesRef.current.delete(messageId);
+      }
+    }
+    const filtered = deduped.filter((entry) => {
+      const deletedAt = deletedMessageTombstonesRef.current.get(entry.groupMessage.id);
+      if (typeof deletedAt !== "number") return true;
+      return (nowMs - deletedAt) > GROUP_DELETE_TOMBSTONE_TTL_MS;
+    });
+
+    filtered.forEach((entry) => {
+      messageBus.emitNewMessage(conversationId, entry.unifiedMessage);
+    });
+
+    const incomingMessages = filtered.map((entry) => entry.groupMessage);
+    setState((prev: Nip29GroupState): Nip29GroupState => {
+      const merged = mergeGroupMessagesDescending({
+        previous: prev.messages,
+        incoming: incomingMessages
+      });
+      if (merged.length === prev.messages.length && merged.every((message, index) => message.id === prev.messages[index]?.id)) {
+        return prev;
+      }
+      return { ...prev, messages: merged, status: "ready" };
+    });
+  }, [conversationId]);
+
+  const queueRealtimeMessage = useCallback((entry: Readonly<{ groupMessage: GroupMessageEvent; unifiedMessage: Message }>): void => {
+    pendingRealtimeMessagesRef.current.push(entry);
+
+    if (!chatPerformanceV2Enabled) {
+      flushRealtimeMessages();
+      return;
+    }
+
+    if (pendingRealtimeMessagesRef.current.length >= 50) {
+      flushRealtimeMessages();
+      return;
+    }
+
+    if (realtimeFlushFrameRef.current !== null) return;
+    realtimeFlushFrameRef.current = requestAnimationFrame(() => {
+      flushRealtimeMessages();
+    });
+  }, [chatPerformanceV2Enabled, flushRealtimeMessages]);
+
+  const logRejectedEvent = useCallback((params: Readonly<{
+    reason: string;
+    level?: "warn" | "info";
+    eventId?: string;
+    context?: Record<string, unknown>;
+  }>): void => {
+    const reason = params.reason;
+    const level = params.level ?? "warn";
+    const bucket = rejectionLogStateRef.current[reason] ?? { emitted: 0, suppressed: 0 };
+    const limit = level === "warn" ? 5 : 10;
+    const stats = rejectionStatsRef.current;
+    const receivedRelay = typeof params.context?.receivedRelay === "string" ? params.context.receivedRelay : undefined;
+
+    stats.totalRejected += 1;
+    if (reason === "relay_scope_mismatch") {
+      stats.relayScopeMismatch += 1;
+      if (receivedRelay) stats.lastReceivedRelay = receivedRelay;
+    }
+    stats.lastReason = reason;
+
+    const buildNotice = (): string => {
+      if (reason === "relay_scope_mismatch") {
+        return "Some group events were ignored because they arrived from an unexpected relay.";
+      }
+      if (reason === "community_binding_mismatch") {
+        return "Some group events were ignored due to invalid community binding.";
+      }
+      if (reason === "decrypt_failed") {
+        return "Some group events could not be decrypted with your current room keys.";
+      }
+      return "Some group events were rejected for safety checks.";
+    };
+
+    const publishFeedback = (): void => {
+      setState((prev) => ({
+        ...prev,
+        relayFeedback: {
+          ...prev.relayFeedback,
+          lastNotice: buildNotice(),
+          rejectionStats: {
+            totalRejected: stats.totalRejected,
+            relayScopeMismatch: stats.relayScopeMismatch,
+            lastReason: stats.lastReason,
+            lastReceivedRelay: stats.lastReceivedRelay,
+            updatedAt: Date.now()
+          }
+        }
+      }));
+    };
+
+    if (bucket.emitted < limit) {
+      logAppEvent({
+        name: "community.event.rejected",
+        level,
+        scope: { feature: "groups", action: "sealed_receive" },
+        context: {
+          reason,
+          ...(typeof params.eventId === "string" ? { eventId: params.eventId } : {}),
+          ...(params.context ?? {})
+        }
+      });
+      bucket.emitted += 1;
+      rejectionLogStateRef.current[reason] = bucket;
+      if (bucket.emitted === 1) {
+        publishFeedback();
+      }
+      return;
+    }
+
+    bucket.suppressed += 1;
+    rejectionLogStateRef.current[reason] = bucket;
+    if (bucket.suppressed === 1 || bucket.suppressed % 50 === 0) {
+      logAppEvent({
+        name: "community.event.rejected",
+        level: "info",
+        scope: { feature: "groups", action: "sealed_receive" },
+        context: {
+          reason: `${reason}_suppressed`,
+          suppressedCount: bucket.suppressed,
+          ...(params.context ?? {})
+        }
+      });
+      publishFeedback();
+    }
+  }, []);
+
   useEffect(() => {
     membersRef.current = members;
   }, [members]);
+
+  useEffect(() => {
+    return () => {
+      if (realtimeFlushFrameRef.current !== null) {
+        cancelAnimationFrame(realtimeFlushFrameRef.current);
+      }
+      pendingRealtimeMessagesRef.current = [];
+      deletedMessageTombstonesRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     leftMembersRef.current = state.leftMembers;
@@ -224,6 +482,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   useEffect(() => {
     const nextLedger = createCommunityLedgerState(params.initialMembers ?? []);
     disbandHandledRef.current = false;
+    deletedMessageTombstonesRef.current.clear();
     ledgerRef.current = nextLedger;
     const nextMembers = selectActiveMembers(nextLedger);
     const nextLeftMembers = selectLeftMembers(nextLedger);
@@ -242,10 +501,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   }, [params.groupId, params.relayUrl, params.myPublicKeyHex, initialMembersKey]);
 
   useEffect((): (() => void) => {
-    if (!params.relayUrl || !params.groupId || params.enabled === false) {
+    if (!params.groupId || params.enabled === false) {
       return (): void => { };
     }
-    const scopedRelayUrl = normalizeRelayUrl(params.relayUrl);
+    const scopedRelayUrl = toScopedRelayUrl(params.relayUrl);
 
     // Connection load only. Membership must be derived from explicit lifecycle events.
     setState(prev => {
@@ -254,14 +513,11 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     });
 
     const onEvent = async (event: NostrEvent, url: string): Promise<void> => {
-      if (!isScopedRelayEvent({ scopedRelayUrl, eventRelayUrl: url })) {
-        logAppEvent({
-          name: "community.event.rejected",
-          level: "warn",
-          scope: { feature: "groups", action: "sealed_receive" },
+      if (scopedRelayUrl && !isScopedRelayEvent({ scopedRelayUrl, eventRelayUrl: url })) {
+        logRejectedEvent({
+          reason: "relay_scope_mismatch",
+          eventId: event.id,
           context: {
-            reason: "relay_scope_mismatch",
-            eventId: event.id,
             expectedRelay: scopedRelayUrl,
             receivedRelay: normalizeRelayUrl(url)
           }
@@ -269,13 +525,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         return;
       }
       if (!hasCommunityBindingTag({ event, groupId: params.groupId })) {
-        logAppEvent({
-          name: "community.event.rejected",
-          level: "warn",
-          scope: { feature: "groups", action: "sealed_receive" },
+        logRejectedEvent({
+          reason: "community_binding_mismatch",
+          eventId: event.id,
           context: {
-            reason: "community_binding_mismatch",
-            eventId: event.id,
             groupId: params.groupId
           }
         });
@@ -308,14 +561,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
           if (!decryptedPayload) {
             console.warn("Could not decrypt sealed message with any known key");
-            logAppEvent({
-              name: "community.event.rejected",
-              level: "warn",
-              scope: { feature: "groups", action: "sealed_receive" },
-              context: {
-                reason: "decrypt_failed",
-                eventId: event.id
-              }
+            logRejectedEvent({
+              reason: "decrypt_failed",
+              eventId: event.id
             });
             return;
           }
@@ -325,27 +573,18 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
           if (typeof innerPayload.pubkey === "string" && innerPayload.pubkey !== actor) {
             console.warn("Ignoring sealed event with actor mismatch", { eventId: event.id });
-            logAppEvent({
-              name: "community.event.rejected",
-              level: "warn",
-              scope: { feature: "groups", action: "sealed_receive" },
-              context: {
-                reason: "actor_mismatch",
-                eventId: event.id
-              }
+            logRejectedEvent({
+              reason: "actor_mismatch",
+              eventId: event.id
             });
             return;
           }
 
           if (disbandedAtRef.current !== undefined && innerPayload.type !== "disband") {
-            logAppEvent({
-              name: "community.event.rejected",
+            logRejectedEvent({
+              reason: "disbanded_terminal_state",
               level: "info",
-              scope: { feature: "groups", action: "sealed_receive" },
-              context: {
-                reason: "disbanded_terminal_state",
-                eventId: event.id
-              }
+              eventId: event.id
             });
             return;
           }
@@ -450,15 +689,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
             senderPubkey: author,
             conversationId
           };
-          messageBus.emitNewMessage(conversationId, unifiedMsg);
-
-          setState((prev: Nip29GroupState): Nip29GroupState => {
-            if (prev.messages.some((m): boolean => m.id === nextMsg.id)) {
-              return prev;
-            }
-            const newMessages = [nextMsg, ...prev.messages].sort((a, b) => b.created_at - a.created_at).slice(0, 200);
-            return { ...prev, messages: newMessages, status: "ready" };
-          });
+          queueRealtimeMessage({ groupMessage: nextMsg, unifiedMessage: unifiedMsg });
         } catch (e) {
           console.error("Failed to process sealed message:", e);
         }
@@ -468,6 +699,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       if (event.kind === GROUP_KIND_DELETE) {
         const deletedIds = event.tags.filter(t => t[0] === 'e').map(t => t[1]);
         if (deletedIds.length > 0) {
+          const nowMs = Date.now();
+          deletedIds.forEach((id) => {
+            deletedMessageTombstonesRef.current.set(id, nowMs);
+          });
           setState((prev: Nip29GroupState): Nip29GroupState => ({
             ...prev,
             messages: prev.messages.filter((m) => !deletedIds.includes(m.id)),
@@ -518,7 +753,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     return (): void => {
       params.pool.unsubscribe(timelineSubId);
     };
-  }, [params.groupId, params.pool, params.relayUrl, params.enabled]);
+  }, [params.groupId, params.pool, params.relayUrl, params.enabled, queueRealtimeMessage, applyLedgerEvent, params.myPublicKeyHex, conversationId, logRejectedEvent]);
 
   const refresh = useCallback((): void => {
     // Refresh logic here if needed
@@ -526,15 +761,16 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
   const publishToCommunityScope = useCallback(async (event: NostrEvent): Promise<MultiRelayPublishResult> => {
     const payload = JSON.stringify(["EVENT", event]);
-    if (params.relayUrl.trim().length === 0) {
+    const scopedRelayUrl = toScopedRelayUrl(params.relayUrl);
+    if (!scopedRelayUrl) {
       return params.pool.publishToAll(payload);
     }
 
     if (typeof params.pool.publishToUrls === "function") {
-      return params.pool.publishToUrls([params.relayUrl], payload);
+      return params.pool.publishToUrls([scopedRelayUrl], payload);
     }
     if (typeof params.pool.publishToUrl === "function") {
-      const result = await params.pool.publishToUrl(params.relayUrl, payload);
+      const result = await params.pool.publishToUrl(scopedRelayUrl, payload);
       return {
         success: result.success,
         successCount: result.success ? 1 : 0,
@@ -544,7 +780,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       };
     }
     if (typeof params.pool.publishToRelay === "function") {
-      const result = await params.pool.publishToRelay(params.relayUrl, payload);
+      const result = await params.pool.publishToRelay(scopedRelayUrl, payload);
       return {
         success: result.success,
         successCount: result.success ? 1 : 0,
@@ -555,6 +791,70 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     }
     return params.pool.publishToAll(payload);
   }, [params.pool, params.relayUrl]);
+
+  const publishToCommunityScopeWithRetry = useCallback(async (publishParams: Readonly<{
+    event: NostrEvent;
+    operation: string;
+    maxAttempts?: number;
+    baseBackoffMs?: number;
+    allowGlobalFallback?: boolean;
+  }>): Promise<MultiRelayPublishResult> => {
+    const maxAttempts = Math.max(1, publishParams.maxAttempts ?? 3);
+    const baseBackoffMs = Math.max(50, publishParams.baseBackoffMs ?? 200);
+    const payload = JSON.stringify(["EVENT", publishParams.event]);
+    let lastResult: MultiRelayPublishResult | null = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const result = await publishToCommunityScope(publishParams.event);
+      if (result.success) {
+        if (attempt > 1) {
+          setState((prev) => ({
+            ...prev,
+            relayFeedback: {
+              ...prev.relayFeedback,
+              lastNotice: `${publishParams.operation} recovered after relay retry.`
+            }
+          }));
+        }
+        return result;
+      }
+      lastResult = result;
+      if (attempt < maxAttempts) {
+        await wait(baseBackoffMs * attempt);
+      }
+    }
+
+    if (publishParams.allowGlobalFallback) {
+      const fallbackResult = await params.pool.publishToAll(payload);
+      if (fallbackResult.success) {
+        setState((prev) => ({
+          ...prev,
+          relayFeedback: {
+            ...prev.relayFeedback,
+            lastNotice: `${publishParams.operation} used global relay fallback because scoped relays were unavailable.`
+          }
+        }));
+        return fallbackResult;
+      }
+      lastResult = fallbackResult;
+    }
+
+    setState((prev) => ({
+        ...prev,
+        relayFeedback: {
+          ...prev.relayFeedback,
+          lastNotice: `${publishParams.operation} failed after relay retries.`
+        }
+      }));
+
+    return lastResult ?? {
+      success: false,
+      successCount: 0,
+      totalRelays: 0,
+      results: [],
+      overallError: `${publishParams.operation} failed`
+    };
+  }, [params.pool, publishToCommunityScope]);
 
   const sendMessage = useCallback(async (msgParams: Readonly<{ content: string }>): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
@@ -587,7 +887,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         if (prev.messages.some((m): boolean => m.id === optimisticMsg.id)) {
           return prev;
         }
-        const newMessages = [optimisticMsg, ...prev.messages].sort((a, b) => b.created_at - a.created_at).slice(0, 200);
+        const newMessages = mergeGroupMessagesDescending({
+          previous: prev.messages,
+          incoming: [optimisticMsg]
+        });
 
         // Emit optimistic message to MessageBus
         const unifiedOptimistic: Message = {
@@ -605,7 +908,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         return { ...prev, messages: newMessages };
       });
     } catch (e: any) {
-      toast.error(e.message || "Failed to send message");
+      toast.error(e.message || "Failed to send message. Check relay connection and try again.");
     }
   }, [conversationId, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
 
@@ -631,7 +934,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       }
       toast.success("Vote to kick published");
     } catch (e: any) {
-      toast.error(e.message || "Failed to publish vote");
+      toast.error(e.message || "Failed to publish vote. Retry after relay reconnect.");
     }
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
 
@@ -682,9 +985,13 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
         // 1. Tell the RELAY directly (NIP-29 Kind 9022)
         const nip29Leave = await groupService.sendNip29Leave({ groupId: params.groupId });
-        const nip29LeaveResult = await publishToCommunityScope(nip29Leave);
+        const nip29LeaveResult = await publishToCommunityScopeWithRetry({
+          event: nip29Leave,
+          operation: "Leave event",
+          allowGlobalFallback: true
+        });
         if (!nip29LeaveResult.success) {
-          throw new Error(nip29LeaveResult.overallError || "Failed to publish leave to community relay scope");
+          throw new Error(nip29LeaveResult.overallError || "Failed to publish leave event");
         }
 
         // 2. Tell other CLIENTS via sealed channel (Kind 10105)
@@ -693,19 +1000,24 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
             groupId: params.groupId,
             roomKeyHex
           });
-          const sealedLeaveResult = await publishToCommunityScope(signedEvent);
+          const sealedLeaveResult = await publishToCommunityScopeWithRetry({
+            event: signedEvent,
+            operation: "Sealed leave event",
+            allowGlobalFallback: true
+          });
           if (!sealedLeaveResult.success) {
-            throw new Error(sealedLeaveResult.overallError || "Failed to publish sealed leave to community relay scope");
+            throw new Error(sealedLeaveResult.overallError || "Failed to publish sealed leave event");
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to broadcast leave event(s):", e);
+        toast.error(e?.message || "Failed to leave via scoped relay. Try again or check relay status.");
       }
     }
     const { roomKeyStore } = await import("../../crypto/room-key-store");
     await roomKeyStore.deleteRoomKey(params.groupId);
     toast.success("Disconnected from community");
-  }, [params.groupId, params.myPublicKeyHex, params.myPrivateKeyHex, publishToCommunityScope]);
+  }, [params.groupId, params.myPublicKeyHex, params.myPrivateKeyHex, publishToCommunityScopeWithRetry]);
 
   const deleteMessage = useCallback(async (deleteParams: Readonly<{ eventId: string; reason?: string }>): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
@@ -733,15 +1045,19 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     try {
       const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
       const joinEvent = await groupService.sendNip29Join({ groupId: params.groupId });
-      const joinResult = await publishToCommunityScope(joinEvent);
+      const joinResult = await publishToCommunityScopeWithRetry({
+        event: joinEvent,
+        operation: "Join request event",
+        allowGlobalFallback: false
+      });
       if (!joinResult.success) {
         throw new Error(joinResult.overallError || "Failed to publish join request to community relay scope");
       }
       toast.success("Join request sent to relay");
     } catch (e: any) {
-      toast.error(e.message || "Failed to send join request");
+      toast.error(e.message || "Failed to send join request. Confirm relay scope and retry.");
     }
-  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
+  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
   const approveJoin = noop;
   const denyJoin = noop;
   const approveAllJoinRequests = noop;

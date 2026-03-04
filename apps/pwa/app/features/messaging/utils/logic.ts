@@ -41,6 +41,7 @@ export const isVisibleUserMessage = (m: Message): boolean => m.kind === "user" &
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', '.ogv'];
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.opus'];
+const DOCUMENT_EXTENSIONS = ['.pdf', '.txt', '.csv', '.rtf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp'];
 const IMAGE_HOSTS = ['image.nostr.build', 'nostr.build', 'blossom.', 'imgprxy.', 'void.cat'];
 
 export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] => {
@@ -55,6 +56,13 @@ export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] 
     }
     if (IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) || lowerContentType.startsWith("image/")) {
         return "image";
+    }
+    if (
+        DOCUMENT_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) ||
+        lowerContentType.startsWith("application/") ||
+        lowerContentType.startsWith("text/")
+    ) {
+        return "file";
     }
 
     return attachment.kind;
@@ -107,6 +115,19 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
                 url: cleanUrl,
                 contentType: 'image/*',
                 fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'image'
+            });
+            continue;
+        }
+
+        // 4. Document or generic uploaded file check
+        const isDocument = DOCUMENT_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
+        const looksLikeUploadPath = lowerUrl.includes("/uploads/");
+        if (isDocument || looksLikeUploadPath) {
+            attachments.push({
+                kind: "file",
+                url: cleanUrl,
+                contentType: "application/octet-stream",
+                fileName: cleanUrl.split("/").pop()?.split("?")[0] || "file"
             });
         }
     }

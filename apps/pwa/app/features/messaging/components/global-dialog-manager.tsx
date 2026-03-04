@@ -91,7 +91,7 @@ export function GlobalDialogManager() {
 
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
         if (!myPrivateKeyHex || !myPublicKeyHex) {
-            toast.error("Identity not unlocked");
+            toast.error("Identity is locked. Unlock it, then create the community again.");
             return;
         }
         setIsCreatingGroup(true);
@@ -173,7 +173,7 @@ export function GlobalDialogManager() {
             toast.success(t("groups.created", "Sealed Community created successfully"));
         } catch (error: any) {
             console.error("Community creation failed:", error);
-            toast.error(error.message || "Failed to create community");
+            toast.error(error?.message || "Failed to create community. Verify relay host and try again.");
         } finally {
             setIsCreatingGroup(false);
         }

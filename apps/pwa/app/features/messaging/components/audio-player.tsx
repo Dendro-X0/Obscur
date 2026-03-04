@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Play, Pause, Volume2 } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
@@ -8,16 +8,19 @@ import { cn } from "@dweb/ui-kit";
 interface AudioPlayerProps {
     src: string;
     isOutgoing: boolean;
+    className?: string;
 }
 
 /**
  * Minimalist inline audio player for voice notes
  */
-export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
+export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
+    const [volume, setVolume] = useState(1);
+    const [isMuted, setIsMuted] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     const togglePlay = () => {
@@ -50,6 +53,25 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
         setCurrentTime(0);
     };
 
+    const handleToggleMute = () => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        const nextMuted = !audio.muted;
+        audio.muted = nextMuted;
+        setIsMuted(nextMuted);
+    };
+
+    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        const nextVolume = Math.max(0, Math.min(1, Number(e.target.value)));
+        audio.volume = nextVolume;
+        const nextMuted = nextVolume === 0;
+        audio.muted = nextMuted;
+        setVolume(nextVolume);
+        setIsMuted(nextMuted);
+    };
+
     const formatTime = (time: number) => {
         if (isNaN(time)) return "0:00";
         const mins = Math.floor(time / 60);
@@ -57,12 +79,15 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
         return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
+    const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
+
     return (
         <div className={cn(
-            "flex items-center gap-3 p-3 rounded-2xl min-w-[200px] max-w-[280px]",
+            "flex items-center gap-3 p-3 rounded-2xl w-full min-w-0",
             isOutgoing
                 ? "bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 shadow-lg"
-                : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
+            className
         )}>
             <audio
                 ref={audioRef}
@@ -70,6 +95,12 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onEnded={handleEnded}
+                onVolumeChange={() => {
+                    const audio = audioRef.current;
+                    if (!audio) return;
+                    setVolume(audio.volume);
+                    setIsMuted(audio.muted);
+                }}
             />
 
             <Button
@@ -97,8 +128,31 @@ export function AudioPlayer({ src, isOutgoing }: AudioPlayerProps) {
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-60">
                     <span>{formatTime(currentTime)}</span>
-                    <div className="flex items-center gap-1 group">
-                        <Volume2 className="h-2.5 w-2.5" />
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={handleToggleMute}
+                            className="opacity-80 hover:opacity-100 transition-opacity"
+                            aria-label={isMuted ? "Unmute audio" : "Mute audio"}
+                        >
+                            <Volume2 className="h-2.5 w-2.5" />
+                        </button>
+                        <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={isMuted ? 0 : volume}
+                            onChange={handleVolumeChange}
+                            className="w-16 accent-purple-500 cursor-pointer"
+                            aria-label="Audio volume"
+                        />
+                        <span
+                            className="text-[9px] font-black tracking-wider opacity-70"
+                            title={`Volume ${volumePercent}%`}
+                        >
+                            {volumePercent}%
+                        </span>
                         <span>{formatTime(duration)}</span>
                     </div>
                 </div>

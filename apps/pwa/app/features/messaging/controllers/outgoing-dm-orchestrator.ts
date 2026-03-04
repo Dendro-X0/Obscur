@@ -15,6 +15,7 @@ import type { RelayPool, SendResult } from "./enhanced-dm-controller";
 import type { MessageQueue, Message } from "../lib/message-queue";
 import { messageMemoryManager } from "../lib/performance-optimizer";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
+import type { Attachment } from "../types";
 
 /**
  * Parameters for orchestrating the outgoing DM flow
@@ -22,6 +23,7 @@ import { nip65Service } from "@/app/features/relays/utils/nip65-service";
 export interface OutgoingDmOrchestrationParams {
     peerPublicKeyInput: string;
     plaintext: string;
+    attachments?: ReadonlyArray<Attachment>;
     replyTo?: string;
     customTags?: string[][];
     myPublicKeyHex: PublicKeyHex;
@@ -44,7 +46,7 @@ export const orchestrateOutgoingDm = async (
     params: OutgoingDmOrchestrationParams
 ): Promise<SendResult> => {
     const {
-        peerPublicKeyInput, plaintext, replyTo, customTags,
+        peerPublicKeyInput, plaintext, attachments, replyTo, customTags,
         myPublicKeyHex, myPrivateKeyHex, pool, messageQueue,
         recipientRelayCheckCache, pendingMessages, relayRequestTimes,
         maxMessagesInMemory, setState, createReadyState, createErrorState
@@ -58,7 +60,7 @@ export const orchestrateOutgoingDm = async (
 
     const parsedRecipient = parsePublicKeyInput(peerPublicKeyInput);
     if (!parsedRecipient.ok) {
-        const error = 'Invalid recipient public key';
+        const error = 'Invalid recipient public key. Verify the contact key or QR and try again.';
         setState(prev => createErrorState(error, prev.messages, errorHandler.handleInvalidInput(error)));
         return { success: false, messageId: '', relayResults: [], error };
     }
@@ -75,7 +77,7 @@ export const orchestrateOutgoingDm = async (
     const cleanedPlaintext = plaintext.trim();
     if (cleanedPlaintext.length === 0) return { success: false, messageId: '', relayResults: [], error: 'Message cannot be empty' };
     if (cleanedPlaintext.length > NOSTR_SAFETY_LIMITS.maxDmPlaintextChars) {
-        const error = `Message is too long (max ${NOSTR_SAFETY_LIMITS.maxDmPlaintextChars} chars)`;
+        const error = `Message is too long (max ${NOSTR_SAFETY_LIMITS.maxDmPlaintextChars} chars). Shorten it and resend.`;
         setState(prev => createErrorState(error, prev.messages, errorHandler.handleInvalidInput(error)));
         return { success: false, messageId: '', relayResults: [], error };
     }
@@ -109,6 +111,7 @@ export const orchestrateOutgoingDm = async (
         const prepared = await prepareOutgoingDm({
             build, plaintext: cleanedPlaintext, createdAtUnixSeconds: usedCreatedAt,
             myPublicKeyHex, recipientPubkey, replyTo,
+            attachments: attachments ? [...attachments] : undefined,
             maxMessagesInMemory, extractAttachmentsFromContent,
             messageQueue, setState, createReadyState, messageMemoryManager,
             getExistingMessagesForOptimisticInsert: (prev: EnhancedDMControllerState) => prev.messages,
@@ -117,7 +120,7 @@ export const orchestrateOutgoingDm = async (
 
         if (openRelays.length === 0) {
             if (messageQueue) await queueOutgoingDmForRetry({ messageQueue, messageId: prepared.messageId, conversationId: prepared.conversationId, plaintext: cleanedPlaintext, recipientPubkey, signedEvent: build.signedEvent });
-            return { success: false, messageId: prepared.messageId, relayResults: [], error: 'Offline - message queued' };
+            return { success: false, messageId: prepared.messageId, relayResults: [], error: 'No active relays. Message queued and will retry automatically when connection returns.' };
         }
 
         if (pool.publishToAll) {
@@ -161,7 +164,9 @@ export const orchestrateOutgoingDm = async (
             return { success: true, messageId: prepared.messageId, relayResults };
         }
     } catch (error) {
-        const msg = error instanceof Error ? error.message : 'Unknown error';
+        const msg = error instanceof Error && error.message
+            ? error.message
+            : 'Unexpected send failure. Check relay connectivity and try again.';
         setState((prev: EnhancedDMControllerState) => createErrorState(msg, prev.messages, errorHandler.handleUnknownError(error as Error)));
         return { success: false, messageId: '', relayResults: [], error: msg };
     }

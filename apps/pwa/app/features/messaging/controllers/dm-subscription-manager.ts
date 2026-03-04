@@ -2,6 +2,7 @@ import { generateSubscriptionId } from "./relay-utils";
 import type { NostrFilter, Subscription, EnhancedDMControllerState } from "./dm-controller-state";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPool } from "./enhanced-dm-controller"; // Assuming we might need to export RelayPool or use it
+import { logWithRateLimit } from "@/app/shared/log-hygiene";
 
 export interface SubscriptionManagerParams {
     myPublicKeyHex: PublicKeyHex | null;
@@ -26,7 +27,10 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
     }
 
     if (hasSubscribedRef.current) {
-        console.log('Already subscribed to incoming DMs');
+        logWithRateLimit("debug", "dm_subscription.already_subscribed", ['Already subscribed to incoming DMs'], {
+            windowMs: 15_000,
+            maxPerWindow: 1
+        });
         return;
     }
 
@@ -54,7 +58,10 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
     activeSubscriptions.current.set(subId, subscription);
     hasSubscribedRef.current = true;
 
-    console.log(`[DMController] Subscribing to incoming DMs on ${pool.connections.filter(c => c.status === 'open').length} open relays:`, filter);
+    logWithRateLimit("info", "dm_subscription.subscribe", [`[DMController] Subscribing to incoming DMs on ${pool.connections.filter(c => c.status === 'open').length} open relays:`, filter], {
+        windowMs: 5_000,
+        maxPerWindow: 1
+    });
 
     const reqMessage = JSON.stringify(['REQ', subId, filter]);
     pool.sendToOpen(reqMessage);

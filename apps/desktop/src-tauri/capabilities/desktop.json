@@ -16,8 +16,10 @@
         "upload:default",
         "notification:default",
         "fs:default",
+        "fs:allow-mkdir",
         "fs:allow-write-file",
         "fs:allow-remove",
+        "fs:scope-appdata-recursive",
         "fs:allow-temp-write-recursive",
         "dialog:default",
         {

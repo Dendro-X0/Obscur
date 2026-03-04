@@ -41,6 +41,7 @@ interface CommunityInviteCardProps {
     isOutgoing: boolean;
     message?: Message;
     messages?: ReadonlyArray<Message>;
+    responseStatus?: 'pending' | 'accepted' | 'declined' | 'canceled';
     onSendDirectMessage?: (params: SendDirectMessageParams) => Promise<SendDirectMessageResult>;
 }
 
@@ -49,6 +50,7 @@ export const CommunityInviteCard = ({
     isOutgoing,
     message,
     messages = [],
+    responseStatus,
     onSendDirectMessage
 }: CommunityInviteCardProps) => {
     const { t } = useTranslation();
@@ -58,29 +60,38 @@ export const CommunityInviteCard = ({
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    // Calculate status by scanning for response DMs that reply to this message
-    // Use reverse to ensure we get the latest response if there are multiple
-    const response = message ? [...messages].reverse().find((m) => {
-        if (!m.replyTo || m.replyTo.messageId !== message.id) return false;
-        try {
-            const parsed = JSON.parse(m.content);
-            return parsed.type === "community-invite-response";
-        } catch (e) {
-            return false;
+    const resolvedResponseStatus = (() => {
+        if (responseStatus) {
+            return responseStatus;
         }
-    }) : null;
 
-    let status: 'pending' | 'accepted' | 'declined' | 'canceled' = 'pending';
-    if (response) {
+        // Fallback: scan surrounding messages if caller did not pre-resolve status.
+        const response = message ? [...messages].reverse().find((m) => {
+            if (!m.replyTo || m.replyTo.messageId !== message.id) return false;
+            try {
+                const parsed = JSON.parse(m.content);
+                return parsed.type === "community-invite-response";
+            } catch {
+                return false;
+            }
+        }) : null;
+
+        if (!response) {
+            return "pending" as const;
+        }
+
         try {
             const parsed = JSON.parse(response.content);
             if (["accepted", "declined", "canceled"].includes(parsed.status)) {
-                status = parsed.status;
+                return parsed.status as 'accepted' | 'declined' | 'canceled';
             }
-        } catch (e) {
+        } catch {
             // fallback to pending
         }
-    }
+        return "pending" as const;
+    })();
+
+    const status = resolvedResponseStatus;
 
     const handleAccept = async () => {
         if (!message || !onSendDirectMessage) return;

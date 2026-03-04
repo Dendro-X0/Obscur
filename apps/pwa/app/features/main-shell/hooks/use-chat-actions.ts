@@ -91,11 +91,11 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                             error.code === UploadErrorCode.FILE_TOO_LARGE ? error.message :
                                 error.code === UploadErrorCode.NETWORK_ERROR
                                     ? (error.message.toLowerCase().includes("timeout")
-                                        ? `Upload timed out. ${BEST_EFFORT_STORAGE_NOTE}`
-                                        : "Network error. Check connection.")
+                                        ? `Upload timed out. Retry on a stable connection. ${BEST_EFFORT_STORAGE_NOTE}`
+                                        : "Network error during upload. Check connection and retry.")
                                     :
-                                    error.message || "Upload failed")
-                    : `Upload failed unexpectedly. ${BEST_EFFORT_STORAGE_NOTE}`;
+                                    error.message || "Upload failed. Try another provider in Storage settings.")
+                    : `Upload failed unexpectedly. Retry or switch provider in Storage settings. ${BEST_EFFORT_STORAGE_NOTE}`;
 
                 setAttachmentError(errorMessage);
                 toast.error(errorMessage);
@@ -128,6 +128,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 await dmController.sendDm({
                     peerPublicKeyInput: selectedConversation.pubkey,
                     plaintext: currentInput,
+                    attachments,
                     replyTo: currentReplyTo?.messageId
                 });
 
@@ -189,7 +190,13 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
             setIsUploadingAttachment(false);
         } catch (error: any) {
             console.error("Failed to send message:", error);
-            toast.error("Failed to send message");
+            const fallback = selectedConversation?.kind === "group"
+                ? "Failed to send group message. Check relay scope and retry."
+                : "Failed to send message. Check relay connection and retry.";
+            const detail = typeof error?.message === "string" && error.message.trim().length > 0
+                ? error.message
+                : fallback;
+            toast.error(detail);
             // Restore input on failure
             setMessageInput(currentInput);
             setUploadStage("idle");

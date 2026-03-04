@@ -6,6 +6,7 @@ export const MEDIA_UPLOAD_LIMITS = {
     imageBytes: 8 * 1024 * 1024,
     audioBytes: 20 * 1024 * 1024,
     videoBytes: 35 * 1024 * 1024,
+    fileBytes: 20 * 1024 * 1024,
 } as const;
 
 export const MEDIA_COMPRESSION_TARGETS = {
@@ -22,12 +23,18 @@ export const getMediaKindForPolicy = (file: File): AttachmentKind => {
     const mime = (file.type || "").toLowerCase();
     if (mime.startsWith("video/")) return "video";
     if (mime.startsWith("audio/")) return "audio";
-    return "image";
+    if (mime.startsWith("image/")) return "image";
+    const extension = file.name.split(".").pop()?.toLowerCase() || "";
+    if (["mp4", "mov", "avi", "webm", "ogv", "m4v", "3gp", "mkv"].includes(extension)) return "video";
+    if (["mp3", "wav", "m4a", "ogg", "aac", "flac", "opus"].includes(extension)) return "audio";
+    if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(extension)) return "image";
+    return "file";
 };
 
 export const getMediaLimitBytes = (kind: AttachmentKind): number => {
     if (kind === "video") return MEDIA_UPLOAD_LIMITS.videoBytes;
     if (kind === "audio") return MEDIA_UPLOAD_LIMITS.audioBytes;
+    if (kind === "file") return MEDIA_UPLOAD_LIMITS.fileBytes;
     return MEDIA_UPLOAD_LIMITS.imageBytes;
 };
 

@@ -39,7 +39,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
                 const isRemembered = localStorage.getItem(REMEMBER_ME_KEY) === "true";
                 const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
-                if (isRemembered && token) {
+                if (isRemembered && token !== null) {
                     try {
                         console.info("[AuthGateway] Attempting auto-unlock via Remember Me...");
                         const success = await handleUnlock(token);

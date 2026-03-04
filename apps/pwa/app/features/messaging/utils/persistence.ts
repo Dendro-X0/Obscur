@@ -389,7 +389,7 @@ const parseAttachment = (value: unknown): Attachment | null => {
     const url: unknown = value.url;
     const contentType: unknown = value.contentType;
     const fileName: unknown = value.fileName;
-    if (kind !== "image" && kind !== "video" && kind !== "audio") return null;
+    if (kind !== "image" && kind !== "video" && kind !== "audio" && kind !== "file") return null;
     if (!isString(url) || !isString(contentType) || !isString(fileName)) return null;
     return { kind, url, contentType, fileName };
 };

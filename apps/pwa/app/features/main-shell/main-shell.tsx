@@ -55,6 +55,7 @@ import { useAttachmentHandler } from "./hooks/use-attachment-handler";
 import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
 import { AuthScreen } from "../auth/components/auth-screen";
+import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const DEFAULT_VISIBLE_MESSAGES = 50;
@@ -105,6 +106,10 @@ function NostrMessengerContent() {
 
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [showWelcome] = useState(false);
+
+  useEffect(() => {
+    installChatPerformanceDevTools();
+  }, []);
 
   // Refs
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -253,7 +258,8 @@ function NostrMessengerContent() {
     visibleMessages,
     rawMessagesCount,
     hasEarlierMessages,
-    selectedConversationMediaItems
+    selectedConversationMediaItems,
+    pendingEventCount
   } = useChatViewProps({
     selectedConversation,
     myPublicKeyHex
@@ -460,6 +466,7 @@ function NostrMessengerContent() {
             selectedConversationMediaItems={selectedConversationMediaItems}
             lightboxIndex={lightboxIndex}
             setLightboxIndex={setLightboxIndex}
+            pendingEventCount={pendingEventCount}
             isPeerAccepted={(() => {
               if (selectedConversationView.kind !== 'dm') return true;
               const pk = selectedConversationView.pubkey;

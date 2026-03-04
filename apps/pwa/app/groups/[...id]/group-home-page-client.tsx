@@ -17,7 +17,9 @@ import {
     LogOut,
     Loader2,
     UserPlus,
-    Ban
+    Ban,
+    X,
+    ChevronRight
 } from "lucide-react";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -29,12 +31,14 @@ import { Card } from "@dweb/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { cn } from "@dweb/ui-kit";
-import { useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
+import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
+import { UserAvatar } from "@/app/features/profile/components/user-avatar";
+import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
 
 export default function GroupHomePage() {
     const params = useParams();
@@ -49,6 +53,8 @@ export default function GroupHomePage() {
     const discoveredRelay = searchParams.get("relay");
     const [isLeaving, setIsLeaving] = useState(false);
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+    const [isMemberListOpen, setIsMemberListOpen] = useState(false);
+    const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState(false);
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
 
@@ -58,7 +64,7 @@ export default function GroupHomePage() {
         encodeURIComponent(g.id) === id
     ) : undefined;
 
-    const effectiveRelay = group?.relayUrl || discoveredRelay || "";
+    const effectiveRelay = toScopedRelayUrl(group?.relayUrl || discoveredRelay || "") ?? "";
     const isGuest = !group;
 
     const {
@@ -86,6 +92,17 @@ export default function GroupHomePage() {
     }, [discoveredMembers, group?.memberPubkeys]);
 
     const displayMemberCount = activeMembers.length;
+    const allKnownMembers = React.useMemo(() => {
+        const merged = new Set<PublicKeyHex>([
+            ...((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []),
+            ...activeMembers
+        ]);
+        return Array.from(merged);
+    }, [activeMembers, group?.memberPubkeys]);
+    const offlineMembers = React.useMemo(
+        () => allKnownMembers.filter((pk) => !activeMembers.includes(pk)),
+        [allKnownMembers, activeMembers]
+    );
 
     // Sync live member list back to the group provider so persistence stays current
     React.useEffect(() => {
@@ -142,6 +159,13 @@ export default function GroupHomePage() {
     };
 
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes((group?.groupId || id || "") as any) ?? false;
+    const handleBlockAction = () => {
+        if (isBlocked) {
+            handleToggleBlock();
+            return;
+        }
+        setIsBlockConfirmOpen(true);
+    };
 
     const handleLeave = async () => {
         setIsLeaving(true);
@@ -161,6 +185,14 @@ export default function GroupHomePage() {
     const displayName = groupState.metadata?.name || group?.displayName || "Community";
     const aboutText = groupState.metadata?.about || group?.about || "This resilient community is built on decentralized protocols. Privacy first, always.";
     const avatarUrl = groupState.metadata?.picture || group?.avatar;
+    const relayScopeMismatchCount = groupState.relayFeedback.rejectionStats?.relayScopeMismatch ?? 0;
+    const isRelayDegraded = relayScopeMismatchCount > 0 || Boolean(groupState.relayFeedback.lastNotice);
+    const relayStatusLabel = isRelayDegraded ? "Degraded relay scope" : "Connected & optimized";
+    const relayStatusDetail = isRelayDegraded
+        ? (relayScopeMismatchCount > 0
+            ? `${relayScopeMismatchCount} out-of-scope events ignored`
+            : (groupState.relayFeedback.lastNotice ?? "Some events were filtered by safety checks"))
+        : "All scoped events are flowing normally";
 
     if (!group && !discoveredRelay) {
         return (
@@ -343,41 +375,50 @@ export default function GroupHomePage() {
                 {/* Bento Grid Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
                     {/* Membership Card - Wide */}
-                    <Card className="md:col-span-2 lg:col-span-3 bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative">
-                        <div className="absolute -right-8 -bottom-8 opacity-[0.03] group-hover/bento:opacity-[0.08] transition-opacity duration-1000">
-                            <Users size={240} className="text-white" />
-                        </div>
-                        <div className="space-y-6 relative z-10">
-                            <div className="flex items-center justify-between">
-                                <div className="h-14 w-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                                    <Users className="h-7 w-7 text-purple-400" />
+                    <button
+                        type="button"
+                        onClick={() => setIsMemberListOpen(true)}
+                        className="md:col-span-2 lg:col-span-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 rounded-[40px]"
+                    >
+                        <Card className="bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative cursor-pointer">
+                            <div className="absolute -right-8 -bottom-8 opacity-[0.03] group-hover/bento:opacity-[0.08] transition-opacity duration-1000">
+                                <Users size={240} className="text-white" />
+                            </div>
+                            <div className="space-y-6 relative z-10">
+                                <div className="flex items-center justify-between">
+                                    <div className="h-14 w-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                                        <Users className="h-7 w-7 text-purple-400" />
+                                    </div>
+                                    <span className="px-5 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-xs font-black uppercase tracking-widest border border-purple-500/20">
+                                        {groupState.membership.role}
+                                    </span>
                                 </div>
-                                <span className="px-5 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-xs font-black uppercase tracking-widest border border-purple-500/20">
-                                    {groupState.membership.role}
-                                </span>
+                                <div className="space-y-1">
+                                    <h3 className="text-3xl font-black text-white">Community</h3>
+                                    <p className="text-zinc-500 font-medium">Connect with {displayMemberCount} active members in this space.</p>
+                                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                                        Click to view online and offline members
+                                    </p>
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <h3 className="text-3xl font-black text-white">Community</h3>
-                                <p className="text-zinc-500 font-medium">Connect with {displayMemberCount} active members in this space.</p>
+                            <div className="flex items-center gap-3 pt-8 relative z-10">
+                                <div className="flex -space-x-3">
+                                    {activeMembers.slice(0, 5).map((pk, i) => (
+                                        <div key={pk} className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] bg-[#1A1A1E] flex items-center justify-center text-xs font-black text-white overflow-hidden shadow-lg group-hover/bento:-translate-y-1 transition-transform" style={{ transitionDelay: `${i * 50}ms` }}>
+                                            {pk.slice(0, 1).toUpperCase()}
+                                        </div>
+                                    ))}
+                                    {activeMembers.length > 5 && (
+                                        <div className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] bg-zinc-900 flex items-center justify-center text-xs font-black text-zinc-500 shadow-xl">
+                                            +{activeMembers.length - 5}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="h-1.5 w-1.5 rounded-full bg-zinc-700 mx-2" />
+                                <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t("connections.status.active", "Online Now")}</span>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-3 pt-8 relative z-10">
-                            <div className="flex -space-x-3">
-                                {activeMembers.slice(0, 5).map((pk, i) => (
-                                    <div key={pk} className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] bg-[#1A1A1E] flex items-center justify-center text-xs font-black text-white overflow-hidden shadow-lg group-hover/bento:-translate-y-1 transition-transform" style={{ transitionDelay: `${i * 50}ms` }}>
-                                        {pk.slice(0, 1).toUpperCase()}
-                                    </div>
-                                ))}
-                                {activeMembers.length > 5 && (
-                                    <div className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] bg-zinc-900 flex items-center justify-center text-xs font-black text-zinc-500 shadow-xl">
-                                        +{activeMembers.length - 5}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="h-1.5 w-1.5 rounded-full bg-zinc-700 mx-2" />
-                            <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t("connections.status.active", "Online Now")}</span>
-                        </div>
-                    </Card>
+                        </Card>
+                    </button>
 
                     {/* Registry Visibility - Tall */}
                     <Card className="md:col-span-2 lg:col-span-3 bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col justify-between hover:border-indigo-500/20 transition-all duration-500 group/bento overflow-hidden relative">
@@ -418,10 +459,11 @@ export default function GroupHomePage() {
                         <div className="flex items-center gap-8">
                             <div className="text-right hidden sm:block">
                                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status</p>
-                                <p className="text-xs font-black text-green-500">Connected & Optimized</p>
+                                <p className={cn("text-xs font-black", isRelayDegraded ? "text-amber-400" : "text-green-500")}>{relayStatusLabel}</p>
+                                <p className="text-[10px] text-zinc-500 mt-1 max-w-[220px] leading-snug">{relayStatusDetail}</p>
                             </div>
-                            <div className="h-12 w-12 rounded-2xl bg-green-500/10 flex items-center justify-center border border-green-500/20 group-hover:scale-110 transition-transform">
-                                <div className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]" />
+                            <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", isRelayDegraded ? "bg-amber-500/10 border border-amber-500/20" : "bg-green-500/10 border border-green-500/20")}>
+                                <div className={cn("h-3 w-3 rounded-full", isRelayDegraded ? "bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.6)]" : "bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]")} />
                             </div>
                         </div>
                     </Card>
@@ -439,7 +481,7 @@ export default function GroupHomePage() {
                     <Card className="overflow-hidden border-white/[0.03] bg-[#0C0C0E]/40 backdrop-blur-xl rounded-[40px]">
                         <div className="flex flex-col">
                             <button
-                                onClick={handleToggleBlock}
+                                onClick={handleBlockAction}
                                 className="flex items-center justify-between p-8 hover:bg-rose-500/[0.02] transition-colors group/item"
                             >
                                 <div className="flex items-center gap-6">
@@ -480,6 +522,88 @@ export default function GroupHomePage() {
                     />
                 )}
 
+                {isMemberListOpen && (
+                    <div
+                        className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+                        onClick={() => setIsMemberListOpen(false)}
+                    >
+                        <div
+                            className="w-full max-w-2xl bg-[#0C0C0E] border border-white/10 rounded-[28px] overflow-hidden shadow-2xl"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <div className="flex items-start justify-between gap-4 p-6 border-b border-white/10">
+                                <div>
+                                    <h3 className="text-white text-xl font-black">Community Members</h3>
+                                    <p className="text-xs uppercase tracking-widest text-zinc-500 font-bold mt-1">
+                                        {activeMembers.length} online / {offlineMembers.length} offline
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 text-zinc-400 hover:text-white hover:bg-white/5"
+                                    onClick={() => setIsMemberListOpen(false)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <div className="grid gap-4 p-6 md:grid-cols-2 max-h-[70vh] overflow-y-auto">
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400">Online</h4>
+                                    {activeMembers.length === 0 ? (
+                                        <p className="text-xs text-zinc-500">No online members detected.</p>
+                                    ) : (
+                                        activeMembers.map((pk) => (
+                                            <MemberProfileRow
+                                                key={`online-${pk}`}
+                                                pubkey={pk}
+                                                status="online"
+                                                onOpenProfile={(memberPubkey) => {
+                                                    setIsMemberListOpen(false);
+                                                    router.push(`/network/${memberPubkey}`);
+                                                }}
+                                            />
+                                        ))
+                                    )}
+                                </div>
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Offline</h4>
+                                    {offlineMembers.length === 0 ? (
+                                        <p className="text-xs text-zinc-500">No offline members detected.</p>
+                                    ) : (
+                                        offlineMembers.map((pk) => (
+                                            <MemberProfileRow
+                                                key={`offline-${pk}`}
+                                                pubkey={pk}
+                                                status="offline"
+                                                onOpenProfile={(memberPubkey) => {
+                                                    setIsMemberListOpen(false);
+                                                    router.push(`/network/${memberPubkey}`);
+                                                }}
+                                            />
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <ConfirmDialog
+                    isOpen={isBlockConfirmOpen}
+                    onClose={() => setIsBlockConfirmOpen(false)}
+                    onConfirm={() => {
+                        handleToggleBlock();
+                        setIsBlockConfirmOpen(false);
+                    }}
+                    title="Block community"
+                    description={`Are you sure you want to block "${displayName}"? This will hide it and ignore its events.`}
+                    confirmLabel="Block community"
+                    cancelLabel="Cancel"
+                    variant="danger"
+                />
+
                 <ConfirmDialog
                     isOpen={isLeaveConfirmOpen}
                     onClose={() => setIsLeaveConfirmOpen(false)}
@@ -495,3 +619,61 @@ export default function GroupHomePage() {
         </PageShell>
     );
 }
+
+function MemberProfileRow({
+    pubkey,
+    status,
+    onOpenProfile
+}: Readonly<{
+    pubkey: string;
+    status: "online" | "offline";
+    onOpenProfile: (pubkey: string) => void;
+}>): React.JSX.Element {
+    const metadata = useProfileMetadata(pubkey);
+    const displayName = metadata?.displayName || `${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
+    const statusLabel = status === "online" ? "Online" : "Offline";
+
+    return (
+        <button
+            type="button"
+            onClick={() => onOpenProfile(pubkey)}
+            className={cn(
+                "w-full rounded-2xl border p-3 text-left transition-all group",
+                status === "online"
+                    ? "border-emerald-500/20 bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08] hover:border-emerald-400/30"
+                    : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20"
+            )}
+        >
+            <div className="flex items-center gap-3">
+                <UserAvatar
+                    pubkey={pubkey}
+                    size="sm"
+                    showProfileOnClick={false}
+                    className="rounded-xl border border-white/10"
+                />
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-black text-zinc-100">{displayName}</p>
+                        <span
+                            className={cn(
+                                "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest",
+                                status === "online"
+                                    ? "bg-emerald-500/15 text-emerald-300"
+                                    : "bg-zinc-500/20 text-zinc-300"
+                            )}
+                        >
+                            {statusLabel}
+                        </span>
+                    </div>
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-500">
+                        {pubkey.slice(0, 12)}...{pubkey.slice(-8)}
+                    </p>
+                </div>
+                <div className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-center text-zinc-400 group-hover:text-white group-hover:border-white/20 transition-colors">
+                    <ChevronRight className="h-4 w-4" />
+                </div>
+            </div>
+        </button>
+    );
+}
+

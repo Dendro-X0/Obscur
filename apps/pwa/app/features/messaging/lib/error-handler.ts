@@ -194,7 +194,7 @@ export class ErrorHandler {
     const messageError: MessageError = {
       type: MessageErrorType.ENCRYPTION_FAILED,
       message: `Encryption failed: ${error.message}`,
-      userMessage: 'Failed to encrypt your message. Please try again.',
+      userMessage: 'Could not encrypt this message. Lock and unlock your identity, then retry.',
       recoverable: true,
       recoveryOptions: [
         {
@@ -224,7 +224,7 @@ export class ErrorHandler {
     const messageError: MessageError = {
       type: MessageErrorType.DECRYPTION_FAILED,
       message: `Decryption failed: ${error.message}`,
-      userMessage: 'Unable to decrypt this message. It may be corrupted or sent with an incompatible encryption method.',
+      userMessage: 'Could not decrypt this message. Ask the sender to resend, or refresh this chat if sync was interrupted.',
       recoverable: false,
       originalError: error,
       context
@@ -244,7 +244,7 @@ export class ErrorHandler {
     const messageError: MessageError = {
       type: MessageErrorType.ALL_RELAYS_FAILED,
       message: `Relay ${relayUrl} failed: ${errorMessage}`,
-      userMessage: 'Some relays are unavailable. Your message will be sent to available relays.',
+      userMessage: 'Some relays are unavailable. Message delivery will continue on connected relays. Review relay scope in Settings if this repeats.',
       recoverable: true,
       recoveryOptions: [
         {
@@ -275,8 +275,8 @@ export class ErrorHandler {
       type: MessageErrorType.ALL_RELAYS_FAILED,
       message: 'All relay connections failed',
       userMessage: this.networkState.isOnline
-        ? 'Unable to connect to any relays. Your message has been queued and will be sent when a connection is available.'
-        : 'You are offline. Your message has been queued and will be sent when you reconnect.',
+        ? 'No relays are connected. Message queued. Reconnect relays or switch provider in Settings > Storage, then retry.'
+        : 'You are offline. Message queued and will send when your device reconnects.',
       recoverable: true,
       recoveryOptions: [
         {
@@ -305,7 +305,7 @@ export class ErrorHandler {
     const messageError: MessageError = {
       type: MessageErrorType.STORAGE_FAILED,
       message: `Storage operation failed: ${error.message}`,
-      userMessage: 'Failed to save message locally. Your storage may be full or unavailable.',
+      userMessage: 'Could not save this message locally. Storage may be full. Free device space and retry, or change storage provider in Settings > Storage.',
       recoverable: true,
       recoveryOptions: [
         {
@@ -393,7 +393,7 @@ export class ErrorHandler {
     const messageError: MessageError = {
       type: MessageErrorType.UNKNOWN,
       message: `Unexpected error: ${error.message}`,
-      userMessage: 'An unexpected error occurred. Please try again.',
+      userMessage: 'Unexpected error. Retry the action. If it keeps failing, refresh the app and re-unlock your identity.',
       recoverable: true,
       recoveryOptions: [
         {

@@ -10,7 +10,6 @@ import {
     Send,
     Users as InviteIcon
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
@@ -158,16 +157,31 @@ export function InviteMemberDialog({
         }
     };
 
+    if (!isOpen) return null;
+
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md bg-[#0A0A0B] border-white/10 p-0 overflow-hidden rounded-[32px]">
-                <DialogHeader className="p-8 pb-0">
-                    <DialogTitle className="text-white font-black text-2xl flex items-center gap-3">
-                        <UserPlus className="h-6 w-6 text-indigo-400" />
-                        Secure Propagation
-                    </DialogTitle>
-                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2">Distribute Room Key via NIP-17</p>
-                </DialogHeader>
+        <div
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-md bg-[#0A0A0B] border border-white/10 p-0 overflow-hidden rounded-[32px] shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className="p-8 pb-0">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-white font-black text-2xl flex items-center gap-3">
+                                <UserPlus className="h-6 w-6 text-indigo-400" />
+                                Secure Propagation
+                            </h2>
+                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2">Distribute Room Key via NIP-17</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-zinc-400 hover:text-white hover:bg-white/5" onClick={onClose}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
 
                 <div className="p-8 space-y-6">
                     <div className="relative group">
@@ -238,7 +252,7 @@ export function InviteMemberDialog({
                         )}
                     </div>
                 </div>
-            </DialogContent>
-        </Dialog>
+            </div>
+        </div>
     );
 }

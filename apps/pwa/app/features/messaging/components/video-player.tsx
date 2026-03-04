@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Play, Pause, Volume2, Maximize, Loader2, VideoOff, ExternalLink } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
@@ -25,8 +25,17 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
     const [isLoading, setIsLoading] = useState(true);
     const [isError, setIsError] = useState(false);
     const [errorHint, setErrorHint] = useState<string | null>(null);
+    const [runtimeSrc, setRuntimeSrc] = useState(src);
+    const [hasRetriedWithBypass, setHasRetriedWithBypass] = useState(false);
+    const [volume, setVolume] = useState(1);
+    const [isMuted, setIsMuted] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setRuntimeSrc(src);
+        setHasRetriedWithBypass(false);
+    }, [src]);
 
     const openExternally = async (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
@@ -102,6 +111,14 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
         };
         console.error("[VideoPlayer] media error", details);
 
+        if (!hasRetriedWithBypass) {
+            setHasRetriedWithBypass(true);
+            const separator = src.includes("?") ? "&" : "?";
+            setRuntimeSrc(`${src}${separator}obscur_nocache=${Date.now()}`);
+            setIsLoading(true);
+            return;
+        }
+
         const hint = err?.code ? `MediaError code ${err.code}` : "MediaError";
         setErrorHint(hint);
         setIsLoading(false);
@@ -121,12 +138,35 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
         }
     };
 
+    const handleToggleMute = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const video = videoRef.current;
+        if (!video) return;
+        const nextMuted = !video.muted;
+        video.muted = nextMuted;
+        setIsMuted(nextMuted);
+    };
+
+    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.stopPropagation();
+        const video = videoRef.current;
+        if (!video) return;
+        const nextVolume = Math.max(0, Math.min(1, Number(e.target.value)));
+        video.volume = nextVolume;
+        const nextMuted = nextVolume === 0;
+        video.muted = nextMuted;
+        setVolume(nextVolume);
+        setIsMuted(nextMuted);
+    };
+
     const formatTime = (time: number) => {
         if (isNaN(time)) return "0:00";
         const mins = Math.floor(time / 60);
         const secs = Math.floor(time % 60);
         return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
+
+    const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
 
     return (
         <div
@@ -186,9 +226,9 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                 </div>
             ) : (
                 <video
-                    key={src}
+                    key={runtimeSrc}
                     ref={videoRef}
-                    src={src}
+                    src={runtimeSrc}
                     className="w-full h-full object-contain cursor-pointer"
                     onLoadStart={() => {
                         setIsLoading(true);
@@ -205,9 +245,16 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                     onError={handleVideoError}
                     onEnded={handleEnded}
                     onClick={togglePlay}
+                    onVolumeChange={() => {
+                        const video = videoRef.current;
+                        if (!video) return;
+                        setVolume(video.volume);
+                        setIsMuted(video.muted);
+                    }}
                     playsInline
                     preload="metadata"
                     autoPlay={autoPlay}
+                    crossOrigin="anonymous"
                 />
             )}
 
@@ -247,7 +294,29 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Volume2 className="h-4 w-4 text-white/60" />
+                                <button
+                                    onClick={handleToggleMute}
+                                    className="p-1 hover:text-purple-400 text-white transition-colors"
+                                    aria-label={isMuted ? "Unmute video" : "Mute video"}
+                                >
+                                    <Volume2 className={cn("h-4 w-4", isMuted ? "text-white/40" : "text-white/70")} />
+                                </button>
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={1}
+                                    step={0.01}
+                                    value={isMuted ? 0 : volume}
+                                    onChange={handleVolumeChange}
+                                    className="w-20 accent-purple-500 cursor-pointer"
+                                    aria-label="Video volume"
+                                />
+                                <span
+                                    className="text-[10px] font-black tracking-wider text-white/70 min-w-[34px] text-right"
+                                    title={`Volume ${volumePercent}%`}
+                                >
+                                    {volumePercent}%
+                                </span>
                                 <button
                                     onClick={handleFullscreen}
                                     className="p-1 hover:text-purple-400 text-white transition-colors"

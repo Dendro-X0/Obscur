@@ -14,6 +14,7 @@ import { MessageQueue, type Message, type MessageStatus, type OutgoingMessage } 
 import { extractAttachmentsFromContent } from "../utils/logic";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
+import type { Attachment } from "@/app/features/messaging/types";
 import { errorHandler } from "../lib/error-handler";
 import { offlineQueueManager, type QueueStatus } from "../lib/offline-queue-manager";
 import { messageMemoryManager, webSocketOptimizer } from "../lib/performance-optimizer";
@@ -135,6 +136,7 @@ export type UseEnhancedDMControllerResult = Readonly<{
   sendDm: (params: Readonly<{
     peerPublicKeyInput: string;
     plaintext: string;
+    attachments?: ReadonlyArray<Attachment>;
     replyTo?: string;
     customTags?: string[][];
   }>) => Promise<SendResult>;
@@ -233,7 +235,7 @@ export const useEnhancedDMController = (
         setState(createReadyState(storedMessages));
       } catch (error) {
         console.error('Failed to load messages:', error);
-        setState(prev => createErrorState('Failed to load messages', [], errorHandler.handleUnknownError(error as Error)));
+        setState(prev => createErrorState('Failed to load local message history. Try refreshing the app.', [], errorHandler.handleUnknownError(error as Error)));
       }
     };
     void loadMessages();
@@ -397,6 +399,7 @@ export const useEnhancedDMController = (
   const sendDm = useCallback(async (sendParams: Readonly<{
     peerPublicKeyInput: string;
     plaintext: string;
+    attachments?: ReadonlyArray<Attachment>;
     replyTo?: string;
     customTags?: string[][];
   }>): Promise<SendResult> => {
@@ -433,7 +436,7 @@ export const useEnhancedDMController = (
       const nextStatus = transitionMessageStatus(m.status, { type: "START_SEND" });
       await messageQueue.updateMessageStatus(id, nextStatus);
       setState(prev => createReadyState(prev.messages.map(msg => msg.id === id ? { ...msg, status: nextStatus } : msg)));
-      await sendDm({ peerPublicKeyInput: m.recipientPubkey, plaintext: m.content, replyTo: m.replyTo?.messageId });
+      await sendDm({ peerPublicKeyInput: m.recipientPubkey, plaintext: m.content, attachments: m.attachments, replyTo: m.replyTo?.messageId });
     },
     getMessageStatus: (id) => state.messages.find(m => m.id === id || m.eventId === id)?.status || null,
     getMessagesByConversation: (cid) => messageMemoryManager.getMessages(cid) || state.messages.filter(m => m.conversationId === cid),

@@ -116,10 +116,9 @@ export function Composer({
         const files: File[] = [];
 
         for (let i = 0; i < items.length; i++) {
-            if (items[i].type.startsWith("image/") || items[i].type.startsWith("video/")) {
-                const file = items[i].getAsFile();
-                if (file) files.push(file);
-            }
+            if (items[i].kind !== "file") continue;
+            const file = items[i].getAsFile();
+            if (file) files.push(file);
         }
 
         if (files.length > 0) {
@@ -326,7 +325,7 @@ export function Composer({
             )}>
                 <input
                     type="file"
-                    accept="image/*,video/*"
+                    accept="image/*,video/*,audio/*,.pdf,.txt,.csv,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp"
                     multiple
                     className="hidden"
                     id="composer-attachment"

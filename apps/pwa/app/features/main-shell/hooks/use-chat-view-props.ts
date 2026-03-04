@@ -29,7 +29,8 @@ export function useChatViewProps({
         messages,
         isLoading,
         hasEarlier,
-        loadEarlier
+        loadEarlier,
+        pendingEventCount
     } = useConversationMessages(selectedConversation?.id || undefined, myPublicKeyHex);
 
     const handleLoadEarlier = useCallback(() => {
@@ -77,6 +78,7 @@ export function useChatViewProps({
         rawMessagesCount: messages.length,
         hasEarlierMessages: hasEarlier,
         selectedConversationMediaItems,
-        isLoading
+        isLoading,
+        pendingEventCount
     };
 }

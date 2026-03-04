@@ -145,13 +145,13 @@ export function useInviteRedemption(dmController: any) {
         if (inviteRedemption.status === "idle") return;
 
         switch (inviteRedemption.status) {
-            case "needs_unlock": toast.info("Unlock to redeem invite."); break;
-            case "redeeming": toast.info("Redeeming invite..."); break;
-            case "success": toast.success("Invite redeemed."); break;
-            case "expired": toast.error("Invite is expired."); break;
-            case "invalid": toast.error("Invite is invalid."); break;
-            case "server_down": toast.error("Invite server unavailable."); break;
-            case "error": toast.error(inviteRedemption.message || "Invite failed."); break;
+            case "needs_unlock": toast.info("Unlock your identity first, then redeem the invite again."); break;
+            case "redeeming": toast.info("Redeeming invite and syncing relay hints..."); break;
+            case "success": toast.success("Invite redeemed. Opening chat composer."); break;
+            case "expired": toast.error("Invite expired. Ask the sender for a new invite link."); break;
+            case "invalid": toast.error("Invalid invite link. Verify the full URL and try again."); break;
+            case "server_down": toast.error("Invite service unavailable. Retry in a moment or check your network."); break;
+            case "error": toast.error(inviteRedemption.message || "Invite redeem failed. Retry, or open the link again after refresh."); break;
         }
     }, [inviteRedemption.status, inviteRedemption.message]);
 

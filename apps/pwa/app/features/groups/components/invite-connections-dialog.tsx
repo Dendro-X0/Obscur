@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Search, Loader2, Send, Users, UserCheck, X } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { toast } from "../../../components/ui/toast";
@@ -165,16 +164,31 @@ export function InviteConnectionsDialog({
         onClose();
     };
 
+    if (!isOpen) return null;
+
     return (
-        <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-md bg-[#0A0A0B] border-white/10 p-0 overflow-hidden rounded-[32px]">
-                <DialogHeader className="p-8 pb-0">
-                    <DialogTitle className="text-white font-black text-2xl flex items-center gap-3">
-                        <Users className="h-6 w-6 text-indigo-400" />
-                        Invite Connections
-                    </DialogTitle>
-                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2 hover:text-zinc-400 transition-colors">Distribute Group Room Key</p>
-                </DialogHeader>
+        <div
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={handleClose}
+        >
+            <div
+                className="w-full max-w-md bg-[#0A0A0B] border border-white/10 p-0 overflow-hidden rounded-[32px] shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className="p-8 pb-0">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-white font-black text-2xl flex items-center gap-3">
+                                <Users className="h-6 w-6 text-indigo-400" />
+                                Invite Connections
+                            </h2>
+                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2 hover:text-zinc-400 transition-colors">Distribute Group Room Key</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-zinc-400 hover:text-white hover:bg-white/5" onClick={handleClose}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
 
                 <div className="p-8 space-y-6">
                     <div className="relative group">
@@ -225,8 +239,8 @@ export function InviteConnectionsDialog({
                         </Button>
                     </div>
                 )}
-            </DialogContent>
-        </Dialog>
+            </div>
+        </div>
     );
 }
 

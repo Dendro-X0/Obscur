@@ -38,6 +38,18 @@ describe("use-sealed-community integration", () => {
         content: params.content ?? "{}",
         tags: params.tags ?? [["h", groupId]]
     });
+    const createDeleteEvent = (params: Readonly<{ id: string; createdAt: number; deleteIds: string[] }>): NostrEvent => ({
+        id: params.id,
+        pubkey: actor,
+        kind: 5,
+        created_at: params.createdAt,
+        sig: "sig",
+        content: "",
+        tags: [
+            ["h", groupId],
+            ...params.deleteIds.map((deleteId) => ["e", deleteId])
+        ]
+    });
 
     const createPool = () => ({
         sendToOpen: vi.fn(),
@@ -297,6 +309,48 @@ describe("use-sealed-community integration", () => {
             expect(result.current.state.metadata?.about).toBe("Sealed community");
             expect(result.current.state.metadata?.access).toBe("invite-only");
             expect(result.current.members).toContain(actor);
+        });
+    });
+
+    it("keeps deleted group message removed when stale replay arrives later", async () => {
+        const pool = createPool();
+        vi.mocked(cryptoService.decryptGroupMessage)
+            .mockResolvedValueOnce(JSON.stringify({ type: "message", pubkey: actor, created_at: 600, content: "hello" }))
+            .mockResolvedValueOnce(JSON.stringify({ type: "message", pubkey: actor, created_at: 600, content: "hello replay" }));
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor]
+        }));
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createEvent({ id: "msg-1", createdAt: 600, pubkey: actor }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect(result.current.state.messages.some((message) => message.id === "msg-1")).toBe(true);
+        });
+
+        await act(async () => {
+            await onEventHandler?.(createDeleteEvent({ id: "delete-1", createdAt: 601, deleteIds: ["msg-1"] }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect(result.current.state.messages.some((message) => message.id === "msg-1")).toBe(false);
+        });
+
+        await act(async () => {
+            await onEventHandler?.(createEvent({ id: "msg-1", createdAt: 602, pubkey: actor }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect(result.current.state.messages.some((message) => message.id === "msg-1")).toBe(false);
         });
     });
 });

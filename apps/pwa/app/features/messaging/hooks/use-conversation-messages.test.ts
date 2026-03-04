@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import type { Message } from "../types";
+import type { MessageBusEvent } from "../services/message-bus";
+import { applyBufferedEvents } from "./use-conversation-messages";
+
+const createMessage = (params: Readonly<{ id: string; timestampMs: number; content?: string }>): Message => ({
+    id: params.id,
+    kind: "user",
+    content: params.content ?? params.id,
+    timestamp: new Date(params.timestampMs),
+    isOutgoing: false,
+    status: "delivered",
+});
+
+describe("applyBufferedEvents", () => {
+    it("deduplicates by message id and applies updates/deletes atomically", () => {
+        const previous = [createMessage({ id: "m1", timestampMs: 1000, content: "old" })];
+        const events: MessageBusEvent[] = [
+            { type: "new_message", conversationId: "c1", message: createMessage({ id: "m2", timestampMs: 2000 }) },
+            { type: "message_updated", conversationId: "c1", message: createMessage({ id: "m1", timestampMs: 1000, content: "new" }) },
+            { type: "message_deleted", conversationId: "c1", messageId: "m2" }
+        ];
+
+        const next = applyBufferedEvents(previous, events, true, false);
+        expect(next).toHaveLength(1);
+        expect(next[0].id).toBe("m1");
+        expect(next[0].content).toBe("new");
+    });
+
+    it("keeps chronological order after out-of-order event arrival", () => {
+        const previous: Message[] = [];
+        const events: MessageBusEvent[] = [
+            { type: "new_message", conversationId: "c1", message: createMessage({ id: "m3", timestampMs: 3000 }) },
+            { type: "new_message", conversationId: "c1", message: createMessage({ id: "m1", timestampMs: 1000 }) },
+            { type: "new_message", conversationId: "c1", message: createMessage({ id: "m2", timestampMs: 2000 }) }
+        ];
+
+        const next = applyBufferedEvents(previous, events, true, false);
+        expect(next.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
+    });
+
+    it("applies soft live-window limit only when performance mode is enabled and history is not expanded", () => {
+        const previous = Array.from({ length: 130 }, (_, index) =>
+            createMessage({
+                id: `m-${index + 1}`,
+                timestampMs: 1000 + index
+            })
+        );
+
+        const trimmed = applyBufferedEvents(previous, [], true, false);
+        expect(trimmed).toHaveLength(120);
+        expect(trimmed[0].id).toBe("m-11");
+
+        const expanded = applyBufferedEvents(previous, [], true, true);
+        expect(expanded).toHaveLength(130);
+
+        const legacy = applyBufferedEvents(previous, [], false, false);
+        expect(legacy).toHaveLength(130);
+    });
+
+    it("prevents stale upsert from resurrecting a recently deleted message id", () => {
+        const tombstones = new Map<string, number>();
+        const nowMs = 50_000;
+        const events: MessageBusEvent[] = [
+            { type: "message_deleted", conversationId: "c1", messageId: "z1" },
+            { type: "new_message", conversationId: "c1", message: createMessage({ id: "z1", timestampMs: nowMs - 1000, content: "stale" }) },
+            { type: "new_message", conversationId: "c1", message: createMessage({ id: "z2", timestampMs: nowMs, content: "ok" }) }
+        ];
+
+        const next = applyBufferedEvents([], events, true, false, tombstones, nowMs);
+        expect(next.map((m) => m.id)).toEqual(["z2"]);
+        expect(tombstones.has("z1")).toBe(true);
+    });
+});

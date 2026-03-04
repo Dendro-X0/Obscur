@@ -4,6 +4,18 @@ import type { NostrFilter, EnhancedDMControllerState } from "./dm-controller-sta
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { MessageQueue } from "../lib/message-queue";
 
+const GLOBAL_SYNC_LOCK_KEY = "__obscur_dm_sync_lock__";
+const getGlobalSyncLock = (): { inProgress: boolean } => {
+    const target = globalThis as Record<string, unknown>;
+    const existing = target[GLOBAL_SYNC_LOCK_KEY];
+    if (existing && typeof existing === "object" && "inProgress" in (existing as Record<string, unknown>)) {
+        return existing as { inProgress: boolean };
+    }
+    const lock = { inProgress: false };
+    target[GLOBAL_SYNC_LOCK_KEY] = lock;
+    return lock;
+};
+
 export interface SyncOrchestratorParams {
     myPublicKeyHex: PublicKeyHex | null;
     messageQueue: MessageQueue | null;
@@ -29,6 +41,7 @@ export const syncMissedMessages = async (
     since?: Date
 ): Promise<void> => {
     const { myPublicKeyHex, messageQueue, pool, syncStateRef, setState } = params;
+    const globalSyncLock = getGlobalSyncLock();
 
     if (!myPublicKeyHex || !messageQueue) {
         console.warn('Cannot sync: identity or message queue not available');
@@ -37,6 +50,10 @@ export const syncMissedMessages = async (
 
     if (syncStateRef.current.isSyncing) {
         console.log('Sync already in progress, skipping');
+        return;
+    }
+    if (globalSyncLock.inProgress) {
+        console.debug('Global sync already in progress, skipping');
         return;
     }
 
@@ -48,6 +65,7 @@ export const syncMissedMessages = async (
 
     try {
         syncStateRef.current.isSyncing = true;
+        globalSyncLock.inProgress = true;
 
         loadingStateManager.setLoading('messageSync', {
             isLoading: true,
@@ -104,6 +122,7 @@ export const syncMissedMessages = async (
             pool.sendToOpen(closeMessage);
 
             syncStateRef.current.isSyncing = false;
+            globalSyncLock.inProgress = false;
             syncStateRef.current.lastSyncAt = new Date();
 
             loadingStateManager.complete('messageSync');
@@ -145,6 +164,7 @@ export const syncMissedMessages = async (
     } catch (error) {
         console.error('Failed to sync missed messages:', error);
         syncStateRef.current.isSyncing = false;
+        globalSyncLock.inProgress = false;
         loadingStateManager.complete('messageSync');
 
         setState(prev => ({

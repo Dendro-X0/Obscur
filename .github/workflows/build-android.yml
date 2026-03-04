@@ -1,10 +1,7 @@
-name: Build and Release Android
+name: Build Android (Manual)
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 jobs:
   build-android:
@@ -112,12 +109,3 @@ jobs:
           track: internal
           status: completed
 
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
-            apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/release/*.aab
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

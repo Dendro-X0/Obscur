@@ -6,6 +6,7 @@ import type { IMessageQueue, Message } from "../lib/message-queue";
 export const prepareOutgoingDm = async (params: Readonly<{
   build: DmEventBuildResult;
   plaintext: string;
+  attachments?: Message["attachments"];
   createdAtUnixSeconds: number;
   myPublicKeyHex: PublicKeyHex;
   recipientPubkey: PublicKeyHex;
@@ -52,7 +53,7 @@ export const prepareOutgoingDm = async (params: Readonly<{
         previewText: ""
       }
       : undefined,
-    attachments: params.extractAttachmentsFromContent(params.plaintext)
+    attachments: params.attachments ?? params.extractAttachmentsFromContent(params.plaintext)
   };
 
   if (params.messageQueue) {

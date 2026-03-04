@@ -7,6 +7,7 @@ export interface PrivacySettings {
     useModernDMs: boolean; // NIP-17 Gift Wraps
     dmPrivacy: 'everyone' | 'contacts-only';
     biometricLockEnabled: boolean;
+    chatPerformanceV2: boolean; // Feature flag for batched chat performance optimizations
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -17,7 +18,8 @@ export const defaultPrivacySettings: PrivacySettings = {
     autoLockTimeout: 0,
     useModernDMs: true,
     dmPrivacy: 'everyone',
-    biometricLockEnabled: false
+    biometricLockEnabled: false,
+    chatPerformanceV2: false
 };
 
 export class PrivacySettingsService {

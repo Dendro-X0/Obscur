@@ -160,6 +160,27 @@ export class IndexedDBService {
         });
     }
 
+    async bulkDelete(storeName: string, keys: ReadonlyArray<string>): Promise<void> {
+        const db = await this.ensureDB();
+        return new Promise((resolve, reject) => {
+            if (keys.length === 0) {
+                resolve();
+                return;
+            }
+
+            const transaction = db.transaction(storeName, "readwrite");
+            const store = transaction.objectStore(storeName);
+
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB bulkDelete transaction aborted"));
+
+            keys.forEach((key) => {
+                store.delete(key);
+            });
+        });
+    }
+
     async getRange<T>(
         storeName: string,
         indexName: string,

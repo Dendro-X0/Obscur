@@ -147,7 +147,7 @@ export function useAttachmentHandler() {
         const input = document.createElement('input');
         input.type = 'file';
         input.multiple = true;
-        input.accept = 'image/*,video/*,audio/*';
+        input.accept = "image/*,video/*,audio/*,.pdf,.txt,.csv,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp";
         input.onchange = (e) => {
             const files = (e.target as HTMLInputElement).files;
             if (files) {

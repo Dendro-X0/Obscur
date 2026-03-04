@@ -1,75 +1,81 @@
 #!/usr/bin/env node
 /**
- * Sync version from the root package.json to all workspace apps, packages, and tauri config.
+ * Sync release version from root package.json to all release-tracked manifests.
+ *
+ * Coverage:
+ * - apps/pwa/package.json
+ * - apps/desktop/package.json
+ * - apps/desktop/src-tauri/tauri.conf.json
+ * - apps/website/package.json
+ * - apps/relay-gateway/package.json
+ * - packages/<package-name>/package.json
+ * - version.json
+ *
+ * Intentionally excluded:
+ * - apps/coordination/package.json (no release version contract yet)
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = resolve(__dirname, '..');
+const rootDir = resolve(__dirname, "..");
 
-/**
- * Read version from the root package.json
- */
+const fixedTargets = [
+  "apps/pwa/package.json",
+  "apps/desktop/package.json",
+  "apps/desktop/src-tauri/tauri.conf.json",
+  "apps/website/package.json",
+  "apps/relay-gateway/package.json",
+  "version.json",
+];
+
 function getRootVersion() {
-    const rootPkgPath = resolve(rootDir, 'package.json');
-    const rootPkg = JSON.parse(readFileSync(rootPkgPath, 'utf-8'));
-    return rootPkg.version;
+  const rootPkgPath = resolve(rootDir, "package.json");
+  const rootPkg = JSON.parse(readFileSync(rootPkgPath, "utf8"));
+  return rootPkg.version;
 }
 
-/**
- * Update version in a JSON file
- */
-function updateJsonVersion(filePath, version) {
-    if (!existsSync(filePath)) {
-        console.warn(`⚠️ File not found: ${filePath}`);
-        return;
+function setJsonVersion(absPath, version) {
+  if (!existsSync(absPath)) {
+    console.warn(`[version:sync] Missing file: ${absPath}`);
+    return;
+  }
+  const content = JSON.parse(readFileSync(absPath, "utf8"));
+  content.version = version;
+  writeFileSync(absPath, `${JSON.stringify(content, null, 2)}\n`, "utf8");
+  console.log(`[version:sync] Updated ${absPath} -> ${version}`);
+}
+
+function getPackageTargets() {
+  const packagesDir = resolve(rootDir, "packages");
+  if (!existsSync(packagesDir)) return [];
+
+  return readdirSync(packagesDir)
+    .map((pkg) => resolve(packagesDir, pkg, "package.json"))
+    .filter((pkgPath) => existsSync(pkgPath));
+}
+
+function main() {
+  try {
+    const rootVersion = getRootVersion();
+    if (!rootVersion) {
+      throw new Error("No version found in root package.json");
     }
-    const content = JSON.parse(readFileSync(filePath, 'utf-8'));
-    content.version = version;
-    writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n', 'utf-8');
-    console.log(`✅ Updated ${filePath} to v${version}`);
-}
 
-/**
- * Main sync function
- */
-function syncVersions() {
-    try {
-        const version = getRootVersion();
-        if (!version) {
-            throw new Error('No version found in root package.json');
-        }
-        console.log(`📦 Syncing version: ${version}\n`);
-
-        // Update PWA
-        updateJsonVersion(resolve(rootDir, 'apps/pwa/package.json'), version);
-
-        // Update Desktop
-        updateJsonVersion(resolve(rootDir, 'apps/desktop/package.json'), version);
-        updateJsonVersion(resolve(rootDir, 'apps/desktop/src-tauri/tauri.conf.json'), version);
-
-        // Update version.json (if used as a legacy or auxiliary tracker)
-        updateJsonVersion(resolve(rootDir, 'version.json'), version);
-
-        // Update all packages in the packages/ directory
-        const packagesDir = resolve(rootDir, 'packages');
-        if (existsSync(packagesDir)) {
-            const packages = readdirSync(packagesDir);
-            for (const pkg of packages) {
-                const pkgPath = resolve(packagesDir, pkg, 'package.json');
-                if (existsSync(pkgPath)) {
-                    updateJsonVersion(pkgPath, version);
-                }
-            }
-        }
-
-        console.log(`\n✨ Workspace successfully synced to v${version}`);
-    } catch (error) {
-        console.error('❌ Error syncing versions:', error.message);
-        process.exit(1);
+    console.log(`[version:sync] Root version: ${rootVersion}`);
+    for (const relPath of fixedTargets) {
+      setJsonVersion(resolve(rootDir, relPath), rootVersion);
     }
+    for (const pkgPath of getPackageTargets()) {
+      setJsonVersion(pkgPath, rootVersion);
+    }
+    console.log("[version:sync] Complete");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[version:sync] Failed: ${message}`);
+    process.exit(1);
+  }
 }
 
-syncVersions();
+main();

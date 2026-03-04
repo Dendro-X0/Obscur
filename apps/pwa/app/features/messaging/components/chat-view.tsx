@@ -77,6 +77,7 @@ export interface ChatViewProps {
     selectedConversationMediaItems: ReadonlyArray<MediaItem>;
     lightboxIndex: number | null;
     setLightboxIndex: (val: number | null) => void;
+    pendingEventCount?: number;
     recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
     isPeerAccepted?: boolean;
     isInitiator?: boolean;
@@ -231,6 +232,7 @@ export function ChatView(props: ChatViewProps) {
                     isGroup={props.conversation.kind === "group"}
                     admins={props.groupAdmins}
                     onSendDirectMessage={props.onSendDirectMessage}
+                    pendingEventCount={props.pendingEventCount ?? 0}
                 />
             )}
 

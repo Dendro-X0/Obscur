@@ -74,6 +74,8 @@ export function AuthScreen() {
     const [loginTab, setLoginTab] = useState<"username" | "key">("username");
     const [authError, setAuthError] = useState<string | null>(null);
     const [acknowledged, setAcknowledged] = useState(false);
+    const keyOwnershipReminder = "You own your private key. Obscur cannot recover accounts for lost keys or forgotten passwords.";
+    const keyRecoveryReminder = "Back up your private key now and verify export in Settings > Identity after login.";
 
     // Form states
     const [username, setUsername] = useState("");
@@ -83,7 +85,7 @@ export function AuthScreen() {
 
     const persistRememberMe = useCallback((params: Readonly<{ remember: boolean; token?: string }>) => {
         localStorage.setItem(REMEMBER_ME_KEY, params.remember ? "true" : "false");
-        if (params.remember && params.token) {
+        if (params.remember && params.token !== undefined) {
             localStorage.setItem(AUTH_TOKEN_KEY, params.token);
         } else {
             localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -483,7 +485,10 @@ export function AuthScreen() {
                                             <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
                                             <div className="space-y-3">
                                                 <p className="text-xs text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
-                                                    There is no password recovery. If you lose this password and your device, your account is gone forever. You can log in to your account from any device using your private key — never lose it!
+                                                    There is no password recovery. If you lose this password and device, your account may be unrecoverable. You can log in from any device using your private key, so never lose it.
+                                                </p>
+                                                <p className="text-xs text-amber-700 dark:text-amber-300 font-semibold leading-relaxed">
+                                                    {keyOwnershipReminder} {keyRecoveryReminder}
                                                 </p>
                                                 <div className="flex items-start space-x-4 pt-1">
                                                     <Checkbox
@@ -618,6 +623,17 @@ export function AuthScreen() {
                                                         />
                                                     </div>
                                                 </div>
+                                                <div className="flex items-center space-x-3 px-2">
+                                                    <Checkbox
+                                                        id="remember-login-key"
+                                                        checked={rememberMe}
+                                                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                                                        className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
+                                                    />
+                                                    <label htmlFor="remember-login-key" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                                                        {t("auth.rememberMe", "Keep me logged in on this device")}
+                                                    </label>
+                                                </div>
                                                 <Button
                                                     disabled={privateKey.length < 10}
                                                     onClick={() => setStep(2)}
@@ -747,6 +763,18 @@ export function AuthScreen() {
                                             onClose={() => setAuthError(null)}
                                             className="mt-4"
                                         />
+
+                                        <div className="p-4 rounded-3xl bg-blue-500/10 border border-blue-500/20 flex gap-4">
+                                            <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                                            <div className="space-y-2">
+                                                <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold leading-relaxed">
+                                                    Importing a private key gives full control of this identity on this device.
+                                                </p>
+                                                <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
+                                                    {keyOwnershipReminder} {keyRecoveryReminder}
+                                                </p>
+                                            </div>
+                                        </div>
 
                                         <div className="flex flex-col gap-3 mt-6">
                                             <Button

@@ -26,8 +26,13 @@ export interface PerformanceSnapshot {
   metrics: {
     // Message metrics
     messagesPerSecond: number;
+    messageBusEventsPerSecond: number;
     averageMessageLatency: number;
     messageQueueSize: number;
+    averageBatchSize: number;
+    averageBatchFlushLatency: number;
+    mergedEventsCount: number;
+    droppedEventsCount: number;
     
     // Relay metrics
     connectedRelays: number;
@@ -40,6 +45,7 @@ export interface PerformanceSnapshot {
     
     // UI metrics
     uiUpdateLatency: number;
+    uiUpdateLatencyP95: number;
     frameRate: number;
   };
   health: 'healthy' | 'degraded' | 'critical';
@@ -79,6 +85,7 @@ class PerformanceMonitor {
 
   // Metric accumulators
   private messageCount: number = 0;
+  private messageBusEventCount: number = 0;
   private lastMessageCountReset: Date = new Date();
   private latencySum: number = 0;
   private latencyCount: number = 0;
@@ -87,6 +94,11 @@ class PerformanceMonitor {
   private relaySuccessCount: number = 0;
   private relayTotalCount: number = 0;
   private uiUpdateLatencies: number[] = [];
+  private batchFlushCount: number = 0;
+  private batchSizeSum: number = 0;
+  private batchFlushLatencies: number[] = [];
+  private mergedEventCount: number = 0;
+  private droppedEventCount: number = 0;
 
   /**
    * Enable performance monitoring
@@ -145,6 +157,36 @@ class PerformanceMonitor {
   }
 
   /**
+   * Record message-bus events for queue/backpressure observability.
+   */
+  recordMessageBusEvents(count: number = 1): void {
+    if (!this.enabled) return;
+    this.messageBusEventCount += Math.max(0, count);
+  }
+
+  /**
+   * Record a batch flush and dedupe merge counts.
+   */
+  recordBatchFlush(
+    batchSize: number,
+    mergedEvents: number = 0,
+    flushLatencyMs?: number,
+    droppedEvents: number = 0
+  ): void {
+    if (!this.enabled) return;
+    this.batchFlushCount += 1;
+    this.batchSizeSum += Math.max(0, batchSize);
+    this.mergedEventCount += Math.max(0, mergedEvents);
+    this.droppedEventCount += Math.max(0, Math.max(droppedEvents, mergedEvents));
+    if (typeof flushLatencyMs === "number" && Number.isFinite(flushLatencyMs) && flushLatencyMs >= 0) {
+      this.batchFlushLatencies.push(flushLatencyMs);
+      if (this.batchFlushLatencies.length > 100) {
+        this.batchFlushLatencies.shift();
+      }
+    }
+  }
+
+  /**
    * Record message latency
    */
   recordMessageLatency(latencyMs: number): void {
@@ -191,6 +233,11 @@ class PerformanceMonitor {
     // Calculate messages per second
     const timeSinceReset = (now.getTime() - this.lastMessageCountReset.getTime()) / 1000;
     const messagesPerSecond = timeSinceReset > 0 ? this.messageCount / timeSinceReset : 0;
+    const messageBusEventsPerSecond = timeSinceReset > 0 ? this.messageBusEventCount / timeSinceReset : 0;
+    const averageBatchSize = this.batchFlushCount > 0 ? this.batchSizeSum / this.batchFlushCount : 0;
+    const averageBatchFlushLatency = this.batchFlushLatencies.length > 0
+      ? this.batchFlushLatencies.reduce((sum, val) => sum + val, 0) / this.batchFlushLatencies.length
+      : 0;
 
     // Calculate average latencies
     const averageMessageLatency = this.latencyCount > 0
@@ -209,6 +256,7 @@ class PerformanceMonitor {
     const uiUpdateLatency = this.uiUpdateLatencies.length > 0
       ? this.uiUpdateLatencies.reduce((sum, val) => sum + val, 0) / this.uiUpdateLatencies.length
       : 0;
+    const uiUpdateLatencyP95 = this.getPercentile(this.uiUpdateLatencies, 95);
 
     // Get memory usage
     const memoryUsageMB = this.getMemoryUsage();
@@ -221,25 +269,31 @@ class PerformanceMonitor {
       timestamp: now,
       metrics: {
         messagesPerSecond,
+        messageBusEventsPerSecond,
         averageMessageLatency,
         messageQueueSize: 0, // Would be populated by caller
+        averageBatchSize,
+        averageBatchFlushLatency,
+        mergedEventsCount: this.mergedEventCount,
+        droppedEventsCount: this.droppedEventCount,
         connectedRelays: 0, // Would be populated by caller
         averageRelayLatency,
         relaySuccessRate,
         memoryUsageMB,
         activeSubscriptions: 0, // Would be populated by caller
         uiUpdateLatency,
+        uiUpdateLatencyP95,
         frameRate
       },
       health: this.calculateHealth({
-        uiUpdateLatency,
+        uiUpdateLatencyP95,
         memoryUsageMB,
         averageRelayLatency,
         relaySuccessRate,
         frameRate
       }),
       warnings: this.generateWarnings({
-        uiUpdateLatency,
+        uiUpdateLatencyP95,
         memoryUsageMB,
         averageRelayLatency,
         relaySuccessRate,
@@ -252,6 +306,7 @@ class PerformanceMonitor {
 
     // Reset counters for next period
     this.messageCount = 0;
+    this.messageBusEventCount = 0;
     this.lastMessageCountReset = now;
     this.latencySum = 0;
     this.latencyCount = 0;
@@ -259,13 +314,18 @@ class PerformanceMonitor {
     this.relayLatencyCount = 0;
     this.relaySuccessCount = 0;
     this.relayTotalCount = 0;
+    this.batchFlushCount = 0;
+    this.batchSizeSum = 0;
+    this.batchFlushLatencies = [];
+    this.mergedEventCount = 0;
+    this.droppedEventCount = 0;
   }
 
   /**
    * Calculate system health
    */
   private calculateHealth(metrics: {
-    uiUpdateLatency: number;
+    uiUpdateLatencyP95: number;
     memoryUsageMB: number;
     averageRelayLatency: number;
     relaySuccessRate: number;
@@ -274,9 +334,9 @@ class PerformanceMonitor {
     const issues: string[] = [];
 
     // Check UI performance (Requirement 8.2)
-    if (metrics.uiUpdateLatency > PERFORMANCE_THRESHOLDS.maxUIUpdateLatency * 2) {
+    if (metrics.uiUpdateLatencyP95 > PERFORMANCE_THRESHOLDS.maxUIUpdateLatency * 2) {
       issues.push('critical_ui_latency');
-    } else if (metrics.uiUpdateLatency > PERFORMANCE_THRESHOLDS.maxUIUpdateLatency) {
+    } else if (metrics.uiUpdateLatencyP95 > PERFORMANCE_THRESHOLDS.maxUIUpdateLatency) {
       issues.push('degraded_ui_latency');
     }
 
@@ -321,7 +381,7 @@ class PerformanceMonitor {
    * Generate performance warnings
    */
   private generateWarnings(metrics: {
-    uiUpdateLatency: number;
+    uiUpdateLatencyP95: number;
     memoryUsageMB: number;
     averageRelayLatency: number;
     relaySuccessRate: number;
@@ -329,9 +389,9 @@ class PerformanceMonitor {
   }): string[] {
     const warnings: string[] = [];
 
-    if (metrics.uiUpdateLatency > PERFORMANCE_THRESHOLDS.maxUIUpdateLatency) {
+    if (metrics.uiUpdateLatencyP95 > PERFORMANCE_THRESHOLDS.maxUIUpdateLatency) {
       warnings.push(
-        `UI update latency (${metrics.uiUpdateLatency.toFixed(0)}ms) exceeds target (${PERFORMANCE_THRESHOLDS.maxUIUpdateLatency}ms)`
+        `UI update p95 latency (${metrics.uiUpdateLatencyP95.toFixed(0)}ms) exceeds target (${PERFORMANCE_THRESHOLDS.maxUIUpdateLatency}ms)`
       );
     }
 
@@ -382,10 +442,16 @@ class PerformanceMonitor {
     
     console.log(`[PerformanceMonitor] ${healthIcon} Health: ${snapshot.health}`);
     console.log(`  Messages/sec: ${snapshot.metrics.messagesPerSecond.toFixed(2)}`);
+    console.log(`  MessageBus events/sec: ${snapshot.metrics.messageBusEventsPerSecond.toFixed(2)}`);
     console.log(`  Avg Message Latency: ${snapshot.metrics.averageMessageLatency.toFixed(0)}ms`);
+    console.log(`  Avg Batch Size: ${snapshot.metrics.averageBatchSize.toFixed(1)}`);
+    console.log(`  Avg Batch Flush Latency: ${snapshot.metrics.averageBatchFlushLatency.toFixed(1)}ms`);
+    console.log(`  Merged Events: ${snapshot.metrics.mergedEventsCount}`);
+    console.log(`  Dropped Events: ${snapshot.metrics.droppedEventsCount}`);
     console.log(`  Avg Relay Latency: ${snapshot.metrics.averageRelayLatency.toFixed(0)}ms`);
     console.log(`  Relay Success Rate: ${(snapshot.metrics.relaySuccessRate * 100).toFixed(0)}%`);
     console.log(`  UI Update Latency: ${snapshot.metrics.uiUpdateLatency.toFixed(0)}ms`);
+    console.log(`  UI Update Latency p95: ${snapshot.metrics.uiUpdateLatencyP95.toFixed(0)}ms`);
     console.log(`  Memory Usage: ${snapshot.metrics.memoryUsageMB.toFixed(0)}MB`);
     console.log(`  Frame Rate: ${snapshot.metrics.frameRate.toFixed(0)} fps`);
 
@@ -404,8 +470,15 @@ class PerformanceMonitor {
     
     return {
       messagesPerSecond: timeSinceReset > 0 ? this.messageCount / timeSinceReset : 0,
+      messageBusEventsPerSecond: timeSinceReset > 0 ? this.messageBusEventCount / timeSinceReset : 0,
       averageMessageLatency: this.latencyCount > 0 ? this.latencySum / this.latencyCount : 0,
       messageQueueSize: 0,
+      averageBatchSize: this.batchFlushCount > 0 ? this.batchSizeSum / this.batchFlushCount : 0,
+      averageBatchFlushLatency: this.batchFlushLatencies.length > 0
+        ? this.batchFlushLatencies.reduce((sum, val) => sum + val, 0) / this.batchFlushLatencies.length
+        : 0,
+      mergedEventsCount: this.mergedEventCount,
+      droppedEventsCount: this.droppedEventCount,
       connectedRelays: 0,
       averageRelayLatency: this.relayLatencyCount > 0 ? this.relayLatencySum / this.relayLatencyCount : 0,
       relaySuccessRate: this.relayTotalCount > 0 ? this.relaySuccessCount / this.relayTotalCount : 1,
@@ -414,8 +487,17 @@ class PerformanceMonitor {
       uiUpdateLatency: this.uiUpdateLatencies.length > 0
         ? this.uiUpdateLatencies.reduce((sum, val) => sum + val, 0) / this.uiUpdateLatencies.length
         : 0,
+      uiUpdateLatencyP95: this.getPercentile(this.uiUpdateLatencies, 95),
       frameRate: this.frameRateMonitor?.getFrameRate() || 60
     };
+  }
+
+  private getPercentile(values: ReadonlyArray<number>, percentile: number): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const rank = Math.ceil((percentile / 100) * sorted.length) - 1;
+    const safeIndex = Math.max(0, Math.min(sorted.length - 1, rank));
+    return sorted[safeIndex];
   }
 
   /**

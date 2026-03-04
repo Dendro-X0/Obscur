@@ -7,6 +7,22 @@ export interface UploadService {
     pickFiles: () => Promise<File[] | null>;
 }
 
+const PICKABLE_EXTENSIONS = [
+    "png", "jpg", "jpeg", "gif", "webp",
+    "mp4", "mov", "avi", "webm", "mkv",
+    "mp3", "wav", "m4a", "ogg", "aac", "flac", "opus",
+    "pdf", "txt", "csv", "rtf",
+    "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "odt", "ods", "odp"
+] as const;
+
+const PICKABLE_ACCEPT_STRING = [
+    "image/*",
+    "video/*",
+    "audio/*",
+    ".pdf,.txt,.csv,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp"
+].join(",");
+
 /**
  * Enhanced media kind detection with extension fallback
  */
@@ -18,25 +34,40 @@ export function getAttachmentKind(file: File): AttachmentKind {
 
     // Fallback to extension check for cases where browser fails to detect MIME type
     const extension = file.name.split('.').pop()?.toLowerCase() || '';
-    const videoExtensions = ['mp4', 'mov', 'avi', 'webm', 'ogv', 'm4v', '3gp', 'mkv'];
-    const audioExtensions = ['mp3', 'wav', 'm4a', 'ogg', 'aac', 'flac', 'opus'];
+    const videoExtensions = ["mp4", "mov", "avi", "webm", "ogv", "m4v", "3gp", "mkv"];
+    const audioExtensions = ["mp3", "wav", "m4a", "ogg", "aac", "flac", "opus"];
 
     if (videoExtensions.includes(extension)) return "video";
     if (audioExtensions.includes(extension)) return "audio";
 
-    return "image";
+    return "file";
 }
 
 /**
  * Common MIME type detection from extension
  */
 export function getMimeType(fileName: string, defaultType: string = "application/octet-stream"): string {
-    const ext = fileName.split('.').pop()?.toLowerCase() || '';
-    const imageTypes: Record<string, string> = { 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp' };
-    const videoTypes: Record<string, string> = { 'mp4': 'video/mp4', 'mov': 'video/quicktime', 'avi': 'video/x-msvideo', 'webm': 'video/webm', 'ogv': 'video/ogg' };
-    const audioTypes: Record<string, string> = { 'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'm4a': 'audio/mp4', 'ogg': 'audio/ogg', 'aac': 'audio/aac', 'flac': 'audio/flac', 'opus': 'audio/opus' };
+    const ext = fileName.split(".").pop()?.toLowerCase() || "";
+    const imageTypes: Record<string, string> = { "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif", "webp": "image/webp" };
+    const videoTypes: Record<string, string> = { "mp4": "video/mp4", "mov": "video/quicktime", "avi": "video/x-msvideo", "webm": "video/webm", "ogv": "video/ogg" };
+    const audioTypes: Record<string, string> = { "mp3": "audio/mpeg", "wav": "audio/wav", "m4a": "audio/mp4", "ogg": "audio/ogg", "aac": "audio/aac", "flac": "audio/flac", "opus": "audio/opus" };
+    const documentTypes: Record<string, string> = {
+        "pdf": "application/pdf",
+        "txt": "text/plain",
+        "csv": "text/csv",
+        "rtf": "application/rtf",
+        "doc": "application/msword",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xls": "application/vnd.ms-excel",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "ppt": "application/vnd.ms-powerpoint",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "odt": "application/vnd.oasis.opendocument.text",
+        "ods": "application/vnd.oasis.opendocument.spreadsheet",
+        "odp": "application/vnd.oasis.opendocument.presentation"
+    };
 
-    return imageTypes[ext] || videoTypes[ext] || audioTypes[ext] || defaultType;
+    return imageTypes[ext] || videoTypes[ext] || audioTypes[ext] || documentTypes[ext] || defaultType;
 }
 
 /**
@@ -80,10 +111,12 @@ export class LocalUploadService implements UploadService {
             ? "video"
             : result.contentType.startsWith("audio/")
                 ? "audio"
-                : "image";
+                : result.contentType.startsWith("image/")
+                    ? "image"
+                    : "file";
 
         return {
-            kind: getAttachmentKind(file),
+            kind,
             url: result.url,
             contentType: result.contentType,
             fileName: file.name,
@@ -110,8 +143,8 @@ export async function pickFilesInternal(): Promise<File[] | null> {
             const selected = await open({
                 multiple: true,
                 filters: [{
-                    name: "Media",
-                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "mp4", "mov", "avi", "webm", "mkv", "mp3", "wav", "m4a", "ogg", "aac", "flac"]
+                    name: "Media and documents",
+                    extensions: [...PICKABLE_EXTENSIONS]
                 }]
             });
 
@@ -123,7 +156,6 @@ export async function pickFilesInternal(): Promise<File[] | null> {
             for (const path of paths) {
                 const data = await readFile(path);
                 const fileName = path.split(/[\\/]/).pop() || "file";
-                const ext = fileName.split(".").pop()?.toLowerCase() || "";
 
                 const type = getMimeType(fileName);
                 files.push(new File([data], fileName, { type }));
@@ -139,7 +171,7 @@ export async function pickFilesInternal(): Promise<File[] | null> {
         const input = document.createElement("input");
         input.type = "file";
         input.multiple = true;
-        input.accept = "image/*,video/*,audio/*";
+        input.accept = PICKABLE_ACCEPT_STRING;
         input.onchange = () => {
             const files = input.files ? Array.from(input.files) : null;
             resolve(files);

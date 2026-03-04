@@ -22,7 +22,11 @@ import {
   Wifi,
   Copy,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RelayDashboard } from "../components/relay-dashboard";
@@ -45,8 +49,8 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useNotificationPreference } from "@/app/features/notifications/hooks/use-notification-preference";
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import type { RelayConnection } from "@/app/features/relays/hooks/relay-connection";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
+import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
 import { PasswordResetPanel } from "@/app/features/settings/components/password-reset-panel";
@@ -68,10 +72,9 @@ import {
   saveLocalMediaStorageConfig,
   type LocalMediaStorageConfig
 } from "@/app/features/vault/services/local-media-store";
+import { useSearchParams } from "next/navigation";
 
 const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
-
-type RelayConnectionStatus = "connecting" | "open" | "error" | "closed";
 
 type ApiHealthState = Readonly<
   | { status: "idle" }
@@ -90,8 +93,7 @@ type SettingsTabType =
   | "privacy"
   | "security"
   | "storage"
-  | "updates"
-  | "health";
+  | "updates";
 
 const GROUPS = [
   {
@@ -117,7 +119,6 @@ const GROUPS = [
     items: [
       { id: "relays", labelKey: "settings.tabs.relays", icon: Network },
       { id: "storage", labelKey: "settings.tabs.storage", icon: Database },
-      { id: "health", labelKey: "settings.tabs.health", icon: Activity },
     ]
   },
   {
@@ -140,12 +141,22 @@ const GROUPS = [
 export default function SettingsPage(): React.JSX.Element {
   const { t } = useTranslation();
   const identity = useIdentity();
+  const searchParams = useSearchParams();
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
 
   const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
   const [showMobileMenu, setShowMobileMenu] = useState(true);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (!requestedTab) return;
+    const validTabs: ReadonlyArray<SettingsTabType> = ["profile", "identity", "relays", "notifications", "appearance", "blocklist", "privacy", "security", "storage", "updates"];
+    if (!validTabs.includes(requestedTab as SettingsTabType)) return;
+    setActiveTab(requestedTab as SettingsTabType);
+    setShowMobileMenu(false);
+  }, [searchParams]);
 
   return (
     <PageShell
@@ -286,7 +297,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const profile = useProfile();
   const notificationPreference = useNotificationPreference();
   const { publishProfile, isPublishing } = useProfilePublisher();
-  const { relayPool: pool } = useRelay();
+  const { relayPool: pool, relayList } = useRelay();
   const blocklist = useBlocklist({ publicKeyHex });
 
   // Ensure we have an invite code generated
@@ -296,6 +307,8 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   });
 
   const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
+  const [newRelayUrl, setNewRelayUrl] = useState<string>("");
+  const [showAdvancedRelays, setShowAdvancedRelays] = useState<boolean>(false);
   const [isVerifyingNip05, setIsVerifyingNip05] = useState(false);
   const [savedInviteCode, setSavedInviteCode] = useState<string>(profile.state.profile.inviteCode || "");
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => PrivacySettingsService.getSettings());
@@ -529,6 +542,21 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       });
   };
 
+  const relayConnectionMap = useMemo(() => {
+    return new Map(pool.connections.map((connection) => [connection.url, connection]));
+  }, [pool.connections]);
+
+  const handleAddRelay = (): void => {
+    const validated = validateRelayUrl(newRelayUrl);
+    if (!validated) {
+      toast.error(t("settings.relays.invalidRelayUrl", "Please enter a valid relay URL (wss://...)"));
+      return;
+    }
+    relayList.addRelay({ url: validated.normalizedUrl });
+    setNewRelayUrl("");
+    toast.success(t("settings.relays.relayAdded", "Relay added"));
+  };
+
   return (
     <div className="grid grid-cols-1 gap-4">
       {activeTab === "profile" && (
@@ -642,48 +670,6 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
         </div>
       )}
 
-      {activeTab === "health" && (
-        <div className="space-y-6">
-          <Card title={t("settings.health.title")} description={t("settings.health.desc")} className="w-full">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="text-sm font-semibold flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-purple-500" />
-                  {t("settings.health.api")}
-                </div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-mono opacity-60 truncate max-w-[250px]">{getApiBaseUrl()}</div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
-                    {apiHealth.status === "checking" ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.health.check")}
-                  </Button>
-                </div>
-                {apiHealth.status === "ok" && (
-                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
-                    <Check className="h-3 w-3" />
-                    Operational • {apiHealth.latencyMs}ms
-                  </div>
-                )}
-                {apiHealth.status === "error" && (
-                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
-                    <ShieldAlert className="h-3 w-3" />
-                    {apiHealth.message}
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
-          <div className="space-y-2">
-            <div className="px-1 text-sm font-bold flex items-center gap-2 opacity-60">
-              <Wifi className="h-4 w-4" />
-              Relay Performance Monitor
-            </div>
-            <RelayDashboard />
-          </div>
-        </div>
-      )}
-
       {activeTab === "appearance" && (
         <Card title={t("settings.appearance.title")} description={t("settings.appearance.desc")} className="w-full">
           <div className="space-y-4">
@@ -708,7 +694,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 v{APP_VERSION}
               </span>
             </div>
-            <DesktopUpdater />
+            <DesktopUpdater variant="inline" />
           </div>
         </Card>
       )}
@@ -886,8 +872,164 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
       {activeTab === "relays" && (
         <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
-          <div className="space-y-3">
-            <RelayDashboard />
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <Activity className="h-4 w-4 text-purple-500" />
+                {t("settings.health.api", "API health")}
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-mono opacity-60 truncate max-w-[250px]">{getApiBaseUrl()}</div>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
+                  {apiHealth.status === "checking" ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.health.check", "Check")}
+                </Button>
+              </div>
+              {apiHealth.status === "ok" && (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+                  <Check className="h-3 w-3" />
+                  Operational - {apiHealth.latencyMs}ms
+                </div>
+              )}
+              {apiHealth.status === "error" && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+                  <ShieldAlert className="h-3 w-3" />
+                  {apiHealth.message}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label className="font-semibold">Relay Setup</Label>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Basic mode uses default relays. Use advanced mode only when you need custom relay control.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showAdvancedRelays ? "secondary" : "outline"}
+                  onClick={() => setShowAdvancedRelays((prev) => !prev)}
+                >
+                  {showAdvancedRelays ? "Hide Advanced" : "Show Advanced"}
+                </Button>
+              </div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Active relays: {relayList.state.relays.filter((relay) => relay.enabled).length}/{relayList.state.relays.length}
+              </p>
+            </div>
+
+            {showAdvancedRelays && (
+            <div className="space-y-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
+              <div>
+                <Label className="font-semibold">Advanced Relay Settings</Label>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Add additional relay servers and configure priority/order if you need extra redundancy.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  value={newRelayUrl}
+                  onChange={(e) => setNewRelayUrl(e.target.value)}
+                  placeholder="wss://relay.example.com"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddRelay();
+                    }
+                  }}
+                />
+                <Button type="button" onClick={handleAddRelay}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Relay
+                </Button>
+                <Button type="button" variant="outline" onClick={() => relayList.resetRelays()}>
+                  Reset Defaults
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {relayList.state.relays.map((relay, index) => {
+                  const connection = relayConnectionMap.get(relay.url);
+                  const status = connection?.status ?? "connecting";
+                  const statusColor = status === "open"
+                    ? "text-emerald-500"
+                    : status === "error"
+                      ? "text-rose-500"
+                      : "text-zinc-500";
+
+                  return (
+                    <div
+                      key={relay.url}
+                      className="flex flex-col gap-2 rounded-xl border border-black/5 dark:border-white/5 p-3 bg-zinc-50/60 dark:bg-zinc-900/40"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-mono text-xs truncate">{relay.url}</p>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wide ${statusColor}`}>
+                            {status}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => relayList.moveRelay({ url: relay.url, direction: "up" })}
+                            disabled={index === 0}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => relayList.moveRelay({ url: relay.url, direction: "down" })}
+                            disabled={index === relayList.state.relays.length - 1}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            onClick={() => relayList.removeRelay({ url: relay.url })}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={relay.enabled}
+                          onChange={(e) => relayList.setRelayEnabled({ url: relay.url, enabled: e.target.checked })}
+                        />
+                        Enabled
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            )}
+
+            {showAdvancedRelays && (
+            <div className="space-y-2">
+              <div className="px-1 text-sm font-bold flex items-center gap-2 opacity-60">
+                <Wifi className="h-4 w-4" />
+                Relay Performance Monitor
+              </div>
+              <RelayDashboard />
+            </div>
+            )}
           </div>
         </Card>
       )}
@@ -961,6 +1103,23 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       {activeTab === "storage" && (
         <Card title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
           <div className="space-y-6">
+            <div className="space-y-2 rounded-xl border border-black/5 p-4 dark:border-white/5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label className="font-semibold">{t("settings.storage.performanceModeTitle", "Chat Performance Mode (Phase 1)")}</Label>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {t("settings.storage.performanceModeDesc", "Enable batched chat updates and adaptive rendering for smoother scrolling on large chats.")}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={privacySettings.chatPerformanceV2}
+                  onChange={(e) => handleSavePrivacy({ ...privacySettings, chatPerformanceV2: e.target.checked })}
+                  aria-label={t("settings.storage.performanceModeToggle", "Toggle chat performance mode")}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>{t("settings.storage.providerLabel", "Media Upload Provider (NIP-96)")}</Label>
               <Input
@@ -1114,3 +1273,5 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     </div>
   );
 }
+
+

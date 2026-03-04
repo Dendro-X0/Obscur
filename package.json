@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "0.7.12-alpha",
+  "version": "0.8.0",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -14,6 +14,9 @@
     "build:api": "pnpm -C apps/api build",
     "build:desktop": "pnpm -C apps/desktop build",
     "lint:pwa": "pnpm -C apps/pwa lint",
+    "docs:check": "node scripts/docs-check.mjs",
+    "security:audit": "pnpm audit",
+    "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"
   }

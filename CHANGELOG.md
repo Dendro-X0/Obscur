@@ -1,3 +1,65 @@
+## [v0.8.0] - 2026-03-04
+
+### Added
+
+- **Release Version Integrity Gate**:
+  - Added `pnpm version:check` (`scripts/check-version-alignment.mjs`) to enforce release-tracked manifest alignment with root `package.json`.
+  - Added `.github/workflows/version-check.yml` to run version-alignment checks in CI on relevant manifest/script changes.
+  - Added release preflight checks in `.github/workflows/release.yml` to run `version:check` and `docs:check` before desktop/mobile build jobs.
+
+### Changed
+
+- **Version Sync Coverage**:
+  - Hardened `scripts/sync-versions.mjs` with explicit coverage for `apps/pwa`, `apps/desktop`, desktop `tauri.conf.json`, `apps/website`, `apps/relay-gateway`, `packages/*`, and `version.json`.
+  - Kept `apps/coordination/package.json` intentionally unversioned for this release cycle.
+
+- **Release Runbook**:
+  - Updated docs to require `pnpm version:sync` and `pnpm version:check` as pre-tag checklist steps.
+  - Updated root `README.md` and docs index/runbooks with explicit `v0.8.0` release-preparation commands and references.
+
+## [v0.7.3-alpha] - 2026-03-03
+
+### Added
+
+- **Phase 1 Chat Performance Mode (Feature-Flagged)**:
+  - Added `chatPerformanceV2` to privacy settings with safe default `false`.
+  - Added a Storage settings toggle: **Chat Performance Mode (Phase 1)** for controlled rollout.
+- **Batching Test Coverage**:
+  - Added persistence batching tests for dedupe, legacy parity, and grouped deletes.
+  - Added reducer tests for buffered conversation events and soft live-window behavior.
+  - Added group merge tests for dedupe/order/cap behavior.
+
+### Changed
+
+- **Message Persistence Throughput**:
+  - Refactored message persistence to queue bus events and flush in batches (32ms cadence, immediate flush at 50 ops) when `chatPerformanceV2` is enabled.
+  - Added dedupe-by-message-id per flush and lifecycle-triggered flushes on page hide/unload.
+  - Grouped delete operations into a single IndexedDB bulk transaction.
+- **Conversation UI Update Path**:
+  - Refactored conversation message updates to apply buffered message-bus events once per animation frame in performance mode.
+  - Added soft live window policy for active flow (target 120 newest messages), while preserving expanded history after explicit `loadEarlier`.
+  - Tuned low-end pagination profile in perf mode (`INITIAL_BATCH_SIZE=60`, `LOAD_EARLIER_BATCH_SIZE=60`).
+- **Message List Runtime Adaptation**:
+  - Introduced high-load mode heuristics (message count, incoming backlog, fast scrolling).
+  - Added adaptive virtualizer overscan (4 under load, 8 normal).
+  - Disabled expensive gestures during high-load periods (pull-to-refresh drag and swipe-to-reply drag), while preserving non-drag reply paths.
+  - Reduced render-path overhead by precomputing/memoizing per-message render metadata (JSON parse + attachment URL/content derivation).
+- **Group Chat Current-Range Stabilization**:
+  - Buffered incoming sealed community messages and applied batched state updates with dedupe by event id.
+  - Optimized descending merge path with fast-path handling for common single-event inserts to avoid unnecessary full re-sorts.
+
+### Fixed
+
+- **Scroll/Render Jank Under Burst Traffic**:
+  - Reduced UI churn from per-event updates in both DM and group flows by switching to batched reducers and batched persistence writes in perf mode.
+- **Performance Observability Gaps**:
+  - Extended performance monitor counters/metrics with:
+    - message bus events per second
+    - average batch size
+    - average batch flush latency
+    - merged/dropped event counts
+    - UI update latency p95
+
 ## [v0.7.12-alpha] - 2026-03-01
 
 ### Fixed

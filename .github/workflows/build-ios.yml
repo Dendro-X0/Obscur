@@ -1,10 +1,7 @@
-name: Build and Release iOS
+name: Build iOS (Manual)
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 jobs:
   ios-precheck:
@@ -82,10 +79,3 @@ jobs:
           api-key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           api-key-base64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
 
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

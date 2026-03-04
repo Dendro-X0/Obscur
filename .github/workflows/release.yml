@@ -10,8 +10,36 @@ permissions:
   contents: write
 
 jobs:
+  preflight-checks:
+    name: Preflight Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check version alignment
+        run: pnpm version:check
+
+      - name: Check docs consistency
+        run: pnpm docs:check
+
   build-desktop:
     name: Build Desktop (${{ matrix.os }})
+    needs: preflight-checks
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -94,7 +122,8 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
 
   build-android:
-    name: Build Android APK
+    name: Build Android (APK + AAB)
+    needs: preflight-checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -157,6 +186,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Decode Android keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > apps/desktop/src-tauri/release.jks
+
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
         run: |
@@ -177,18 +211,98 @@ jobs:
             fi
           done
 
-      - name: Build Android APK
-        run: pnpm -C apps/desktop tauri android build --apk
+      - name: Build Android App (Signed)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEYALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        run: pnpm -C apps/desktop tauri android build --apk --aab --ci
+        env:
+          TAURI_ANDROID_KEYSTORE_PATH: "release.jks"
+          TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}
+          TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
-      - name: Prepare APK
-        run: |
-          mv apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk obscur-android-universal.apk
+      - name: Build Android App (Unsigned APK Fallback)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' || secrets.ANDROID_KEYSTORE_PASSWORD == '' || secrets.ANDROID_KEYALIAS == '' || secrets.ANDROID_KEY_PASSWORD == '' }}
+        run: pnpm -C apps/desktop tauri android build --apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: mobile-android
-          path: obscur-android-universal.apk
+          path: apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+
+      - name: Upload AAB Artifact
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEYALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android-aab
+          path: apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/release/*.aab
+
+  ios-precheck:
+    name: iOS Signing Precheck
+    needs: preflight-checks
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check required iOS signing secrets
+        id: check
+        shell: bash
+        run: |
+          missing=()
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" ]] || missing+=("APPLE_CERTIFICATE_BASE64")
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ]] || missing+=("APPLE_CERTIFICATE_PASSWORD")
+          [[ -n "${{ secrets.APPLE_DEVELOPMENT_TEAM }}" ]] || missing+=("APPLE_DEVELOPMENT_TEAM")
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Missing required iOS secrets: ${missing[*]}"
+          fi
+
+  build-ios:
+    name: Build iOS (IPA)
+    needs: ios-precheck
+    if: ${{ needs.ios-precheck.outputs.ready == 'true' }}
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Apple Certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build iOS App (Signed)
+        run: pnpm -C apps/desktop tauri ios build --ci
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ios
+          path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
 
   publish-release:
     name: Publish Release
@@ -222,6 +336,20 @@ jobs:
           name: mobile-android
           path: ./release-assets/android
 
+      - name: Download Android AAB Artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android-aab
+          path: ./release-assets/android
+
+      - name: Download iOS Artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-ios
+          path: ./release-assets/ios
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -236,3 +364,4 @@ jobs:
             ./release-assets/macos/**/*
             ./release-assets/linux/**/*
             ./release-assets/android/**/*
+            ./release-assets/ios/**/*

@@ -9,6 +9,21 @@ import type { Message, IMessageQueue } from "../lib/message-queue";
 import type { Subscription } from "./dm-controller-state";
 import type { Dispatch, SetStateAction } from "react";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
+import { logWithRateLimit } from "@/app/shared/log-hygiene";
+
+const GLOBAL_PROCESSING_KEY = "__obscur_processing_dm_events__";
+const GLOBAL_FAILED_DECRYPT_KEY = "__obscur_failed_decrypt_events__";
+
+const getGlobalEventSet = (key: string): Set<string> => {
+  const target = globalThis as Record<string, unknown>;
+  const existing = target[key];
+  if (existing instanceof Set) {
+    return existing as Set<string>;
+  }
+  const next = new Set<string>();
+  target[key] = next;
+  return next;
+};
 
 export type IncomingDmParams = Readonly<{
   myPrivateKeyHex: string;
@@ -53,6 +68,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
   uiPerformanceMonitor: { startTracking: () => (() => { totalTime: number }) };
 }>): Promise<void> => {
   const { event, currentParams } = params;
+  const globalProcessingEvents = getGlobalEventSet(GLOBAL_PROCESSING_KEY);
+  const globalFailedDecryptEvents = getGlobalEventSet(GLOBAL_FAILED_DECRYPT_KEY);
 
   const endTracking = params.uiPerformanceMonitor.startTracking();
 
@@ -62,13 +79,13 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     return;
   }
 
-  if (params.processingEvents.has(event.id)) {
+  if (params.processingEvents.has(event.id) || globalProcessingEvents.has(event.id)) {
     console.debug("Already processing event:", event.id);
     endTracking();
     return;
   }
 
-  if (params.failedDecryptEvents.has(event.id)) {
+  if (params.failedDecryptEvents.has(event.id) || globalFailedDecryptEvents.has(event.id)) {
     console.debug("Skipping known undecryptable event:", event.id);
     endTracking();
     return;
@@ -82,6 +99,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
   }
 
   params.processingEvents.add(event.id);
+  globalProcessingEvents.add(event.id);
 
   try {
     const isValidSignature = await cryptoService.verifyEventSignature(event);
@@ -126,10 +144,19 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         decryptError instanceof Error ? decryptError : new Error("Decryption failed"),
         { eventId: event.id, sender: senderPubkey }
       );
-      console.info("Info: Incoming message could not be decrypted (maybe intended for another key or malformed):", event.id);
+      logWithRateLimit(
+        "info",
+        "incoming_dm.decrypt_failed",
+        ["Info: Incoming message could not be decrypted (maybe intended for another key or malformed):", event.id],
+        { windowMs: 10_000, maxPerWindow: 3, summaryEverySuppressed: 25 }
+      );
       params.failedDecryptEvents.add(event.id);
+      globalFailedDecryptEvents.add(event.id);
       if (params.failedDecryptEvents.size > 2000) {
         params.failedDecryptEvents.clear();
+      }
+      if (globalFailedDecryptEvents.size > 4000) {
+        globalFailedDecryptEvents.clear();
       }
       return;
     }
@@ -274,5 +301,6 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     endTracking();
   } finally {
     params.processingEvents.delete(event.id);
+    globalProcessingEvents.delete(event.id);
   }
 };

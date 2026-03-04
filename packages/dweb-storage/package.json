@@ -1,6 +1,6 @@
 {
   "name": "@dweb/storage",
-  "version": "0.7.12-alpha",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "exports": {

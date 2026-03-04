@@ -1,6 +1,7 @@
 "use client";
 
 import type { Attachment } from "../../messaging/types";
+import { logWithRateLimit } from "@/app/shared/log-hygiene";
 
 type LocalMediaIndexEntry = Readonly<{
     remoteUrl: string;
@@ -34,6 +35,7 @@ export type LocalMediaCacheItem = Readonly<{
 const STORAGE_CONFIG_KEY = "obscur.vault.local_media_storage_config";
 const STORAGE_INDEX_KEY = "obscur.vault.local_media_index";
 const DEFAULT_SUBDIR = "vault-media";
+let localCacheWriteBlocked = false;
 
 const DEFAULT_CONFIG: LocalMediaStorageConfig = {
     enabled: true,
@@ -256,6 +258,7 @@ export const cacheAttachmentLocally = async (
     if (!isTauriRuntime()) return null;
     const cfg = getLocalMediaStorageConfig();
     if (!cfg.enabled) return null;
+    if (localCacheWriteBlocked) return null;
     if (mode === "sent" && !cfg.cacheSentFiles) return null;
     if (mode === "received" && !cfg.cacheReceivedFiles) return null;
 
@@ -293,13 +296,24 @@ export const cacheAttachmentLocally = async (
         saveIndex(index);
         return resolveLocalMediaUrl(attachment.url);
     } catch (error) {
-        console.warn("[LocalMediaStore] Failed to cache attachment:", attachment.url, error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.toLowerCase().includes("forbidden path")) {
+            localCacheWriteBlocked = true;
+        }
+        const classification = message.toLowerCase().includes("forbidden path") ? "forbidden_path" : "general";
+        logWithRateLimit(
+            "warn",
+            `local_media_store.cache_failed.${classification}`,
+            ["[LocalMediaStore] Failed to cache attachment:", attachment.url, error],
+            { windowMs: 15_000, maxPerWindow: 2, summaryEverySuppressed: 25 }
+        );
         return null;
     }
 };
 
 export const purgeLocalMediaCache = async (): Promise<void> => {
     if (!isTauriRuntime()) return;
+    localCacheWriteBlocked = false;
     const cfg = getLocalMediaStorageConfig();
     try {
         const { remove } = await import("@tauri-apps/plugin-fs");
