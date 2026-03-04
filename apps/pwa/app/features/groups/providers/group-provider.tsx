@@ -16,6 +16,7 @@ import {
     toGroupTombstoneKey
 } from "@/app/features/groups/services/group-tombstone-store";
 import { auditCommunityMigrationState } from "@/app/features/groups/services/community-migration-audit";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 interface GroupContextType {
     createdGroups: ReadonlyArray<GroupConversation>;
@@ -103,7 +104,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const tombstones = loadGroupTombstones(pk);
             const audit = auditCommunityMigrationState({ state: persisted, tombstones });
             if (!audit.ok) {
-                console.warn("[CommunityMigrationAudit] findings", audit);
+                logRuntimeEvent(
+                    "community_migration.audit_findings",
+                    "expected",
+                    ["[CommunityMigrationAudit] findings", audit],
+                );
             }
             const groups = dedupeGroups(persisted.createdGroups.map(fromPersistedGroupConversation))
                 .filter((group) => !tombstones.has(toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })));

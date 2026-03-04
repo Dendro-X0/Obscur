@@ -2,7 +2,20 @@ import { generateSubscriptionId } from "./relay-utils";
 import type { NostrFilter, Subscription, EnhancedDMControllerState } from "./dm-controller-state";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPool } from "./enhanced-dm-controller"; // Assuming we might need to export RelayPool or use it
-import { logWithRateLimit } from "@/app/shared/log-hygiene";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+
+const GLOBAL_CLOSED_SUBSCRIPTION_IDS = "__obscur_closed_dm_subscription_ids__";
+
+const getClosedSubscriptionIds = (): Set<string> => {
+    const root = globalThis as Record<string, unknown>;
+    const existing = root[GLOBAL_CLOSED_SUBSCRIPTION_IDS];
+    if (existing instanceof Set) {
+        return existing as Set<string>;
+    }
+    const created = new Set<string>();
+    root[GLOBAL_CLOSED_SUBSCRIPTION_IDS] = created;
+    return created;
+};
 
 export interface SubscriptionManagerParams {
     myPublicKeyHex: PublicKeyHex | null;
@@ -22,21 +35,18 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
     const { myPublicKeyHex, pool, hasSubscribedRef, activeSubscriptions, setState } = params;
 
     if (!myPublicKeyHex) {
-        console.warn('Cannot subscribe: no public key available');
+        logRuntimeEvent("dm_subscription.missing_pubkey", "actionable", ["Cannot subscribe: no public key available"]);
         return;
     }
 
     if (hasSubscribedRef.current) {
-        logWithRateLimit("debug", "dm_subscription.already_subscribed", ['Already subscribed to incoming DMs'], {
-            windowMs: 15_000,
-            maxPerWindow: 1
-        });
+        logRuntimeEvent("dm_subscription.already_subscribed", "expected", ["Already subscribed to incoming DMs"]);
         return;
     }
 
     const hasOpenRelay = pool.connections.some(c => c.status === 'open');
     if (!hasOpenRelay) {
-        console.warn('Cannot subscribe: no open relay connections');
+        logRuntimeEvent("dm_subscription.no_open_relays", "degraded", ["Cannot subscribe: no open relay connections"]);
         return;
     }
 
@@ -58,10 +68,12 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
     activeSubscriptions.current.set(subId, subscription);
     hasSubscribedRef.current = true;
 
-    logWithRateLimit("info", "dm_subscription.subscribe", [`[DMController] Subscribing to incoming DMs on ${pool.connections.filter(c => c.status === 'open').length} open relays:`, filter], {
-        windowMs: 5_000,
-        maxPerWindow: 1
-    });
+    logRuntimeEvent(
+        "dm_subscription.subscribe",
+        "degraded",
+        [`[DMController] Subscribing to incoming DMs on ${pool.connections.filter(c => c.status === 'open').length} open relays:`, filter],
+        { maxPerWindow: 1, windowMs: 5_000 }
+    );
 
     const reqMessage = JSON.stringify(['REQ', subId, filter]);
     pool.sendToOpen(reqMessage);
@@ -76,13 +88,24 @@ export const unsubscribeFromDMs = (params: Pick<SubscriptionManagerParams, 'pool
     const { pool, activeSubscriptions, hasSubscribedRef, setState } = params;
 
     if (activeSubscriptions.current.size === 0) {
+        hasSubscribedRef.current = false;
         return;
     }
 
+    const closedSubscriptionIds = getClosedSubscriptionIds();
     activeSubscriptions.current.forEach((subscription) => {
+        if (!subscription.isActive) {
+            logRuntimeEvent("dm_subscription.close_skipped_inactive", "expected", ["Skipping close for inactive subscription:", subscription.id]);
+            return;
+        }
+        if (closedSubscriptionIds.has(subscription.id)) {
+            logRuntimeEvent("dm_subscription.close_suppressed_duplicate", "expected", ["Skipping duplicate close for subscription:", subscription.id]);
+            return;
+        }
         const closeMessage = JSON.stringify(['CLOSE', subscription.id]);
         pool.sendToOpen(closeMessage);
-        console.log('Closed subscription:', subscription.id);
+        closedSubscriptionIds.add(subscription.id);
+        logRuntimeEvent("dm_subscription.closed", "expected", ["Closed subscription:", subscription.id]);
     });
 
     activeSubscriptions.current.clear();

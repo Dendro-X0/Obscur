@@ -356,6 +356,33 @@ jobs:
           name: mobile-ios
           path: ./release-assets/ios
 
+      - name: Verify required artifact matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required=(
+            "release-assets/windows/*.exe"
+            "release-assets/macos/*.dmg"
+            "release-assets/linux/*.AppImage"
+            "release-assets/android/*.apk"
+          )
+
+          missing=0
+          for pattern in "${required[@]}"; do
+            if ! compgen -G "$pattern" > /dev/null; then
+              echo "Missing required release artifact pattern: $pattern" >&2
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            echo "Required artifact verification failed." >&2
+            exit 1
+          fi
+
+          echo "Required artifacts verified."
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2

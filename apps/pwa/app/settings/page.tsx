@@ -49,6 +49,7 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useNotificationPreference } from "@/app/features/notifications/hooks/use-notification-preference";
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
@@ -546,6 +547,12 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     return new Map(pool.connections.map((connection) => [connection.url, connection]));
   }, [pool.connections]);
 
+  const relayRuntimeStatus = useMemo(() => {
+    const totalCount = relayList.state.relays.filter((relay) => relay.enabled).length;
+    const openCount = pool.connections.filter((connection) => connection.status === "open").length;
+    return deriveRelayRuntimeStatus({ openCount, totalCount });
+  }, [pool.connections, relayList.state.relays]);
+
   const handleAddRelay = (): void => {
     const validated = validateRelayUrl(newRelayUrl);
     if (!validated) {
@@ -920,6 +927,19 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
               <p className="text-xs text-zinc-600 dark:text-zinc-400">
                 Active relays: {relayList.state.relays.filter((relay) => relay.enabled).length}/{relayList.state.relays.length}
               </p>
+              <div
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-xs",
+                  relayRuntimeStatus.status === "healthy"
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : relayRuntimeStatus.status === "degraded"
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                )}
+              >
+                <div className="font-semibold">{relayRuntimeStatus.label}</div>
+                <div className="opacity-90">{relayRuntimeStatus.actionText}</div>
+              </div>
             </div>
 
             {showAdvancedRelays && (

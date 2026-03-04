@@ -2,7 +2,7 @@
 
 import React from "react";
 import { OptimizedImage } from "../../../components/optimized-image";
-import { AlertTriangle, Check, CheckCheck, Clock, X, Reply, ChevronDown, RefreshCw, FileText, ExternalLink, Music2 } from "lucide-react";
+import { AlertTriangle, Check, CheckCheck, Clock, X, Reply, ChevronDown, RefreshCw, FileText, ExternalLink, Music2, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "../../../components/ui/button";
 import { EmptyState } from "../../../components/ui/empty-state";
@@ -20,7 +20,7 @@ import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { CommunityInviteCard } from "../../groups/components/community-invite-card";
 import { CommunityInviteResponseCard } from "../../groups/components/community-invite-response-card";
 import { inferAttachmentKind } from "../utils/logic";
-import { getLocalMediaIndexEntryByRemoteUrl } from "@/app/features/vault/services/local-media-store";
+import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 
 interface MessageListProps {
@@ -204,11 +204,12 @@ export function MessageList({
     const [expandedRelayUrlsByMessageId, setExpandedRelayUrlsByMessageId] = React.useState<ReadonlySet<string>>(new Set());
 
     React.useEffect(() => {
+        const localIndex = getLocalMediaIndexSnapshot();
         const urls = new Set<string>();
         const fileNames: Record<string, string> = {};
         messages.forEach((message) => {
             message.attachments?.forEach((attachment) => {
-                const entry = getLocalMediaIndexEntryByRemoteUrl(attachment.url);
+                const entry = localIndex[attachment.url];
                 if (entry) {
                     urls.add(attachment.url);
                     if (entry.fileName) {
@@ -857,19 +858,18 @@ function MessageAttachmentLayout({
     onImageClick?: (url: string) => void;
 }): React.JSX.Element {
     const { t } = useTranslation();
-    const images: Attachment[] = [];
-    const videos: Attachment[] = [];
+    const visualMedia: Array<Readonly<{ attachment: Attachment; kind: "image" | "video" }>> = [];
     const audios: Attachment[] = [];
     const others: Attachment[] = [];
 
     attachments.forEach((attachment) => {
         const kind = inferAttachmentKind(attachment);
         if (kind === "image") {
-            images.push(attachment);
+            visualMedia.push({ attachment, kind });
             return;
         }
         if (kind === "video") {
-            videos.push(attachment);
+            visualMedia.push({ attachment, kind });
             return;
         }
         if (kind === "audio") {
@@ -879,11 +879,41 @@ function MessageAttachmentLayout({
         others.push(attachment);
     });
 
-    const imageGridClass = images.length <= 1
-        ? "grid-cols-1"
-        : images.length === 2
-            ? "grid-cols-2"
-            : "grid-cols-2 sm:grid-cols-3";
+    const [activeVisualIndex, setActiveVisualIndex] = React.useState(0);
+    const touchStartXRef = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        if (visualMedia.length === 0) {
+            setActiveVisualIndex(0);
+            return;
+        }
+        setActiveVisualIndex((prev) => Math.min(prev, visualMedia.length - 1));
+    }, [visualMedia.length]);
+
+    const goPrevVisual = React.useCallback(() => {
+        if (visualMedia.length <= 1) return;
+        setActiveVisualIndex((prev) => (prev - 1 + visualMedia.length) % visualMedia.length);
+    }, [visualMedia.length]);
+
+    const goNextVisual = React.useCallback(() => {
+        if (visualMedia.length <= 1) return;
+        setActiveVisualIndex((prev) => (prev + 1) % visualMedia.length);
+    }, [visualMedia.length]);
+
+    const handleVisualKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (visualMedia.length <= 1) return;
+        if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            goPrevVisual();
+            return;
+        }
+        if (event.key === "ArrowRight") {
+            event.preventDefault();
+            goNextVisual();
+        }
+    }, [goNextVisual, goPrevVisual, visualMedia.length]);
+
+    const activeVisual = visualMedia[activeVisualIndex];
 
     const deriveDisplayFileName = (attachment: Attachment): string => {
         const localName = localAttachmentFileNameByUrl[attachment.url];
@@ -904,51 +934,89 @@ function MessageAttachmentLayout({
 
     return (
         <div className="mb-2 -mx-1 space-y-2">
-            {images.length > 0 && (
-                <div className={cn("grid gap-1.5", imageGridClass)}>
-                    {images.map((attachment, index) => (
-                        <div
-                            key={`img-${attachment.url}-${index}`}
-                            className={cn(
-                                "relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5",
-                                images.length === 1 ? "aspect-video max-h-[520px]" : "aspect-square"
-                            )}
-                        >
-                            {localAttachmentUrlSet.has(attachment.url) ? (
-                                <div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
-                                    Vault
-                                </div>
-                            ) : null}
+            {visualMedia.length > 0 && activeVisual ? (
+                <div
+                    className="relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-purple-500/60"
+                    tabIndex={visualMedia.length > 1 ? 0 : -1}
+                    onKeyDown={handleVisualKeyDown}
+                    onTouchStart={(event) => {
+                        touchStartXRef.current = event.changedTouches[0]?.clientX ?? null;
+                    }}
+                    onTouchEnd={(event) => {
+                        if (visualMedia.length <= 1) return;
+                        const touchStartX = touchStartXRef.current;
+                        const touchEndX = event.changedTouches[0]?.clientX ?? null;
+                        if (touchStartX === null || touchEndX === null) return;
+                        const deltaX = touchEndX - touchStartX;
+                        const minSwipeDistance = 40;
+                        if (Math.abs(deltaX) < minSwipeDistance) return;
+                        if (deltaX > 0) {
+                            goPrevVisual();
+                        } else {
+                            goNextVisual();
+                        }
+                    }}
+                >
+                    {activeVisual.kind === "image" ? (
+                        <div className="relative aspect-video max-h-[560px]">
                             <OptimizedImage
-                                src={attachment.url}
-                                alt={attachment.fileName}
+                                src={activeVisual.attachment.url}
+                                alt={activeVisual.attachment.fileName}
                                 containerClassName="h-full w-full"
                                 className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
-                                onClick={() => onImageClick?.(attachment.url)}
+                                onClick={() => onImageClick?.(activeVisual.attachment.url)}
                             />
                         </div>
-                    ))}
-                </div>
-            )}
+                    ) : (
+                        <VideoPlayer
+                            src={activeVisual.attachment.url}
+                            isOutgoing={isOutgoing}
+                            className="w-full rounded-xl"
+                        />
+                    )}
 
-            {videos.length > 0 && (
-                <div className="space-y-2">
-                    {videos.map((attachment, index) => (
-                        <div key={`vid-${attachment.url}-${index}`} className="relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
-                            {localAttachmentUrlSet.has(attachment.url) ? (
-                                <div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
-                                    Vault
-                                </div>
-                            ) : null}
-                            <VideoPlayer
-                                src={attachment.url}
-                                isOutgoing={isOutgoing}
-                                className="w-full rounded-xl"
-                            />
-                        </div>
-                    ))}
+                    <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1.5">
+                        <span className="rounded-md bg-black/55 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                            {activeVisual.kind}
+                        </span>
+                        {localAttachmentUrlSet.has(activeVisual.attachment.url) ? (
+                            <span className="rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
+                                Vault
+                            </span>
+                        ) : null}
+                    </div>
+
+                    {visualMedia.length > 1 ? (
+                        <>
+                            <button
+                                type="button"
+                                className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/30 bg-black/45 p-1.5 text-white backdrop-blur hover:bg-black/60"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    goPrevVisual();
+                                }}
+                                aria-label="Previous media"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                                type="button"
+                                className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/30 bg-black/45 p-1.5 text-white backdrop-blur hover:bg-black/60"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    goNextVisual();
+                                }}
+                                aria-label="Next media"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                            <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-black tracking-widest text-white">
+                                {activeVisualIndex + 1}/{visualMedia.length}
+                            </div>
+                        </>
+                    ) : null}
                 </div>
-            )}
+            ) : null}
 
             {audios.length > 0 && (
                 <div className="space-y-2">

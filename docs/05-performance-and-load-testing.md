@@ -23,6 +23,26 @@ await window.obscurChatPerf.seedConversationMessages({ conversationId: "demo:per
 window.obscurChatPerf.emitBurstEvents({ conversationId: "demo:perf", count: 200 });
 ```
 
+### Standardized Maintainer Scenario (10k + burst)
+
+1. Start app: `pnpm -C apps/pwa dev`
+2. Open a chat and note `conversationId`.
+3. Run:
+
+```js
+await window.obscurChatPerf.clearConversationMessages("demo:perf");
+await window.obscurChatPerf.seedConversationMessages({ conversationId: "demo:perf", count: 10000, intervalMs: 500 });
+window.obscurChatPerf.emitBurstEvents({ conversationId: "demo:perf", count: 300, intervalMs: 0 });
+```
+
+4. Scroll from newest to older ranges and capture p95 UI latency from perf monitor.
+
+### Safety Notes
+
+- Use test/demo conversation IDs only.
+- `clearConversationMessages` deletes all persisted rows for that `conversationId`.
+- Never run synthetic seeding against production user conversations.
+
 Provided by:
 
 - `apps/pwa/app/features/messaging/dev/chat-performance-dev-tools.ts`

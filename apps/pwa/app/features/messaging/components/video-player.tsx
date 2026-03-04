@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { Play, Pause, Volume2, Maximize, Loader2, VideoOff, ExternalLink } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
+import { classifyMediaError, type MediaErrorState } from "./media-error-state";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 interface VideoPlayerProps {
     src: string;
@@ -24,7 +26,7 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
     const [isHovering, setIsHovering] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isError, setIsError] = useState(false);
-    const [errorHint, setErrorHint] = useState<string | null>(null);
+    const [errorState, setErrorState] = useState<MediaErrorState | null>(null);
     const [runtimeSrc, setRuntimeSrc] = useState(src);
     const [hasRetriedWithBypass, setHasRetriedWithBypass] = useState(false);
     const [volume, setVolume] = useState(1);
@@ -95,7 +97,7 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
     const handleCanPlay = () => {
         setIsLoading(false);
         setIsError(false);
-        setErrorHint(null);
+        setErrorState(null);
     };
 
     const handleVideoError = () => {
@@ -109,9 +111,15 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
             readyState: v?.readyState,
             networkState: v?.networkState,
         };
-        console.error("[VideoPlayer] media error", details);
+        const mediaError = classifyMediaError(new Error(String(details.message ?? "video_media_error")));
+        logRuntimeEvent(
+            `video_player.media_error.${mediaError.reasonCode}`,
+            mediaError.recoverable ? "degraded" : "actionable",
+            ["[VideoPlayer] media error", details],
+            { windowMs: 30_000, maxPerWindow: 1, summaryEverySuppressed: 10 }
+        );
 
-        if (!hasRetriedWithBypass) {
+        if (mediaError.reasonCode === "cache_unsupported" && !hasRetriedWithBypass) {
             setHasRetriedWithBypass(true);
             const separator = src.includes("?") ? "&" : "?";
             setRuntimeSrc(`${src}${separator}obscur_nocache=${Date.now()}`);
@@ -119,8 +127,7 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
             return;
         }
 
-        const hint = err?.code ? `MediaError code ${err.code}` : "MediaError";
-        setErrorHint(hint);
+        setErrorState(mediaError);
         setIsLoading(false);
         setIsError(true);
     };
@@ -192,8 +199,8 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                     </div>
                     <div>
                         <div className="text-xs font-black uppercase tracking-widest text-zinc-400">Load Failed</div>
-                        {errorHint ? (
-                            <div className="text-[10px] mt-1 opacity-60 max-w-[200px] truncate">{errorHint}</div>
+                        {errorState?.hint ? (
+                            <div className="text-[10px] mt-1 opacity-60 max-w-[240px]">{errorState.hint}</div>
                         ) : null}
                         <div className="text-[10px] mt-1 opacity-60 max-w-[200px] truncate">{src}</div>
                     </div>
@@ -205,11 +212,12 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                             onClick={() => {
                                 setIsError(false);
                                 setIsLoading(true);
-                                setErrorHint(null);
+                                setErrorState(null);
                                 if (videoRef.current) {
                                     videoRef.current.load();
                                 }
                             }}
+                            disabled={!errorState?.canRetry}
                         >
                             Retry
                         </Button>
@@ -218,9 +226,10 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                             size="sm"
                             className="text-[10px] uppercase font-bold tracking-tighter hover:bg-white/5"
                             onClick={openExternally}
+                            disabled={!errorState?.canOpenExternal}
                         >
                             <ExternalLink className="h-3 w-3" />
-                            Open
+                            Open externally
                         </Button>
                     </div>
                 </div>
@@ -237,7 +246,7 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                         setCurrentTime(0);
                         setDuration(0);
                         setIsPlaying(autoPlay);
-                        setErrorHint(null);
+                        setErrorState(null);
                     }}
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
@@ -315,7 +324,7 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                                     className="text-[10px] font-black tracking-wider text-white/70 min-w-[34px] text-right"
                                     title={`Volume ${volumePercent}%`}
                                 >
-                                    {volumePercent}%
+                                    Volume {volumePercent}%
                                 </span>
                                 <button
                                     onClick={handleFullscreen}

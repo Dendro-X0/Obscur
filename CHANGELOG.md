@@ -1,3 +1,47 @@
+## [v0.8.1] - 2026-03-04
+
+### Added
+
+- **Runtime Log Classification Contract**:
+  - Added shared runtime log policy utility with `expected | degraded | actionable` classes.
+  - Standardized rate-limited runtime logging via `logRuntimeEvent(...)` for startup-noise paths.
+- **Decrypt Failure Classification**:
+  - Added explicit decrypt failure classifier to separate foreign/malformed noise from actionable regressions.
+  - Added unit coverage for decrypt classification behavior.
+- **Relay Runtime Status Model**:
+  - Added normalized relay status model: `healthy | degraded | unavailable`.
+  - Added unit coverage for relay runtime status derivation.
+
+### Changed
+
+- **Startup and Runtime Signal Hygiene**:
+  - Downgraded expected migration-audit and decryption-miss startup noise to bounded lower-severity logs.
+  - Hardened DM subscription lifecycle idempotency to suppress duplicate subscribe/close churn.
+- **Media Error UX Contract**:
+  - Introduced shared media error metadata (`recoverable`, `reasonCode`, `canRetry`, `canOpenExternal`).
+  - Unified audio/video/image failure handling with retry + open-external actions.
+- **Relay UX**:
+  - Relay badge and settings now use normalized degraded-state messaging with actionable guidance.
+- **Release Operations**:
+  - Added required artifact matrix verification in release workflow before publishing GitHub release assets.
+- **Perf Tooling Docs**:
+  - Expanded synthetic-load runbook with standardized 10k seed + burst maintainer scenario and safety guardrails.
+- **Media Timeline UX**:
+  - Switched multi-image/video message rendering to an ordered visual-media carousel.
+  - Added left/right navigation controls, keyboard arrow navigation on desktop, and swipe navigation on touch devices.
+- **App Shell Footer Labeling**:
+  - Replaced stale hardcoded version text in chat shell footers with a release label (`Obscur Preview`) to avoid version drift in UI chrome.
+
+### Fixed
+
+- **Attachment Cache Path Resilience**:
+  - Cache permission/path failures now trigger one actionable warning per session and gracefully fall back to remote playback.
+- **Message List Hotspot**:
+  - Reduced repeated local index parsing in attachment rendering by snapshotting local media index per render cycle.
+- **Image Lightbox Controls**:
+  - Replaced text close action with an `X` icon.
+  - Added wheel zoom (desktop), pinch zoom (mobile), and explicit `+` / `-` zoom controls.
+
 ## [v0.8.0] - 2026-03-04
 
 ### Added

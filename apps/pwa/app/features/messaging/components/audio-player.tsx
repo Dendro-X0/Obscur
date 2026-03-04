@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Play, Pause, Volume2 } from "lucide-react";
+import { ExternalLink, Play, Pause, RefreshCw, Volume2 } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
+import { classifyMediaError, type MediaErrorState } from "./media-error-state";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 interface AudioPlayerProps {
     src: string;
@@ -21,6 +23,8 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
     const [currentTime, setCurrentTime] = useState(0);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
+    const [errorState, setErrorState] = useState<MediaErrorState | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     const togglePlay = () => {
@@ -51,6 +55,11 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
         setIsPlaying(false);
         setProgress(0);
         setCurrentTime(0);
+    };
+
+    const openExternally = () => {
+        if (typeof window === "undefined") return;
+        window.open(src, "_blank", "noopener,noreferrer");
     };
 
     const handleToggleMute = () => {
@@ -90,11 +99,21 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
             className
         )}>
             <audio
+                key={`${src}:${reloadKey}`}
                 ref={audioRef}
                 src={src}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onEnded={handleEnded}
+                onError={() => {
+                    const nextError = classifyMediaError(new Error("audio_load_failed"));
+                    setErrorState(nextError);
+                    logRuntimeEvent(
+                        `audio_player.media_error.${nextError.reasonCode}`,
+                        nextError.recoverable ? "degraded" : "actionable",
+                        ["[AudioPlayer] media load failed", { src }]
+                    );
+                }}
                 onVolumeChange={() => {
                     const audio = audioRef.current;
                     if (!audio) return;
@@ -102,6 +121,35 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
                     setIsMuted(audio.muted);
                 }}
             />
+
+            {errorState ? (
+                <div className="flex w-full items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-widest opacity-80">
+                    <span className="truncate">{errorState.hint}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-md border border-black/10 px-2 py-1 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+                            onClick={() => {
+                                setErrorState(null);
+                                setReloadKey((prev) => prev + 1);
+                            }}
+                            disabled={!errorState.canRetry}
+                        >
+                            <RefreshCw className="h-3 w-3" />
+                            Retry
+                        </button>
+                        <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-md border border-black/10 px-2 py-1 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+                            onClick={openExternally}
+                            disabled={!errorState.canOpenExternal}
+                        >
+                            <ExternalLink className="h-3 w-3" />
+                            Open
+                        </button>
+                    </div>
+                </div>
+            ) : null}
 
             <Button
                 size="icon"
@@ -151,7 +199,7 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
                             className="text-[9px] font-black tracking-wider opacity-70"
                             title={`Volume ${volumePercent}%`}
                         >
-                            {volumePercent}%
+                            Volume {volumePercent}%
                         </span>
                         <span>{formatTime(duration)}</span>
                     </div>

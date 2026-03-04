@@ -9,7 +9,8 @@ import type { Message, IMessageQueue } from "../lib/message-queue";
 import type { Subscription } from "./dm-controller-state";
 import type { Dispatch, SetStateAction } from "react";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
-import { logWithRateLimit } from "@/app/shared/log-hygiene";
+import { classifyDecryptFailure } from "../lib/decrypt-failure-classifier";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 const GLOBAL_PROCESSING_KEY = "__obscur_processing_dm_events__";
 const GLOBAL_FAILED_DECRYPT_KEY = "__obscur_failed_decrypt_events__";
@@ -140,15 +141,17 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         plaintext = await cryptoService.decryptDM(event.content, senderPubkey, currentParams.myPrivateKeyHex);
       }
     } catch (decryptError) {
-      errorHandler.handleDecryptionError(
-        decryptError instanceof Error ? decryptError : new Error("Decryption failed"),
-        { eventId: event.id, sender: senderPubkey }
-      );
-      logWithRateLimit(
-        "info",
-        "incoming_dm.decrypt_failed",
-        ["Info: Incoming message could not be decrypted (maybe intended for another key or malformed):", event.id],
-        { windowMs: 10_000, maxPerWindow: 3, summaryEverySuppressed: 25 }
+      const decryptionClass = classifyDecryptFailure(decryptError);
+      if (decryptionClass.shouldSurfaceToUser) {
+        errorHandler.handleDecryptionError(
+          decryptError instanceof Error ? decryptError : new Error("Decryption failed"),
+          { eventId: event.id, sender: senderPubkey, reason: decryptionClass.reason }
+        );
+      }
+      logRuntimeEvent(
+        `incoming_dm.decrypt_failed.${decryptionClass.reason}`,
+        decryptionClass.runtimeClass,
+        ["Incoming event could not be decrypted:", event.id]
       );
       params.failedDecryptEvents.add(event.id);
       globalFailedDecryptEvents.add(event.id);
@@ -193,7 +196,11 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       void Promise.all(
         message.attachments.map((attachment) => cacheAttachmentLocally(attachment, "received"))
       ).catch((e) => {
-        console.warn("[Vault] Failed to cache received attachments locally:", e);
+        logRuntimeEvent(
+          "incoming_dm.cache_received_attachments_failed",
+          "degraded",
+          ["[Vault] Failed to cache received attachments locally:", e]
+        );
       });
     }
 

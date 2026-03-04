@@ -19,6 +19,15 @@ pnpm security:audit
 
 Current alpha distribution is via GitHub releases and internal/dev deployment workflows.
 
+## Authoritative Release Workflow
+
+- Tag release publisher: `.github/workflows/release.yml`
+- Manual mobile-only helpers:
+  - `.github/workflows/build-android.yml`
+  - `.github/workflows/build-ios.yml`
+
+Tag pushes should only publish through `release.yml`.
+
 ## Recommended Release Checklist
 
 1. Freeze risky feature work.
@@ -29,6 +38,22 @@ Current alpha distribution is via GitHub releases and internal/dev deployment wo
 6. Confirm migration-free startup on existing local data.
 7. Update `CHANGELOG.md` with dated release entry.
 8. Tag and publish artifacts.
+
+## Artifact Matrix (v0.8.1 Gate)
+
+Required:
+
+1. Windows installer (`.exe`)
+2. macOS installer (`.dmg`)
+3. Linux desktop bundle (`.AppImage`)
+4. Android APK (`.apk`)
+
+Optional (when signing inputs are present):
+
+1. Android AAB (`.aab`)
+2. iOS IPA (`.ipa`)
+
+`release.yml` now includes a required artifact verification step before creating the GitHub Release.
 
 ## Mobile/Desktop Notes
 

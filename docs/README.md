@@ -31,6 +31,7 @@ This folder is the source of truth for engineers and maintenance agents working 
 19. [v0.8.0 Release Readiness Plan](./19-v0.8.0-release-readiness-plan.md)
 20. [Threat Model and Security Checklist (v0.8.0)](./20-threat-model-and-security-checklist-v0.8.0.md)
 21. [Dependency Audit Triage (v0.8.0)](./21-dependency-audit-triage-v0.8.0.md)
+22. [v0.8.1 Ticketized Roadmap](./22-v0.8.1-roadmap.md)
 
 ## Quick Paths By Task
 
@@ -47,7 +48,8 @@ This folder is the source of truth for engineers and maintenance agents working 
    [Operations and Release Flow](./07-operations-and-release-flow.md),
    [Operational Runbooks](./13-operational-runbooks-per-app.md),
    [On-Call Quickstart](./15-on-call-quickstart.md),
-   [v0.8.0 Release Readiness Plan](./19-v0.8.0-release-readiness-plan.md)
+   [v0.8.0 Release Readiness Plan](./19-v0.8.0-release-readiness-plan.md),
+   [v0.8.1 Ticketized Roadmap](./22-v0.8.1-roadmap.md)
 4. Terminology and policy checks:
    [Glossary](./16-glossary-and-canonical-terms.md),
    [Security and Privacy Model](./09-security-and-privacy-model.md),

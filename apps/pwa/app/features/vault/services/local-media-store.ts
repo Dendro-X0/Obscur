@@ -1,7 +1,7 @@
 "use client";
 
 import type { Attachment } from "../../messaging/types";
-import { logWithRateLimit } from "@/app/shared/log-hygiene";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 type LocalMediaIndexEntry = Readonly<{
     remoteUrl: string;
@@ -36,6 +36,7 @@ const STORAGE_CONFIG_KEY = "obscur.vault.local_media_storage_config";
 const STORAGE_INDEX_KEY = "obscur.vault.local_media_index";
 const DEFAULT_SUBDIR = "vault-media";
 let localCacheWriteBlocked = false;
+let localCacheBlockedWarningEmitted = false;
 
 const DEFAULT_CONFIG: LocalMediaStorageConfig = {
     enabled: true,
@@ -100,13 +101,15 @@ const loadIndex = (): LocalMediaIndex => {
     }
 };
 
+export const getLocalMediaIndexSnapshot = (): LocalMediaIndex => loadIndex();
+
 const saveIndex = (index: LocalMediaIndex): void => {
     if (!isBrowser()) return;
     localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(index));
 };
 
 export const getLocalMediaIndexEntryByRemoteUrl = (remoteUrl: string): LocalMediaIndexEntry | null => {
-    const index = loadIndex();
+    const index = getLocalMediaIndexSnapshot();
     return index[remoteUrl] ?? null;
 };
 
@@ -258,7 +261,17 @@ export const cacheAttachmentLocally = async (
     if (!isTauriRuntime()) return null;
     const cfg = getLocalMediaStorageConfig();
     if (!cfg.enabled) return null;
-    if (localCacheWriteBlocked) return null;
+    if (localCacheWriteBlocked) {
+        if (!localCacheBlockedWarningEmitted) {
+            localCacheBlockedWarningEmitted = true;
+            logRuntimeEvent(
+                "local_media_store.cache_disabled_after_path_forbidden",
+                "degraded",
+                ["[LocalMediaStore] Local cache writes disabled for this session due to storage permission/path restrictions."]
+            );
+        }
+        return null;
+    }
     if (mode === "sent" && !cfg.cacheSentFiles) return null;
     if (mode === "received" && !cfg.cacheReceivedFiles) return null;
 
@@ -299,11 +312,23 @@ export const cacheAttachmentLocally = async (
         const message = error instanceof Error ? error.message : String(error);
         if (message.toLowerCase().includes("forbidden path")) {
             localCacheWriteBlocked = true;
+            if (!localCacheBlockedWarningEmitted) {
+                localCacheBlockedWarningEmitted = true;
+                logRuntimeEvent(
+                    "local_media_store.cache_failed.forbidden_path",
+                    "degraded",
+                    [
+                        "[LocalMediaStore] Cache path is not permitted. Falling back to remote media URLs for this session.",
+                        attachment.url,
+                    ],
+                    { maxPerWindow: 1, windowMs: 60_000 }
+                );
+            }
+            return null;
         }
-        const classification = message.toLowerCase().includes("forbidden path") ? "forbidden_path" : "general";
-        logWithRateLimit(
-            "warn",
-            `local_media_store.cache_failed.${classification}`,
+        logRuntimeEvent(
+            "local_media_store.cache_failed.general",
+            "degraded",
             ["[LocalMediaStore] Failed to cache attachment:", attachment.url, error],
             { windowMs: 15_000, maxPerWindow: 2, summaryEverySuppressed: 25 }
         );
@@ -314,6 +339,7 @@ export const cacheAttachmentLocally = async (
 export const purgeLocalMediaCache = async (): Promise<void> => {
     if (!isTauriRuntime()) return;
     localCacheWriteBlocked = false;
+    localCacheBlockedWarningEmitted = false;
     const cfg = getLocalMediaStorageConfig();
     try {
         const { remove } = await import("@tauri-apps/plugin-fs");

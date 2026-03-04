@@ -27,6 +27,8 @@ type AppShellProps = Readonly<{
 }>;
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.sidebarExpanded";
+const FOOTER_RELEASE_LABEL: string = process.env.NEXT_PUBLIC_RELEASE_LABEL?.trim() || "Preview";
+const APP_FOOTER_TEXT: string = `Obscur ${FOOTER_RELEASE_LABEL}`;
 
 const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
   "/": MessageSquare,
@@ -131,7 +133,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             </div>
             <div className="border-t border-black/5 p-4 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50 safe-bottom">
               <div className="flex items-center justify-between opacity-50">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Obscur v0.7.8</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{APP_FOOTER_TEXT}</span>
                 <RelayStatusBadge />
               </div>
             </div>
@@ -193,7 +195,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                 </div>
                 <div className="border-t border-black/5 p-4 dark:border-white/5 opacity-50">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                    Obscur v0.7.8
+                    {APP_FOOTER_TEXT}
                   </div>
                 </div>
               </div>

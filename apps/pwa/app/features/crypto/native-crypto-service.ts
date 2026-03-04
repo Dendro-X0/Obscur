@@ -7,7 +7,8 @@ import type {
     PublicKeyHex,
     PrivateKeyHex
 } from "./crypto-interfaces";
-import { logWithRateLimit } from "@/app/shared/log-hygiene";
+import { classifyDecryptFailure } from "@/app/features/messaging/lib/decrypt-failure-classifier";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 export const NATIVE_KEY_SENTINEL = "native" as PrivateKeyHex;
 
@@ -149,13 +150,11 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
             try {
                 return await this.invokeWithTimeout<string>("decrypt_nip04", { publicKey: senderPubkey, ciphertext });
             } catch (e) {
-                const message = e instanceof Error ? e.message : String(e);
-                const bucket = message.toLowerCase().includes("unpad error") ? "unpad" : "other";
-                logWithRateLimit(
-                    "warn",
-                    `native_crypto.decrypt_nip04_failed.${bucket}`,
-                    ["Native decryption failed:", e],
-                    { windowMs: 15_000, maxPerWindow: 2, summaryEverySuppressed: 20 }
+                const classification = classifyDecryptFailure(e);
+                logRuntimeEvent(
+                    `native_crypto.decrypt_nip04_failed.${classification.reason}`,
+                    classification.runtimeClass,
+                    ["Native decryption failed:", e]
                 );
                 throw e;
             }
