@@ -186,10 +186,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Decode Android keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      - name: Decode Android keystore (optional)
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > apps/desktop/src-tauri/release.jks
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > apps/desktop/src-tauri/release.jks
+            echo "ANDROID_SIGNING_READY=true" >> "$GITHUB_ENV"
+          else
+            echo "ANDROID_SIGNING_READY=false" >> "$GITHUB_ENV"
+          fi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
@@ -211,18 +217,18 @@ jobs:
             fi
           done
 
-      - name: Build Android App (Signed)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEYALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
-        run: pnpm -C apps/desktop tauri android build --apk --aab --ci
+      - name: Build Android App (signed if keys exist, otherwise unsigned APK)
+        run: |
+          if [ "${ANDROID_SIGNING_READY}" = "true" ] && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
+            pnpm -C apps/desktop tauri android build --apk --aab --ci
+          else
+            pnpm -C apps/desktop tauri android build --apk
+          fi
         env:
           TAURI_ANDROID_KEYSTORE_PATH: "release.jks"
           TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}
           TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-
-      - name: Build Android App (Unsigned APK Fallback)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' || secrets.ANDROID_KEYSTORE_PASSWORD == '' || secrets.ANDROID_KEYALIAS == '' || secrets.ANDROID_KEY_PASSWORD == '' }}
-        run: pnpm -C apps/desktop tauri android build --apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -231,7 +237,7 @@ jobs:
           path: apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
 
       - name: Upload AAB Artifact
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEYALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: mobile-android-aab
