@@ -1,3 +1,40 @@
+## [v0.8.3] - 2026-03-05
+
+### Added
+
+- **Release Preflight Guardrail**:
+  - Added `pnpm release:preflight` (`scripts/release-preflight.mjs`) to verify branch context, remote tag non-existence, release path sanity, and version/docs checks before tagging.
+- **v0.8.3 UX Feature Flag**:
+  - Added `chatUxV083` privacy setting (default `false`) and Settings toggle to gate the v0.8.3 media/chat UX path.
+- **Shared Media Interaction Utilities**:
+  - Added `media-viewer-interactions.ts` with typed helpers for index navigation, zoom clamping/state, pinch math, and swipe direction detection.
+  - Added unit coverage for interaction utilities and `chatUxV083` default/persistence behavior.
+
+### Changed
+
+- **Release Workflow Determinism**:
+  - Hardened `.github/workflows/release.yml` as the single release publisher with required artifact verification before publish.
+  - Added workflow-dispatch dry-run mode (`publish_release=false` default) to build/verify artifacts without publishing a GitHub release.
+  - Updated required artifact matrix logic:
+    - Windows installer (`.exe` or `.msi`)
+    - macOS installer (`.dmg`)
+    - Linux installer (`.AppImage` or `.deb`)
+    - Android APK (`.apk`)
+    - Android AAB (`.aab`, signed or unsigned)
+- **Media/Chat UX (Flagged Path)**:
+  - Added v0.8.3 media container path behind `chatUxV083` with improved carousel controls (buttons, keyboard arrows, swipe gesture).
+  - Refactored lightbox to support `X` close, `+/-` zoom, reset, zoom percentage, wheel/pinch zoom, drag pan, and keyboard shortcuts with previous/next controls.
+  - Preserved v0.8.2 fallback UI when the flag is disabled.
+- **Design Tokenization for Media Controls**:
+  - Added shared media viewer control/nav CSS variables and utility classes in `globals.css` with light/dark compatibility.
+
+### Fixed
+
+- **Lightbox Touch Typing Stability**:
+  - Fixed touch-list normalization typing in lightbox interaction handling for React touch events.
+- **Message Action Glyph Rendering**:
+  - Replaced corrupted inline glyphs in message action buttons with explicit icon components for stable cross-platform rendering.
+
 ## [v0.8.2] - 2026-03-04
 
 ### Added

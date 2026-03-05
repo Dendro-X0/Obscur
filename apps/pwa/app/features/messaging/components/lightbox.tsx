@@ -1,320 +1,289 @@
 import React from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
-import { VideoPlayer } from "./video-player";
-import { AudioPlayer } from "./audio-player";
-import type { MediaItem } from "../types";
-import { inferAttachmentKind } from "../utils/logic";
-import { Minus, Plus, X, Download, Maximize2, Minimize2, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
+import { AudioPlayer } from "./audio-player";
+import { VideoPlayer } from "./video-player";
+import { inferAttachmentKind } from "../utils/logic";
+import type { MediaItem } from "../types";
 import { cn } from "@/app/lib/utils";
+import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
+import { ChevronLeft, ChevronRight, Download, Minus, Plus, RotateCcw, X } from "lucide-react";
+import {
+  MEDIA_VIEWER_MIN_ZOOM,
+  MEDIA_VIEWER_MAX_ZOOM,
+  buildMediaViewerState,
+  clampZoom,
+  computePinchZoom,
+  getTouchDistance,
+} from "./media-viewer-interactions";
 
 interface LightboxProps {
-    readonly item: MediaItem | undefined;
-    readonly onClose: () => void;
-    readonly onPrev?: () => void;
-    readonly onNext?: () => void;
-    readonly hasPrev?: boolean;
-    readonly hasNext?: boolean;
+  readonly item: MediaItem | undefined;
+  readonly onClose: () => void;
+  readonly onPrev?: () => void;
+  readonly onNext?: () => void;
+  readonly hasPrev?: boolean;
+  readonly hasNext?: boolean;
 }
 
-export function Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: LightboxProps) {
-    const { t } = useTranslation();
-    const MIN_ZOOM = 1;
-    const MAX_ZOOM = 4;
-    const ZOOM_STEP = 0.5;
-    const [zoom, setZoom] = React.useState(1);
-    const [constraints, setConstraints] = React.useState({ left: 0, right: 0, top: 0, bottom: 0 });
-    const x = useMotionValue(0);
-    const y = useMotionValue(0);
-    const containerRef = React.useRef<HTMLDivElement>(null);
-    const contentRef = React.useRef<HTMLDivElement>(null);
-    const pinchStartDistanceRef = React.useRef<number | null>(null);
-    const pinchStartZoomRef = React.useRef(1);
+type TouchListLike = Readonly<{
+  length: number;
+  item: (index: number) => Readonly<{ clientX: number; clientY: number }> | null;
+}>;
 
-    const updateConstraints = React.useCallback(() => {
-        if (!containerRef.current || !contentRef.current) return;
-        const cW = containerRef.current.offsetWidth;
-        const cH = containerRef.current.offsetHeight;
-        const dW = contentRef.current.offsetWidth;
-        const dH = contentRef.current.offsetHeight;
+const touchListToPoints = (touches: TouchListLike): ReadonlyArray<Readonly<{ x: number; y: number }>> => {
+  const points: Array<Readonly<{ x: number; y: number }>> = [];
+  for (let i = 0; i < touches.length; i += 1) {
+    const point = touches.item(i);
+    points.push({
+      x: point?.clientX ?? 0,
+      y: point?.clientY ?? 0,
+    });
+  }
+  return points;
+};
 
-        const xMax = Math.max(0, (dW * zoom - cW) / 2);
-        const yMax = Math.max(0, (dH * zoom - cH) / 2);
+export function Lightbox(props: LightboxProps) {
+  const [chatUxV083Enabled, setChatUxV083Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatUxV083);
 
-        setConstraints({
-            left: -xMax,
-            right: xMax,
-            top: -yMax,
-            bottom: yMax
-        });
-    }, [zoom]);
+  React.useEffect(() => {
+    const onSettingsChanged = () => setChatUxV083Enabled(PrivacySettingsService.getSettings().chatUxV083);
+    window.addEventListener("privacy-settings-changed", onSettingsChanged);
+    return () => window.removeEventListener("privacy-settings-changed", onSettingsChanged);
+  }, []);
 
-    React.useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-            if (e.key === "ArrowLeft" && onPrev && hasPrev) onPrev();
-            if (e.key === "ArrowRight" && onNext && hasNext) onNext();
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        window.addEventListener("resize", updateConstraints);
-        return () => {
-            window.removeEventListener("keydown", handleKeyDown);
-            window.removeEventListener("resize", updateConstraints);
-        };
-    }, [onClose, updateConstraints]);
-
-    React.useEffect(() => {
-        setZoom(1);
-        x.set(0);
-        y.set(0);
-        setConstraints({ left: 0, right: 0, top: 0, bottom: 0 });
-    }, [item?.attachment.url, x, y]);
-
-    // Update constraints whenever zoom changes or image changes
-    React.useEffect(() => {
-        // We need a slight delay to let the spring animation/transform settle or use requestAnimationFrame
-        const timer = setTimeout(updateConstraints, 50);
-        return () => clearTimeout(timer);
-    }, [zoom, updateConstraints]);
-
-    if (!item) return null;
-
-    const effectiveKind = inferAttachmentKind(item.attachment);
-
-    const clampZoom = (value: number): number => {
-        return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
-    };
-
-    const handleZoom = (nextZoom: number) => {
-        const clamped = clampZoom(nextZoom);
-        setZoom(clamped);
-        if (clamped === 1) {
-            x.set(0);
-            y.set(0);
-        }
-    };
-
-    const zoomIn = (e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        handleZoom(zoom + ZOOM_STEP);
-    };
-
-    const zoomOut = (e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        handleZoom(zoom - ZOOM_STEP);
-    };
-
-    const handleWheel = (event: React.WheelEvent) => {
-        event.preventDefault();
-        const delta = event.deltaY < 0 ? ZOOM_STEP / 2 : -ZOOM_STEP / 2;
-        handleZoom(zoom + delta);
-    };
-
-    const getTouchDistance = (touches: React.TouchList): number | null => {
-        if (touches.length < 2) return null;
-        const dx = touches[0].clientX - touches[1].clientX;
-        const dy = touches[0].clientY - touches[1].clientY;
-        return Math.hypot(dx, dy);
-    };
-
-    const handleDownload = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const link = document.createElement("a");
-        link.href = item.attachment.url;
-        link.download = item.attachment.fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const isDraggable = zoom > 1;
-
-    return (
-        <AnimatePresence>
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-2xl p-4 sm:p-8"
-                onPointerDown={onClose}
-            >
-                {/* Top Controls Bar */}
-                <motion.div
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="absolute top-16 md:top-20 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl"
-                    onPointerDown={(e) => e.stopPropagation()}
-                >
-                    <div className="flex items-center gap-1.5 pr-3 border-r border-white/10 mr-1">
-                        <span className="text-[11px] font-bold tracking-tight text-white/40 uppercase hidden sm:inline">
-                            {effectiveKind}
-                        </span>
-                        <span className="text-[13px] font-medium text-white/90 truncate max-w-[120px] sm:max-w-[240px]">
-                            {item.attachment.fileName}
-                        </span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                        {effectiveKind === "image" && (
-                            <>
-                                <ControlButton onClick={zoomOut} disabled={zoom <= MIN_ZOOM}>
-                                    <Minus className="h-4 w-4" />
-                                </ControlButton>
-                                <span className="text-[10px] font-black w-8 text-center text-white/60">
-                                    {Math.round(zoom * 100)}%
-                                </span>
-                                <ControlButton onClick={zoomIn} disabled={zoom >= MAX_ZOOM}>
-                                    <Plus className="h-4 w-4" />
-                                </ControlButton>
-                            </>
-                        )}
-
-                        <div className="w-px h-4 bg-white/10 mx-1" />
-
-                        <ControlButton onClick={handleDownload} title={t("common.download")}>
-                            <Download className="h-4 w-4" />
-                        </ControlButton>
-
-                        <ControlButton onClick={onClose} className="hover:bg-red-500/20 hover:text-red-400">
-                            <X className="h-4 w-4" />
-                        </ControlButton>
-                    </div>
-                </motion.div>
-
-                {/* Navigation Arrows */}
-                <div className="absolute inset-y-0 left-0 flex items-center px-4 pointer-events-none z-[110]">
-                    {hasPrev && onPrev && (
-                        <ControlButton
-                            onClick={(e) => { e.stopPropagation(); onPrev(); }}
-                            className="bg-black/20 hover:bg-black/40 h-12 w-12 border-white/10 pointer-events-auto"
-                        >
-                            <ChevronLeft className="h-6 w-6" />
-                        </ControlButton>
-                    )}
-                </div>
-                <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none z-[110]">
-                    {hasNext && onNext && (
-                        <ControlButton
-                            onClick={(e) => { e.stopPropagation(); onNext(); }}
-                            className="bg-black/20 hover:bg-black/40 h-12 w-12 border-white/10 pointer-events-auto"
-                        >
-                            <ChevronRight className="h-6 w-6" />
-                        </ControlButton>
-                    )}
-                </div>
-
-                {/* Content Area */}
-                <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    className="relative w-full h-full flex items-center justify-center rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
-                    onPointerDown={(e) => e.stopPropagation()}
-                >
-                    {effectiveKind === "image" ? (
-                        <div
-                            ref={containerRef}
-                            className={cn(
-                                "relative w-full h-full flex items-center justify-center overflow-hidden touch-none",
-                                isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-default"
-                            )}
-                            onWheel={handleWheel}
-                            onTouchStart={(event) => {
-                                const dist = getTouchDistance(event.touches);
-                                if (dist === null) return;
-                                pinchStartDistanceRef.current = dist;
-                                pinchStartZoomRef.current = zoom;
-                            }}
-                            onTouchMove={(event) => {
-                                const startDistance = pinchStartDistanceRef.current;
-                                const currentDistance = getTouchDistance(event.touches);
-                                if (!startDistance || !currentDistance) return;
-                                event.preventDefault();
-                                const nextZoom = pinchStartZoomRef.current * (currentDistance / startDistance);
-                                handleZoom(nextZoom);
-                            }}
-                            onTouchEnd={() => {
-                                pinchStartDistanceRef.current = null;
-                            }}
-                            onDoubleClick={() => handleZoom(zoom > 1 ? 1 : 2)}
-                        >
-                            <motion.div
-                                ref={contentRef}
-                                drag={isDraggable}
-                                dragConstraints={constraints}
-                                dragElastic={0.1}
-                                dragMomentum={true}
-                                transition={{ type: "spring", damping: 30, stiffness: 200 }}
-                                className="relative flex items-center justify-center shrink-0"
-                                style={{
-                                    transformOrigin: "center center",
-                                    x,
-                                    y,
-                                    scale: zoom
-                                }}
-                            >
-                                <Image
-                                    src={item.attachment.url}
-                                    alt={item.attachment.fileName}
-                                    width={2048}
-                                    height={1152}
-                                    unoptimized
-                                    className="max-h-[85vh] w-auto max-w-[90vw] object-contain rounded-lg shadow-2xl pointer-events-none"
-                                    priority
-                                    onLoad={() => {
-                                        // The image fully loaded, triggering a final boundary update
-                                        updateConstraints();
-                                    }}
-                                />
-                            </motion.div>
-                        </div>
-                    ) : effectiveKind === "audio" ? (
-                        <div className="w-full max-w-lg p-8 bg-zinc-900/50 backdrop-blur-xl rounded-[40px] border border-white/5 ring-1 ring-white/10 shadow-2xl">
-                            <AudioPlayer src={item.attachment.url} isOutgoing={false} />
-                            <div className="mt-6 flex flex-col items-center gap-1">
-                                <span className="text-sm font-bold text-white/90">{item.attachment.fileName}</span>
-                                <span className="text-[10px] uppercase font-black tracking-widest text-white/30 truncate px-4">{item.attachment.contentType}</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="w-full max-w-5xl aspect-video rounded-3xl overflow-hidden bg-black shadow-2xl relative group">
-                            <VideoPlayer src={item.attachment.url} isOutgoing={false} className="w-full h-full" />
-                        </div>
-                    )}
-                </motion.div>
-            </motion.div>
-        </AnimatePresence>
-    );
+  if (!props.item) return null;
+  if (!chatUxV083Enabled) {
+    return <LegacyLightbox {...props} />;
+  }
+  return <V083Lightbox {...props} />;
 }
 
-function ControlButton({
-    children,
-    onClick,
-    disabled = false,
-    className,
-    title
-}: {
-    readonly children: React.ReactNode;
-    readonly onClick: (e: React.MouseEvent) => void;
-    readonly disabled?: boolean;
-    readonly className?: string;
-    readonly title?: string;
-}) {
-    return (
-        <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onClick}
-            disabled={disabled}
-            title={title}
-            className={cn(
-                "h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/70 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none disabled:scale-100 border border-white/5",
-                className
-            )}
+function LegacyLightbox({ item, onClose }: LightboxProps) {
+  const { t } = useTranslation();
+  if (!item) return null;
+  const kind = inferAttachmentKind(item.attachment);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" onPointerDown={onClose}>
+      <div className="relative w-full max-w-5xl" onPointerDown={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          aria-label={t("common.close", "Close")}
+          title={t("common.close", "Close")}
+          onClick={onClose}
+          className="absolute right-2 top-2 z-10 media-viewer-control"
         >
-            {children}
-        </motion.button>
-    );
+          <X className="h-4 w-4" />
+        </button>
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">
+          {kind === "image" ? (
+            <Image
+              src={item.attachment.url}
+              alt={item.attachment.fileName}
+              width={1280}
+              height={720}
+              unoptimized
+              className="h-auto w-full max-h-[90vh] object-contain"
+            />
+          ) : kind === "audio" ? (
+            <div className="p-6">
+              <AudioPlayer src={item.attachment.url} isOutgoing={false} />
+            </div>
+          ) : (
+            <VideoPlayer src={item.attachment.url} isOutgoing={false} className="max-h-[90vh]" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: LightboxProps) {
+  const { t } = useTranslation();
+  const kind = inferAttachmentKind(item!.attachment);
+  const [zoom, setZoom] = React.useState(1);
+  const [isPinching, setIsPinching] = React.useState(false);
+  const pinchStartDistanceRef = React.useRef<number | null>(null);
+  const pinchStartZoomRef = React.useRef(1);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const viewerState = buildMediaViewerState({
+    activeIndex: 0,
+    zoom,
+    pan: { x: x.get(), y: y.get() },
+    isPinching,
+  });
+
+  const resetView = React.useCallback(() => {
+    setZoom(1);
+    x.set(0);
+    y.set(0);
+  }, [x, y]);
+
+  const zoomBy = React.useCallback((delta: number) => {
+    setZoom((prev) => clampZoom(prev + delta, MEDIA_VIEWER_MIN_ZOOM, MEDIA_VIEWER_MAX_ZOOM));
+  }, []);
+
+  React.useEffect(() => {
+    resetView();
+  }, [item?.attachment.url, resetView]);
+
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "+" || event.key === "=") zoomBy(0.2);
+      if (event.key === "-") zoomBy(-0.2);
+      if (event.key === "ArrowLeft" && hasPrev && onPrev) onPrev();
+      if (event.key === "ArrowRight" && hasNext && onNext) onNext();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [hasNext, hasPrev, onClose, onNext, onPrev, zoomBy]);
+
+  const onDownload = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const anchor = document.createElement("a");
+    anchor.href = item!.attachment.url;
+    anchor.download = item!.attachment.fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 md:p-8"
+        onPointerDown={onClose}
+      >
+        <div className="absolute top-5 right-5 z-[120] flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+          {kind === "image" ? (
+            <>
+              <button
+                type="button"
+                className="media-viewer-control"
+                onClick={() => zoomBy(-0.2)}
+                disabled={!viewerState.canZoomOut}
+                aria-label={t("common.zoomOut", "Zoom out")}
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="media-viewer-control"
+                onClick={resetView}
+                aria-label={t("common.reset", "Reset")}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="media-viewer-control"
+                onClick={() => zoomBy(0.2)}
+                disabled={!viewerState.canZoomIn}
+                aria-label={t("common.zoomIn", "Zoom in")}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </>
+          ) : null}
+          <button type="button" className="media-viewer-control" onClick={onDownload} aria-label={t("common.download", "Download")}>
+            <Download className="h-4 w-4" />
+          </button>
+          <button type="button" className="media-viewer-control" onClick={onClose} aria-label={t("common.close", "Close")}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {kind === "image" ? (
+          <div
+            className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-black"
+            onPointerDown={(event) => event.stopPropagation()}
+            onWheel={(event) => {
+              event.preventDefault();
+              zoomBy(event.deltaY < 0 ? 0.15 : -0.15);
+            }}
+            onTouchStart={(event) => {
+              const distance = getTouchDistance(touchListToPoints(event.touches));
+              if (distance === null) return;
+              pinchStartDistanceRef.current = distance;
+              pinchStartZoomRef.current = zoom;
+              setIsPinching(true);
+            }}
+            onTouchMove={(event) => {
+              const current = getTouchDistance(touchListToPoints(event.touches));
+              const start = pinchStartDistanceRef.current;
+              if (!start || current === null) return;
+              event.preventDefault();
+              setZoom(computePinchZoom({ startDistance: start, currentDistance: current, startZoom: pinchStartZoomRef.current }));
+            }}
+            onTouchEnd={() => {
+              pinchStartDistanceRef.current = null;
+              setIsPinching(false);
+            }}
+          >
+            <motion.div
+              drag={zoom > 1}
+              dragElastic={0.08}
+              dragMomentum
+              style={{ x, y, scale: zoom }}
+              className={cn("flex items-center justify-center", zoom > 1 ? "cursor-grab active:cursor-grabbing" : "")}
+            >
+              <Image
+                src={item!.attachment.url}
+                alt={item!.attachment.fileName}
+                width={2048}
+                height={2048}
+                unoptimized
+                className="max-h-[86vh] w-auto max-w-[92vw] object-contain select-none"
+                priority
+                draggable={false}
+              />
+            </motion.div>
+            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold tracking-wider text-white">
+              {Math.round(viewerState.zoom * 100)}%
+            </div>
+          </div>
+        ) : kind === "audio" ? (
+          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-black/70 p-8" onPointerDown={(event) => event.stopPropagation()}>
+            <AudioPlayer src={item!.attachment.url} isOutgoing={false} />
+          </div>
+        ) : (
+          <div className="w-full max-w-6xl rounded-3xl overflow-hidden border border-white/10 bg-black" onPointerDown={(event) => event.stopPropagation()}>
+            <VideoPlayer src={item!.attachment.url} isOutgoing={false} className="max-h-[90vh]" />
+          </div>
+        )}
+
+        {hasPrev && onPrev ? (
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={onPrev}
+            className="media-viewer-nav media-viewer-nav-left"
+            aria-label={t("common.previous", "Previous")}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        ) : null}
+
+        {hasNext && onNext ? (
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={onNext}
+            className="media-viewer-nav media-viewer-nav-right"
+            aria-label={t("common.next", "Next")}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        ) : null}
+      </motion.div>
+    </AnimatePresence>
+  );
 }

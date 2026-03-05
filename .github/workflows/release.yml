@@ -2,6 +2,12 @@ name: Obscur Full Release
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish GitHub Release after build/verification"
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
       - "v*"
@@ -217,12 +223,12 @@ jobs:
             fi
           done
 
-      - name: Build Android App (signed if keys exist, otherwise unsigned APK)
+      - name: Build Android App (signed if keys exist, otherwise unsigned)
         run: |
           if [ "${ANDROID_SIGNING_READY}" = "true" ] && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
             pnpm -C apps/desktop tauri android build --apk --aab --ci
           else
-            pnpm -C apps/desktop tauri android build --apk
+            pnpm -C apps/desktop tauri android build --apk --aab
           fi
         env:
           TAURI_ANDROID_KEYSTORE_PATH: "release.jks"
@@ -237,7 +243,6 @@ jobs:
           path: apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
 
       - name: Upload AAB Artifact
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: mobile-android-aab
@@ -310,8 +315,8 @@ jobs:
           name: mobile-ios
           path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
 
-  publish-release:
-    name: Publish Release
+  verify-artifacts:
+    name: Verify Artifacts
     needs: [build-desktop, build-android]
     runs-on: ubuntu-latest
     steps:
@@ -343,7 +348,6 @@ jobs:
           path: ./release-assets/android
 
       - name: Download Android AAB Artifacts
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android-aab
@@ -384,6 +388,19 @@ jobs:
             has_android_apk=1
           fi
 
+          has_android_aab=0
+          if find release-assets/android -type f -iname "*.aab" | grep -q .; then
+            has_android_aab=1
+          fi
+
+          echo "Artifact matrix status:"
+          echo "- windows installer (.exe/.msi): ${has_windows_installer}"
+          echo "- macOS installer (.dmg): ${has_macos_installer}"
+          echo "- linux installer (.AppImage/.deb): ${has_linux_installer}"
+          echo "- android apk (.apk): ${has_android_apk}"
+          echo "- android aab (.aab): ${has_android_aab}"
+          echo "- ios ipa (.ipa, optional): $(find release-assets/ios -type f -iname \"*.ipa\" | wc -l || true)"
+
           if [ "$has_windows_installer" -ne 1 ]; then
             echo "Missing required Windows installer (.exe or .msi)." >&2
             exit 1
@@ -400,8 +417,58 @@ jobs:
             echo "Missing required Android APK (.apk)." >&2
             exit 1
           fi
+          if [ "$has_android_aab" -ne 1 ]; then
+            echo "Missing required Android AAB (.aab)." >&2
+            exit 1
+          fi
 
           echo "Required artifact matrix verified."
+
+  publish-release:
+    name: Publish Release
+    needs: [verify-artifacts]
+    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true && startsWith(github.ref, 'refs/tags/v')) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-windows
+          path: ./release-assets/windows
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-macos
+          path: ./release-assets/macos
+
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux
+          path: ./release-assets/linux
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android
+          path: ./release-assets/android
+
+      - name: Download Android AAB Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android-aab
+          path: ./release-assets/android
+
+      - name: Download iOS Artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-ios
+          path: ./release-assets/ios
 
       - name: Create GitHub Release
         id: create_release

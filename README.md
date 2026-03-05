@@ -79,7 +79,7 @@ These placeholders are for future GIF demos in README and the future official we
 5. `docs/assets/demo-desktop-updater.gif`  
    Placeholder: current vs latest version state and install prompt.
 
-## Release Preparation (v0.8.2)
+## Release Preparation (v0.8.3)
 
 Before tagging:
 
@@ -87,10 +87,11 @@ Before tagging:
 pnpm version:sync
 pnpm version:check
 pnpm docs:check
+pnpm release:preflight
 pnpm security:audit
 ```
 
 Release references:
 
 - [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- [`docs/23-v0.8.2-roadmap.md`](docs/23-v0.8.2-roadmap.md)
+- [`docs/24-v0.8.3-roadmap.md`](docs/24-v0.8.3-roadmap.md)

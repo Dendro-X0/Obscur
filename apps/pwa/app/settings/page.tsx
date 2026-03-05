@@ -1210,6 +1210,20 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 />
               </div>
 
+              {/* v0.8.3 UX rollout */}
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">{t("settings.storage.chatUxV083Title", "Media & Chat UX Refresh (v0.8.3)")}</Label>
+                  <p className="text-xs text-zinc-500">
+                    {t("settings.storage.chatUxV083Desc", "Enable the new media viewer and chat interaction polish. Disable to use the stable v0.8.2 UX path.")}
+                  </p>
+                </div>
+                <SettingsToggle
+                  checked={privacySettings.chatUxV083}
+                  onChange={(checked) => handleSavePrivacy({ ...privacySettings, chatUxV083: checked })}
+                />
+              </div>
+
               {/* Media Upload Provider */}
               <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20">
                 <div className="flex items-center justify-between gap-2">

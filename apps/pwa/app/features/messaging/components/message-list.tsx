@@ -2,7 +2,7 @@
 
 import React from "react";
 import { OptimizedImage } from "../../../components/optimized-image";
-import { AlertTriangle, Check, CheckCheck, Clock, X, Reply, ChevronDown, RefreshCw, FileText, ExternalLink, Music2, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, Check, CheckCheck, Clock, X, Reply, ChevronDown, RefreshCw, FileText, ExternalLink, Music2, ChevronLeft, ChevronRight, Smile, MoreHorizontal } from "lucide-react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "../../../components/ui/button";
 import { EmptyState } from "../../../components/ui/empty-state";
@@ -22,6 +22,7 @@ import { CommunityInviteResponseCard } from "../../groups/components/community-i
 import { inferAttachmentKind } from "../utils/logic";
 import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
+import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
 
 interface MessageListProps {
     hasHydrated: boolean;
@@ -87,6 +88,7 @@ export function MessageList({
 
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
+    const [chatUxV083Enabled, setChatUxV083Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatUxV083);
     const [fastScrollMode, setFastScrollMode] = React.useState(false);
     const lastScrollTopRef = React.useRef(0);
     const lastScrollTsRef = React.useRef(0);
@@ -94,7 +96,9 @@ export function MessageList({
 
     React.useEffect(() => {
         const onPrivacySettingsChanged = () => {
-            setChatPerformanceV2Enabled(PrivacySettingsService.getSettings().chatPerformanceV2);
+            const next = PrivacySettingsService.getSettings();
+            setChatPerformanceV2Enabled(next.chatPerformanceV2);
+            setChatUxV083Enabled(next.chatUxV083);
         };
         if (typeof window !== "undefined") {
             window.addEventListener("privacy-settings-changed", onPrivacySettingsChanged);
@@ -407,6 +411,7 @@ export function MessageList({
                                         isGroupEnd={isGroupEnd}
                                         isMiddle={isMiddle}
                                         highLoadMode={highLoadMode}
+                                        chatUxV083Enabled={chatUxV083Enabled}
                                         flashMessageId={flashMessageId}
                                         attachmentUrlsExpanded={attachmentUrlsExpanded}
                                         hasVisualAttachments={hasVisualAttachments}
@@ -467,6 +472,7 @@ type MessageRowProps = Readonly<{
     isGroupEnd: boolean;
     isMiddle: boolean;
     highLoadMode: boolean;
+    chatUxV083Enabled: boolean;
     flashMessageId: string | null;
     attachmentUrlsExpanded: boolean;
     hasVisualAttachments: boolean;
@@ -499,6 +505,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         isGroupEnd,
         isMiddle,
         highLoadMode,
+        chatUxV083Enabled,
         flashMessageId,
         attachmentUrlsExpanded,
         hasVisualAttachments,
@@ -603,7 +610,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                 className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
                                 onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
                             >
-                                <span className="text-sm leading-none">☺</span>
+                                <Smile className="h-4 w-4" />
                             </Button>
                             <Button
                                 variant="ghost"
@@ -611,7 +618,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                 className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
                                 onClick={(e) => onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY })}
                             >
-                                <span className="text-lg leading-none mt-[-4px]">⋯</span>
+                                <MoreHorizontal className="h-4 w-4" />
                             </Button>
                         </div>
 
@@ -671,6 +678,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                             localAttachmentUrlSet={localAttachmentUrlSet}
                                             localAttachmentFileNameByUrl={localAttachmentFileNameByUrl}
                                             onImageClick={onImageClick}
+                                            chatUxV083Enabled={chatUxV083Enabled}
                                         />
                                     ) : null}
 
@@ -769,6 +777,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.isGroupEnd === next.isGroupEnd &&
         prev.isMiddle === next.isMiddle &&
         prev.highLoadMode === next.highLoadMode &&
+        prev.chatUxV083Enabled === next.chatUxV083Enabled &&
         prev.flashMessageId === next.flashMessageId &&
         prev.attachmentUrlsExpanded === next.attachmentUrlsExpanded &&
         prev.hasVisualAttachments === next.hasVisualAttachments &&
@@ -860,13 +869,15 @@ function MessageAttachmentLayout({
     isOutgoing,
     localAttachmentUrlSet,
     localAttachmentFileNameByUrl,
-    onImageClick
+    onImageClick,
+    chatUxV083Enabled
 }: {
     readonly attachments: ReadonlyArray<Attachment>;
     readonly isOutgoing: boolean;
     readonly localAttachmentUrlSet: ReadonlySet<string>;
     readonly localAttachmentFileNameByUrl: Readonly<Record<string, string>>;
     readonly onImageClick?: (url: string) => void;
+    readonly chatUxV083Enabled: boolean;
 }): React.JSX.Element {
     const { t } = useTranslation();
     const visualMedia: Array<Readonly<{ attachment: Attachment; kind: "image" | "video" }>> = [];
@@ -904,13 +915,13 @@ function MessageAttachmentLayout({
     const goPrevVisual = React.useCallback((e?: React.MouseEvent) => {
         e?.stopPropagation();
         if (visualMedia.length <= 1) return;
-        setActiveVisualIndex((prev) => (prev - 1 + visualMedia.length) % visualMedia.length);
+        setActiveVisualIndex((prev) => prevMediaIndex(prev, visualMedia.length));
     }, [visualMedia.length]);
 
     const goNextVisual = React.useCallback((e?: React.MouseEvent) => {
         e?.stopPropagation();
         if (visualMedia.length <= 1) return;
-        setActiveVisualIndex((prev) => (prev + 1) % visualMedia.length);
+        setActiveVisualIndex((prev) => nextMediaIndex(prev, visualMedia.length));
     }, [visualMedia.length]);
 
     const handleVisualKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -927,6 +938,14 @@ function MessageAttachmentLayout({
     }, [goNextVisual, goPrevVisual, visualMedia.length]);
 
     const activeVisual = visualMedia[activeVisualIndex];
+    const imageMedia = visualMedia.filter((item) => item.kind === "image").map((item) => item.attachment);
+    const videoMedia = visualMedia.filter((item) => item.kind === "video").map((item) => item.attachment);
+
+    const imageGridClass = imageMedia.length <= 1
+        ? "grid-cols-1"
+        : imageMedia.length === 2
+            ? "grid-cols-2"
+            : "grid-cols-2 sm:grid-cols-3";
 
     const deriveDisplayFileName = (attachment: Attachment): string => {
         const localName = localAttachmentFileNameByUrl[attachment.url];
@@ -946,7 +965,56 @@ function MessageAttachmentLayout({
 
     return (
         <div className="mb-3 space-y-3">
-            {visualMedia.length > 0 && activeVisual ? (
+            {!chatUxV083Enabled && (
+                <>
+                    {imageMedia.length > 0 ? (
+                        <div className={cn("grid gap-1.5", imageGridClass)}>
+                            {imageMedia.map((attachment, index) => (
+                                <div
+                                    key={`legacy-img-${attachment.url}-${index}`}
+                                    className={cn(
+                                        "relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5",
+                                        imageMedia.length === 1 ? "aspect-video max-h-[520px]" : "aspect-square"
+                                    )}
+                                >
+                                    {localAttachmentUrlSet.has(attachment.url) ? (
+                                        <div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
+                                            Vault
+                                        </div>
+                                    ) : null}
+                                    <OptimizedImage
+                                        src={attachment.url}
+                                        alt={attachment.fileName}
+                                        containerClassName="h-full w-full"
+                                        className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
+                                        onClick={() => onImageClick?.(attachment.url)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                    {videoMedia.length > 0 ? (
+                        <div className="space-y-2">
+                            {videoMedia.map((attachment, index) => (
+                                <div key={`legacy-vid-${attachment.url}-${index}`} className="relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
+                                    {localAttachmentUrlSet.has(attachment.url) ? (
+                                        <div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
+                                            Vault
+                                        </div>
+                                    ) : null}
+                                    <VideoPlayer
+                                        src={attachment.url}
+                                        isOutgoing={isOutgoing}
+                                        className="w-full rounded-xl"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                </>
+            )}
+
+            {chatUxV083Enabled && visualMedia.length > 0 && activeVisual ? (
                 <div
                     className="group relative overflow-hidden rounded-[24px] bg-zinc-950 shadow-[0_30px_60px_rgba(0,0,0,0.5)] ring-1 ring-white/10 inline-flex flex-col items-center justify-center max-w-full"
                     tabIndex={visualMedia.length > 1 ? 0 : -1}
@@ -959,12 +1027,10 @@ function MessageAttachmentLayout({
                         const touchStartX = touchStartXRef.current;
                         const touchEndX = event.changedTouches[0]?.clientX ?? null;
                         if (touchStartX === null || touchEndX === null) return;
-                        const deltaX = touchEndX - touchStartX;
-                        const minSwipeDistance = 40;
-                        if (Math.abs(deltaX) < minSwipeDistance) return;
-                        if (deltaX > 0) {
+                        const direction = detectSwipeDirection(touchEndX - touchStartX, 40);
+                        if (direction === "prev") {
                             goPrevVisual();
-                        } else {
+                        } else if (direction === "next") {
                             goNextVisual();
                         }
                     }}
@@ -1222,4 +1288,6 @@ function SwipeReplyWrapper({
         </div>
     );
 }
+
+
 

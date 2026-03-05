@@ -91,6 +91,11 @@
   --gradient-button: linear-gradient(135deg, oklch(0.97 0.01 270) 0%, oklch(0.9 0.03 270) 100%);
   --gradient-primary: linear-gradient(135deg, oklch(0.6 0.18 270) 0%, oklch(0.5 0.22 290) 100%);
   --gradient-scrim: linear-gradient(to bottom, transparent, oklch(0 0 0 / 0.03));
+  --media-control-bg: oklch(0 0 0 / 0.58);
+  --media-control-bg-hover: oklch(0 0 0 / 0.72);
+  --media-control-fg: oklch(0.98 0.01 270);
+  --media-control-border: oklch(1 0 0 / 0.18);
+  --media-focus-ring: oklch(0.72 0.19 274 / 0.6);
 
   --gradient-main-fallback: linear-gradient(160deg, #f5f7ff 0%, #eef1f8 100%);
 }
@@ -122,6 +127,11 @@
   --gradient-button: linear-gradient(135deg, oklch(0.3 0.08 270) 0%, oklch(0.16 0.05 270) 100%);
   --gradient-primary: linear-gradient(135deg, oklch(0.65 0.2 270) 0%, oklch(0.55 0.2 285) 100%);
   --gradient-scrim: linear-gradient(to bottom, transparent, oklch(0 0 0 / 0.7));
+  --media-control-bg: oklch(0.14 0.02 270 / 0.62);
+  --media-control-bg-hover: oklch(0.14 0.02 270 / 0.82);
+  --media-control-fg: oklch(0.98 0.01 270);
+  --media-control-border: oklch(1 0 0 / 0.22);
+  --media-focus-ring: oklch(0.72 0.19 274 / 0.7);
 }
 
 @layer base {
@@ -436,5 +446,55 @@
   .titlebar-button-close:hover {
     background: oklch(0.6 0.22 25) !important;
     color: white !important;
+  }
+
+  .media-viewer-control {
+    @apply inline-flex items-center justify-center rounded-xl border transition-all;
+    width: 2.25rem;
+    height: 2.25rem;
+    background: var(--media-control-bg);
+    color: var(--media-control-fg);
+    border-color: var(--media-control-border);
+    backdrop-filter: blur(12px);
+  }
+
+  .media-viewer-control:hover {
+    background: var(--media-control-bg-hover);
+    transform: translateY(-1px);
+  }
+
+  .media-viewer-control:focus-visible {
+    outline: 2px solid var(--media-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .media-viewer-control:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .media-viewer-nav {
+    @apply fixed z-[120] top-1/2 -translate-y-1/2;
+    @apply inline-flex items-center justify-center rounded-full border transition-all;
+    width: 2.75rem;
+    height: 2.75rem;
+    background: var(--media-control-bg);
+    color: var(--media-control-fg);
+    border-color: var(--media-control-border);
+    backdrop-filter: blur(12px);
+  }
+
+  .media-viewer-nav:hover {
+    background: var(--media-control-bg-hover);
+    transform: translateY(-50%) scale(1.04);
+  }
+
+  .media-viewer-nav-left {
+    left: 1rem;
+  }
+
+  .media-viewer-nav-right {
+    right: 1rem;
   }
 }

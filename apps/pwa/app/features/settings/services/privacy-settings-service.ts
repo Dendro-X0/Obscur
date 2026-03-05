@@ -8,6 +8,7 @@ export interface PrivacySettings {
     dmPrivacy: 'everyone' | 'contacts-only';
     biometricLockEnabled: boolean;
     chatPerformanceV2: boolean; // Feature flag for batched chat performance optimizations
+    chatUxV083: boolean; // Feature flag for v0.8.3 media/chat UX refresh
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -19,7 +20,8 @@ export const defaultPrivacySettings: PrivacySettings = {
     useModernDMs: true,
     dmPrivacy: 'everyone',
     biometricLockEnabled: false,
-    chatPerformanceV2: false
+    chatPerformanceV2: false,
+    chatUxV083: false
 };
 
 export class PrivacySettingsService {

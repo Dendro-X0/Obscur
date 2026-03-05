@@ -17,7 +17,7 @@ import {
 import { messageBus } from "../../messaging/services/message-bus";
 import type { Message } from "../../messaging/types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
-import { normalizeRelayUrl } from "@dweb/nostr/relay-utils";
+import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import {
   createCommunityLedgerState,
@@ -29,6 +29,12 @@ import {
   type CommunityLedgerEvent,
   type CommunityLedgerState
 } from "../services/community-ledger-reducer";
+
+export const normalizeRelayUrl = (relayUrl: string): string => {
+  const normalized = normalizeRelayUrlBase(relayUrl);
+  if (/^[a-z]+:\/\/$/i.test(normalized)) return normalized;
+  return normalized.replace(/\/+$/g, "");
+};
 
 type NostrPool = Readonly<{
   sendToOpen: (payload: string) => void;
