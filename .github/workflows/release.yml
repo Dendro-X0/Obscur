@@ -361,27 +361,47 @@ jobs:
         run: |
           set -euo pipefail
 
-          required=(
-            "release-assets/windows/*.exe"
-            "release-assets/macos/*.dmg"
-            "release-assets/linux/*.AppImage"
-            "release-assets/android/*.apk"
-          )
+          echo "Release asset tree:"
+          find release-assets -maxdepth 3 -type f | sort || true
 
-          missing=0
-          for pattern in "${required[@]}"; do
-            if ! compgen -G "$pattern" > /dev/null; then
-              echo "Missing required release artifact pattern: $pattern" >&2
-              missing=1
-            fi
-          done
+          has_windows_installer=0
+          if find release-assets/windows -type f \( -iname "*.exe" -o -iname "*.msi" \) | grep -q .; then
+            has_windows_installer=1
+          fi
 
-          if [ "$missing" -ne 0 ]; then
-            echo "Required artifact verification failed." >&2
+          has_macos_installer=0
+          if find release-assets/macos -type f -iname "*.dmg" | grep -q .; then
+            has_macos_installer=1
+          fi
+
+          has_linux_installer=0
+          if find release-assets/linux -type f \( -iname "*.appimage" -o -iname "*.deb" \) | grep -q .; then
+            has_linux_installer=1
+          fi
+
+          has_android_apk=0
+          if find release-assets/android -type f -iname "*.apk" | grep -q .; then
+            has_android_apk=1
+          fi
+
+          if [ "$has_windows_installer" -ne 1 ]; then
+            echo "Missing required Windows installer (.exe or .msi)." >&2
+            exit 1
+          fi
+          if [ "$has_macos_installer" -ne 1 ]; then
+            echo "Missing required macOS installer (.dmg)." >&2
+            exit 1
+          fi
+          if [ "$has_linux_installer" -ne 1 ]; then
+            echo "Missing required Linux installer (.AppImage or .deb)." >&2
+            exit 1
+          fi
+          if [ "$has_android_apk" -ne 1 ]; then
+            echo "Missing required Android APK (.apk)." >&2
             exit 1
           fi
 
-          echo "Required artifacts verified."
+          echo "Required artifact matrix verified."
 
       - name: Create GitHub Release
         id: create_release

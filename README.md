@@ -62,7 +62,7 @@ Use `/docs` as the source of truth for maintainers and contributors.
 - Messaging and groups: [`docs/04-messaging-and-groups.md`](docs/04-messaging-and-groups.md)
 - Testing and quality gates: [`docs/06-testing-and-quality-gates.md`](docs/06-testing-and-quality-gates.md)
 - Operations and release flow: [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- v0.8.0 readiness plan: [`docs/19-v0.8.0-release-readiness-plan.md`](docs/19-v0.8.0-release-readiness-plan.md)
+- v0.8.2 roadmap: [`docs/23-v0.8.2-roadmap.md`](docs/23-v0.8.2-roadmap.md)
 
 ## Demo Placeholders (To Be Replaced)
 
