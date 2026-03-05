@@ -11,6 +11,7 @@ import { clearStoredIdentity } from "../utils/clear-stored-identity";
 import { getStoredIdentity } from "../utils/get-stored-identity";
 import { saveStoredIdentity } from "../utils/save-stored-identity";
 import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
+import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -51,6 +52,48 @@ const createNewIdentityRecord = async (params: Readonly<{ passphrase: Passphrase
   const publicKeyHex: PublicKeyHex = derivePublicKeyHex(privateKeyHex);
   const encryptedPrivateKey: string = await encryptPrivateKeyHex({ privateKeyHex, passphrase: params.passphrase });
   return { encryptedPrivateKey, publicKeyHex, username: params.username };
+};
+
+const PRIVATE_KEY_HEX_PATTERN = /^[0-9a-f]{64}$/;
+
+const normalizePrivateKeyHex = (value: string): PrivateKeyHex | null => {
+  const normalized = value.trim().toLowerCase();
+  if (!PRIVATE_KEY_HEX_PATTERN.test(normalized)) {
+    return null;
+  }
+  return normalized as PrivateKeyHex;
+};
+
+const normalizeStoredIdentityRecord = (record: IdentityRecord): IdentityRecord => {
+  const normalizedPublicKeyHex = normalizePublicKeyHex(record.publicKeyHex);
+  if (!normalizedPublicKeyHex) {
+    throw new Error("Stored identity is corrupted: invalid public key.");
+  }
+  if (normalizedPublicKeyHex === record.publicKeyHex) {
+    return record;
+  }
+  return { ...record, publicKeyHex: normalizedPublicKeyHex };
+};
+
+const assertIdentityKeyPair = (params: Readonly<{
+  privateKeyHex: string;
+  expectedPublicKeyHex?: PublicKeyHex;
+}>): Readonly<{
+  privateKeyHex: PrivateKeyHex;
+  publicKeyHex: PublicKeyHex;
+}> => {
+  const normalizedPrivateKeyHex = normalizePrivateKeyHex(params.privateKeyHex);
+  if (!normalizedPrivateKeyHex) {
+    throw new Error("Invalid private key format. Expected 64-character hex.");
+  }
+  const derivedPublicKeyHex = derivePublicKeyHex(normalizedPrivateKeyHex);
+  if (params.expectedPublicKeyHex && derivedPublicKeyHex !== params.expectedPublicKeyHex) {
+    throw new Error("Private key does not match stored identity.");
+  }
+  return {
+    privateKeyHex: normalizedPrivateKeyHex,
+    publicKeyHex: derivedPublicKeyHex
+  };
 };
 
 export const useIdentity = (): UseIdentityResult => {
@@ -114,13 +157,21 @@ const ensureInitialized = async (): Promise<void> => {
   let stored: IdentityRecord | undefined;
   try {
     stored = (await getStoredIdentity()).record;
+    if (stored) {
+      const normalizedStored = normalizeStoredIdentityRecord(stored);
+      if (normalizedStored.publicKeyHex !== stored.publicKeyHex) {
+        await saveStoredIdentity({ record: normalizedStored });
+      }
+      stored = normalizedStored;
+    }
 
     // Auto-unlock with native keychain if possible
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
     if (stored && cs.hasNativeKey && await cs.hasNativeKey()) {
       try {
         const nativeNpub = cs.getNativeNpub ? await cs.getNativeNpub() : null;
-        if (nativeNpub === stored.publicKeyHex) {
+        const normalizedNativeNpub = normalizePublicKeyHex(nativeNpub ?? undefined);
+        if (normalizedNativeNpub === stored.publicKeyHex) {
           console.info("[Identity] Native key matched. Backend hydrated. Auto-unlocking...");
           setIdentityState(createUnlockedState({ stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
           return;
@@ -142,7 +193,11 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
   try {
     record = await createNewIdentityRecord({ passphrase: params.passphrase, username: params.username });
     await saveStoredIdentity({ record });
-    const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: record.encryptedPrivateKey, passphrase: params.passphrase });
+    const decryptedPrivateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: record.encryptedPrivateKey, passphrase: params.passphrase });
+    const { privateKeyHex } = assertIdentityKeyPair({
+      privateKeyHex: decryptedPrivateKeyHex,
+      expectedPublicKeyHex: record.publicKeyHex
+    });
 
     let activeKey: PrivateKeyHex = privateKeyHex;
 
@@ -170,22 +225,22 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
 const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string }>): Promise<void> => {
   let record: IdentityRecord | undefined;
   try {
-    const publicKeyHex: PublicKeyHex = derivePublicKeyHex(params.privateKeyHex);
+    const { privateKeyHex, publicKeyHex } = assertIdentityKeyPair({ privateKeyHex: params.privateKeyHex });
     const encryptedPrivateKey: string = await encryptPrivateKeyHex({
-      privateKeyHex: params.privateKeyHex,
+      privateKeyHex,
       passphrase: params.passphrase
     });
 
     record = { encryptedPrivateKey, publicKeyHex, username: params.username };
     await saveStoredIdentity({ record });
 
-    let activeKey: PrivateKeyHex = params.privateKeyHex;
+    let activeKey: PrivateKeyHex = privateKeyHex;
 
     // Sync to native keychain if in Tauri
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
     if (cs.initNativeSession) {
       try {
-        await cs.initNativeSession(params.privateKeyHex);
+        await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
       } catch (e) {
         console.error("Failed to initialize native session during import:", e);
@@ -206,7 +261,11 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
     return;
   }
   try {
-    const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: identityState.stored.encryptedPrivateKey, passphrase: params.passphrase });
+    const decryptedPrivateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: identityState.stored.encryptedPrivateKey, passphrase: params.passphrase });
+    const { privateKeyHex } = assertIdentityKeyPair({
+      privateKeyHex: decryptedPrivateKeyHex,
+      expectedPublicKeyHex: identityState.stored.publicKeyHex
+    });
 
     let activeKey: PrivateKeyHex = privateKeyHex;
 
@@ -235,13 +294,17 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
     return;
   }
   try {
-    let activeKey: PrivateKeyHex = params.privateKeyHex;
+    const { privateKeyHex } = assertIdentityKeyPair({
+      privateKeyHex: params.privateKeyHex,
+      expectedPublicKeyHex: identityState.stored.publicKeyHex
+    });
+    let activeKey: PrivateKeyHex = privateKeyHex;
 
     // Sync to native keychain if in Tauri
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
     if (cs.initNativeSession) {
       try {
-        await cs.initNativeSession(params.privateKeyHex);
+        await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
       } catch (e) {
         console.error("Failed to initialize native session during raw unlock:", e);
@@ -290,13 +353,13 @@ const resetPassphraseWithPrivateKeyAction = async (params: Readonly<{ privateKey
     throw new Error("No identity stored");
   }
   try {
-    const derivedPubkey = await derivePublicKeyHex(params.privateKeyHex);
-    if (derivedPubkey !== identityState.stored.publicKeyHex) {
-      throw new Error("Private key does not match this account.");
-    }
+    const { privateKeyHex } = assertIdentityKeyPair({
+      privateKeyHex: params.privateKeyHex,
+      expectedPublicKeyHex: identityState.stored.publicKeyHex
+    });
 
     const encryptedPrivateKey: string = await encryptPrivateKeyHex({
-      privateKeyHex: params.privateKeyHex,
+      privateKeyHex,
       passphrase: params.newPassphrase
     });
 
@@ -310,7 +373,7 @@ const resetPassphraseWithPrivateKeyAction = async (params: Readonly<{ privateKey
     setIdentityState({
       ...identityState,
       stored: updatedRecord,
-      privateKeyHex: params.privateKeyHex, // Also unlock it as a courtesy
+      privateKeyHex, // Also unlock it as a courtesy
       status: "unlocked"
     });
   } catch (error: unknown) {

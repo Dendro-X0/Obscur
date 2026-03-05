@@ -47,6 +47,8 @@ pnpm install
 pnpm dev:pwa
 ```
 
+Default local endpoint: `http://127.0.0.1:3340` (reserved for Obscur to avoid `localhost:3000` collisions with other projects).
+
 For desktop:
 
 ```bash

@@ -1,6 +1,6 @@
 # Operations and Release Flow
 
-_Last reviewed: 2026-03-05 (baseline commit ba23d79)._
+_Last reviewed: 2026-03-05 (baseline commit ad788a4)._
 
 
 ## Versioning
@@ -62,6 +62,13 @@ Optional (when signing inputs are present):
 Desktop build scripts prepare tor/native sidecars before dev/build.
 
 - `apps/desktop/package.json` (`predev`, `prebuild`)
+
+## Local Dev Endpoint Policy
+
+- Dedicated Obscur dev endpoint: `http://127.0.0.1:3340`
+- `apps/pwa/package.json` pins Next dev to `127.0.0.1:3340`.
+- `apps/desktop/src-tauri/tauri.conf.json` pins both `beforeDevCommand` and `devUrl` to the same endpoint.
+- This prevents Tauri from loading unrelated apps when another project occupies a common fallback port (for example `localhost:3000`).
 
 ## Per-app runbooks
 

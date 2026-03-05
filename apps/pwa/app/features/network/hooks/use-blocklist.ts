@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
 
 type BlocklistState = Readonly<{
   blockedPublicKeys: ReadonlyArray<PublicKeyHex>;
@@ -48,7 +49,9 @@ const loadFromStorage = (publicKeyHex: PublicKeyHex): StoredBlocklist => {
     if (!Array.isArray(blockedRaw)) {
       return createDefaultState();
     }
-    const blockedPublicKeys: PublicKeyHex[] = blockedRaw.filter((v: unknown): v is PublicKeyHex => typeof v === "string");
+    const blockedPublicKeys = normalizePublicKeyHexList(
+      blockedRaw.filter((v: unknown): v is string => typeof v === "string"),
+    );
     return { blockedPublicKeys };
   } catch {
     return createDefaultState();
@@ -89,24 +92,31 @@ export const useBlocklist = (params: UseBlocklistParams): UseBlocklistResult => 
     saveToStorage(params.publicKeyHex, stored);
   }, [params.publicKeyHex, stored]);
   const isBlocked = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): boolean => {
-    return stored.blockedPublicKeys.includes(p.publicKeyHex);
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) {
+      return false;
+    }
+    return stored.blockedPublicKeys.includes(normalized);
   }, [stored.blockedPublicKeys]);
   const addBlocked = useCallback((p: Readonly<{ publicKeyInput: string }>): void => {
-    const trimmed: string = p.publicKeyInput.trim();
-    if (!trimmed) {
+    const normalized = normalizePublicKeyHex(p.publicKeyInput);
+    if (!normalized) {
       return;
     }
     setStored((prev: StoredBlocklist): StoredBlocklist => {
-      const publicKeyHex: PublicKeyHex = trimmed as PublicKeyHex;
-      if (prev.blockedPublicKeys.includes(publicKeyHex)) {
+      if (prev.blockedPublicKeys.includes(normalized)) {
         return prev;
       }
-      return { blockedPublicKeys: [...prev.blockedPublicKeys, publicKeyHex] };
+      return { blockedPublicKeys: [...prev.blockedPublicKeys, normalized] };
     });
   }, []);
   const removeBlocked = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) {
+      return;
+    }
     setStored((prev: StoredBlocklist): StoredBlocklist => {
-      return { blockedPublicKeys: prev.blockedPublicKeys.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex) };
+      return { blockedPublicKeys: prev.blockedPublicKeys.filter((v: PublicKeyHex): boolean => v !== normalized) };
     });
   }, []);
   const state: BlocklistState = useMemo((): BlocklistState => {

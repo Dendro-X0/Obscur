@@ -2,6 +2,10 @@
  * Tauri API Integration Layer
  * Provides TypeScript types and safe access to Tauri APIs with fallbacks for web environment
  */
+import { invoke } from "@tauri-apps/api/core";
+
+const DESKTOP_SHELL_FLAG = process.env.NEXT_PUBLIC_DESKTOP_SHELL;
+const IS_FORCED_DESKTOP_SHELL = DESKTOP_SHELL_FLAG === "1" || DESKTOP_SHELL_FLAG === "true";
 
 // Type definitions for Tauri APIs
 export interface TauriWindow {
@@ -48,43 +52,31 @@ export interface TauriAPI {
  * Detect if running in Tauri desktop environment
  */
 export function isDesktopEnvironment(): boolean {
+  if (IS_FORCED_DESKTOP_SHELL) {
+    return true;
+  }
   if (typeof window === "undefined") {
     return false;
   }
-  // Check for Tauri-specific global
-  return "__TAURI__" in window || "__TAURI_INTERNALS__" in window;
-}
-
-/**
- * Get Tauri invoke function safely
- */
-function getTauriInvoke(): ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null {
-  if (!isDesktopEnvironment()) {
-    return null;
-  }
-  try {
-    // Access Tauri's invoke function
-    const tauri = (window as any).__TAURI_INTERNALS__;
-    if (tauri && typeof tauri.invoke === "function") {
-      return tauri.invoke;
-    }
-    // Fallback to older Tauri API structure
-    const tauriLegacy = (window as any).__TAURI__;
-    if (tauriLegacy && tauriLegacy.core && typeof tauriLegacy.core.invoke === "function") {
-      return tauriLegacy.core.invoke;
-    }
-  } catch {
-    return null;
-  }
-  return null;
+  const maybeWindow = window as Window & {
+    __TAURI__?: unknown;
+    __TAURI_INTERNALS__?: unknown;
+    __TAURI_IPC__?: unknown;
+  };
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  return (
+    "__TAURI__" in maybeWindow ||
+    "__TAURI_INTERNALS__" in maybeWindow ||
+    "__TAURI_IPC__" in maybeWindow ||
+    /\bTauri\b/i.test(ua)
+  );
 }
 
 /**
  * Safe wrapper for Tauri invoke calls
  */
 async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
-  const invoke = getTauriInvoke();
-  if (!invoke) {
+  if (!isDesktopEnvironment()) {
     console.warn(`Tauri command "${command}" not available in web environment`);
     return null;
   }

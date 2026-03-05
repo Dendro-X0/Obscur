@@ -20,6 +20,7 @@ import { TitleBar } from "./components/desktop/title-bar"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
+const DESKTOP_SHELL_FLAG = process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" || process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true"
 
 export const metadata: Metadata = {
   title: "Obscur",
@@ -67,6 +68,38 @@ export default function RootLayout({
             `,
           }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                var forceDesktop = ${DESKTOP_SHELL_FLAG ? "true" : "false"};
+                var markDesktopMode = function() {
+                  var w = window;
+                  var ua = navigator && navigator.userAgent ? navigator.userAgent : "";
+                  var hasTauri = forceDesktop || !!w.__TAURI__ || !!w.__TAURI_INTERNALS__ || !!w.__TAURI_IPC__ || /\\bTauri\\b/i.test(ua);
+                  if (!hasTauri) {
+                    return false;
+                  }
+                  document.documentElement.classList.add("desktop-mode");
+                  if (document.body) {
+                    document.body.classList.add("desktop-mode");
+                  }
+                  return true;
+                };
+                if (markDesktopMode()) {
+                  return;
+                }
+                var attempts = 0;
+                var interval = setInterval(function() {
+                  attempts += 1;
+                  if (markDesktopMode() || attempts > 30) {
+                    clearInterval(interval);
+                  }
+                }, 150);
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`} suppressHydrationWarning>
         <Preloader />
@@ -82,7 +115,7 @@ export default function RootLayout({
               <DeepLinkHandler />
               <AppProviders>
                 <DesktopNotificationHandler />
-                <div className="flex flex-col h-screen overflow-hidden desktop-mode:desktop-window-glow">
+                <div className={`flex flex-col h-screen overflow-hidden ${DESKTOP_SHELL_FLAG ? "desktop-mode desktop-window-glow" : "desktop-mode:desktop-window-glow"}`}>
                   <div className="relative z-[9999]">
                     <TitleBar />
                   </div>

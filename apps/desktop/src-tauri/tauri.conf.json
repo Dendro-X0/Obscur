@@ -4,9 +4,9 @@
   "identifier": "app.obscur.desktop",
   "version": "0.8.3",
   "build": {
-    "beforeDevCommand": "pnpm -C ../pwa dev",
-    "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "cross-env TAURI_BUILD=true pnpm -C ../pwa build:static",
+    "beforeDevCommand": "cross-env NEXT_PUBLIC_DESKTOP_SHELL=1 TAURI_BUILD=true pnpm -C ../pwa exec next dev --hostname 127.0.0.1 --port 3340",
+    "devUrl": "http://127.0.0.1:3340",
+    "beforeBuildCommand": "cross-env NEXT_PUBLIC_DESKTOP_SHELL=1 TAURI_BUILD=true pnpm -C ../pwa build:static",
     "frontendDist": "../../pwa/out"
   },
   "bundle": {

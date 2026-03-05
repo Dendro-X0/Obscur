@@ -7,6 +7,7 @@ import type { ConnectionRequestStatusValue, RequestsInboxItem } from "@/app/feat
 
 
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import {
   transitionHandshake,
   shouldProcessAsNewRequest,
@@ -70,14 +71,20 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     const persisted = chatStateStoreService.load(params.publicKeyHex);
     if (persisted && persisted.connectionRequests) {
       setStored({
-        items: persisted.connectionRequests.map(item => ({
-          peerPublicKeyHex: item.id as PublicKeyHex,
-          status: item.status,
-          isOutgoing: item.isOutgoing,
-          lastMessagePreview: item.introMessage || "",
-          lastReceivedAtUnixSeconds: Math.floor((item.timestampMs || 0) / 1000),
-          unreadCount: 0 // We don't persist unread specifically for requests right now, or we do?
-        }))
+        items: persisted.connectionRequests
+          .map((item): RequestsInboxItem | undefined => {
+            const normalized = normalizePublicKeyHex(item.id);
+            if (!normalized) return undefined;
+            return {
+              peerPublicKeyHex: normalized,
+              status: item.status,
+              isOutgoing: item.isOutgoing,
+              lastMessagePreview: item.introMessage || "",
+              lastReceivedAtUnixSeconds: Math.floor((item.timestampMs || 0) / 1000),
+              unreadCount: 0 // We don't persist unread specifically for requests right now, or we do?
+            } satisfies RequestsInboxItem;
+          })
+          .filter((item): item is RequestsInboxItem => item !== undefined)
       });
       setHasHydrated(true);
     } else {
@@ -108,6 +115,10 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     status?: ConnectionRequestStatusValue;
     eventId?: string;
   }>): void => {
+    const normalizedPeer = normalizePublicKeyHex(p.peerPublicKeyHex);
+    if (!normalizedPeer) {
+      return;
+    }
     if (p.eventId) {
       if (processedEventIds.has(p.eventId)) return;
       processedEventIds.add(p.eventId);
@@ -115,7 +126,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
 
     const preview: string = createPreview(p.plaintext);
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
-      const existing: RequestsInboxItem | undefined = prev.items.find((i: RequestsInboxItem): boolean => i.peerPublicKeyHex === p.peerPublicKeyHex);
+      const existing: RequestsInboxItem | undefined = prev.items.find((i: RequestsInboxItem): boolean => i.peerPublicKeyHex === normalizedPeer);
 
       // Use state machine to check if we should process this as a new request
       if (existing && !shouldProcessAsNewRequest(existing.status)) {
@@ -126,7 +137,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
 
       if (!existing) {
         const nextItem: RequestsInboxItem = {
-          peerPublicKeyHex: p.peerPublicKeyHex,
+          peerPublicKeyHex: normalizedPeer,
           lastMessagePreview: preview,
           lastReceivedAtUnixSeconds: p.createdAtUnixSeconds,
           unreadCount: 1,
@@ -150,7 +161,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
           isRequest: p.isRequest ?? existing.isRequest,
           status: p.status ?? existing.status
         };
-        nextItems = [updated, ...prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex)];
+        nextItems = [updated, ...prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== normalizedPeer)];
       }
 
       const pendingItems = nextItems.filter(i => i.status === 'pending' || !i.status);
@@ -167,18 +178,22 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
   }, [processedEventIds, persistChange]);
 
   const remove = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): void => {
+    const normalizedPeer = normalizePublicKeyHex(p.peerPublicKeyHex);
+    if (!normalizedPeer) return;
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
-      const next = { items: prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== p.peerPublicKeyHex) };
+      const next = { items: prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== normalizedPeer) };
       persistChange(next);
       return next;
     });
   }, [persistChange]);
 
   const markRead = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): void => {
+    const normalizedPeer = normalizePublicKeyHex(p.peerPublicKeyHex);
+    if (!normalizedPeer) return;
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       const next = {
         items: prev.items.map((i: RequestsInboxItem): RequestsInboxItem => {
-          if (i.peerPublicKeyHex !== p.peerPublicKeyHex) return i;
+          if (i.peerPublicKeyHex !== normalizedPeer) return i;
           return { ...i, unreadCount: 0 };
         })
       };
@@ -206,8 +221,10 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
   }, [persistChange]);
 
   const setStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>): void => {
+    const normalizedPeer = normalizePublicKeyHex(p.peerPublicKeyHex);
+    if (!normalizedPeer) return;
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
-      const existing = prev.items.find(i => i.peerPublicKeyHex === p.peerPublicKeyHex);
+      const existing = prev.items.find(i => i.peerPublicKeyHex === normalizedPeer);
       let nextItems: RequestsInboxItem[];
 
       if (!existing) {
@@ -217,7 +234,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         );
 
         const newItem: RequestsInboxItem = {
-          peerPublicKeyHex: p.peerPublicKeyHex,
+          peerPublicKeyHex: normalizedPeer,
           lastMessagePreview: "",
           lastReceivedAtUnixSeconds: Math.floor(Date.now() / 1000),
           unreadCount: 0,
@@ -227,7 +244,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         nextItems = [newItem, ...prev.items];
       } else {
         nextItems = prev.items.map((i: RequestsInboxItem): RequestsInboxItem => {
-          if (i.peerPublicKeyHex !== p.peerPublicKeyHex) return i;
+          if (i.peerPublicKeyHex !== normalizedPeer) return i;
 
           const currentState: HandshakeState = {
             status: i.status || "none",
@@ -270,7 +287,9 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
   }, [stored.items]);
 
   const getRequestStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex }>): { status?: ConnectionRequestStatusValue; isOutgoing: boolean } | null => {
-    const item = stored.items.find(i => i.peerPublicKeyHex === p.peerPublicKeyHex);
+    const normalizedPeer = normalizePublicKeyHex(p.peerPublicKeyHex);
+    if (!normalizedPeer) return null;
+    const item = stored.items.find(i => i.peerPublicKeyHex === normalizedPeer);
     if (!item) return null;
     return { status: item.status, isOutgoing: item.isOutgoing || false };
   }, [stored.items]);

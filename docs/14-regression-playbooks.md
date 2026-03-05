@@ -99,3 +99,28 @@ When filing regression issues, include:
 3. exact steps and expected vs actual behavior.
 4. logs/stack traces and affected file references.
 5. commit hash or release tag.
+
+## 8) Open Deferred Issue: Desktop Auth Overlay Background Blocking
+
+Issue ID: `DESK-AUTH-OVERLAY-001`
+
+Status: deferred, reproducible in desktop dev runtime.
+
+Observed behavior:
+
+1. During auth/onboarding, a fullscreen overlay/background layer is mounted.
+2. Visual login card is centered, but surrounding fullscreen area becomes non-interactive/blocked.
+3. Attempted custom auth "window-in-window" controls did not remove the underlying fullscreen overlay behavior.
+
+Current scope decision:
+
+1. Revert to prior auth flow behavior for now.
+2. Track as a dedicated desktop-shell/auth-layering task instead of patching ad hoc in release-critical work.
+
+Likely files for next deep fix:
+
+1. `apps/pwa/app/features/auth/components/auth-screen.tsx`
+2. `apps/pwa/app/features/auth/components/auth-gateway.tsx`
+3. `apps/pwa/app/layout.tsx`
+4. `apps/pwa/app/components/desktop/title-bar.tsx`
+5. `apps/desktop/src-tauri/src/lib.rs` (window behavior/lifecycle)

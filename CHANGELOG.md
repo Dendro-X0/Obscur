@@ -1,3 +1,35 @@
+## [v0.8.4] - 2026-03-05
+
+### Added
+
+- **Canonical Public Key Normalization Utility**:
+  - Added `normalizePublicKeyHex(...)` and list normalization helpers to enforce one canonical user-id format across messaging/network/auth flows.
+
+### Changed
+
+- **Invite/Request Identity Stability**:
+  - Normalized request-inbox peer identifiers during hydration and runtime updates to prevent duplicate phantom request entries caused by mixed key formats.
+  - Normalized blocklist and peer-trust key handling to ensure the same user cannot appear as multiple identities in local trust state.
+- **Connection Request Guardrails**:
+  - Hardened outgoing `sendConnectionRequest(...)` with deterministic pre-send checks:
+    - reject invalid keys,
+    - reject self-request,
+    - reject blocked/accepted peers,
+    - reject duplicate pending incoming/outgoing request states.
+- **Community Join Request Guardrails**:
+  - Added scoped pending join-request lock keyed by `(myPubkey, relay, groupId)` to block repeat join spam while pending.
+  - Added automatic pending-state cleanup when membership is confirmed plus TTL-based stale-state cleanup.
+- **Identity Invariants in Auth Flows**:
+  - Added strict private-key hex validation and key-pair assertions during import/unlock/passphrase reset flows.
+  - Added stored identity normalization on initialization and native-key/public-key match normalization before auto-unlock.
+
+### Fixed
+
+- **Phantom User/Request Duplication Vector**:
+  - Fixed multiple local duplication paths where non-canonical peer key representations created parallel request/trust/block entries for the same user.
+- **Identity Drift During Unlock/Import**:
+  - Prevented unlock/import with mismatched private/public key state, reducing ghost-account behavior caused by inconsistent local identity records.
+
 ## [v0.8.3] - 2026-03-05
 
 ### Added

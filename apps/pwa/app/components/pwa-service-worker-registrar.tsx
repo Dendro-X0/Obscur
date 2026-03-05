@@ -10,6 +10,9 @@ const PwaServiceWorkerRegistrar = (): PwaServiceWorkerRegistrarResult => {
     if (typeof window === "undefined") {
       return;
     }
+    if ("__TAURI__" in window) {
+      return;
+    }
     if (!("serviceWorker" in navigator)) {
       return;
     }

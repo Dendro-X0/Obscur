@@ -56,12 +56,16 @@ async function checkTauriConfig() {
     logInfo('Tauri configuration loaded successfully');
     
     // Check dev URL configuration
-    if (config.build.devUrl) {
+    const expectedDevUrl = 'http://127.0.0.1:3340';
+    if (config.build.devUrl === expectedDevUrl) {
+      logSuccess(`Dev URL is pinned to dedicated local endpoint: ${config.build.devUrl}`);
+    } else if (config.build.devUrl) {
       logWarning(`Dev URL is set to: ${config.build.devUrl}`);
-      logWarning('This points to a remote URL instead of local PWA');
-      logInfo('For full local development, task 1.3 needs to be completed');
+      logWarning(`Expected: ${expectedDevUrl}`);
+      logWarning('Mismatched dev URL can load the wrong app when another project occupies the configured port.');
     } else {
-      logSuccess('Dev URL is not set (will use beforeDevCommand)');
+      logWarning('Dev URL is not set.');
+      logWarning('Desktop dev may fail or use unexpected frontend source.');
     }
     
     // Check beforeDevCommand
@@ -222,12 +226,11 @@ async function testDevCommand() {
       
       if (hasStarted) {
         logSuccess('Dev command started successfully');
-        logInfo('Note: Full PWA integration requires task 1.3 completion');
+        logInfo('PWA + desktop are running through the dedicated Obscur dev endpoint');
         resolve(true);
       } else {
-        logWarning('Dev command did not show clear startup indicators');
-        logInfo('This may be expected if pointing to remote URL');
-        resolve(true); // Still pass since remote URL is current config
+        logError('Dev command did not show clear startup indicators');
+        resolve(false);
       }
     });
     
@@ -242,25 +245,23 @@ async function generateReport() {
   logSection('5. Test Summary and Recommendations');
   
   logInfo('Current Status:');
-  logInfo('- Desktop app is configured to use remote PWA URL');
-  logInfo('- This is a valid configuration for testing remote integration');
-  logInfo('- Hot reload works for Rust code changes');
+  logInfo('- Desktop app is configured to use a dedicated local PWA endpoint');
+  logInfo('- Local PWA and Tauri dev URL are pinned to the same host and port');
+  logInfo('- Port mismatch fallback behavior is prevented');
   
   console.log('');
   logWarning('Limitations:');
-  logWarning('- PWA changes require rebuilding/redeploying remote URL');
-  logWarning('- No local PWA hot reload in desktop context');
-  logWarning('- Full local development requires task 1.3 completion');
+  logWarning('- If another process occupies port 3340, desktop dev will fail fast');
+  logWarning('- Use a dedicated machine profile or stop conflicting services before dev');
   
   console.log('');
   logSuccess('Next Steps:');
-  logInfo('1. Complete task 1.3 to configure local PWA build');
-  logInfo('2. Update tauri.conf.json to use local PWA output');
-  logInfo('3. Configure beforeDevCommand to start local PWA');
-  logInfo('4. Test hot reload with local PWA integration');
+  logInfo('1. Keep devUrl and beforeDevCommand pinned to the same endpoint');
+  logInfo('2. Validate no other local project uses port 3340');
+  logInfo('3. Run desktop dev test after config changes');
   
   console.log('');
-  logInfo('For now, the current setup allows:');
+  logInfo('The current setup allows:');
   logInfo('✓ Testing desktop wrapper functionality');
   logInfo('✓ Testing Tauri API integration');
   logInfo('✓ Testing window controls and native features');

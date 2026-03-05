@@ -150,6 +150,53 @@ const GROUP_KIND_METADATA = 39000;
 const GROUP_KIND_MEMBERS = 39002;
 const MAX_GROUP_MESSAGES = 200;
 const GROUP_DELETE_TOMBSTONE_TTL_MS = 2 * 60 * 1000;
+const JOIN_REQUEST_PENDING_PREFIX = "obscur:groups:join-request-pending:v1";
+const JOIN_REQUEST_PENDING_TTL_MS = 24 * 60 * 60 * 1000;
+
+const toJoinRequestPendingKey = (params: Readonly<{
+  relayUrl: string;
+  groupId: string;
+  myPublicKeyHex: PublicKeyHex;
+}>): string => {
+  return [
+    JOIN_REQUEST_PENDING_PREFIX,
+    params.myPublicKeyHex,
+    normalizeRelayUrl(params.relayUrl),
+    params.groupId
+  ].join(":");
+};
+
+const isJoinRequestPending = (storageKey: string): boolean => {
+  if (typeof window === "undefined") return false;
+  const raw = window.localStorage.getItem(storageKey);
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw) as { createdAtMs?: number };
+    const createdAtMs = typeof parsed.createdAtMs === "number" ? parsed.createdAtMs : 0;
+    if (createdAtMs <= 0) {
+      window.localStorage.removeItem(storageKey);
+      return false;
+    }
+    if ((Date.now() - createdAtMs) > JOIN_REQUEST_PENDING_TTL_MS) {
+      window.localStorage.removeItem(storageKey);
+      return false;
+    }
+    return true;
+  } catch {
+    window.localStorage.removeItem(storageKey);
+    return false;
+  }
+};
+
+const markJoinRequestPending = (storageKey: string): void => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(storageKey, JSON.stringify({ createdAtMs: Date.now() }));
+};
+
+const clearJoinRequestPending = (storageKey: string | null): void => {
+  if (!storageKey || typeof window === "undefined") return;
+  window.localStorage.removeItem(storageKey);
+};
 
 export const mergeGroupMessagesDescending = (params: Readonly<{
   previous: ReadonlyArray<GroupMessageEvent>;
@@ -281,6 +328,14 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     () => toGroupConversationId({ groupId: params.groupId, relayUrl: params.relayUrl, communityId: params.communityId }),
     [params.groupId, params.relayUrl, params.communityId]
   );
+  const joinRequestPendingKey = useMemo(() => {
+    if (!params.myPublicKeyHex) return null;
+    return toJoinRequestPendingKey({
+      relayUrl: params.relayUrl,
+      groupId: params.groupId,
+      myPublicKeyHex: params.myPublicKeyHex
+    });
+  }, [params.groupId, params.myPublicKeyHex, params.relayUrl]);
 
   useEffect(() => {
     const onPrivacySettingsChanged = () => {
@@ -476,6 +531,14 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     expelledMembersRef.current = state.expelledMembers;
     disbandedAtRef.current = state.disbandedAt;
   }, [state.leftMembers, state.expelledMembers, state.disbandedAt]);
+
+  useEffect(() => {
+    if (!params.myPublicKeyHex) return;
+    const membershipConfirmed = state.membership.status === "member" || members.includes(params.myPublicKeyHex);
+    if (membershipConfirmed) {
+      clearJoinRequestPending(joinRequestPendingKey);
+    }
+  }, [joinRequestPendingKey, members, params.myPublicKeyHex, state.membership.status]);
 
   useEffect(() => {
     if (!state.disbandedAt) return;
@@ -1049,6 +1112,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const setGroupStatus = noop;
   const requestJoin = useCallback(async (): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
+    if (joinRequestPendingKey && isJoinRequestPending(joinRequestPendingKey)) {
+      toast.info("Join request already pending. Wait for it to be accepted or declined.");
+      return;
+    }
     try {
       const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
       const joinEvent = await groupService.sendNip29Join({ groupId: params.groupId });
@@ -1060,11 +1127,14 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       if (!joinResult.success) {
         throw new Error(joinResult.overallError || "Failed to publish join request to community relay scope");
       }
+      if (joinRequestPendingKey) {
+        markJoinRequestPending(joinRequestPendingKey);
+      }
       toast.success("Join request sent to relay");
     } catch (e: any) {
       toast.error(e.message || "Failed to send join request. Confirm relay scope and retry.");
     }
-  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
+  }, [joinRequestPendingKey, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
   const approveJoin = noop;
   const denyJoin = noop;
   const approveAllJoinRequests = noop;

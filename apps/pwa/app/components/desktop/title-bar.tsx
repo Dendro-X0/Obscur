@@ -3,6 +3,7 @@
 import type React from "react";
 import { WindowControls } from "./window-controls";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
+import { isDesktopEnvironment } from "@/app/features/desktop/utils/tauri-api";
 
 interface TitleBarProps {
   title?: string;
@@ -15,9 +16,10 @@ interface TitleBarProps {
  */
 export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProps): React.JSX.Element | null {
   const isDesktop = useIsDesktop();
+  const forceDesktopShell = process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" || process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true";
+  const shouldRender = forceDesktopShell || isDesktop || isDesktopEnvironment();
 
-  // Don't render on web
-  if (!isDesktop) {
+  if (!shouldRender) {
     return null;
   }
 

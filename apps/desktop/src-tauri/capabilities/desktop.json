@@ -5,6 +5,7 @@
     ],
     "permissions": [
         "core:default",
+        "core:window:allow-start-dragging",
         "allow-window-commands",
         "allow-tor-commands",
         "allow-misc-commands",

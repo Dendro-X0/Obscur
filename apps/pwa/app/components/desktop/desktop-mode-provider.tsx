@@ -8,10 +8,13 @@ import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
  */
 export function DesktopModeProvider({ children }: { children: React.ReactNode }) {
   const isDesktop = useIsDesktop();
+  const forceDesktopShell = process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" || process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true";
+  const shouldEnableDesktopMode = forceDesktopShell || isDesktop;
 
   useEffect(() => {
-    if (isDesktop) {
+    if (shouldEnableDesktopMode) {
       document.body.classList.add("desktop-mode");
+      document.documentElement.classList.add("desktop-mode");
       
       // Hide PWA install prompts in desktop mode
       const style = document.createElement("style");
@@ -28,13 +31,14 @@ export function DesktopModeProvider({ children }: { children: React.ReactNode })
 
       return () => {
         document.body.classList.remove("desktop-mode");
+        document.documentElement.classList.remove("desktop-mode");
         const styleEl = document.getElementById("desktop-mode-styles");
         if (styleEl) {
           styleEl.remove();
         }
       };
     }
-  }, [isDesktop]);
+  }, [shouldEnableDesktopMode]);
 
   return <>{children}</>;
 }

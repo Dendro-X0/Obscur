@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService as chatStateStore } from "@/app/features/messaging/services/chat-state-store";
+import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
 
 type PeerTrustState = Readonly<{
   acceptedPeers: ReadonlyArray<PublicKeyHex>;
@@ -67,8 +68,8 @@ const loadFromStorage = (publicKeyHex: PublicKeyHex): StoredPeerTrust => {
     const record = parsed as Record<string, unknown>;
     const accepted = Array.isArray(record.acceptedPeers) ? (record.acceptedPeers as unknown[]) : [];
     const muted = Array.isArray(record.mutedPeers) ? (record.mutedPeers as unknown[]) : [];
-    const acceptedPeers: PublicKeyHex[] = accepted.filter((v: unknown): v is PublicKeyHex => typeof v === "string");
-    const mutedPeers: PublicKeyHex[] = muted.filter((v: unknown): v is PublicKeyHex => typeof v === "string");
+    const acceptedPeers = normalizePublicKeyHexList(accepted.filter((v: unknown): v is string => typeof v === "string"));
+    const mutedPeers = normalizePublicKeyHexList(muted.filter((v: unknown): v is string => typeof v === "string"));
     return { acceptedPeers, mutedPeers };
   } catch {
     return createDefaultState();
@@ -127,8 +128,8 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     const connectionRequests = persisted?.connectionRequests ?? [];
     const acceptedFromChat: PublicKeyHex[] = connectionRequests
       .filter((cr: any) => cr.status === "accepted")
-      .map((cr: any) => cr.id as PublicKeyHex)
-      .filter((v: unknown): v is PublicKeyHex => typeof v === "string" && v.trim().length > 0);
+      .map((cr: any) => normalizePublicKeyHex(cr.id))
+      .filter((v: PublicKeyHex | null): v is PublicKeyHex => v !== null);
 
     if (acceptedFromChat.length === 0) {
       return;
@@ -161,17 +162,23 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     saveToStorage(params.publicKeyHex, stored);
   }, [params.publicKeyHex, stored]);
   const isAccepted = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): boolean => {
-    return stored.acceptedPeers.includes(p.publicKeyHex);
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) return false;
+    return stored.acceptedPeers.includes(normalized);
   }, [stored.acceptedPeers]);
   const isMuted = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): boolean => {
-    return stored.mutedPeers.includes(p.publicKeyHex);
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) return false;
+    return stored.mutedPeers.includes(normalized);
   }, [stored.mutedPeers]);
   const mutePeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) return;
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      if (prev.mutedPeers.includes(p.publicKeyHex)) {
+      if (prev.mutedPeers.includes(normalized)) {
         return prev;
       }
-      const next: StoredPeerTrust = { ...prev, mutedPeers: [...prev.mutedPeers, p.publicKeyHex] };
+      const next: StoredPeerTrust = { ...prev, mutedPeers: [...prev.mutedPeers, normalized] };
       const pk = publicKeyHexRef.current;
       if (pk) {
         saveToStorage(pk, next);
@@ -180,8 +187,10 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     });
   }, []);
   const unmutePeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) return;
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      const next: StoredPeerTrust = { ...prev, mutedPeers: prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex) };
+      const next: StoredPeerTrust = { ...prev, mutedPeers: prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== normalized) };
       const pk = publicKeyHexRef.current;
       if (pk) {
         saveToStorage(pk, next);
@@ -190,12 +199,14 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     });
   }, []);
   const acceptPeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) return;
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      if (prev.acceptedPeers.includes(p.publicKeyHex)) {
+      if (prev.acceptedPeers.includes(normalized)) {
         return prev;
       }
-      const nextAccepted: ReadonlyArray<PublicKeyHex> = [...prev.acceptedPeers, p.publicKeyHex];
-      const nextMuted: ReadonlyArray<PublicKeyHex> = prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex);
+      const nextAccepted: ReadonlyArray<PublicKeyHex> = [...prev.acceptedPeers, normalized];
+      const nextMuted: ReadonlyArray<PublicKeyHex> = prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
       const next: StoredPeerTrust = { acceptedPeers: nextAccepted, mutedPeers: nextMuted };
       const pk = publicKeyHexRef.current;
       if (pk) {
@@ -205,8 +216,10 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     });
   }, []);
   const unacceptPeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
+    const normalized = normalizePublicKeyHex(p.publicKeyHex);
+    if (!normalized) return;
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      const next: StoredPeerTrust = { ...prev, acceptedPeers: prev.acceptedPeers.filter((v: PublicKeyHex): boolean => v !== p.publicKeyHex) };
+      const next: StoredPeerTrust = { ...prev, acceptedPeers: prev.acceptedPeers.filter((v: PublicKeyHex): boolean => v !== normalized) };
       const pk = publicKeyHexRef.current;
       if (pk) {
         saveToStorage(pk, next);

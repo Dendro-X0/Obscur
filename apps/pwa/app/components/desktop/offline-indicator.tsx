@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { WifiOff, Wifi } from "lucide-react";
 import { useOfflineState } from "@/app/features/desktop/hooks/use-offline-state";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
@@ -10,9 +11,14 @@ import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 export function OfflineIndicator() {
   const isDesktop = useIsDesktop();
   const offlineState = useOfflineState();
+  const [hasMounted, setHasMounted] = useState(false);
 
-  // Only show in desktop mode
-  if (!isDesktop) return null;
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  // Avoid SSR/client mismatch from runtime-only offline state.
+  if (!hasMounted || !isDesktop) return null;
 
   // Don't show if online and no pending actions
   if (offlineState.isOnline && offlineState.pendingActions === 0) {

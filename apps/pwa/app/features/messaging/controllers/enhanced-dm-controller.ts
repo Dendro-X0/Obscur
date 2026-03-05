@@ -24,6 +24,7 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayConnection } from "@/app/features/relays/utils/relay-connection";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { NOSTR_SAFETY_LIMITS } from "@/app/features/relays/utils/nostr-safety-limits";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -163,6 +164,13 @@ export type UseEnhancedDMControllerResult = Readonly<{
 const MAX_MESSAGES_IN_MEMORY = 200;
 
 // isValidStatusTransition/create*State moved to dm-controller-state
+
+const createRequestGuardFailure = (error: string): SendResult => ({
+  success: false,
+  messageId: "",
+  relayResults: [],
+  error
+});
 
 
 /**
@@ -447,11 +455,51 @@ export const useEnhancedDMController = (
     getOfflineQueueStatus: () => getOfflineQueueStatusImpl(messageQueue),
     verifyRecipient: (pubkey) => verifyRecipientImpl({ pool: params.pool }, pubkey),
     sendConnectionRequest: async (req) => {
+      const normalizedPeer = normalizePublicKeyHex(req.peerPublicKeyHex);
+      if (!normalizedPeer) {
+        return createRequestGuardFailure("Invalid recipient public key.");
+      }
+
+      const normalizedSelf = normalizePublicKeyHex(params.myPublicKeyHex);
+      if (!normalizedSelf) {
+        return createRequestGuardFailure("Identity must be unlocked to send a connection request.");
+      }
+
+      if (normalizedPeer === normalizedSelf) {
+        return createRequestGuardFailure("You cannot send a connection request to yourself.");
+      }
+
+      if (params.blocklist?.isBlocked({ publicKeyHex: normalizedPeer })) {
+        return createRequestGuardFailure("Cannot send a request to a blocked user.");
+      }
+
+      if (params.peerTrust?.isAccepted({ publicKeyHex: normalizedPeer })) {
+        return createRequestGuardFailure("You are already connected to this user.");
+      }
+
+      const requestState = params.requestsInbox?.getRequestStatus({ peerPublicKeyHex: normalizedPeer });
+      const hasPendingOutgoing = !!(
+        requestState?.isOutgoing &&
+        (requestState.status === "pending" || !requestState.status)
+      );
+      const hasPendingIncoming = !!(
+        requestState &&
+        !requestState.isOutgoing &&
+        requestState.status === "pending"
+      );
+      if (hasPendingOutgoing || hasPendingIncoming) {
+        return createRequestGuardFailure("A connection request is already pending for this user.");
+      }
+
+      if (requestState?.status === "accepted") {
+        return createRequestGuardFailure("This connection request is already accepted.");
+      }
+
       const writeRelays = params.myPublicKeyHex ? nip65Service.getWriteRelays(params.myPublicKeyHex) : [];
       const tags = [['t', 'connection-request']];
       if (writeRelays.length > 0) tags.push(['relays', ...writeRelays]);
-      const res = await sendDm({ peerPublicKeyInput: req.peerPublicKeyHex, plaintext: req.introMessage || "Hello!", customTags: tags });
-      if (params.myPublicKeyHex && res.success) params.requestsInbox?.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex, status: "pending", isOutgoing: true });
+      const res = await sendDm({ peerPublicKeyInput: normalizedPeer, plaintext: req.introMessage || "Hello!", customTags: tags });
+      if (params.myPublicKeyHex && res.success) params.requestsInbox?.setStatus({ peerPublicKeyHex: normalizedPeer, status: "pending", isOutgoing: true });
       return res;
     },
     watchConversation: async (peer) => {

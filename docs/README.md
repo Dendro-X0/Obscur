@@ -34,6 +34,9 @@ This folder is the source of truth for engineers and maintenance agents working 
 22. [v0.8.1 Ticketized Roadmap](./22-v0.8.1-roadmap.md)
 23. [v0.8.2 Ticketized Roadmap](./23-v0.8.2-roadmap.md)
 24. [v0.8.3 Ticketized Roadmap](./24-v0.8.3-roadmap.md)
+25. [v0.9.0 Ticketized Roadmap](./25-v0.9.0-roadmap.md)
+26. [v0.9.0 Persona Adoption Scorecard](./26-v0.9.0-persona-adoption-scorecard.md)
+27. [v0.8.5 Ticketized Roadmap (Auth + Sybil + Ghost Hardening)](./27-v0.8.5-roadmap.md)
 
 ## Quick Paths By Task
 
@@ -52,7 +55,10 @@ This folder is the source of truth for engineers and maintenance agents working 
    [On-Call Quickstart](./15-on-call-quickstart.md),
    [v0.8.0 Release Readiness Plan](./19-v0.8.0-release-readiness-plan.md),
    [v0.8.1 Ticketized Roadmap](./22-v0.8.1-roadmap.md),
-   [v0.8.3 Ticketized Roadmap](./24-v0.8.3-roadmap.md)
+   [v0.8.3 Ticketized Roadmap](./24-v0.8.3-roadmap.md),
+   [v0.8.5 Ticketized Roadmap](./27-v0.8.5-roadmap.md),
+   [v0.9.0 Ticketized Roadmap](./25-v0.9.0-roadmap.md),
+   [v0.9.0 Persona Adoption Scorecard](./26-v0.9.0-persona-adoption-scorecard.md)
 4. Terminology and policy checks:
    [Glossary](./16-glossary-and-canonical-terms.md),
    [Security and Privacy Model](./09-security-and-privacy-model.md),

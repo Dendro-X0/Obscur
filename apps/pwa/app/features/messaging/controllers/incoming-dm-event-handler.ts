@@ -11,6 +11,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { classifyDecryptFailure } from "../lib/decrypt-failure-classifier";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 
 const GLOBAL_PROCESSING_KEY = "__obscur_processing_dm_events__";
 const GLOBAL_FAILED_DECRYPT_KEY = "__obscur_failed_decrypt_events__";
@@ -109,10 +110,19 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       return;
     }
 
-    const senderPubkey = event.pubkey as PublicKeyHex;
+    const senderPubkey = normalizePublicKeyHex(event.pubkey);
+    if (!senderPubkey) {
+      logRuntimeEvent(
+        "incoming_dm.invalid_sender_pubkey",
+        "degraded",
+        ["Ignoring incoming DM with invalid sender pubkey format:", event.id],
+      );
+      return;
+    }
 
     const recipientTag = event.tags?.find(tag => tag[0] === "p");
-    if (!recipientTag || recipientTag[1] !== currentParams.myPublicKeyHex) {
+    const normalizedRecipient = normalizePublicKeyHex(recipientTag?.[1]);
+    if (!normalizedRecipient || normalizedRecipient !== currentParams.myPublicKeyHex) {
       return;
     }
 
@@ -123,7 +133,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
 
     let plaintext: string;
     let effectiveTags = event.tags;
-    let actualSenderPubkey = senderPubkey;
+    let actualSenderPubkey: PublicKeyHex | null = senderPubkey;
     let usedEventId = event.id;
     let usedCreatedAt = event.created_at;
 
@@ -134,7 +144,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         // must be explicitly accepted by the user before any local membership changes.
         plaintext = rumor.content;
         effectiveTags = rumor.tags;
-        actualSenderPubkey = rumor.pubkey as PublicKeyHex;
+        actualSenderPubkey = normalizePublicKeyHex(rumor.pubkey);
         usedEventId = rumor.id;
         usedCreatedAt = rumor.created_at;
       } else {
@@ -161,6 +171,15 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       if (globalFailedDecryptEvents.size > 4000) {
         globalFailedDecryptEvents.clear();
       }
+      return;
+    }
+
+    if (!actualSenderPubkey) {
+      logRuntimeEvent(
+        "incoming_dm.invalid_decrypted_sender_pubkey",
+        "degraded",
+        ["Ignoring incoming DM with invalid decrypted sender pubkey format:", usedEventId],
+      );
       return;
     }
 
