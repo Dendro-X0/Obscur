@@ -3,10 +3,10 @@
 import type { AttachmentKind } from "../types";
 
 export const MEDIA_UPLOAD_LIMITS = {
-    imageBytes: 8 * 1024 * 1024,
-    audioBytes: 20 * 1024 * 1024,
-    videoBytes: 35 * 1024 * 1024,
-    fileBytes: 20 * 1024 * 1024,
+    imageBytes: 50 * 1024 * 1024,
+    audioBytes: 50 * 1024 * 1024,
+    videoBytes: 250 * 1024 * 1024,
+    fileBytes: 100 * 1024 * 1024,
 } as const;
 
 export const MEDIA_COMPRESSION_TARGETS = {

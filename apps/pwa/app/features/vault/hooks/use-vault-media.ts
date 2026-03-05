@@ -19,7 +19,7 @@ export type VaultMediaItem = Readonly<MediaItem & {
 /**
  * useVaultMedia
  * 
- * Aggregates all media (images, videos) from the local message database.
+ * Aggregates all media (images, videos, audio, and files) from the local message database.
  * This is the core data provider for "The Vault".
  */
 export function useVaultMedia() {
@@ -39,7 +39,7 @@ export function useVaultMedia() {
             allMessages.forEach((msg) => {
                 if (!msg.attachments || msg.attachments.length === 0) return;
                 msg.attachments.forEach((attachment) => {
-                    if (attachment.kind === "image" || attachment.kind === "video" || attachment.kind === "audio") {
+                    if (attachment.kind === "image" || attachment.kind === "video" || attachment.kind === "audio" || attachment.kind === "file") {
                         mediaCandidates.push({ msg, attachment });
                     }
                 });
@@ -81,7 +81,9 @@ export function useVaultMedia() {
     const stats = useMemo(() => {
         const imageCount = mediaItems.filter(item => item.attachment.kind === "image").length;
         const videoCount = mediaItems.filter(item => item.attachment.kind === "video").length;
-        return { imageCount, videoCount, total: mediaItems.length };
+        const audioCount = mediaItems.filter(item => item.attachment.kind === "audio").length;
+        const fileCount = mediaItems.filter(item => item.attachment.kind === "file").length;
+        return { imageCount, videoCount, audioCount, fileCount, total: mediaItems.length };
     }, [mediaItems]);
 
     return {

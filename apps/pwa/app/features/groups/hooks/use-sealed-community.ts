@@ -17,6 +17,7 @@ import {
 import { messageBus } from "../../messaging/services/message-bus";
 import type { Message } from "../../messaging/types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import { normalizeRelayUrl } from "@dweb/nostr/relay-utils";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import {
   createCommunityLedgerState,
@@ -198,7 +199,7 @@ export const mergeGroupMessagesDescending = (params: Readonly<{
     .slice(0, MAX_GROUP_MESSAGES);
 };
 
-export const normalizeRelayUrl = (url: string): string => url.trim().toLowerCase().replace(/\/+$/, "");
+
 
 const UNKNOWN_RELAY_SENTINELS = new Set(["unknown", "null", "undefined", "n/a", "none"]);
 
@@ -840,12 +841,12 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     }
 
     setState((prev) => ({
-        ...prev,
-        relayFeedback: {
-          ...prev.relayFeedback,
-          lastNotice: `${publishParams.operation} failed after relay retries.`
-        }
-      }));
+      ...prev,
+      relayFeedback: {
+        ...prev.relayFeedback,
+        lastNotice: `${publishParams.operation} failed after relay retries.`
+      }
+    }));
 
     return lastResult ?? {
       success: false,

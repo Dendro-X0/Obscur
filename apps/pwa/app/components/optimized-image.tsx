@@ -23,8 +23,9 @@ export function OptimizedImage({
     containerClassName,
     priority,
     unoptimized = true,
+    fill = true,
     ...props
-}: OptimizedImageProps) {
+}: OptimizedImageProps & { fill?: boolean }) {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isError, setIsError] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
@@ -74,7 +75,7 @@ export function OptimizedImage({
                     key={`${src}:${retryKey}`}
                     src={src}
                     alt={alt}
-                    fill
+                    {...fill ? { fill: true } : { width: 0, height: 0, sizes: '100vw', style: { width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' } }}
                     priority={priority}
                     unoptimized={unoptimized}
                     onLoad={() => setIsLoaded(true)}
@@ -88,7 +89,7 @@ export function OptimizedImage({
                         );
                     }}
                     className={cn(
-                        "transition-all duration-700 ease-in-out object-cover",
+                        "transition-all duration-700 ease-in-out", fill && "object-cover",
                         isLoaded ? "opacity-100 scale-100 blur-0" : "opacity-0 scale-105 blur-lg",
                         className
                     )}

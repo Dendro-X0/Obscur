@@ -6,6 +6,7 @@ import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface VideoPlayerProps {
     src: string;
@@ -176,61 +177,61 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
     const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
 
     return (
-        <div
+        <motion.div
             ref={containerRef}
-            className={cn(
-                "relative group overflow-hidden rounded-2xl bg-black aspect-video flex items-center justify-center shadow-2xl transition-all duration-500",
-                isOutgoing ? "ring-1 ring-purple-500/10" : "ring-1 ring-black/5 dark:ring-white/5",
-                className
-            )}
+            initial={false}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
+            onKeyDown={(e) => {
+                if (e.code === "Space") {
+                    e.preventDefault();
+                    togglePlay();
+                }
+            }}
+            tabIndex={0}
+            className={cn(
+                "relative group overflow-hidden rounded-[24px] bg-zinc-950 aspect-video flex items-center justify-center shadow-[0_25px_60px_rgba(0,0,0,0.5)] ring-1 ring-white/10 transition-all duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
+                className
+            )}
         >
             {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-md">
                     <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
                 </div>
             )}
 
             {isError ? (
-                <div className="flex flex-col items-center justify-center gap-3 text-zinc-500 p-4 text-center">
-                    <div className="h-16 w-16 rounded-full bg-zinc-900 flex items-center justify-center">
-                        <VideoOff className="h-8 w-8" />
+                <div className="flex flex-col items-center justify-center gap-4 text-zinc-500 p-8 text-center bg-zinc-900/50 backdrop-blur-md w-full h-full">
+                    <div className="h-20 w-20 rounded-full bg-zinc-950 border border-white/5 flex items-center justify-center shadow-2xl">
+                        <VideoOff className="h-8 w-8 text-white/20" />
                     </div>
-                    <div>
-                        <div className="text-xs font-black uppercase tracking-widest text-zinc-400">Load Failed</div>
-                        {errorState?.hint ? (
-                            <div className="text-[10px] mt-1 opacity-60 max-w-[240px]">{errorState.hint}</div>
-                        ) : null}
-                        <div className="text-[10px] mt-1 opacity-60 max-w-[200px] truncate">{src}</div>
+                    <div className="space-y-1">
+                        <div className="text-[11px] font-black uppercase tracking-[0.25em] text-white/60">Playback Failed</div>
+                        {errorState?.hint && (
+                            <div className="text-[10px] text-white/30 max-w-[280px] leading-relaxed mx-auto italic">{errorState.hint}</div>
+                        )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-[10px] uppercase font-bold tracking-tighter hover:bg-white/5"
+                    <div className="flex items-center gap-3 mt-2">
+                        <button
+                            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-white/80 transition-all border border-white/5 active:scale-95"
                             onClick={() => {
                                 setIsError(false);
                                 setIsLoading(true);
                                 setErrorState(null);
-                                if (videoRef.current) {
-                                    videoRef.current.load();
-                                }
+                                videoRef.current?.load();
                             }}
                             disabled={!errorState?.canRetry}
                         >
                             Retry
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-[10px] uppercase font-bold tracking-tighter hover:bg-white/5"
+                        </button>
+                        <button
+                            className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white transition-all flex items-center gap-2"
                             onClick={openExternally}
                             disabled={!errorState?.canOpenExternal}
                         >
-                            <ExternalLink className="h-3 w-3" />
-                            Open externally
-                        </Button>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Source
+                        </button>
                     </div>
                 </div>
             ) : (
@@ -254,12 +255,6 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                     onError={handleVideoError}
                     onEnded={handleEnded}
                     onClick={togglePlay}
-                    onVolumeChange={() => {
-                        const video = videoRef.current;
-                        if (!video) return;
-                        setVolume(video.volume);
-                        setIsMuted(video.muted);
-                    }}
                     playsInline
                     preload="metadata"
                     autoPlay={autoPlay}
@@ -267,88 +262,103 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                 />
             )}
 
-            {/* Premium Overlay Controls (only show if not error) */}
-            {!isError && (
-                <div className={cn(
-                    "absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent transition-opacity duration-300 pointer-events-none",
-                    (isHovering || !isPlaying) ? "opacity-100" : "opacity-0"
-                )}>
-                    <div className="flex flex-col gap-3 pointer-events-auto">
-                        {/* Progress Bar */}
-                        <div className="relative h-1.5 w-full bg-white/20 rounded-full overflow-hidden cursor-pointer">
-                            <div
-                                className="absolute top-0 left-0 h-full bg-purple-500 rounded-full transition-all duration-100"
-                                style={{ width: `${progress}%` }}
-                            />
+            {/* Premium Big Center Play Button */}
+            <AnimatePresence>
+                {!isPlaying && !isLoading && !isError && (
+                    <motion.button
+                        initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0.8, rotate: 10 }}
+                        transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                        onClick={togglePlay}
+                        className="absolute inset-0 flex items-center justify-center bg-transparent z-20"
+                    >
+                        <div className="h-24 w-24 rounded-full bg-white/10 backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-transform active:scale-90 group-hover:scale-110">
+                            <div className="h-16 w-16 rounded-full bg-purple-600/20 blur-2xl absolute animate-pulse" />
+                            <Play className="h-10 w-10 text-white fill-current ml-1.5 relative z-10" />
                         </div>
+                    </motion.button>
+                )}
+            </AnimatePresence>
 
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <button
-                                    onClick={togglePlay}
-                                    className="p-1 hover:text-purple-400 text-white transition-colors active:scale-90"
-                                >
-                                    {isPlaying ? (
-                                        <Pause className="h-5 w-5 fill-current" />
-                                    ) : (
-                                        <Play className="h-5 w-5 fill-current" />
-                                    )}
-                                </button>
+            {/* Floating Glassmorphic Control Dock */}
+            <AnimatePresence>
+                {(isHovering || !isPlaying) && !isError && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                        transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                        className="absolute inset-x-0 bottom-6 px-6 z-30 pointer-events-none"
+                    >
+                        <div className="max-w-4xl mx-auto w-full p-4 rounded-[24px] bg-zinc-900/60 backdrop-blur-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] pointer-events-auto flex flex-col gap-4">
+                            {/* Premium Continuous Seek Bar */}
+                            <div className="relative group/seek h-1.5 w-full bg-white/5 rounded-full cursor-pointer transition-all hover:h-2.5">
+                                <div
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-600 via-purple-500 to-blue-400 rounded-full transition-all duration-100 shadow-[0_0_10px_rgba(147,51,234,0.5)]"
+                                    style={{ width: `${progress}%` }}
+                                />
+                                <div
+                                    className="absolute top-1/2 -translate-y-1/2 h-4 w-4 bg-white rounded-full shadow-2xl opacity-0 group-hover/seek:opacity-100 transition-all scale-75 group-hover/seek:scale-100 border-2 border-purple-500"
+                                    style={{ left: `${progress}%`, marginLeft: "-8px" }}
+                                />
+                            </div>
 
-                                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/80 mono">
-                                    <span>{formatTime(currentTime)}</span>
-                                    <span className="opacity-40">/</span>
-                                    <span>{formatTime(duration)}</span>
+                            <div className="flex items-center justify-between px-1">
+                                <div className="flex items-center gap-6">
+                                    <button
+                                        onClick={togglePlay}
+                                        className="text-white/70 hover:text-white transition-all active:scale-95 hover:scale-110"
+                                    >
+                                        {isPlaying ? (
+                                            <Pause className="h-6 w-6 fill-current" />
+                                        ) : (
+                                            <Play className="h-6 w-6 fill-current" />
+                                        )}
+                                    </button>
+
+                                    <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] text-white/50">
+                                        <span className="text-white/90">{formatTime(currentTime)}</span>
+                                        <span className="opacity-20 translate-y-[-1px]">|</span>
+                                        <span>{formatTime(duration)}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-5">
+                                    <div className="flex items-center gap-3 group/volume bg-white/5 px-3 py-1.5 rounded-full hover:bg-white/10 transition-all">
+                                        <button onClick={handleToggleMute} className="text-white/40 hover:text-white transition-all">
+                                            {isMuted || volume === 0 ? (
+                                                <VideoOff className="h-4 w-4 opacity-100" />
+                                            ) : (
+                                                <Volume2 className="h-4 w-4" />
+                                            )}
+                                        </button>
+                                        <input
+                                            type="range"
+                                            min={0}
+                                            max={1}
+                                            step={0.01}
+                                            value={isMuted ? 0 : volume}
+                                            onChange={handleVolumeChange}
+                                            className="w-0 group-hover/volume:w-20 transition-all duration-500 h-1 accent-purple-500 cursor-pointer overflow-hidden origin-right"
+                                        />
+                                        <span className="text-[9px] font-black tracking-widest text-white/30 lowercase w-12 hidden group-hover/volume:block text-right">
+                                            {volumePercent}%
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        onClick={handleFullscreen}
+                                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all active:scale-90"
+                                    >
+                                        <Maximize className="h-4 w-4" />
+                                    </button>
                                 </div>
                             </div>
-
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={handleToggleMute}
-                                    className="p-1 hover:text-purple-400 text-white transition-colors"
-                                    aria-label={isMuted ? "Unmute video" : "Mute video"}
-                                >
-                                    <Volume2 className={cn("h-4 w-4", isMuted ? "text-white/40" : "text-white/70")} />
-                                </button>
-                                <input
-                                    type="range"
-                                    min={0}
-                                    max={1}
-                                    step={0.01}
-                                    value={isMuted ? 0 : volume}
-                                    onChange={handleVolumeChange}
-                                    className="w-20 accent-purple-500 cursor-pointer"
-                                    aria-label="Video volume"
-                                />
-                                <span
-                                    className="text-[10px] font-black tracking-wider text-white/70 min-w-[34px] text-right"
-                                    title={`Volume ${volumePercent}%`}
-                                >
-                                    Volume {volumePercent}%
-                                </span>
-                                <button
-                                    onClick={handleFullscreen}
-                                    className="p-1 hover:text-purple-400 text-white transition-colors"
-                                >
-                                    <Maximize className="h-4 w-4" />
-                                </button>
-                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Big Play Button if not playing */}
-            {!isPlaying && !isLoading && !isError && (
-                <button
-                    onClick={togglePlay}
-                    className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors z-20"
-                >
-                    <div className="h-16 w-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center transition-transform group-hover:scale-110">
-                        <Play className="h-8 w-8 text-white fill-current ml-1" />
-                    </div>
-                </button>
-            )}
-        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
     );
 }

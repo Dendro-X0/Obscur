@@ -1,6 +1,6 @@
 {
   "name": "@dweb/nostr",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -17,6 +17,7 @@
     "./nip04-encrypt": "./src/nip04-encrypt.ts",
     "./nostr-event": "./src/nostr-event.ts",
     "./relay-set": "./src/relay-set.ts",
-    "./verify-nostr-event-signature": "./src/verify-nostr-event-signature.ts"
+    "./verify-nostr-event-signature": "./src/verify-nostr-event-signature.ts",
+    "./relay-utils": "./src/relay-utils.ts"
   }
 }

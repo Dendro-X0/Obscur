@@ -49,6 +49,7 @@ import {
   canProcessInvite
 } from './security-enhancements';
 import { logAppEvent } from '@/app/shared/log-app-event';
+import { publishToUrlsStandalone } from '../../relays/hooks/enhanced-relay-pool';
 
 type CoordinationInviteCreateResponse = Readonly<{
   inviteId: string;
@@ -742,9 +743,25 @@ class InviteManagerImpl implements InviteManager {
       // Store the connection request
       await this.storeConnectionRequest(connectionRequest);
 
-      // TODO: Send the connection request via Nostr relay
-      // This would involve creating a Nostr event and publishing it
-      // For now, we just store it locally
+      // 5) Send the connection request via Nostr relay
+      const event = await NostrCompatibilityService.createInviteRequestEvent(
+        identity.privateKey,
+        request.recipientPublicKey,
+        shareableProfile,
+        request.message
+      );
+
+      const targetRelays = getEnabledRelayUrlsForIdentity(identity.publicKey);
+      if (targetRelays.length > 0) {
+        logAppEvent({
+          name: "invites.send_request.publishing",
+          level: "info",
+          scope: { feature: "invites", action: "send" },
+          context: { relaysCount: targetRelays.length, eventId: event.id }
+        });
+
+        await publishToUrlsStandalone(targetRelays, JSON.stringify(["EVENT", event]));
+      }
     } catch (error) {
       throw new Error(`Connection request sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

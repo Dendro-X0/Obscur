@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant desktop-mode (&:is(.desktop-mode *));
 
 @theme inline {
   --color-background: var(--background);
@@ -51,7 +52,7 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.98 0.01 270);
+  --background: oklch(0.95 0.01 270);
   --foreground: oklch(0.15 0.04 270);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0.04 270);
@@ -59,35 +60,35 @@
   --popover-foreground: oklch(0.15 0.04 270);
   --primary: oklch(0.6 0.18 270);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.95 0.02 270);
+  --secondary: oklch(0.92 0.02 270);
   --secondary-foreground: oklch(0.25 0.05 270);
-  --muted: oklch(0.95 0.02 270);
+  --muted: oklch(0.92 0.02 270);
   --muted-foreground: oklch(0.5 0.03 270);
-  --accent: oklch(0.94 0.03 270);
+  --accent: oklch(0.9 0.03 270);
   --accent-foreground: oklch(0.2 0.06 270);
   --destructive: oklch(0.58 0.25 25);
-  --border: oklch(0.9 0.02 270 / 0.8);
-  --input: oklch(0.9 0.02 270 / 0.8);
+  --border: oklch(0.1 0 0 / 8%);
+  --input: oklch(0.1 0 0 / 8%);
   --ring: oklch(0.6 0.18 270);
   --chart-1: oklch(0.65 0.22 40);
   --chart-2: oklch(0.6 0.12 185);
   --chart-3: oklch(0.4 0.07 225);
   --chart-4: oklch(0.83 0.19 85);
   --chart-5: oklch(0.77 0.19 70);
-  --sidebar: oklch(0.985 0.01 270);
+  --sidebar: oklch(0.96 0.01 270);
   --sidebar-foreground: oklch(0.15 0.04 270);
   --sidebar-primary: oklch(0.6 0.18 270);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0.02 270);
+  --sidebar-accent: oklch(0.92 0.02 270);
   --sidebar-accent-foreground: oklch(0.25 0.05 270);
-  --sidebar-border: oklch(0.9 0.02 270 / 0.5);
+  --sidebar-border: oklch(0.1 0 0 / 5%);
   --sidebar-ring: oklch(0.6 0.18 270);
 
-  /* Refined Light theme gradients - More vibrant */
-  --gradient-main: linear-gradient(160deg, oklch(0.98 0.04 270) 0%, oklch(0.94 0.06 280) 100%);
-  --gradient-sidebar: linear-gradient(180deg, oklch(0.99 0.02 270) 0%, oklch(0.96 0.04 270) 100%);
+  /* Refined Light theme gradients - Brighter & Smoother */
+  --gradient-main: linear-gradient(180deg, oklch(0.98 0.02 270) 0%, oklch(0.93 0.02 270) 100%);
+  --gradient-sidebar: linear-gradient(180deg, oklch(0.97 0.01 270) 0%, oklch(0.94 0.02 270) 100%);
   --gradient-card: linear-gradient(145deg, oklch(1 0 0) 0%, oklch(0.97 0.02 270) 100%);
-  --gradient-button: linear-gradient(135deg, oklch(0.98 0.01 270) 0%, oklch(0.92 0.03 270) 100%);
+  --gradient-button: linear-gradient(135deg, oklch(0.97 0.01 270) 0%, oklch(0.9 0.03 270) 100%);
   --gradient-primary: linear-gradient(135deg, oklch(0.6 0.18 270) 0%, oklch(0.5 0.22 290) 100%);
   --gradient-scrim: linear-gradient(to bottom, transparent, oklch(0 0 0 / 0.03));
 
@@ -95,11 +96,11 @@
 }
 
 .dark {
-  --background: oklch(0.12 0.02 270);
+  --background: oklch(0.14 0.02 270);
   --foreground: oklch(0.98 0.01 270);
-  --card: oklch(0.16 0.03 270 / 0.4);
+  --card: oklch(0.18 0.03 270 / 0.4);
   --card-foreground: oklch(0.98 0.01 270);
-  --popover: oklch(0.14 0.02 270 / 0.9);
+  --popover: oklch(0.16 0.02 270 / 0.9);
   --popover-foreground: oklch(0.98 0.01 270);
   --primary: oklch(0.65 0.2 270);
   --primary-foreground: oklch(1 0 0);
@@ -107,18 +108,18 @@
   --secondary-foreground: oklch(0.95 0.02 270);
   --muted: oklch(0.18 0.02 270);
   --muted-foreground: oklch(0.6 0.03 270);
-  --accent: oklch(0.25 0.04 270);
+  --accent: oklch(0.24 0.04 270);
   --accent-foreground: oklch(0.98 0.01 270);
   --destructive: oklch(0.55 0.18 25);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.65 0.2 270);
 
-  /* Hazy/Gradient Dark theme - More "hazy" glow */
-  --gradient-main: radial-gradient(circle at 50% -20%, oklch(0.3 0.1 270) 0%, oklch(0.1 0.04 270) 80%);
-  --gradient-sidebar: linear-gradient(180deg, oklch(0.14 0.02 270) 0%, oklch(0.08 0.02 270) 100%);
-  --gradient-card: linear-gradient(145deg, oklch(0.25 0.06 270 / 0.3) 0%, oklch(0.15 0.04 270 / 0.15) 100%);
-  --gradient-button: linear-gradient(135deg, oklch(0.35 0.08 270) 0%, oklch(0.18 0.05 270) 100%);
+  /* Hazy/Gradient Dark theme - Brighter Atmosphere */
+  --gradient-main: radial-gradient(circle at 50% -20%, oklch(0.3 0.1 270) 0%, oklch(0.14 0.04 270) 80%);
+  --gradient-sidebar: linear-gradient(180deg, oklch(0.16 0.02 270) 0%, oklch(0.1 0.02 270) 100%);
+  --gradient-card: linear-gradient(145deg, oklch(0.24 0.06 270 / 0.3) 0%, oklch(0.14 0.04 270 / 0.15) 100%);
+  --gradient-button: linear-gradient(135deg, oklch(0.3 0.08 270) 0%, oklch(0.16 0.05 270) 100%);
   --gradient-primary: linear-gradient(135deg, oklch(0.65 0.2 270) 0%, oklch(0.55 0.2 285) 100%);
   --gradient-scrim: linear-gradient(to bottom, transparent, oklch(0 0 0 / 0.7));
 }
@@ -138,8 +139,9 @@
 
   /* Ensure buttons and links have sufficient touch area on mobile without changing layout if possible */
   @media (pointer: coarse) {
-    button, 
-    a, 
+
+    button,
+    a,
     [role="button"] {
       min-width: var(--min-touch-target);
       min-height: var(--min-touch-target);
@@ -399,20 +401,40 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .safe-left {
-    padding-left: env(safe-area-inset-left);
+  /* Custom Desktop Window Styling */
+  .desktop-window-glow {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.1), 0 12px 40px -12px oklch(0 0 0 / 0.3);
   }
 
-  .safe-right {
-    padding-right: env(safe-area-inset-right);
+  .dark .desktop-window-glow {
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.05), 0 20px 50px -12px oklch(0 0 0 / 0.5), 0 0 80px -20px oklch(from var(--primary) l c h / 0.1);
   }
 
-  /* Margin versions */
-  .mg-safe-top {
-    margin-top: env(safe-area-inset-top);
+  .titlebar-glass {
+    background: oklch(from var(--background) l c h / 0.6);
+    backdrop-filter: blur(32px) saturate(160%);
+    transition: all 0.3s ease;
   }
 
-  .mg-safe-bottom {
-    margin-bottom: env(safe-area-inset-bottom);
+  .titlebar-gradient {
+    background: linear-gradient(to right, transparent, oklch(from var(--primary) l c h / 0.05), transparent);
+  }
+
+  .titlebar-button {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 8px;
+  }
+
+  .titlebar-button:hover {
+    background: oklch(from var(--foreground) l c h / 0.1);
+    transform: translateY(-1px);
+  }
+
+  .titlebar-button-close:hover {
+    background: oklch(0.6 0.22 25) !important;
+    color: white !important;
   }
 }

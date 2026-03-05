@@ -23,15 +23,29 @@ export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProp
 
   return (
     <div
-      className="flex h-12 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-950"
+      className="flex h-12 items-center justify-between px-4 titlebar-glass border-b border-black/10 dark:border-white/10 relative z-[9999]"
       data-tauri-drag-region
     >
-      <div className="flex items-center gap-2" data-tauri-drag-region>
-        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100" data-tauri-drag-region>
+      {/* Background Gradient Layer */}
+      <div className="absolute inset-0 titlebar-gradient pointer-events-none" />
+
+      <div className="flex items-center gap-3 relative z-10 select-none" data-tauri-drag-region>
+        <div className="flex items-center justify-center h-6 w-6" data-tauri-drag-region>
+          <img src="/obscur-logo-light.svg" className="h-full w-full dark:hidden" alt="Obscur" data-tauri-drag-region />
+          <img src="/obscur-logo-dark.svg" className="h-full w-full hidden dark:block" alt="Obscur" data-tauri-drag-region />
+        </div>
+        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 opacity-80" data-tauri-drag-region>
           {title}
         </span>
       </div>
-      {showControls && <WindowControls />}
+
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-40" data-tauri-drag-region>
+        <div className="h-px w-24 bg-gradient-to-r from-transparent via-primary/50 to-transparent" data-tauri-drag-region />
+      </div>
+
+      <div className="relative z-10 flex items-center">
+        {showControls && <WindowControls />}
+      </div>
     </div>
   );
 }

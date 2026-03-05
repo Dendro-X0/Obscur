@@ -256,7 +256,8 @@ const fetchBytes = async (url: string): Promise<Uint8Array> => {
 
 export const cacheAttachmentLocally = async (
     attachment: Attachment,
-    mode: "sent" | "received"
+    mode: "sent" | "received",
+    localBytes?: Uint8Array
 ): Promise<string | null> => {
     if (!isTauriRuntime()) return null;
     const cfg = getLocalMediaStorageConfig();
@@ -275,13 +276,18 @@ export const cacheAttachmentLocally = async (
     if (mode === "sent" && !cfg.cacheSentFiles) return null;
     if (mode === "received" && !cfg.cacheReceivedFiles) return null;
 
-    const index = loadIndex();
     const existing = await resolveLocalMediaUrl(attachment.url);
     if (existing) return existing;
 
     try {
         await ensureStorageAbsoluteDir();
-        const bytes = await fetchBytes(attachment.url);
+        const bytes = localBytes ?? await fetchBytes(attachment.url);
+
+        // Ensure we don't save empty corrupted files
+        if (bytes.byteLength === 0) {
+            throw new Error("Cannot cache empty file (0 bytes)");
+        }
+
         const urlHash = await hashUrl(attachment.url);
         const ext = inferExtension(attachment);
         const baseName = sanitizeFileName(attachment.fileName.replace(/\.[^.]+$/, ""));
@@ -298,7 +304,9 @@ export const cacheAttachmentLocally = async (
             await writeFile(relativePath, bytes, { baseDir: BaseDirectory.AppData, create: true });
         }
 
-        index[attachment.url] = {
+        // Reload index to avoid race conditions when uploading multiple files concurrently
+        const currentIndex = loadIndex();
+        currentIndex[attachment.url] = {
             remoteUrl: attachment.url,
             relativePath,
             savedAtUnixMs: Date.now(),
@@ -306,7 +314,7 @@ export const cacheAttachmentLocally = async (
             contentType: attachment.contentType,
             size: bytes.byteLength,
         };
-        saveIndex(index);
+        saveIndex(currentIndex);
         return resolveLocalMediaUrl(attachment.url);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

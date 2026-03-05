@@ -2,6 +2,7 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { QRConnectionData, ShareableProfile, InviteLink } from './types';
 import { cryptoService } from '../../crypto/crypto-service';
 import { createRelayWebSocket } from '../../relays/hooks/create-relay-websocket';
+import { normalizeRelayUrl, isValidRelayUrl } from "@dweb/nostr/relay-utils";
 
 /**
  * Nostr Improvement Proposal (NIP) constants for cross-platform compatibility
@@ -421,23 +422,10 @@ export class NostrRelayValidator {
    * Validate and normalize relay URLs for Nostr compatibility
    */
   static validateRelayUrl(url: string): { isValid: boolean; normalizedUrl?: string; error?: string } {
-    try {
-      const parsed = new URL(url);
-
-      // Check protocol
-      if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
-        return { isValid: false, error: 'Relay URL must use ws:// or wss:// protocol' };
-      }
-
-      // Prefer secure connections
-      if (parsed.protocol === 'ws:' && parsed.hostname !== 'localhost') {
-        parsed.protocol = 'wss:';
-      }
-
-      return { isValid: true, normalizedUrl: parsed.toString() };
-    } catch (error) {
-      return { isValid: false, error: 'Invalid URL format' };
+    if (!isValidRelayUrl(url)) {
+      return { isValid: false, error: 'Invalid relay URL format. Must use wss:// or ws:// (for localhost).' };
     }
+    return { isValid: true, normalizedUrl: normalizeRelayUrl(url) };
   }
 
   /**

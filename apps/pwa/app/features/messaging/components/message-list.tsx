@@ -813,9 +813,20 @@ const removeAttachmentRelayUrlsFromContent = (params: Readonly<{
     attachments.forEach((attachment) => {
         const url = attachment.url?.trim();
         if (!url) return;
-        if (!next.includes(url)) return;
-        hasHiddenAttachmentRelayUrls = true;
-        next = next.replace(new RegExp(escapeRegex(url), "g"), "");
+
+        // Strip Markdown [filename](url) FIRST to avoid gutting it with literal-match splits
+        const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const markdownRegex = new RegExp(`\\[[\\s\\S]*?\\]\\(${escapedUrl}\\)`, "g");
+        if (next.match(markdownRegex)) {
+            hasHiddenAttachmentRelayUrls = true;
+            next = next.replace(markdownRegex, "");
+        }
+
+        // Strip literal URL as fallback
+        if (next.includes(url)) {
+            hasHiddenAttachmentRelayUrls = true;
+            next = next.split(url).join("");
+        }
     });
 
     if (!hasHiddenAttachmentRelayUrls) {
@@ -851,11 +862,11 @@ function MessageAttachmentLayout({
     localAttachmentFileNameByUrl,
     onImageClick
 }: {
-    attachments: ReadonlyArray<Attachment>;
-    isOutgoing: boolean;
-    localAttachmentUrlSet: ReadonlySet<string>;
-    localAttachmentFileNameByUrl: Readonly<Record<string, string>>;
-    onImageClick?: (url: string) => void;
+    readonly attachments: ReadonlyArray<Attachment>;
+    readonly isOutgoing: boolean;
+    readonly localAttachmentUrlSet: ReadonlySet<string>;
+    readonly localAttachmentFileNameByUrl: Readonly<Record<string, string>>;
+    readonly onImageClick?: (url: string) => void;
 }): React.JSX.Element {
     const { t } = useTranslation();
     const visualMedia: Array<Readonly<{ attachment: Attachment; kind: "image" | "video" }>> = [];
@@ -890,12 +901,14 @@ function MessageAttachmentLayout({
         setActiveVisualIndex((prev) => Math.min(prev, visualMedia.length - 1));
     }, [visualMedia.length]);
 
-    const goPrevVisual = React.useCallback(() => {
+    const goPrevVisual = React.useCallback((e?: React.MouseEvent) => {
+        e?.stopPropagation();
         if (visualMedia.length <= 1) return;
         setActiveVisualIndex((prev) => (prev - 1 + visualMedia.length) % visualMedia.length);
     }, [visualMedia.length]);
 
-    const goNextVisual = React.useCallback(() => {
+    const goNextVisual = React.useCallback((e?: React.MouseEvent) => {
+        e?.stopPropagation();
         if (visualMedia.length <= 1) return;
         setActiveVisualIndex((prev) => (prev + 1) % visualMedia.length);
     }, [visualMedia.length]);
@@ -924,19 +937,18 @@ function MessageAttachmentLayout({
             return attachment.fileName;
         }
         try {
-            const pathPart = new URL(attachment.url).pathname.split("/").pop() || "";
-            const decoded = decodeURIComponent(pathPart);
-            return decoded || t("common.file", "File");
+            const host = new URL(attachment.url).host;
+            return host || t("common.file", "File");
         } catch {
             return t("common.file", "File");
         }
     };
 
     return (
-        <div className="mb-2 -mx-1 space-y-2">
+        <div className="mb-3 space-y-3">
             {visualMedia.length > 0 && activeVisual ? (
                 <div
-                    className="relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-purple-500/60"
+                    className="group relative overflow-hidden rounded-[24px] bg-zinc-950 shadow-[0_30px_60px_rgba(0,0,0,0.5)] ring-1 ring-white/10 inline-flex flex-col items-center justify-center max-w-full"
                     tabIndex={visualMedia.length > 1 ? 0 : -1}
                     onKeyDown={handleVisualKeyDown}
                     onTouchStart={(event) => {
@@ -957,64 +969,80 @@ function MessageAttachmentLayout({
                         }
                     }}
                 >
-                    {activeVisual.kind === "image" ? (
-                        <div className="relative aspect-video max-h-[560px]">
-                            <OptimizedImage
-                                src={activeVisual.attachment.url}
-                                alt={activeVisual.attachment.fileName}
-                                containerClassName="h-full w-full"
-                                className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500"
-                                onClick={() => onImageClick?.(activeVisual.attachment.url)}
-                            />
-                        </div>
-                    ) : (
-                        <VideoPlayer
-                            src={activeVisual.attachment.url}
-                            isOutgoing={isOutgoing}
-                            className="w-full rounded-xl"
-                        />
-                    )}
+                    {/* Ambient Glow */}
+                    <div className="absolute -inset-10 bg-gradient-to-tr from-purple-600/20 via-transparent to-blue-600/20 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
 
-                    <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1.5">
-                        <span className="rounded-md bg-black/55 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeVisual.attachment.url}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.2, ease: "easeInOut" }}
+                            className="w-full"
+                        >
+                            {activeVisual.kind === "image" ? (
+                                <div className="relative flex items-center justify-center bg-zinc-950 w-full" style={{ maxHeight: '480px' }}>
+                                    <OptimizedImage
+                                        src={activeVisual.attachment.url}
+                                        alt={activeVisual.attachment.fileName}
+                                        fill={false}
+                                        containerClassName="overflow-hidden w-auto max-w-full flex items-center justify-center"
+                                        className="w-auto h-auto max-w-full object-contain cursor-zoom-in group-hover:scale-[1.03] transition-transform duration-[1.5s]"
+                                        style={{ maxHeight: '480px', maxWidth: '100%' }}
+                                        onClick={() => onImageClick?.(activeVisual.attachment.url)}
+                                    />
+                                </div>
+                            ) : (
+                                <VideoPlayer
+                                    src={activeVisual.attachment.url}
+                                    isOutgoing={isOutgoing}
+                                    className="w-full rounded-2xl aspect-video"
+                                />
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
+
+                    {/* Metadata Badges */}
+                    <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 drop-shadow-lg">
+                        <span className="rounded-lg bg-black/40 backdrop-blur-md px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white border border-white/10">
                             {activeVisual.kind}
                         </span>
-                        {localAttachmentUrlSet.has(activeVisual.attachment.url) ? (
-                            <span className="rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
+                        {localAttachmentUrlSet.has(activeVisual.attachment.url) && (
+                            <span className="rounded-lg bg-emerald-500/80 backdrop-blur-md px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-black/90">
                                 Vault
                             </span>
-                        ) : null}
+                        )}
                     </div>
 
-                    {visualMedia.length > 1 ? (
+                    {/* Navigation Overlays */}
+                    {visualMedia.length > 1 && (
                         <>
+                            <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-black/20 to-transparent pointer-events-none opacity-0 hover:opacity-100 transition-opacity" />
+                            <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black/20 to-transparent pointer-events-none opacity-0 hover:opacity-100 transition-opacity" />
+
                             <button
                                 type="button"
-                                className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/30 bg-black/45 p-1.5 text-white backdrop-blur hover:bg-black/60"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    goPrevVisual();
-                                }}
+                                className="absolute left-3 top-1/2 z-20 -translate-y-1/2 h-10 w-10 flex items-center justify-center rounded-full border border-white/10 bg-black/20 text-white backdrop-blur hover:bg-black/40 transition-all active:scale-95"
+                                onClick={goPrevVisual}
                                 aria-label="Previous media"
                             >
-                                <ChevronLeft className="h-4 w-4" />
+                                <ChevronLeft className="h-5 w-5" />
                             </button>
                             <button
                                 type="button"
-                                className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/30 bg-black/45 p-1.5 text-white backdrop-blur hover:bg-black/60"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    goNextVisual();
-                                }}
+                                className="absolute right-3 top-1/2 z-20 -translate-y-1/2 h-10 w-10 flex items-center justify-center rounded-full border border-white/10 bg-black/20 text-white backdrop-blur hover:bg-black/40 transition-all active:scale-95"
+                                onClick={goNextVisual}
                                 aria-label="Next media"
                             >
-                                <ChevronRight className="h-4 w-4" />
+                                <ChevronRight className="h-5 w-5" />
                             </button>
-                            <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-black tracking-widest text-white">
-                                {activeVisualIndex + 1}/{visualMedia.length}
+
+                            <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 text-[11px] font-black tracking-widest text-white/90 shadow-xl">
+                                {activeVisualIndex + 1} <span className="opacity-40">/</span> {visualMedia.length}
                             </div>
                         </>
-                    ) : null}
+                    )}
                 </div>
             ) : null}
 

@@ -139,6 +139,30 @@ const GROUPS = [
   },
 ];
 
+function SettingsToggle({ checked, onChange, id }: { checked: boolean; onChange: (checked: boolean) => void; id?: string }) {
+  return (
+    <button
+      type="button"
+      id={id}
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500",
+        checked ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+          checked ? "translate-x-4" : "translate-x-0"
+        )}
+      />
+    </button>
+  );
+}
+
 export default function SettingsPage(): React.JSX.Element {
   const { t } = useTranslation();
   const identity = useIdentity();
@@ -880,39 +904,60 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       {activeTab === "relays" && (
         <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
           <div className="space-y-6">
-            <div className="space-y-2">
-              <div className="text-sm font-semibold flex items-center gap-2">
+            {/* API Status Panel */}
+            <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500">
                 <Activity className="h-4 w-4 text-purple-500" />
-                {t("settings.health.api", "API health")}
+                {t("settings.health.api", "API Status")}
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
-                <div className="space-y-0.5">
-                  <div className="text-xs font-mono opacity-60 truncate max-w-[250px]">{getApiBaseUrl()}</div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white dark:bg-black/20 border border-black/5 dark:border-white/5 shadow-sm">
+                <div className="space-y-1 overflow-hidden">
+                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">Endpoint</div>
+                  <div className="text-xs font-mono text-zinc-600 dark:text-zinc-300 truncate">{getApiBaseUrl()}</div>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"}>
-                  {apiHealth.status === "checking" ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.health.check", "Check")}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCheckApi}
+                  disabled={apiHealth.status === "checking"}
+                  className="shrink-0"
+                >
+                  {apiHealth.status === "checking" ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.health.check", "Test Connection")}
                 </Button>
               </div>
-              {apiHealth.status === "ok" && (
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
-                  <Check className="h-3 w-3" />
-                  Operational - {apiHealth.latencyMs}ms
-                </div>
-              )}
-              {apiHealth.status === "error" && (
-                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
-                  <ShieldAlert className="h-3 w-3" />
-                  {apiHealth.message}
-                </div>
-              )}
+
+              <AnimatePresence mode="wait">
+                {apiHealth.status === "ok" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2 font-medium"
+                  >
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Operational — Latency: {apiHealth.latencyMs}ms
+                  </motion.div>
+                )}
+                {apiHealth.status === "error" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2 font-medium"
+                  >
+                    <ShieldAlert className="h-3 w-3" />
+                    Connection Error: {apiHealth.message}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
+            {/* Relay Runtime Setup */}
+            <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20">
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <Label className="font-semibold">Relay Setup</Label>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Basic mode uses default relays. Use advanced mode only when you need custom relay control.
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">Relay Connectivity</Label>
+                  <p className="text-xs text-zinc-500">
+                    Basic mode uses optimized default relays. Active: {relayList.state.relays.filter((relay) => relay.enabled).length}/{relayList.state.relays.length}
                   </p>
                 </div>
                 <Button
@@ -921,135 +966,158 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   variant={showAdvancedRelays ? "secondary" : "outline"}
                   onClick={() => setShowAdvancedRelays((prev) => !prev)}
                 >
-                  {showAdvancedRelays ? "Hide Advanced" : "Show Advanced"}
+                  {showAdvancedRelays ? "Hide Advanced" : "Advanced Settings"}
                 </Button>
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                Active relays: {relayList.state.relays.filter((relay) => relay.enabled).length}/{relayList.state.relays.length}
-              </p>
+
               <div
                 className={cn(
-                  "rounded-lg border px-3 py-2 text-xs",
+                  "rounded-xl border p-4 transition-all duration-300",
                   relayRuntimeStatus.status === "healthy"
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 shadow-[0_0_15px_-5px_rgba(16,185,129,0.1)]"
                     : relayRuntimeStatus.status === "degraded"
-                      ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                      : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                      ? "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 shadow-[0_0_15px_-5px_rgba(245,158,11,0.1)]"
+                      : "border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-300 shadow-[0_0_15px_-5px_rgba(244,63,94,0.1)]"
                 )}
               >
-                <div className="font-semibold">{relayRuntimeStatus.label}</div>
-                <div className="opacity-90">{relayRuntimeStatus.actionText}</div>
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "h-2.5 w-2.5 rounded-full shadow-sm animate-pulse",
+                    relayRuntimeStatus.status === "healthy" ? "bg-emerald-500" : relayRuntimeStatus.status === "degraded" ? "bg-amber-500" : "bg-rose-500"
+                  )} />
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-bold">{relayRuntimeStatus.label}</div>
+                    <div className="text-xs opacity-70 leading-normal">{relayRuntimeStatus.actionText}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {showAdvancedRelays && (
-            <div className="space-y-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
-              <div>
-                <Label className="font-semibold">Advanced Relay Settings</Label>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Add additional relay servers and configure priority/order if you need extra redundancy.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  value={newRelayUrl}
-                  onChange={(e) => setNewRelayUrl(e.target.value)}
-                  placeholder="wss://relay.example.com"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddRelay();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={handleAddRelay}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Relay
-                </Button>
-                <Button type="button" variant="outline" onClick={() => relayList.resetRelays()}>
-                  Reset Defaults
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {relayList.state.relays.map((relay, index) => {
-                  const connection = relayConnectionMap.get(relay.url);
-                  const status = connection?.status ?? "connecting";
-                  const statusColor = status === "open"
-                    ? "text-emerald-500"
-                    : status === "error"
-                      ? "text-rose-500"
-                      : "text-zinc-500";
-
-                  return (
-                    <div
-                      key={relay.url}
-                      className="flex flex-col gap-2 rounded-xl border border-black/5 dark:border-white/5 p-3 bg-zinc-50/60 dark:bg-zinc-900/40"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-mono text-xs truncate">{relay.url}</p>
-                          <p className={`text-[11px] font-semibold uppercase tracking-wide ${statusColor}`}>
-                            {status}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => relayList.moveRelay({ url: relay.url, direction: "up" })}
-                            disabled={index === 0}
-                          >
-                            <ArrowUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => relayList.moveRelay({ url: relay.url, direction: "down" })}
-                            disabled={index === relayList.state.relays.length - 1}
-                          >
-                            <ArrowDown className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            onClick={() => relayList.removeRelay({ url: relay.url })}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <label className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={relay.enabled}
-                          onChange={(e) => relayList.setRelayEnabled({ url: relay.url, enabled: e.target.checked })}
-                        />
-                        Enabled
-                      </label>
+            {/* Advanced Configuration */}
+            <AnimatePresence>
+              {showAdvancedRelays && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden space-y-6"
+                >
+                  <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                    <div className="space-y-1">
+                      <Label className="font-semibold text-base">Advanced Configuration</Label>
+                      <p className="text-xs text-zinc-500">Manually add, sort, and enable specific relay nodes for maximum redundancy.</p>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-            )}
 
-            {showAdvancedRelays && (
-            <div className="space-y-2">
-              <div className="px-1 text-sm font-bold flex items-center gap-2 opacity-60">
-                <Wifi className="h-4 w-4" />
-                Relay Performance Monitor
-              </div>
-              <RelayDashboard />
-            </div>
-            )}
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                      <Input
+                        value={newRelayUrl}
+                        onChange={(e) => setNewRelayUrl(e.target.value)}
+                        placeholder="wss://relay.example.com"
+                        className="bg-white dark:bg-black/20 border-black/5 dark:border-white/10"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddRelay();
+                          }
+                        }}
+                      />
+                      <div className="flex gap-2">
+                        <Button type="button" onClick={handleAddRelay} className="whitespace-nowrap">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Node
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => relayList.resetRelays()} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+                          Reset
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      {relayList.state.relays.map((relay, index) => {
+                        const connection = relayConnectionMap.get(relay.url);
+                        const status = connection?.status ?? "connecting";
+                        const isOpen = status === "open";
+                        const isError = status === "error";
+
+                        return (
+                          <div
+                            key={relay.url}
+                            className="group flex items-center justify-between gap-4 rounded-xl border border-black/5 dark:border-white/5 p-4 bg-white dark:bg-black/40 transition-all hover:shadow-sm"
+                          >
+                            <div className="flex items-center gap-4 min-w-0">
+                              <SettingsToggle
+                                checked={relay.enabled}
+                                onChange={(enabled) => relayList.setRelayEnabled({ url: relay.url, enabled })}
+                              />
+                              <div className="min-w-0 space-y-1">
+                                <p className={cn("font-mono text-xs truncate transition-opacity", !relay.enabled && "opacity-40")}>
+                                  {relay.url}
+                                </p>
+                                <div className="flex items-center gap-1.5 ring-0">
+                                  <div className={cn(
+                                    "h-1.5 w-1.5 rounded-full",
+                                    isOpen ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : isError ? "bg-rose-500" : "bg-zinc-400"
+                                  )} />
+                                  <span className={cn(
+                                    "text-[10px] font-bold uppercase tracking-widest leading-none",
+                                    isOpen ? "text-emerald-600/80 dark:text-emerald-400/80" : isError ? "text-rose-600/80 dark:text-rose-400/80" : "text-zinc-500/80"
+                                  )}>
+                                    {status}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => relayList.moveRelay({ url: relay.url, direction: "up" })}
+                                disabled={index === 0}
+                              >
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => relayList.moveRelay({ url: relay.url, direction: "down" })}
+                                disabled={index === relayList.state.relays.length - 1}
+                              >
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                onClick={() => relayList.removeRelay({ url: relay.url })}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Performance Monitor (Also inside Advanced) */}
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-widest text-zinc-400">
+                      <Wifi className="h-3.5 w-3.5" />
+                      Network Performance Metrics
+                    </div>
+                    <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/30 dark:bg-black/10 p-2">
+                      <RelayDashboard />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </Card>
       )}
@@ -1081,195 +1149,207 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
             </div>
           </div>
         </Card>
-      )}
+      )
+      }
 
-      {activeTab === "privacy" && (
-        <div className="space-y-6">
-          <TrustSettingsPanel />
-          <Card title={t("settings.privacy.global")} description={t("settings.privacy.globalDesc")} className="w-full">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex-1">Enable Modern DMs (Gift Wraps)</Label>
-                <input
-                  type="checkbox"
-                  checked={privacySettings.useModernDMs}
-                  onChange={(e) => handleSavePrivacy({ ...privacySettings, useModernDMs: e.target.checked })}
-                  className="rounded border-zinc-300 text-purple-600 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {activeTab === "security" && (
-        <div className="space-y-6">
-          <PasswordResetPanel />
-          <AutoLockSettingsPanel />
-          <Card title="Session Management" description="Security settings for your current session." className="w-full">
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20"
-                onClick={() => setIsClearDataDialogOpen(true)}
-              >
-                {t("settings.actions.clearData", "Clear All Local Data")}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {activeTab === "storage" && (
-        <Card title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
+      {
+        activeTab === "privacy" && (
           <div className="space-y-6">
-            <div className="space-y-2 rounded-xl border border-black/5 p-4 dark:border-white/5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <Label className="font-semibold">{t("settings.storage.performanceModeTitle", "Chat Performance Mode (Phase 1)")}</Label>
-                  <p className="mt-1 text-xs text-zinc-500">
+            <TrustSettingsPanel />
+            <Card title={t("settings.privacy.global")} description={t("settings.privacy.globalDesc")} className="w-full">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-black/5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <Label className="flex-1 font-medium">Enable Modern DMs (Gift Wraps)</Label>
+                  <SettingsToggle
+                    checked={privacySettings.useModernDMs}
+                    onChange={(checked) => handleSavePrivacy({ ...privacySettings, useModernDMs: checked })}
+                  />
+                </div>
+              </div>
+            </Card>
+          </div>
+        )
+      }
+
+      {
+        activeTab === "security" && (
+          <div className="space-y-6">
+            <PasswordResetPanel />
+            <AutoLockSettingsPanel />
+            <Card title="Session Management" description="Security settings for your current session." className="w-full">
+              <div className="space-y-4">
+                <Button
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20"
+                  onClick={() => setIsClearDataDialogOpen(true)}
+                >
+                  {t("settings.actions.clearData", "Clear All Local Data")}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )
+      }
+
+      {
+        activeTab === "storage" && (
+          <Card title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
+            <div className="space-y-8">
+
+              {/* Chat Performance Mode */}
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">{t("settings.storage.performanceModeTitle", "Chat Performance Mode (Phase 1)")}</Label>
+                  <p className="text-xs text-zinc-500">
                     {t("settings.storage.performanceModeDesc", "Enable batched chat updates and adaptive rendering for smoother scrolling on large chats.")}
                   </p>
                 </div>
-                <input
-                  type="checkbox"
+                <SettingsToggle
                   checked={privacySettings.chatPerformanceV2}
-                  onChange={(e) => handleSavePrivacy({ ...privacySettings, chatPerformanceV2: e.target.checked })}
-                  aria-label={t("settings.storage.performanceModeToggle", "Toggle chat performance mode")}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t("settings.storage.providerLabel", "Media Upload Provider (NIP-96)")}</Label>
-              <Input
-                value={nip96Config.apiUrl}
-                onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
-                placeholder="https://api.provider.com/upload"
-              />
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="checkbox"
-                  checked={nip96Config.enabled}
-                  onChange={(e) => saveNip96Config({ ...nip96Config, enabled: e.target.checked })}
-                  id="nip96-enabled"
-                />
-                <Label htmlFor="nip96-enabled">{t("settings.storage.enableUploads", "Enable Media Uploads")}</Label>
-              </div>
-            </div>
-
-            <div className="space-y-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
-              <div>
-                <Label className="font-semibold">{t("settings.storage.localVaultTitle", "Local Vault Data (Desktop)")}</Label>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {t("settings.storage.localVaultDesc", "Cache sent and received files locally. Relays are used for encrypted transmission only.")}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={localMediaConfig.enabled}
-                  onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, enabled: e.target.checked })}
-                  id="local-media-enabled"
-                />
-                <Label htmlFor="local-media-enabled">{t("settings.storage.enableLocalCache", "Enable local media cache")}</Label>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="local-media-root-path">{t("settings.storage.localRootLabel", "Local data root folder")}</Label>
-                <Input
-                  id="local-media-root-path"
-                  value={localMediaConfig.customRootPath || ""}
-                  onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, customRootPath: e.target.value })}
-                  placeholder={t("settings.storage.localRootPlaceholder", "Leave empty to use app data")}
-                />
-                <p className="text-[11px] text-zinc-500">
-                  {t("settings.storage.localRootHelp", "Choose a custom folder in File Explorer for local media storage.")}
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="local-media-subdir">{t("settings.storage.localSubdirLabel", "Local data folder name")}</Label>
-                <Input
-                  id="local-media-subdir"
-                  value={localMediaConfig.subdir}
-                  onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, subdir: e.target.value })}
-                  placeholder="vault-media"
+                  onChange={(checked) => handleSavePrivacy({ ...privacySettings, chatPerformanceV2: checked })}
                 />
               </div>
 
-              <div className="grid gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={localMediaConfig.cacheSentFiles}
-                    onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, cacheSentFiles: e.target.checked })}
+              {/* Media Upload Provider */}
+              <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="font-semibold text-base">{t("settings.storage.providerLabel", "Media Upload Provider (NIP-96)")}</Label>
+                    <p className="text-xs text-zinc-500">Configure your preferred NIP-96 compliant storage server for profile pictures and chat media.</p>
+                  </div>
+                  <SettingsToggle
+                    checked={nip96Config.enabled}
+                    onChange={(checked) => saveNip96Config({ ...nip96Config, enabled: checked })}
                   />
-                  {t("settings.storage.cacheSent", "Cache sent files")}
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={localMediaConfig.cacheReceivedFiles}
-                    onChange={(e) => saveLocalMediaConfig({ ...localMediaConfig, cacheReceivedFiles: e.target.checked })}
+                </div>
+
+                <div className={cn("transition-all duration-300", nip96Config.enabled ? "opacity-100" : "opacity-50 pointer-events-none")}>
+                  <Input
+                    value={nip96Config.apiUrl}
+                    onChange={(e) => saveNip96Config({ ...nip96Config, apiUrl: e.target.value })}
+                    placeholder="https://api.provider.com/upload"
+                    className="bg-zinc-50 dark:bg-zinc-900 font-mono text-sm"
                   />
-                  {t("settings.storage.cacheReceived", "Cache received files")}
-                </label>
+                </div>
               </div>
 
-              <div className="rounded-lg bg-zinc-50 p-3 text-xs font-mono text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
-                {isResolvingLocalPath
-                  ? t("settings.storage.resolvingPath", "Resolving local data path...")
-                  : (localMediaAbsolutePath || t("settings.storage.pathAvailableInDesktop", "Local path is available in desktop runtime"))}
+              {/* Local Vault Data */}
+              <div className="space-y-6 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="font-semibold text-base">{t("settings.storage.localVaultTitle", "Local Vault Data (Desktop)")}</Label>
+                    <p className="text-xs text-zinc-500 whitespace-pre-line">
+                      {t("settings.storage.localVaultDesc", "Cache sent and received files locally. Relays are used for encrypted transmission only.")}
+                    </p>
+                  </div>
+                  <SettingsToggle
+                    checked={localMediaConfig.enabled}
+                    onChange={(checked) => saveLocalMediaConfig({ ...localMediaConfig, enabled: checked })}
+                  />
+                </div>
+
+                <div className={cn("space-y-6 transition-all duration-300", localMediaConfig.enabled ? "opacity-100" : "opacity-50 pointer-events-none")}>
+                  {/* Path Configuration */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Storage Location</Label>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                      <div className="space-y-1 overflow-hidden">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Calculated Path</div>
+                        <div className="text-sm font-mono text-zinc-800 dark:text-zinc-200 truncate">
+                          {isResolvingLocalPath ? "Resolving..." : (localMediaAbsolutePath || "Default App Data")}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            const selected = await pickLocalMediaStorageRootPath();
+                            if (!selected) return;
+                            saveLocalMediaConfig({ ...localMediaConfig, customRootPath: selected });
+                            await refreshLocalMediaAbsolutePath();
+                            toast.success(t("settings.storage.pathSelected", "Local data path selected."));
+                          }}
+                        >
+                          Change Folder
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => void openLocalMediaStoragePath()}>
+                          Open
+                        </Button>
+                      </div>
+                    </div>
+
+                    {localMediaConfig.customRootPath && (
+                      <div className="flex justify-end pt-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-zinc-500"
+                          onClick={async () => {
+                            saveLocalMediaConfig({ ...localMediaConfig, customRootPath: "" });
+                            await refreshLocalMediaAbsolutePath();
+                            toast.success(t("settings.storage.pathResetToDefault", "Reset to default app-data path."));
+                          }}
+                        >
+                          Reset to Default Path
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cache Rules */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold text-zinc-500 uppercase tracking-widest text-[10px]">Cache Rules</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-black/5 dark:border-white/5 bg-zinc-50/30 dark:bg-zinc-900/30 transition-colors">
+                        <span className="text-sm font-medium">{t("settings.storage.cacheSent", "Cache sent files")}</span>
+                        <SettingsToggle
+                          checked={localMediaConfig.cacheSentFiles}
+                          onChange={(checked) => saveLocalMediaConfig({ ...localMediaConfig, cacheSentFiles: checked })}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-black/5 dark:border-white/5 bg-zinc-50/30 dark:bg-zinc-900/30 transition-colors">
+                        <span className="text-sm font-medium">{t("settings.storage.cacheReceived", "Cache received files")}</span>
+                        <SettingsToggle
+                          checked={localMediaConfig.cacheReceivedFiles}
+                          onChange={(checked) => saveLocalMediaConfig({ ...localMediaConfig, cacheReceivedFiles: checked })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Maintenance */}
+                  <div className="pt-2 border-t border-black/5 dark:border-white/5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-4">
+                      <div>
+                        <Label className="text-sm font-semibold text-red-600 dark:text-red-400">Maintenance</Label>
+                        <p className="text-xs text-zinc-500 mt-1">Free up disk space safely without deleting messages.</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30"
+                        onClick={async () => {
+                          await purgeLocalMediaCache();
+                          toast.success(t("settings.storage.cacheCleared", "Local media cache cleared."));
+                          void refreshLocalMediaAbsolutePath();
+                        }}
+                      >
+                        {t("settings.storage.clearCache", "Clear Local Cache")}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={async () => {
-                    const selected = await pickLocalMediaStorageRootPath();
-                    if (!selected) return;
-                    saveLocalMediaConfig({ ...localMediaConfig, customRootPath: selected });
-                    await refreshLocalMediaAbsolutePath();
-                    toast.success(t("settings.storage.pathSelected", "Local data path selected."));
-                  }}
-                >
-                  {t("settings.storage.chooseFolder", "Choose Folder")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    saveLocalMediaConfig({ ...localMediaConfig, customRootPath: "" });
-                    await refreshLocalMediaAbsolutePath();
-                    toast.success(t("settings.storage.pathResetToDefault", "Reset to default app-data path."));
-                  }}
-                >
-                  {t("settings.storage.useDefaultPath", "Use Default Path")}
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => void openLocalMediaStoragePath()}>
-                  {t("settings.storage.openFolder", "Open Local Data Folder")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    await purgeLocalMediaCache();
-                    toast.success(t("settings.storage.cacheCleared", "Local media cache cleared."));
-                  }}
-                >
-                  {t("settings.storage.clearCache", "Clear Local Media Cache")}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => void refreshLocalMediaAbsolutePath()}>
-                  {t("settings.storage.refreshPath", "Refresh Path")}
-                </Button>
-              </div>
             </div>
-          </div>
-        </Card>
-      )}
+          </Card>
+        )
+      }
 
       <ConfirmDialog
         isOpen={isClearDataDialogOpen}
@@ -1290,7 +1370,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
         confirmLabel={t("settings.actions.delete", "Wipe & Delete Account")}
         variant="danger"
       />
-    </div>
+    </div >
   );
 }
 

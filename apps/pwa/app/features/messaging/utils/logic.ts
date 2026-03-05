@@ -69,17 +69,26 @@ export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] 
 };
 
 export const extractAttachmentsFromContent = (content: string): Attachment[] => {
-    const urlRegex = /(https?:\/\/[^\s]+|\/uploads\/[^\s]+)/g;
-    const matches = content.match(urlRegex);
+    // Match either [filename](url) or just url
+    const urlRegex = /(?:\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\))|(https?:\/\/[^\s]+|\/uploads\/[^\s]+)/g;
+    const matches = Array.from(content.matchAll(urlRegex));
 
-    if (!matches) return [];
+    if (matches.length === 0) return [];
 
     const attachments: Attachment[] = [];
 
-    for (const url of matches) {
-        // Clean trailing punctuation that might be captured
-        const cleanUrl = url.replace(/[.,;:!?)]+$/, '');
+    for (const match of matches) {
+        const rawUrl = match[2] || match[3];
+        if (!rawUrl) continue;
+
+        const providedName = match[1]; // from markdown [name](url)
+
+        // Clean trailing punctuation that might be captured in plain URLs
+        const cleanUrl = match[3] ? rawUrl.replace(/[.,;:!?)]+$/, '') : rawUrl;
         const lowerUrl = cleanUrl.toLowerCase();
+
+        const fallbackName = cleanUrl.split('/').pop()?.split('?')[0] || 'file';
+        const finalName = providedName || fallbackName;
 
         // 1. Audio check
         const isAudio = AUDIO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
@@ -88,7 +97,7 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
                 kind: 'audio',
                 url: cleanUrl,
                 contentType: 'audio/*',
-                fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'audio'
+                fileName: finalName
             });
             continue;
         }
@@ -100,7 +109,7 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
                 kind: 'video',
                 url: cleanUrl,
                 contentType: 'video/*',
-                fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'video'
+                fileName: finalName
             });
             continue;
         }
@@ -114,7 +123,7 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
                 kind: 'image',
                 url: cleanUrl,
                 contentType: 'image/*',
-                fileName: cleanUrl.split('/').pop()?.split('?')[0] || 'image'
+                fileName: finalName
             });
             continue;
         }
@@ -127,7 +136,7 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
                 kind: "file",
                 url: cleanUrl,
                 contentType: "application/octet-stream",
-                fileName: cleanUrl.split("/").pop()?.split("?")[0] || "file"
+                fileName: finalName
             });
         }
     }

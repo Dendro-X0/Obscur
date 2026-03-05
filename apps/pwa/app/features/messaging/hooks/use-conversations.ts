@@ -6,6 +6,7 @@ import { usePeerTrust } from "../../network/hooks/use-peer-trust";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 import { loadPersistedChatState } from "../utils/persistence";
+import { connectionStore } from "../../invites/utils/connection-store";
 
 export function useConversations(params: { publicKeyHex: PublicKeyHex | null }) {
     const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
@@ -14,10 +15,45 @@ export function useConversations(params: { publicKeyHex: PublicKeyHex | null }) 
     const { isAccepted } = usePeerTrust({ publicKeyHex: params.publicKeyHex });
 
     useEffect(() => {
-        const state = loadPersistedChatState(params.publicKeyHex);
-        if (state) {
-            // We'll trust the parsing for now, or use a safer approach if needed
-            // TODO: properly hydrate from state if this hook is intended to be the source of truth
+        const hydrate = async () => {
+            const connections = await connectionStore.getAllConnections();
+            setCreatedConnections(connections.map(c => ({
+                kind: "dm",
+                id: c.id,
+                pubkey: c.publicKey,
+                displayName: c.displayName,
+                avatar: c.avatar,
+                trustLevel: c.trustLevel,
+                lastMessage: "", // Default empty
+                unreadCount: 0,
+                lastMessageTime: c.addedAt
+            })));
+
+            const groups = await connectionStore.getAllGroups();
+            setCreatedGroups(groups.map(g => ({
+                kind: "group",
+                id: g.id,
+                displayName: g.name,
+                groupId: g.id,
+                relayUrl: "", // Need to store this in ConnectionGroup later if needed
+                memberPubkeys: [], // ConnectionGroup doesn't directly store member pubkeys yet
+                lastMessage: "",
+                unreadCount: 0,
+                lastMessageTime: g.createdAt,
+                access: "invite-only",
+                memberCount: 0,
+                adminPubkeys: [],
+                avatar: undefined
+            })));
+
+            const state = loadPersistedChatState(params.publicKeyHex);
+            if (state) {
+                // TODO: Sync state with connectionStore if needed
+            }
+        };
+
+        if (params.publicKeyHex) {
+            void hydrate();
         }
     }, [params.publicKeyHex]);
 

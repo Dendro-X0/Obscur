@@ -316,6 +316,10 @@ export function ChatView(props: ChatViewProps) {
                 <Lightbox
                     item={props.selectedConversationMediaItems[props.lightboxIndex]}
                     onClose={() => props.setLightboxIndex(null)}
+                    onPrev={() => props.setLightboxIndex(props.lightboxIndex! - 1)}
+                    onNext={() => props.setLightboxIndex(props.lightboxIndex! + 1)}
+                    hasPrev={props.lightboxIndex > 0}
+                    hasNext={props.lightboxIndex < props.selectedConversationMediaItems.length - 1}
                 />
             )}
 

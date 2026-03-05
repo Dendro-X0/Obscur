@@ -16,6 +16,7 @@ import { Preloader } from "./components/preloader"
 import { DesktopNotificationHandler } from "./components/desktop-notification-handler"
 import { ErrorPanel } from "./features/native/components/error-panel"
 import { AppProviders } from "./components/providers"
+import { TitleBar } from "./components/desktop/title-bar"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
@@ -67,7 +68,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`} suppressHydrationWarning>
         <Preloader />
         <RootErrorBoundary>
           <DesktopModeProvider>
@@ -81,7 +82,14 @@ export default function RootLayout({
               <DeepLinkHandler />
               <AppProviders>
                 <DesktopNotificationHandler />
-                {children}
+                <div className="flex flex-col h-screen overflow-hidden desktop-mode:desktop-window-glow">
+                  <div className="relative z-[9999]">
+                    <TitleBar />
+                  </div>
+                  <main className="flex-1 min-h-0 relative flex flex-col">
+                    {children}
+                  </main>
+                </div>
               </AppProviders>
             </I18nProvider>
           </DesktopModeProvider>

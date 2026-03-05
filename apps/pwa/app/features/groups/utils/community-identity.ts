@@ -1,7 +1,4 @@
-const normalizeRelayUrl = (relayUrl: string | null | undefined): string => {
-  const trimmed = relayUrl?.trim() ?? "";
-  return trimmed.length > 0 ? trimmed : "unknown";
-};
+import { normalizeRelayUrl } from "@dweb/nostr/relay-utils";
 
 const isNonEmptyString = (value: unknown): value is string => {
   return typeof value === "string" && value.trim().length > 0;

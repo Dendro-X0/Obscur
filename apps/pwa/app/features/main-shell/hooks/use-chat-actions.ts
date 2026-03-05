@@ -48,11 +48,14 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 const uploadErrors: UploadError[] = [];
                 setUploadStage("uploading");
 
+                const fileBytesMap = new Map<string, Uint8Array>();
+
                 // Upload sequentially to reduce provider rate-limit contention in dev mode.
                 for (const file of pendingAttachments) {
                     try {
                         const uploaded = await uploadService.uploadFile(file);
                         attachments.push(uploaded);
+                        fileBytesMap.set(uploaded.url, new Uint8Array(await file.arrayBuffer()));
                     } catch (error) {
                         const uploadError = error instanceof UploadError
                             ? error
@@ -68,17 +71,17 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     toast.warning(`Uploaded ${attachments.length}/${pendingAttachments.length} files. Some files failed.`);
                 }
 
-                // Append URLs to content (NIP-96 standard behavior for clients)
-                const urls = attachments.map(a => a.url).join(" ");
+                // Append URLs to content using markdown links to preserve the original filenames
+                const urls = attachments.map(a => `[${a.fileName}](${a.url})`).join(" ");
                 if (finalContent.trim()) {
-                    finalContent += "\n" + urls;
+                    finalContent += "\n\n" + urls;
                 } else {
                     finalContent = urls;
                 }
 
                 // Do not block send path on local caching.
                 void Promise.all(
-                    attachments.map((attachment) => cacheAttachmentLocally(attachment, "sent"))
+                    attachments.map((attachment) => cacheAttachmentLocally(attachment, "sent", fileBytesMap.get(attachment.url)))
                 ).catch((e) => {
                     console.warn("[Vault] Failed to cache sent attachments locally:", e);
                 });

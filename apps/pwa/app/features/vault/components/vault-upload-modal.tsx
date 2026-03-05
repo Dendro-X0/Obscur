@@ -43,12 +43,15 @@ export function VaultUploadModal({ isOpen, onClose, onUploadComplete }: VaultUpl
     const privateKeyHex = identity.state.privateKeyHex ?? null;
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !selectedProvider) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0 || !selectedProvider) return;
 
         setIsUploading(true);
         setError(null);
         setSuccessUrl(null);
+
+        let lastUploadedUrl: string | null = null;
+        let successCount = 0;
 
         try {
             const uploadService = new Nip96UploadService(
@@ -57,10 +60,28 @@ export function VaultUploadModal({ isOpen, onClose, onUploadComplete }: VaultUpl
                 privateKeyHex
             );
 
-            const attachment = await uploadService.uploadFile(file);
-            void cacheAttachmentLocally(attachment, "sent");
-            setSuccessUrl(attachment.url);
-            onUploadComplete?.(attachment.url);
+            for (const file of files) {
+                try {
+                    const attachment = await uploadService.uploadFile(file);
+                    const bytes = new Uint8Array(await file.arrayBuffer());
+                    void cacheAttachmentLocally(attachment, "sent", bytes);
+                    lastUploadedUrl = attachment.url;
+                    successCount++;
+                    onUploadComplete?.(attachment.url);
+                } catch (err) {
+                    console.error("[VaultUpload] Failed to upload file:", file.name, err);
+                }
+            }
+
+            if (successCount === 0) {
+                throw new Error("All files failed to upload.");
+            }
+
+            if (successCount < files.length) {
+                setError(`Only ${successCount} of ${files.length} files uploaded successfully.`);
+            }
+
+            setSuccessUrl(lastUploadedUrl);
         } catch (err: any) {
             console.error("[VaultUpload] Upload failed:", err);
             setError(err.message || "Upload failed. Please try another provider or check your connection.");
@@ -141,6 +162,7 @@ export function VaultUploadModal({ isOpen, onClose, onUploadComplete }: VaultUpl
                                                 type="file"
                                                 id="vault-file-upload"
                                                 className="hidden"
+                                                multiple
                                                 onChange={handleFileUpload}
                                                 disabled={isUploading}
                                             />

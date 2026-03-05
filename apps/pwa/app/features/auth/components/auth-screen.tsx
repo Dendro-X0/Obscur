@@ -275,7 +275,7 @@ export function AuthScreen() {
     };
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-zinc-50 dark:bg-black p-4 overflow-y-auto">
+        <div className="absolute inset-0 z-[150] flex items-center justify-center bg-zinc-50 dark:bg-black p-4 overflow-y-auto">
             <div className="absolute top-6 right-6 z-[160]">
                 <LanguageSelector variant="minimal" />
             </div>

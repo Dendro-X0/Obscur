@@ -92,12 +92,14 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
 
     return (
         <div className={cn(
-            "flex items-center gap-3 p-3 rounded-2xl w-full min-w-0",
-            isOutgoing
-                ? "bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 shadow-lg"
-                : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
+            "relative group flex flex-col gap-3 p-4 rounded-[24px] w-full min-w-0 overflow-hidden",
+            "bg-zinc-900 border border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.4)]",
             className
         )}>
+            {/* Background Ambient Glow */}
+            <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-purple-600/20 blur-[40px] pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 h-16 w-16 rounded-full bg-blue-600/10 blur-[30px] pointer-events-none" />
+
             <audio
                 key={`${src}:${reloadKey}`}
                 ref={audioRef}
@@ -123,12 +125,12 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
             />
 
             {errorState ? (
-                <div className="flex w-full items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-widest opacity-80">
+                <div className="flex w-full items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest text-white/40">
                     <span className="truncate">{errorState.hint}</span>
                     <div className="flex items-center gap-2 shrink-0">
                         <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded-md border border-black/10 px-2 py-1 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 bg-white/5 hover:bg-white/10"
                             onClick={() => {
                                 setErrorState(null);
                                 setReloadKey((prev) => prev + 1);
@@ -138,73 +140,83 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
                             <RefreshCw className="h-3 w-3" />
                             Retry
                         </button>
-                        <button
-                            type="button"
-                            className="inline-flex items-center gap-1 rounded-md border border-black/10 px-2 py-1 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-                            onClick={openExternally}
-                            disabled={!errorState.canOpenExternal}
-                        >
-                            <ExternalLink className="h-3 w-3" />
-                            Open
-                        </button>
                     </div>
                 </div>
             ) : null}
 
-            <Button
-                size="icon"
-                className={cn(
-                    "h-9 w-9 rounded-full shrink-0 shadow-md transition-transform active:scale-95",
-                    isOutgoing
-                        ? "bg-white text-zinc-900 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-white dark:hover:bg-zinc-800"
-                        : "bg-white text-purple-600 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-purple-400 dark:hover:bg-zinc-900/80"
-                )}
-                onClick={togglePlay}
-            >
-                {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current ml-0.5" />}
-            </Button>
+            <div className="flex items-center gap-4">
+                <button
+                    type="button"
+                    className={cn(
+                        "h-12 w-12 flex items-center justify-center rounded-full shrink-0 shadow-lg transition-all active:scale-90",
+                        "bg-gradient-to-br from-purple-500 to-purple-600 text-white hover:shadow-purple-500/20 hover:scale-105"
+                    )}
+                    onClick={togglePlay}
+                >
+                    {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current ml-0.5" />}
+                </button>
 
-            <div className="flex-1 space-y-1.5">
-                <div className="relative h-1.5 w-full bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-                    <div
-                        className={cn(
-                            "absolute top-0 left-0 h-full transition-all duration-150 rounded-full",
-                            isOutgoing ? "bg-white dark:bg-zinc-900" : "bg-purple-500"
-                        )}
-                        style={{ width: `${progress}%` }}
-                    />
-                </div>
-                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-60">
-                    <span>{formatTime(currentTime)}</span>
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            type="button"
-                            onClick={handleToggleMute}
-                            className="opacity-80 hover:opacity-100 transition-opacity"
-                            aria-label={isMuted ? "Unmute audio" : "Mute audio"}
-                        >
-                            <Volume2 className="h-2.5 w-2.5" />
-                        </button>
-                        <input
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            value={isMuted ? 0 : volume}
-                            onChange={handleVolumeChange}
-                            className="w-16 accent-purple-500 cursor-pointer"
-                            aria-label="Audio volume"
-                        />
-                        <span
-                            className="text-[9px] font-black tracking-wider opacity-70"
-                            title={`Volume ${volumePercent}%`}
-                        >
-                            Volume {volumePercent}%
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1.5 px-0.5">
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">
+                            {formatTime(currentTime)}
                         </span>
-                        <span>{formatTime(duration)}</span>
+                        <div className="flex items-center h-4 gap-0.5">
+                            {/* Decorative Waveform Bars */}
+                            {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.4, 0.5].map((h, i) => (
+                                <div
+                                    key={i}
+                                    className={cn(
+                                        "w-0.5 rounded-full bg-white/20 transition-all duration-[800ms]",
+                                        isPlaying ? "animate-pulse" : ""
+                                    )}
+                                    style={{ height: `${h * 100}%`, animationDelay: `${i * 100}ms` }}
+                                />
+                            ))}
+                        </div>
+                        <span className="text-[11px] font-bold text-white/40">
+                            {formatTime(duration)}
+                        </span>
+                    </div>
+
+                    {/* Premium Progress Bar */}
+                    <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-300"
+                            style={{ width: `${progress}%` }}
+                        />
                     </div>
                 </div>
             </div>
+
+            {/* Bottom Row Controls */}
+            <div className="flex items-center justify-between mt-1 px-1 border-t border-white/5 pt-3">
+                <div className="flex items-center gap-2 group-hover:opacity-100 opacity-60 transition-opacity">
+                    <Volume2 className="h-3 w-3 text-white/50" />
+                    <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={isMuted ? 0 : volume}
+                        onChange={handleVolumeChange}
+                        className="w-16 accent-purple-500 cursor-pointer h-1"
+                        aria-label="Audio volume"
+                    />
+                    <span className="text-[9px] font-black tracking-widest text-white/30 lowercase">
+                        vol {volumePercent}%
+                    </span>
+                </div>
+
+                <button
+                    onClick={openExternally}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all shadow-sm active:scale-95"
+                    title="Open Externally"
+                >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                </button>
+            </div>
         </div>
     );
+
 }

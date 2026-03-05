@@ -1,3 +1,24 @@
+## [v0.8.2] - 2026-03-04
+
+### Added
+
+- **Relay Status Indicator**: Added a real-time connectivity widget to the sidebar to monitor active Nostr relay connections.
+- **Unified Relay Normalization**: Introduced `@dweb/nostr/relay-utils` to ensure consistent relay URL treatment across all features (Communities, Invites, Profiles).
+- **Web Worker Optimization**: Re-enabled and hardened the Crypto Web Worker for the PWA, offloading heavy cryptographic operations from the main thread for 60fps UI performance.
+- **Real Connection-Request Propagation**: Connection requests are now actually published to the recipient's discovery relays, enabling robust peer-to-peer discovery.
+
+### Changed
+
+- **Stacking Logic (Focus Mode)**: Removed restrictive `z-index` contexts from the application shell layout, enabling image preview overlays to cleanly float above sidebars and top navigation UI for a true fullscreen focus mode.
+- **Lightbox Ergonomics**: Added dedicated vertical padding to the chat image preview header so it clears the desktop window wrapper controls gracefully.
+- **Contact Stability**: Refactored the messaging sidebar and conversation hooks to reliably hydrate from `connectionStore` (IndexedDB), fixing "missing contacts" on app restart.
+- **Infrastructure Resilience**: Hardened the relay pool with circuit-breaker support for standalone (non-hook) publishing.
+
+### Fixed
+
+- **Center-Lock Image Glitch**: Fixed a race condition where boundaries collapsed to `0px` before the image fully rendered, effectively locking the viewer rigidly in the center of zoomed images.
+- **Panning Constraint Escapes**: Fixed the drag bounding box limits in the Vault and Chat image previews by capturing actual DOM dimensions (`offsetWidth`/`offsetHeight`), safely preventing users from moving views completely outside image bounds when zoomed.
+- **Silent Data Loss in Communities**: Fixed a bug where inconsistent relay URL trailing slashes led to multiple internal IDs for the same community, causing messages to "disappear" into the wrong bucket.
 ## [v0.8.1] - 2026-03-04
 
 ### Added

@@ -91,7 +91,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
 
   return (
     <div className={cn(
-      "flex h-dvh overflow-hidden bg-gradient-main text-zinc-900 dark:text-zinc-100",
+      "flex flex-1 overflow-hidden bg-gradient-main text-zinc-900 dark:text-zinc-100",
       hasMounted && isDesktop && "desktop-mode"
     )}>
       {mobileSidebarOpen ? (
@@ -142,53 +142,54 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       ) : null}
 
       {!props.hideSidebar && (
-        <div className="relative hidden md:flex">
-          <div className="flex w-14 flex-col items-center justify-between border-r border-black/10 bg-gradient-sidebar py-3 dark:border-white/10">
-            <div className="flex flex-col items-center gap-2">
-
-              {NAV_ITEMS.map((item: NavItem) => {
-                const Icon: NavIcon | undefined = ICON_BY_HREF[item.href];
-                const isActive: boolean = activeHref === item.href;
-                const badgeCount: number = navBadgeCounts[item.href] ?? 0;
-                const label = item.i18nKey ? t(item.i18nKey) : item.label;
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    suppressHydrationWarning
-                    className={cn(
-                      "nav-link group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent transition-all",
-                      isActive
-                        ? "border-purple-500/20 bg-purple-500/10 text-purple-600 dark:border-purple-400/20 dark:bg-purple-400/10 dark:text-purple-400 shadow-[0_0_10px_oklch(0.6_0.2_270_/_0.15)]"
-                        : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900/60"
-                    )}
-                    aria-label={label}
-                  >
-                    {Icon ? (
-                      <Icon className={cn("h-4 w-4 transition-transform group-hover:scale-110", isActive ? "scale-110" : "")} />
-                    ) : null}
-                    {badgeCount > 0 ? (
-                      <span
-                        className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-600 px-0.5 text-[9px] font-bold text-white shadow-lg shadow-red-600/30"
-                        aria-label={`${label} unread count ${badgeCount}`}
-                      >
-                        {badgeCount > 99 ? "99+" : badgeCount}
-                      </span>
-                    ) : null}
-                  </Link>
-                );
-              })}
+        <div className="relative hidden md:flex h-full z-40">
+          <div className="flex w-14 flex-col items-center justify-between border-r border-black/10 bg-gradient-sidebar py-3 dark:border-white/10 shrink-0 h-full relative z-20">
+            <div className="flex flex-col items-center gap-4 flex-none py-2">
+              <RelayStatusBadge />
             </div>
 
-            <div className="flex flex-col items-center gap-3">
-              <RelayStatusBadge />
+            <div className="flex flex-1 flex-col items-center gap-2 overflow-y-auto no-scrollbar py-4 scroll-smooth">              {NAV_ITEMS.map((item: NavItem) => {
+              const Icon: NavIcon | undefined = ICON_BY_HREF[item.href];
+              const isActive: boolean = activeHref === item.href;
+              const badgeCount: number = navBadgeCounts[item.href] ?? 0;
+              const label = item.i18nKey ? t(item.i18nKey) : item.label;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  suppressHydrationWarning
+                  className={cn(
+                    "nav-link group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-transparent transition-all shrink-0",
+                    isActive
+                      ? "border-purple-500/20 bg-purple-500/10 text-purple-600 dark:border-purple-400/20 dark:bg-purple-400/10 dark:text-purple-400 shadow-[0_0_10px_oklch(0.6_0.2_270_/_0.15)]"
+                      : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900/60"
+                  )}
+                  aria-label={label}
+                >
+                  {Icon ? (
+                    <Icon className={cn("h-4 w-4 transition-transform group-hover:scale-110", isActive ? "scale-110" : "")} />
+                  ) : null}
+                  {badgeCount > 0 ? (
+                    <span
+                      className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-600 px-0.5 text-[9px] font-bold text-white shadow-lg shadow-red-600/30"
+                      aria-label={`${label} unread count ${badgeCount}`}
+                    >
+                      {badgeCount > 99 ? "99+" : badgeCount}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+            </div>
+
+            <div className="flex flex-col items-center gap-3 flex-none pt-2">
               <UserAvatarMenu compact preferUp alignStart />
             </div>
           </div>
 
           {props.sidebarContent ? (
-            <div className="w-80 border-r border-black/10 bg-white/60 dark:bg-black/60 backdrop-blur-xl shadow-lg">
+            <div className="w-80 h-full border-r border-black/10 bg-white/60 dark:bg-black/60 backdrop-blur-xl shadow-lg relative z-10">
               <div className="flex h-full flex-col">
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   {props.sidebarContent}
@@ -204,7 +205,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col h-full min-h-0 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col h-full min-h-0 overflow-hidden relative">
         {!props.hideHeader && (
           <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
             {!props.hideSidebar && (

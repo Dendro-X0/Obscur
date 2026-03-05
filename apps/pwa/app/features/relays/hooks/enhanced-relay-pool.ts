@@ -589,6 +589,50 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
 };
 
 /**
+ * Standalone publish function for use outside of hooks
+ */
+export const publishToRelayStandalone = async (url: string, payload: string): Promise<PublishResult> => {
+  return publishToRelay(url, payload);
+};
+
+/**
+ * Standalone multi-publish function for use outside of hooks
+ */
+export const publishToUrlsStandalone = async (urls: ReadonlyArray<string>, payload: string): Promise<MultiRelayPublishResult> => {
+  const normalized = Array.from(new Set(urls.map((url) => url.trim()).filter((url) => url.length > 0)));
+  const connected = normalized.filter((url) => {
+    const socket = socketsByUrl[url];
+    return !!socket && socket.readyState === WebSocket.OPEN;
+  });
+
+  if (connected.length === 0) {
+    // Attempt connecting to them if they are in the list but not connected
+    const results = await Promise.all(normalized.map(async (url) => {
+      return publishToRelay(url, payload);
+    }));
+    const successCount = results.filter(r => r.success).length;
+    return {
+      success: successCount > 0,
+      successCount,
+      totalRelays: normalized.length,
+      results,
+      overallError: successCount > 0 ? undefined : "No relays connected"
+    };
+  }
+
+  const results = await Promise.all(connected.map((url) => publishToRelay(url, payload)));
+  const successCount = results.filter((r) => r.success).length;
+  const success = successCount > 0;
+  return {
+    success,
+    successCount,
+    totalRelays: normalized.length,
+    results,
+    overallError: success ? undefined : (results[0]?.error ?? "Unknown failure")
+  };
+};
+
+/**
  * Publish to all connected relays and return success if AT LEAST ONE relay accepts
  * Implements Requirements 1.4, 1.5, 4.8
  */

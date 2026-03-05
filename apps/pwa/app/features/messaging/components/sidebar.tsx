@@ -23,6 +23,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
+import { RelayStatusIndicator } from "../../relays/components/relay-status-indicator";
 
 export interface SidebarProps {
     isNewChatOpen: boolean;
@@ -375,6 +376,9 @@ export function Sidebar({
                         )}
                     </>
                 )}
+            </div>
+            <div className="border-t border-black/[0.03] dark:border-white/[0.03] mt-auto">
+                <RelayStatusIndicator />
             </div>
         </div>
     );

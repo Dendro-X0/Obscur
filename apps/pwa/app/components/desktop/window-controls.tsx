@@ -52,33 +52,33 @@ export function WindowControls(): React.JSX.Element | null {
   };
 
   return (
-    <div className="flex items-center gap-1" data-tauri-drag-region>
+    <div className="flex items-center gap-1.5" data-tauri-drag-region>
       <Button
         variant="ghost"
         size="sm"
-        className="h-8 w-8 p-0 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+        className="h-9 w-9 p-0 titlebar-button text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
         onClick={handleMinimize}
         aria-label="Minimize window"
       >
-        <Minus className="h-4 w-4" />
+        <Minus className="h-4.5 w-4.5" />
       </Button>
       <Button
         variant="ghost"
         size="sm"
-        className="h-8 w-8 p-0 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+        className="h-9 w-9 p-0 titlebar-button text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
         onClick={handleMaximize}
         aria-label={isMaximized ? "Restore window" : "Maximize window"}
       >
-        {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        {isMaximized ? <Minimize2 className="h-4.5 w-4.5" /> : <Maximize2 className="h-4.5 w-4.5" />}
       </Button>
       <Button
         variant="ghost"
         size="sm"
-        className="h-8 w-8 p-0 hover:bg-red-500 hover:text-white dark:hover:bg-red-600"
+        className="h-9 w-9 p-0 titlebar-button titlebar-button-close text-zinc-500"
         onClick={handleClose}
         aria-label="Close window"
       >
-        <X className="h-4 w-4" />
+        <X className="h-4.5 w-4.5" />
       </Button>
     </div>
   );
