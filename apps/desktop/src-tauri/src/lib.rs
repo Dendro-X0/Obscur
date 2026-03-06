@@ -57,6 +57,19 @@ struct TorState {
     settings: Mutex<TorSettings>,
 }
 
+fn stop_tor_child(state: &TorState) -> Result<bool, String> {
+    let child = {
+        let mut lock = state.child.lock().map_err(|e| e.to_string())?;
+        lock.take()
+    };
+    if let Some(child) = child {
+        child.kill().map_err(|e| e.to_string())?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 #[tauri::command]
 async fn check_for_updates(app: tauri::AppHandle) -> Result<String, String> {
     match app.updater_builder().build() {
@@ -312,24 +325,24 @@ async fn start_tor(app: tauri::AppHandle, state: tauri::State<'_, TorState>) -> 
             match event {
                 CommandEvent::Stdout(line) => {
                     let line_str = String::from_utf8_lossy(&line);
-                    app_handle.emit("tor-log", line_str.clone()).unwrap();
+                    let _ = app_handle.emit("tor-log", line_str.clone());
                     if line_str.contains("Bootstrapped 100%") {
-                        app_handle.emit("tor-status", "connected").unwrap();
+                        let _ = app_handle.emit("tor-status", "connected");
                     } else if line_str.contains("Address already in use") {
-                        app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...").unwrap();
-                        app_handle.emit("tor-status", "connected").unwrap();
+                        let _ = app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...");
+                        let _ = app_handle.emit("tor-status", "connected");
                     }
                 }
                 CommandEvent::Stderr(line) => {
                     let line_str = String::from_utf8_lossy(&line);
-                    app_handle.emit("tor-error", line_str.clone()).unwrap();
+                    let _ = app_handle.emit("tor-error", line_str.clone());
                     if line_str.contains("Address already in use") {
-                        app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...").unwrap();
-                        app_handle.emit("tor-status", "connected").unwrap();
+                        let _ = app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...");
+                        let _ = app_handle.emit("tor-status", "connected");
                     }
                 }
                 CommandEvent::Terminated(payload) => {
-                    app_handle.emit("tor-status", format!("terminated: {}", payload.code.unwrap_or(-1))).unwrap();
+                    let _ = app_handle.emit("tor-status", format!("terminated: {}", payload.code.unwrap_or(-1)));
                 }
                 _ => {}
             }
@@ -337,16 +350,14 @@ async fn start_tor(app: tauri::AppHandle, state: tauri::State<'_, TorState>) -> 
     });
 
     *lock = Some(child);
-    app.emit("tor-status", "starting").unwrap();
+    let _ = app.emit("tor-status", "starting");
     Ok("Tor started".to_string())
 }
 
 #[tauri::command]
 async fn stop_tor(state: tauri::State<'_, TorState>, app: tauri::AppHandle) -> Result<String, String> {
-    let mut lock = state.child.lock().unwrap();
-    if let Some(child) = lock.take() {
-        child.kill().map_err(|e| e.to_string())?;
-        app.emit("tor-status", "stopped").unwrap();
+    if stop_tor_child(&state)? {
+        let _ = app.emit("tor-status", "stopped");
         Ok("Tor stopped".to_string())
     } else {
         Ok("Tor is not running".to_string())
@@ -621,6 +632,8 @@ pub fn run() {
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "quit" => {
+                            let state = app.state::<TorState>();
+                            let _ = stop_tor_child(&state);
                             app.exit(0);
                         }
                         "show" => {
@@ -682,6 +695,10 @@ pub fn run() {
                             tauri::async_runtime::spawn(async move {
                                 let _ = save_window_state(wh, ah).await;
                             });
+                        }
+                        tauri::WindowEvent::Destroyed => {
+                            let state = app_handle.state::<TorState>();
+                            let _ = stop_tor_child(&state);
                         }
                         _ => {}
                     }
