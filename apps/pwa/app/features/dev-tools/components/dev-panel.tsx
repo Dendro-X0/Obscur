@@ -13,6 +13,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { loadGroupTombstones } from "@/app/features/groups/services/group-tombstone-store";
+import { getAbuseMetricsSnapshot } from "@/app/shared/abuse-observability";
+import { getSybilRiskSnapshot } from "@/app/shared/sybil-risk-signals";
 import {
     auditCommunityMigrationState,
     type CommunityMigrationAuditReport
@@ -34,6 +36,9 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
         conversationId: string;
         displayName: string;
     }>>>([]);
+    const identityDiagnostics = identity.getIdentityDiagnostics?.() ?? { status: identity.state.status };
+    const abuseMetrics = getAbuseMetricsSnapshot();
+    const sybilRisk = getSybilRiskSnapshot();
 
     if (!isDevMode && process.env.NODE_ENV !== "development") {
         return null;
@@ -276,6 +281,39 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                         </div>
 
                         {/* Simulations */}
+                        <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Identity Diagnostics</div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div>status: <span className="font-mono">{identityDiagnostics.status}</span></div>
+                                <div>stored: <span className="font-mono">{identityDiagnostics.storedPublicKeyHex?.slice(0, 12) || "n/a"}</span></div>
+                                <div>native: <span className="font-mono">{identityDiagnostics.nativeSessionPublicKeyHex?.slice(0, 12) || "n/a"}</span></div>
+                                <div>mismatch: <span className="font-mono">{identityDiagnostics.mismatchReason || "none"}</span></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Abuse Metrics</div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div>request suppressed: <span className="font-mono">{abuseMetrics.request_send_suppressed}</span></div>
+                                <div>join suppressed: <span className="font-mono">{abuseMetrics.join_request_suppressed}</span></div>
+                                <div>quarantined malformed: <span className="font-mono">{abuseMetrics.quarantined_malformed_event}</span></div>
+                                <div>deduped state: <span className="font-mono">{abuseMetrics.deduped_state_entry}</span></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Sybil Risk Signals</div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div>level: <span className="font-mono">{sybilRisk.level}</span></div>
+                                <div>score: <span className="font-mono">{sybilRisk.score}</span></div>
+                                <div>window(min): <span className="font-mono">{Math.round(sybilRisk.windowMs / 60000)}</span></div>
+                                <div>request burst: <span className="font-mono">{sybilRisk.counts.request_suppressed}</span></div>
+                                <div>malformed burst: <span className="font-mono">{sybilRisk.counts.malformed_event_quarantined}</span></div>
+                                <div>identity churn: <span className="font-mono">{sybilRisk.counts.identity_churn}</span></div>
+                                <div>distinct identities: <span className="font-mono">{sybilRisk.distinctIdentityCount}</span></div>
+                            </div>
+                        </div>
+
                         <div>
                             <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Simulations</div>
                             <div className="mt-2 flex flex-col gap-2">

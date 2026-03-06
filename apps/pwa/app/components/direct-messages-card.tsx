@@ -13,6 +13,7 @@ import { ConnectionStatus } from "./ui/connection-status";
 import { ErrorDetails } from "./ui/error-details";
 import { QueueStatus } from "./ui/queue-status";
 import { RefreshCw, AlertCircle } from "lucide-react";
+import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 
 type DirectMessagesState = Readonly<{
   status: "loading" | "ready" | "error";
@@ -58,9 +59,10 @@ export const DirectMessagesCard = () => {
   // Get messages for current conversation
   const conversationId = useMemo(() => {
     if (!myPublicKeyHex || !peerPublicKeyHexInput.trim()) return null;
-    const normalized = peerPublicKeyHexInput.trim().toLowerCase();
-    if (!/^[0-9a-f]{64}$/.test(normalized)) return null;
-    return [myPublicKeyHex, normalized].sort().join(':');
+    return toDmConversationId({
+      myPublicKeyHex,
+      peerPublicKeyHex: peerPublicKeyHexInput.trim(),
+    });
   }, [myPublicKeyHex, peerPublicKeyHexInput]);
 
   const messages = useMemo(() => {

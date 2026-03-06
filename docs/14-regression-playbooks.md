@@ -90,7 +90,24 @@ Checks:
 2. verify lock/unlock transitions.
 3. verify desktop/native session handoff behavior.
 
-## 7) Minimum Repro Template
+## 7) Ghost Users / Communities / Sybil-Like Spam
+
+Likely files:
+
+- `.../network/services/identity-integrity-migration.ts`
+- `.../messaging/controllers/enhanced-dm-controller.ts`
+- `.../groups/hooks/use-sealed-community.ts`
+- `.../messaging/controllers/incoming-dm-event-handler.ts`
+
+Checks:
+
+1. verify v0.8.5 integrity migration ran (`obscur:integrity-migration:v085:done:*` localStorage key).
+2. inspect backup snapshot (`obscur:integrity-migration:v085:backup:*`) before manual repair attempts.
+3. verify connection/join suppressions are returning deterministic reason codes (pending/cooldown/block).
+4. verify malformed inbound events are quarantined and not creating visible chats/groups.
+5. review abuse counters in dev diagnostics (request/join suppressed, quarantined malformed, deduped entries).
+
+## 8) Minimum Repro Template
 
 When filing regression issues, include:
 
@@ -100,7 +117,7 @@ When filing regression issues, include:
 4. logs/stack traces and affected file references.
 5. commit hash or release tag.
 
-## 8) Open Deferred Issue: Desktop Auth Overlay Background Blocking
+## 9) Open Deferred Issue: Desktop Auth Overlay Background Blocking
 
 Issue ID: `DESK-AUTH-OVERLAY-001`
 

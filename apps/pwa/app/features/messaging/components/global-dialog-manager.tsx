@@ -19,6 +19,7 @@ import type { DmConversation, GroupConversation, PublicKeyHex } from "@/app/feat
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
+import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 
 export function GlobalDialogManager() {
     const { t } = useTranslation();
@@ -64,7 +65,11 @@ export function GlobalDialogManager() {
         }
 
         const existing = createdConnections.find(c => c.pubkey === targetPubkey);
-        const newId = [myPublicKeyHex || '', targetPubkey].sort().join(':');
+        const newId = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: targetPubkey });
+        if (!newId) {
+            toast.error("Invalid conversation identity. Please verify the target public key.");
+            return;
+        }
 
         unhideConversation(newId); // Ensure it is unhidden if previously hidden
 

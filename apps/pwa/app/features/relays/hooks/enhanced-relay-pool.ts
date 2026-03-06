@@ -509,13 +509,22 @@ const removeTransientRelay = (url: string): void => {
  * Implements Requirements 1.4, 1.5, and reliable delivery
  */
 const publishToRelay = async (url: string, payload: string): Promise<PublishResult> => {
-  const socket = socketsByUrl[url];
+  if (!socketsByUrl[url]) {
+    addTransientRelay(url);
+  }
+
+  let socket = socketsByUrl[url];
 
   if (!socket) {
     return { success: false, relayUrl: url, error: 'Relay not found' };
   }
 
-  if (socket.readyState === WebSocket.CONNECTING) {
+  if (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING) {
+    attemptReconnect(url);
+    socket = socketsByUrl[url];
+  }
+
+  if (socket && socket.readyState === WebSocket.CONNECTING) {
     await new Promise<void>(resolve => {
       const timeout = setTimeout(resolve, 2000);
       socket.addEventListener('open', () => {
@@ -525,7 +534,7 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
     });
   }
 
-  if (socket.readyState !== WebSocket.OPEN) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
     return { success: false, relayUrl: url, error: 'Relay not connected' };
   }
 
@@ -640,7 +649,7 @@ const publishToAll = async (payload: string): Promise<MultiRelayPublishResult> =
   const urls = relayUrlsKey ? relayUrlsKey.split("|") : [];
 
   // Get all relays sorted by health
-  const sortedUrls = urls.filter(url => {
+  let sortedUrls = urls.filter(url => {
     const socket = socketsByUrl[url];
     return socket && socket.readyState === WebSocket.OPEN;
   }).sort((a, b) => {
@@ -649,6 +658,22 @@ const publishToAll = async (payload: string): Promise<MultiRelayPublishResult> =
     const healthScore = { healthy: 4, degraded: 3, unhealthy: 2, unknown: 1 };
     return healthScore[healthB] - healthScore[healthA];
   });
+
+  if (sortedUrls.length === 0) {
+    urls.forEach((url) => attemptReconnect(url));
+    const reconnected = await waitForConnection(3000);
+    if (reconnected) {
+      sortedUrls = urls.filter(url => {
+        const socket = socketsByUrl[url];
+        return socket && socket.readyState === WebSocket.OPEN;
+      }).sort((a, b) => {
+        const healthA = relayHealthMonitor.getHealthStatus(a);
+        const healthB = relayHealthMonitor.getHealthStatus(b);
+        const healthScore = { healthy: 4, degraded: 3, unhealthy: 2, unknown: 1 };
+        return healthScore[healthB] - healthScore[healthA];
+      });
+    }
+  }
 
   if (sortedUrls.length === 0) {
     return {
@@ -686,10 +711,25 @@ const publishToUrl = async (url: string, payload: string): Promise<PublishResult
 
 const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Promise<MultiRelayPublishResult> => {
   const normalized = Array.from(new Set(urls.map((url) => url.trim()).filter((url) => url.length > 0)));
-  const connected = normalized.filter((url) => {
+  let connected = normalized.filter((url) => {
     const socket = socketsByUrl[url];
     return !!socket && socket.readyState === WebSocket.OPEN;
   });
+
+  if (connected.length === 0) {
+    normalized.forEach((url) => {
+      if (!socketsByUrl[url]) {
+        addTransientRelay(url);
+        return;
+      }
+      attemptReconnect(url);
+    });
+    await waitForConnection(3000);
+    connected = normalized.filter((url) => {
+      const socket = socketsByUrl[url];
+      return !!socket && socket.readyState === WebSocket.OPEN;
+    });
+  }
 
   if (connected.length === 0) {
     return {

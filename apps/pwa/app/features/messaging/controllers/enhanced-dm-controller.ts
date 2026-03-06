@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageQueue, type Message, type MessageStatus, type OutgoingMessage } from "../lib/message-queue";
 import { extractAttachmentsFromContent } from "../utils/logic";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
-import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
+import type { ConnectionRequestStatusValue, RequestSendBlockReason } from "@/app/features/messaging/types";
 import type { Attachment } from "@/app/features/messaging/types";
 import { errorHandler } from "../lib/error-handler";
 import { offlineQueueManager, type QueueStatus } from "../lib/offline-queue-manager";
@@ -49,6 +49,9 @@ import { prepareOutgoingDm } from "./outgoing-dm-send-preparer";
 import { applyRecipientRelayHints } from "./recipient-relay-hints";
 import { transitionMessageStatus } from "../state-machines/message-delivery-machine";
 import { orchestrateOutgoingDm } from "./outgoing-dm-orchestrator";
+import { getRequestCooldownRemainingMs } from "../services/request-anti-abuse";
+import { incrementAbuseMetric } from "@/app/shared/abuse-observability";
+import { recordRequestSuppressedRisk } from "@/app/shared/sybil-risk-signals";
 
 /**
  * Relay pool interface
@@ -95,6 +98,7 @@ export interface SendResult {
     latency?: number;
   }>;
   error?: string;
+  blockReason?: RequestSendBlockReason;
 }
 
 // buildDmEvent, countRelayFailures moved to helper modules
@@ -165,12 +169,19 @@ const MAX_MESSAGES_IN_MEMORY = 200;
 
 // isValidStatusTransition/create*State moved to dm-controller-state
 
-const createRequestGuardFailure = (error: string): SendResult => ({
+const createRequestGuardFailure = (error: string, blockReason: RequestSendBlockReason): SendResult => ({
   success: false,
   messageId: "",
   relayResults: [],
-  error
+  error,
+  blockReason
 });
+
+const createGuardFailureWithRisk = (error: string, blockReason: RequestSendBlockReason): SendResult => {
+  incrementAbuseMetric("request_send_suppressed");
+  recordRequestSuppressedRisk();
+  return createRequestGuardFailure(error, blockReason);
+};
 
 
 /**
@@ -457,24 +468,24 @@ export const useEnhancedDMController = (
     sendConnectionRequest: async (req) => {
       const normalizedPeer = normalizePublicKeyHex(req.peerPublicKeyHex);
       if (!normalizedPeer) {
-        return createRequestGuardFailure("Invalid recipient public key.");
+        return createGuardFailureWithRisk("Invalid recipient public key.", "invalid_peer_key");
       }
 
       const normalizedSelf = normalizePublicKeyHex(params.myPublicKeyHex);
       if (!normalizedSelf) {
-        return createRequestGuardFailure("Identity must be unlocked to send a connection request.");
+        return createGuardFailureWithRisk("Identity must be unlocked to send a connection request.", "identity_locked");
       }
 
       if (normalizedPeer === normalizedSelf) {
-        return createRequestGuardFailure("You cannot send a connection request to yourself.");
+        return createGuardFailureWithRisk("You cannot send a connection request to yourself.", "self_request");
       }
 
       if (params.blocklist?.isBlocked({ publicKeyHex: normalizedPeer })) {
-        return createRequestGuardFailure("Cannot send a request to a blocked user.");
+        return createGuardFailureWithRisk("Cannot send a request to a blocked user.", "peer_blocked");
       }
 
       if (params.peerTrust?.isAccepted({ publicKeyHex: normalizedPeer })) {
-        return createRequestGuardFailure("You are already connected to this user.");
+        return createGuardFailureWithRisk("You are already connected to this user.", "already_connected");
       }
 
       const requestState = params.requestsInbox?.getRequestStatus({ peerPublicKeyHex: normalizedPeer });
@@ -488,11 +499,23 @@ export const useEnhancedDMController = (
         requestState.status === "pending"
       );
       if (hasPendingOutgoing || hasPendingIncoming) {
-        return createRequestGuardFailure("A connection request is already pending for this user.");
+        return createGuardFailureWithRisk("A connection request is already pending for this user.", "pending_request_exists");
       }
 
       if (requestState?.status === "accepted") {
-        return createRequestGuardFailure("This connection request is already accepted.");
+        return createGuardFailureWithRisk("This connection request is already accepted.", "already_accepted");
+      }
+
+      const cooldownRemainingMs = getRequestCooldownRemainingMs({
+        myPublicKeyHex: normalizedSelf,
+        peerPublicKeyHex: normalizedPeer
+      });
+      if (cooldownRemainingMs > 0) {
+        const cooldownSeconds = Math.ceil(cooldownRemainingMs / 1000);
+        return createGuardFailureWithRisk(
+          `Connection request cooldown is active. Try again in ${cooldownSeconds}s.`,
+          "cooldown_active"
+        );
       }
 
       const writeRelays = params.myPublicKeyHex ? nip65Service.getWriteRelays(params.myPublicKeyHex) : [];

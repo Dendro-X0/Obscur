@@ -12,6 +12,7 @@ import { getStoredIdentity } from "../utils/get-stored-identity";
 import { saveStoredIdentity } from "../utils/save-stored-identity";
 import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
+import { recordIdentityActivationRisk } from "@/app/shared/sybil-risk-signals";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -32,6 +33,16 @@ type UseIdentityResult = Readonly<{
   lockIdentity: () => void;
   forgetIdentity: () => Promise<void>;
   getIdentitySnapshot: () => IdentityState;
+  getIdentityDiagnostics?: () => IdentityDiagnostics;
+}>;
+
+export type IdentityDiagnostics = Readonly<{
+  status: IdentityState["status"];
+  storedPublicKeyHex?: PublicKeyHex;
+  derivedPublicKeyHex?: PublicKeyHex;
+  nativeSessionPublicKeyHex?: PublicKeyHex | null;
+  mismatchReason?: "stored_public_key_invalid" | "native_mismatch" | "private_key_mismatch";
+  message?: string;
 }>;
 
 const createLoadingState = (): IdentityState => ({ status: "loading" });
@@ -111,7 +122,8 @@ export const useIdentity = (): UseIdentityResult => {
     resetPassphraseWithPrivateKey: resetPassphraseWithPrivateKeyAction,
     lockIdentity: lockIdentityAction,
     forgetIdentity: forgetIdentityAction,
-    getIdentitySnapshot
+    getIdentitySnapshot,
+    getIdentityDiagnostics: getIdentityDiagnosticsSnapshot
   }), [state]);
 };
 
@@ -126,6 +138,7 @@ type NativeCryptoSessionApi = Readonly<{
 let identityState: IdentityState = createLoadingState();
 let hasInitialized: boolean = false;
 const listeners: Set<() => void> = new Set();
+let identityDiagnostics: IdentityDiagnostics = { status: "loading" };
 
 const serverSnapshot: IdentityState = createLoadingState();
 
@@ -135,6 +148,12 @@ const notifyListeners = (): void => {
 
 const setIdentityState = (next: IdentityState): void => {
   identityState = next;
+  identityDiagnostics = {
+    ...identityDiagnostics,
+    status: next.status,
+    storedPublicKeyHex: next.stored?.publicKeyHex,
+    message: next.error
+  };
   notifyListeners();
 };
 
@@ -148,6 +167,12 @@ const subscribeToIdentity = (listener: () => void): (() => void) => {
 export const getIdentitySnapshot = (): IdentityState => {
   return identityState;
 };
+
+const setIdentityDiagnostics = (next: IdentityDiagnostics): void => {
+  identityDiagnostics = next;
+};
+
+export const getIdentityDiagnosticsSnapshot = (): IdentityDiagnostics => identityDiagnostics;
 
 const ensureInitialized = async (): Promise<void> => {
   if (hasInitialized) {
@@ -163,6 +188,10 @@ const ensureInitialized = async (): Promise<void> => {
         await saveStoredIdentity({ record: normalizedStored });
       }
       stored = normalizedStored;
+      setIdentityDiagnostics({
+        status: identityState.status,
+        storedPublicKeyHex: stored.publicKeyHex
+      });
     }
 
     // Auto-unlock with native keychain if possible
@@ -173,7 +202,29 @@ const ensureInitialized = async (): Promise<void> => {
         const normalizedNativeNpub = normalizePublicKeyHex(nativeNpub ?? undefined);
         if (normalizedNativeNpub === stored.publicKeyHex) {
           console.info("[Identity] Native key matched. Backend hydrated. Auto-unlocking...");
+          setIdentityDiagnostics({
+            status: "unlocked",
+            storedPublicKeyHex: stored.publicKeyHex,
+            nativeSessionPublicKeyHex: normalizedNativeNpub
+          });
+          recordIdentityActivationRisk(stored.publicKeyHex);
           setIdentityState(createUnlockedState({ stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
+          return;
+        }
+        if (normalizedNativeNpub && normalizedNativeNpub !== stored.publicKeyHex) {
+          setIdentityDiagnostics({
+            status: "error",
+            storedPublicKeyHex: stored.publicKeyHex,
+            nativeSessionPublicKeyHex: normalizedNativeNpub,
+            mismatchReason: "native_mismatch",
+            message: "Secure storage key does not match this account. Please unlock manually or reset secure storage."
+          });
+          setIdentityState(
+            createErrorState(
+              "Secure storage key mismatch detected. Please unlock manually or reset secure storage from Identity settings.",
+              stored
+            )
+          );
           return;
         }
       } catch (e) {
@@ -215,6 +266,7 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
     }
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex: activeKey }));
+    recordIdentityActivationRisk(record.publicKeyHex);
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message, record));
@@ -249,6 +301,7 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
     }
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex: activeKey }));
+    recordIdentityActivationRisk(record.publicKeyHex);
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Import failed";
     setIdentityState(createErrorState(message, record));
@@ -282,8 +335,17 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
     }
 
     setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: activeKey }));
+    recordIdentityActivationRisk(identityState.stored.publicKeyHex);
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
+    if (message.includes("does not match stored identity")) {
+      setIdentityDiagnostics({
+        status: "error",
+        storedPublicKeyHex: identityState.stored?.publicKeyHex,
+        mismatchReason: "private_key_mismatch",
+        message
+      });
+    }
     setIdentityState(createErrorState(message, identityState.stored));
     throw error;
   }
@@ -313,8 +375,17 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
     }
 
     setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: activeKey }));
+    recordIdentityActivationRisk(identityState.stored.publicKeyHex);
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
+    if (message.includes("does not match stored identity")) {
+      setIdentityDiagnostics({
+        status: "error",
+        storedPublicKeyHex: identityState.stored?.publicKeyHex,
+        mismatchReason: "private_key_mismatch",
+        message
+      });
+    }
     setIdentityState(createErrorState(message, identityState.stored));
     throw error;
   }
@@ -376,6 +447,7 @@ const resetPassphraseWithPrivateKeyAction = async (params: Readonly<{ privateKey
       privateKeyHex, // Also unlock it as a courtesy
       status: "unlocked"
     });
+    recordIdentityActivationRisk(updatedRecord.publicKeyHex);
   } catch (error: unknown) {
     console.error("Failed to reset passphrase with private key:", error);
     throw error;

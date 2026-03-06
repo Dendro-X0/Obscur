@@ -85,4 +85,5 @@ Use these specs/checklists as the current release planning references:
 3. [v0.8.1 Ticketized Roadmap](./22-v0.8.1-roadmap.md)
 4. [v0.8.2 Ticketized Roadmap](./23-v0.8.2-roadmap.md)
 5. [v0.8.3 Ticketized Roadmap](./24-v0.8.3-roadmap.md)
+6. [v0.8.5 Ticketized Roadmap](./27-v0.8.5-roadmap.md)
 

@@ -38,6 +38,7 @@ import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import type { Message, DmConversation } from "@/app/features/messaging/types";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { ConnectRequestDialog } from "./connect-request-dialog";
+import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 
 export default function ConnectionProfileView() {
     const { pubkey } = useParams();
@@ -104,7 +105,11 @@ export default function ConnectionProfileView() {
 
     const handleMessage = () => {
         const myPk = identity.state.publicKeyHex || "";
-        const cid = [myPk, pk].sort().join(':');
+        const cid = toDmConversationId({ myPublicKeyHex: myPk, peerPublicKeyHex: pk });
+        if (!cid) {
+            toast.error("Invalid conversation identity for this profile.");
+            return;
+        }
         const existing = createdConnections.find(c => c.id === cid);
 
         if (existing) {
@@ -179,7 +184,11 @@ export default function ConnectionProfileView() {
 
             await relayPool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
 
-            const conversationId = [myPublicKeyHex, pk].sort().join(':');
+            const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: pk });
+            if (!conversationId) {
+                toast.error("Cannot send invite due to invalid identity state.");
+                return;
+            }
 
             // Persist locally for sender visibility
             const inviteMessage: Message = {

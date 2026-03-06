@@ -12,6 +12,8 @@ import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { classifyDecryptFailure } from "../lib/decrypt-failure-classifier";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { incrementAbuseMetric } from "@/app/shared/abuse-observability";
+import { recordMalformedEventQuarantinedRisk } from "@/app/shared/sybil-risk-signals";
 
 const GLOBAL_PROCESSING_KEY = "__obscur_processing_dm_events__";
 const GLOBAL_FAILED_DECRYPT_KEY = "__obscur_failed_decrypt_events__";
@@ -112,6 +114,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
 
     const senderPubkey = normalizePublicKeyHex(event.pubkey);
     if (!senderPubkey) {
+      incrementAbuseMetric("quarantined_malformed_event");
+      recordMalformedEventQuarantinedRisk();
       logRuntimeEvent(
         "incoming_dm.invalid_sender_pubkey",
         "degraded",
@@ -123,6 +127,10 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     const recipientTag = event.tags?.find(tag => tag[0] === "p");
     const normalizedRecipient = normalizePublicKeyHex(recipientTag?.[1]);
     if (!normalizedRecipient || normalizedRecipient !== currentParams.myPublicKeyHex) {
+      if (!normalizedRecipient) {
+        incrementAbuseMetric("quarantined_malformed_event");
+        recordMalformedEventQuarantinedRisk();
+      }
       return;
     }
 
@@ -175,6 +183,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     }
 
     if (!actualSenderPubkey) {
+      incrementAbuseMetric("quarantined_malformed_event");
+      recordMalformedEventQuarantinedRisk();
       logRuntimeEvent(
         "incoming_dm.invalid_decrypted_sender_pubkey",
         "degraded",

@@ -10,15 +10,17 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { CommunityAccessGuard } from "@/app/features/groups/services/community-access-guard";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { toast } from "../../../components/ui/toast";
-import type { GroupRole, GroupMembershipStatus, GroupMetadata, GroupAccessMode } from "../types";
+import type { GroupRole, GroupMembershipStatus, GroupMetadata, GroupAccessMode, JoinRequestState } from "../types";
 import {
   transitionCommunityConnection
 } from "../../messaging/state-machines/community-membership-machine";
 import { messageBus } from "../../messaging/services/message-bus";
-import type { Message } from "../../messaging/types";
+import type { Message, JoinRequestBlockReason } from "../../messaging/types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
+import { incrementAbuseMetric } from "@/app/shared/abuse-observability";
+import { recordMalformedEventQuarantinedRisk } from "@/app/shared/sybil-risk-signals";
 import {
   createCommunityLedgerState,
   reduceCommunityLedger,
@@ -98,6 +100,8 @@ export type GroupMessageEvent = Readonly<{
 type Nip29GroupState = Readonly<{
   status: "idle" | "loading" | "ready" | "error";
   error?: string;
+  joinRequestState: JoinRequestState;
+  joinRequestBlockReason?: JoinRequestBlockReason;
   metadata?: GroupMetadata;
   membership: Readonly<{ status: GroupMembershipStatus; role: GroupRole }>;
   messages: ReadonlyArray<GroupMessageEvent>;
@@ -152,6 +156,14 @@ const MAX_GROUP_MESSAGES = 200;
 const GROUP_DELETE_TOMBSTONE_TTL_MS = 2 * 60 * 1000;
 const JOIN_REQUEST_PENDING_PREFIX = "obscur:groups:join-request-pending:v1";
 const JOIN_REQUEST_PENDING_TTL_MS = 24 * 60 * 60 * 1000;
+const JOIN_REQUEST_COOLDOWN_MS = 2 * 60 * 1000;
+const JOIN_REQUEST_DENIED_TTL_MS = 30 * 60 * 1000;
+
+type JoinRequestStorageRecord = Readonly<{
+  status: Exclude<JoinRequestState, "none" | "expired">;
+  updatedAtMs: number;
+  cooldownUntilMs?: number;
+}>;
 
 const toJoinRequestPendingKey = (params: Readonly<{
   relayUrl: string;
@@ -166,31 +178,77 @@ const toJoinRequestPendingKey = (params: Readonly<{
   ].join(":");
 };
 
-const isJoinRequestPending = (storageKey: string): boolean => {
-  if (typeof window === "undefined") return false;
+const getJoinRequestStorageState = (storageKey: string): Readonly<{
+  state: JoinRequestState;
+  remainingCooldownMs?: number;
+}> => {
+  if (typeof window === "undefined") return { state: "none" };
   const raw = window.localStorage.getItem(storageKey);
-  if (!raw) return false;
+  if (!raw) return { state: "none" };
   try {
-    const parsed = JSON.parse(raw) as { createdAtMs?: number };
-    const createdAtMs = typeof parsed.createdAtMs === "number" ? parsed.createdAtMs : 0;
-    if (createdAtMs <= 0) {
+    const parsed = JSON.parse(raw) as JoinRequestStorageRecord;
+    if (typeof parsed.updatedAtMs !== "number" || typeof parsed.status !== "string") {
       window.localStorage.removeItem(storageKey);
-      return false;
+      return { state: "none" };
     }
-    if ((Date.now() - createdAtMs) > JOIN_REQUEST_PENDING_TTL_MS) {
+    if (parsed.status === "pending" && (Date.now() - parsed.updatedAtMs) > JOIN_REQUEST_PENDING_TTL_MS) {
       window.localStorage.removeItem(storageKey);
-      return false;
+      return { state: "expired" };
     }
-    return true;
+    if (parsed.status === "cooldown") {
+      const remainingCooldownMs = (parsed.cooldownUntilMs ?? 0) - Date.now();
+      if (remainingCooldownMs <= 0) {
+        window.localStorage.removeItem(storageKey);
+        return { state: "none" };
+      }
+      return { state: "cooldown", remainingCooldownMs };
+    }
+    if (parsed.status === "denied") {
+      if ((Date.now() - parsed.updatedAtMs) > JOIN_REQUEST_DENIED_TTL_MS) {
+        window.localStorage.removeItem(storageKey);
+        return { state: "expired" };
+      }
+      return { state: "denied" };
+    }
+    return { state: parsed.status };
   } catch {
     window.localStorage.removeItem(storageKey);
-    return false;
+    return { state: "none" };
   }
 };
 
-const markJoinRequestPending = (storageKey: string): void => {
+const blockReasonFromJoinState = (state: JoinRequestState): JoinRequestBlockReason | undefined => {
+  if (state === "pending") return "pending_request_exists";
+  if (state === "cooldown") return "cooldown_active";
+  if (state === "denied") return "denied_request";
+  return undefined;
+};
+
+const classifyJoinRequestFailure = (error: unknown): "denied" | "cooldown" => {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/(denied|forbidden|not allowed|permission|not authorized|unauthorized|blocked)/i.test(message)) {
+    return "denied";
+  }
+  return "cooldown";
+};
+
+const setJoinRequestStorageState = (
+  storageKey: string,
+  params: Readonly<{ state: Exclude<JoinRequestState, "none" | "expired">; cooldownMs?: number }>
+): void => {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey, JSON.stringify({ createdAtMs: Date.now() }));
+  const now = Date.now();
+  const next: JoinRequestStorageRecord = params.state === "cooldown"
+    ? {
+      status: "cooldown",
+      updatedAtMs: now,
+      cooldownUntilMs: now + Math.max(1_000, params.cooldownMs ?? JOIN_REQUEST_COOLDOWN_MS)
+    }
+    : {
+      status: params.state,
+      updatedAtMs: now
+    };
+  window.localStorage.setItem(storageKey, JSON.stringify(next));
 };
 
 const clearJoinRequestPending = (storageKey: string | null): void => {
@@ -286,6 +344,7 @@ export const hasCommunityBindingTag = (params: Readonly<{ event: NostrEvent; gro
 const createInitialState = (): Nip29GroupState => {
   return {
     status: "idle",
+    joinRequestState: "none",
     membership: { status: "unknown", role: "member" },
     messages: [],
     joinRequests: [],
@@ -444,6 +503,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       stats.relayScopeMismatch += 1;
       if (receivedRelay) stats.lastReceivedRelay = receivedRelay;
     }
+    incrementAbuseMetric("quarantined_malformed_event");
+    if (reason !== "relay_scope_mismatch") {
+      recordMalformedEventQuarantinedRisk();
+    }
     stats.lastReason = reason;
 
     const buildNotice = (): string => {
@@ -537,6 +600,21 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     const membershipConfirmed = state.membership.status === "member" || members.includes(params.myPublicKeyHex);
     if (membershipConfirmed) {
       clearJoinRequestPending(joinRequestPendingKey);
+      setState((prev) => ({
+        ...prev,
+        joinRequestState: "accepted",
+        joinRequestBlockReason: undefined
+      }));
+      return;
+    }
+    if (!joinRequestPendingKey) return;
+    const current = getJoinRequestStorageState(joinRequestPendingKey);
+    if (current.state === "cooldown" || current.state === "pending" || current.state === "denied" || current.state === "expired") {
+      setState((prev) => ({
+        ...prev,
+        joinRequestState: current.state,
+        joinRequestBlockReason: blockReasonFromJoinState(current.state),
+      }));
     }
   }, [joinRequestPendingKey, members, params.myPublicKeyHex, state.membership.status]);
 
@@ -761,7 +839,11 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           };
           queueRealtimeMessage({ groupMessage: nextMsg, unifiedMessage: unifiedMsg });
         } catch (e) {
-          console.error("Failed to process sealed message:", e);
+          logRejectedEvent({
+            reason: "sealed_process_failed",
+            eventId: event.id,
+            context: { error: e instanceof Error ? e.message : String(e) }
+          });
         }
         return;
       }
@@ -1112,9 +1194,33 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const setGroupStatus = noop;
   const requestJoin = useCallback(async (): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
-    if (joinRequestPendingKey && isJoinRequestPending(joinRequestPendingKey)) {
-      toast.info("Join request already pending. Wait for it to be accepted or declined.");
+    if (state.membership.status === "member" || members.includes(params.myPublicKeyHex)) {
+      setState((prev) => ({ ...prev, joinRequestState: "accepted", joinRequestBlockReason: "already_member" }));
+      incrementAbuseMetric("join_request_suppressed");
+      toast.info("You are already a member of this community.");
       return;
+    }
+    if (joinRequestPendingKey) {
+      const current = getJoinRequestStorageState(joinRequestPendingKey);
+      if (current.state === "pending") {
+        setState((prev) => ({ ...prev, joinRequestState: "pending", joinRequestBlockReason: "pending_request_exists" }));
+        incrementAbuseMetric("join_request_suppressed");
+        toast.info("Join request already pending. Wait for it to be accepted or declined.");
+        return;
+      }
+      if (current.state === "cooldown") {
+        const seconds = Math.ceil((current.remainingCooldownMs ?? 0) / 1000);
+        setState((prev) => ({ ...prev, joinRequestState: "cooldown", joinRequestBlockReason: "cooldown_active" }));
+        incrementAbuseMetric("join_request_suppressed");
+        toast.info(`Join request cooldown active. Try again in ${seconds}s.`);
+        return;
+      }
+      if (current.state === "denied") {
+        setState((prev) => ({ ...prev, joinRequestState: "denied", joinRequestBlockReason: "denied_request" }));
+        incrementAbuseMetric("join_request_suppressed");
+        toast.info("A recent join request was denied. Please wait before sending another request.");
+        return;
+      }
     }
     try {
       const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
@@ -1128,13 +1234,27 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         throw new Error(joinResult.overallError || "Failed to publish join request to community relay scope");
       }
       if (joinRequestPendingKey) {
-        markJoinRequestPending(joinRequestPendingKey);
+        setJoinRequestStorageState(joinRequestPendingKey, { state: "pending" });
       }
+      setState((prev) => ({ ...prev, joinRequestState: "pending", joinRequestBlockReason: undefined }));
       toast.success("Join request sent to relay");
     } catch (e: any) {
-      toast.error(e.message || "Failed to send join request. Confirm relay scope and retry.");
+      const failureState = classifyJoinRequestFailure(e);
+      if (joinRequestPendingKey) {
+        setJoinRequestStorageState(joinRequestPendingKey, { state: failureState });
+      }
+      setState((prev) => ({
+        ...prev,
+        joinRequestState: failureState,
+        joinRequestBlockReason: failureState === "denied" ? "denied_request" : "cooldown_active"
+      }));
+      toast.error(
+        failureState === "denied"
+          ? "Join request denied by relay policy. Retry later or contact community admins."
+          : (e.message || "Failed to send join request. Confirm relay scope and retry.")
+      );
     }
-  }, [joinRequestPendingKey, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
+  }, [joinRequestPendingKey, members, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry, state.membership.status]);
   const approveJoin = noop;
   const denyJoin = noop;
   const approveAllJoinRequests = noop;

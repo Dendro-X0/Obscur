@@ -7,6 +7,7 @@ import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
+import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 
 export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void>) {
     const router = useRouter();
@@ -48,7 +49,8 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                             if (parsed.ok) {
                                 queueMicrotask(() => {
                                     const myPk = identity.state.publicKeyHex || "";
-                                    const cid = [myPk, parsed.publicKeyHex].sort().join(':');
+                                    const cid = toDmConversationId({ myPublicKeyHex: myPk, peerPublicKeyHex: parsed.publicKeyHex });
+                                    if (!cid) return;
                                     const existingConnection = createdConnections.find(c => c.id === cid);
                                     if (existingConnection) {
                                         setSelectedConversation(existingConnection);
@@ -109,7 +111,8 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
             const parsed = parsePublicKeyInput(pubkey);
             if (parsed.ok) {
                 queueMicrotask(() => {
-                    const cid = [myPk, parsed.publicKeyHex].sort().join(':');
+                    const cid = toDmConversationId({ myPublicKeyHex: myPk, peerPublicKeyHex: parsed.publicKeyHex });
+                    if (!cid) return;
                     const existingConnection = createdConnections.find(c => c.id === cid);
                     if (existingConnection) {
                         setSelectedConversation(existingConnection);

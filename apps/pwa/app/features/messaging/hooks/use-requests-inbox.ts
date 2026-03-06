@@ -8,6 +8,7 @@ import type { ConnectionRequestStatusValue, RequestsInboxItem } from "@/app/feat
 
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { clearRequestCooldown, setRequestCooldown } from "../services/request-anti-abuse";
 import {
   transitionHandshake,
   shouldProcessAsNewRequest,
@@ -223,6 +224,29 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
   const setStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>): void => {
     const normalizedPeer = normalizePublicKeyHex(p.peerPublicKeyHex);
     if (!normalizedPeer) return;
+    const myPublicKey = publicKeyHexRef.current;
+    const existingDirection = stored.items.find((i) => i.peerPublicKeyHex === normalizedPeer)?.isOutgoing;
+    const isOutgoing = p.isOutgoing ?? existingDirection ?? false;
+    if (myPublicKey && isOutgoing) {
+      if (p.status === "declined") {
+        setRequestCooldown({
+          myPublicKeyHex: myPublicKey,
+          peerPublicKeyHex: normalizedPeer,
+          reason: "declined"
+        });
+      } else if (p.status === "canceled") {
+        setRequestCooldown({
+          myPublicKeyHex: myPublicKey,
+          peerPublicKeyHex: normalizedPeer,
+          reason: "canceled"
+        });
+      } else if (p.status === "accepted" || p.status === "pending") {
+        clearRequestCooldown({
+          myPublicKeyHex: myPublicKey,
+          peerPublicKeyHex: normalizedPeer
+        });
+      }
+    }
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       const existing = prev.items.find(i => i.peerPublicKeyHex === normalizedPeer);
       let nextItems: RequestsInboxItem[];
@@ -280,7 +304,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       persistChange(next);
       return next;
     });
-  }, [persistChange]);
+  }, [persistChange, stored.items]);
 
   const state: RequestsInboxState = useMemo((): RequestsInboxState => {
     return { items: stored.items };

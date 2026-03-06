@@ -20,6 +20,7 @@ import type { GroupMetadata } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 
 interface InviteConnectionsDialogProps {
     isOpen: boolean;
@@ -114,7 +115,10 @@ export function InviteConnectionsDialog({
                 await relayPool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
 
                 const myPublicKeyHex = identityState.publicKeyHex || '';
-                const conversationId = [myPublicKeyHex, pubkey].sort().join(':');
+                const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: pubkey });
+                if (!conversationId) {
+                    return;
+                }
 
                 const inviteMessage: Message = {
                     id: inviteEvent.id,

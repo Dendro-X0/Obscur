@@ -56,14 +56,10 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
         setError(null);
 
         try {
-            // Wait for at least one relay to be connected (max 15s)
-            let attempts = 0;
-            const maxAttempts = 30;
-            while (attempts < maxAttempts) {
-                const openCount = pool.connections.filter(c => c.status === "open").length;
-                if (openCount > 0) break;
-                await new Promise(resolve => setTimeout(resolve, 500));
-                attempts++;
+            const hasRelayConnection = await pool.waitForConnection(5000);
+            if (!hasRelayConnection) {
+                setError("Relay connection is temporarily unavailable. Please retry in a moment.");
+                return false;
             }
 
             // Construct Kind 0 Event content
@@ -110,20 +106,46 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             // Publish to all connected relays
             const payload = JSON.stringify(["EVENT", signedEvent]);
 
-            // Use publishToAll if available, otherwise manual iteration
-            if (pool.publishToAll) {
-                const result = await pool.publishToAll(payload);
-                if (!result.success && result.successCount === 0) {
-                    throw new Error(result.overallError || "Failed to publish to any relay");
+            const maxAttempts = 4;
+            let lastError: string | null = null;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                await pool.waitForConnection(3000);
+
+                if (pool.publishToUrls && enabledRelayUrls.length > 0) {
+                    const scopedResult = await pool.publishToUrls(enabledRelayUrls, payload);
+                    if (scopedResult.success || scopedResult.successCount > 0) {
+                        return true;
+                    }
+                    lastError = scopedResult.overallError || "Failed to publish profile to enabled relays";
+                } else if (pool.publishToAll) {
+                    const result = await pool.publishToAll(payload);
+                    if (result.success || result.successCount > 0) {
+                        return true;
+                    }
+                    lastError = result.overallError || "Failed to publish to any relay";
+                } else {
+                    // Best-effort compatibility fallback for generic pools.
+                    pool.sendToOpen(payload);
+                    return true;
                 }
-            } else {
-                // Fallback if generic pool doesn't have publishToAll (though enhanced one does)
-                pool.sendToOpen(payload);
+
+                const transientRelayFailure = !!lastError && (
+                    /no relays are currently connected/i.test(lastError) ||
+                    /no scoped relays are currently connected/i.test(lastError) ||
+                    /relay not connected/i.test(lastError) ||
+                    /timeout waiting for ok response/i.test(lastError)
+                );
+                if (!transientRelayFailure || attempt >= maxAttempts) {
+                    break;
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
             }
 
-            return true;
+            throw new Error(lastError || "Failed to publish profile");
         } catch (err) {
-            console.error("Failed to publish profile:", err);
+            console.warn("Failed to publish profile:", err);
             setError(err instanceof Error ? err.message : "Failed to publish profile");
             return false;
         } finally {

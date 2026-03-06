@@ -1,11 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { usePeerTrust } from "../hooks/use-peer-trust";
 import { useRequestsInbox } from "@/app/features/messaging/hooks/use-requests-inbox";
 import { useBlocklist } from "../hooks/use-blocklist";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { runIdentityIntegrityMigrationV085 } from "../services/identity-integrity-migration";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 interface NetworkContextType {
     identity: ReturnType<typeof useIdentity>;
@@ -24,6 +26,21 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const peerTrust = usePeerTrust({ publicKeyHex });
     const requestsInbox = useRequestsInbox({ publicKeyHex });
     const blocklist = useBlocklist({ publicKeyHex });
+
+    useEffect(() => {
+        if (!publicKeyHex) return;
+        void runIdentityIntegrityMigrationV085(publicKeyHex)
+            .then((report) => {
+                logRuntimeEvent("identity_integrity.migration_v085.completed", "expected", [report]);
+            })
+            .catch((error) => {
+                logRuntimeEvent(
+                    "identity_integrity.migration_v085.failed",
+                    "degraded",
+                    [error instanceof Error ? error.message : String(error)]
+                );
+            });
+    }, [publicKeyHex]);
 
     const value = useMemo(() => ({
         identity,

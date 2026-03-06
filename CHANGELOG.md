@@ -1,3 +1,38 @@
+### [Unreleased - v0.8.5]
+
+### Added
+
+- **Identity Integrity Migration (v0.8.5)**:
+  - Added one-time local-state migration with backup snapshot and idempotent dedupe for request/trust/block/conversation references.
+- **Abuse Observability Counters**:
+  - Added shared counters for suppressed request/join attempts, quarantined malformed events, and deduped state entries.
+- **Soft Sybil Risk Signals (No Hard Ban)**:
+  - Added runtime risk-scoring hints for request suppression bursts, malformed-event quarantine bursts, and rapid multi-identity activation on one device.
+  - Added dev diagnostics surface for risk level/score and per-signal counters.
+- **Canonical DM Conversation ID Helper**:
+  - Added shared DM conversation-id normalization helper and migrated key DM invite/chat entry points to use it.
+
+### Changed
+
+- **Connection Request Anti-Abuse**:
+  - Extended request suppression with typed block reasons and cooldown enforcement in addition to pending/blocked/trusted/self checks.
+- **Community Join Request State Machine (Soft Enforcement)**:
+  - Promoted join-request guard to explicit runtime state: `none | pending | accepted | denied | expired | cooldown`.
+  - Added denied-state handling for relay/policy rejections with deterministic UX messaging and bounded retry behavior.
+  - Added scoped cooldown fallback on failed join publish attempts and deterministic suppression reasons.
+- **Auth Diagnostics and Mismatch Handling**:
+  - Added identity diagnostics snapshot surface for dev/maintainer tooling.
+  - Native key mismatch now enters explicit actionable error state (never partial unlock).
+
+### Fixed
+
+- **Ghost Entity Risk from Non-Canonical IDs**:
+  - Reduced duplicate/phantom DM entry creation paths by converging to normalized IDs in high-traffic flows.
+  - Removed remaining runtime fallback ID construction paths that could generate non-canonical conversation IDs.
+  - Extended one-time integrity migration to remap IndexedDB message `conversationId` references to canonical IDs.
+- **Malformed Event Containment**:
+  - Hardened malformed DM/group event quarantine accounting so invalid identities/events are tracked without creating UI entities.
+
 ## [v0.8.4] - 2026-03-05
 
 ### Added

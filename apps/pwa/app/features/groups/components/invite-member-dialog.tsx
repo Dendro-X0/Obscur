@@ -24,6 +24,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { messageBus } from "../../messaging/services/message-bus";
 import { MessageQueue } from "../../messaging/lib/message-queue";
 import type { Message } from "../../messaging/types";
+import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 
 interface InviteMemberDialogProps {
     isOpen: boolean;
@@ -120,7 +121,11 @@ export function InviteMemberDialog({
             // Persist locally for sender visibility
             const messageId = inviteEvent.id;
             const myPublicKeyHex = identityState.publicKeyHex || '';
-            const conversationId = [myPublicKeyHex, user.pubkey].sort().join(':');
+            const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: user.pubkey });
+            if (!conversationId) {
+                toast.error("Invite sent, but local message view could not be linked to a valid DM thread.");
+                return;
+            }
 
             const inviteMessage: Message = {
                 id: messageId,

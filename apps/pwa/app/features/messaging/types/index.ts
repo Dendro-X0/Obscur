@@ -197,6 +197,38 @@ export type PersistedConnectionOverride = Readonly<{ lastMessage: string; lastMe
 
 export type ConnectionRequestStatusValue = "pending" | "accepted" | "declined" | "canceled";
 
+export type RequestSendBlockReason =
+    | "invalid_peer_key"
+    | "identity_locked"
+    | "self_request"
+    | "peer_blocked"
+    | "already_connected"
+    | "pending_request_exists"
+    | "already_accepted"
+    | "cooldown_active";
+
+export type JoinRequestBlockReason =
+    | "identity_locked"
+    | "already_member"
+    | "pending_request_exists"
+    | "denied_request"
+    | "cooldown_active";
+
+export type IntegrityMigrationReport = Readonly<{
+    timestampMs: number;
+    backedUp: boolean;
+    backupKey?: string;
+    dedupedConnectionRequests: number;
+    dedupedConnections: number;
+    dedupedAcceptedPeers: number;
+    dedupedMutedPeers: number;
+    dedupedBlockedPeers: number;
+    remappedConversationRefs: number;
+    skipped: number;
+    conflicts: number;
+    restored: number;
+}>;
+
 export type ConnectionRequest = Readonly<{
     id: string; // Peer pubkey
     status: ConnectionRequestStatusValue;

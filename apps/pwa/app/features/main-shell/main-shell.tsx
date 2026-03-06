@@ -56,6 +56,7 @@ import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
 import { AuthScreen } from "../auth/components/auth-screen";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
+import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const DEFAULT_VISIBLE_MESSAGES = 50;
@@ -122,7 +123,8 @@ function NostrMessengerContent() {
   const dmController = useEnhancedDmController({
     myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox,
     onConnectionCreated: (pubkey) => {
-      const cid = [myPublicKeyHex || '', pubkey].sort().join(':');
+      const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pubkey });
+      if (!cid) return;
       setCreatedConnections(prev => {
         if (prev.some(c => c.id === cid)) return prev;
         return [...prev, {
@@ -349,7 +351,8 @@ function NostrMessengerContent() {
                 customTags: [['t', 'connection-accept']]
               });
 
-              const cid = [myPublicKeyHex || '', pk].sort().join(':');
+              const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
+              if (!cid) return;
               const newConv: DmConversation = {
                 kind: 'dm',
                 id: cid,
@@ -373,7 +376,8 @@ function NostrMessengerContent() {
             onBlockRequest={(pk) => blocklist.addBlocked({ publicKeyInput: pk })}
             onSelectRequest={(pk) => {
               requestsInbox.markRead({ peerPublicKeyHex: pk as PublicKeyHex });
-              const cid = [myPublicKeyHex || '', pk].sort().join(':');
+              const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
+              if (!cid) return;
               setSelectedConversation({
                 kind: 'dm',
                 id: cid,
@@ -494,7 +498,8 @@ function NostrMessengerContent() {
                 });
                 updateSidebarTab("chats");
 
-                const cid = [myPublicKeyHex || '', pk].sort().join(':');
+                const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
+                if (!cid) return;
                 const existing = allConversations.find(c => c.id === cid);
                 if (existing) {
                   setSelectedConversation(existing);
