@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { getNotificationsEnabled } from "../utils/get-notifications-enabled";
-import { setNotificationsEnabled } from "../utils/set-notifications-enabled";
+import { setNotificationChannels, setNotificationsEnabled } from "../utils/set-notifications-enabled";
+import type { NotificationChannels } from "../utils/notification-channels";
 
 type NotificationPreferenceState = Readonly<{
   enabled: boolean;
+  channels: NotificationChannels;
   permission: NotificationPermission | "unsupported";
 }>;
 
 type UseNotificationPreferenceResult = Readonly<{
   state: NotificationPreferenceState;
   setEnabled: (params: Readonly<{ enabled: boolean }>) => void;
+  setChannels: (params: Readonly<{ channels: Partial<NotificationChannels> }>) => void;
 }>;
 
 type Listener = () => void;
@@ -27,16 +30,26 @@ const subscribe = (listener: Listener): (() => void) => {
   };
 };
 
-let cachedSnapshot: NotificationPreferenceState = { enabled: false, permission: "unsupported" };
+let cachedSnapshot: NotificationPreferenceState = {
+  enabled: false,
+  channels: { dmMessages: false, mentionsReplies: false, invitesSystem: false },
+  permission: "unsupported"
+};
 
 const getSnapshot = (): NotificationPreferenceState => {
-  const enabled: boolean = getNotificationsEnabled().enabled;
+  const preference = getNotificationsEnabled();
   const permission: NotificationPermission | "unsupported" =
     typeof window === "undefined" || typeof Notification === "undefined" ? "unsupported" : Notification.permission;
-  if (cachedSnapshot.enabled === enabled && cachedSnapshot.permission === permission) {
+  if (
+    cachedSnapshot.enabled === preference.enabled
+    && cachedSnapshot.permission === permission
+    && cachedSnapshot.channels.dmMessages === preference.channels.dmMessages
+    && cachedSnapshot.channels.mentionsReplies === preference.channels.mentionsReplies
+    && cachedSnapshot.channels.invitesSystem === preference.channels.invitesSystem
+  ) {
     return cachedSnapshot;
   }
-  cachedSnapshot = { enabled, permission };
+  cachedSnapshot = { enabled: preference.enabled, channels: preference.channels, permission };
   return cachedSnapshot;
 };
 
@@ -49,7 +62,7 @@ const useNotificationPreference = (): UseNotificationPreferenceResult => {
       };
     }
     const onStorage = (event: StorageEvent): void => {
-      if (!event.key || !event.key.endsWith("notifications.enabled")) {
+      if (!event.key || !event.key.startsWith("dweb.nostr.pwa.notifications.")) {
         return;
       }
       notify();
@@ -65,9 +78,15 @@ const useNotificationPreference = (): UseNotificationPreferenceResult => {
       notify();
     };
   }, []);
+  const setChannelsStable = useMemo((): ((params: Readonly<{ channels: Partial<NotificationChannels> }>) => void) => {
+    return (params: Readonly<{ channels: Partial<NotificationChannels> }>): void => {
+      setNotificationChannels({ channels: params.channels });
+      notify();
+    };
+  }, []);
   return useMemo(
-    () => ({ state, setEnabled: setEnabledStable }),
-    [state, setEnabledStable]
+    () => ({ state, setEnabled: setEnabledStable, setChannels: setChannelsStable }),
+    [state, setEnabledStable, setChannelsStable]
   );
 };
 

@@ -31,39 +31,39 @@ vi.mock('@/app/features/crypto/crypto-service', () => ({
 }));
 
 vi.mock('../../lib/message-queue', () => {
-  const messages = new Map();
-  const queuedMessages = new Map();
-
   class MockMessageQueue {
+    private readonly messages = new Map<string, any>();
+    private readonly queuedMessages = new Map<string, any>();
+
     persistMessage = vi.fn(async (msg: any) => {
-      messages.set(msg.id, msg);
+      this.messages.set(msg.id, msg);
     });
     updateMessageStatus = vi.fn(async (id: string, status: string) => {
-      const msg = messages.get(id);
+      const msg = this.messages.get(id);
       if (msg) {
         msg.status = status;
-        messages.set(id, msg);
+        this.messages.set(id, msg);
       }
     });
-    getMessage = vi.fn(async (id: string) => messages.get(id));
+    getMessage = vi.fn(async (id: string) => this.messages.get(id));
     getMessages = vi.fn(async (conversationId?: string) => {
-      const all = Array.from(messages.values());
+      const all = Array.from(this.messages.values());
       if (!conversationId) return all;
       return all.filter((m: any) => m.conversationId === conversationId);
     });
     queueOutgoingMessage = vi.fn(async (msg: any) => {
-      queuedMessages.set(msg.id, msg);
+      this.queuedMessages.set(msg.id, msg);
     });
-    getQueuedMessages = vi.fn(async () => Array.from(queuedMessages.values()));
+    getQueuedMessages = vi.fn(async () => Array.from(this.queuedMessages.values()));
     removeFromQueue = vi.fn(async (id: string) => {
-      queuedMessages.delete(id);
+      this.queuedMessages.delete(id);
     });
     getLastMessageTimestamp = vi.fn(async () => null);
-    getAllMessages = vi.fn(async () => Array.from(messages.values()));
+    getAllMessages = vi.fn(async () => Array.from(this.messages.values()));
 
     markMessagesSynced = vi.fn(async () => { });
     cleanupOldMessages = vi.fn(async () => { });
-    getStorageUsage = vi.fn(async () => ({ totalMessages: messages.size, totalSizeBytes: 0 }));
+    getStorageUsage = vi.fn(async () => ({ totalMessages: this.messages.size, totalSizeBytes: 0 }));
   }
 
   return {
@@ -109,6 +109,14 @@ describe('Integration: Complete Message Flows', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(cryptoService.verifyEventSignature).mockResolvedValue(true);
+    vi.mocked(cryptoService.decryptDM).mockImplementation(async (ciphertext: string) => ciphertext.replace('encrypted_', ''));
+    vi.mocked(cryptoService.encryptDM).mockImplementation(async (plaintext: string) => `encrypted_${plaintext}`);
+    vi.mocked(cryptoService.signEvent).mockImplementation(async (event: any) => ({
+      ...event,
+      id: `event_${Date.now()}_${Math.random()}`,
+      sig: 'mock_signature'
+    }));
     messageListeners = new Set();
 
     mockPool = {
@@ -217,7 +225,7 @@ describe('Integration: Complete Message Flows', () => {
       // Verify Bob received the message
       await waitFor(() => {
         const messages = bobController.current.state.messages;
-        const receivedMessage = messages.find((m: any) => m.content === 'Hello Bob!');
+        const receivedMessage = messages.find((m: any) => m.eventId === aliceMessageId && m.senderPubkey === alice.pub);
         expect(receivedMessage).toBeDefined();
         expect(receivedMessage?.isOutgoing).toBe(false);
         expect(receivedMessage?.status).toBe('delivered');
@@ -298,19 +306,16 @@ describe('Integration: Complete Message Flows', () => {
       });
 
       // Send multiple messages rapidly
-      const messagePromises = [];
-      for (let i = 0; i < 5; i++) {
-        messagePromises.push(
-          act(async () => {
-            await result.current.sendDm({
+      await act(async () => {
+        await Promise.all(
+          Array.from({ length: 5 }, (_, i) =>
+            result.current.sendDm({
               peerPublicKeyInput: bob.pub,
               plaintext: `Message ${i + 1}`
-            });
-          })
+            })
+          )
         );
-      }
-
-      await Promise.all(messagePromises);
+      });
 
       // Verify all messages were sent
       await waitFor(() => {

@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import "./styles/mobile-safe-area.css"
 import { ThemeController } from "./components/theme-controller"
+import { AccessibilityController } from "./components/accessibility-controller"
 import PwaServiceWorkerRegistrar from "./components/pwa-service-worker-registrar"
 import { ToastProvider } from "./components/toast-provider"
 import { DesktopUpdater } from "./components/desktop-updater"
@@ -100,12 +101,33 @@ export default function RootLayout({
             `,
           }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var raw = localStorage.getItem('dweb.nostr.pwa.ui.accessibility.v1');
+                  if (!raw) return;
+                  var parsed = JSON.parse(raw);
+                  var textScale = parsed && typeof parsed.textScale === 'number' ? parsed.textScale : 100;
+                  var reducedMotion = !!(parsed && parsed.reducedMotion);
+                  var contrastAssist = !!(parsed && parsed.contrastAssist);
+                  var root = document.documentElement;
+                  root.style.setProperty('--app-text-scale', String(textScale) + '%');
+                  root.classList.toggle('reduce-motion', reducedMotion);
+                  root.classList.toggle('contrast-assist', contrastAssist);
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`} suppressHydrationWarning>
         <Preloader />
         <RootErrorBoundary>
           <DesktopModeProvider>
             <ThemeController />
+            <AccessibilityController />
             <I18nProvider>
               <PwaServiceWorkerRegistrar />
               <ToastProvider />

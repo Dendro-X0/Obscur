@@ -1,3 +1,38 @@
+## [v0.8.6] - 2026-03-06
+
+### Added
+
+- **Settings UX Completion (General + Account + Network + Moderation + Updates)**:
+  - Completed setup/configuration-focused settings pass with unified action-status feedback patterns.
+- **v0.8.6 Maintainer Notes + QA Matrix**:
+  - Added dedicated runbook-style settings reliability matrix and troubleshooting guide for release validation.
+
+### Changed
+
+- **Profile Setup Flow**:
+  - Improved profile preflight validation and explicit publish phase visibility (including waiting/publishing/failure context).
+- **Appearance and Accessibility**:
+  - Added/standardized quick controls and persisted accessibility preferences (text scale, reduced motion, contrast assist).
+- **Notifications**:
+  - Standardized granular channel toggles and permission diagnostics with in-app test action path.
+- **Identity and Security Surfaces**:
+  - Added identity overview/storage mode badges, challenge-gated private key reveal with auto-hide, integrity diagnostics, posture/capability summary, and session controls.
+  - Updated diagnostics UX to follow progressive disclosure (advanced diagnostics collapsed by default).
+- **Relay + Storage Polish**:
+  - Added relay quick health strip, local relay presets, relay failure hints, storage effective mode, index-based storage metrics, provider validation feedback, and section-local reset actions.
+- **Moderation and Privacy**:
+  - Upgraded blocklist UX with add/search/bulk actions and deterministic status feedback.
+  - Clarified privacy policy controls with explicit DM policy and modern DM posture summary.
+- **Updates Page**:
+  - Improved release-status UX and fixed dev-build update messaging to avoid false “new version available” states.
+  - Converted release notes link into button-style action for visual consistency.
+
+### Fixed
+
+- **Storage Folder Open Runtime Failure**:
+  - Prevented unhandled promise rejection/red-overlay class failures when shell scope blocks opening local storage paths.
+  - Added graceful fallback behavior and bounded degraded logging.
+
 ### [Unreleased - v0.8.5]
 
 ### Added

@@ -100,6 +100,14 @@ describe('Integration: Offline/Online Scenarios', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(cryptoService.verifyEventSignature).mockResolvedValue(true);
+    vi.mocked(cryptoService.decryptDM).mockImplementation(async (ciphertext: string) => ciphertext.replace('encrypted_', ''));
+    vi.mocked(cryptoService.encryptDM).mockImplementation(async (plaintext: string) => `encrypted_${plaintext}`);
+    vi.mocked(cryptoService.signEvent).mockImplementation(async (event: any) => ({
+      ...event,
+      id: `event_${Date.now()}_${Math.random()}`,
+      sig: 'mock_signature'
+    }));
     messageListeners = new Set();
   });
 

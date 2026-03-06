@@ -51,6 +51,7 @@
 }
 
 :root {
+  --app-text-scale: 100%;
   --radius: 0.625rem;
   --background: oklch(0.95 0.01 270);
   --foreground: oklch(0.15 0.04 270);
@@ -145,6 +146,10 @@
     overscroll-behavior: none;
     /* Touch target enhancement for mobile */
     --min-touch-target: 44px;
+  }
+
+  html {
+    font-size: var(--app-text-scale);
   }
 
   /* Ensure buttons and links have sufficient touch area on mobile without changing layout if possible */
@@ -496,5 +501,20 @@
 
   .media-viewer-nav-right {
     right: 1rem;
+  }
+
+  /* Accessibility: user-selected reduced motion */
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Accessibility: contrast assist */
+  .contrast-assist body {
+    filter: contrast(1.08) saturate(1.03);
   }
 }

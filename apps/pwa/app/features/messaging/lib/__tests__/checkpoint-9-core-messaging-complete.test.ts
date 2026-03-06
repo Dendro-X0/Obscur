@@ -19,7 +19,7 @@ import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 
 // Mock crypto service
-vi.mock('../../crypto/crypto-service', () => ({
+vi.mock('../../../../features/crypto/crypto-service', () => ({
   cryptoService: {
     encryptDM: vi.fn(async (plaintext: string) => `encrypted_${plaintext}`),
     decryptDM: vi.fn(async (ciphertext: string) => ciphertext.replace('encrypted_', '')),
@@ -76,6 +76,14 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(cryptoService.verifyEventSignature).mockResolvedValue(true);
+    vi.mocked(cryptoService.decryptDM).mockImplementation(async (ciphertext: string) => ciphertext.replace('encrypted_', ''));
+    vi.mocked(cryptoService.encryptDM).mockImplementation(async (plaintext: string) => `encrypted_${plaintext}`);
+    vi.mocked(cryptoService.signEvent).mockImplementation(async (event: any) => ({
+      ...event,
+      id: `event_${Date.now()}`,
+      sig: 'mock_signature'
+    }));
     messageListeners = new Set();
 
     mockPool = {
@@ -316,7 +324,15 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
       const calls = mockPool.sendToOpen.mock.calls;
       const syncCall = calls.find((call: any[]) => {
         const message = call[0];
-        return message.includes('REQ') && message.includes('"kinds":[4]');
+        if (typeof message !== 'string') return false;
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed[0] !== 'REQ') return false;
+          const filter = parsed[2];
+          return Array.isArray(filter?.kinds) && filter.kinds.includes(4);
+        } catch {
+          return false;
+        }
       });
       expect(syncCall).toBeDefined();
     });

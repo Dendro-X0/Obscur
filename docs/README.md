@@ -37,6 +37,8 @@ This folder is the source of truth for engineers and maintenance agents working 
 25. [v0.9.0 Ticketized Roadmap](./25-v0.9.0-roadmap.md)
 26. [v0.9.0 Persona Adoption Scorecard](./26-v0.9.0-persona-adoption-scorecard.md)
 27. [v0.8.5 Ticketized Roadmap (Auth + Sybil + Ghost Hardening)](./27-v0.8.5-roadmap.md)
+28. [v0.8.6 Ticketized Roadmap (Setup + Configuration UX)](./28-v0.8.6-setup-and-configuration-roadmap.md)
+29. [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md)
 
 ## Quick Paths By Task
 
@@ -57,6 +59,8 @@ This folder is the source of truth for engineers and maintenance agents working 
    [v0.8.1 Ticketized Roadmap](./22-v0.8.1-roadmap.md),
    [v0.8.3 Ticketized Roadmap](./24-v0.8.3-roadmap.md),
    [v0.8.5 Ticketized Roadmap](./27-v0.8.5-roadmap.md),
+   [v0.8.6 Ticketized Roadmap](./28-v0.8.6-setup-and-configuration-roadmap.md),
+   [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md),
    [v0.9.0 Ticketized Roadmap](./25-v0.9.0-roadmap.md),
    [v0.9.0 Persona Adoption Scorecard](./26-v0.9.0-persona-adoption-scorecard.md)
 4. Terminology and policy checks:

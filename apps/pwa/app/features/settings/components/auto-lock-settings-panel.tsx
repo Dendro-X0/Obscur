@@ -2,8 +2,10 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Clock, Shield, Lock, HardDrive, Clipboard, Globe, AlertTriangle } from 'lucide-react';
 import { useAutoLock } from '../hooks/use-auto-lock';
+import type { PrivacySettings } from '../services/privacy-settings-service';
 import { Label } from '../../../components/ui/label';
 import { cn } from '../../../lib/cn';
+import { SettingsActionStatus, type SettingsActionPhase } from './settings-action-status';
 
 /**
  * Premium Privacy & Safety Settings Panel
@@ -14,6 +16,8 @@ export const AutoLockSettingsPanel: React.FC = () => {
     const { t } = useTranslation();
     const { settings, updateSettings, torStatus, torLogs, torRestartRequired } = useAutoLock();
     const [showLogs, setShowLogs] = React.useState(false);
+    const [actionPhase, setActionPhase] = React.useState<SettingsActionPhase>("idle");
+    const [actionMessage, setActionMessage] = React.useState<string>("");
 
     const tauriWindow: (Window & Readonly<{ __TAURI_INTERNALS__?: unknown }>) | null = typeof window !== "undefined" ? window : null;
     const isTauri: boolean = tauriWindow?.__TAURI_INTERNALS__ !== undefined;
@@ -34,6 +38,14 @@ export const AutoLockSettingsPanel: React.FC = () => {
         { label: '1h', value: 60 },
         { label: t('common.never'), value: 0 },
     ];
+
+    const applySetting = (partial: Partial<PrivacySettings>, message: string): void => {
+        setActionPhase("working");
+        setActionMessage("Applying security setting...");
+        updateSettings(partial);
+        setActionPhase("success");
+        setActionMessage(message);
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -60,7 +72,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>
                     </div>
                     <button
-                        onClick={() => updateSettings({ encryptStorageAtRest: !settings.encryptStorageAtRest })}
+                        onClick={() => applySetting({ encryptStorageAtRest: !settings.encryptStorageAtRest }, settings.encryptStorageAtRest ? "At-rest encryption disabled." : "At-rest encryption enabled.")}
                         className={cn(
                             "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none",
                             settings.encryptStorageAtRest ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800'
@@ -84,6 +96,9 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         <div className="space-y-0.5">
                             <Label className="text-base text-zinc-900 dark:text-white font-bold tracking-tight">{t("settings.security.autoLock.title")}</Label>
                             <p className="text-zinc-500 dark:text-zinc-400 text-xs max-w-[240px] leading-relaxed font-medium">{t("settings.security.autoLock.desc")}</p>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                                {settings.autoLockTimeout > 0 ? `Locks after ${settings.autoLockTimeout} minute${settings.autoLockTimeout > 1 ? "s" : ""} of inactivity.` : "Auto-lock is disabled."}
+                            </p>
                         </div>
                     </div>
                     <div className="text-emerald-600 dark:text-emerald-400 text-xs font-black px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 tracking-wider">
@@ -95,7 +110,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     {timeoutOptions.map((option) => (
                         <button
                             key={option.value}
-                            onClick={() => updateSettings({ autoLockTimeout: option.value })}
+                            onClick={() => applySetting({ autoLockTimeout: option.value }, option.value > 0 ? `Auto-lock set to ${option.label}.` : "Auto-lock disabled.")}
                             className={cn(
                                 "px-2 py-2.5 rounded-xl text-[11px] font-black transition-all border",
                                 settings.autoLockTimeout === option.value
@@ -122,7 +137,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>
                     </div>
                     <button
-                        onClick={() => updateSettings({ clearClipboardOnLock: !settings.clearClipboardOnLock })}
+                        onClick={() => applySetting({ clearClipboardOnLock: !settings.clearClipboardOnLock }, settings.clearClipboardOnLock ? "Clipboard safety disabled." : "Clipboard safety enabled.")}
                         className={cn(
                             "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none",
                             settings.clearClipboardOnLock ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800'
@@ -162,13 +177,13 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                         const { invoke } = await import('@tauri-apps/api/core');
                                         const success = await invoke<boolean>('request_biometric_auth');
                                         if (success) {
-                                            updateSettings({ biometricLockEnabled: true });
+                                            applySetting({ biometricLockEnabled: true }, "Biometric lock enabled.");
                                         }
                                     } catch (e) {
                                         console.error("Biometric verification failed:", e);
                                     }
                                 } else {
-                                    updateSettings({ biometricLockEnabled: false });
+                                    applySetting({ biometricLockEnabled: false }, "Biometric lock disabled.");
                                 }
                             }}
                             className={cn(
@@ -182,8 +197,11 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             )} />
                         </button>
                     ) : (
-                        <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest">
-                            {t("settings.security.tauriOnly")}
+                        <div className="space-y-1 text-right">
+                            <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest inline-block">
+                                {t("settings.security.tauriOnly")}
+                            </div>
+                            <div className="text-[10px] text-zinc-500">Unavailable in web runtime.</div>
                         </div>
                     )}
                 </div>
@@ -209,7 +227,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     {isTauri ? (
                         <div className="flex flex-col items-end gap-2">
                             <button
-                                onClick={() => updateSettings({ enableTorProxy: !settings.enableTorProxy })}
+                                onClick={() => applySetting({ enableTorProxy: !settings.enableTorProxy }, settings.enableTorProxy ? "Tor routing disabled." : "Tor routing enabled.")}
                                 className={cn(
                                     "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none",
                                     settings.enableTorProxy ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800'
@@ -231,8 +249,11 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest">
-                            {t("settings.security.tauriOnly")}
+                        <div className="space-y-1 text-right">
+                            <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest inline-block">
+                                {t("settings.security.tauriOnly")}
+                            </div>
+                            <div className="text-[10px] text-zinc-500">Tor routing requires desktop runtime capability.</div>
                         </div>
                     )}
                 </div>
@@ -286,6 +307,12 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     {t("settings.security.zeroKnowledge.desc")}
                 </p>
             </div>
+            <SettingsActionStatus
+                title="Security Controls"
+                phase={actionPhase}
+                message={actionMessage || undefined}
+                summary="Security changes are applied locally and persisted immediately."
+            />
         </div>
     );
 };

@@ -34,7 +34,8 @@ export const DesktopNotificationHandler = () => {
             if (!message.isOutgoing) {
                 showNotification(
                     `New message from ${message.senderPubkey?.slice(0, 8) ?? "unknown"}`,
-                    message.content.length > 50 ? `${message.content.slice(0, 50)}...` : message.content
+                    message.content.length > 50 ? `${message.content.slice(0, 50)}...` : message.content,
+                    "dmMessages"
                 );
             }
         }

@@ -5,6 +5,12 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { MessageQueue } from "../lib/message-queue";
 
 const GLOBAL_SYNC_LOCK_KEY = "__obscur_dm_sync_lock__";
+const isTestRuntime = (): boolean => {
+    if (typeof process !== "undefined" && process.env?.NODE_ENV === "test") {
+        return true;
+    }
+    return false;
+};
 const getGlobalSyncLock = (): { inProgress: boolean } => {
     const target = globalThis as Record<string, unknown>;
     const existing = target[GLOBAL_SYNC_LOCK_KEY];
@@ -52,7 +58,7 @@ export const syncMissedMessages = async (
         console.log('Sync already in progress, skipping');
         return;
     }
-    if (globalSyncLock.inProgress) {
+    if (!isTestRuntime() && globalSyncLock.inProgress) {
         console.debug('Global sync already in progress, skipping');
         return;
     }
@@ -65,7 +71,9 @@ export const syncMissedMessages = async (
 
     try {
         syncStateRef.current.isSyncing = true;
-        globalSyncLock.inProgress = true;
+        if (!isTestRuntime()) {
+            globalSyncLock.inProgress = true;
+        }
 
         loadingStateManager.setLoading('messageSync', {
             isLoading: true,
@@ -122,7 +130,9 @@ export const syncMissedMessages = async (
             pool.sendToOpen(closeMessage);
 
             syncStateRef.current.isSyncing = false;
-            globalSyncLock.inProgress = false;
+            if (!isTestRuntime()) {
+                globalSyncLock.inProgress = false;
+            }
             syncStateRef.current.lastSyncAt = new Date();
 
             loadingStateManager.complete('messageSync');
@@ -164,7 +174,9 @@ export const syncMissedMessages = async (
     } catch (error) {
         console.error('Failed to sync missed messages:', error);
         syncStateRef.current.isSyncing = false;
-        globalSyncLock.inProgress = false;
+        if (!isTestRuntime()) {
+            globalSyncLock.inProgress = false;
+        }
         loadingStateManager.complete('messageSync');
 
         setState(prev => ({

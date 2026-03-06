@@ -20,6 +20,27 @@ type UseProfilePublisherResult = Readonly<{
     isPublishing: boolean;
     isMining: boolean;
     error: string | null;
+    phase: ProfilePublishPhase;
+    lastReport: ProfilePublishReport | null;
+}>;
+
+export type ProfilePublishPhase =
+    | "idle"
+    | "waiting_relays"
+    | "preparing"
+    | "mining"
+    | "signing"
+    | "publishing"
+    | "success"
+    | "error";
+
+export type ProfilePublishReport = Readonly<{
+    phase: ProfilePublishPhase;
+    successCount?: number;
+    totalRelays?: number;
+    attempts?: number;
+    message?: string;
+    updatedAtIso: string;
 }>;
 
 /**
@@ -32,6 +53,8 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
     const [isPublishing, setIsPublishing] = useState(false);
     const [isMining, setIsMining] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [phase, setPhase] = useState<ProfilePublishPhase>("idle");
+    const [lastReport, setLastReport] = useState<ProfilePublishReport | null>(null);
 
     // Use shared relay pool
     const { relayPool: pool, enabledRelayUrls } = useRelay();
@@ -44,23 +67,51 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
 
         if (!pubkey || !privkey) {
             setError(t("identity.error.notUnlocked") || "Identity not unlocked");
+            setPhase("error");
+            setLastReport({
+                phase: "error",
+                message: t("identity.error.notUnlocked") || "Identity not unlocked",
+                updatedAtIso: new Date().toISOString()
+            });
             return false;
         }
 
         if (enabledRelayUrls.length === 0) {
             setError(t("settings.relays.noRelaysTitle") || "No relays connected");
+            setPhase("error");
+            setLastReport({
+                phase: "error",
+                message: t("settings.relays.noRelaysTitle") || "No relays connected",
+                updatedAtIso: new Date().toISOString()
+            });
             return false;
         }
 
         setIsPublishing(true);
         setError(null);
+        setPhase("waiting_relays");
+        setLastReport({
+            phase: "waiting_relays",
+            updatedAtIso: new Date().toISOString()
+        });
 
         try {
             const hasRelayConnection = await pool.waitForConnection(5000);
             if (!hasRelayConnection) {
                 setError("Relay connection is temporarily unavailable. Please retry in a moment.");
+                setPhase("error");
+                setLastReport({
+                    phase: "error",
+                    message: "Relay connection is temporarily unavailable. Please retry in a moment.",
+                    updatedAtIso: new Date().toISOString()
+                });
                 return false;
             }
+            setPhase("preparing");
+            setLastReport({
+                phase: "preparing",
+                updatedAtIso: new Date().toISOString()
+            });
 
             // Construct Kind 0 Event content
             let aboutContent = params.about || "";
@@ -96,11 +147,21 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             // Difficulty 12 provides a solid balance: ~1-3s on mobile, 
             // but enough to stop bulk registrations.
             setIsMining(true);
+            setPhase("mining");
+            setLastReport({
+                phase: "mining",
+                updatedAtIso: new Date().toISOString()
+            });
             const REGISTRATION_DIFFICULTY = 12;
             const minedEvent = await powService.mineEvent(unsignedEvent, REGISTRATION_DIFFICULTY);
             setIsMining(false);
 
             // Sign event
+            setPhase("signing");
+            setLastReport({
+                phase: "signing",
+                updatedAtIso: new Date().toISOString()
+            });
             const signedEvent = await cryptoService.signEvent(minedEvent as any, privkey);
 
             // Publish to all connected relays
@@ -110,23 +171,67 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             let lastError: string | null = null;
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                setPhase("publishing");
+                setLastReport({
+                    phase: "publishing",
+                    attempts: attempt,
+                    updatedAtIso: new Date().toISOString()
+                });
                 await pool.waitForConnection(3000);
 
                 if (pool.publishToUrls && enabledRelayUrls.length > 0) {
                     const scopedResult = await pool.publishToUrls(enabledRelayUrls, payload);
                     if (scopedResult.success || scopedResult.successCount > 0) {
+                        setPhase("success");
+                        setLastReport({
+                            phase: "success",
+                            attempts: attempt,
+                            successCount: scopedResult.successCount,
+                            totalRelays: scopedResult.totalRelays,
+                            updatedAtIso: new Date().toISOString()
+                        });
                         return true;
                     }
                     lastError = scopedResult.overallError || "Failed to publish profile to enabled relays";
+                    setLastReport({
+                        phase: "publishing",
+                        attempts: attempt,
+                        message: lastError,
+                        successCount: scopedResult.successCount,
+                        totalRelays: scopedResult.totalRelays,
+                        updatedAtIso: new Date().toISOString()
+                    });
                 } else if (pool.publishToAll) {
                     const result = await pool.publishToAll(payload);
                     if (result.success || result.successCount > 0) {
+                        setPhase("success");
+                        setLastReport({
+                            phase: "success",
+                            attempts: attempt,
+                            successCount: result.successCount,
+                            totalRelays: result.totalRelays,
+                            updatedAtIso: new Date().toISOString()
+                        });
                         return true;
                     }
                     lastError = result.overallError || "Failed to publish to any relay";
+                    setLastReport({
+                        phase: "publishing",
+                        attempts: attempt,
+                        message: lastError,
+                        successCount: result.successCount,
+                        totalRelays: result.totalRelays,
+                        updatedAtIso: new Date().toISOString()
+                    });
                 } else {
                     // Best-effort compatibility fallback for generic pools.
                     pool.sendToOpen(payload);
+                    setPhase("success");
+                    setLastReport({
+                        phase: "success",
+                        attempts: attempt,
+                        updatedAtIso: new Date().toISOString()
+                    });
                     return true;
                 }
 
@@ -146,7 +251,14 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             throw new Error(lastError || "Failed to publish profile");
         } catch (err) {
             console.warn("Failed to publish profile:", err);
-            setError(err instanceof Error ? err.message : "Failed to publish profile");
+            const message = err instanceof Error ? err.message : "Failed to publish profile";
+            setError(message);
+            setPhase("error");
+            setLastReport({
+                phase: "error",
+                message,
+                updatedAtIso: new Date().toISOString()
+            });
             return false;
         } finally {
             setIsMining(false);
@@ -158,6 +270,8 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
         publishProfile,
         isPublishing,
         isMining,
-        error
-    }), [publishProfile, isPublishing, isMining, error]);
+        error,
+        phase,
+        lastReport
+    }), [publishProfile, isPublishing, isMining, error, phase, lastReport]);
 };

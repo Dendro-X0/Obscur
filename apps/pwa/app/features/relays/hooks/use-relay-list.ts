@@ -24,6 +24,7 @@ type UseRelayListResult = Readonly<{
   removeRelay: (params: Readonly<{ url: string }>) => void;
   setRelayEnabled: (params: Readonly<{ url: string; enabled: boolean }>) => void;
   moveRelay: (params: Readonly<{ url: string; direction: MoveRelayDirection }>) => void;
+  replaceRelays: (params: Readonly<{ relays: ReadonlyArray<RelayListItem> }>) => void;
   resetRelays: () => void;
 }>;
 
@@ -193,6 +194,19 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
       return next;
     });
   }, []);
+  const replaceRelays = useCallback((replaceParams: Readonly<{ relays: ReadonlyArray<RelayListItem> }>): void => {
+    const normalized: RelayListItem[] = [];
+    const seen = new Set<string>();
+    for (const relay of replaceParams.relays) {
+      const url = normalizeRelayUrl(relay.url);
+      if (!url || seen.has(url)) {
+        continue;
+      }
+      seen.add(url);
+      normalized.push({ url, enabled: relay.enabled });
+    }
+    setRelays(normalized.length > 0 ? normalized : DEFAULT_RELAYS);
+  }, []);
   const resetRelays = useCallback((): void => {
     setRelays(DEFAULT_RELAYS);
   }, []);
@@ -200,7 +214,7 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     return { relays };
   }, [relays]);
   return useMemo(
-    () => ({ state, addRelay, removeRelay, setRelayEnabled, moveRelay, resetRelays }),
-    [state, addRelay, removeRelay, setRelayEnabled, moveRelay, resetRelays]
+    () => ({ state, addRelay, removeRelay, setRelayEnabled, moveRelay, replaceRelays, resetRelays }),
+    [state, addRelay, removeRelay, setRelayEnabled, moveRelay, replaceRelays, resetRelays]
   );
 };

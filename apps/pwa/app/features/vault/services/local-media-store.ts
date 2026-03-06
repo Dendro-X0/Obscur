@@ -38,7 +38,7 @@ const DEFAULT_SUBDIR = "vault-media";
 let localCacheWriteBlocked = false;
 let localCacheBlockedWarningEmitted = false;
 
-const DEFAULT_CONFIG: LocalMediaStorageConfig = {
+export const DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG: LocalMediaStorageConfig = {
     enabled: true,
     subdir: DEFAULT_SUBDIR,
     customRootPath: "",
@@ -114,20 +114,20 @@ export const getLocalMediaIndexEntryByRemoteUrl = (remoteUrl: string): LocalMedi
 };
 
 export const getLocalMediaStorageConfig = (): LocalMediaStorageConfig => {
-    if (!isBrowser()) return DEFAULT_CONFIG;
+    if (!isBrowser()) return DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG;
     try {
         const raw = localStorage.getItem(STORAGE_CONFIG_KEY);
-        if (!raw) return DEFAULT_CONFIG;
+        if (!raw) return DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG;
         const parsed = JSON.parse(raw) as Partial<LocalMediaStorageConfig>;
         return {
-            enabled: parsed.enabled ?? DEFAULT_CONFIG.enabled,
-            subdir: sanitizeSubdir(parsed.subdir ?? DEFAULT_CONFIG.subdir),
-            customRootPath: typeof parsed.customRootPath === "string" ? parsed.customRootPath.trim() : DEFAULT_CONFIG.customRootPath,
-            cacheSentFiles: parsed.cacheSentFiles ?? DEFAULT_CONFIG.cacheSentFiles,
-            cacheReceivedFiles: parsed.cacheReceivedFiles ?? DEFAULT_CONFIG.cacheReceivedFiles,
+            enabled: parsed.enabled ?? DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG.enabled,
+            subdir: sanitizeSubdir(parsed.subdir ?? DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG.subdir),
+            customRootPath: typeof parsed.customRootPath === "string" ? parsed.customRootPath.trim() : DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG.customRootPath,
+            cacheSentFiles: parsed.cacheSentFiles ?? DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG.cacheSentFiles,
+            cacheReceivedFiles: parsed.cacheReceivedFiles ?? DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG.cacheReceivedFiles,
         };
     } catch {
-        return DEFAULT_CONFIG;
+        return DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG;
     }
 };
 
@@ -182,12 +182,23 @@ export const getLocalMediaStorageAbsolutePath = async (): Promise<string | null>
     return resolveStorageAbsolutePath();
 };
 
-export const openLocalMediaStoragePath = async (): Promise<void> => {
-    if (!isTauriRuntime()) return;
+export const openLocalMediaStoragePath = async (): Promise<boolean> => {
+    if (!isTauriRuntime()) return false;
     const path = await getLocalMediaStorageAbsolutePath();
-    if (!path) return;
-    const { open } = await import("@tauri-apps/plugin-shell");
-    await open(path);
+    if (!path) return false;
+    try {
+        const { open } = await import("@tauri-apps/plugin-shell");
+        await open(path);
+        return true;
+    } catch (error) {
+        logRuntimeEvent(
+            "local_media_store.open_storage_path_failed",
+            "degraded",
+            ["[LocalMediaStore] Failed to open local storage path.", { path, error: error instanceof Error ? error.message : String(error) }],
+            { windowMs: 30_000, maxPerWindow: 1, summaryEverySuppressed: 5 }
+        );
+        return false;
+    }
 };
 
 export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | null> => {

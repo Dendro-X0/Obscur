@@ -19,10 +19,10 @@ vi.mock('@/app/features/crypto/crypto-service', () => ({
     encryptDM: vi.fn().mockResolvedValue('encrypted_content'),
     signEvent: vi.fn().mockResolvedValue({
       id: 'event_123',
-      pubkey: 'sender_pubkey',
+      pubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
       created_at: Math.floor(Date.now() / 1000),
       kind: 4,
-      tags: [['p', 'recipient_pubkey']],
+      tags: [['p', '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef']],
       content: 'encrypted_content',
       sig: 'signature'
     })
@@ -37,6 +37,8 @@ vi.mock('../../lib/message-queue', () => ({
     updateMessageStatus = vi.fn().mockResolvedValue(undefined);
     getMessage = vi.fn().mockResolvedValue(null);
     queueOutgoingMessage = vi.fn().mockResolvedValue(undefined);
+    getQueuedMessages = vi.fn().mockResolvedValue([]);
+    removeFromQueue = vi.fn().mockResolvedValue(undefined);
     getAllMessages = vi.fn().mockResolvedValue([]);
   }
 }));
@@ -52,9 +54,9 @@ vi.mock('../../lib/retry-manager', () => ({
 }));
 
 describe('Message Synchronization', () => {
-  const mockMyPublicKey = 'my_public_key_hex' as PublicKeyHex;
-  const mockMyPrivateKey = 'my_private_key_hex' as PrivateKeyHex;
-  const mockPeerPublicKey = 'peer_public_key_hex' as PublicKeyHex;
+  const mockMyPublicKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' as PublicKeyHex;
+  const mockMyPrivateKey = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as PrivateKeyHex;
+  const mockPeerPublicKey = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex;
 
   let mockRelayPool: any;
   let messageHandlers: Array<(params: { url: string; message: string }) => void>;
@@ -69,10 +71,10 @@ describe('Message Synchronization', () => {
     vi.mocked(cryptoService.encryptDM).mockResolvedValue('encrypted_content');
     vi.mocked(cryptoService.signEvent).mockResolvedValue({
       id: 'event_123',
-      pubkey: 'sender_pubkey',
+      pubkey: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
       created_at: Math.floor(Date.now() / 1000),
       kind: 4,
-      tags: [['p', 'recipient_pubkey']],
+      tags: [['p', '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef']],
       content: 'encrypted_content',
       sig: 'signature'
     });
@@ -84,6 +86,7 @@ describe('Message Synchronization', () => {
         { url: 'wss://relay1.example.com', status: 'open', updatedAtUnixMs: Date.now() } as RelayConnection
       ],
       sendToOpen: vi.fn(),
+      waitForConnection: vi.fn(async () => true),
       subscribeToMessages: vi.fn((handler) => {
         messageHandlers.push(handler);
         return () => {

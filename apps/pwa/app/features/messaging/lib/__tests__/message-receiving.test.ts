@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
 import type { RelayConnection } from '../relay-connection';
@@ -66,6 +67,20 @@ describe('Message Receiving Pipeline', () => {
   const senderPublicKey = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as PublicKeyHex;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(cryptoService.verifyEventSignature).mockResolvedValue(true);
+    vi.mocked(cryptoService.decryptDM).mockResolvedValue('Test message content');
+    vi.mocked(cryptoService.encryptDM).mockResolvedValue('encrypted_content');
+    vi.mocked(cryptoService.signEvent).mockResolvedValue({
+      id: 'event_123',
+      pubkey: senderPublicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 4,
+      tags: [['p', myPublicKey]],
+      content: 'encrypted_content',
+      sig: 'signature'
+    });
+
     messageHandlers = [];
 
     mockPool = {

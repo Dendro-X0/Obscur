@@ -86,4 +86,6 @@ Use these specs/checklists as the current release planning references:
 4. [v0.8.2 Ticketized Roadmap](./23-v0.8.2-roadmap.md)
 5. [v0.8.3 Ticketized Roadmap](./24-v0.8.3-roadmap.md)
 6. [v0.8.5 Ticketized Roadmap](./27-v0.8.5-roadmap.md)
+7. [v0.8.6 Ticketized Roadmap](./28-v0.8.6-setup-and-configuration-roadmap.md)
+8. [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md)
 

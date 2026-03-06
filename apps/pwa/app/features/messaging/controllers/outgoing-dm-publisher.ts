@@ -96,6 +96,37 @@ export const publishOutgoingDm = async (params: Readonly<{
     if (params.messageQueue) {
       await params.messageQueue.persistMessage(finalMessage);
     }
+    if (publishResult.successCount > 0) {
+      const nextStatus = transitionMessageStatus(finalMessage.status, {
+        type: "RELAY_ACCEPTED",
+        successCount: publishResult.successCount,
+        totalRelays: publishResult.totalRelays
+      });
+      finalMessage.status = nextStatus;
+      if (params.messageQueue) {
+        await params.messageQueue.updateMessageStatus(finalMessage.id, nextStatus);
+      }
+    } else {
+      const nextStatus = transitionMessageStatus(finalMessage.status, {
+        type: "RELAY_REJECTED",
+        error: publishResult.overallError
+      });
+      finalMessage.status = nextStatus;
+      if (params.messageQueue) {
+        await params.messageQueue.updateMessageStatus(finalMessage.id, nextStatus);
+        const outgoingMessage: OutgoingMessage = {
+          id: finalMessage.id,
+          conversationId: finalMessage.conversationId,
+          content: params.plaintext,
+          recipientPubkey: params.recipientPubkey,
+          createdAt: new Date(),
+          retryCount: 0,
+          nextRetryAt: retryManager.calculateNextRetry(0),
+          signedEvent: fallbackBuild.signedEvent
+        };
+        await params.messageQueue.queueOutgoingMessage(outgoingMessage);
+      }
+    }
 
     return { finalMessage, publishResult, updatedSignedEvent: fallbackBuild.signedEvent };
   }

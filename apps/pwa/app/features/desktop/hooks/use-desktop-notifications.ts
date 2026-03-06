@@ -4,8 +4,10 @@ import { useEffect, useCallback } from "react";
 import { useTauri } from "./use-tauri";
 import { useNotificationPreference } from "../../notifications/hooks/use-notification-preference";
 import { showDesktopNotification } from "../../notifications/utils/show-desktop-notification";
+import type { NotificationChannels } from "../../notifications/utils/notification-channels";
 
 const DESKTOP_NOTIFICATION_TAG: string = "obscur-notification";
+type NotificationChannelKey = keyof NotificationChannels;
 
 /**
  * Hook to integrate desktop notifications with PWA notification system
@@ -13,7 +15,7 @@ const DESKTOP_NOTIFICATION_TAG: string = "obscur-notification";
  */
 export function useDesktopNotifications() {
   const { isDesktop, api } = useTauri();
-  const { state, setEnabled } = useNotificationPreference();
+  const { state, setEnabled, setChannels } = useNotificationPreference();
 
   // Request permission when enabled
   useEffect(() => {
@@ -31,8 +33,8 @@ export function useDesktopNotifications() {
 
   // Show notification function that uses desktop or web notifications
   const showNotification = useCallback(
-    async (title: string, body: string) => {
-      if (!state.enabled) {
+    async (title: string, body: string, channel: NotificationChannelKey = "dmMessages") => {
+      if (!state.enabled || !state.channels[channel]) {
         return;
       }
 
@@ -44,13 +46,15 @@ export function useDesktopNotifications() {
         showDesktopNotification({ title, body, tag: DESKTOP_NOTIFICATION_TAG });
       }
     },
-    [state.enabled, isDesktop, api]
+    [state.enabled, state.channels, isDesktop, api]
   );
 
   return {
     showNotification,
     enabled: state.enabled,
+    channels: state.channels,
     setEnabled,
+    setChannels,
     permission: state.permission,
   };
 }

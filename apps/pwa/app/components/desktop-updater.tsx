@@ -17,6 +17,7 @@ interface UpdateInfo {
   currentVersion?: string;
   source?: "tauri" | "github" | "both";
   message?: string;
+  isDevBuild?: boolean;
 }
 
 type DesktopUpdaterProps = Readonly<{
@@ -30,11 +31,20 @@ type GitHubRelease = Readonly<{
 
 const normalizeVersion = (version: string): string => version.trim().replace(/^v/i, "");
 
-const compareVersions = (currentRaw: string, latestRaw: string): number => {
-  const current = normalizeVersion(currentRaw).split("-")[0];
-  const latest = normalizeVersion(latestRaw).split("-")[0];
-  const currentParts = current.split(".").map((x) => Number.parseInt(x, 10) || 0);
-  const latestParts = latest.split(".").map((x) => Number.parseInt(x, 10) || 0);
+const parseSemverParts = (raw: string): number[] | null => {
+  const normalized = normalizeVersion(raw).split("-")[0];
+  if (!/^\d+(\.\d+){1,3}$/.test(normalized)) {
+    return null;
+  }
+  return normalized.split(".").map((x) => Number.parseInt(x, 10) || 0);
+};
+
+const compareVersions = (currentRaw: string, latestRaw: string): number | null => {
+  const currentParts = parseSemverParts(currentRaw);
+  const latestParts = parseSemverParts(latestRaw);
+  if (!currentParts || !latestParts) {
+    return null;
+  }
   const max = Math.max(currentParts.length, latestParts.length);
   for (let i = 0; i < max; i += 1) {
     const a = currentParts[i] ?? 0;
@@ -53,6 +63,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
   const [isChecking, setIsChecking] = useState(false);
   const [releaseUrl, setReleaseUrl] = useState<string | null>(null);
   const currentVersion = useMemo(() => normalizeVersion(APP_VERSION), []);
+  const isDevBuild = useMemo(() => parseSemverParts(currentVersion) === null, [currentVersion]);
 
   useEffect(() => {
     // Check if running in Tauri desktop app
@@ -93,7 +104,8 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
 
       const tauriHasUpdate = typeof tauriResult === "string" && tauriResult.includes("Update available");
       const tauriVersion = tauriHasUpdate ? normalizeVersion(tauriResult.replace("Update available: ", "")) : undefined;
-      const githubHasUpdate = compareVersions(currentVersion, latestTag) < 0;
+      const versionComparison = compareVersions(currentVersion, latestTag);
+      const githubHasUpdate = versionComparison !== null ? versionComparison < 0 : false;
 
       if (tauriHasUpdate || githubHasUpdate) {
         const targetVersion = tauriVersion || latestTag;
@@ -104,6 +116,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
           currentVersion,
           source: tauriHasUpdate && githubHasUpdate ? "both" : tauriHasUpdate ? "tauri" : "github",
           message: t("settings.updates.versionAvailable", { version: targetVersion }),
+          isDevBuild,
         });
         return;
       }
@@ -113,7 +126,10 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
         latestTag,
         currentVersion,
         source: isDesktop ? "both" : "github",
-        message: t("settings.updates.latest"),
+        message: isDevBuild
+          ? `Development build detected. Latest stable tag: v${latestTag}.`
+          : t("settings.updates.latest"),
+        isDevBuild,
       });
     } catch (err) {
       setError(err as string);
@@ -209,13 +225,13 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
 
   // Inline settings UI
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button
           onClick={checkForUpdates}
           variant="outline"
           disabled={isChecking}
-          className="min-h-8 rounded-lg px-3 py-1 text-xs"
+          className="min-h-9 rounded-xl px-4 py-1 text-xs font-semibold"
         >
           {isChecking ? t("settings.updates.checking") : t("settings.updates.check")}
         </Button>
@@ -223,43 +239,48 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
           <Button
             onClick={installUpdate}
             disabled={isInstalling}
-            className="min-h-8 rounded-lg px-3 py-1 text-xs"
+            className="min-h-9 rounded-xl px-4 py-1 text-xs font-semibold"
           >
             {isInstalling ? t("settings.updates.installing") : t("settings.updates.install")}
           </Button>
         ) : null}
         {releaseUrl ? (
-          <a
-            href={releaseUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-zinc-500 underline hover:text-zinc-800 dark:hover:text-zinc-200"
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-9 rounded-xl px-4 py-1 text-xs font-semibold text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+            onClick={() => window.open(releaseUrl, "_blank", "noopener,noreferrer")}
           >
             View release notes
-          </a>
+          </Button>
         ) : null}
       </div>
-      <div className="text-xs text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-black/5 bg-zinc-50/60 px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:bg-zinc-900/50 dark:text-zinc-400">
         Current: {updateInfo?.currentVersion || currentVersion}
         {updateInfo?.latestTag ? ` | Latest tag: ${updateInfo.latestTag}` : ""}
         {updateInfo?.source ? ` | Source: ${updateInfo.source}` : ""}
       </div>
       {updateInfo ? (
         updateInfo.available ? (
-          <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
             New version available: v{updateInfo.version || updateInfo.latestTag}. You are on v{updateInfo.currentVersion || currentVersion}.
           </div>
         ) : (
-          <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            {t("settings.updates.latest")}
+          <div className={isDevBuild
+            ? "rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-700 dark:text-blue-300"
+            : "rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+          }>
+            {isDevBuild
+              ? `Development build (v${currentVersion}). Latest stable tag: v${updateInfo.latestTag ?? "unknown"}.`
+              : t("settings.updates.latest")}
           </div>
         )
       ) : (
-        <div className="text-xs text-zinc-500">
+        <div className="rounded-xl border border-black/5 bg-zinc-50/60 px-3 py-2 text-xs text-zinc-500 dark:border-white/10 dark:bg-zinc-900/50">
           Version status not checked yet.
         </div>
       )}
-      {error ? <div className="text-xs text-red-500">{error}</div> : null}
+      {error ? <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-600 dark:text-rose-300">{error}</div> : null}
     </div>
   );
 };
