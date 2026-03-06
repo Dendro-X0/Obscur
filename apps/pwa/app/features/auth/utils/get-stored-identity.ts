@@ -1,5 +1,5 @@
 import type { IdentityRecord } from "@dweb/core/identity-record";
-import { identityDbKey } from "./identity-db-key";
+import { getIdentityDbKey } from "./identity-db-key";
 import { identityStoreName } from "./identity-store-name";
 import { openIdentityDb } from "./open-identity-db";
 
@@ -30,6 +30,7 @@ const parseIdentityRecord = (value: unknown): IdentityRecord | undefined => {
 
 export const getStoredIdentity = async (): Promise<GetStoredIdentityResult> => {
   const db: IDBDatabase = await openIdentityDb();
+  const identityDbKey = getIdentityDbKey();
   return new Promise((resolve, reject) => {
     const tx: IDBTransaction = db.transaction(identityStoreName, "readonly");
     const store: IDBObjectStore = tx.objectStore(identityStoreName);

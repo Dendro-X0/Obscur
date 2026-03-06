@@ -1,3 +1,58 @@
+## [v0.8.8] - 2026-03-06
+
+### Added
+
+- **Runtime Capability + Adapter Contracts**:
+  - Added `RuntimeCapabilities` contract and centralized runtime detection utilities.
+  - Added typed adapter result contract (`AdapterResult<T>`) and native command adapter helper.
+- **Multi-Profile Foundation**:
+  - Added local profile registry (`create/rename/switch/remove`) with single active-profile model.
+  - Added profile switcher UI in Settings > Identity.
+  - Added profile-scoped storage key helpers and profile-scoped identity keying.
+- **One-Time Profile Migration**:
+  - Added startup migration bootstrap to snapshot and migrate legacy single-profile data into `default` profile namespace.
+  - Added migration report + marker for idempotent reruns.
+- **v0.8.8 Roadmap Doc**:
+  - Added `docs/31-v0.8.8-runtime-decoupling-and-multi-profile-roadmap.md`.
+
+### Changed
+
+- **Runtime Decoupling (Native/Web)**:
+  - Replaced direct runtime probes across core paths with centralized capability checks.
+  - Hardened web behavior so unsupported native operations degrade deterministically without throw/spam.
+- **Web Runtime Policy**:
+  - Web runtime now defaults to dev/localhost-only usage.
+  - Production web runtime is blocked by default and can be explicitly enabled via env policy.
+- **Storage/Identity Isolation**:
+  - Scoped identity persistence, privacy settings, profile draft state, NIP-96 config, and local media index/config by active `profileId`.
+- **Desktop Shell Adaptation**:
+  - Removed false-positive desktop shell rendering and window-control invocation on web runtime when native bridge is unavailable.
+
+## [v0.8.7] - 2026-03-06
+
+### Changed
+
+- **Reliability Core (v0.8.7)**:
+  - Added `reliabilityCoreV087` feature flag (default enabled) for staged rollback-safe reliability behavior.
+  - Added adaptive relay selection scoring (success rate, latency, churn, connection status) for publish ordering.
+  - Added quorum-aware relay publish result metadata (`metQuorum`, `quorumRequired`, `failures`) with partial-failure accounting.
+  - Added jittered reconnect scheduling and duplicate reconnect suppression with bounded logs.
+  - Added sync checkpoint/gap detection helpers and targeted backfill request shaping.
+  - Added local-only reliability counters (relay publish/reconnect, sync backfill, storage health/recovery).
+  - Added startup/on-demand storage health checks and non-destructive local media index repair path.
+  - Added release preflight artifact-matrix workflow assertion (`pnpm release:artifact-matrix-check`).
+- **UI/UX Polish and High Contrast**:
+  - Improved contrast for "purple buttons" in Light theme by enforcing bold white text globally for better readability.
+  - Fixed "invisible" font issue in theme and accessibility selectors where unselected options had poor contrast; unselected buttons now use a clean neutral outline style.
+  - Updated Theme Selection UI: Active state now uses a vibrant purple gradient with primary shadows, while inactive states use neutral gray/zinc for clear visual hierarchy.
+- **Premium Design Enhancements**:
+  - Implemented soft shadows, scale effects, and glassmorphism across settings cards and toggle buttons to create a more high-end feel.
+  - Unified the layout and styling of accessibility sections (Reduced Motion, Contrast Assist) with consistent padding and backgrounds.
+  - Improved "Reset" action visibility with interactive purple hover effects and better positioning.
+- **Network Navigation Improvements**:
+  - Added real-time connection and group count badges to the Network sidebar tabs ("All People", "Groups").
+  - Refined active tab styling in the Network dashboard with enhanced shadows and smooth scale transitions.
+
 ## [v0.8.6] - 2026-03-06
 
 ### Added
@@ -221,7 +276,7 @@
   - Updated docs to require `pnpm version:sync` and `pnpm version:check` as pre-tag checklist steps.
   - Updated root `README.md` and docs index/runbooks with explicit `v0.8.0` release-preparation commands and references.
 
-## [v0.7.3-alpha] - 2026-03-03
+## [v0.7.13-alpha] - 2026-03-03
 
 ### Added
 

@@ -26,8 +26,13 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useGlobalSearch, type SearchResult } from "@/app/features/search/hooks/use-global-search";
 import { SearchResultCard } from "@/app/features/search/components/search-result-card";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { PageShell } from "@/app/components/page-shell";
+import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type SearchFilter = "all" | "person" | "community";
+const getRecentSearchesStorageKey = (): string => getScopedStorageKey("recent_searches");
+const LEGACY_RECENT_SEARCHES_STORAGE_KEY = "recent_searches";
 
 export default function SearchPage() {
     const { t } = useTranslation();
@@ -37,6 +42,7 @@ export default function SearchPage() {
 
     const { identity } = useNetwork();
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
+    const navBadges = useNavBadges({ publicKeyHex });
 
     const [query, setQuery] = useState(initialQuery);
     const [activeFilter, setActiveFilter] = useState<SearchFilter>("all");
@@ -48,7 +54,7 @@ export default function SearchPage() {
 
     // Load recent searches from localStorage
     useEffect(() => {
-        const saved = localStorage.getItem("recent_searches");
+        const saved = localStorage.getItem(getRecentSearchesStorageKey()) ?? localStorage.getItem(LEGACY_RECENT_SEARCHES_STORAGE_KEY);
         if (saved) {
             try {
                 setRecentSearches(JSON.parse(saved));
@@ -72,7 +78,7 @@ export default function SearchPage() {
         if (!searchTerm.trim()) return;
         const next = [searchTerm, ...recentSearches.filter(s => s !== searchTerm)].slice(0, 5);
         setRecentSearches(next);
-        localStorage.setItem("recent_searches", JSON.stringify(next));
+        localStorage.setItem(getRecentSearchesStorageKey(), JSON.stringify(next));
     };
 
     const handleSearch = (e?: React.FormEvent) => {
@@ -102,7 +108,12 @@ export default function SearchPage() {
     }, [results, activeFilter]);
 
     return (
-        <div className="flex flex-col h-full bg-background overflow-hidden">
+        <PageShell
+            title={t("search.title", "Global Discovery")}
+            navBadgeCounts={navBadges.navBadgeCounts}
+            hideHeader={true}
+        >
+            <div className="flex flex-col h-full bg-background overflow-hidden px-0 md:px-4">
             {/* Premium Header */}
             <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40 p-4 pb-6">
                 <div className="max-w-4xl mx-auto w-full space-y-6">
@@ -180,12 +191,12 @@ export default function SearchPage() {
             </div>
 
             {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin pb-24">
+            <div className="flex-1 overflow-y-auto scrollbar-thin pb-24 flex flex-col">
                 <div className="max-w-4xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-12">
 
                     {/* Empty State / Welcome */}
                     {!query && recentSearches.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-700">
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh] text-center animate-in fade-in duration-700">
                             <div className="mb-8 p-10 bg-primary/5 rounded-[48px] relative group">
                                 <SearchIcon className="h-16 w-16 text-primary/40 group-hover:scale-110 transition-transform duration-500" />
                                 <div className="absolute -top-2 -right-2 h-10 w-10 bg-amber-500/20 rounded-full blur-xl animate-pulse" />
@@ -223,7 +234,8 @@ export default function SearchPage() {
                                     className="text-[10px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-500/5 px-4 rounded-full"
                                     onClick={() => {
                                         setRecentSearches([]);
-                                        localStorage.removeItem("recent_searches");
+                                        localStorage.removeItem(getRecentSearchesStorageKey());
+                                        localStorage.removeItem(LEGACY_RECENT_SEARCHES_STORAGE_KEY);
                                     }}
                                 >
                                     {t("common.clear", "Clear History")}
@@ -292,7 +304,7 @@ export default function SearchPage() {
                             ))}
 
                             {!isSearching && filteredResults.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-24 text-center">
+                                <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh] text-center">
                                     <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center mb-6">
                                         <SearchX className="h-10 w-10 text-muted-foreground/40" />
                                     </div>
@@ -352,6 +364,7 @@ export default function SearchPage() {
                 <div className="absolute top-[20%] left-[10%] w-[50%] h-[50%] bg-primary/5 blur-[150px] rounded-full animate-pulse opacity-40" />
                 <div className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] bg-indigo-500/5 blur-[150px] rounded-full animate-pulse delay-1000 opacity-40" />
             </div>
-        </div>
+            </div>
+        </PageShell>
     );
 }

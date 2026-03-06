@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useIsDesktop } from "./use-tauri";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 /**
  * Hook to handle deep links in desktop app
@@ -72,22 +73,32 @@ export function useDeepLink() {
     window.addEventListener("deep-link", listener);
 
     // Also listen via Tauri event system
-    if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
-      const tauri = (window as any).__TAURI_INTERNALS__;
-      if (tauri && tauri.event) {
-        const unlisten = tauri.event.listen("deep-link", (event: any) => {
-          if (event.payload && event.payload.url) {
-            handleDeepLink(new CustomEvent("deep-link", { detail: { url: event.payload.url } }));
+    if (hasNativeRuntime()) {
+      let disposed = false;
+      let detach: (() => void) | null = null;
+      void import("@tauri-apps/api/event")
+        .then(({ listen }) => listen("deep-link", (event: { payload?: { url?: string } }) => {
+          const url = event.payload?.url;
+          if (url) {
+            handleDeepLink(new CustomEvent("deep-link", { detail: { url } }));
           }
+        }))
+        .then((unlisten) => {
+          if (disposed) {
+            unlisten();
+            return;
+          }
+          detach = unlisten;
+        })
+        .catch(() => {
+          // Ignore in runtimes without native event bridge support.
         });
 
-        return () => {
-          window.removeEventListener("deep-link", listener);
-          if (unlisten && typeof unlisten.then === "function") {
-            unlisten.then((fn: () => void) => fn());
-          }
-        };
-      }
+      return () => {
+        disposed = true;
+        window.removeEventListener("deep-link", listener);
+        detach?.();
+      };
     }
 
     return () => {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService as chatStateStore } from "@/app/features/messaging/services/chat-state-store";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type PeerTrustState = Readonly<{
   acceptedPeers: ReadonlyArray<PublicKeyHex>;
@@ -38,12 +39,15 @@ const getStorageKey = (publicKeyHex: PublicKeyHex): string => {
   return `obscur.peer_trust.v1.${publicKeyHex}`;
 };
 
+const DEBUG_PERSISTENCE_KEY = "obscur_debug_persistence";
+const getDebugPersistenceKey = (): string => getScopedStorageKey(DEBUG_PERSISTENCE_KEY);
+
 const shouldDebugPersistence = (): boolean => {
   if (typeof window === "undefined") {
     return false;
   }
   try {
-    return window.localStorage.getItem("obscur_debug_persistence") === "1";
+    return (window.localStorage.getItem(getDebugPersistenceKey()) ?? window.localStorage.getItem(DEBUG_PERSISTENCE_KEY)) === "1";
   } catch {
     return false;
   }

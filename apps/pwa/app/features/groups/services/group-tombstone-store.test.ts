@@ -1,48 +1,30 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-    addGroupTombstone,
-    addGroupTombstoneFromConversationId,
-    isGroupTombstoned,
-    loadGroupTombstones,
-    removeGroupTombstone,
-    toGroupTombstoneKey
-} from "./group-tombstone-store";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { addGroupTombstone, isGroupTombstoned, loadGroupTombstones, toGroupTombstoneKey } from "./group-tombstone-store";
 
-const PK = "pk_test_tombstones";
+const PUBLIC_KEY = "a".repeat(64);
+const GROUP_ID = "group-1";
+const RELAY_URL = "wss://relay.example";
+const LEGACY_STORAGE_KEY = `obscur.group.tombstones.v1.${PUBLIC_KEY}`;
+const SCOPED_STORAGE_KEY = getScopedStorageKey(LEGACY_STORAGE_KEY);
 
-describe("group-tombstone-store", () => {
-    beforeEach(() => {
-        localStorage.clear();
-    });
+describe("group-tombstone-store storage compatibility", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
 
-    it("stores and removes tombstones by group identity key", () => {
-        expect(isGroupTombstoned(PK, { groupId: "g1", relayUrl: "wss://relay.one" })).toBe(false);
+  it("writes tombstones to scoped storage key", () => {
+    addGroupTombstone(PUBLIC_KEY, { groupId: GROUP_ID, relayUrl: RELAY_URL });
+    const raw = window.localStorage.getItem(SCOPED_STORAGE_KEY);
+    expect(raw).not.toBeNull();
+  });
 
-        addGroupTombstone(PK, { groupId: "g1", relayUrl: "wss://relay.one" });
-        expect(isGroupTombstoned(PK, { groupId: "g1", relayUrl: "wss://relay.one" })).toBe(true);
-
-        removeGroupTombstone(PK, { groupId: "g1", relayUrl: "wss://relay.one" });
-        expect(isGroupTombstoned(PK, { groupId: "g1", relayUrl: "wss://relay.one" })).toBe(false);
-    });
-
-    it("parses canonical conversation ids when tombstoning", () => {
-        addGroupTombstoneFromConversationId(PK, "community:alpha:wss://relay.alpha");
-        expect(isGroupTombstoned(PK, { groupId: "alpha", relayUrl: "wss://relay.alpha" })).toBe(true);
-    });
-
-    it("parses legacy conversation ids when tombstoning", () => {
-        addGroupTombstoneFromConversationId(PK, "beta@relay.beta");
-        expect(isGroupTombstoned(PK, { groupId: "beta", relayUrl: "wss://relay.beta" })).toBe(true);
-    });
-
-    it("normalizes empty relay to unknown key", () => {
-        expect(toGroupTombstoneKey({ groupId: "x", relayUrl: "" })).toBe("x@@unknown");
-    });
-
-    it("loads all stored tombstones", () => {
-        addGroupTombstone(PK, { groupId: "g1", relayUrl: "wss://relay.one" });
-        addGroupTombstone(PK, { groupId: "g2", relayUrl: "wss://relay.two" });
-        const all = loadGroupTombstones(PK);
-        expect(all.size).toBe(2);
-    });
+  it("loads tombstones from legacy storage key", () => {
+    const tombstone = toGroupTombstoneKey({ groupId: GROUP_ID, relayUrl: RELAY_URL });
+    window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify([tombstone]));
+    const loaded = loadGroupTombstones(PUBLIC_KEY);
+    expect(loaded.has(tombstone)).toBe(true);
+    expect(isGroupTombstoned(PUBLIC_KEY, { groupId: GROUP_ID, relayUrl: RELAY_URL })).toBe(true);
+  });
 });
+

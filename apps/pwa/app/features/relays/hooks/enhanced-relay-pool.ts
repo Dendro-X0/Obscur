@@ -18,6 +18,9 @@ import type { RelayConnectionStatus } from "./relay-connection-status";
 import { relayHealthMonitor, type RelayHealthMetrics } from "./relay-health-monitor";
 import { SubscriptionManager } from "./subscription-manager";
 import type { NostrFilter } from "../types/nostr-filter";
+import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
+import { logWithRateLimit } from "@/app/shared/log-hygiene";
+import { incrementReliabilityMetric } from "@/app/shared/reliability-observability";
 
 type RelayPoolState = Readonly<{
   connections: ReadonlyArray<RelayConnection>;
@@ -72,9 +75,34 @@ export interface MultiRelayPublishResult {
   success: boolean;
   successCount: number;
   totalRelays: number;
+  metQuorum?: boolean;
+  quorumRequired?: number;
   results: PublishResult[];
+  failures?: PublishResult[];
   overallError?: string;
 }
+
+export type RelayHealthScore = Readonly<{
+  url: string;
+  score: number;
+  latencyScore: number;
+  successRateScore: number;
+  churnPenalty: number;
+  connectionStatusScore: number;
+}>;
+
+export type RelaySelectionDecision = Readonly<{
+  orderedUrls: ReadonlyArray<string>;
+  scores: ReadonlyArray<RelayHealthScore>;
+}>;
+
+export type PublishQuorumResult = Readonly<{
+  successCount: number;
+  totalRelays: number;
+  quorumRequired: number;
+  metQuorum: boolean;
+  failures: ReadonlyArray<PublishResult>;
+}>;
 
 const getUnixMs = (): number => Date.now();
 
@@ -130,7 +158,8 @@ let fallbackActivated: boolean = false;
 const subscriptionManager = new SubscriptionManager(
   (payload) => {
     const urls = relayUrlsKey ? relayUrlsKey.split("|") : [];
-    urls.forEach(url => {
+    const preferredUrls = getPreferredOpenRelayUrls(urls);
+    preferredUrls.forEach((url) => {
       const socket = socketsByUrl[url];
       if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(payload);
@@ -157,6 +186,84 @@ const pendingOkResolvers: Map<string, {
 }> = new Map();
 
 const DEFAULT_PUBLISH_TIMEOUT_MS = 4000;
+const RECONNECT_JITTER_FACTOR = 0.2;
+
+const isReliabilityCoreEnabled = (): boolean => {
+  try {
+    return PrivacySettingsService.getSettings().reliabilityCoreV087;
+  } catch {
+    return true;
+  }
+};
+
+const calculateQuorumRequired = (connectedRelayCount: number): number => {
+  if (connectedRelayCount <= 0) return 1;
+  if (connectedRelayCount >= 4) return 2;
+  return 1;
+};
+
+const toRelayHealthScore = (url: string): RelayHealthScore => {
+  const metrics = relayHealthMonitor.getMetrics(url);
+  const connection = statusByUrl[url];
+  const connectionStatusScore = connection?.status === "open" ? 1 : connection?.status === "connecting" ? 0.5 : 0;
+  const successRate = typeof metrics?.successRate === "number" ? Math.max(0, Math.min(1, metrics.successRate)) : 0.5;
+  const successRateScore = successRate;
+  const latency = typeof metrics?.latency === "number" && Number.isFinite(metrics.latency) ? metrics.latency : 2_000;
+  const latencyScore = Math.max(0, Math.min(1, 1 - (latency / 2_000)));
+  const failedConnections = metrics?.failedConnections ?? 0;
+  const successfulConnections = metrics?.successfulConnections ?? 0;
+  const churnRatio = failedConnections > 0 ? failedConnections / Math.max(1, failedConnections + successfulConnections) : 0;
+  const churnPenalty = Math.max(0, Math.min(1, churnRatio));
+  const score = (successRateScore * 0.5) + (latencyScore * 0.3) + (connectionStatusScore * 0.2) - (churnPenalty * 0.4);
+  return { url, score, latencyScore, successRateScore, churnPenalty, connectionStatusScore };
+};
+
+const buildRelaySelectionDecision = (urls: ReadonlyArray<string>): RelaySelectionDecision => {
+  const scores = urls.map((url) => toRelayHealthScore(url));
+  const orderedUrls = [...scores]
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.url);
+  return {
+    orderedUrls,
+    scores,
+  };
+};
+
+const evaluatePublishQuorum = (
+  params: Readonly<{
+    results: ReadonlyArray<PublishResult>;
+    totalRelays: number;
+    reliabilityEnabled: boolean;
+  }>
+): PublishQuorumResult => {
+  const successCount = params.results.filter((r) => r.success).length;
+  const failures = params.results.filter((r) => !r.success);
+  const quorumRequired = params.reliabilityEnabled
+    ? calculateQuorumRequired(params.totalRelays)
+    : 1;
+  return {
+    successCount,
+    totalRelays: params.totalRelays,
+    quorumRequired,
+    metQuorum: successCount >= quorumRequired,
+    failures,
+  };
+};
+
+export const relayReliabilityInternals = {
+  toRelayHealthScore,
+  buildRelaySelectionDecision,
+  calculateQuorumRequired,
+  evaluatePublishQuorum,
+};
+
+const getPreferredOpenRelayUrls = (urls: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const openUrls = urls.filter((url) => {
+    const socket = socketsByUrl[url];
+    return !!socket && socket.readyState === WebSocket.OPEN;
+  });
+  return buildRelaySelectionDecision(openUrls).orderedUrls;
+};
 
 const notifyListeners = (): void => {
   if (notifyScheduled) {
@@ -323,8 +430,17 @@ const connectToRelay = (url: string): WebSocket | null => {
  * Implements Requirements 4.2, 4.3
  */
 const scheduleReconnect = (url: string): void => {
-  // Clear any existing retry timer
+  // Avoid reconnect thrash under relay flaps.
   const existingTimer = retryTimers.get(url);
+  if (existingTimer && isReliabilityCoreEnabled()) {
+    incrementReliabilityMetric("relay_reconnect_suppressed");
+    logWithRateLimit("debug", "relay.reconnect_suppressed", [`Relay reconnect already scheduled for ${url}, suppressing duplicate.`], {
+      windowMs: 15_000,
+      maxPerWindow: 2,
+      summaryEverySuppressed: 20,
+    });
+    return;
+  }
   if (existingTimer) {
     clearTimeout(existingTimer);
   }
@@ -335,7 +451,10 @@ const scheduleReconnect = (url: string): void => {
     if (metrics?.nextRetryAt) {
       const delay = metrics.nextRetryAt.getTime() - Date.now();
       if (delay > 0) {
-        console.log(`Scheduling reconnect to ${url} in ${Math.round(delay / 1000)}s`);
+        logWithRateLimit("info", "relay.reconnect_scheduled", [`Scheduling reconnect to ${url} in ${Math.round(delay / 1000)}s`], {
+          windowMs: 10_000,
+          maxPerWindow: 3,
+        });
         const timer = setTimeout(() => {
           retryTimers.delete(url);
           attemptReconnect(url);
@@ -348,9 +467,16 @@ const scheduleReconnect = (url: string): void => {
 
   // Get backoff delay from health monitor
   const metrics = relayHealthMonitor.getMetrics(url);
-  const delay = metrics?.backoffDelay || 1000;
+  const baseDelay = metrics?.backoffDelay || 1000;
+  const jitterFactor = isReliabilityCoreEnabled()
+    ? ((Math.random() * 2 * RECONNECT_JITTER_FACTOR) - RECONNECT_JITTER_FACTOR)
+    : 0;
+  const delay = Math.max(200, Math.floor(baseDelay * (1 + jitterFactor)));
 
-  console.log(`Scheduling reconnect to ${url} in ${Math.round(delay / 1000)}s`);
+  logWithRateLimit("info", "relay.reconnect_scheduled", [`Scheduling reconnect to ${url} in ${Math.round(delay / 1000)}s`], {
+    windowMs: 10_000,
+    maxPerWindow: 3,
+  });
 
   const timer = setTimeout(() => {
     retryTimers.delete(url);
@@ -367,18 +493,27 @@ const attemptReconnect = (url: string): void => {
   // Check if relay is still in our list or transient list
   const urls = relayUrlsKey ? relayUrlsKey.split("|") : [];
   if (!urls.includes(url) && !transientRelayUrls.has(url)) {
-    console.log(`Relay ${url} no longer in list, skipping reconnect`);
+  logWithRateLimit("debug", "relay.reconnect_skip_not_in_list", [`Relay ${url} no longer in list, skipping reconnect`], {
+    windowMs: 10_000,
+    maxPerWindow: 2,
+  });
     return;
   }
 
   // Check if already connected
   const existingSocket = socketsByUrl[url];
   if (existingSocket && (existingSocket.readyState === WebSocket.OPEN || existingSocket.readyState === WebSocket.CONNECTING)) {
-    console.log(`Relay ${url} already connected, skipping reconnect`);
+    logWithRateLimit("debug", "relay.reconnect_skip_already_connected", [`Relay ${url} already connected, skipping reconnect`], {
+      windowMs: 10_000,
+      maxPerWindow: 2,
+    });
     return;
   }
 
-  console.log(`Attempting to reconnect to ${url}`);
+  logWithRateLimit("info", "relay.reconnect_attempt", [`Attempting to reconnect to ${url}`], {
+    windowMs: 10_000,
+    maxPerWindow: 3,
+  });
 
   // Close existing socket if any
   if (existingSocket) {
@@ -609,35 +744,45 @@ export const publishToRelayStandalone = async (url: string, payload: string): Pr
  */
 export const publishToUrlsStandalone = async (urls: ReadonlyArray<string>, payload: string): Promise<MultiRelayPublishResult> => {
   const normalized = Array.from(new Set(urls.map((url) => url.trim()).filter((url) => url.length > 0)));
-  const connected = normalized.filter((url) => {
-    const socket = socketsByUrl[url];
-    return !!socket && socket.readyState === WebSocket.OPEN;
-  });
+  const connected = getPreferredOpenRelayUrls(normalized);
 
   if (connected.length === 0) {
     // Attempt connecting to them if they are in the list but not connected
     const results = await Promise.all(normalized.map(async (url) => {
       return publishToRelay(url, payload);
     }));
-    const successCount = results.filter(r => r.success).length;
-    return {
-      success: successCount > 0,
-      successCount,
-      totalRelays: normalized.length,
+    const quorum = evaluatePublishQuorum({
       results,
-      overallError: successCount > 0 ? undefined : "No relays connected"
+      totalRelays: normalized.length,
+      reliabilityEnabled: isReliabilityCoreEnabled(),
+    });
+    return {
+      success: quorum.metQuorum,
+      successCount: quorum.successCount,
+      totalRelays: normalized.length,
+      metQuorum: quorum.metQuorum,
+      quorumRequired: quorum.quorumRequired,
+      results,
+      failures: [...quorum.failures],
+      overallError: quorum.metQuorum ? undefined : "No relays connected"
     };
   }
 
   const results = await Promise.all(connected.map((url) => publishToRelay(url, payload)));
-  const successCount = results.filter((r) => r.success).length;
-  const success = successCount > 0;
-  return {
-    success,
-    successCount,
-    totalRelays: normalized.length,
+  const quorum = evaluatePublishQuorum({
     results,
-    overallError: success ? undefined : (results[0]?.error ?? "Unknown failure")
+    totalRelays: normalized.length,
+    reliabilityEnabled: isReliabilityCoreEnabled(),
+  });
+  return {
+    success: quorum.metQuorum,
+    successCount: quorum.successCount,
+    totalRelays: normalized.length,
+    metQuorum: quorum.metQuorum,
+    quorumRequired: quorum.quorumRequired,
+    results,
+    failures: [...quorum.failures],
+    overallError: quorum.metQuorum ? undefined : (results[0]?.error ?? "Unknown failure")
   };
 };
 
@@ -648,30 +793,14 @@ export const publishToUrlsStandalone = async (urls: ReadonlyArray<string>, paylo
 const publishToAll = async (payload: string): Promise<MultiRelayPublishResult> => {
   const urls = relayUrlsKey ? relayUrlsKey.split("|") : [];
 
-  // Get all relays sorted by health
-  let sortedUrls = urls.filter(url => {
-    const socket = socketsByUrl[url];
-    return socket && socket.readyState === WebSocket.OPEN;
-  }).sort((a, b) => {
-    const healthA = relayHealthMonitor.getHealthStatus(a);
-    const healthB = relayHealthMonitor.getHealthStatus(b);
-    const healthScore = { healthy: 4, degraded: 3, unhealthy: 2, unknown: 1 };
-    return healthScore[healthB] - healthScore[healthA];
-  });
+  // Get all open relays and sort by adaptive health scoring
+  let sortedUrls = getPreferredOpenRelayUrls(urls);
 
   if (sortedUrls.length === 0) {
     urls.forEach((url) => attemptReconnect(url));
     const reconnected = await waitForConnection(3000);
     if (reconnected) {
-      sortedUrls = urls.filter(url => {
-        const socket = socketsByUrl[url];
-        return socket && socket.readyState === WebSocket.OPEN;
-      }).sort((a, b) => {
-        const healthA = relayHealthMonitor.getHealthStatus(a);
-        const healthB = relayHealthMonitor.getHealthStatus(b);
-        const healthScore = { healthy: 4, degraded: 3, unhealthy: 2, unknown: 1 };
-        return healthScore[healthB] - healthScore[healthA];
-      });
+      sortedUrls = getPreferredOpenRelayUrls(urls);
     }
   }
 
@@ -685,11 +814,22 @@ const publishToAll = async (payload: string): Promise<MultiRelayPublishResult> =
     };
   }
 
-  // Publish to all in parallel and wait for their OKs
+  // Publish to all selected relays and wait for their OKs.
   const results = await Promise.all(sortedUrls.map(url => publishToRelay(url, payload)));
 
-  const successCount = results.filter(r => r.success).length;
-  const success = successCount > 0;
+  const quorum = evaluatePublishQuorum({
+    results,
+    totalRelays: sortedUrls.length,
+    reliabilityEnabled: isReliabilityCoreEnabled(),
+  });
+  const success = quorum.metQuorum;
+
+  if (quorum.failures.length > 0 && quorum.successCount > 0) {
+    incrementReliabilityMetric("relay_publish_partial");
+  }
+  if (!success) {
+    incrementReliabilityMetric("relay_publish_failed");
+  }
 
   let overallError: string | undefined;
   if (!success) {
@@ -698,9 +838,12 @@ const publishToAll = async (payload: string): Promise<MultiRelayPublishResult> =
 
   return {
     success,
-    successCount,
+    successCount: quorum.successCount,
     totalRelays: urls.length,
+    metQuorum: quorum.metQuorum,
+    quorumRequired: quorum.quorumRequired,
     results,
+    failures: [...quorum.failures],
     overallError
   };
 };
@@ -711,10 +854,7 @@ const publishToUrl = async (url: string, payload: string): Promise<PublishResult
 
 const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Promise<MultiRelayPublishResult> => {
   const normalized = Array.from(new Set(urls.map((url) => url.trim()).filter((url) => url.length > 0)));
-  let connected = normalized.filter((url) => {
-    const socket = socketsByUrl[url];
-    return !!socket && socket.readyState === WebSocket.OPEN;
-  });
+  let connected = getPreferredOpenRelayUrls(normalized);
 
   if (connected.length === 0) {
     normalized.forEach((url) => {
@@ -725,10 +865,7 @@ const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Prom
       attemptReconnect(url);
     });
     await waitForConnection(3000);
-    connected = normalized.filter((url) => {
-      const socket = socketsByUrl[url];
-      return !!socket && socket.readyState === WebSocket.OPEN;
-    });
+    connected = getPreferredOpenRelayUrls(normalized);
   }
 
   if (connected.length === 0) {
@@ -742,15 +879,21 @@ const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Prom
   }
 
   const results = await Promise.all(connected.map((url) => publishToRelay(url, payload)));
-  const successCount = results.filter((r) => r.success).length;
-  const success = successCount > 0;
-  const overallError = success ? undefined : (results[0]?.error ?? "Unknown failure");
+  const quorum = evaluatePublishQuorum({
+    results,
+    totalRelays: connected.length,
+    reliabilityEnabled: isReliabilityCoreEnabled(),
+  });
+  const overallError = quorum.metQuorum ? undefined : (results[0]?.error ?? "Unknown failure");
 
   return {
-    success,
-    successCount,
+    success: quorum.metQuorum,
+    successCount: quorum.successCount,
     totalRelays: normalized.length,
+    metQuorum: quorum.metQuorum,
+    quorumRequired: quorum.quorumRequired,
     results,
+    failures: [...quorum.failures],
     overallError
   };
 };

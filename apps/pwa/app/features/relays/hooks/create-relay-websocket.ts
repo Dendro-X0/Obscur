@@ -1,4 +1,5 @@
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 /**
  * Creates a WebSocket connection to a relay
@@ -11,7 +12,7 @@ import { NativeRelay } from "./native-relay";
  * Requirement 1.3: Tor support for network privacy (Tauri only)
  */
 const createRelayWebSocket = (url: string): WebSocket => {
-  if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+  if (hasNativeRuntime()) {
     return new NativeRelay(url) as unknown as WebSocket;
   }
   return new WebSocket(url);

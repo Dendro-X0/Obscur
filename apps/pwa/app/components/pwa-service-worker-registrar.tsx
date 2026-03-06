@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect } from "react";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 type PwaServiceWorkerRegistrarResult = React.JSX.Element | null;
 
@@ -10,7 +11,7 @@ const PwaServiceWorkerRegistrar = (): PwaServiceWorkerRegistrarResult => {
     if (typeof window === "undefined") {
       return;
     }
-    if ("__TAURI__" in window) {
+    if (hasNativeRuntime()) {
       return;
     }
     if (!("serviceWorker" in navigator)) {

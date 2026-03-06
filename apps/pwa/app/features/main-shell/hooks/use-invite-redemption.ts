@@ -9,6 +9,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { toast } from "@dweb/ui-kit";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 // Constants (moved from MainShell)
 const INVITE_REQUEST_SENT_PREFIX = "obscur.invites.request_sent.v1";
@@ -22,7 +23,7 @@ export interface InviteRedemptionState {
 }
 
 const getInviteRequestSentKey = (params: { redeemerPubkeyHex: string; inviteId: string }): string => {
-    return `${INVITE_REQUEST_SENT_PREFIX}.${params.redeemerPubkeyHex}.${params.inviteId}`;
+    return getScopedStorageKey(`${INVITE_REQUEST_SENT_PREFIX}.${params.redeemerPubkeyHex}.${params.inviteId}`);
 };
 
 const wasInviteRequestSent = (params: { redeemerPubkeyHex: string; inviteId: string }): boolean => {

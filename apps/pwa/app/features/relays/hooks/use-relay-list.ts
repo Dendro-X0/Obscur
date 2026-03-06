@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type RelayListItem = Readonly<{
   url: string;
@@ -52,6 +53,10 @@ const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
 ];
 
 const getRelayListStorageKey = (publicKeyHex: PublicKeyHex): string => {
+  return getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`);
+};
+
+const getLegacyRelayListStorageKey = (publicKeyHex: PublicKeyHex): string => {
   return `obscur.relay_list.v1.${publicKeyHex}`;
 };
 
@@ -68,7 +73,9 @@ const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex): ReadonlyArray<Rel
     return DEFAULT_RELAYS;
   }
   try {
-    const raw: string | null = window.localStorage.getItem(getRelayListStorageKey(publicKeyHex));
+    const raw: string | null =
+      window.localStorage.getItem(getRelayListStorageKey(publicKeyHex))
+      ?? window.localStorage.getItem(getLegacyRelayListStorageKey(publicKeyHex));
     if (!raw) {
       return DEFAULT_RELAYS;
     }

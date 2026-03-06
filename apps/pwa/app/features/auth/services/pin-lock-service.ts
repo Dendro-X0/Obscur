@@ -1,3 +1,5 @@
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+
 type PinPayloadV1 = Readonly<{
     version: 1;
     publicKeyHex: string;
@@ -8,7 +10,9 @@ type PinPayloadV1 = Readonly<{
 
 const STORAGE_KEY_PREFIX = "obscur.pin_lock.v1.";
 
-const getStorageKey = (publicKeyHex: string): string => `${STORAGE_KEY_PREFIX}${publicKeyHex}`;
+const getLegacyStorageKey = (publicKeyHex: string): string => `${STORAGE_KEY_PREFIX}${publicKeyHex}`;
+
+const getStorageKey = (publicKeyHex: string): string => getScopedStorageKey(getLegacyStorageKey(publicKeyHex));
 
 const toB64 = (bytes: Uint8Array): string => {
     let binary = "";
@@ -70,7 +74,10 @@ export class PinLockService {
     static hasPin(publicKeyHex: string): boolean {
         if (typeof window === "undefined") return false;
         try {
-            return window.localStorage.getItem(getStorageKey(publicKeyHex)) != null;
+            return (
+                window.localStorage.getItem(getStorageKey(publicKeyHex)) != null
+                || window.localStorage.getItem(getLegacyStorageKey(publicKeyHex)) != null
+            );
         } catch {
             return false;
         }
@@ -80,6 +87,7 @@ export class PinLockService {
         if (typeof window === "undefined") return;
         try {
             window.localStorage.removeItem(getStorageKey(publicKeyHex));
+            window.localStorage.removeItem(getLegacyStorageKey(publicKeyHex));
         } catch {
             return;
         }
@@ -106,7 +114,8 @@ export class PinLockService {
     static async unlockWithPin(params: Readonly<{ publicKeyHex: string; pin: string }>): Promise<{ ok: true; privateKeyHex: string } | { ok: false }> {
         if (typeof window === "undefined") return { ok: false };
         try {
-            const raw = window.localStorage.getItem(getStorageKey(params.publicKeyHex));
+            const raw = window.localStorage.getItem(getStorageKey(params.publicKeyHex))
+                ?? window.localStorage.getItem(getLegacyStorageKey(params.publicKeyHex));
             if (!raw) return { ok: false };
             const parsed: unknown = JSON.parse(raw);
             const payload = parsePayload(parsed);

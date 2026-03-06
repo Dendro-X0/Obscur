@@ -1,3 +1,5 @@
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+
 const TOMBSTONE_STORAGE_PREFIX = "obscur.group.tombstones.v1";
 
 const normalizeRelayForKey = (relayUrl: string | null | undefined): string => {
@@ -37,12 +39,13 @@ const parseConversationId = (conversationId: string): Readonly<{ groupId: string
     return null;
 };
 
-const toStorageKey = (publicKeyHex: string): string => `${TOMBSTONE_STORAGE_PREFIX}.${publicKeyHex}`;
+const toLegacyStorageKey = (publicKeyHex: string): string => `${TOMBSTONE_STORAGE_PREFIX}.${publicKeyHex}`;
+const toStorageKey = (publicKeyHex: string): string => getScopedStorageKey(toLegacyStorageKey(publicKeyHex));
 
 const readTombstones = (publicKeyHex: string): Set<string> => {
     if (typeof window === "undefined") return new Set<string>();
     try {
-        const raw = localStorage.getItem(toStorageKey(publicKeyHex));
+        const raw = localStorage.getItem(toStorageKey(publicKeyHex)) ?? localStorage.getItem(toLegacyStorageKey(publicKeyHex));
         if (!raw) return new Set<string>();
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return new Set<string>();

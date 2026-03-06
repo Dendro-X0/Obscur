@@ -1,6 +1,6 @@
 # Operations and Release Flow
 
-_Last reviewed: 2026-03-05 (baseline commit ad788a4)._
+_Last reviewed: 2026-03-06 (baseline commit 51a511b)._
 
 
 ## Versioning
@@ -37,9 +37,11 @@ Tag pushes should only publish through `release.yml`.
 4. Run full quality gates.
 5. Validate app startup and core chat flows in PWA + desktop builds.
 6. Confirm migration-free startup on existing local data.
-7. Update `CHANGELOG.md` with dated release entry.
-8. Tag and publish artifacts.
-9. Never retag an existing version. If a tag already exists on remote, bump patch version and tag the new version.
+7. For v0.8.8+, validate one-time profile migration and verify profile isolation (`default` + one extra profile) on local state.
+8. For v0.8.8+, production web is blocked by default; validate dev/localhost web harness behavior separately from native artifacts.
+9. Update `CHANGELOG.md` with dated release entry.
+10. Tag and publish artifacts.
+11. Never retag an existing version. If a tag already exists on remote, bump patch version and tag the new version.
 
 ## Artifact Matrix (v0.8.3 Gate)
 
@@ -87,5 +89,7 @@ Use these specs/checklists as the current release planning references:
 5. [v0.8.3 Ticketized Roadmap](./24-v0.8.3-roadmap.md)
 6. [v0.8.5 Ticketized Roadmap](./27-v0.8.5-roadmap.md)
 7. [v0.8.6 Ticketized Roadmap](./28-v0.8.6-setup-and-configuration-roadmap.md)
-8. [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md)
+8. [v0.8.7 Reliability Core Roadmap](./30-v0.8.7-reliability-core-roadmap.md)
+9. [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md)
+10. [v0.8.8 Runtime Decoupling + Multi-Profile Roadmap](./31-v0.8.8-runtime-decoupling-and-multi-profile-roadmap.md)
 

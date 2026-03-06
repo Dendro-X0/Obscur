@@ -1,4 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 
 export interface SessionStatus {
     isActive: boolean;
@@ -12,18 +13,18 @@ export class SessionApi {
      * Checks if a key is loaded in memory and/or the OS keychain.
      */
     static async getSessionStatus(): Promise<SessionStatus> {
-        try {
-            return await invoke<SessionStatus>("get_session_status");
-        } catch (e) {
-            console.error("Failed to get session status:", e);
+        if (!hasNativeRuntime()) {
             return { isActive: false, npub: null, isNative: false };
         }
+        const result = await invokeNativeCommand<SessionStatus>("get_session_status");
+        if (!result.ok) return { isActive: false, npub: null, isNative: false };
+        return result.value;
     }
 
     /**
      * Explicitly check if the app is running in a native environment.
      */
     static isNative(): boolean {
-        return typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+        return hasNativeRuntime();
     }
 }

@@ -3,8 +3,12 @@ import { generateSubscriptionId } from "./relay-utils";
 import type { NostrFilter, EnhancedDMControllerState } from "./dm-controller-state";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { MessageQueue } from "../lib/message-queue";
+import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
+import { createBackfillRequest, detectSyncGap, updateTimelineCheckpoint } from "../lib/sync-checkpoints";
+import { incrementReliabilityMetric, markReliabilitySyncCompleted } from "@/app/shared/reliability-observability";
 
 const GLOBAL_SYNC_LOCK_KEY = "__obscur_dm_sync_lock__";
+const DM_TIMELINE_KEY = "dm:all";
 const isTestRuntime = (): boolean => {
     if (typeof process !== "undefined" && process.env?.NODE_ENV === "test") {
         return true;
@@ -38,6 +42,14 @@ export interface SyncOrchestratorParams {
     };
     setState: React.Dispatch<React.SetStateAction<EnhancedDMControllerState>>;
 }
+
+const isReliabilityCoreEnabled = (): boolean => {
+    try {
+        return PrivacySettingsService.getSettings().reliabilityCoreV087;
+    } catch {
+        return true;
+    }
+};
 
 /**
  * Orchestrates the synchronization of missed messages
@@ -111,12 +123,25 @@ export const syncMissedMessages = async (
 
         console.log('Starting message sync from timestamp:', new Date(syncTimestamp * 1000));
 
+        let targetSince = syncTimestamp;
+        let syncLimit = 100;
+        if (isReliabilityCoreEnabled()) {
+            const gap = detectSyncGap(DM_TIMELINE_KEY, syncTimestamp);
+            if (gap) {
+                incrementReliabilityMetric("sync_gap_detected");
+                const backfillRequest = createBackfillRequest(DM_TIMELINE_KEY, syncTimestamp, gap);
+                targetSince = backfillRequest.sinceUnixSeconds;
+                syncLimit = backfillRequest.limit;
+                incrementReliabilityMetric("sync_backfill_requested");
+            }
+        }
+
         const syncSubId = generateSubscriptionId();
         const syncFilter: NostrFilter = {
             kinds: [4, 1059],
             '#p': [myPublicKeyHex],
-            since: syncTimestamp,
-            limit: 100
+            since: targetSince,
+            limit: syncLimit
         };
 
         const syncedCount = 0;
@@ -134,6 +159,10 @@ export const syncMissedMessages = async (
                 globalSyncLock.inProgress = false;
             }
             syncStateRef.current.lastSyncAt = new Date();
+            if (isReliabilityCoreEnabled()) {
+                updateTimelineCheckpoint(DM_TIMELINE_KEY, Math.floor(Date.now() / 1000));
+            }
+            markReliabilitySyncCompleted();
 
             loadingStateManager.complete('messageSync');
 

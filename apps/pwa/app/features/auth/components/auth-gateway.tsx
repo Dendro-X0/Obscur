@@ -8,9 +8,12 @@ import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { LockScreen } from "@/app/components/lock-screen";
 import { AuthScreen } from "../components/auth-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+import { getAuthTokenStorageKey, getRememberMeStorageKey } from "../utils/auth-storage-keys";
 
-const REMEMBER_ME_KEY = "obscur_remember_me";
-const AUTH_TOKEN_KEY = "obscur_auth_token";
+const LEGACY_REMEMBER_ME_KEY = "obscur_remember_me";
+const LEGACY_AUTH_TOKEN_KEY = "obscur_auth_token";
 
 interface AuthGatewayProps {
     children: React.ReactNode;
@@ -36,8 +39,8 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     useEffect(() => {
         const attemptAutoUnlock = async () => {
             if (isIdentityLocked && hasStoredIdentity && !hasAttemptedAutoUnlock) {
-                const isRemembered = localStorage.getItem(REMEMBER_ME_KEY) === "true";
-                const token = localStorage.getItem(AUTH_TOKEN_KEY);
+                const isRemembered = (localStorage.getItem(getRememberMeStorageKey()) ?? localStorage.getItem(LEGACY_REMEMBER_ME_KEY)) === "true";
+                const token = localStorage.getItem(getAuthTokenStorageKey()) ?? localStorage.getItem(LEGACY_AUTH_TOKEN_KEY);
 
                 if (isRemembered && token !== null) {
                     try {
@@ -48,13 +51,17 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
                         } else {
                             // If it failed (maybe password changed?), clear it or let user manually unlock
                             console.warn("[AuthGateway] Auto-unlock failed.");
-                            localStorage.setItem(REMEMBER_ME_KEY, "false");
-                            localStorage.removeItem(AUTH_TOKEN_KEY);
+                            localStorage.setItem(getRememberMeStorageKey(), "false");
+                            localStorage.removeItem(getAuthTokenStorageKey());
+                            localStorage.setItem(LEGACY_REMEMBER_ME_KEY, "false");
+                            localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
                         }
                     } catch (e) {
                         console.error("[AuthGateway] Auto-unlock error:", e);
-                        localStorage.setItem(REMEMBER_ME_KEY, "false");
-                        localStorage.removeItem(AUTH_TOKEN_KEY);
+                        localStorage.setItem(getRememberMeStorageKey(), "false");
+                        localStorage.removeItem(getAuthTokenStorageKey());
+                        localStorage.setItem(LEGACY_REMEMBER_ME_KEY, "false");
+                        localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
                     }
                 }
                 setHasAttemptedAutoUnlock(true);
@@ -93,10 +100,12 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     const { settings } = useAutoLock();
 
     const handleBiometricUnlock = async (): Promise<boolean> => {
+        if (!hasNativeRuntime()) {
+            return false;
+        }
         try {
-            const { invoke } = await import('@tauri-apps/api/core');
-            const success = await invoke<boolean>('request_biometric_auth');
-            if (success) {
+            const result = await invokeNativeCommand<boolean>("request_biometric_auth");
+            if (result.ok && result.value) {
                 // Biometrics successful, clear inactivity lock
                 clearInactivityLock();
                 return true;
@@ -111,7 +120,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     // 1. Loading state
     if (identity.state.status === "loading") {
         return (
-            <div className="fixed inset-0 flex items-center justify-center bg-zinc-50 dark:bg-black z-[200]">
+            <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-black">
                 <div className="relative flex h-24 w-24 items-center justify-center">
                     <Image src="/obscur-logo-light.svg" alt="Loading" width={80} height={80} className="animate-pulse dark:hidden" priority />
                     <Image src="/obscur-logo-dark.svg" alt="Loading" width={80} height={80} className="hidden animate-pulse dark:block" priority />
@@ -153,6 +162,6 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         );
     }
 
-    // 6. Success - Render Main App
+    // 5. Success - Render Main App
     return <>{children}</>;
 };

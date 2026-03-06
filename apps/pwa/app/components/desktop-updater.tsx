@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { useTranslation } from "react-i18next";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/Dendro-X0/Obscur/releases/latest";
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -67,18 +68,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
 
   useEffect(() => {
     // Check if running in Tauri desktop app
-    const checkDesktop = async () => {
-      try {
-        const tauriWindow = window as Window & { __TAURI__?: unknown };
-        if (tauriWindow.__TAURI__) {
-          setIsDesktop(true);
-        }
-      } catch {
-        setIsDesktop(false);
-      }
-    };
-
-    checkDesktop();
+    setIsDesktop(getRuntimeCapabilities().isDesktop);
   }, []);
 
   const checkForUpdates = async () => {
@@ -86,7 +76,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       setIsChecking(true);
       setError(null);
       const tauriCheckPromise = isDesktop
-        ? invoke<string>("check_for_updates").catch(() => "No updates available")
+        ? invokeNativeCommand<string>("check_for_updates").then((result) => (result.ok ? result.value : "No updates available"))
         : Promise.resolve("No updates available");
       const [tauriResult, releaseResponse] = await Promise.all([
         tauriCheckPromise,
@@ -147,7 +137,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       if (!ok) return;
       setIsInstalling(true);
       setError(null);
-      await invoke("install_update");
+      await invokeNativeCommand("install_update");
       // App will restart automatically after update
     } catch (err) {
       setError(err as string);

@@ -120,7 +120,13 @@ export const orchestrateOutgoingDm = async (
 
         if (openRelays.length === 0) {
             if (messageQueue) await queueOutgoingDmForRetry({ messageQueue, messageId: prepared.messageId, conversationId: prepared.conversationId, plaintext: cleanedPlaintext, recipientPubkey, signedEvent: build.signedEvent });
-            return { success: false, messageId: prepared.messageId, relayResults: [], error: 'No active relays. Message queued and will retry automatically when connection returns.' };
+            return {
+                success: false,
+                messageId: prepared.messageId,
+                relayResults: [],
+                error: 'No active relays. Message queued and will retry automatically when connection returns.',
+                failureReason: "no_active_relays"
+            };
         }
 
         if (pool.publishToAll) {
@@ -141,7 +147,15 @@ export const orchestrateOutgoingDm = async (
                 const updatedMessages = prev.messages.map((m: Message) => (m.id === (updatedSignedEvent ? prepared.messageId : finalMessage.id) ? finalMessage : m));
                 return createReadyState(updatedMessages);
             });
-            return { success: publishResult.success, messageId: finalMessage.id, relayResults: publishResult.results, error: publishResult.overallError };
+            return {
+                success: publishResult.success,
+                messageId: finalMessage.id,
+                relayResults: publishResult.results,
+                error: publishResult.overallError,
+                failureReason: publishResult.success
+                    ? undefined
+                    : (publishResult.metQuorum === false ? "quorum_not_met" : "publish_rejected")
+            };
         } else {
             const { relayResults } = publishOutgoingDmFireAndForget({ pool, openRelays, signedEvent: build.signedEvent });
             const acceptedMessage: Message = {
@@ -168,6 +182,6 @@ export const orchestrateOutgoingDm = async (
             ? error.message
             : 'Unexpected send failure. Check relay connectivity and try again.';
         setState((prev: EnhancedDMControllerState) => createErrorState(msg, prev.messages, errorHandler.handleUnknownError(error as Error)));
-        return { success: false, messageId: '', relayResults: [], error: msg };
+            return { success: false, messageId: '', relayResults: [], error: msg, failureReason: "unknown" };
     }
 };

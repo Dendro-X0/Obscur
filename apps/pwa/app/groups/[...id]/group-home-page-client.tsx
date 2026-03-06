@@ -39,6 +39,7 @@ import Image from "next/image";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 export default function GroupHomePage() {
     const params = useParams();
@@ -121,11 +122,14 @@ export default function GroupHomePage() {
     }, [discoveredMembers, group?.groupId]);
 
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const getScopedGroupNotificationsKey = (groupId: string): string => getScopedStorageKey(`obscur_group_notifications_${groupId}`);
+    const getLegacyGroupNotificationsKey = (groupId: string): string => `obscur_group_notifications_${groupId}`;
 
     React.useEffect(() => {
         if (!group) return;
-        const key = `obscur_group_notifications_${group.groupId}`;
-        const saved = localStorage.getItem(key);
+        const saved =
+            localStorage.getItem(getScopedGroupNotificationsKey(group.groupId))
+            ?? localStorage.getItem(getLegacyGroupNotificationsKey(group.groupId));
         if (saved) {
             setNotificationsEnabled(saved === "on");
         }
@@ -142,7 +146,7 @@ export default function GroupHomePage() {
         const next = !notificationsEnabled;
         setNotificationsEnabled(next);
         if (group) {
-            localStorage.setItem(`obscur_group_notifications_${group.groupId}`, next ? "on" : "off");
+            localStorage.setItem(getScopedGroupNotificationsKey(group.groupId), next ? "on" : "off");
             toast.success(next ? "Notifications enabled" : "Notifications disabled");
         }
     };

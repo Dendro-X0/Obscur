@@ -1,8 +1,9 @@
 
-import { invoke } from "@tauri-apps/api/core";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 
 export const isTauriMobile = () => {
-    return typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__?.metadata?.mobile;
+    return getRuntimeCapabilities().isMobile;
 };
 
 export enum StatusBarStyle {
@@ -14,7 +15,7 @@ export async function syncStatusBarTheme(isDark: boolean) {
     if (!isTauriMobile()) return;
 
     try {
-        await invoke("plugin:statusbar|set_style", {
+        await invokeNativeCommand("plugin:statusbar|set_style", {
             style: isDark ? StatusBarStyle.Dark : StatusBarStyle.Light
         });
     } catch (err) {

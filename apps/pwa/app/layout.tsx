@@ -15,13 +15,15 @@ import { I18nProvider } from "./components/i18n-provider"
 import { RootErrorBoundary } from "./components/root-error-boundary"
 import { Preloader } from "./components/preloader"
 import { DesktopNotificationHandler } from "./components/desktop-notification-handler"
+import { StorageHealthBootstrap } from "./components/storage-health-bootstrap"
 import { ErrorPanel } from "./features/native/components/error-panel"
 import { AppProviders } from "./components/providers"
 import { TitleBar } from "./components/desktop/title-bar"
+import { NativeRuntimeGate } from "./components/native-runtime-gate"
+import { ProfileMigrationBootstrap } from "./components/profile-migration-bootstrap"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
-const DESKTOP_SHELL_FLAG = process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" || process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true"
 
 export const metadata: Metadata = {
   title: "Obscur",
@@ -61,7 +63,18 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var preference = localStorage.getItem('dweb.nostr.pwa.ui.theme') || 'system';
+                  var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
+                  var activeProfileId = 'default';
+                  if (registryRaw) {
+                    try {
+                      var registry = JSON.parse(registryRaw);
+                      if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
+                        activeProfileId = registry.activeProfileId.trim();
+                      }
+                    } catch (e) {}
+                  }
+                  var scopedThemeKey = 'dweb.nostr.pwa.ui.theme::' + activeProfileId;
+                  var preference = localStorage.getItem(scopedThemeKey) || localStorage.getItem('dweb.nostr.pwa.ui.theme') || 'system';
                   var isDark = preference === 'dark' || (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                   document.documentElement.classList.toggle('dark', isDark);
                 } catch (e) {}
@@ -73,12 +86,13 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var forceDesktop = ${DESKTOP_SHELL_FLAG ? "true" : "false"};
                 var markDesktopMode = function() {
                   var w = window;
-                  var ua = navigator && navigator.userAgent ? navigator.userAgent : "";
-                  var hasTauri = forceDesktop || !!w.__TAURI__ || !!w.__TAURI_INTERNALS__ || !!w.__TAURI_IPC__ || /\\bTauri\\b/i.test(ua);
-                  if (!hasTauri) {
+                  var hasCallableBridge =
+                    typeof (w.__TAURI_INTERNALS__ && w.__TAURI_INTERNALS__.invoke) === "function" ||
+                    typeof (w.__TAURI__ && w.__TAURI__.core && w.__TAURI__.core.invoke) === "function" ||
+                    typeof w.__TAURI_IPC__ === "function";
+                  if (!hasCallableBridge) {
                     return false;
                   }
                   document.documentElement.classList.add("desktop-mode");
@@ -106,7 +120,18 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var raw = localStorage.getItem('dweb.nostr.pwa.ui.accessibility.v1');
+                  var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
+                  var activeProfileId = 'default';
+                  if (registryRaw) {
+                    try {
+                      var registry = JSON.parse(registryRaw);
+                      if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
+                        activeProfileId = registry.activeProfileId.trim();
+                      }
+                    } catch (e) {}
+                  }
+                  var scopedAccessibilityKey = 'dweb.nostr.pwa.ui.accessibility.v1::' + activeProfileId;
+                  var raw = localStorage.getItem(scopedAccessibilityKey) || localStorage.getItem('dweb.nostr.pwa.ui.accessibility.v1');
                   if (!raw) return;
                   var parsed = JSON.parse(raw);
                   var textScale = parsed && typeof parsed.textScale === 'number' ? parsed.textScale : 100;
@@ -123,32 +148,36 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`} suppressHydrationWarning>
-        <Preloader />
-        <RootErrorBoundary>
-          <DesktopModeProvider>
-            <ThemeController />
-            <AccessibilityController />
-            <I18nProvider>
-              <PwaServiceWorkerRegistrar />
-              <ToastProvider />
-              <ErrorPanel />
-              <DesktopUpdater />
-              <OfflineIndicator />
-              <DeepLinkHandler />
-              <AppProviders>
-                <DesktopNotificationHandler />
-                <div className={`flex flex-col h-screen overflow-hidden ${DESKTOP_SHELL_FLAG ? "desktop-mode desktop-window-glow" : "desktop-mode:desktop-window-glow"}`}>
-                  <div className="relative z-[9999]">
-                    <TitleBar />
+        <NativeRuntimeGate>
+          <Preloader />
+          <RootErrorBoundary>
+            <DesktopModeProvider>
+              <ThemeController />
+              <AccessibilityController />
+              <StorageHealthBootstrap />
+              <ProfileMigrationBootstrap />
+              <I18nProvider>
+                <PwaServiceWorkerRegistrar />
+                <ToastProvider />
+                <ErrorPanel />
+                <DesktopUpdater />
+                <OfflineIndicator />
+                <DeepLinkHandler />
+                  <div className="flex flex-col h-screen overflow-hidden desktop-mode:desktop-window-glow">
+                    <div className="relative z-[9999]">
+                      <TitleBar />
+                    </div>
+                    <main className="flex-1 min-h-0 relative flex flex-col">
+                      <AppProviders>
+                        <DesktopNotificationHandler />
+                        {children}
+                      </AppProviders>
+                    </main>
                   </div>
-                  <main className="flex-1 min-h-0 relative flex flex-col">
-                    {children}
-                  </main>
-                </div>
-              </AppProviders>
-            </I18nProvider>
-          </DesktopModeProvider>
-        </RootErrorBoundary>
+              </I18nProvider>
+            </DesktopModeProvider>
+          </RootErrorBoundary>
+        </NativeRuntimeGate>
       </body>
     </html>
   )

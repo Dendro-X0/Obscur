@@ -2,6 +2,10 @@
 import { useEnhancedRelayPool, type EnhancedRelayPoolResult } from "./enhanced-relay-pool";
 import { getMockPool } from "../../dev-tools/hooks/use-dev-mode";
 import { useMemo } from "react";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+
+const DEV_MODE_KEY = "obscur_dev_mode";
+const getDevModeStorageKey = (): string => getScopedStorageKey(DEV_MODE_KEY);
 
 /**
  * Compatibility hook for useRelayPool
@@ -12,7 +16,8 @@ export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResu
 
     // Check dev mode in a way that doesn't break SSR or initial hydration
     // Use true as default if we are in dev mode toggle? No, rely on localStorage
-    const isDevMode = typeof window !== "undefined" && localStorage.getItem("obscur_dev_mode") === "true";
+    const isDevMode = typeof window !== "undefined"
+        && ((localStorage.getItem(getDevModeStorageKey()) ?? localStorage.getItem(DEV_MODE_KEY)) === "true");
 
     const mockPool = useMemo(() => {
         if (!isDevMode) {

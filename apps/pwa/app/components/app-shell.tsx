@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, FolderLock, Menu, MessageSquare, Search, Settings, SidebarClose, SidebarOpen, Users, X } from "lucide-react";
+import { Bell, FolderLock, Menu, MessageSquare, Search, Settings, Users, X } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import type { NavItem } from "../lib/navigation/nav-item";
@@ -26,7 +26,6 @@ type AppShellProps = Readonly<{
   hideHeader?: boolean;
 }>;
 
-const STORAGE_KEY: string = "dweb.nostr.pwa.ui.sidebarExpanded";
 const FOOTER_RELEASE_LABEL: string = process.env.NEXT_PUBLIC_RELEASE_LABEL?.trim() || "Preview";
 const APP_FOOTER_TEXT: string = `Obscur ${FOOTER_RELEASE_LABEL}`;
 
@@ -37,29 +36,6 @@ const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
   "/search": Search,
   "/requests": Bell,
   "/settings": Settings,
-};
-
-const loadExpanded = (): boolean => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  try {
-    const raw: string | null = window.localStorage.getItem(STORAGE_KEY);
-    return raw === "1";
-  } catch {
-    return false;
-  }
-};
-
-const saveExpanded = (expanded: boolean): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(STORAGE_KEY, expanded ? "1" : "0");
-  } catch {
-    return;
-  }
 };
 
 const AppShell = (props: AppShellProps): React.JSX.Element => {

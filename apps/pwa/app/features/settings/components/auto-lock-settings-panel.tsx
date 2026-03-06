@@ -6,6 +6,7 @@ import type { PrivacySettings } from '../services/privacy-settings-service';
 import { Label } from '../../../components/ui/label';
 import { cn } from '../../../lib/cn';
 import { SettingsActionStatus, type SettingsActionPhase } from './settings-action-status';
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 
 /**
  * Premium Privacy & Safety Settings Panel
@@ -19,8 +20,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
     const [actionPhase, setActionPhase] = React.useState<SettingsActionPhase>("idle");
     const [actionMessage, setActionMessage] = React.useState<string>("");
 
-    const tauriWindow: (Window & Readonly<{ __TAURI_INTERNALS__?: unknown }>) | null = typeof window !== "undefined" ? window : null;
-    const isTauri: boolean = tauriWindow?.__TAURI_INTERNALS__ !== undefined;
+    const isTauri: boolean = getRuntimeCapabilities().isNativeRuntime;
 
     const handleRestart = () => {
         if (isTauri) {

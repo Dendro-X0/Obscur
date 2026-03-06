@@ -13,6 +13,8 @@ import { saveStoredIdentity } from "../utils/save-stored-identity";
 import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import { recordIdentityActivationRisk } from "@/app/shared/sybil-risk-signals";
+import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -111,6 +113,15 @@ export const useIdentity = (): UseIdentityResult => {
   useEffect(() => {
     void ensureInitialized();
   }, []);
+  useEffect(() => {
+    const onProfileChanged = (): void => {
+      void rehydrateIdentityForActiveProfile();
+    };
+    window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    return (): void => {
+      window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    };
+  }, []);
   const state: IdentityState = useSyncExternalStore(subscribeToIdentity, getIdentitySnapshot, () => serverSnapshot);
   return useMemo(() => ({
     state,
@@ -134,6 +145,12 @@ type NativeCryptoSessionApi = Readonly<{
   clearNativeSession?: () => Promise<void>;
   deleteNativeKey?: () => Promise<void>;
 }>;
+
+const canUseNativeSession = (): boolean => hasNativeRuntime();
+
+const hasFn = <T extends (...args: never[]) => unknown>(value: unknown): value is T => {
+  return typeof value === "function";
+};
 
 let identityState: IdentityState = createLoadingState();
 let hasInitialized: boolean = false;
@@ -174,6 +191,15 @@ const setIdentityDiagnostics = (next: IdentityDiagnostics): void => {
 
 export const getIdentityDiagnosticsSnapshot = (): IdentityDiagnostics => identityDiagnostics;
 
+const rehydrateIdentityForActiveProfile = async (): Promise<void> => {
+  try {
+    const stored = (await getStoredIdentity()).record;
+    setIdentityState(createLockedState(stored));
+  } catch {
+    setIdentityState(createLockedState(undefined));
+  }
+};
+
 const ensureInitialized = async (): Promise<void> => {
   if (hasInitialized) {
     return;
@@ -196,9 +222,9 @@ const ensureInitialized = async (): Promise<void> => {
 
     // Auto-unlock with native keychain if possible
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (stored && cs.hasNativeKey && await cs.hasNativeKey()) {
+    if (stored && canUseNativeSession() && hasFn(cs.hasNativeKey) && await cs.hasNativeKey()) {
       try {
-        const nativeNpub = cs.getNativeNpub ? await cs.getNativeNpub() : null;
+        const nativeNpub = hasFn(cs.getNativeNpub) ? await cs.getNativeNpub() : null;
         const normalizedNativeNpub = normalizePublicKeyHex(nativeNpub ?? undefined);
         if (normalizedNativeNpub === stored.publicKeyHex) {
           console.info("[Identity] Native key matched. Backend hydrated. Auto-unlocking...");
@@ -254,7 +280,7 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
 
     // Sync to native keychain if in Tauri
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (cs.initNativeSession) {
+    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
       try {
         await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
@@ -290,7 +316,7 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
 
     // Sync to native keychain if in Tauri
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (cs.initNativeSession) {
+    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
       try {
         await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
@@ -324,7 +350,7 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
 
     // Sync to native keychain if in Tauri
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (cs.initNativeSession) {
+    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
       try {
         await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
@@ -364,7 +390,7 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
 
     // Sync to native keychain if in Tauri
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (cs.initNativeSession) {
+    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
       try {
         await cs.initNativeSession(privateKeyHex);
         activeKey = NATIVE_KEY_SENTINEL;
@@ -464,10 +490,10 @@ const forgetIdentityAction = async (): Promise<void> => {
 
     // Cleanup native keychain
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (cs.clearNativeSession) {
+    if (canUseNativeSession() && hasFn(cs.clearNativeSession)) {
       await cs.clearNativeSession();
     }
-    if (cs.deleteNativeKey) {
+    if (canUseNativeSession() && hasFn(cs.deleteNativeKey)) {
       await cs.deleteNativeKey();
     }
 

@@ -1,3 +1,5 @@
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+
 export interface PrivacySettings {
     encryptStorageAtRest: boolean;
     clearClipboardOnLock: boolean;
@@ -9,6 +11,7 @@ export interface PrivacySettings {
     biometricLockEnabled: boolean;
     chatPerformanceV2: boolean; // Feature flag for batched chat performance optimizations
     chatUxV083: boolean; // Feature flag for v0.8.3 media/chat UX refresh
+    reliabilityCoreV087: boolean; // Feature flag for v0.8.7 relay/sync/storage reliability core
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -21,15 +24,20 @@ export const defaultPrivacySettings: PrivacySettings = {
     dmPrivacy: 'everyone',
     biometricLockEnabled: false,
     chatPerformanceV2: false,
-    chatUxV083: false
+    chatUxV083: false,
+    reliabilityCoreV087: true
 };
 
 export class PrivacySettingsService {
     private static STORAGE_KEY = "obscur.settings.privacy";
 
+    private static scopedStorageKey(): string {
+        return getScopedStorageKey(this.STORAGE_KEY);
+    }
+
     static getSettings(): PrivacySettings {
         if (typeof window === "undefined") return defaultPrivacySettings;
-        const stored = localStorage.getItem(this.STORAGE_KEY);
+        const stored = localStorage.getItem(this.scopedStorageKey());
         if (!stored) return defaultPrivacySettings;
         try {
             return { ...defaultPrivacySettings, ...JSON.parse(stored) };
@@ -40,7 +48,7 @@ export class PrivacySettingsService {
 
     static saveSettings(settings: PrivacySettings): void {
         if (typeof window === "undefined") return;
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(settings));
+        localStorage.setItem(this.scopedStorageKey(), JSON.stringify(settings));
 
         // Dispatch event for components to react
         window.dispatchEvent(new Event("privacy-settings-changed"));

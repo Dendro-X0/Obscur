@@ -43,7 +43,7 @@ export default function VaultPage(): React.JSX.Element {
 
     return (
         <PageShell title={t("nav.vault", "Vault")} navBadgeCounts={navBadges.navBadgeCounts}>
-            <div className="mx-auto w-full max-w-7xl p-6 py-8">
+            <div className="mx-auto w-full max-w-7xl p-6 py-8 flex-1 flex flex-col">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
                     <div className="flex items-center gap-6">
                         <div className="h-20 w-20 rounded-[28px] bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center shadow-2xl shadow-primary/20 shrink-0">
@@ -85,7 +85,7 @@ export default function VaultPage(): React.JSX.Element {
                     </div>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-8 flex-1 flex flex-col">
                     <div className="flex items-center gap-3">
                         <ImageIcon className="h-5 w-5 text-primary" />
                         <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400">{t("vault.recentMedia", "Recent Media")}</h3>

@@ -4,6 +4,7 @@ import type React from "react";
 import { WindowControls } from "./window-controls";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { isDesktopEnvironment } from "@/app/features/desktop/utils/tauri-api";
+import { useEffect, useState } from "react";
 
 interface TitleBarProps {
   title?: string;
@@ -15,9 +16,18 @@ interface TitleBarProps {
  * Provides a draggable area and window controls
  */
 export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProps): React.JSX.Element | null {
+  const [hasMounted, setHasMounted] = useState(false);
   const isDesktop = useIsDesktop();
-  const forceDesktopShell = process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" || process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true";
-  const shouldRender = forceDesktopShell || isDesktop || isDesktopEnvironment();
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return null;
+  }
+
+  const shouldRender = isDesktop || isDesktopEnvironment();
 
   if (!shouldRender) {
     return null;

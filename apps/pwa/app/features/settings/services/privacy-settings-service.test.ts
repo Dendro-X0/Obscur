@@ -17,5 +17,9 @@ describe("privacy-settings-service", () => {
     const loaded = PrivacySettingsService.getSettings();
     expect(loaded.chatUxV083).toBe(true);
   });
-});
 
+  it("defaults reliabilityCoreV087 to true", () => {
+    const settings = PrivacySettingsService.getSettings();
+    expect(settings.reliabilityCoreV087).toBe(true);
+  });
+});

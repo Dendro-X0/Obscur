@@ -1,4 +1,4 @@
-import { NOTIFICATION_CHANNELS_STORAGE_KEY, NOTIFICATION_STORAGE_KEY } from "./notification-storage-key";
+import { getNotificationChannelsStorageKey, getNotificationStorageKey } from "./notification-storage-key";
 import {
   areNotificationsEnabled,
   DEFAULT_NOTIFICATION_CHANNELS,
@@ -14,8 +14,12 @@ const getNotificationsEnabled = (): NotificationsEnabledResult => {
     return { enabled: false, channels: DISABLED_NOTIFICATION_CHANNELS };
   }
   try {
-    const raw: string | null = window.localStorage.getItem(NOTIFICATION_STORAGE_KEY);
-    const rawChannels = window.localStorage.getItem(NOTIFICATION_CHANNELS_STORAGE_KEY);
+    const raw: string | null =
+      window.localStorage.getItem(getNotificationStorageKey())
+      ?? window.localStorage.getItem("dweb.nostr.pwa.notifications.enabled");
+    const rawChannels =
+      window.localStorage.getItem(getNotificationChannelsStorageKey())
+      ?? window.localStorage.getItem("dweb.nostr.pwa.notifications.channels.v1");
     if (rawChannels) {
       try {
         const parsed = JSON.parse(rawChannels) as Partial<NotificationChannels>;

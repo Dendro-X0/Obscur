@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import { chatStateStoreService } from "../services/chat-state-store";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import {
     toPersistedDmConversation,
     fromPersistedDmConversation,
@@ -115,10 +116,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const setSelectedConversation = React.useCallback((conv: Conversation | null) => {
         setSelectedConversationState(conv);
         if (publicKeyHex) {
+            const key = getScopedStorageKey(`obscur-last-chat-${publicKeyHex}`);
             if (conv) {
-                localStorage.setItem(`obscur-last-chat-${publicKeyHex}`, conv.id);
+                localStorage.setItem(key, conv.id);
             } else {
-                localStorage.removeItem(`obscur-last-chat-${publicKeyHex}`);
+                localStorage.removeItem(key);
             }
         }
     }, [publicKeyHex]);

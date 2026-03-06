@@ -50,6 +50,7 @@ import {
 } from './security-enhancements';
 import { logAppEvent } from '@/app/shared/log-app-event';
 import { publishToUrlsStandalone } from '../../relays/hooks/enhanced-relay-pool';
+import { getScopedStorageKey } from '../../profiles/services/profile-scope';
 
 type CoordinationInviteCreateResponse = Readonly<{
   inviteId: string;
@@ -123,6 +124,10 @@ const getCoordinationBaseUrl = (): string | null => {
 };
 
 const getRelayListStorageKey = (publicKeyHex: string): string => {
+  return getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`);
+};
+
+const getLegacyRelayListStorageKey = (publicKeyHex: string): string => {
   return `obscur.relay_list.v1.${publicKeyHex}`;
 };
 
@@ -131,7 +136,9 @@ const getEnabledRelayUrlsForIdentity = (publicKeyHex: string): ReadonlyArray<str
     return [];
   }
   try {
-    const raw: string | null = window.localStorage.getItem(getRelayListStorageKey(publicKeyHex));
+    const raw: string | null =
+      window.localStorage.getItem(getRelayListStorageKey(publicKeyHex))
+      ?? window.localStorage.getItem(getLegacyRelayListStorageKey(publicKeyHex));
     if (!raw) {
       return [];
     }

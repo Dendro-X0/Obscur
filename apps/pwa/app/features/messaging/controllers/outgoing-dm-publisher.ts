@@ -12,7 +12,15 @@ type MultiRelayPublishResult = Readonly<{
   success: boolean;
   successCount: number;
   totalRelays: number;
+  metQuorum?: boolean;
+  quorumRequired?: number;
   results: Array<{
+    relayUrl: string;
+    success: boolean;
+    error?: string;
+    latency?: number;
+  }>;
+  failures?: Array<{
     relayUrl: string;
     success: boolean;
     error?: string;

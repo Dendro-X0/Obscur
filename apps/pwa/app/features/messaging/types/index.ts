@@ -214,6 +214,14 @@ export type JoinRequestBlockReason =
     | "denied_request"
     | "cooldown_active";
 
+export type MessageActionFailureReason =
+    | "no_active_relays"
+    | "quorum_not_met"
+    | "publish_rejected"
+    | "sync_failed"
+    | "storage_unavailable"
+    | "unknown";
+
 export type IntegrityMigrationReport = Readonly<{
     timestampMs: number;
     backedUp: boolean;

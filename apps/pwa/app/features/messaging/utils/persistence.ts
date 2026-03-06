@@ -23,6 +23,7 @@ import type { GroupAccessMode } from "../../groups/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 const MAX_PERSISTED_MESSAGES_PER_CONVERSATION: number = 5000;
 const PERSISTED_CHAT_STATE_VERSION: number = 2;
@@ -32,9 +33,9 @@ const LAST_SEEN_STORAGE_PREFIX: string = "dweb.nostr.pwa.last-seen";
 
 const getPersistedChatStateStorageKey = (publicKeyHex: string | null | undefined): string => {
     if (!publicKeyHex || publicKeyHex.trim().length === 0) {
-        return LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY;
+        return getScopedStorageKey(LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY);
     }
-    return `${PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX}.${publicKeyHex}`;
+    return getScopedStorageKey(`${PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX}.${publicKeyHex}`);
 };
 
 // Helper functions for type checking
@@ -829,7 +830,8 @@ export const fromPersistedMessagesByConversationId = (messagesByConversationId: 
 };
 
 // Last seen specific
-const getLastSeenStorageKey = (pk: PublicKeyHex): string => `${LAST_SEEN_STORAGE_PREFIX}.${pk}`;
+const getLastSeenStorageKey = (pk: PublicKeyHex): string =>
+    getScopedStorageKey(`${LAST_SEEN_STORAGE_PREFIX}.${pk}`);
 
 export const loadLastSeen = (pk: PublicKeyHex): LastSeenByConversationId => {
     try {

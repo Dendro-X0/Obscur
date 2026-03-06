@@ -82,15 +82,6 @@ export function NetworkDashboard() {
     const inviteResolver = useInviteResolver({ myPublicKeyHex: publicKeyHex });
     const { relayPool: pool } = useRelay();
 
-    const tabs: { id: TabId, label: string, icon: any, badge?: number }[] = [
-        { id: "all", label: t("network.tabs.all"), icon: UserCheck },
-        { id: "groups", label: t("network.tabs.groups"), icon: Users },
-        { id: "discovery", label: "Discovery", icon: Globe },
-        { id: "invitations", label: t("network.tabs.invitations"), icon: MailOpen, badge: requestsInbox.state.items.filter(i => i.unreadCount > 0).length },
-        { id: "blocked", label: t("network.tabs.blocked"), icon: Ban },
-        { id: "manage", label: "Manage", icon: Settings },
-    ];
-
     // Clear unread marks when switching to invitations tab
     React.useEffect(() => {
         if (activeTab === "invitations" && requestsInbox.state.items.some(i => i.unreadCount > 0)) {
@@ -131,6 +122,15 @@ export function NetworkDashboard() {
         });
     }, [peerTrust.state.acceptedPeers, createdConnections, searchQuery]);
 
+    const tabs: { id: TabId, label: string, icon: any, badge?: number }[] = [
+        { id: "all", label: t("network.tabs.all"), icon: UserCheck, badge: filteredAcceptedPeers.length },
+        { id: "groups", label: t("network.tabs.groups"), icon: Users, badge: filteredGroups.length },
+        { id: "discovery", label: "Discovery", icon: Globe },
+        { id: "invitations", label: t("network.tabs.invitations"), icon: MailOpen, badge: requestsInbox.state.items.filter(i => i.unreadCount > 0).length },
+        { id: "blocked", label: t("network.tabs.blocked"), icon: Ban },
+        { id: "manage", label: "Manage", icon: Settings },
+    ];
+
     const handleGlobalSearch = async () => {
         const trimmedQuery = searchQuery.trim();
         if (!trimmedQuery) return;
@@ -156,7 +156,7 @@ export function NetworkDashboard() {
     };
 
     const renderEmptyState = (title: string, description: string, icon: React.ElementType, action?: { label: string, onClick: () => void }) => (
-        <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[45vh] text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] bg-muted border border-border shadow-inner">
                 {React.createElement(icon, { className: "h-10 w-10 text-muted-foreground" })}
             </div>
@@ -253,13 +253,13 @@ export function NetworkDashboard() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as TabId)}
                             className={cn(
-                                "flex-shrink-0 lg:w-full relative flex items-center gap-3 h-9 px-4 rounded-xl text-xs font-bold transition-all duration-300",
+                                "flex-shrink-0 lg:w-full relative flex items-center gap-3 h-10 px-4 rounded-xl text-xs font-bold transition-all duration-300",
                                 activeTab === tab.id
-                                    ? "bg-accent text-foreground shadow-xl border border-border active:scale-[0.98]"
+                                    ? "bg-gradient-primary text-white shadow-lg shadow-primary/25 scale-[1.02] border-none active:scale-[0.98]"
                                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                             )}
                         >
-                            <tab.icon className={cn("h-4 w-4 shrink-0", activeTab === tab.id ? "text-primary" : "opacity-60")} />
+                            <tab.icon className={cn("h-4 w-4 shrink-0", activeTab === tab.id ? "text-white" : "opacity-60")} />
                             <span className="whitespace-nowrap">{tab.label}</span>
                             {tab.badge ? (
                                 <span className="ml-1.5 h-4 w-4 flex items-center justify-center rounded-full bg-rose-500/20 text-rose-500 text-[9px] font-black">
@@ -271,9 +271,9 @@ export function NetworkDashboard() {
                 </div>
 
                 {/* Main Content Pane */}
-                <div className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 xl:px-12 pb-24 lg:pb-8">
+                <div className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 xl:px-12 pb-24 lg:pb-8 flex flex-col">
                     {activeTab === "all" && (
-                        <div className="space-y-12 animate-in fade-in duration-700">
+                        <div className="space-y-12 animate-in fade-in duration-700 flex-1 flex flex-col">
                             {/* Accepted Contacts Grid */}
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between px-2">
@@ -286,7 +286,7 @@ export function NetworkDashboard() {
                                 </div>
 
                                 {(!hasHydrated || !peerTrust.hasHydrated || !requestsInbox.hasHydrated) ? (
-                                    <div className="flex items-center justify-center p-12">
+                                    <div className="flex-1 flex items-center justify-center p-12 min-h-[40vh]">
                                         <LoaderIcon className="h-8 w-8 animate-pulse text-primary/50" />
                                     </div>
                                 ) : filteredAcceptedPeers.length === 0 ? (
@@ -376,7 +376,7 @@ export function NetworkDashboard() {
                     )}
 
                     {activeTab === "groups" && (
-                        <div className="animate-in fade-in duration-700">
+                        <div className="animate-in fade-in duration-700 flex-1 flex flex-col">
                             {filteredGroups.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noGroupsFound"),
@@ -406,13 +406,13 @@ export function NetworkDashboard() {
                     )}
 
                     {activeTab === "discovery" && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 h-full">
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 h-full flex-1 flex flex-col">
                             <GroupDiscovery searchQuery={searchQuery} />
                         </div>
                     )}
 
                     {activeTab === "invitations" && (
-                        <div className="space-y-10 max-w-3xl mx-auto w-full animate-in fade-in duration-700">
+                        <div className="space-y-10 max-w-3xl mx-auto w-full animate-in fade-in duration-700 flex-1 flex flex-col">
                             {filteredRequests.length === 0 && filteredDeclined.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noRequestsFound"),
@@ -474,7 +474,7 @@ export function NetworkDashboard() {
                     )}
 
                     {activeTab === "blocked" && (
-                        <div className="max-w-3xl mx-auto w-full animate-in fade-in duration-700">
+                        <div className="max-w-3xl mx-auto w-full animate-in fade-in duration-700 flex-1 flex flex-col">
                             {filteredBlocked.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noBlockedFound"),

@@ -5,6 +5,7 @@
 
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import { cryptoService } from '../../crypto/crypto-service';
+import { getScopedStorageKey } from '../../profiles/services/profile-scope';
 
 /**
  * Rate limiter for invite operations
@@ -232,6 +233,9 @@ export class InputValidator {
  */
 export class SecureStorage {
   private static readonly ENCRYPTION_KEY_NAME = 'invite-encryption-key';
+  private static toScopedKey(key: string): string {
+    return getScopedStorageKey(key);
+  }
 
   /**
    * Store sensitive data with encryption
@@ -245,7 +249,7 @@ export class SecureStorage {
       // In a production environment, you would use a proper encryption key
       // For now, we'll use base64 encoding as a placeholder
       const encoded = btoa(data);
-      localStorage.setItem(key, encoded);
+      localStorage.setItem(this.toScopedKey(key), encoded);
     } catch (error) {
       throw new Error(`Failed to store encrypted data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -260,7 +264,7 @@ export class SecureStorage {
     }
 
     try {
-      const encoded = localStorage.getItem(key);
+      const encoded = localStorage.getItem(this.toScopedKey(key)) ?? localStorage.getItem(key);
       if (!encoded) {
         return null;
       }
@@ -282,6 +286,7 @@ export class SecureStorage {
       return;
     }
 
+    localStorage.removeItem(this.toScopedKey(key));
     localStorage.removeItem(key);
   }
 

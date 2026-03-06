@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageQueue, type Message, type MessageStatus, type OutgoingMessage } from "../lib/message-queue";
 import { extractAttachmentsFromContent } from "../utils/logic";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
-import type { ConnectionRequestStatusValue, RequestSendBlockReason } from "@/app/features/messaging/types";
+import type { ConnectionRequestStatusValue, RequestSendBlockReason, MessageActionFailureReason } from "@/app/features/messaging/types";
 import type { Attachment } from "@/app/features/messaging/types";
 import { errorHandler } from "../lib/error-handler";
 import { offlineQueueManager, type QueueStatus } from "../lib/offline-queue-manager";
@@ -74,7 +74,15 @@ export interface MultiRelayPublishResult {
   success: boolean;
   successCount: number;
   totalRelays: number;
+  metQuorum?: boolean;
+  quorumRequired?: number;
   results: Array<{
+    relayUrl: string;
+    success: boolean;
+    error?: string;
+    latency?: number;
+  }>;
+  failures?: Array<{
     relayUrl: string;
     success: boolean;
     error?: string;
@@ -98,6 +106,7 @@ export interface SendResult {
     latency?: number;
   }>;
   error?: string;
+  failureReason?: MessageActionFailureReason;
   blockReason?: RequestSendBlockReason;
 }
 

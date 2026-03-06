@@ -1,6 +1,7 @@
 import { CryptoServiceImpl } from "./crypto-service-impl";
 import { NativeCryptoService } from "./native-crypto-service";
 import * as Comlink from "comlink";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import type {
   CryptoService,
   SecurityUtils,
@@ -24,7 +25,7 @@ export { NATIVE_KEY_SENTINEL } from "./native-crypto-service";
  * Falls back to main-thread implementation if Worker fails
  */
 const initializeCryptoService = (): CryptoService => {
-  const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+  const isTauri = hasNativeRuntime();
 
   // Tauri always uses native service for keychain support
   if (isTauri) {
@@ -38,6 +39,9 @@ const initializeCryptoService = (): CryptoService => {
   }
 
   // Browser: use Web Worker for performance
+  if (typeof Worker === "undefined") {
+    return new CryptoServiceImpl();
+  }
   try {
     const worker = new Worker(new URL("./crypto.worker.ts", import.meta.url));
     const proxy = Comlink.wrap<CryptoService>(worker);

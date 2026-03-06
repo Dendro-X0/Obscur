@@ -10,6 +10,8 @@ import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { createNostrEvent } from "@dweb/nostr/create-nostr-event";
 import { toBase64 } from "@dweb/crypto/to-base64";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 export interface Nip96Config {
     apiUrl?: string;
@@ -18,6 +20,7 @@ export interface Nip96Config {
 }
 
 export const STORAGE_KEY_NIP96 = "obscur.storage.nip96";
+export const getNip96StorageKey = (): string => getScopedStorageKey(STORAGE_KEY_NIP96);
 
 type Nip96Event = Readonly<{
     tags?: ReadonlyArray<ReadonlyArray<string>>;
@@ -97,11 +100,7 @@ export class Nip96UploadService implements UploadService {
     }
 
     private isTauri(): boolean {
-        if (typeof window === "undefined") {
-            return false;
-        }
-        const w = window as unknown as Record<string, unknown>;
-        return "__TAURI_INTERNALS__" in w || "__TAURI__" in w;
+        return hasNativeRuntime();
     }
 
     private shouldPreferBrowserPathInDev(): boolean {

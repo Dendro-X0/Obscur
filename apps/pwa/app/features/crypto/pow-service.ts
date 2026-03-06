@@ -1,5 +1,6 @@
 import { minePowWorker } from "@dweb/crypto/pow-worker-wrapper";
 import { type UnsignedNostrEvent } from "../crypto/crypto-service";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 /**
  * Proof of Work Service
@@ -20,7 +21,7 @@ export const powService = {
         if (difficulty <= 0) return event;
 
         // 1. Try Native Bridge (Tauri)
-        if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+        if (hasNativeRuntime()) {
             try {
                 const { invoke } = await import("@tauri-apps/api/core");
                 console.info(`[PoW Service] Using native Rust miner (Difficulty: ${difficulty})`);

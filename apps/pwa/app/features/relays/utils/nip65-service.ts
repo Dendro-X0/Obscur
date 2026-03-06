@@ -1,5 +1,6 @@
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 export interface RelayHint {
     url: string;
@@ -14,6 +15,7 @@ export interface UserRelayList {
 }
 
 const NIP65_CACHE_KEY = "obscur.nip65.cache";
+const getNip65CacheKey = (): string => getScopedStorageKey(NIP65_CACHE_KEY);
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
@@ -28,7 +30,7 @@ export class Nip65Service {
 
     private loadCache() {
         if (typeof window === "undefined") return;
-        const stored = localStorage.getItem(NIP65_CACHE_KEY);
+        const stored = localStorage.getItem(getNip65CacheKey()) ?? localStorage.getItem(NIP65_CACHE_KEY);
         if (stored) {
             try {
                 const data = JSON.parse(stored);
@@ -49,7 +51,7 @@ export class Nip65Service {
         this.cache.forEach((list, pubkey) => {
             data[pubkey] = list;
         });
-        localStorage.setItem(NIP65_CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(getNip65CacheKey(), JSON.stringify(data));
     }
 
     /**

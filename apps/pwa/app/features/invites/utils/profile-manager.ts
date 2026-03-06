@@ -4,6 +4,7 @@ import type { ProfileManager } from './interfaces';
 import type { UserProfile, PrivacySettings, ShareableProfile } from './types';
 import { cryptoService } from '../../crypto/crypto-service';
 import { USER_PROFILE_KEY, PRIVACY_SETTINGS_KEY } from './constants';
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 /**
  * Profile Manager implementation for managing user profiles and privacy settings
@@ -18,6 +19,14 @@ class ProfileManagerImpl implements ProfileManager {
     requireMessage: false,
     autoAcceptTrusted: false,
   };
+
+  private getProfileStorageKey(): string {
+    return getScopedStorageKey(USER_PROFILE_KEY);
+  }
+
+  private getPrivacyStorageKey(): string {
+    return getScopedStorageKey(PRIVACY_SETTINGS_KEY);
+  }
 
   /**
    * Apply privacy settings to future invites without affecting existing connections
@@ -102,7 +111,7 @@ class ProfileManagerImpl implements ProfileManager {
 
       // Store in localStorage
       if (typeof window !== 'undefined') {
-        localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+        localStorage.setItem(this.getProfileStorageKey(), JSON.stringify(profile));
       }
     } catch (error) {
       throw new Error(`Failed to update profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -118,7 +127,7 @@ class ProfileManagerImpl implements ProfileManager {
         return this.getDefaultProfile();
       }
 
-      const stored = localStorage.getItem(USER_PROFILE_KEY);
+      const stored = localStorage.getItem(this.getProfileStorageKey()) ?? localStorage.getItem(USER_PROFILE_KEY);
       if (!stored) {
         return this.getDefaultProfile();
       }
@@ -144,7 +153,7 @@ class ProfileManagerImpl implements ProfileManager {
 
       // Store in localStorage
       if (typeof window !== 'undefined') {
-        localStorage.setItem(PRIVACY_SETTINGS_KEY, JSON.stringify(settings));
+        localStorage.setItem(this.getPrivacyStorageKey(), JSON.stringify(settings));
       }
     } catch (error) {
       throw new Error(`Failed to update privacy settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -160,7 +169,7 @@ class ProfileManagerImpl implements ProfileManager {
         return this.DEFAULT_PRIVACY_SETTINGS;
       }
 
-      const stored = localStorage.getItem(PRIVACY_SETTINGS_KEY);
+      const stored = localStorage.getItem(this.getPrivacyStorageKey()) ?? localStorage.getItem(PRIVACY_SETTINGS_KEY);
       if (!stored) {
         return this.DEFAULT_PRIVACY_SETTINGS;
       }

@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PrivacySettingsService, type PrivacySettings } from "../services/privacy-settings-service";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
+const getAutolockStorageKey = (): string => getScopedStorageKey(AUTOLOCK_STORAGE_KEY);
 
 /**
  * Hook for managing auto-lock state and inactivity tracking
@@ -13,14 +16,14 @@ export function useAutoLock() {
         if (typeof window === "undefined") return false;
         const currentSettings = PrivacySettingsService.getSettings();
         if (currentSettings.autoLockTimeout === 0) return false;
-        const stored = sessionStorage.getItem(AUTOLOCK_STORAGE_KEY);
+        const stored = sessionStorage.getItem(getAutolockStorageKey());
         if (!stored) return false;
         const elapsed = Date.now() - parseInt(stored, 10);
         return elapsed >= currentSettings.autoLockTimeout * 60 * 1000;
     });
     const [lastActivityTime, setLastActivityTime] = useState<number>(() => {
         if (typeof window === "undefined") return Date.now();
-        const stored = sessionStorage.getItem(AUTOLOCK_STORAGE_KEY);
+        const stored = sessionStorage.getItem(getAutolockStorageKey());
         return stored ? parseInt(stored, 10) : Date.now();
     });
     const [torStatus, setTorStatus] = useState<'disconnected' | 'starting' | 'connected' | 'error' | 'stopped'>('disconnected');
@@ -28,7 +31,7 @@ export function useAutoLock() {
     const [torRestartRequired, setTorRestartRequired] = useState<boolean>(false);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in (window as unknown as Record<string, unknown>);
+    const isTauri = getRuntimeCapabilities().isNativeRuntime;
 
     // Sync with global settings and handle Tor lifecycle
     useEffect(() => {
@@ -86,7 +89,7 @@ export function useAutoLock() {
     // Persist lastActivityTime to sessionStorage
     useEffect(() => {
         if (typeof window === "undefined") return;
-        sessionStorage.setItem(AUTOLOCK_STORAGE_KEY, String(lastActivityTime));
+        sessionStorage.setItem(getAutolockStorageKey(), String(lastActivityTime));
     }, [lastActivityTime]);
 
     // Auto-start Tor on mount if enabled

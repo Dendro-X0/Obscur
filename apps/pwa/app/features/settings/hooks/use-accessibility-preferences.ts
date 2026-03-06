@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type TextScale = 90 | 100 | 110 | 120;
 
@@ -25,6 +27,7 @@ type AccessibilityStore = Readonly<{
 }>;
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.accessibility.v1";
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
 const SERVER_SNAPSHOT: AccessibilitySnapshot = {
   preferences: { textScale: 100, reducedMotion: false, contrastAssist: false }
 };
@@ -48,7 +51,7 @@ const loadPreferencesFromStorage = (): AccessibilityPreferences => {
     return SERVER_SNAPSHOT.preferences;
   }
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(getStorageKey()) ?? window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return SERVER_SNAPSHOT.preferences;
     }
@@ -64,7 +67,7 @@ const savePreferencesToStorage = (preferences: AccessibilityPreferences): void =
     return;
   }
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    window.localStorage.setItem(getStorageKey(), JSON.stringify(preferences));
   } catch {
     return;
   }
@@ -145,11 +148,18 @@ const useAccessibilityPreferences = (): UseAccessibilityPreferencesResult => {
     store.initializeFromStorage();
     if (typeof window === "undefined") return;
     const onStorage = (event: StorageEvent): void => {
-      if (event.key !== STORAGE_KEY) return;
+      if (event.key !== getStorageKey()) return;
       store.reloadFromStorage();
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    const onProfileChanged = (): void => {
+      store.reloadFromStorage();
+    };
+    window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    };
   }, []);
 
   const reset = useCallback((): void => {

@@ -2,7 +2,7 @@
  * Tauri API Integration Layer
  * Provides TypeScript types and safe access to Tauri APIs with fallbacks for web environment
  */
-import { invoke } from "@tauri-apps/api/core";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 
 const DESKTOP_SHELL_FLAG = process.env.NEXT_PUBLIC_DESKTOP_SHELL;
 const IS_FORCED_DESKTOP_SHELL = DESKTOP_SHELL_FLAG === "1" || DESKTOP_SHELL_FLAG === "true";
@@ -52,24 +52,10 @@ export interface TauriAPI {
  * Detect if running in Tauri desktop environment
  */
 export function isDesktopEnvironment(): boolean {
-  if (IS_FORCED_DESKTOP_SHELL) {
+  if (IS_FORCED_DESKTOP_SHELL && getRuntimeCapabilities().isNativeRuntime) {
     return true;
   }
-  if (typeof window === "undefined") {
-    return false;
-  }
-  const maybeWindow = window as Window & {
-    __TAURI__?: unknown;
-    __TAURI_INTERNALS__?: unknown;
-    __TAURI_IPC__?: unknown;
-  };
-  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  return (
-    "__TAURI__" in maybeWindow ||
-    "__TAURI_INTERNALS__" in maybeWindow ||
-    "__TAURI_IPC__" in maybeWindow ||
-    /\bTauri\b/i.test(ua)
-  );
+  return getRuntimeCapabilities().supportsWindowControls;
 }
 
 /**
@@ -77,13 +63,24 @@ export function isDesktopEnvironment(): boolean {
  */
 async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
   if (!isDesktopEnvironment()) {
-    console.warn(`Tauri command "${command}" not available in web environment`);
     return null;
   }
   try {
+    const w = window as Window & {
+      __TAURI__?: { core?: { invoke?: unknown } };
+      __TAURI_INTERNALS__?: { invoke?: unknown };
+      __TAURI_IPC__?: unknown;
+    };
+    const hasCallableBridge =
+      typeof w.__TAURI_INTERNALS__?.invoke === "function" ||
+      typeof w.__TAURI__?.core?.invoke === "function" ||
+      typeof w.__TAURI_IPC__ === "function";
+    if (!hasCallableBridge) {
+      return null;
+    }
+    const { invoke } = await import("@tauri-apps/api/core");
     return (await invoke(command, args)) as T;
   } catch (error) {
-    console.error(`Tauri command "${command}" failed:`, error);
     return null;
   }
 }

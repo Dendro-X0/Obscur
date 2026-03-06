@@ -54,6 +54,7 @@ import { InviteMemberDialog } from "./invite-member-dialog";
 import type { GroupConversation } from "../../messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupAccessMode } from "../types";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -118,6 +119,10 @@ export function GroupManagementDialog({
     const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
     const [mutedMembers, setMutedMembers] = useState<string[]>([]);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const getScopedMutedMembersKey = (groupId: string): string => getScopedStorageKey(`obscur_group_muted_members_${groupId}`);
+    const getLegacyMutedMembersKey = (groupId: string): string => `obscur_group_muted_members_${groupId}`;
+    const getScopedNotificationsKey = (groupId: string): string => getScopedStorageKey(`obscur_group_notifications_${groupId}`);
+    const getLegacyNotificationsKey = (groupId: string): string => `obscur_group_notifications_${groupId}`;
 
     const isLocalAdmin = group.adminPubkeys?.includes(myPublicKeyHex || "") || false;
     const isAdmin = state.membership.role === "member" || isLocalAdmin;
@@ -169,16 +174,18 @@ export function GroupManagementDialog({
     };
 
     useEffect(() => {
-        const key = `obscur_group_muted_members_${group.groupId}`;
-        const saved = localStorage.getItem(key);
+        const saved =
+            localStorage.getItem(getScopedMutedMembersKey(group.groupId))
+            ?? localStorage.getItem(getLegacyMutedMembersKey(group.groupId));
         if (saved) {
             try {
                 setMutedMembers(JSON.parse(saved));
             } catch (e) { }
         }
 
-        const notifKey = `obscur_group_notifications_${group.groupId}`;
-        const notifSaved = localStorage.getItem(notifKey);
+        const notifSaved =
+            localStorage.getItem(getScopedNotificationsKey(group.groupId))
+            ?? localStorage.getItem(getLegacyNotificationsKey(group.groupId));
         if (notifSaved) {
             setNotificationsEnabled(notifSaved === "on");
         }
@@ -189,14 +196,14 @@ export function GroupManagementDialog({
             ? mutedMembers.filter(m => m !== pk)
             : [...mutedMembers, pk];
         setMutedMembers(next);
-        localStorage.setItem(`obscur_group_muted_members_${group.groupId}`, JSON.stringify(next));
+        localStorage.setItem(getScopedMutedMembersKey(group.groupId), JSON.stringify(next));
         toast.success(mutedMembers.includes(pk) ? "Member unmuted" : "Member muted");
     };
 
     const toggleNotifications = () => {
         const next = !notificationsEnabled;
         setNotificationsEnabled(next);
-        localStorage.setItem(`obscur_group_notifications_${group.groupId}`, next ? "on" : "off");
+        localStorage.setItem(getScopedNotificationsKey(group.groupId), next ? "on" : "off");
         toast.success(next ? "Notifications enabled" : "Notifications disabled");
     };
 

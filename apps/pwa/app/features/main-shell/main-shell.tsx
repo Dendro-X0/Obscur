@@ -57,8 +57,10 @@ import { useChatViewProps } from "./hooks/use-chat-view-props";
 import { AuthScreen } from "../auth/components/auth-screen";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
+const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
 const DEFAULT_VISIBLE_MESSAGES = 50;
 const LOAD_EARLIER_STEP = 50;
 
@@ -199,7 +201,8 @@ function NostrMessengerContent() {
   useEffect(() => {
     if (!hasHydrated || !myPublicKeyHex) return;
     if (restoredChatId === null) {
-      const savedId = localStorage.getItem(`obscur-last-chat-${myPublicKeyHex}`);
+      const scopedKey = getScopedStorageKey(`obscur-last-chat-${myPublicKeyHex}`);
+      const savedId = localStorage.getItem(scopedKey) ?? localStorage.getItem(`obscur-last-chat-${myPublicKeyHex}`);
       setRestoredChatId(savedId || "");
     }
   }, [hasHydrated, myPublicKeyHex, restoredChatId]);
@@ -269,7 +272,7 @@ function NostrMessengerContent() {
 
   const updateSidebarTab = (tab: "chats" | "requests") => {
     setSidebarTab(tab);
-    localStorage.setItem(LAST_PAGE_STORAGE_KEY, JSON.stringify({ type: 'tab', id: tab }));
+    localStorage.setItem(getLastPageStorageKey(), JSON.stringify({ type: 'tab', id: tab }));
   };
 
   // Clear unread marks when switching to invitations tab

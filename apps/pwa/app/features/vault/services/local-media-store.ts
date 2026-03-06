@@ -2,6 +2,8 @@
 
 import type { Attachment } from "../../messaging/types";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type LocalMediaIndexEntry = Readonly<{
     remoteUrl: string;
@@ -47,12 +49,12 @@ export const DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG: LocalMediaStorageConfig = {
 };
 
 const isTauriRuntime = (): boolean => {
-    if (typeof window === "undefined") return false;
-    const w = window as unknown as Record<string, unknown>;
-    return "__TAURI_INTERNALS__" in w || "__TAURI__" in w;
+    return hasNativeRuntime();
 };
 
 const isBrowser = (): boolean => typeof window !== "undefined";
+const scopedConfigKey = (): string => getScopedStorageKey(STORAGE_CONFIG_KEY);
+const scopedIndexKey = (): string => getScopedStorageKey(STORAGE_INDEX_KEY);
 
 const sanitizeSubdir = (raw: string): string => {
     const clean = raw.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
@@ -91,7 +93,7 @@ const hashUrl = async (url: string): Promise<string> => {
 const loadIndex = (): LocalMediaIndex => {
     if (!isBrowser()) return {};
     try {
-        const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+        const raw = localStorage.getItem(scopedIndexKey());
         if (!raw) return {};
         const parsed = JSON.parse(raw) as unknown;
         if (!parsed || typeof parsed !== "object") return {};
@@ -105,7 +107,44 @@ export const getLocalMediaIndexSnapshot = (): LocalMediaIndex => loadIndex();
 
 const saveIndex = (index: LocalMediaIndex): void => {
     if (!isBrowser()) return;
-    localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(index));
+    localStorage.setItem(scopedIndexKey(), JSON.stringify(index));
+};
+
+export const repairLocalMediaIndex = (): Readonly<{ repaired: number; removed: number }> => {
+    if (!isBrowser()) return { repaired: 0, removed: 0 };
+    const index = loadIndex();
+    let repaired = 0;
+    let removed = 0;
+    const next: LocalMediaIndex = {};
+
+    Object.entries(index).forEach(([remoteUrl, entry]) => {
+        const hasRequiredShape = !!entry
+            && typeof entry.remoteUrl === "string"
+            && typeof entry.relativePath === "string"
+            && Number.isFinite(entry.savedAtUnixMs)
+            && Number.isFinite(entry.size);
+        if (!hasRequiredShape) {
+            removed += 1;
+            return;
+        }
+        const normalizedRemoteUrl = entry.remoteUrl.trim().length > 0 ? entry.remoteUrl.trim() : remoteUrl;
+        const normalizedRelativePath = entry.relativePath.trim();
+        if (normalizedRemoteUrl !== entry.remoteUrl || normalizedRelativePath !== entry.relativePath) {
+            repaired += 1;
+        }
+        if (normalizedRelativePath.length === 0) {
+            removed += 1;
+            return;
+        }
+        next[normalizedRemoteUrl] = {
+            ...entry,
+            remoteUrl: normalizedRemoteUrl,
+            relativePath: normalizedRelativePath,
+        };
+    });
+
+    saveIndex(next);
+    return { repaired, removed };
 };
 
 export const getLocalMediaIndexEntryByRemoteUrl = (remoteUrl: string): LocalMediaIndexEntry | null => {
@@ -116,7 +155,7 @@ export const getLocalMediaIndexEntryByRemoteUrl = (remoteUrl: string): LocalMedi
 export const getLocalMediaStorageConfig = (): LocalMediaStorageConfig => {
     if (!isBrowser()) return DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG;
     try {
-        const raw = localStorage.getItem(STORAGE_CONFIG_KEY);
+        const raw = localStorage.getItem(scopedConfigKey());
         if (!raw) return DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG;
         const parsed = JSON.parse(raw) as Partial<LocalMediaStorageConfig>;
         return {
@@ -140,7 +179,7 @@ export const saveLocalMediaStorageConfig = (config: LocalMediaStorageConfig): Lo
         cacheReceivedFiles: config.cacheReceivedFiles,
     };
     if (isBrowser()) {
-        localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(normalized));
+        localStorage.setItem(scopedConfigKey(), JSON.stringify(normalized));
     }
     return normalized;
 };
@@ -372,7 +411,7 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
         // ignore
     }
     if (isBrowser()) {
-        localStorage.removeItem(STORAGE_INDEX_KEY);
+        localStorage.removeItem(scopedIndexKey());
     }
 };
 

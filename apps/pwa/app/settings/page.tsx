@@ -23,6 +23,7 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Plus,
   ArrowUp,
   ArrowDown,
@@ -61,10 +62,9 @@ import { useTheme } from "@/app/features/settings/hooks/use-theme";
 import { useAccessibilityPreferences, type TextScale } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { useBlocklist } from "@/app/features/network/hooks/use-blocklist";
 import type { Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
-import { STORAGE_KEY_NIP96 } from "@/app/features/messaging/lib/nip96-upload-service";
+import { getNip96StorageKey } from "@/app/features/messaging/lib/nip96-upload-service";
 import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
-import { invoke } from "@tauri-apps/api/core";
 import { useUserInviteCode } from "@/app/features/invites/hooks/use-user-invite-code";
 import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
 import type { ProfilePublishPhase } from "@/app/features/profile/hooks/use-profile-publisher";
@@ -80,9 +80,19 @@ import {
   DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG,
   type LocalMediaStorageConfig
 } from "@/app/features/vault/services/local-media-store";
+import {
+  checkStorageHealth,
+  getLastStorageHealthState,
+  runStorageRecovery,
+  type StorageHealthState,
+} from "@/app/features/messaging/services/storage-health-service";
+import { getReliabilityMetricsSnapshot, getReliabilityRuntimeSnapshot } from "@/app/shared/reliability-observability";
 import { useSearchParams } from "next/navigation";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
 
 const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 
@@ -353,7 +363,7 @@ export default function SettingsPage(): React.JSX.Element {
       <div className="mx-auto w-full max-w-6xl p-0 md:p-4">
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Sidebar Navigation - Desktop */}
-          <aside className="hidden w-64 shrink-0 md:block">
+          <aside className="hidden w-64 shrink-0 md:block sticky top-20 self-start h-fit">
             <nav className="flex flex-col gap-6">
               {GROUPS.map((group) => (
                 <div key={group.id} className="space-y-1">
@@ -369,13 +379,18 @@ export default function SettingsPage(): React.JSX.Element {
                           key={item.id}
                           onClick={() => setActiveTab(item.id as SettingsTabType)}
                           className={cn(
-                            "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all text-left",
+                            "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all text-left outline-none",
                             active
-                              ? "bg-zinc-100 border-black/5 text-zinc-900 shadow-sm dark:bg-zinc-900 dark:border-white/5 dark:text-zinc-100"
-                              : "border-transparent text-zinc-600 hover:bg-black/5 hover:border-black/5 dark:text-zinc-400 dark:hover:bg-zinc-900/40 dark:hover:border-white/5"
+                              ? "bg-gradient-primary border-none text-white shadow-md shadow-purple-500/25 font-bold scale-[1.02] active:scale-[0.98] ring-1 ring-white/10 dark:bg-zinc-800 dark:text-zinc-100"
+                              : "border-transparent text-zinc-600 hover:bg-black/5 hover:border-black/5 font-semibold dark:text-zinc-400 dark:hover:bg-zinc-900/40 dark:hover:border-white/5"
                           )}
                         >
-                          <Icon className={cn("h-4 w-4", active ? "text-purple-600 dark:text-purple-400" : "text-zinc-400")} />
+                          <div className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                            active ? "bg-white/20 shadow-sm dark:bg-black/20" : "bg-zinc-100/50 dark:bg-zinc-800/30 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                          )}>
+                            <Icon className={cn("h-4 w-4", active ? "text-white dark:text-purple-400" : "text-zinc-400")} />
+                          </div>
                           {t(item.labelKey)}
                         </button>
                       );
@@ -399,12 +414,13 @@ export default function SettingsPage(): React.JSX.Element {
                 >
                   {GROUPS.map((group) => (
                     <div key={group.id} className="space-y-3">
-                      <h3 className="px-1 text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                      <h3 className="px-1 text-[11px] font-black uppercase tracking-[0.25em] text-zinc-500 dark:text-zinc-400">
                         {t(group.labelKey)}
                       </h3>
-                      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white/50 backdrop-blur-sm dark:border-white/5 dark:bg-zinc-900/50">
+                      <div className="overflow-hidden rounded-3xl border border-black/5 bg-white/60 backdrop-blur-xl shadow-lg shadow-black/5 dark:border-white/10 dark:bg-zinc-900/60">
                         {group.items.map((item, idx) => {
                           const Icon = item.icon;
+                          const active = activeTab === item.id;
                           return (
                             <button
                               key={item.id}
@@ -413,15 +429,21 @@ export default function SettingsPage(): React.JSX.Element {
                                 setShowMobileMenu(false);
                               }}
                               className={cn(
-                                "flex w-full items-center justify-between px-4 py-4 transition-colors hover:bg-black/5 dark:hover:bg-white/5",
+                                "flex w-full items-center justify-between px-4 py-4.5 transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.98]",
                                 idx < group.items.length - 1 && "border-b border-black/5 dark:border-white/5"
                               )}
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                                  <Icon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "flex h-10 w-10 items-center justify-center rounded-2xl transition-all shadow-sm",
+                                  active ? "bg-gradient-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                                )}>
+                                  <Icon className="h-5 w-5" />
                                 </div>
-                                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t(item.labelKey)}</span>
+                                <div className="flex flex-col items-start gap-0.5">
+                                  <span className="text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-100">{t(item.labelKey)}</span>
+                                  <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">{group.id}</span>
+                                </div>
                               </div>
                               <ChevronRight className="h-4 w-4 text-zinc-300" />
                             </button>
@@ -439,7 +461,7 @@ export default function SettingsPage(): React.JSX.Element {
                   exit={{ opacity: 0, x: 20 }}
                   className="flex flex-col"
                 >
-                  <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-black/5 bg-white/80 p-4 backdrop-blur-md dark:border-white/5 dark:bg-black/80">
+                  <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-black/5 bg-white/80 p-4 backdrop-blur-md dark:border-white/80 dark:bg-black/80">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -566,7 +588,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     biometric: CapabilityState;
     tor: CapabilityState;
   }>>(() => {
-    const isTauriRuntime = typeof window !== "undefined" && "__TAURI_INTERNALS__" in (window as unknown as Record<string, unknown>);
+    const isTauriRuntime = getRuntimeCapabilities().isNativeRuntime;
     const clipboardSupported = typeof navigator !== "undefined" && !!navigator.clipboard && typeof navigator.clipboard.writeText === "function";
     return {
       clipboard: clipboardSupported ? "supported" : "unavailable",
@@ -665,16 +687,20 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
         try {
           try {
-            const biometricOk = await invoke<boolean>("request_biometric_auth");
-            if (!biometricOk) {
+            const biometricResult = await invokeNativeCommand<boolean>("request_biometric_auth");
+            if (!biometricResult.ok || !biometricResult.value) {
               toast.error("Native authentication failed.");
               return;
             }
           } catch {
             // If biometric command is unavailable, fallback to session access path.
           }
-          const nsec = await invoke<string>("get_session_nsec");
-          setNsecKey(nsec);
+          const nsecResult = await invokeNativeCommand<string>("get_session_nsec");
+          if (!nsecResult.ok || !nsecResult.value) {
+            toast.error("Security: Failed to fetch key from native storage.");
+            return;
+          }
+          setNsecKey(nsecResult.value);
           setIsPrivateKeyVisible(true);
           setRevealExpiresAtMs(Date.now() + PRIVATE_KEY_REVEAL_WINDOW_MS);
         } catch (e) {
@@ -725,7 +751,12 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     if (!keyToCopy && identity.state.privateKeyHex) {
       if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
         try {
-          keyToCopy = await invoke<string>("get_session_nsec");
+          const nsecResult = await invokeNativeCommand<string>("get_session_nsec");
+          if (!nsecResult.ok || !nsecResult.value) {
+            toast.error("Failed to fetch key.");
+            return;
+          }
+          keyToCopy = nsecResult.value;
         } catch (e) {
           toast.error("Failed to fetch key.");
           return;
@@ -784,6 +815,14 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     setSecurityActionPhase("success");
     setSecurityActionMessage("Session locked.");
     toast.success("Session locked.");
+  };
+
+  const handleProfileSwitchLock = (): void => {
+    identity.lockIdentity();
+    setIsPrivateKeyVisible(false);
+    setNsecKey(null);
+    setRevealExpiresAtMs(null);
+    setIsChallenging(false);
   };
 
   useEffect(() => {
@@ -847,9 +886,9 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     const fallback: Nip96Config = { apiUrl: "", enabled: false };
     if (typeof window === "undefined") return fallback;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_NIP96);
+      const stored = localStorage.getItem(getNip96StorageKey());
       if (stored) return JSON.parse(stored);
-      if (window.location.hostname.includes("vercel.app") || "__TAURI__" in window) {
+      if (window.location.hostname.includes("vercel.app") || getRuntimeCapabilities().isNativeRuntime) {
         return { apiUrl: "https://nostr.build/api/v2/upload/files", enabled: true };
       }
       return fallback;
@@ -861,12 +900,15 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const [localMediaAbsolutePath, setLocalMediaAbsolutePath] = useState<string>("");
   const [isResolvingLocalPath, setIsResolvingLocalPath] = useState<boolean>(false);
   const [storageStatsTick, setStorageStatsTick] = useState<number>(0);
+  const [reliabilityTick, setReliabilityTick] = useState<number>(0);
+  const [storageHealthState, setStorageHealthState] = useState<StorageHealthState>(() => getLastStorageHealthState());
+  const [isCheckingStorageHealth, setIsCheckingStorageHealth] = useState<boolean>(false);
   const [isCheckingProviderReachability, setIsCheckingProviderReachability] = useState<boolean>(false);
   const [providerReachabilityNote, setProviderReachabilityNote] = useState<string>("");
 
   const saveNip96Config = (newConfig: Nip96Config) => {
     setNip96Config(newConfig);
-    localStorage.setItem(STORAGE_KEY_NIP96, JSON.stringify(newConfig));
+    localStorage.setItem(getNip96StorageKey(), JSON.stringify(newConfig));
   };
 
   const saveLocalMediaConfig = (newConfig: LocalMediaStorageConfig): void => {
@@ -892,7 +934,24 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   useEffect(() => {
     if (activeTab !== "storage") return;
     setStorageStatsTick((prev) => prev + 1);
+    void (async () => {
+      setIsCheckingStorageHealth(true);
+      try {
+        const health = await checkStorageHealth();
+        setStorageHealthState(health);
+      } finally {
+        setIsCheckingStorageHealth(false);
+      }
+    })();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timer = window.setInterval(() => {
+      setReliabilityTick((prev) => prev + 1);
+    }, 3_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleSavePrivacy = (newSettings: PrivacySettings) => {
     setPrivacySettings(newSettings);
@@ -1126,6 +1185,14 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   }, [localMediaConfig.enabled, nip96Config.enabled]);
 
   const storageStats = useMemo<StorageStats>(() => deriveStorageStats(), [storageStatsTick]);
+  const reliabilityMetrics = useMemo(
+    () => getReliabilityMetricsSnapshot(),
+    [reliabilityTick, storageStatsTick, storageHealthState.checkedAtUnixMs]
+  );
+  const reliabilityRuntime = useMemo(() => getReliabilityRuntimeSnapshot(), [reliabilityTick]);
+  const lastSyncLabel = reliabilityRuntime.lastSyncCompletedAtUnixMs > 0
+    ? new Date(reliabilityRuntime.lastSyncCompletedAtUnixMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "n/a";
 
   const providerValidation = useMemo(() => {
     const raw = (nip96Config.apiUrl ?? "").trim();
@@ -1271,105 +1338,114 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
         <div className="space-y-4">
           <Card title={t("profile.title")} description={t("profile.description")} className="w-full">
             <div id="profile" className="space-y-6">
-              <div className="flex flex-col items-center justify-center space-y-4 pt-2">
-                <AvatarUpload
-                  currentAvatarUrl={profile.state.profile.avatarUrl}
-                  onUploadSuccess={(url) => profile.setAvatarUrl({ avatarUrl: url })}
-                  onClear={() => profile.setAvatarUrl({ avatarUrl: "" })}
-                  className="w-full"
-                />
-                <div className="text-xs text-zinc-600 dark:text-zinc-400 text-center">{t("profile.avatarHelp")}</div>
-                {profileValidation.avatarUrlError ? (
-                  <div className="text-xs text-rose-600 dark:text-rose-400 text-center">{profileValidation.avatarUrlError}</div>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="profile-username">{t("profile.usernameLabel")}</Label>
-                <Input
-                  id="profile-username"
-                  value={profile.state.profile.username}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setUsername({ username: e.target.value })}
-                  placeholder={t("profile.usernamePlaceholder")}
-                  aria-invalid={!!profileValidation.usernameError}
-                  className={cn(profileValidation.usernameError ? "border-rose-500/50 focus-visible:ring-rose-500" : "")}
-                />
-                <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
-                {profileValidation.usernameError ? (
-                  <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.usernameError}</div>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="profile-nip05">{t("profile.nip05Label")}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="profile-nip05"
-                    value={profile.state.profile.nip05 || ""}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setNip05({ nip05: e.target.value })}
-                    placeholder={t("profile.nip05Placeholder")}
-                    aria-invalid={!!profileValidation.nip05Error}
-                    className={cn(profileValidation.nip05Error ? "border-rose-500/50 focus-visible:ring-rose-500" : "")}
+              <div className="space-y-6 rounded-2xl border border-black/10 bg-gradient-to-br from-white/90 to-zinc-50/50 p-6 backdrop-blur-md shadow-sm dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+                <div className="flex flex-col items-center justify-center space-y-4 pt-2">
+                  <AvatarUpload
+                    currentAvatarUrl={profile.state.profile.avatarUrl}
+                    onUploadSuccess={(url) => profile.setAvatarUrl({ avatarUrl: url })}
+                    onClear={() => profile.setAvatarUrl({ avatarUrl: "" })}
+                    className="w-full"
                   />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={handleVerifyNip05}
-                    disabled={isVerifyingNip05 || !!profileValidation.nip05Error}
-                  >
-                    {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05")}
-                  </Button>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400 text-center">{t("profile.avatarHelp")}</div>
+                  {profileValidation.avatarUrlError ? (
+                    <div className="text-xs text-rose-600 dark:text-rose-400 text-center">{profileValidation.avatarUrlError}</div>
+                  ) : null}
                 </div>
-                <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
-                {profileValidation.nip05Error ? (
-                  <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.nip05Error}</div>
-                ) : null}
-              </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="profile-invite-code">{t("profile.inviteCodeLabel", "Personal Invite Code")}</Label>
-                </div>
-                <div className="relative">
+                <div className="space-y-2">
+                  <Label htmlFor="profile-username">{t("profile.usernameLabel")}</Label>
                   <Input
-                    id="profile-invite-code"
-                    value={profile.state.profile.inviteCode || ""}
-                    readOnly
-                    className="pr-12"
+                    id="profile-username"
+                    value={profile.state.profile.username}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setUsername({ username: e.target.value })}
+                    placeholder={t("profile.usernamePlaceholder")}
+                    aria-invalid={!!profileValidation.usernameError}
+                    className={cn(profileValidation.usernameError ? "border-rose-500/50 focus-visible:ring-rose-500" : "")}
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                    onClick={() => {
-                      if (profile.state.profile.inviteCode) {
-                        void navigator.clipboard.writeText(profile.state.profile.inviteCode);
-                        toast.success(t("common.copied"));
-                      }
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
+                  {profileValidation.usernameError ? (
+                    <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.usernameError}</div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="profile-nip05">{t("profile.nip05Label")}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="profile-nip05"
+                      value={profile.state.profile.nip05 || ""}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => profile.setNip05({ nip05: e.target.value })}
+                      placeholder={t("profile.nip05Placeholder")}
+                      aria-invalid={!!profileValidation.nip05Error}
+                      className={cn(profileValidation.nip05Error ? "border-rose-500/50 focus-visible:ring-rose-500" : "")}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleVerifyNip05}
+                      disabled={isVerifyingNip05 || !!profileValidation.nip05Error}
+                    >
+                      {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05")}
+                    </Button>
+                  </div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
+                  {profileValidation.nip05Error ? (
+                    <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.nip05Error}</div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="profile-invite-code">{t("profile.inviteCodeLabel", "Personal Invite Code")}</Label>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="profile-invite-code"
+                      value={profile.state.profile.inviteCode || ""}
+                      readOnly
+                      className="pr-12"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                      onClick={() => {
+                        if (profile.state.profile.inviteCode) {
+                          void navigator.clipboard.writeText(profile.state.profile.inviteCode);
+                          toast.success(t("common.copied"));
+                        }
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button
-                  type="button"
-                  onClick={handleSaveAndPublishProfile}
+                  type="submit"
                   disabled={isPublishing || !profileValidation.isValid}
+                  className="h-11 px-8 font-bold text-white bg-gradient-primary border-none shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                  onClick={handleSaveAndPublishProfile}
                 >
-                  {isPublishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("common.publishing")}</> : t("settings.saveAndPublish")}
+                  {isPublishing ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Publishing...</span>
+                    </div>
+                  ) : (
+                    "Save & Publish"
+                  )}
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    profile.revert();
-                    toast.info(t("settings.changesReset"));
-                  }}
+                  variant="outline"
+                  onClick={() => profile.revert()}
+                  disabled={isPublishing}
+                  className="h-11 px-8 font-semibold border-black/10 dark:border-white/10"
                 >
-                  {t("profile.reset")}
+                  Reset Changes
                 </Button>
               </div>
               <SettingsActionStatus
@@ -1397,50 +1473,82 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
       {activeTab === "appearance" && (
         <Card title={t("settings.appearance.title")} description={t("settings.appearance.desc")} className="w-full">
-          <div className="space-y-4">
-            <div className="space-y-3 rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50">
-              <div className="flex items-center justify-between gap-3">
-                <Label>{t("settings.language")}</Label>
-                <Button type="button" variant="ghost" size="sm" onClick={() => void handleResetLanguage()}>
+          <div className="space-y-6">
+            {/* Language Selection */}
+            <div className="group relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-white/80 to-zinc-50/40 p-5 backdrop-blur-md shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-zinc-900 dark:text-zinc-100 font-bold tracking-tight">{t("settings.language")}</Label>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t("settings.appearance.currentLanguage", "Current language")}: {i18n.language}</p>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => void handleResetLanguage()}
+                  className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
+                >
                   {t("settings.appearance.resetLanguage", "Reset")}
                 </Button>
               </div>
-              <LanguageSelector />
-              <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                {t("settings.appearance.currentLanguage", "Current language")}: {i18n.language}
+              <div className="rounded-xl bg-white/50 p-2 dark:bg-black/20">
+                <LanguageSelector />
               </div>
             </div>
-            <div className="space-y-3 rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50">
-              <div className="flex items-center justify-between gap-3">
-                <Label>{t("settings.appearance.theme")}</Label>
-                <Button type="button" variant="ghost" size="sm" onClick={handleResetTheme}>
+
+            {/* Theme Preference */}
+            <div className="group relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-white/80 to-zinc-50/40 p-5 backdrop-blur-md shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-zinc-900 dark:text-zinc-100 font-bold tracking-tight">{t("settings.appearance.theme")}</Label>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t("settings.appearance.currentTheme", "Current theme preference")}: {theme.preference}</p>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleResetTheme}
+                  className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
+                >
                   {t("settings.appearance.resetTheme", "Reset")}
                 </Button>
               </div>
-              <ThemeToggle />
-              <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                {t("settings.appearance.currentTheme", "Current theme preference")}: {theme.preference}
+              <div className="rounded-xl bg-white/50 p-3 dark:bg-black/20">
+                <ThemeToggle />
               </div>
             </div>
-            <div className="space-y-3 rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50">
-              <div className="flex items-center justify-between gap-3">
-                <Label>{t("settings.appearance.accessibility", "Accessibility")}</Label>
-                <Button type="button" variant="ghost" size="sm" onClick={handleResetAccessibility}>
+
+            {/* Accessibility Settings */}
+            <div className="group relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-white/80 to-zinc-50/40 p-5 backdrop-blur-md shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-zinc-900 dark:text-zinc-100 font-bold tracking-tight">{t("settings.appearance.accessibility", "Accessibility")}</Label>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t("settings.appearance.textScale", "Text Scale")}: {accessibility.preferences.textScale}%</p>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleResetAccessibility}
+                  className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
+                >
                   {t("settings.appearance.resetAccessibility", "Reset")}
                 </Button>
               </div>
-              <div className="space-y-2">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {t("settings.appearance.textScale", "Text Scale")}: {accessibility.preferences.textScale}%
-                </div>
+              <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   {TEXT_SCALE_OPTIONS.map((scale) => (
                     <Button
                       key={scale}
                       type="button"
                       size="sm"
-                      variant="secondary"
-                      className={cn(accessibility.preferences.textScale === scale ? "border-black/20 bg-zinc-100 dark:border-white/20 dark:bg-zinc-800" : "")}
+                      variant={accessibility.preferences.textScale === scale ? "primary" : "outline"}
+                      className={cn(
+                        "h-10 px-4 font-black transition-all",
+                        accessibility.preferences.textScale === scale 
+                          ? "shadow-md !border-none" 
+                          : "bg-white/50 text-zinc-500 border-black/5 hover:bg-white dark:bg-black/20 dark:text-zinc-400 dark:border-white/5 dark:hover:bg-black/40"
+                      )}
                       onClick={() => {
                         accessibility.setTextScale(scale);
                         setAppearanceActionPhase("success");
@@ -1451,42 +1559,43 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     </Button>
                   ))}
                 </div>
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-black/5 p-3 dark:border-white/10">
-                <div>
-                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                    {t("settings.appearance.reducedMotion", "Reduced Motion")}
+
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-black/20">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      {t("settings.appearance.reducedMotion", "Reduced Motion")}
+                    </div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {t("settings.appearance.reducedMotionDesc", "Reduce animations and transitions across the app.")}
+                    </div>
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {t("settings.appearance.reducedMotionDesc", "Reduce animations and transitions across the app.")}
-                  </div>
+                  <SettingsToggle
+                    checked={accessibility.preferences.reducedMotion}
+                    onChange={(checked: boolean) => {
+                      accessibility.setReducedMotion(checked);
+                      setAppearanceActionPhase("success");
+                      setAppearanceActionMessage(checked ? "Reduced motion enabled." : "Reduced motion disabled.");
+                    }}
+                  />
                 </div>
-                <SettingsToggle
-                  checked={accessibility.preferences.reducedMotion}
-                  onChange={(checked) => {
-                    accessibility.setReducedMotion(checked);
-                    setAppearanceActionPhase("success");
-                    setAppearanceActionMessage(checked ? "Reduced motion enabled." : "Reduced motion disabled.");
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-black/5 p-3 dark:border-white/10">
-                <div>
-                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                    {t("settings.appearance.contrastAssist", "Contrast Assist")}
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-black/20">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      {t("settings.appearance.contrastAssist", "Contrast Assist")}
+                    </div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {t("settings.appearance.contrastAssistDesc", "Increase visual contrast for text and UI surfaces.")}
+                    </div>
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {t("settings.appearance.contrastAssistDesc", "Increase visual contrast for text and UI surfaces.")}
-                  </div>
+                  <SettingsToggle
+                    checked={accessibility.preferences.contrastAssist}
+                    onChange={(checked: boolean) => {
+                      accessibility.setContrastAssist(checked);
+                      setAppearanceActionPhase("success");
+                      setAppearanceActionMessage(checked ? "Contrast assist enabled." : "Contrast assist disabled.");
+                    }}
+                  />
                 </div>
-                <SettingsToggle
-                  checked={accessibility.preferences.contrastAssist}
-                  onChange={(checked) => {
-                    accessibility.setContrastAssist(checked);
-                    setAppearanceActionPhase("success");
-                    setAppearanceActionMessage(checked ? "Contrast assist enabled." : "Contrast assist disabled.");
-                  }}
-                />
               </div>
             </div>
             <SettingsActionStatus
@@ -1507,7 +1616,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Release Channel</div>
-                  <h4 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Update Status</h4>
+                  <h4 className="mt-2 text-base font-semibold text-zinc-700 dark:text-zinc-200">Update Status</h4>
                   <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                     Check latest stable releases and install updates when available.
                   </p>
@@ -1535,87 +1644,113 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
       {activeTab === "identity" && (
         <div className="space-y-6">
+          <ProfileSwitcherCard onBeforeSwitch={handleProfileSwitchLock} />
           <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
             <div className="space-y-6">
-              <div className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/50">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Identity Overview</span>
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                    identityStorageMode === "native" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-                    identityStorageMode === "encrypted_local" && "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-                    identityStorageMode === "session_only" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-                    identityStorageMode === "unknown" && "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
-                  )}>
-                    {identityStorageMode.replace("_", " ")}
-                  </span>
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                    identityIntegrityState === "ok" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-                    identityIntegrityState === "mismatch" && "bg-rose-500/15 text-rose-600 dark:text-rose-400",
-                    identityIntegrityState === "unknown" && "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
-                  )}>
-                    integrity {identityIntegrityState}
-                  </span>
+              <div className="relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-zinc-50 to-white p-5 shadow-sm dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Account Identity</span>
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">Global Identification State</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em]",
+                      identityStorageMode === "native" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",
+                      identityStorageMode === "encrypted_local" && "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20",
+                      identityStorageMode === "session_only" && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
+                      identityStorageMode === "unknown" && "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20",
+                    )}>
+                      {identityStorageMode.replace("_", " ")}
+                    </span>
+                    <span className={cn(
+                      "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em]",
+                      identityIntegrityState === "ok" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",
+                      identityIntegrityState === "mismatch" && "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20",
+                      identityIntegrityState === "unknown" && "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20",
+                    )}>
+                      integrity {identityIntegrityState}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="profile-pubkey">{t("identity.publicKeyHex")}</Label>
-                    <div className="flex gap-2">
-                      <Input id="profile-pubkey" value={displayPublicKeyHex} readOnly className="font-mono text-xs flex-1" />
+                
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2.5 rounded-xl bg-white/50 p-4 border border-black/5 dark:bg-black/20 dark:border-white/5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="profile-pubkey" className="text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("identity.publicKeyHex")}</Label>
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] font-bold uppercase transition-colors hover:text-purple-600"
                         onClick={(): void => {
                           void navigator.clipboard.writeText(displayPublicKeyHex);
                           toast.success(t("common.copied"));
                         }}
                       >
-                        <Copy className="h-4 w-4 mr-2" />
+                        <Copy className="h-3 w-3 mr-1.5" />
                         {t("common.copy")}
                       </Button>
                     </div>
+                    <Input id="profile-pubkey" value={displayPublicKeyHex} readOnly className="h-10 font-mono text-[11px] bg-transparent border-none p-0 focus-visible:ring-0 select-all truncate" />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Public Key (npub)</Label>
-                    <div className="flex gap-2">
-                      <Input value={npubValue} readOnly className="font-mono text-xs flex-1" />
+
+                  <div className="space-y-2.5 rounded-xl bg-white/50 p-4 border border-black/5 dark:bg-black/20 dark:border-white/5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Public Key (npub)</Label>
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] font-bold uppercase transition-colors hover:text-purple-600"
                         onClick={(): void => {
                           void navigator.clipboard.writeText(npubValue);
                           toast.success(t("common.copied"));
                         }}
                         disabled={!npubValue}
                       >
-                        <Copy className="h-4 w-4 mr-2" />
+                        <Copy className="h-3 w-3 mr-1.5" />
                         {t("common.copy")}
                       </Button>
                     </div>
+                    <Input value={npubValue} readOnly className="h-10 font-mono text-[11px] bg-transparent border-none p-0 focus-visible:ring-0 select-all truncate" />
                   </div>
                 </div>
               </div>
 
-              <details className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/50">
-                <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                  Identity Diagnostics (Advanced)
+              <details className="group overflow-hidden rounded-2xl border border-black/10 bg-zinc-100/30 dark:border-white/10 dark:bg-zinc-900/40">
+                <summary className="flex cursor-pointer list-none items-center justify-between p-4 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100">Identity Diagnostics</span>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">Advanced Key State Details</p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="mt-3 space-y-2">
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">Stored: {identity.state.stored?.publicKeyHex || "-"}</div>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">Derived: {derivedPublicKeyHex || "-"}</div>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">Native session: {identityDiagnostics?.nativeSessionPublicKeyHex || "-"}</div>
+                <div className="border-t border-black/5 p-4 space-y-3 dark:border-white/5">
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono leading-none">
+                      <span className="text-zinc-400 uppercase font-black">Stored</span>
+                      <span className="text-zinc-600 dark:text-zinc-300 truncate ml-4">{identity.state.stored?.publicKeyHex || "-"}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-mono leading-none">
+                      <span className="text-zinc-400 uppercase font-black">Derived</span>
+                      <span className="text-zinc-600 dark:text-zinc-300 truncate ml-4">{derivedPublicKeyHex || "-"}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-mono leading-none">
+                      <span className="text-zinc-400 uppercase font-black">Native</span>
+                      <span className="text-zinc-600 dark:text-zinc-300 truncate ml-4">{identityDiagnostics?.nativeSessionPublicKeyHex || "-"}</span>
+                    </div>
+                  </div>
                   {identityDiagnostics?.message ? (
-                    <div className="text-xs text-rose-600 dark:text-rose-400">{identityDiagnostics.message}</div>
-                  ) : (
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">What this means: mismatches usually indicate key/session inconsistency and should be resolved before export.</div>
-                  )}
+                    <div className="mt-2 rounded-lg bg-rose-500/10 p-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 border border-rose-500/20">{identityDiagnostics.message}</div>
+                  ) : null}
                 </div>
               </details>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between pb-2">
-                  <Label htmlFor="profile-nsec" className="text-sm font-bold uppercase tracking-wider text-zinc-500">{t("identity.privateKey")}</Label>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="profile-nsec" className="text-xs font-black uppercase tracking-widest text-zinc-500">{t("identity.privateKey")}</Label>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Secret Cryptographic Key</p>
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -1628,28 +1763,39 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     >
                       <Button
                         variant="outline"
-                        className="w-full h-14 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-500/5 group"
+                        className="w-full h-16 rounded-2xl border-2 border-dashed border-black/10 bg-transparent hover:bg-purple-500/5 hover:border-purple-500/40 group transition-all dark:border-white/10 dark:hover:bg-purple-500/10"
                         onClick={handleRevealToggle}
                         disabled={identityIntegrityState === "mismatch"}
                       >
-                        <Lock className="mr-2 h-4 w-4 text-zinc-400 group-hover:text-purple-500" />
-                        Reveal Private Key (20s)
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 transition-colors group-hover:bg-purple-500/20 dark:bg-zinc-800">
+                            <Lock className="h-5 w-5 text-zinc-400 group-hover:text-purple-500" />
+                          </div>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">Reveal Private Key</span>
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Secure Access Required • 20s Window</span>
+                          </div>
+                        </div>
                       </Button>
                     </motion.div>
                   ) : isChallenging ? (
                     <motion.div
                       key="challenging"
-                      initial={{ opacity: 0, scale: 0.95 }}
+                      initial={{ opacity: 0, scale: 0.98 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4"
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      className="p-6 rounded-2xl bg-gradient-to-br from-zinc-50 to-white border border-black/10 shadow-sm dark:from-zinc-900 dark:to-zinc-950 dark:border-white/10 space-y-5"
                     >
-                      <div className="flex items-center gap-3">
-                        <Shield className="h-5 w-5 text-purple-500" />
-                        <span className="text-sm font-bold">Authentication Required</span>
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/10 dark:bg-purple-500/20">
+                          <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">Security Challenge</span>
+                          <p className="text-xs font-bold text-zinc-500 leading-tight">Enter your master password to unlock secure export.</p>
+                        </div>
                       </div>
-                      <p className="text-xs text-zinc-500">Please enter your master password to reveal your secret key.</p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <Input
                           type="password"
                           placeholder="Master Password"
@@ -1657,28 +1803,28 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                           onChange={(e) => setChallengePassword(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleVerifyChallenge()}
                           autoFocus
-                          className="h-10 text-sm"
+                          className="h-12 text-sm bg-white/50 border-black/10 dark:bg-black/20 dark:border-white/10"
                         />
-                        <Button size="sm" onClick={handleVerifyChallenge}>Unlock</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setIsChallenging(false)}>Cancel</Button>
+                        <Button className="h-12 px-6 font-black bg-gradient-primary border-none shadow-md" onClick={handleVerifyChallenge}>Unlock</Button>
+                        <Button variant="ghost" className="h-12 px-4 font-bold text-zinc-400" onClick={() => setIsChallenging(false)}>Cancel</Button>
                       </div>
                     </motion.div>
                   ) : (
                     <motion.div
                       key="revealed"
-                      initial={{ opacity: 0, scale: 0.95 }}
+                      initial={{ opacity: 0, scale: 0.98 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
                       className="space-y-4"
                     >
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <div className="relative flex-1">
                           <Input
                             id="profile-nsec"
                             type="text"
                             value={nsecKey || "Loading..."}
                             readOnly
-                            className="font-mono text-xs pr-10 h-12 bg-white/50 dark:bg-zinc-900/50 border-purple-500/30"
+                            className="font-mono text-[11px] pr-12 h-14 bg-white border-2 border-purple-500/30 shadow-sm dark:bg-black/40"
                           />
                           <Button
                             type="button"
@@ -2051,64 +2197,70 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                         return (
                           <div
                             key={relay.url}
-                            className="group flex items-center justify-between gap-4 rounded-xl border border-black/5 dark:border-white/5 p-4 bg-white dark:bg-black/40 transition-all hover:shadow-sm"
+                            className="group flex items-center justify-between gap-4 rounded-2xl border border-black/10 dark:border-white/10 p-5 bg-white/60 backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60"
                           >
-                            <div className="flex items-center gap-4 min-w-0">
+                            <div className="flex items-center gap-5 min-w-0">
                               <SettingsToggle
                                 checked={relay.enabled}
-                                onChange={(enabled) => relayList.setRelayEnabled({ url: relay.url, enabled })}
+                                onChange={(enabled: boolean) => relayList.setRelayEnabled({ url: relay.url, enabled })}
                               />
-                              <div className="min-w-0 space-y-1">
-                                <p className={cn("font-mono text-xs truncate transition-opacity", !relay.enabled && "opacity-40")}>
+                              <div className="min-w-0 flex flex-col gap-1">
+                                <p className={cn(
+                                  "font-mono text-[11px] font-bold tracking-tight truncate transition-opacity", 
+                                  !relay.enabled ? "text-zinc-400 opacity-60" : "text-zinc-900 dark:text-zinc-100"
+                                )}>
                                   {relay.url}
                                 </p>
-                                <div className="flex items-center gap-1.5 ring-0">
+                                <div className="flex items-center gap-2">
                                   <div className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    isOpen ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : isError ? "bg-rose-500" : "bg-zinc-400"
+                                    "h-1.5 w-1.5 rounded-full ring-2 ring-offset-1 ring-offset-transparent",
+                                    isOpen ? "bg-emerald-500 ring-emerald-500/20" : isError ? "bg-rose-500 ring-rose-500/20" : "bg-zinc-400 ring-zinc-400/20"
                                   )} />
                                   <span className={cn(
-                                    "text-[10px] font-bold uppercase tracking-widest leading-none",
-                                    isOpen ? "text-emerald-600/80 dark:text-emerald-400/80" : isError ? "text-rose-600/80 dark:text-rose-400/80" : "text-zinc-500/80"
+                                    "text-[10px] font-black uppercase tracking-[0.2em] leading-none",
+                                    isOpen ? "text-emerald-600 dark:text-emerald-400" : isError ? "text-rose-600 dark:text-rose-400" : "text-zinc-500/80"
                                   )}>
                                     {status}
                                   </span>
                                 </div>
                                 {isError && (
-                                  <div className="text-[10px] text-rose-600/90 dark:text-rose-300/90">{hintText}</div>
+                                  <div className="mt-1 flex items-center gap-1.5 py-0.5 px-1.5 rounded bg-rose-500/10 border border-rose-500/10 text-[9px] font-bold text-rose-600 dark:text-rose-400">
+                                    <ShieldAlert className="h-3 w-3" />
+                                    {hintText}
+                                  </div>
                                 )}
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0"
+                                className="h-9 w-9 p-0 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 shadow-sm"
                                 onClick={() => relayList.moveRelay({ url: relay.url, direction: "up" })}
                                 disabled={index === 0}
                               >
-                                <ArrowUp className="h-3.5 w-3.5" />
+                                <ArrowUp className="h-4 w-4" />
                               </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0"
+                                className="h-9 w-9 p-0 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 shadow-sm"
                                 onClick={() => relayList.moveRelay({ url: relay.url, direction: "down" })}
                                 disabled={index === relayList.state.relays.length - 1}
                               >
-                                <ArrowDown className="h-3.5 w-3.5" />
+                                <ArrowDown className="h-4 w-4" />
                               </Button>
+                              <div className="w-1 h-4 border-r border-black/10 dark:border-white/10 mx-0.5" />
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                className="h-9 w-9 p-0 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 shadow-sm transition-colors"
                                 onClick={() => relayList.removeRelay({ url: relay.url })}
                               >
-                                <X className="h-3.5 w-3.5" />
+                                <X className="h-4 w-4 font-black" />
                               </Button>
                             </div>
                           </div>
@@ -2143,27 +2295,36 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       {activeTab === "blocklist" && (
         <Card title={t("settings.tabs.blocklist")} description={t("settings.blocklist.desc")} className="w-full">
           <div className="space-y-6">
-            <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-gradient-to-br from-zinc-50 via-white to-zinc-100 p-5 shadow-sm dark:border-white/10 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl dark:bg-indigo-400/10" />
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Moderation Overview</div>
-                  <h4 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Blocklist Control Center</h4>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                    Blocked users cannot send messages or invites to you.
+            <div className="group relative overflow-hidden rounded-[2rem] border border-black/10 bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6 shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
+              <div className="pointer-events-none absolute -right-4 -top-4 h-40 w-40 rounded-full bg-gradient-primary opacity-5 blur-3xl dark:opacity-10" />
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 dark:bg-purple-500/20">
+                      <ShieldAlert className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-600/60 dark:text-purple-400/60">Moderation System</span>
+                  </div>
+                  <h4 className="text-xl font-black text-zinc-950 dark:text-zinc-100 tracking-tight">Blocklist Control Center</h4>
+                  <p className="max-w-md text-xs font-bold leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    Maintain your privacy. Blocked users are restricted from sending messages or invites to your account.
                   </p>
                 </div>
-                <div className="rounded-xl border border-black/5 bg-white/70 p-2 dark:border-white/10 dark:bg-black/20">
-                  <ShieldAlert className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
+                <div className="flex flex-col items-end gap-2 text-right">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-black/5 bg-white/80 shadow-sm dark:border-white/10 dark:bg-black/40">
+                    <Database className="h-6 w-6 text-zinc-400 dark:text-zinc-600" />
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                  Blocked users: {blocklist.state.blockedPublicKeys.length}
-                </span>
-                <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                  Filtered: {filteredBlockedKeys.length}
-                </span>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded-2xl bg-white/80 px-4 py-2 shadow-sm border border-black/5 dark:bg-black/40 dark:border-white/5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Total Blocked</span>
+                  <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">{blocklist.state.blockedPublicKeys.length}</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-2xl bg-white/80 px-4 py-2 shadow-sm border border-black/5 dark:bg-black/40 dark:border-white/5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Session Filter</span>
+                  <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">{filteredBlockedKeys.length}</span>
+                </div>
               </div>
             </div>
 
@@ -2182,7 +2343,13 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     }
                   }}
                 />
-                <Button type="button" onClick={handleAddBlockedKey} className="h-10 px-5 font-semibold">Block</Button>
+                <Button
+                  type="button"
+                  onClick={handleAddBlockedKey}
+                  className="h-10 px-8 font-bold text-white bg-gradient-primary border-none shadow-sm hover:shadow-md transition-all"
+                >
+                  Block
+                </Button>
               </div>
             </div>
 
@@ -2265,13 +2432,13 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
             <TrustSettingsPanel />
             <Card title={t("settings.privacy.global", "Global Privacy")} description={t("settings.privacy.globalDesc", "Control who can message you and how messages are wrapped.")} className="w-full">
               <div className="space-y-5">
-                <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-gradient-to-br from-zinc-50 via-white to-zinc-100 p-5 shadow-sm dark:border-white/10 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
+                <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-gradient-to-br from-cyan-50/50 via-white to-blue-50/30 p-5 shadow-sm dark:border-white/10 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
                   <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-cyan-500/10 blur-2xl dark:bg-cyan-400/10" />
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Privacy Policy</div>
-                      <h4 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Direct Message Policy</h4>
-                      <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                      <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-600/60 dark:text-cyan-400/60">Privacy Policy</div>
+                      <h4 className="mt-2 text-base font-bold text-zinc-900 dark:text-zinc-100 italic tracking-tight">Direct Message Policy</h4>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300 font-medium">
                         Choose who can reach your inbox by default.
                       </p>
                     </div>
@@ -2424,6 +2591,108 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   checked={privacySettings.chatUxV083}
                   onChange={(checked) => handleSavePrivacy({ ...privacySettings, chatUxV083: checked })}
                 />
+              </div>
+
+              {/* v0.8.7 reliability core rollout */}
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">Reliability Core (v0.8.7)</Label>
+                  <p className="text-xs text-zinc-500">
+                    Adaptive relay scoring + quorum publishing, sync checkpoint/backfill controls, and storage resilience diagnostics.
+                  </p>
+                </div>
+                <SettingsToggle
+                  checked={privacySettings.reliabilityCoreV087}
+                  onChange={(checked) => handleSavePrivacy({ ...privacySettings, reliabilityCoreV087: checked })}
+                />
+              </div>
+
+              <div className="rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="font-semibold text-base">Reliability Status</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isCheckingStorageHealth}
+                    onClick={async () => {
+                      setIsCheckingStorageHealth(true);
+                      try {
+                        const health = await checkStorageHealth();
+                        setStorageHealthState(health);
+                        setStorageStatsTick((prev) => prev + 1);
+                      } finally {
+                        setIsCheckingStorageHealth(false);
+                      }
+                    }}
+                  >
+                    {isCheckingStorageHealth ? "Checking..." : "Refresh Health"}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Relay summary: <span className="font-semibold">{relayRuntimeStatus.status}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Last sync: <span className="font-semibold">{lastSyncLabel}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Pending/retry: <span className="font-semibold">{reliabilityMetrics.relay_reconnect_suppressed + reliabilityMetrics.relay_publish_partial}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Reconnect suppressed: <span className="font-semibold">{reliabilityMetrics.relay_reconnect_suppressed}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Sync backfills: <span className="font-semibold">{reliabilityMetrics.sync_backfill_requested}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Storage health failures: <span className="font-semibold">{reliabilityMetrics.storage_health_failed}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Storage recovered records: <span className="font-semibold">{reliabilityMetrics.storage_recovery_records}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Storage Health</div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Message store: <span className="font-semibold">{storageHealthState.messageStoreOk ? "ok" : "error"}</span>
+                    </div>
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Queue store: <span className="font-semibold">{storageHealthState.queueStoreOk ? "ok" : "error"}</span>
+                    </div>
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Media index: <span className="font-semibold">{storageHealthState.mediaIndexOk ? "ok" : "error"}</span>
+                    </div>
+                  </div>
+                  {!storageHealthState.mediaIndexOk || !storageHealthState.messageStoreOk || !storageHealthState.queueStoreOk ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const report = await runStorageRecovery();
+                          setStorageActionPhase("success");
+                          setStorageActionMessage(`Storage repair complete: repaired ${report.repairedEntries}, removed ${report.removedEntries}.`);
+                          setStorageStatsTick((prev) => prev + 1);
+                          const health = await checkStorageHealth();
+                          setStorageHealthState(health);
+                        }}
+                      >
+                        Run Repair
+                      </Button>
+                      {storageHealthState.errorMessage ? (
+                        <span className="text-[11px] text-rose-600 dark:text-rose-400">{storageHealthState.errorMessage}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               {/* Media Upload Provider */}

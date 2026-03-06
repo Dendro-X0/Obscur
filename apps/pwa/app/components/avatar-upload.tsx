@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { cn } from "@/app/lib/utils";
+import { getNip96StorageKey } from "@/app/features/messaging/lib/nip96-upload-service";
 
 interface AvatarUploadProps {
     currentAvatarUrl?: string;
@@ -25,7 +26,7 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, onClear, class
     // Diagnostic logging
     React.useEffect(() => {
         console.log('[AvatarUpload] Service type:', uploadService.constructor.name);
-        console.log('[AvatarUpload] Current localStorage config:', localStorage.getItem('obscur.storage.nip96'));
+        console.log('[AvatarUpload] Current localStorage config:', localStorage.getItem(getNip96StorageKey()));
     }, [uploadService]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -15,7 +15,7 @@ type ButtonProps = Readonly<{
 
 const getVariantClassName = (variant: ButtonVariant): string => {
     if (variant === "secondary") {
-        return "border border-black/10 bg-gradient-button text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:text-zinc-100 dark:hover:bg-white/10";
+        return "border border-black/10 bg-gradient-button text-white hover:bg-black/5 dark:border-white/10 dark:text-zinc-100 dark:hover:bg-white/10";
     }
     if (variant === "danger") {
         return "border border-red-500/30 bg-red-600 text-white hover:bg-red-700 dark:border-red-500/40 dark:bg-red-600 dark:hover:bg-red-700";

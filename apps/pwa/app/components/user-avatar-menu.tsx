@@ -10,6 +10,7 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { getAuthTokenStorageKey, getRememberMeStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
 
 const MENU_APPROX_HEIGHT_PX: number = 176;
 
@@ -125,6 +126,8 @@ const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
             onClick={async (): Promise<void> => {
               setOpen(false);
+              localStorage.removeItem(getAuthTokenStorageKey());
+              localStorage.removeItem(getRememberMeStorageKey());
               localStorage.removeItem("obscur_auth_token");
               localStorage.removeItem("obscur_remember_me");
               identity.lockIdentity();

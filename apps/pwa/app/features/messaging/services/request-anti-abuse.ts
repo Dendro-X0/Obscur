@@ -1,4 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 const REQUEST_COOLDOWN_PREFIX = "obscur:dm:request-cooldown:v1";
 const DEFAULT_REQUEST_COOLDOWN_MS = 2 * 60 * 1000;
@@ -10,7 +11,7 @@ type RequestCooldownRecord = Readonly<{
 }>;
 
 const getRequestCooldownKey = (params: Readonly<{ myPublicKeyHex: PublicKeyHex; peerPublicKeyHex: PublicKeyHex }>): string =>
-  `${REQUEST_COOLDOWN_PREFIX}:${params.myPublicKeyHex}:${params.peerPublicKeyHex}`;
+  getScopedStorageKey(`${REQUEST_COOLDOWN_PREFIX}:${params.myPublicKeyHex}:${params.peerPublicKeyHex}`);
 
 const readRequestCooldownRecord = (storageKey: string): RequestCooldownRecord | null => {
   if (typeof window === "undefined") return null;

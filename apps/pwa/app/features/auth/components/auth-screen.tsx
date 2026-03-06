@@ -34,9 +34,10 @@ import { LanguageSelector } from "@/app/components/language-selector";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { Checkbox } from "@dweb/ui-kit";
 import { FlashMessage } from "@/app/components/ui/flash-message";
+import { getAuthTokenStorageKey, getRememberMeStorageKey } from "../utils/auth-storage-keys";
 
-const REMEMBER_ME_KEY = "obscur_remember_me";
-const AUTH_TOKEN_KEY = "obscur_auth_token";
+const LEGACY_REMEMBER_ME_KEY = "obscur_remember_me";
+const LEGACY_AUTH_TOKEN_KEY = "obscur_auth_token";
 
 const generateRandomCode = (): string => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No O, 0, I, 1
@@ -84,16 +85,16 @@ export function AuthScreen() {
     const [privateKey, setPrivateKey] = useState("");
 
     const persistRememberMe = useCallback((params: Readonly<{ remember: boolean; token?: string }>) => {
-        localStorage.setItem(REMEMBER_ME_KEY, params.remember ? "true" : "false");
+        localStorage.setItem(getRememberMeStorageKey(), params.remember ? "true" : "false");
         if (params.remember && params.token !== undefined) {
-            localStorage.setItem(AUTH_TOKEN_KEY, params.token);
+            localStorage.setItem(getAuthTokenStorageKey(), params.token);
         } else {
-            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.removeItem(getAuthTokenStorageKey());
         }
     }, []);
 
     React.useEffect(() => {
-        const remembered = localStorage.getItem(REMEMBER_ME_KEY);
+        const remembered = localStorage.getItem(getRememberMeStorageKey()) ?? localStorage.getItem(LEGACY_REMEMBER_ME_KEY);
         if (remembered === "true") {
             setRememberMe(true);
         } else if (remembered === "false") {
@@ -103,8 +104,10 @@ export function AuthScreen() {
 
     React.useEffect(() => {
         if (!rememberMe) {
-            localStorage.setItem(REMEMBER_ME_KEY, "false");
-            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.setItem(getRememberMeStorageKey(), "false");
+            localStorage.removeItem(getAuthTokenStorageKey());
+            localStorage.setItem(LEGACY_REMEMBER_ME_KEY, "false");
+            localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
         }
     }, [rememberMe]);
 
@@ -275,7 +278,7 @@ export function AuthScreen() {
     };
 
     return (
-        <div className="absolute inset-0 z-[150] flex items-center justify-center bg-zinc-50 dark:bg-black p-4 overflow-y-auto">
+        <div className="relative flex-1 flex items-center justify-center p-4 overflow-y-auto z-[80]">
             <div className="absolute top-6 right-6 z-[160]">
                 <LanguageSelector variant="minimal" />
             </div>
@@ -613,13 +616,13 @@ export function AuthScreen() {
                                                     <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Private Key</Label>
                                                     <div className="relative group">
                                                         <Key className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
-                                                        <Input
+                                                        <input
                                                             autoFocus
                                                             type="password"
                                                             placeholder="nsec1..."
                                                             value={privateKey}
                                                             onChange={e => setPrivateKey(e.target.value)}
-                                                            className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
+                                                            className="flex h-16 w-full rounded-[24px] border border-black/5 bg-white/50 px-12 py-2 text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/10 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/5 dark:bg-zinc-900/50 transition-all"
                                                         />
                                                     </div>
                                                 </div>
@@ -644,94 +647,93 @@ export function AuthScreen() {
                                                 </Button>
                                             </>
                                         ) : (
-                                            <form onSubmit={handleLoginUsername} className="space-y-6 mt-4">
-                                                <div className="space-y-4">
+                                            <>
+                                                <form onSubmit={handleLoginUsername} className="space-y-6">
+                                                    <div className="space-y-5">
+                                                        <div className="space-y-2">
+                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Username</Label>
+                                                            <div className="relative group">
+                                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
+                                                                <Input
+                                                                    autoFocus
+                                                                    placeholder="e.g. Satoshi"
+                                                                    value={username}
+                                                                    onChange={e => setUsername(e.target.value)}
+                                                                    className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Master Password</Label>
+                                                            <div className="relative group">
+                                                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
+                                                                <Input
+                                                                    type={showPassword ? "text" : "password"}
+                                                                    placeholder="Enter your password"
+                                                                    value={password}
+                                                                    onChange={e => setPassword(e.target.value)}
+                                                                    className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowPassword(!showPassword)}
+                                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                                                                >
+                                                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center space-x-3 px-2">
+                                                        <Checkbox
+                                                            id="remember-login-user"
+                                                            checked={rememberMe}
+                                                            onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                                                            className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
+                                                        />
+                                                        <label htmlFor="remember-login-user" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                                                            {t("auth.rememberMe", "Keep me logged in on this device")}
+                                                        </label>
+                                                    </div>
+
                                                     <FlashMessage
                                                         message={authError}
                                                         onClose={() => setAuthError(null)}
                                                         className="mt-4"
                                                     />
-                                                    {authError && authError.includes("Private Key") && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setLoginTab("key")}
-                                                            className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline px-4 pt-1"
-                                                        >
-                                                            {t("auth.error.recoveryLink")}
-                                                        </button>
-                                                    )}
-                                                    <div className="space-y-3">
-                                                        <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Username</Label>
-                                                        <div className="relative group">
-                                                            <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
-                                                            <Input
-                                                                autoFocus
-                                                                placeholder="e.g. Satoshi"
-                                                                value={username}
-                                                                onChange={e => {
-                                                                    setUsername(e.target.value);
-                                                                    setAuthError(null);
-                                                                }}
-                                                                className="pl-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="space-y-3">
-                                                        <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Password</Label>
-                                                        <div className="relative group">
-                                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
-                                                            <Input
-                                                                type={showPassword ? "text" : "password"}
-                                                                placeholder="Your master password"
-                                                                value={password}
-                                                                onChange={e => {
-                                                                    setPassword(e.target.value);
-                                                                    setAuthError(null);
-                                                                }}
-                                                                className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setShowPassword(!showPassword)}
-                                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                                                            >
-                                                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    type="submit"
-                                                    disabled={isLoading || !username || !password}
-                                                    className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
-                                                >
-                                                    {isLoading ? "Logging in..." : "Log In"}
-                                                </Button>
 
-                                                <div className="flex items-center space-x-3 px-2">
-                                                    <Checkbox
-                                                        id="remember-login-username"
-                                                        checked={rememberMe}
-                                                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                                        className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
-                                                    />
-                                                    <label htmlFor="remember-login-username" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                                        {t("auth.rememberMe", "Keep me logged in on this device")}
-                                                    </label>
-                                                </div>
-                                            </form>
+                                                    <Button
+                                                        type="submit"
+                                                        disabled={isLoading}
+                                                        className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
+                                                    >
+                                                        {isLoading ? (
+                                                            <motion.div
+                                                                animate={{ rotate: 360 }}
+                                                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                                            >
+                                                                <Sparkles className="h-5 w-5" />
+                                                            </motion.div>
+                                                        ) : (
+                                                            "Log In"
+                                                        )}
+                                                    </Button>
+                                                </form>
+                                            </>
                                         )}
                                     </div>
                                 ) : (
                                     <form onSubmit={handleLoginFinal} className="space-y-6">
                                         <div className="space-y-2">
-                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">App Password</Label>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Master Password</Label>
+                                            </div>
                                             <div className="relative group">
                                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
                                                 <Input
-                                                    autoFocus
                                                     type={showPassword ? "text" : "password"}
-                                                    placeholder="Minimum 8 characters"
+                                                    placeholder="Optional: create a new password"
                                                     value={password}
                                                     onChange={e => setPassword(e.target.value)}
                                                     className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
@@ -744,18 +746,9 @@ export function AuthScreen() {
                                                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                                 </button>
                                             </div>
-                                        </div>
-
-                                        <div className="flex items-center space-x-3 px-2">
-                                            <Checkbox
-                                                id="remember-login"
-                                                checked={rememberMe}
-                                                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                                className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
-                                            />
-                                            <label htmlFor="remember-login" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                                {t("auth.rememberMe", "Keep me logged in on this device")}
-                                            </label>
+                                            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest ml-1 mt-2">
+                                                You can leave this blank to use your key directly every time.
+                                            </p>
                                         </div>
 
                                         <FlashMessage
@@ -764,35 +757,22 @@ export function AuthScreen() {
                                             className="mt-4"
                                         />
 
-                                        <div className="p-4 rounded-3xl bg-blue-500/10 border border-blue-500/20 flex gap-4">
-                                            <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                                            <div className="space-y-2">
-                                                <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold leading-relaxed">
-                                                    Importing a private key gives full control of this identity on this device.
-                                                </p>
-                                                <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
-                                                    {keyOwnershipReminder} {keyRecoveryReminder}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-3 mt-6">
-                                            <Button
-                                                type="submit"
-                                                disabled={isLoading || (password.length > 0 && password.length < 8)}
-                                                className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20 disabled:opacity-50"
-                                            >
-                                                {isLoading ? t("common.searching") : (password ? t("auth.import.secureAndImport") : t("auth.continueWithoutPassword", "Continue"))}
-                                            </Button>
-
+                                        <div className="grid grid-cols-2 gap-4">
                                             <Button
                                                 type="button"
                                                 variant="outline"
+                                                onClick={(e) => handleLoginFinal(e, true)}
                                                 disabled={isLoading}
-                                                onClick={() => handleLoginFinal(undefined, true)}
-                                                className="w-full h-12 rounded-[20px] border-black/10 dark:border-white/10 text-sm font-bold opacity-70 hover:opacity-100 hover:bg-white/5 transition-all"
+                                                className="h-16 rounded-[24px] border-black/10 dark:border-white/10"
                                             >
-                                                {t("auth.import.skipAndLogin")}
+                                                Skip Password
+                                            </Button>
+                                            <Button
+                                                type="submit"
+                                                disabled={isLoading || !password}
+                                                className="h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xl shadow-blue-500/20"
+                                            >
+                                                Secure Account
                                             </Button>
                                         </div>
                                     </form>
@@ -802,11 +782,15 @@ export function AuthScreen() {
                     </AnimatePresence>
                 </div>
 
-                <div className="p-6 bg-zinc-50 dark:bg-black/20 border-t border-black/[0.03] dark:border-white/[0.03] text-center">
-                    <div className="flex items-center justify-center gap-4 opacity-50 grayscale">
-                        <UserCheck className="h-4 w-4" />
-                        <Shield className="h-4 w-4" />
-                        <Sparkles className="h-4 w-4" />
+                <div className="px-12 py-8 bg-black/5 dark:bg-white/5 border-t border-black/[0.03] dark:border-white/[0.03] flex items-center justify-center gap-6">
+                    <div className="flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity cursor-help group/tip">
+                        <Shield className="h-4 w-4 text-emerald-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Self-Custody</span>
+                    </div>
+                    <div className="h-4 w-px bg-zinc-300 dark:bg-zinc-700" />
+                    <div className="flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity cursor-help group/tip">
+                        <UserCheck className="h-4 w-4 text-purple-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Anonymous</span>
                     </div>
                 </div>
             </Card>

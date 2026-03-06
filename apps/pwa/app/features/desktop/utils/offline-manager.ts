@@ -4,6 +4,10 @@
  * Offline state management for desktop app
  * Handles connection state persistence and offline queue
  */
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+
+const OFFLINE_STATE_KEY = "obscur.offline.state";
+const getOfflineStateStorageKey = (): string => getScopedStorageKey(OFFLINE_STATE_KEY);
 
 export interface OfflineState {
   isOnline: boolean;
@@ -112,7 +116,7 @@ export class OfflineManager {
         lastOnline: this.state.lastOnline?.toISOString() || null,
         pendingActions: this.state.pendingActions,
       };
-      localStorage.setItem("obscur.offline.state", JSON.stringify(data));
+      localStorage.setItem(getOfflineStateStorageKey(), JSON.stringify(data));
     } catch (error) {
       console.error("Failed to save offline state:", error);
     }
@@ -125,7 +129,7 @@ export class OfflineManager {
     if (typeof window === "undefined") return;
 
     try {
-      const raw = localStorage.getItem("obscur.offline.state");
+      const raw = localStorage.getItem(getOfflineStateStorageKey()) ?? localStorage.getItem(OFFLINE_STATE_KEY);
       if (!raw) return;
 
       const data = JSON.parse(raw);

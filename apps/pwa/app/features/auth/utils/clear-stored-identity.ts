@@ -1,9 +1,10 @@
-import { identityDbKey } from "./identity-db-key";
+import { getIdentityDbKey } from "./identity-db-key";
 import { identityStoreName } from "./identity-store-name";
 import { openIdentityDb } from "./open-identity-db";
 
 export const clearStoredIdentity = async (): Promise<void> => {
   const db: IDBDatabase = await openIdentityDb();
+  const identityDbKey = getIdentityDbKey();
   return new Promise((resolve, reject) => {
     const tx: IDBTransaction = db.transaction(identityStoreName, "readwrite");
     const store: IDBObjectStore = tx.objectStore(identityStoreName);

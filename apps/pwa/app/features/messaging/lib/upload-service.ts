@@ -1,6 +1,7 @@
 import { Attachment, AttachmentKind, UploadApiResponse, UploadError, UploadErrorCode } from "../types";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 export interface UploadService {
     uploadFile: (file: File) => Promise<Attachment>;
@@ -132,7 +133,7 @@ export class LocalUploadService implements UploadService {
  * Shared internal helper for picking files across services
  */
 export async function pickFilesInternal(): Promise<File[] | null> {
-    const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+    const isTauri = hasNativeRuntime();
 
     if (isTauri) {
         try {
@@ -185,7 +186,7 @@ export async function pickFilesInternal(): Promise<File[] | null> {
  * Hook to use the upload service
  */
 import { useMemo, useState } from "react";
-import { Nip96UploadService, STORAGE_KEY_NIP96, Nip96Config } from "./nip96-upload-service";
+import { Nip96UploadService, getNip96StorageKey, Nip96Config } from "./nip96-upload-service";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 
 const normalizeProviderUrls = (params: Readonly<{ apiUrl?: string; apiUrls?: ReadonlyArray<string> }>): ReadonlyArray<string> => {
@@ -205,7 +206,7 @@ export const useUploadService = (): UploadService => {
             return null;
         }
         try {
-            const stored: string | null = localStorage.getItem(STORAGE_KEY_NIP96);
+            const stored: string | null = localStorage.getItem(getNip96StorageKey());
             if (stored) {
                 const parsed: unknown = JSON.parse(stored);
                 if (parsed && typeof parsed === "object") {
@@ -227,7 +228,7 @@ export const useUploadService = (): UploadService => {
 
             // If no config found, and we are on Vercel, Tauri (Desktop), or Localhost, auto-enable a default
             const isVercel = window.location.hostname.includes("vercel.app");
-            const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+            const isTauri = hasNativeRuntime();
             const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
             if (isVercel || isTauri || isLocalhost) {
@@ -239,7 +240,7 @@ export const useUploadService = (): UploadService => {
                     ],
                     enabled: true
                 };
-                localStorage.setItem(STORAGE_KEY_NIP96, JSON.stringify(defaultConfig));
+                localStorage.setItem(getNip96StorageKey(), JSON.stringify(defaultConfig));
                 return defaultConfig;
             }
 

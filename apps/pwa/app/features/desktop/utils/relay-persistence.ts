@@ -4,6 +4,7 @@
  * Relay connection persistence for desktop app
  * Maintains relay connections across app restarts
  */
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 export interface PersistedRelayState {
   url: string;
@@ -13,6 +14,7 @@ export interface PersistedRelayState {
 }
 
 const STORAGE_KEY = "obscur.relay.persistence";
+const getRelayPersistenceStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
 
 /**
  * Save relay state to persistent storage
@@ -21,7 +23,7 @@ export function saveRelayState(relays: PersistedRelayState[]): void {
   if (typeof window === "undefined") return;
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(relays));
+    localStorage.setItem(getRelayPersistenceStorageKey(), JSON.stringify(relays));
   } catch (error) {
     console.error("Failed to save relay state:", error);
   }
@@ -34,7 +36,7 @@ export function loadRelayState(): PersistedRelayState[] {
   if (typeof window === "undefined") return [];
 
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getRelayPersistenceStorageKey()) ?? localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
 
     const data = JSON.parse(raw);
@@ -91,7 +93,7 @@ export function clearRelayState(): void {
   if (typeof window === "undefined") return;
 
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getRelayPersistenceStorageKey());
   } catch (error) {
     console.error("Failed to clear relay state:", error);
   }

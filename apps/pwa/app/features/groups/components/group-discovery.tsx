@@ -254,8 +254,8 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
                 })}
 
                 {paginatedGroups.length === 0 && !isLoading && (
-                    <div className="col-span-full py-20 flex flex-col items-center justify-center space-y-4 text-center">
-                        <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
+                    <div className="col-span-full flex-1 flex flex-col items-center justify-center p-8 min-h-[45vh] text-center space-y-4">
+                        <div className="h-20 w-20 rounded-[24px] bg-muted flex items-center justify-center border border-border/50 shadow-inner">
                             <Globe className="h-10 w-10 text-muted-foreground/30" />
                         </div>
                         <div className="space-y-1">

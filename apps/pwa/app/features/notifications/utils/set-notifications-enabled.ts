@@ -1,4 +1,4 @@
-import { NOTIFICATION_CHANNELS_STORAGE_KEY, NOTIFICATION_STORAGE_KEY } from "./notification-storage-key";
+import { getNotificationChannelsStorageKey, getNotificationStorageKey } from "./notification-storage-key";
 import {
   DEFAULT_NOTIFICATION_CHANNELS,
   DISABLED_NOTIFICATION_CHANNELS,
@@ -16,9 +16,9 @@ const setNotificationsEnabled = (params: SetNotificationsEnabledParams): SetNoti
     return { ok: false };
   }
   try {
-    window.localStorage.setItem(NOTIFICATION_STORAGE_KEY, params.enabled ? "1" : "0");
+    window.localStorage.setItem(getNotificationStorageKey(), params.enabled ? "1" : "0");
     const channels = params.enabled ? DEFAULT_NOTIFICATION_CHANNELS : DISABLED_NOTIFICATION_CHANNELS;
-    window.localStorage.setItem(NOTIFICATION_CHANNELS_STORAGE_KEY, JSON.stringify(channels));
+    window.localStorage.setItem(getNotificationChannelsStorageKey(), JSON.stringify(channels));
     return { ok: true };
   } catch {
     return { ok: false };
@@ -30,13 +30,13 @@ const setNotificationChannels = (params: SetNotificationChannelsParams): SetNoti
     return { ok: false };
   }
   try {
-    const existingRaw = window.localStorage.getItem(NOTIFICATION_CHANNELS_STORAGE_KEY);
+    const existingRaw = window.localStorage.getItem(getNotificationChannelsStorageKey());
     const existing = existingRaw ? (JSON.parse(existingRaw) as Partial<NotificationChannels>) : null;
-    const fallback = window.localStorage.getItem(NOTIFICATION_STORAGE_KEY) === "0" ? DISABLED_NOTIFICATION_CHANNELS : DEFAULT_NOTIFICATION_CHANNELS;
+    const fallback = window.localStorage.getItem(getNotificationStorageKey()) === "0" ? DISABLED_NOTIFICATION_CHANNELS : DEFAULT_NOTIFICATION_CHANNELS;
     const channels = normalizeNotificationChannels({ ...existing, ...params.channels }, fallback);
     const enabled = channels.dmMessages || channels.mentionsReplies || channels.invitesSystem;
-    window.localStorage.setItem(NOTIFICATION_CHANNELS_STORAGE_KEY, JSON.stringify(channels));
-    window.localStorage.setItem(NOTIFICATION_STORAGE_KEY, enabled ? "1" : "0");
+    window.localStorage.setItem(getNotificationChannelsStorageKey(), JSON.stringify(channels));
+    window.localStorage.setItem(getNotificationStorageKey(), enabled ? "1" : "0");
     return { ok: true };
   } catch {
     return { ok: false };

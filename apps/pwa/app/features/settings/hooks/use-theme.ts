@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type ThemePreference = "system" | "light" | "dark";
 
@@ -13,6 +15,7 @@ type ThemeStore = Readonly<{
   getSnapshot: () => ThemeSnapshot;
   setPreference: (preference: ThemePreference) => void;
   initializeFromStorage: () => void;
+  reloadFromStorage: () => void;
 }>;
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.theme";
@@ -27,7 +30,9 @@ const loadPreferenceFromStorage = (): ThemePreference => {
     return "system";
   }
   try {
-    const raw: string | null = window.localStorage.getItem(STORAGE_KEY);
+    const raw: string | null =
+      window.localStorage.getItem(getStorageKey())
+      ?? window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return "system";
     }
@@ -45,7 +50,7 @@ const savePreferenceToStorage = (preference: ThemePreference): void => {
     return;
   }
   try {
-    window.localStorage.setItem(STORAGE_KEY, preference);
+    window.localStorage.setItem(getStorageKey(), preference);
   } catch {
     return;
   }
@@ -70,6 +75,11 @@ const createStore = (): ThemeStore => {
     snapshot = { preference };
     emit();
   };
+  const reloadFromStorage = (): void => {
+    preference = loadPreferenceFromStorage();
+    snapshot = { preference };
+    emit();
+  };
   const subscribe = (listener: () => void): (() => void) => {
     listeners.add(listener);
     return (): void => {
@@ -86,7 +96,7 @@ const createStore = (): ThemeStore => {
     savePreferenceToStorage(next);
     emit();
   };
-  return { subscribe, getSnapshot, setPreference, initializeFromStorage };
+  return { subscribe, getSnapshot, setPreference, initializeFromStorage, reloadFromStorage };
 };
 
 const store: ThemeStore = createStore();
@@ -100,8 +110,16 @@ const useTheme = (): UseThemeResult => {
   const getServerSnapshot = (): ThemeSnapshot => SERVER_SNAPSHOT;
   const snapshot: ThemeSnapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerSnapshot);
 
-  useEffect((): void => {
+  useEffect(() => {
     store.initializeFromStorage();
+    if (typeof window === "undefined") return;
+    const onProfileChanged = (): void => {
+      store.reloadFromStorage();
+    };
+    window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    return (): void => {
+      window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    };
   }, []);
   const setPreference = useCallback((preference: ThemePreference): void => {
     store.setPreference(preference);
@@ -110,3 +128,4 @@ const useTheme = (): UseThemeResult => {
 };
 
 export { useTheme };
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);

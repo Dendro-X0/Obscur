@@ -110,6 +110,8 @@ const main = () => {
   run("pnpm", ["version:check"]);
   console.log("[release:preflight] Running docs check...");
   run("pnpm", ["docs:check"]);
+  console.log("[release:preflight] Verifying release artifact matrix workflow...");
+  run("pnpm", ["release:artifact-matrix-check"]);
 
   console.log("[release:preflight] Passed");
 };

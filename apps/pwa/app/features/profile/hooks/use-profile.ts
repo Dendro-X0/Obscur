@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 export type UserProfile = Readonly<{
   username: string;
@@ -30,6 +32,8 @@ type PersistedProfileV1 = Readonly<{
 }>;
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.profile";
+
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
 
 const defaultProfile: UserProfile = { username: "", about: "", avatarUrl: "", nip05: "", inviteCode: "" };
 
@@ -79,7 +83,7 @@ const loadFromStorage = (): ProfileState => {
     return defaultState;
   }
   try {
-    const raw: string | null = window.localStorage.getItem(STORAGE_KEY);
+    const raw: string | null = window.localStorage.getItem(getStorageKey());
     if (!raw) {
       return defaultState;
     }
@@ -99,7 +103,7 @@ const saveToStorage = (state: ProfileState): void => {
     return;
   }
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(toPersisted(state)));
+    window.localStorage.setItem(getStorageKey(), JSON.stringify(toPersisted(state)));
   } catch {
     return;
   }
@@ -136,9 +140,17 @@ const updateAndPersist = (updater: (prev: ProfileState) => ProfileState): void =
 };
 
 export const useProfile = (): UseProfileResult => {
-  useEffect((): void => {
+  useEffect(() => {
     ensureLoaded();
     notify();
+    const onProfileChanged = (): void => {
+      currentState = loadFromStorage();
+      notify();
+    };
+    window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    return (): void => {
+      window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    };
   }, []);
 
   const state: ProfileState = useSyncExternalStore(

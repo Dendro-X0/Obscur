@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type InviteId = string;
 
@@ -56,7 +57,9 @@ const isInvite = (value: unknown): value is Invite => {
   return isString(id) && isString(relayUrl) && isString(groupId) && isString(host) && isString(identifier) && isNumber(createdAtUnixMs) && inviterOk && labelOk;
 };
 
-const getStorageKey = (publicKeyHex: string): string => `${STORAGE_PREFIX}.${publicKeyHex}`;
+const getLegacyStorageKey = (publicKeyHex: string): string => `${STORAGE_PREFIX}.${publicKeyHex}`;
+
+const getStorageKey = (publicKeyHex: string): string => getScopedStorageKey(getLegacyStorageKey(publicKeyHex));
 
 const parsePersisted = (value: unknown): PersistedInvitesV1 | null => {
   if (!isRecord(value)) {
@@ -74,6 +77,7 @@ const parsePersisted = (value: unknown): PersistedInvitesV1 | null => {
 const toPersisted = (state: InvitesState): PersistedInvitesV1 => ({ version: 1, items: state.items });
 
 let currentKey: string | null = null;
+let currentLegacyKey: string | null = null;
 let currentState: InvitesState = defaultStateSnapshot;
 const listeners: Set<() => void> = new Set();
 
@@ -106,6 +110,14 @@ const loadFromStorage = (storageKey: string): InvitesState => {
   }
 };
 
+const loadFromStorageWithFallback = (storageKey: string, legacyStorageKey?: string): InvitesState => {
+  const scoped = loadFromStorage(storageKey);
+  if (scoped.items.length > 0 || !legacyStorageKey) {
+    return scoped;
+  }
+  return loadFromStorage(legacyStorageKey);
+};
+
 const saveToStorage = (storageKey: string, state: InvitesState): void => {
   if (typeof window === "undefined") {
     return;
@@ -117,12 +129,13 @@ const saveToStorage = (storageKey: string, state: InvitesState): void => {
   }
 };
 
-const ensureKeyLoaded = (storageKey: string): void => {
-  if (currentKey === storageKey) {
+const ensureKeyLoaded = (storageKey: string, legacyStorageKey?: string): void => {
+  if (currentKey === storageKey && currentLegacyKey === (legacyStorageKey ?? null)) {
     return;
   }
   currentKey = storageKey;
-  currentState = loadFromStorage(storageKey);
+  currentLegacyKey = legacyStorageKey ?? null;
+  currentState = loadFromStorageWithFallback(storageKey, legacyStorageKey);
 };
 
 const subscribe = (listener: () => void): (() => void) => {
@@ -167,13 +180,20 @@ export const useInvites = (params: Readonly<{ publicKeyHex: string | null }>): U
     return getStorageKey(params.publicKeyHex);
   }, [params.publicKeyHex]);
 
+  const legacyStorageKey: string | null = useMemo((): string | null => {
+    if (!params.publicKeyHex) {
+      return null;
+    }
+    return getLegacyStorageKey(params.publicKeyHex);
+  }, [params.publicKeyHex]);
+
   useEffect((): void => {
     if (!storageKey) {
       return;
     }
-    ensureKeyLoaded(storageKey);
+    ensureKeyLoaded(storageKey, legacyStorageKey ?? undefined);
     notify();
-  }, [storageKey]);
+  }, [storageKey, legacyStorageKey]);
 
   const state: InvitesState = useSyncExternalStore(
     subscribe,
@@ -181,7 +201,7 @@ export const useInvites = (params: Readonly<{ publicKeyHex: string | null }>): U
       if (!storageKey) {
         return defaultStateSnapshot;
       }
-      ensureKeyLoaded(storageKey);
+      ensureKeyLoaded(storageKey, legacyStorageKey ?? undefined);
       return getSnapshot();
     },
     (): InvitesState => defaultStateSnapshot

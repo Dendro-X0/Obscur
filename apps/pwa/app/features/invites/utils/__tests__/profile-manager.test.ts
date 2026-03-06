@@ -8,6 +8,7 @@ import { cryptoService } from '../../../crypto/crypto-service';
 
 import type { UserProfile, PrivacySettings, ShareableProfile } from '../types';
 import { USER_PROFILE_KEY, PRIVACY_SETTINGS_KEY } from '../constants';
+import { getScopedStorageKey } from '@/app/features/profiles/services/profile-scope';
 
 // Mock crypto service
 vi.mock('../../../crypto/crypto-service', () => ({
@@ -18,6 +19,8 @@ vi.mock('../../../crypto/crypto-service', () => ({
 }));
 
 describe('Profile Manager Property Tests', () => {
+  const SCOPED_USER_PROFILE_KEY = getScopedStorageKey(USER_PROFILE_KEY);
+  const SCOPED_PRIVACY_SETTINGS_KEY = getScopedStorageKey(PRIVACY_SETTINGS_KEY);
   // Test data
   const validPublicKey: PublicKeyHex = 'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc' as PublicKeyHex;
   const validPrivateKey: PrivateKeyHex = '5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb' as PrivateKeyHex;
@@ -80,10 +83,10 @@ describe('Profile Manager Property Tests', () => {
           async (profile: UserProfile, privacySettings: PrivacySettings) => {
             // Setup mocks to return our test data
             mockLocalStorage.getItem.mockImplementation((key: string) => {
-              if (key === USER_PROFILE_KEY) {
+              if (key === SCOPED_USER_PROFILE_KEY || key === USER_PROFILE_KEY) {
                 return JSON.stringify(profile);
               }
-              if (key === PRIVACY_SETTINGS_KEY) {
+              if (key === SCOPED_PRIVACY_SETTINGS_KEY || key === PRIVACY_SETTINGS_KEY) {
                 return JSON.stringify(privacySettings);
               }
               return null;
@@ -142,8 +145,8 @@ describe('Profile Manager Property Tests', () => {
       };
 
       mockLocalStorage.getItem.mockImplementation((key: string) => {
-        if (key === USER_PROFILE_KEY) return JSON.stringify(profile);
-        if (key === PRIVACY_SETTINGS_KEY) return JSON.stringify(privacySettings);
+        if (key === SCOPED_USER_PROFILE_KEY || key === USER_PROFILE_KEY) return JSON.stringify(profile);
+        if (key === SCOPED_PRIVACY_SETTINGS_KEY || key === PRIVACY_SETTINGS_KEY) return JSON.stringify(privacySettings);
         return null;
       });
 
@@ -194,8 +197,8 @@ describe('Profile Manager Property Tests', () => {
     it('should handle corrupted profile data gracefully', async () => {
       // Mock localStorage to return invalid JSON
       mockLocalStorage.getItem.mockImplementation((key: string) => {
-        if (key === USER_PROFILE_KEY) return 'invalid-json';
-        if (key === PRIVACY_SETTINGS_KEY) return 'invalid-json';
+        if (key === SCOPED_USER_PROFILE_KEY || key === USER_PROFILE_KEY) return 'invalid-json';
+        if (key === SCOPED_PRIVACY_SETTINGS_KEY || key === PRIVACY_SETTINGS_KEY) return 'invalid-json';
         return null;
       });
 
@@ -234,13 +237,13 @@ describe('Profile Manager Property Tests', () => {
 
             // Verify it was stored
             expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-              USER_PROFILE_KEY,
+              SCOPED_USER_PROFILE_KEY,
               JSON.stringify(profile)
             );
 
             // Mock the stored data for retrieval
             mockLocalStorage.getItem.mockImplementation((key: string) => {
-              if (key === USER_PROFILE_KEY) return JSON.stringify(profile);
+              if (key === SCOPED_USER_PROFILE_KEY || key === USER_PROFILE_KEY) return JSON.stringify(profile);
               return null;
             });
 
@@ -271,13 +274,13 @@ describe('Profile Manager Property Tests', () => {
 
             // Verify it was stored
             expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-              PRIVACY_SETTINGS_KEY,
+              SCOPED_PRIVACY_SETTINGS_KEY,
               JSON.stringify(privacySettings)
             );
 
             // Mock the stored data for retrieval
             mockLocalStorage.getItem.mockImplementation((key: string) => {
-              if (key === PRIVACY_SETTINGS_KEY) return JSON.stringify(privacySettings);
+              if (key === SCOPED_PRIVACY_SETTINGS_KEY || key === PRIVACY_SETTINGS_KEY) return JSON.stringify(privacySettings);
               return null;
             });
 
@@ -308,8 +311,8 @@ describe('Profile Manager Property Tests', () => {
       };
 
       mockLocalStorage.getItem.mockImplementation((key: string) => {
-        if (key === USER_PROFILE_KEY) return JSON.stringify(profile);
-        if (key === PRIVACY_SETTINGS_KEY) return JSON.stringify(privacySettings);
+        if (key === SCOPED_USER_PROFILE_KEY || key === USER_PROFILE_KEY) return JSON.stringify(profile);
+        if (key === SCOPED_PRIVACY_SETTINGS_KEY || key === PRIVACY_SETTINGS_KEY) return JSON.stringify(privacySettings);
         return null;
       });
 

@@ -10,6 +10,7 @@ import { Label } from "@dweb/ui-kit";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { ProfileSettings } from "../components/invites/profile-settings";
 import { useTranslation } from "react-i18next";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type StoredProfile = Readonly<{ publicKey: string; username: string }>;
 
@@ -26,7 +27,7 @@ const createDefaultUsername = (publicKey: string): string => {
   return `${publicKey.slice(0, 10)}…${publicKey.slice(-6)}`;
 };
 
-const getProfileStorageKey = (publicKeyHex: string): string => `${PROFILE_STORAGE_PREFIX}.${publicKeyHex}`;
+const getProfileStorageKey = (publicKeyHex: string): string => getScopedStorageKey(`${PROFILE_STORAGE_PREFIX}.${publicKeyHex}`);
 
 const loadProfileForKey = (publicKeyHex: string): StoredProfile => {
   const trimmedPublicKey: string = publicKeyHex.trim();

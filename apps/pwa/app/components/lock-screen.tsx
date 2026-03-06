@@ -59,7 +59,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-zinc-950/90 backdrop-blur-md px-4 py-safe">
+        <div className="relative flex-1 flex items-center justify-center overflow-y-auto bg-zinc-950/90 backdrop-blur-md px-4 py-safe">
             <div className="w-full max-w-md p-8 rounded-3xl border border-white/5 bg-zinc-900/50 shadow-2xl overflow-hidden relative group my-auto">
                 {/* Background glow effect */}
                 <div className="absolute -inset-24 top-0 bg-white/5 blur-3xl rounded-full opacity-20 pointer-events-none" />

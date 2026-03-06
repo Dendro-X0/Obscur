@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "0.8.6",
+  "version": "0.8.8",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -17,6 +17,7 @@
     "docs:check": "node scripts/docs-check.mjs",
     "security:audit": "pnpm audit",
     "release:preflight": "node scripts/release-preflight.mjs",
+    "release:artifact-matrix-check": "node scripts/check-release-artifact-matrix.mjs",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"

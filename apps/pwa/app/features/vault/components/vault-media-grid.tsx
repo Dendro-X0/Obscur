@@ -31,6 +31,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 import type { VaultMediaItem } from "../hooks/use-vault-media";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
 type VaultMediaGridProps = Readonly<{
     mediaItems: ReadonlyArray<VaultMediaItem>;
@@ -45,11 +46,14 @@ type VisibilityFilter = "all" | "local" | "remote" | "favorites";
 const FILTER_STORAGE_KEY = "obscur.vault.filter.preference";
 const FAVORITES_STORAGE_KEY = "obscur.vault.favorites";
 const HIDDEN_STORAGE_KEY = "obscur.vault.hidden";
+const scopedFilterStorageKey = (): string => getScopedStorageKey(FILTER_STORAGE_KEY);
+const scopedFavoritesStorageKey = (): string => getScopedStorageKey(FAVORITES_STORAGE_KEY);
+const scopedHiddenStorageKey = (): string => getScopedStorageKey(HIDDEN_STORAGE_KEY);
 
 const readHidden = (): ReadonlySet<string> => {
     if (typeof window === "undefined") return new Set<string>();
     try {
-        const raw = localStorage.getItem(HIDDEN_STORAGE_KEY);
+        const raw = localStorage.getItem(scopedHiddenStorageKey()) ?? localStorage.getItem(HIDDEN_STORAGE_KEY);
         if (!raw) return new Set<string>();
         const parsed = JSON.parse(raw) as unknown;
         if (!Array.isArray(parsed)) return new Set<string>();
@@ -61,12 +65,12 @@ const readHidden = (): ReadonlySet<string> => {
 
 const persistHidden = (ids: ReadonlySet<string>): void => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(HIDDEN_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+    localStorage.setItem(scopedHiddenStorageKey(), JSON.stringify(Array.from(ids)));
 };
 
 const readFilterPreference = (): VisibilityFilter => {
     if (typeof window === "undefined") return "all";
-    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    const raw = localStorage.getItem(scopedFilterStorageKey()) ?? localStorage.getItem(FILTER_STORAGE_KEY);
     if (raw === "local" || raw === "remote" || raw === "favorites") return raw;
     return "all";
 };
@@ -74,7 +78,7 @@ const readFilterPreference = (): VisibilityFilter => {
 const readFavorites = (): ReadonlySet<string> => {
     if (typeof window === "undefined") return new Set<string>();
     try {
-        const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+        const raw = localStorage.getItem(scopedFavoritesStorageKey()) ?? localStorage.getItem(FAVORITES_STORAGE_KEY);
         if (!raw) return new Set<string>();
         const parsed = JSON.parse(raw) as unknown;
         if (!Array.isArray(parsed)) return new Set<string>();
@@ -86,7 +90,7 @@ const readFavorites = (): ReadonlySet<string> => {
 
 const persistFavorites = (favorites: ReadonlySet<string>): void => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(favorites)));
+    localStorage.setItem(scopedFavoritesStorageKey(), JSON.stringify(Array.from(favorites)));
 };
 
 export function VaultMediaGrid(props: VaultMediaGridProps) {
@@ -117,7 +121,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
 
     React.useEffect(() => {
         if (typeof window === "undefined") return;
-        localStorage.setItem(FILTER_STORAGE_KEY, visibilityFilter);
+        localStorage.setItem(scopedFilterStorageKey(), visibilityFilter);
     }, [visibilityFilter]);
 
     React.useEffect(() => {
@@ -235,17 +239,17 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
 
     if (props.mediaItems.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
-                <div className="h-24 w-24 rounded-[32px] bg-muted flex items-center justify-center">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh] text-center space-y-6 animate-in fade-in duration-700">
+                <div className="h-24 w-24 rounded-[32px] bg-muted flex items-center justify-center border border-border/50 shadow-inner">
                     <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
                 </div>
                 <div className="space-y-1">
                     <h3 className="text-xl font-black">{t("vault.empty", "Vault is Empty")}</h3>
-                    <p className="text-sm text-muted-foreground max-w-xs">
+                    <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                         {t("vault.emptyDesc", "Shared media from your chats will appear here automatically.")}
                     </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={props.refresh} className="rounded-xl font-bold">
+                <Button variant="outline" size="sm" onClick={props.refresh} className="mt-4 rounded-xl font-bold bg-background shadow-sm hover:scale-105 transition-all">
                     <RefreshCw className="h-3 w-3 mr-2" />
                     {t("common.refresh", "Refresh")}
                 </Button>

@@ -3,6 +3,10 @@
 import { useState, useCallback, useEffect } from "react";
 import { MockPool } from "../mock-pool";
 import { BotEngine } from "../bot-engine";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+
+const DEV_MODE_KEY = "obscur_dev_mode";
+const getDevModeStorageKey = (): string => getScopedStorageKey(DEV_MODE_KEY);
 
 // Singleton instances for dev mode
 let mockPoolInstance: MockPool | null = null;
@@ -30,7 +34,7 @@ export function useDevMode() {
 
     // Load initial state from localStorage
     useEffect(() => {
-        const saved = localStorage.getItem("obscur_dev_mode") === "true";
+        const saved = (localStorage.getItem(getDevModeStorageKey()) ?? localStorage.getItem(DEV_MODE_KEY)) === "true";
         if (saved !== isDevMode) {
             queueMicrotask(() => setIsDevMode(saved));
         }
@@ -39,7 +43,7 @@ export function useDevMode() {
     const toggleDevMode = useCallback(() => {
         const next = !isDevMode;
         setIsDevMode(next);
-        localStorage.setItem("obscur_dev_mode", String(next));
+        localStorage.setItem(getDevModeStorageKey(), String(next));
         // Force reload to swap pool (easiest way to ensure all hooks reset)
         window.location.reload();
     }, [isDevMode]);
