@@ -28,6 +28,26 @@ export interface LoadingState {
   message?: string;
 }
 
+type UiPerformancePolicy = Readonly<{
+  warningThresholdMs: number;
+  degradedScoreThreshold: number;
+}>;
+
+export const resolveUiPerformancePolicy = (
+  nodeEnv: string | undefined = process.env.NODE_ENV
+): UiPerformancePolicy => {
+  if (nodeEnv === "production") {
+    return {
+      warningThresholdMs: 100,
+      degradedScoreThreshold: 90,
+    };
+  }
+  return {
+    warningThresholdMs: 300,
+    degradedScoreThreshold: 70,
+  };
+};
+
 /**
  * UI Performance Monitor
  * Tracks UI update performance to ensure responsiveness
@@ -36,7 +56,8 @@ export interface LoadingState {
 export class UIPerformanceMonitor {
   private metrics: PerformanceMetrics[] = [];
   private maxMetrics = 100;
-  private performanceThresholdMs = 100;
+  private performanceThresholdMs = resolveUiPerformancePolicy().warningThresholdMs;
+  private degradedScoreThreshold = resolveUiPerformancePolicy().degradedScoreThreshold;
 
   /**
    * Start tracking a UI update
@@ -105,7 +126,7 @@ export class UIPerformanceMonitor {
    * Check if performance is degraded
    */
   isPerformanceDegraded(): boolean {
-    return this.getPerformanceScore() < 90; // Less than 90% within threshold
+    return this.getPerformanceScore() < this.degradedScoreThreshold;
   }
 
   /**
