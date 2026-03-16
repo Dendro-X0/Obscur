@@ -10,9 +10,14 @@ import type {
 } from "../types";
 import { loadPersistedChatState, normalizePersistedGroupState, savePersistedChatState, toPersistedOverridesByConnectionId } from "../utils/persistence";
 import { messagingDB } from "@dweb/storage/indexed-db";
+import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 
 type SaveOptions = Readonly<{
     debounceMs?: number;
+}>;
+
+type ReplaceOptions = Readonly<{
+    emitMutationSignal?: boolean;
 }>;
 
 type PendingSave = {
@@ -89,8 +94,12 @@ class ChatStateStore {
     update(publicKeyHex: PublicKeyHex, updater: (prev: PersistedChatState) => PersistedChatState): void {
         const current = this.load(publicKeyHex) || this.createInitialState();
         const next = updater(current);
+        if (next === current) {
+            return;
+        }
         this.memoryCacheByPublicKey.set(publicKeyHex, next);
         this.save(publicKeyHex, next);
+        emitAccountSyncMutation("chat_state_changed");
     }
 
     /**
@@ -136,6 +145,14 @@ class ChatStateStore {
 
     updateHiddenChats(publicKeyHex: PublicKeyHex, hiddenChatIds: ReadonlyArray<string>): void {
         this.update(publicKeyHex, prev => ({ ...prev, hiddenChatIds }));
+    }
+
+    replace(publicKeyHex: PublicKeyHex, nextState: PersistedChatState, options?: ReplaceOptions): void {
+        this.memoryCacheByPublicKey.set(publicKeyHex, normalizePersistedGroupState(nextState));
+        this.save(publicKeyHex, normalizePersistedGroupState(nextState), { debounceMs: 0 });
+        if (options?.emitMutationSignal !== false) {
+            emitAccountSyncMutation("chat_state_changed");
+        }
     }
 
     /**
