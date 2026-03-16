@@ -1,5 +1,7 @@
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { NostrFilter } from "../types/nostr-filter";
+import { relayTransportJournal } from "../services/relay-transport-journal";
+import type { RelaySubscriptionReplayReasonCode } from "../services/relay-runtime-contracts";
 
 type MessageListener = (params: Readonly<{ url: string; message: string }>) => void;
 
@@ -24,16 +26,6 @@ interface SubscriptionRequest {
     onEvent: (event: NostrEvent, url: string) => void;
 }
 
-type WireNostrFilter = {
-    kinds?: ReadonlyArray<number>;
-    authors?: ReadonlyArray<string>;
-    since?: number;
-    limit?: number;
-    "#p"?: ReadonlyArray<string>;
-    "#h"?: ReadonlyArray<string>;
-    "#d"?: ReadonlyArray<string>;
-};
-
 /**
  * Manages Nostr relay subscriptions with request coalescing and batching.
  * Requirement 8.9: Reduce simultaneous active subscriptions to relays.
@@ -49,6 +41,7 @@ export class SubscriptionManager {
         private subscribeToMessages: (handler: MessageListener) => () => void
     ) {
         this.subscribeToMessages(this.handleIncomingMessage.bind(this));
+        this.syncJournalState();
     }
 
     /**
@@ -60,6 +53,7 @@ export class SubscriptionManager {
 
         this.pendingRequests.push(request);
         this.activeSubscriptions.set(id, request);
+        this.syncJournalState();
 
         this.scheduleBatch();
 
@@ -73,9 +67,84 @@ export class SubscriptionManager {
         if (!this.activeSubscriptions.has(id)) return;
 
         this.activeSubscriptions.delete(id);
+        this.pendingRequests = this.pendingRequests.filter((request) => request.id !== id);
+        this.syncJournalState();
         // In a full implementation, we would also send a CLOSE message to relays
         // if this was the last consumer of a specific filter set.
         this.sendToRelays(JSON.stringify(["CLOSE", id]));
+    }
+
+    public getActiveSubscriptions(): ReadonlyArray<Readonly<{
+        id: string;
+        filters: ReadonlyArray<NostrFilter>;
+    }>> {
+        return Array.from(this.activeSubscriptions.values()).map((request) => ({
+            id: request.id,
+            filters: request.filters,
+        }));
+    }
+
+    public resubscribeAll(reasonCode: RelaySubscriptionReplayReasonCode = "manual"): void {
+        const activeSubscriptions = this.getActiveSubscriptions();
+        relayTransportJournal.markSubscriptionReplayAttempt({
+            reasonCode,
+            detail: `active=${activeSubscriptions.length}`,
+        });
+
+        if (activeSubscriptions.length === 0) {
+            relayTransportJournal.markSubscriptionReplayResult({
+                reasonCode,
+                result: "skipped",
+                detail: "no_active_subscriptions",
+            });
+            return;
+        }
+
+        let sentCount = 0;
+        let skippedEmptyFilterCount = 0;
+        try {
+            activeSubscriptions.forEach((request) => {
+                if (request.filters.length === 0) {
+                    skippedEmptyFilterCount += 1;
+                    return;
+                }
+                this.sendToRelays(JSON.stringify(["REQ", request.id, ...request.filters]));
+                sentCount += 1;
+            });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            relayTransportJournal.markSubscriptionReplayResult({
+                reasonCode,
+                result: "failed",
+                detail: `sent=${sentCount};error=${errorMessage}`,
+            });
+            return;
+        }
+
+        if (sentCount === 0) {
+            relayTransportJournal.markSubscriptionReplayResult({
+                reasonCode,
+                result: "skipped",
+                detail: "no_non_empty_filters",
+            });
+            return;
+        }
+
+        relayTransportJournal.markSubscriptionReplayResult({
+            reasonCode,
+            result: skippedEmptyFilterCount > 0 ? "partial" : "ok",
+            detail: `sent=${sentCount};skipped_empty=${skippedEmptyFilterCount}`,
+        });
+    }
+
+    public dispose(): void {
+        if (this.batchTimeout) {
+            clearTimeout(this.batchTimeout);
+            this.batchTimeout = null;
+        }
+        this.pendingRequests = [];
+        this.activeSubscriptions.clear();
+        this.syncJournalState();
     }
 
     private scheduleBatch(): void {
@@ -92,58 +161,23 @@ export class SubscriptionManager {
 
         const requestsToProcess = [...this.pendingRequests];
         this.pendingRequests = [];
+        this.syncJournalState();
 
-        // Coalesce filters by kind
-        // For simplicity, we'll group filters that have the same 'kinds'
-        const groupedByKinds: Map<string, NostrFilter[]> = new Map();
-
-        requestsToProcess.forEach((req: SubscriptionRequest) => {
-            req.filters.forEach((filter: NostrFilter) => {
-                const kindKey: string = [...(filter.kinds ?? [])].sort((a: number, b: number) => a - b).join(",");
-                if (!groupedByKinds.has(kindKey)) {
-                    groupedByKinds.set(kindKey, []);
-                }
-                groupedByKinds.get(kindKey)!.push(filter);
-            });
+        // Preserve caller-provided filter semantics exactly.
+        // Coalescing by kind caused search/tag filters to be dropped and broke invite discovery.
+        requestsToProcess.forEach((request: SubscriptionRequest) => {
+            if (request.filters.length === 0) {
+                return;
+            }
+            this.sendToRelays(JSON.stringify(["REQ", request.id, ...request.filters]));
         });
+    }
 
-        // Merge filters in each group
-        groupedByKinds.forEach((filters: ReadonlyArray<NostrFilter>, kindKey: string) => {
-            if (filters.length === 0) return;
-
-            // Create a merged filter
-            const mergedFilter: WireNostrFilter = {
-                kinds: filters[0]?.kinds,
-            };
-
-            // Merge authors
-            const authors = new Set<string>();
-            filters.forEach(f => (f.authors || []).forEach((a: string) => authors.add(a)));
-            if (authors.size > 0) {
-                mergedFilter.authors = Array.from(authors);
-            }
-
-            // Merge #p tags (recipients)
-            const pTags = new Set<string>();
-            filters.forEach(f => (f['#p'] || []).forEach((p: string) => pTags.add(p)));
-            if (pTags.size > 0) {
-                mergedFilter["#p"] = Array.from(pTags);
-            }
-
-            // Take the minimum 'since' to ensure all data is covered
-            const sinceValues = filters.map(f => f.since).filter((s): s is number => s !== undefined);
-            if (sinceValues.length > 0) {
-                mergedFilter.since = Math.min(...sinceValues);
-            }
-
-            // We use a internal sub ID for the coalesced request
-            const combinedSubId = `coalesced-${kindKey || 'all'}-${Date.now()}`;
-
-            this.sendToRelays(JSON.stringify(["REQ", combinedSubId, mergedFilter]));
+    private syncJournalState(): void {
+        relayTransportJournal.setSubscriptionState({
+            desiredSubscriptionCount: this.activeSubscriptions.size,
+            pendingSubscriptionBatchCount: this.pendingRequests.length,
         });
-
-        // Fallback: If no grouping was possible or for requests that need individual sub IDs
-        // (In this basic version, we just sent the merged ones)
     }
 
     private handleIncomingMessage(params: { url: string; message: string }): void {
@@ -152,11 +186,21 @@ export class SubscriptionManager {
             if (!Array.isArray(parsed) || parsed[0] !== "EVENT") {
                 return;
             }
+            const subscriptionId = typeof parsed[1] === "string" ? parsed[1] : null;
             const eventCandidate: unknown = parsed[2];
             if (!isNostrEvent(eventCandidate)) {
                 return;
             }
             const event: NostrEvent = eventCandidate;
+
+            if (subscriptionId) {
+                const directSubscription = this.activeSubscriptions.get(subscriptionId);
+                if (!directSubscription) {
+                    return;
+                }
+                directSubscription.onEvent(event, params.url);
+                return;
+            }
 
             // Route event to all applicable active subscriptions
             this.activeSubscriptions.forEach((sub: SubscriptionRequest) => {

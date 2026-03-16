@@ -10,6 +10,7 @@
     "./user-id": "./src/user-id.ts",
     "./relay-url": "./src/relay-url.ts",
     "./bootstrap-config": "./src/bootstrap-config.ts",
-    "./identity-record": "./src/identity-record.ts"
+    "./identity-record": "./src/identity-record.ts",
+    "./security-foundation-contracts": "./src/security-foundation-contracts.ts"
   }
 }

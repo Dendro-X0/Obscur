@@ -1,10 +1,17 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { RelayPool } from "./enhanced-dm-controller";
+import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
+
+const toTrustedRelayUrl = (candidate: string): string | null => {
+    const validated = validateRelayUrl(candidate);
+    return validated?.normalizedUrl ?? null;
+};
 
 export interface RecipientDiscoveryParams {
     pool: RelayPool;
     recipientRelayCheckCache: { current: Set<string> };
+    recipientRelayResolutionCache: { current: Map<string, ReadonlyArray<string>> };
 }
 
 /**
@@ -66,16 +73,17 @@ export const verifyRecipient = async (
 export const ensureConnectedToRecipientRelays = async (
     params: RecipientDiscoveryParams,
     pubkey: string
-): Promise<void> => {
-    const { pool, recipientRelayCheckCache } = params;
+): Promise<ReadonlyArray<string>> => {
+    const { pool, recipientRelayCheckCache, recipientRelayResolutionCache } = params;
 
-    if (recipientRelayCheckCache.current.has(pubkey)) {
-        return;
+    const cachedRelays = recipientRelayResolutionCache.current.get(pubkey);
+    if (recipientRelayCheckCache.current.has(pubkey) && cachedRelays && cachedRelays.length > 0) {
+        return cachedRelays;
     }
 
     console.log(`Discovering relays for recipient: ${pubkey.slice(0, 8)}...`);
 
-    return new Promise<void>((resolve) => {
+    return new Promise<ReadonlyArray<string>>((resolve) => {
         const subId = `relays-${Math.random().toString(36).substring(7)}`;
         const discoveredRelays = new Set<string>();
         let cleanup: () => void = () => { };
@@ -88,14 +96,19 @@ export const ensureConnectedToRecipientRelays = async (
 
         const finish = () => {
             cleanup();
+            const resolvedRelays = Array.from(discoveredRelays);
             if (discoveredRelays.size > 0) {
                 console.log(`Found ${discoveredRelays.size} relays for ${pubkey.slice(0, 8)}`);
                 discoveredRelays.forEach(url => {
                     pool.addTransientRelay?.(url);
                 });
+                recipientRelayResolutionCache.current.set(pubkey, resolvedRelays);
+                recipientRelayCheckCache.current.add(pubkey);
+            } else {
+                recipientRelayResolutionCache.current.delete(pubkey);
+                recipientRelayCheckCache.current.delete(pubkey);
             }
-            recipientRelayCheckCache.current.add(pubkey);
-            resolve();
+            resolve(resolvedRelays);
         };
 
         cleanup = pool.subscribeToMessages(({ message }: { message: string }) => {
@@ -107,9 +120,9 @@ export const ensureConnectedToRecipientRelays = async (
                     if (event.kind === 10002) {
                         event.tags.forEach((tag: readonly string[]) => {
                             if (tag[0] === 'r' && tag[1]) {
-                                const url = tag[1];
+                                const url = toTrustedRelayUrl(tag[1]);
                                 const marker = tag[2];
-                                if (!marker || marker === 'read') {
+                                if (url && (!marker || marker === 'read')) {
                                     discoveredRelays.add(url);
                                 }
                             }
@@ -119,8 +132,9 @@ export const ensureConnectedToRecipientRelays = async (
                         try {
                             const relays = JSON.parse(event.content);
                             Object.entries(relays).forEach(([url, permissions]: [string, any]) => {
-                                if (permissions.read) {
-                                    discoveredRelays.add(url);
+                                const trustedUrl = toTrustedRelayUrl(url);
+                                if (trustedUrl && permissions.read) {
+                                    discoveredRelays.add(trustedUrl);
                                 }
                             });
                         } catch (e) { }
@@ -135,7 +149,7 @@ export const ensureConnectedToRecipientRelays = async (
         try {
             pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
         } catch (e) {
-            resolve();
+            resolve([]);
         }
 
         setTimeout(() => {

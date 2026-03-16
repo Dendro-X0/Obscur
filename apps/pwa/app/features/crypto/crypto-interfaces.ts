@@ -63,6 +63,7 @@ export interface CryptoService {
     importNsec?(nsec: string): Promise<string>;
     initNativeSession?(nsec: string): Promise<string>;
     clearNativeSession?(): Promise<void>;
+    invalidateCache?(): void;
 
     // Security utilities
     security: SecurityUtils;

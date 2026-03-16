@@ -1,6 +1,9 @@
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { validateRelayUrl } from "./validate-relay-url";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import type { NostrEvent } from "@dweb/nostr/nostr-event";
 
 export interface RelayHint {
     url: string;
@@ -14,9 +17,42 @@ export interface UserRelayList {
     receivedAt: number;
 }
 
+export type Nip65IngestResult =
+    | Readonly<{ status: "accepted"; list: UserRelayList }>
+    | Readonly<{ status: "ignored_invalid_signature" }>
+    | Readonly<{ status: "ignored_invalid_event" }>
+    | Readonly<{ status: "ignored_no_trusted_relays" }>;
+
 const NIP65_CACHE_KEY = "obscur.nip65.cache";
 const getNip65CacheKey = (): string => getScopedStorageKey(NIP65_CACHE_KEY);
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+const toTrustedRelayUrl = (candidate: string): string | null => {
+    const validated = validateRelayUrl(candidate);
+    return validated?.normalizedUrl ?? null;
+};
+
+type ParsedRelayHintCandidate = Readonly<{
+    url: string | null;
+    read: boolean;
+    write: boolean;
+}>;
+
+const isRelayTag = (tag: ReadonlyArray<string>): boolean => tag[0] === "r";
+
+const toRelayHint = (tag: ReadonlyArray<string>): ParsedRelayHintCandidate => {
+    const url = toTrustedRelayUrl(tag[1] ?? "");
+    const type = tag[2];
+    return {
+        url,
+        read: !type || type === "read",
+        write: !type || type === "write"
+    };
+};
+
+const hasTrustedRelayUrl = (relay: ParsedRelayHintCandidate): relay is RelayHint => {
+    return typeof relay.url === "string" && relay.url.length > 0;
+};
 
 /**
  * Service to manage NIP-65 (Kind 10002) relay lists for contacts
@@ -64,30 +100,69 @@ export class Nip65Service {
     /**
      * Parse a Kind 10002 event and update cache
      */
-    updateFromEvent(event: any): UserRelayList | null {
-        if (event.kind !== 10002) return null;
+    async updateFromEvent(event: unknown): Promise<UserRelayList | null> {
+        const result = await this.ingestVerifiedEvent(event);
+        return result.status === "accepted" ? result.list : null;
+    }
 
+    async ingestVerifiedEvent(event: unknown): Promise<Nip65IngestResult> {
+        const parsed = this.parseCandidateEvent(event);
+        if (!parsed) {
+            return { status: "ignored_invalid_event" };
+        }
+
+        const isValidSignature = await cryptoService.verifyEventSignature(parsed);
+        if (!isValidSignature) {
+            return { status: "ignored_invalid_signature" };
+        }
+
+        return this.ingestTrustedEvent(parsed);
+    }
+
+    private parseCandidateEvent(event: unknown): NostrEvent | null {
+        if (!event || typeof event !== "object") {
+            return null;
+        }
+
+        const candidate = event as Record<string, unknown>;
+        if (candidate.kind !== 10002) {
+            return null;
+        }
+
+        const pubkey = typeof candidate.pubkey === "string" ? normalizePublicKeyHex(candidate.pubkey) : null;
+        if (!pubkey) {
+            return null;
+        }
+
+        if (!Array.isArray(candidate.tags) || typeof candidate.id !== "string" || typeof candidate.sig !== "string") {
+            return null;
+        }
+
+        return {
+            ...(candidate as NostrEvent),
+            pubkey,
+        };
+    }
+
+    private ingestTrustedEvent(event: NostrEvent): Nip65IngestResult {
         const relays: RelayHint[] = event.tags
-            .filter((t: string[]) => t[0] === "r")
-            .map((t: string[]) => {
-                const url = t[1];
-                const type = t[2];
-                return {
-                    url,
-                    read: !type || type === "read",
-                    write: !type || type === "write"
-                };
-            });
+            .filter(isRelayTag)
+            .map(toRelayHint)
+            .filter(hasTrustedRelayUrl);
+
+        if (relays.length === 0) {
+            return { status: "ignored_no_trusted_relays" };
+        }
 
         const list: UserRelayList = {
-            pubkey: event.pubkey,
+            pubkey: event.pubkey as PublicKeyHex,
             relays,
             receivedAt: Date.now()
         };
 
         this.cache.set(event.pubkey, list);
         this.saveCache();
-        return list;
+        return { status: "accepted", list };
     }
 
     /**

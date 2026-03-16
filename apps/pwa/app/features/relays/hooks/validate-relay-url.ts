@@ -4,7 +4,14 @@ type RelayUrlValidationResult = Readonly<{
   normalizedUrl: string;
 }>;
 
-const validateRelayUrl = (rawUrl: string): RelayUrlValidationResult | null => {
+export type RelayUrlValidationOptions = Readonly<{
+  allowLocalhostWs?: boolean;
+}>;
+
+const validateRelayUrl = (
+  rawUrl: string,
+  options?: RelayUrlValidationOptions,
+): RelayUrlValidationResult | null => {
   const trimmed: string = rawUrl.trim();
   if (trimmed.length === 0) {
     return null;
@@ -15,17 +22,32 @@ const validateRelayUrl = (rawUrl: string): RelayUrlValidationResult | null => {
   } catch {
     return null;
   }
-  if (url.protocol !== "wss:") {
+  const protocol = url.protocol.toLowerCase();
+  const hostname = url.hostname.toLowerCase();
+  const allowsLocalhostWs = options?.allowLocalhostWs === true;
+  const isTrustedWss = protocol === "wss:";
+  const isAllowedLocalWs = allowsLocalhostWs && protocol === "ws:" && hostname === "localhost";
+
+  if (!isTrustedWss && !isAllowedLocalWs) {
     return null;
   }
-  if (!url.hostname) {
+  if (!hostname) {
     return null;
   }
+  if (url.username || url.password) {
+    return null;
+  }
+
   const normalized: string = url.toString().replace(TRAILING_SLASH_REGEX, "");
-  if (!normalized.startsWith("wss://")) {
+  if (isTrustedWss && !normalized.startsWith("wss://")) {
     return null;
   }
-  if (normalized.length <= "wss://".length) {
+  if (isAllowedLocalWs && !normalized.startsWith("ws://localhost")) {
+    return null;
+  }
+
+  const minimumLength = isAllowedLocalWs ? "ws://localhost".length : "wss://".length;
+  if (normalized.length <= minimumLength) {
     return null;
   }
   return { normalizedUrl: normalized };
