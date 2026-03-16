@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { validateRelayUrl } from "./validate-relay-url";
 
 type RelayListItem = Readonly<{
   url: string;
@@ -60,14 +61,33 @@ const getLegacyRelayListStorageKey = (publicKeyHex: PublicKeyHex): string => {
   return `obscur.relay_list.v1.${publicKeyHex}`;
 };
 
-const normalizeRelayUrl = (url: string): string => {
-  return url.trim();
+const toTrustedRelayUrl = (url: string): string | null => {
+  const validated = validateRelayUrl(url, { allowLocalhostWs: true });
+  return validated?.normalizedUrl ?? null;
+};
+
+const sanitizeRelayList = (relays: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
+  const sanitized: RelayListItem[] = [];
+  const seen = new Set<string>();
+  relays.forEach((relay) => {
+    const trustedUrl = toTrustedRelayUrl(relay.url);
+    if (!trustedUrl || seen.has(trustedUrl)) {
+      return;
+    }
+    seen.add(trustedUrl);
+    sanitized.push({
+      url: trustedUrl,
+      enabled: relay.enabled,
+    });
+  });
+  return sanitized;
 };
 
 const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex): ReadonlyArray<RelayListItem> => {
   const override: ReadonlyArray<RelayListItem> | null = getE2eRelayOverride();
   if (override) {
-    return override;
+    const sanitizedOverride = sanitizeRelayList(override);
+    return sanitizedOverride.length > 0 ? sanitizedOverride : DEFAULT_RELAYS;
   }
   if (typeof window === "undefined") {
     return DEFAULT_RELAYS;
@@ -91,14 +111,15 @@ const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex): ReadonlyArray<Rel
         const record = candidate as Record<string, unknown>;
         const url = typeof record.url === "string" ? record.url : "";
         const enabled = typeof record.enabled === "boolean" ? record.enabled : true;
-        const normalizedUrl = normalizeRelayUrl(url);
-        if (!normalizedUrl) {
+        const trustedUrl = toTrustedRelayUrl(url);
+        if (!trustedUrl) {
           return null;
         }
-        return { url: normalizedUrl, enabled };
+        return { url: trustedUrl, enabled };
       })
       .filter((item: RelayListItem | null): item is RelayListItem => item !== null);
-    return items.length > 0 ? items : DEFAULT_RELAYS;
+    const sanitizedItems = sanitizeRelayList(items);
+    return sanitizedItems.length > 0 ? sanitizedItems : DEFAULT_RELAYS;
   } catch {
     return DEFAULT_RELAYS;
   }
@@ -147,34 +168,34 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     saveRelayListToStorage(params.publicKeyHex, relays);
   }, [params.publicKeyHex, relays]);
   const addRelay = useCallback((addParams: Readonly<{ url: string }>): void => {
-    const normalizedUrl = normalizeRelayUrl(addParams.url);
-    if (!normalizedUrl) {
+    const trustedUrl = toTrustedRelayUrl(addParams.url);
+    if (!trustedUrl) {
       return;
     }
     setRelays((prev: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
-      if (prev.some((r: RelayListItem): boolean => r.url === normalizedUrl)) {
+      if (prev.some((r: RelayListItem): boolean => r.url === trustedUrl)) {
         return prev;
       }
-      return [...prev, { url: normalizedUrl, enabled: true }];
+      return [...prev, { url: trustedUrl, enabled: true }];
     });
   }, []);
   const removeRelay = useCallback((removeParams: Readonly<{ url: string }>): void => {
-    const normalizedUrl = normalizeRelayUrl(removeParams.url);
-    if (!normalizedUrl) {
+    const trustedUrl = toTrustedRelayUrl(removeParams.url);
+    if (!trustedUrl) {
       return;
     }
     setRelays((prev: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
-      return prev.filter((r: RelayListItem): boolean => r.url !== normalizedUrl);
+      return prev.filter((r: RelayListItem): boolean => r.url !== trustedUrl);
     });
   }, []);
   const setRelayEnabled = useCallback((enabledParams: Readonly<{ url: string; enabled: boolean }>): void => {
-    const normalizedUrl = normalizeRelayUrl(enabledParams.url);
-    if (!normalizedUrl) {
+    const trustedUrl = toTrustedRelayUrl(enabledParams.url);
+    if (!trustedUrl) {
       return;
     }
     setRelays((prev: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
       return prev.map((r: RelayListItem): RelayListItem => {
-        if (r.url !== normalizedUrl) {
+        if (r.url !== trustedUrl) {
           return r;
         }
         return { url: r.url, enabled: enabledParams.enabled };
@@ -182,12 +203,12 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     });
   }, []);
   const moveRelay = useCallback((moveParams: Readonly<{ url: string; direction: MoveRelayDirection }>): void => {
-    const normalizedUrl = normalizeRelayUrl(moveParams.url);
-    if (!normalizedUrl) {
+    const trustedUrl = toTrustedRelayUrl(moveParams.url);
+    if (!trustedUrl) {
       return;
     }
     setRelays((prev: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
-      const index: number = prev.findIndex((r: RelayListItem): boolean => r.url === normalizedUrl);
+      const index: number = prev.findIndex((r: RelayListItem): boolean => r.url === trustedUrl);
       if (index < 0) {
         return prev;
       }
@@ -202,16 +223,7 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     });
   }, []);
   const replaceRelays = useCallback((replaceParams: Readonly<{ relays: ReadonlyArray<RelayListItem> }>): void => {
-    const normalized: RelayListItem[] = [];
-    const seen = new Set<string>();
-    for (const relay of replaceParams.relays) {
-      const url = normalizeRelayUrl(relay.url);
-      if (!url || seen.has(url)) {
-        continue;
-      }
-      seen.add(url);
-      normalized.push({ url, enabled: relay.enabled });
-    }
+    const normalized = sanitizeRelayList(replaceParams.relays);
     setRelays(normalized.length > 0 ? normalized : DEFAULT_RELAYS);
   }, []);
   const resetRelays = useCallback((): void => {
@@ -224,4 +236,14 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     () => ({ state, addRelay, removeRelay, setRelayEnabled, moveRelay, replaceRelays, resetRelays }),
     [state, addRelay, removeRelay, setRelayEnabled, moveRelay, replaceRelays, resetRelays]
   );
+};
+
+export const relayListInternals = {
+  DEFAULT_RELAYS,
+  getRelayListStorageKey,
+  getLegacyRelayListStorageKey,
+  toTrustedRelayUrl,
+  sanitizeRelayList,
+  loadRelayListFromStorage,
+  saveRelayListToStorage,
 };

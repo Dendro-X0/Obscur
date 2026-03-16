@@ -205,3 +205,16 @@ export const useProfile = (): UseProfileResult => {
 
   return result;
 };
+
+export const useProfileInternals = {
+  getStorageKey,
+  loadFromStorage,
+  saveToStorage,
+  setState,
+  notify,
+  toPersisted,
+  resetForTests: (): void => {
+    currentState = defaultState;
+    listeners.clear();
+  },
+};
