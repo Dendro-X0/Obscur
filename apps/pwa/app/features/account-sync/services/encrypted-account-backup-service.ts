@@ -198,7 +198,7 @@ const buildUiSettingsSnapshot = (profileId: string): UiSettingsSnapshot => {
   return {
     themePreference: isThemePreference(themeRaw) ? themeRaw : DEFAULT_THEME_PREFERENCE,
     accessibilityPreferences: parsedAccessibility,
-    localMediaStorageConfig: getLocalMediaStorageConfig(profileId),
+    localMediaStorageConfig: getLocalMediaStorageConfig(),
   };
 };
 
@@ -220,7 +220,6 @@ const persistUiSettingsSnapshot = (profileId: string, uiSettings: UiSettingsSnap
   }
   saveLocalMediaStorageConfig(
     uiSettings.localMediaStorageConfig ?? DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG,
-    profileId,
   );
 };
 
