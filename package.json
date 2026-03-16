@@ -23,6 +23,7 @@
     "release:test-pack": "node scripts/run-release-test-pack.mjs",
     "probe:relay-nip": "node scripts/relay-nip-probe.mjs",
     "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
+    "ci:scan:pwa:head": "node scripts/pwa-ci-scan-head.mjs",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"
