@@ -5,6 +5,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 import type { RelayConnection } from "../relays/utils/relay-connection";
 import type { RelayHealthMetrics } from "../relays/hooks/relay-health-monitor";
+import type { RelaySnapshot } from "@dweb/core/security-foundation-contracts";
 
 export type MockMessageListener = (params: Readonly<{ url: string; message: string }>) => void;
 
@@ -154,9 +155,31 @@ export class MockPool {
     get connections(): ReadonlyArray<RelayConnection> { return []; }
     get healthMetrics(): ReadonlyArray<RelayHealthMetrics> { return []; }
     getRelayHealth(_url: string) { return undefined; }
+    getWritableRelaySnapshot(scopedRelayUrls?: ReadonlyArray<string>): RelaySnapshot {
+        const configuredRelayUrls = Array.from(new Set(
+            (scopedRelayUrls ?? [])
+                .map((url) => url.trim())
+                .filter((url) => url.length > 0)
+        ));
+        const writableRelayUrls = configuredRelayUrls.length > 0
+            ? [...configuredRelayUrls]
+            : ["mock://ghost-protocol"];
+        return {
+            atUnixMs: Date.now(),
+            configuredRelayUrls: configuredRelayUrls.length > 0 ? configuredRelayUrls : ["mock://ghost-protocol"],
+            writableRelayUrls,
+            totalRelayCount: configuredRelayUrls.length > 0 ? configuredRelayUrls.length : 1,
+            openRelayCount: writableRelayUrls.length,
+            relayCircuitStates: Object.fromEntries(
+                (configuredRelayUrls.length > 0 ? configuredRelayUrls : ["mock://ghost-protocol"])
+                    .map((url) => [url, "healthy"])
+            ),
+        };
+    }
     canConnectToRelay(_url: string) { return true; }
     addTransientRelay(_url: string) { }
     removeTransientRelay(_url: string) { }
     isConnected() { return true; }
     async waitForConnection() { return true; }
+    async waitForScopedConnection(_relayUrls: ReadonlyArray<string>, _timeoutMs: number) { return true; }
 }

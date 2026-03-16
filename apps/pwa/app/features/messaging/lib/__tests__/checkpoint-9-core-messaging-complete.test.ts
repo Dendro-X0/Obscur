@@ -92,6 +92,8 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
         { url: 'wss://relay2.example.com', status: 'open' as const, updatedAtUnixMs: Date.now() }
       ],
       sendToOpen: vi.fn(),
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn(),
       publishToAll: vi.fn(async () => ({
         success: true,
         successCount: 2,
@@ -248,6 +250,8 @@ describe('Checkpoint 9: Core Messaging Complete', () => {
           { url: 'wss://relay1.example.com', status: 'closed' as const, updatedAtUnixMs: Date.now() }
         ],
         sendToOpen: vi.fn(),
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn(),
         publishToAll: vi.fn(async () => ({
           success: false,
           successCount: 0,

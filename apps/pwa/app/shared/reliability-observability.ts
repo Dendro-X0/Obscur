@@ -2,11 +2,15 @@ export type ReliabilityMetricKey =
   | "relay_reconnect_suppressed"
   | "relay_publish_partial"
   | "relay_publish_failed"
+  | "relay_cooling_down"
+  | "relay_hard_failure_cooldown"
   | "sync_gap_detected"
   | "sync_backfill_requested"
+  | "sync_checkpoint_repaired"
   | "storage_health_failed"
   | "storage_recovery_runs"
-  | "storage_recovery_records";
+  | "storage_recovery_records"
+  | "storage_write_retry";
 
 type ReliabilityMetricsState = Record<ReliabilityMetricKey, number>;
 type ReliabilityRuntimeState = Readonly<{
@@ -20,11 +24,15 @@ const createDefaultState = (): ReliabilityMetricsState => ({
   relay_reconnect_suppressed: 0,
   relay_publish_partial: 0,
   relay_publish_failed: 0,
+  relay_cooling_down: 0,
+  relay_hard_failure_cooldown: 0,
   sync_gap_detected: 0,
   sync_backfill_requested: 0,
+  sync_checkpoint_repaired: 0,
   storage_health_failed: 0,
   storage_recovery_runs: 0,
   storage_recovery_records: 0,
+  storage_write_retry: 0,
 });
 
 const getState = (): ReliabilityMetricsState => {

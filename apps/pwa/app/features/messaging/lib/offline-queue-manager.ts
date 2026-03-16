@@ -10,8 +10,22 @@
  */
 
 import type { OutgoingMessage } from "./message-queue";
-import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
 import { errorHandler } from "./error-handler";
+
+export type QueueAttemptStatus = "accepted" | "retry_scheduled" | "terminal_failed";
+
+export interface QueueSendAttemptResult {
+  status: QueueAttemptStatus;
+  reasonCode?: DeliveryReasonCode | "max_retries_exceeded" | "missing_signed_event" | "unknown";
+  error?: string;
+  nextRetryAtUnixMs?: number;
+  relayOutcome?: Readonly<{
+    successCount: number;
+    totalRelays: number;
+    metQuorum: boolean;
+  }>;
+}
 
 /**
  * Queue processing result
@@ -19,6 +33,7 @@ import { errorHandler } from "./error-handler";
 export interface QueueProcessingResult {
   processed: number;
   succeeded: number;
+  retryScheduled: number;
   failed: number;
   errors: Array<{ messageId: string; error: string }>;
 }
@@ -39,6 +54,7 @@ export interface QueueStatus {
 export class OfflineQueueManager {
   private isProcessing = false;
   private processingInterval?: NodeJS.Timeout;
+  private unsubscribeNetworkChanges?: () => void;
   private listeners: Set<(status: QueueStatus) => void> = new Set();
 
   /**
@@ -47,11 +63,13 @@ export class OfflineQueueManager {
    */
   startAutoProcessing(
     getQueuedMessages: () => Promise<OutgoingMessage[]>,
-    sendMessage: (message: OutgoingMessage) => Promise<boolean>,
+    sendMessage: (message: OutgoingMessage) => Promise<QueueSendAttemptResult>,
     removeFromQueue: (messageId: string) => Promise<void>
   ): void {
+    this.stopAutoProcessing();
+
     // Subscribe to network changes
-    errorHandler.subscribeToNetworkChanges((networkState) => {
+    this.unsubscribeNetworkChanges = errorHandler.subscribeToNetworkChanges((networkState) => {
       if (networkState.isOnline && networkState.hasRelayConnection && !this.isProcessing) {
         console.log('Network available, processing offline queue');
         void this.processQueue(getQueuedMessages, sendMessage, removeFromQueue);
@@ -71,6 +89,10 @@ export class OfflineQueueManager {
    * Stop automatic queue processing
    */
   stopAutoProcessing(): void {
+    if (this.unsubscribeNetworkChanges) {
+      this.unsubscribeNetworkChanges();
+      this.unsubscribeNetworkChanges = undefined;
+    }
     if (this.processingInterval) {
       clearInterval(this.processingInterval);
       this.processingInterval = undefined;
@@ -83,7 +105,7 @@ export class OfflineQueueManager {
    */
   async processQueue(
     getQueuedMessages: () => Promise<OutgoingMessage[]>,
-    sendMessage: (message: OutgoingMessage) => Promise<boolean>,
+    sendMessage: (message: OutgoingMessage) => Promise<QueueSendAttemptResult>,
     removeFromQueue: (messageId: string) => Promise<void>
   ): Promise<QueueProcessingResult> {
     // Check if already processing
@@ -92,6 +114,7 @@ export class OfflineQueueManager {
       return {
         processed: 0,
         succeeded: 0,
+        retryScheduled: 0,
         failed: 0,
         errors: []
       };
@@ -104,6 +127,7 @@ export class OfflineQueueManager {
       return {
         processed: 0,
         succeeded: 0,
+        retryScheduled: 0,
         failed: 0,
         errors: []
       };
@@ -115,6 +139,7 @@ export class OfflineQueueManager {
     const result: QueueProcessingResult = {
       processed: 0,
       succeeded: 0,
+      retryScheduled: 0,
       failed: 0,
       errors: []
     };
@@ -136,9 +161,9 @@ export class OfflineQueueManager {
 
         try {
           // Attempt to send message
-          const success = await sendMessage(message);
+          const outcome = await sendMessage(message);
 
-          if (success) {
+          if (outcome.status === "accepted") {
             result.succeeded++;
 
             // Remove from queue on success
@@ -148,12 +173,24 @@ export class OfflineQueueManager {
               console.error('Failed to remove message from queue:', removeError);
               // Continue processing even if removal fails
             }
+          } else if (outcome.status === "retry_scheduled") {
+            result.retryScheduled++;
+            result.errors.push({
+              messageId: message.id,
+              error: outcome.error || `Retry scheduled (${outcome.reasonCode || "unknown"})`
+            });
           } else {
             result.failed++;
             result.errors.push({
               messageId: message.id,
-              error: 'Send failed'
+              error: outcome.error || "Send failed"
             });
+            // Remove permanently failed entries from queue.
+            try {
+              await removeFromQueue(message.id);
+            } catch (removeError) {
+              console.error("Failed to remove terminal-failed message from queue:", removeError);
+            }
           }
         } catch (error) {
           result.failed++;
@@ -168,7 +205,9 @@ export class OfflineQueueManager {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      console.log(`Queue processing complete: ${result.succeeded} succeeded, ${result.failed} failed`);
+      console.log(
+        `Queue processing complete: ${result.succeeded} succeeded, ${result.retryScheduled} retry scheduled, ${result.failed} failed`
+      );
 
     } catch (error) {
       console.error('Queue processing error:', error);
@@ -262,7 +301,7 @@ export class OfflineQueueManager {
    */
   async manualProcessQueue(
     getQueuedMessages: () => Promise<OutgoingMessage[]>,
-    sendMessage: (message: OutgoingMessage) => Promise<boolean>,
+    sendMessage: (message: OutgoingMessage) => Promise<QueueSendAttemptResult>,
     removeFromQueue: (messageId: string) => Promise<void>
   ): Promise<QueueProcessingResult> {
     return this.processQueue(getQueuedMessages, sendMessage, removeFromQueue);

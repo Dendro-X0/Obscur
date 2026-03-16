@@ -79,10 +79,14 @@ export interface OutgoingMessage {
   conversationId: string;
   content: string;
   recipientPubkey: PublicKeyHex;
+  targetRelayUrls?: string[];
+  achievedRelayUrls?: string[];
   createdAt: Date;
   retryCount: number;
   nextRetryAt: Date;
+  lastReasonCode?: string;
   signedEvent?: NostrEvent;
+  ownerPubkey?: PublicKeyHex;
 }
 
 export interface PaginationOptions {
@@ -119,7 +123,7 @@ export interface IMessageQueue {
 }
 
 const MAX_MESSAGES_PER_CONVERSATION = 5000; // Increased due to IndexedDB
-const MAX_RETRY_ATTEMPTS = 5;
+export const MAX_OUTGOING_QUEUE_RETRY_ATTEMPTS = 5;
 
 /**
  * Per-identity message queue implementation with encryption at rest using IndexedDB
@@ -218,6 +222,39 @@ export class MessageQueue implements IMessageQueue {
     );
   }
 
+  private isOwnedConversationId(conversationId: unknown): boolean {
+    if (typeof conversationId !== "string") {
+      return false;
+    }
+    return conversationId.split(":").includes(this.identityPubkey);
+  }
+
+  private isOwnedMessageRecord(stored: Record<string, unknown> | null | undefined): boolean {
+    if (!stored || typeof stored !== "object") {
+      return false;
+    }
+    if (typeof stored.ownerPubkey === "string") {
+      return stored.ownerPubkey === this.identityPubkey;
+    }
+    return stored.senderPubkey === this.identityPubkey
+      || stored.recipientPubkey === this.identityPubkey
+      || this.isOwnedConversationId(stored.conversationId);
+  }
+
+  private isOwnedQueuedRecord(stored: Record<string, unknown> | null | undefined): boolean {
+    if (!stored || typeof stored !== "object") {
+      return false;
+    }
+    if (typeof stored.ownerPubkey === "string") {
+      return stored.ownerPubkey === this.identityPubkey;
+    }
+    const signedEvent = stored.signedEvent;
+    if (signedEvent && typeof signedEvent === "object" && typeof (signedEvent as Record<string, unknown>).pubkey === "string") {
+      return (signedEvent as Record<string, unknown>).pubkey === this.identityPubkey;
+    }
+    return stored.senderPubkey === this.identityPubkey;
+  }
+
   async persistMessage(message: Message): Promise<void> {
     const db = await this.getDb();
     const settings = PrivacySettingsService.getSettings();
@@ -286,10 +323,11 @@ export class MessageQueue implements IMessageQueue {
       const request = store.get(messageId);
 
       request.onsuccess = async () => {
-        const stored = request.result;
-        if (!stored) return resolve(null);
+      const stored = request.result;
+      if (!stored) return resolve(null);
+      if (!this.isOwnedMessageRecord(stored as Record<string, unknown>)) return resolve(null);
 
-        // Decrypt if it was stored encrypted
+      // Decrypt if it was stored encrypted
         try {
           let messageData = { ...stored };
 
@@ -331,6 +369,7 @@ export class MessageQueue implements IMessageQueue {
 
       request.onsuccess = async () => {
         let results = request.result as any[];
+        results = results.filter((stored) => this.isOwnedMessageRecord(stored));
 
         // Sort newest first
         results.sort((a, b) => b.timestamp - a.timestamp);
@@ -380,7 +419,8 @@ export class MessageQueue implements IMessageQueue {
     const stored = {
       ...message,
       createdAt: message.createdAt.getTime(),
-      nextRetryAt: message.nextRetryAt.getTime()
+      nextRetryAt: message.nextRetryAt.getTime(),
+      ownerPubkey: message.ownerPubkey ?? this.identityPubkey,
     };
 
     return new Promise((resolve, reject) => {
@@ -402,7 +442,10 @@ export class MessageQueue implements IMessageQueue {
 
       request.onsuccess = () => {
         const results = request.result as any[];
-        resolve(results.filter(m => m.nextRetryAt <= now && m.retryCount < MAX_RETRY_ATTEMPTS).map(m => ({
+        resolve(results
+          .filter((stored) => this.isOwnedQueuedRecord(stored))
+          .filter(m => m.nextRetryAt <= now && m.retryCount < MAX_OUTGOING_QUEUE_RETRY_ATTEMPTS)
+          .map(m => ({
           ...m,
           createdAt: new Date(m.createdAt),
           nextRetryAt: new Date(m.nextRetryAt)
@@ -432,6 +475,7 @@ export class MessageQueue implements IMessageQueue {
 
       request.onsuccess = async () => {
         let results = request.result as any[];
+        results = results.filter((stored) => this.isOwnedMessageRecord(stored));
 
         // Sort newest first
         results.sort((a, b) => b.timestamp - a.timestamp);
