@@ -1,4 +1,5 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { normalizeV090Flags } from "./v090-rollout-policy";
 
 export interface PrivacySettings {
     encryptStorageAtRest: boolean;
@@ -12,6 +13,14 @@ export interface PrivacySettings {
     chatPerformanceV2: boolean; // Feature flag for batched chat performance optimizations
     chatUxV083: boolean; // Feature flag for v0.8.3 media/chat UX refresh
     reliabilityCoreV087: boolean; // Feature flag for v0.8.7 relay/sync/storage reliability core
+    stabilityModeV090: boolean; // Feature flag for v0.9 recovery safe path UX
+    deterministicDiscoveryV090: boolean; // Feature flag for v0.9 deterministic resolver + request outbox
+    protocolCoreRustV090: boolean; // Feature flag for v0.9 Rust protocol core adapter path
+    x3dhRatchetV090: boolean; // Feature flag for v0.9 X3DH + ratchet protocol path
+    accountSyncConvergenceV091?: boolean; // Guarded flag for cross-device contact/message convergence fast-follow
+    discoveryInviteCodeV1?: boolean; // Phase-0 flag: invite-code-based discovery path
+    discoveryDeepLinkV1?: boolean; // Phase-0 flag: deep-link add-contact discovery path
+    discoverySuggestionsV1?: boolean; // Phase-0 flag: friend suggestions discovery path
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -20,13 +29,27 @@ export const defaultPrivacySettings: PrivacySettings = {
     enableTorProxy: false,
     torProxyUrl: "socks5://127.0.0.1:9050",
     autoLockTimeout: 0,
-    useModernDMs: true,
+    useModernDMs: false,
     dmPrivacy: 'everyone',
     biometricLockEnabled: false,
     chatPerformanceV2: false,
     chatUxV083: false,
-    reliabilityCoreV087: true
+    reliabilityCoreV087: true,
+    stabilityModeV090: true,
+    deterministicDiscoveryV090: false,
+    protocolCoreRustV090: false,
+    x3dhRatchetV090: false,
+    accountSyncConvergenceV091: false,
+    discoveryInviteCodeV1: false,
+    discoveryDeepLinkV1: true,
+    discoverySuggestionsV1: true,
 };
+
+export type DiscoveryFeatureFlags = Readonly<{
+    inviteCodeV1: boolean;
+    deepLinkV1: boolean;
+    suggestionsV1: boolean;
+}>;
 
 export class PrivacySettingsService {
     private static STORAGE_KEY = "obscur.settings.privacy";
@@ -38,19 +61,29 @@ export class PrivacySettingsService {
     static getSettings(): PrivacySettings {
         if (typeof window === "undefined") return defaultPrivacySettings;
         const stored = localStorage.getItem(this.scopedStorageKey());
-        if (!stored) return defaultPrivacySettings;
+        if (!stored) return normalizeV090Flags(defaultPrivacySettings);
         try {
-            return { ...defaultPrivacySettings, ...JSON.parse(stored) };
+            return normalizeV090Flags({ ...defaultPrivacySettings, ...JSON.parse(stored) });
         } catch {
-            return defaultPrivacySettings;
+            return normalizeV090Flags(defaultPrivacySettings);
         }
     }
 
     static saveSettings(settings: PrivacySettings): void {
         if (typeof window === "undefined") return;
-        localStorage.setItem(this.scopedStorageKey(), JSON.stringify(settings));
+        const normalized = normalizeV090Flags(settings);
+        localStorage.setItem(this.scopedStorageKey(), JSON.stringify(normalized));
 
         // Dispatch event for components to react
         window.dispatchEvent(new Event("privacy-settings-changed"));
+    }
+
+    static getDiscoveryFeatureFlags(settingsOverride?: PrivacySettings): DiscoveryFeatureFlags {
+        const settings = settingsOverride ?? this.getSettings();
+        return {
+            inviteCodeV1: settings.discoveryInviteCodeV1 === true,
+            deepLinkV1: settings.discoveryDeepLinkV1 === true,
+            suggestionsV1: settings.discoverySuggestionsV1 === true,
+        };
     }
 }
