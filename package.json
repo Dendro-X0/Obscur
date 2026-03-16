@@ -18,6 +18,11 @@
     "security:audit": "pnpm audit",
     "release:preflight": "node scripts/release-preflight.mjs",
     "release:artifact-matrix-check": "node scripts/check-release-artifact-matrix.mjs",
+    "release:ci-signal-check": "node scripts/check-release-ci-signals.mjs",
+    "release:verify-tag": "node scripts/verify-release-tag.mjs",
+    "release:test-pack": "node scripts/run-release-test-pack.mjs",
+    "probe:relay-nip": "node scripts/relay-nip-probe.mjs",
+    "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"
