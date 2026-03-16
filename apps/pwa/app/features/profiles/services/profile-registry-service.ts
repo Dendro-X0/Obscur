@@ -121,6 +121,10 @@ export class ProfileRegistryService {
     return getState().activeProfileId;
   }
 
+  static replaceState(next: ActiveProfileState): ActiveProfileState {
+    return setState(next);
+  }
+
   static createProfile(label: string): ProfileSwitchResult {
     try {
       const state = getState();
@@ -141,6 +145,42 @@ export class ProfileRegistryService {
       const next = setState({
         ...state,
         profiles: [...state.profiles, created],
+      });
+      return okResult(next);
+    } catch (error) {
+      return failedResult(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  static ensureProfile(profileId: string, label?: string): ProfileSwitchResult {
+    try {
+      const state = getState();
+      const existing = state.profiles.find((profile) => profile.profileId === profileId);
+      if (existing) {
+        const next = setState({
+          ...state,
+          profiles: state.profiles.map((profile) =>
+            profile.profileId === profileId && label?.trim()
+              ? { ...profile, label: label.trim() }
+              : profile
+          ),
+        });
+        return okResult(next);
+      }
+
+      const createdAt = now();
+      const next = setState({
+        ...state,
+        profiles: [
+          ...state.profiles,
+          {
+            profileId: safeProfileId(profileId),
+            label: label?.trim() || "Profile",
+            createdAtUnixMs: createdAt,
+            lastUsedAtUnixMs: createdAt,
+            status: "inactive",
+          },
+        ],
       });
       return okResult(next);
     } catch (error) {
@@ -200,3 +240,9 @@ export class ProfileRegistryService {
     }
   }
 }
+
+export const profileRegistryServiceInternals = {
+  resetForTests: (): void => {
+    cachedState = null;
+  },
+};
