@@ -216,6 +216,7 @@ export type JoinRequestBlockReason =
 
 export type MessageActionFailureReason =
     | "no_active_relays"
+    | "insufficient_writable_relays"
     | "quorum_not_met"
     | "publish_rejected"
     | "sync_failed"
@@ -251,6 +252,7 @@ export type PersistedConnectionRequest = Readonly<{
     isOutgoing: boolean;
     introMessage?: string;
     timestampMs: number;
+    eventId?: string;
 }>;
 
 export type RequestsInboxItem = Readonly<{
@@ -261,6 +263,7 @@ export type RequestsInboxItem = Readonly<{
     status?: ConnectionRequestStatusValue;
     isRequest?: boolean;
     isOutgoing?: boolean;
+    eventId?: string;
 }>;
 
 export type PersistedChatState = Readonly<{
