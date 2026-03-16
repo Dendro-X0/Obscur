@@ -1,38 +1,29 @@
-import { generateSubscriptionId } from "./relay-utils";
 import type { NostrFilter, Subscription, EnhancedDMControllerState } from "./dm-controller-state";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { RelayPool } from "./enhanced-dm-controller"; // Assuming we might need to export RelayPool or use it
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { deliveryDiagnosticsStore } from "../services/delivery-diagnostics-store";
 
-const GLOBAL_CLOSED_SUBSCRIPTION_IDS = "__obscur_closed_dm_subscription_ids__";
-
-const getClosedSubscriptionIds = (): Set<string> => {
-    const root = globalThis as Record<string, unknown>;
-    const existing = root[GLOBAL_CLOSED_SUBSCRIPTION_IDS];
-    if (existing instanceof Set) {
-        return existing as Set<string>;
-    }
-    const created = new Set<string>();
-    root[GLOBAL_CLOSED_SUBSCRIPTION_IDS] = created;
-    return created;
-};
+const LIVE_SUBSCRIPTION_SINCE_SKEW_SECONDS = 0;
 
 export interface SubscriptionManagerParams {
     myPublicKeyHex: PublicKeyHex | null;
     pool: {
         connections: ReadonlyArray<{ url: string; status: string }>;
-        sendToOpen: (payload: string) => void;
+        subscribe: (filters: ReadonlyArray<NostrFilter>, onEvent: (event: any, url: string) => void) => string;
+        unsubscribe: (id: string) => void;
     };
     hasSubscribedRef: { current: boolean };
     activeSubscriptions: { current: Map<string, Subscription> };
+    closedSubscriptionIdsRef: { current: Set<string> };
     setState: React.Dispatch<React.SetStateAction<EnhancedDMControllerState>>;
+    onEvent: (event: any, url: string) => void;
 }
 
 /**
  * Logic for managing DM subscriptions
  */
 export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void => {
-    const { myPublicKeyHex, pool, hasSubscribedRef, activeSubscriptions, setState } = params;
+    const { myPublicKeyHex, pool, hasSubscribedRef, activeSubscriptions, closedSubscriptionIdsRef, setState, onEvent } = params;
 
     if (!myPublicKeyHex) {
         logRuntimeEvent("dm_subscription.missing_pubkey", "actionable", ["Cannot subscribe: no public key available"]);
@@ -44,18 +35,20 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
         return;
     }
 
-    const hasOpenRelay = pool.connections.some(c => c.status === 'open');
-    if (!hasOpenRelay) {
-        logRuntimeEvent("dm_subscription.no_open_relays", "degraded", ["Cannot subscribe: no open relay connections"]);
-        return;
-    }
-
-    const subId = generateSubscriptionId();
+    // History backfill is owned by sync orchestration. Live subscriptions must
+    // start from "now" to avoid replaying relay backlog into request/unread state.
+    const sinceUnixSeconds = Math.max(
+        0,
+        Math.floor(Date.now() / 1000) - LIVE_SUBSCRIPTION_SINCE_SKEW_SECONDS,
+    );
     const filter: NostrFilter = {
         kinds: [4, 1059],
         '#p': [myPublicKeyHex],
-        limit: 50
+        limit: 50,
+        since: sinceUnixSeconds,
     };
+
+    const subId = pool.subscribe([filter], onEvent);
 
     const subscription: Subscription = {
         id: subId,
@@ -66,17 +59,21 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
     };
 
     activeSubscriptions.current.set(subId, subscription);
+    closedSubscriptionIdsRef.current.delete(subId);
     hasSubscribedRef.current = true;
 
     logRuntimeEvent(
         "dm_subscription.subscribe",
-        "degraded",
-        [`[DMController] Subscribing to incoming DMs on ${pool.connections.filter(c => c.status === 'open').length} open relays:`, filter],
+        "expected",
+        [`[DMController] Subscribing via central manager for incoming DMs on ${pool.connections.length} relays:`, filter],
         { maxPerWindow: 1, windowMs: 5_000 }
     );
 
-    const reqMessage = JSON.stringify(['REQ', subId, filter]);
-    pool.sendToOpen(reqMessage);
+    deliveryDiagnosticsStore.markSubscription({
+        subId,
+        relayUrls: pool.connections.map((c) => c.url),
+        myPublicKeyHex,
+    });
 
     setState(prev => ({
         ...prev,
@@ -84,27 +81,25 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
     }));
 };
 
-export const unsubscribeFromDMs = (params: Pick<SubscriptionManagerParams, 'pool' | 'activeSubscriptions' | 'hasSubscribedRef' | 'setState'>): void => {
-    const { pool, activeSubscriptions, hasSubscribedRef, setState } = params;
+export const unsubscribeFromDMs = (params: Pick<SubscriptionManagerParams, 'pool' | 'activeSubscriptions' | 'closedSubscriptionIdsRef' | 'hasSubscribedRef' | 'setState'>): void => {
+    const { pool, activeSubscriptions, closedSubscriptionIdsRef, hasSubscribedRef, setState } = params;
 
     if (activeSubscriptions.current.size === 0) {
         hasSubscribedRef.current = false;
         return;
     }
 
-    const closedSubscriptionIds = getClosedSubscriptionIds();
     activeSubscriptions.current.forEach((subscription) => {
         if (!subscription.isActive) {
             logRuntimeEvent("dm_subscription.close_skipped_inactive", "expected", ["Skipping close for inactive subscription:", subscription.id]);
             return;
         }
-        if (closedSubscriptionIds.has(subscription.id)) {
+        if (closedSubscriptionIdsRef.current.has(subscription.id)) {
             logRuntimeEvent("dm_subscription.close_suppressed_duplicate", "expected", ["Skipping duplicate close for subscription:", subscription.id]);
             return;
         }
-        const closeMessage = JSON.stringify(['CLOSE', subscription.id]);
-        pool.sendToOpen(closeMessage);
-        closedSubscriptionIds.add(subscription.id);
+        pool.unsubscribe(subscription.id);
+        closedSubscriptionIdsRef.current.add(subscription.id);
         logRuntimeEvent("dm_subscription.closed", "expected", ["Closed subscription:", subscription.id]);
     });
 
