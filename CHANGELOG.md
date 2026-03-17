@@ -29,6 +29,15 @@ Maintainer note:
 
 ### Changed
 
+- **Phase 4 Beta Release Hardening and Repeatability (2026-03-17)**:
+  - Switched release publication policy to manual-only publish from `workflow_dispatch` (`publish_release=true` on tag refs), while keeping push-tag lanes for preflight/build/artifact verification.
+  - Added release source-integrity guard (`pnpm release:integrity-check`) to fail on `.gitmodules` or gitlink (`mode 160000`) contamination before release operations.
+  - Added artifact-version parity contracts and verification:
+    - workflow contract guard (`pnpm release:artifact-version-contract-check`),
+    - runtime parity check (`pnpm release:artifact-version-parity`) enforcing desktop installer version markers and Android metadata `versionName` parity.
+  - Updated release workflow evidence to report `android_signing_state` (`signed` or `unsigned`) and `ios_lane_state` (`executed` or `skipped_missing_secrets`).
+  - Updated release docs/runbooks to reflect two-step release execution (build/verify first, manual publish second).
+
 - **v0.9.0-beta Pre-release Finalization (2026-03-16)**:
   - Extended `.github/workflows/release.yml` artifact matrix to include a required Web/PWA static export lane (`build-web-pwa`) in addition to Desktop and Android lanes (with iOS remaining optional behind signing precheck).
   - Updated release verification to require Web/PWA bundle presence during artifact-matrix checks and CI-signal contract checks (`scripts/check-release-artifact-matrix.mjs`, `scripts/check-release-ci-signals.mjs`).

@@ -2,6 +2,7 @@ import type { NostrFilter, Subscription, EnhancedDMControllerState } from "./dm-
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { deliveryDiagnosticsStore } from "../services/delivery-diagnostics-store";
+import { generateSubscriptionId, parseRelayEventMessage } from "./relay-utils";
 
 const LIVE_SUBSCRIPTION_SINCE_SKEW_SECONDS = 0;
 
@@ -9,8 +10,10 @@ export interface SubscriptionManagerParams {
     myPublicKeyHex: PublicKeyHex | null;
     pool: {
         connections: ReadonlyArray<{ url: string; status: string }>;
-        subscribe: (filters: ReadonlyArray<NostrFilter>, onEvent: (event: any, url: string) => void) => string;
-        unsubscribe: (id: string) => void;
+        subscribe?: (filters: ReadonlyArray<NostrFilter>, onEvent: (event: any, url: string) => void) => string;
+        unsubscribe?: (id: string) => void;
+        sendToOpen?: (payload: string) => void;
+        subscribeToMessages?: (handler: (params: Readonly<{ url: string; message: string }>) => void) => (() => void);
     };
     hasSubscribedRef: { current: boolean };
     activeSubscriptions: { current: Map<string, Subscription> };
@@ -18,6 +21,8 @@ export interface SubscriptionManagerParams {
     setState: React.Dispatch<React.SetStateAction<EnhancedDMControllerState>>;
     onEvent: (event: any, url: string) => void;
 }
+
+const legacyUnsubscribeBySubscriptionId = new Map<string, () => void>();
 
 /**
  * Logic for managing DM subscriptions
@@ -48,7 +53,33 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
         since: sinceUnixSeconds,
     };
 
-    const subId = pool.subscribe([filter], onEvent);
+    let subId: string;
+    if (typeof pool.subscribe === "function") {
+        subId = pool.subscribe([filter], onEvent);
+    } else if (typeof pool.subscribeToMessages === "function" && typeof pool.sendToOpen === "function") {
+        subId = generateSubscriptionId();
+        const legacyUnsubscribe = pool.subscribeToMessages(({ message, url }) => {
+            const parsedEvent = parseRelayEventMessage(message);
+            if (!parsedEvent) {
+                return;
+            }
+            onEvent(parsedEvent, url);
+        });
+        legacyUnsubscribeBySubscriptionId.set(subId, legacyUnsubscribe);
+        pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
+        logRuntimeEvent(
+            "dm_subscription.legacy_adapter_enabled",
+            "expected",
+            ["Falling back to subscribeToMessages adapter for incoming DM subscription.", { subId }],
+        );
+    } else {
+        logRuntimeEvent(
+            "dm_subscription.unsupported_pool_contract",
+            "actionable",
+            ["Cannot subscribe: relay pool does not expose subscribe or subscribeToMessages contract."],
+        );
+        return;
+    }
 
     const subscription: Subscription = {
         id: subId,
@@ -98,7 +129,18 @@ export const unsubscribeFromDMs = (params: Pick<SubscriptionManagerParams, 'pool
             logRuntimeEvent("dm_subscription.close_suppressed_duplicate", "expected", ["Skipping duplicate close for subscription:", subscription.id]);
             return;
         }
-        pool.unsubscribe(subscription.id);
+        if (typeof pool.unsubscribe === "function") {
+            pool.unsubscribe(subscription.id);
+        } else {
+            if (typeof pool.sendToOpen === "function") {
+                pool.sendToOpen(JSON.stringify(["CLOSE", subscription.id]));
+            }
+            const legacyUnsubscribe = legacyUnsubscribeBySubscriptionId.get(subscription.id);
+            if (legacyUnsubscribe) {
+                legacyUnsubscribe();
+                legacyUnsubscribeBySubscriptionId.delete(subscription.id);
+            }
+        }
         closedSubscriptionIdsRef.current.add(subscription.id);
         logRuntimeEvent("dm_subscription.closed", "expected", ["Closed subscription:", subscription.id]);
     });

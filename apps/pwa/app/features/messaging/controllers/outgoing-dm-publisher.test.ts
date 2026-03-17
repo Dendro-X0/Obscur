@@ -9,6 +9,7 @@ import {
 } from "./outgoing-dm-publisher";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { retryManager } from "../lib/retry-manager";
 
 vi.mock("@/app/features/settings/services/privacy-settings-service", () => ({
@@ -30,6 +31,10 @@ vi.mock("@/app/features/runtime/protocol-core-adapter", () => ({
   protocolCoreAdapter: {
     publishWithQuorum: vi.fn(),
   },
+}));
+
+vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
+  hasNativeRuntime: vi.fn(() => true),
 }));
 
 const senderPubkey = "sender-pubkey" as any;
@@ -63,6 +68,7 @@ const initialMessage = (): Message => ({
 describe("outgoing-dm-publisher protocol routing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(hasNativeRuntime).mockReturnValue(true);
   });
 
   it("uses protocol publish report when protocol core is enabled", async () => {
@@ -122,7 +128,52 @@ describe("outgoing-dm-publisher protocol routing", () => {
     ]);
   });
 
-  it("falls back to pool publish when protocol publish fails", async () => {
+  it("uses legacy publish owner path when runtime is non-native", async () => {
+    vi.mocked(hasNativeRuntime).mockReturnValue(false);
+    vi.mocked(getV090RolloutPolicy).mockReturnValue({
+      stabilityModeEnabled: false,
+      deterministicDiscoveryEnabled: false,
+      protocolCoreEnabled: true,
+      x3dhRatchetEnabled: false,
+    });
+
+    const pool = {
+      sendToOpen: vi.fn(),
+      publishToAll: vi.fn(async () => ({
+        success: true,
+        successCount: 2,
+        totalRelays: 2,
+        results: [
+          { relayUrl: "wss://relay-1.example", success: true },
+          { relayUrl: "wss://relay-2.example", success: true },
+        ],
+      })),
+    };
+
+    const result = await publishOutgoingDm({
+      pool,
+      openRelays: [{ url: "wss://relay-1.example" }, { url: "wss://relay-2.example" }],
+      messageQueue: null,
+      initialMessage: initialMessage(),
+      build: {
+        format: "nip04",
+        signedEvent: buildSignedEvent("evt-legacy-runtime"),
+        encryptedContent: "ciphertext",
+      },
+      plaintext: "hello",
+      recipientPubkey,
+      senderPubkey,
+      senderPrivateKeyHex,
+      createdAtUnixSeconds: 123,
+      tags: [["p", recipientPubkey]],
+    });
+
+    expect(protocolCoreAdapter.publishWithQuorum).not.toHaveBeenCalled();
+    expect(pool.publishToAll).toHaveBeenCalledTimes(1);
+    expect(result.publishResult.success).toBe(true);
+  });
+
+  it("does not fall back to legacy publish when protocol owner path fails", async () => {
     vi.mocked(getV090RolloutPolicy).mockReturnValue({
       stabilityModeEnabled: false,
       deterministicDiscoveryEnabled: false,
@@ -167,16 +218,16 @@ describe("outgoing-dm-publisher protocol routing", () => {
     });
 
     expect(protocolCoreAdapter.publishWithQuorum).toHaveBeenCalledTimes(1);
-    expect(pool.publishToAll).toHaveBeenCalledTimes(1);
-    expect(result.publishResult.success).toBe(true);
-    expect(result.publishResult.successCount).toBe(2);
+    expect(pool.publishToAll).not.toHaveBeenCalled();
+    expect(result.publishResult.success).toBe(false);
+    expect(result.publishResult.reasonCode).toBe("quorum_not_met");
   });
 
-  it("prefers scoped relay publishing over protocol publish when publishToUrls is available", async () => {
+  it("uses scoped relay publishing in legacy owner mode when publishToUrls is available", async () => {
     vi.mocked(getV090RolloutPolicy).mockReturnValue({
       stabilityModeEnabled: false,
       deterministicDiscoveryEnabled: false,
-      protocolCoreEnabled: true,
+      protocolCoreEnabled: false,
       x3dhRatchetEnabled: false,
     });
     vi.mocked(protocolCoreAdapter.publishWithQuorum).mockResolvedValue({
@@ -377,11 +428,11 @@ describe("outgoing-dm-publisher protocol routing", () => {
     expect(pool.publishToAll).not.toHaveBeenCalled();
   });
 
-  it("uses scoped relay publishing for queued retry path when available", async () => {
+  it("uses scoped relay publishing for queued retry path in legacy owner mode", async () => {
     vi.mocked(getV090RolloutPolicy).mockReturnValue({
       stabilityModeEnabled: false,
       deterministicDiscoveryEnabled: false,
-      protocolCoreEnabled: true,
+      protocolCoreEnabled: false,
       x3dhRatchetEnabled: false,
     });
 

@@ -208,6 +208,14 @@ pub struct QuorumPublishReport {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RelayPublishAttempt {
+    pub relay_url: String,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RelayPublishFailure {
     pub relay_url: String,
     pub error: Option<String>,

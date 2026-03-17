@@ -3288,10 +3288,24 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     })}
                   />
                 </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 p-3 dark:border-white/10 bg-zinc-50/60 dark:bg-zinc-900/40">
+                  <div>
+                    <p className="text-sm font-semibold">TanStack Query Adapter (Phase 1)</p>
+                    <p className="text-xs text-zinc-500">Enable guarded Query adapters for discovery, identity resolve, relay diagnostics, and account-sync readers.</p>
+                  </div>
+                  <SettingsToggle
+                    checked={privacySettings.tanstackQueryV1 === true}
+                    onChange={(checked) => handleSavePrivacy({
+                      ...privacySettings,
+                      tanstackQueryV1: checked,
+                    })}
+                  />
+                </div>
               </div>
 
               <div className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/40 text-xs text-zinc-500">
-                Effective v0.9 policy: stability={rolloutPolicy.stabilityModeEnabled ? "on" : "off"}, protocol-core={rolloutPolicy.protocolCoreEnabled ? "on" : "off"}, deterministic-discovery={rolloutPolicy.deterministicDiscoveryEnabled ? "on" : "off"}, x3dh-ratchet={rolloutPolicy.x3dhRatchetEnabled ? "on" : "off"}.
+                Effective v0.9 policy: stability={rolloutPolicy.stabilityModeEnabled ? "on" : "off"}, protocol-core={rolloutPolicy.protocolCoreEnabled ? "on" : "off"}, deterministic-discovery={rolloutPolicy.deterministicDiscoveryEnabled ? "on" : "off"}, x3dh-ratchet={rolloutPolicy.x3dhRatchetEnabled ? "on" : "off"}, tanstack-query={rolloutPolicy.tanstackQueryEnabled ? "on" : "off"}.
                 <br />
                 Discovery lanes: invite-code={privacySettings.discoveryInviteCodeV1 ? "on" : "off"}, deep-link={privacySettings.discoveryDeepLinkV1 ? "on" : "off"}, suggestions={privacySettings.discoverySuggestionsV1 ? "on" : "off"}.
               </div>

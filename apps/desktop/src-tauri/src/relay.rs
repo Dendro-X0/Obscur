@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
-use tokio::sync::mpsc::{self, Sender};
 use tokio::sync::mpsc::error::TrySendError;
+use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::oneshot;
 use tokio::time::timeout;
-use tokio::time::{sleep, Duration, Instant};
+use tokio::time::{sleep, Instant};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use crate::net::NativeNetworkRuntime;
@@ -173,6 +175,17 @@ pub async fn probe_relay(
 
 // Type alias for Relay URL
 type RelayUrl = String;
+type PendingAckKey = (String, RelayUrl, String);
+
+#[derive(Debug)]
+pub struct RelayPublishAck {
+    pub ok: bool,
+    pub message: Option<String>,
+}
+
+struct PendingRelayAck {
+    sender: oneshot::Sender<RelayPublishAck>,
+}
 
 // Message structure used for IPC communication
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -197,6 +210,7 @@ pub struct RelayPool {
     // Keys are (window_label, relay_url)
     connections: Arc<Mutex<HashMap<(String, RelayUrl), RelayConnection>>>,
     states: Arc<Mutex<HashMap<(String, RelayUrl), RelayState>>>,
+    pending_acks: Arc<Mutex<HashMap<PendingAckKey, PendingRelayAck>>>,
 }
 
 impl RelayPool {
@@ -204,6 +218,140 @@ impl RelayPool {
         RelayPool {
             connections: Arc::new(Mutex::new(HashMap::new())),
             states: Arc::new(Mutex::new(HashMap::new())),
+            pending_acks: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub async fn publish_event_with_ack(
+        &self,
+        window_label: &str,
+        relay_url: &str,
+        event_json: Value,
+        ack_timeout: Duration,
+    ) -> Result<RelayPublishAck, String> {
+        let event_id = extract_event_id(&event_json)?;
+        let key = (window_label.to_string(), relay_url.to_string());
+        let tx = {
+            let connections = self.connections.lock().unwrap();
+            connections
+                .get(&key)
+                .map(|connection| connection.tx.clone())
+        };
+        let Some(tx) = tx else {
+            return Err("No writable relay connection".to_string());
+        };
+
+        let pending_key = (window_label.to_string(), relay_url.to_string(), event_id);
+        let (ack_tx, ack_rx) = oneshot::channel::<RelayPublishAck>();
+        {
+            let mut pending_acks = self.pending_acks.lock().unwrap();
+            if let Some(previous) = pending_acks.remove(&pending_key) {
+                let _ = previous.sender.send(RelayPublishAck {
+                    ok: false,
+                    message: Some("Superseded by a newer publish attempt.".to_string()),
+                });
+            }
+            pending_acks.insert(pending_key.clone(), PendingRelayAck { sender: ack_tx });
+        }
+
+        let payload = serde_json::json!(["EVENT", event_json]);
+        if let Err(error) = enqueue_relay_message(&tx, Message::Text(payload.to_string().into())) {
+            let mut pending_acks = self.pending_acks.lock().unwrap();
+            pending_acks.remove(&pending_key);
+            return Err(error);
+        }
+
+        match timeout(ack_timeout, ack_rx).await {
+            Ok(Ok(ack)) => {
+                if ack.ok {
+                    Ok(ack)
+                } else {
+                    Err(ack
+                        .message
+                        .unwrap_or_else(|| "Relay rejected event (NIP-20 OK=false).".to_string()))
+                }
+            }
+            Ok(Err(_)) => Err("Relay acknowledgement channel closed.".to_string()),
+            Err(_) => {
+                let mut pending_acks = self.pending_acks.lock().unwrap();
+                pending_acks.remove(&pending_key);
+                Err("Timeout waiting for OK response".to_string())
+            }
+        }
+    }
+}
+
+fn extract_event_id(event_json: &Value) -> Result<String, String> {
+    let Some(event_id) = event_json.get("id").and_then(Value::as_str) else {
+        return Err("Malformed event payload: missing event id".to_string());
+    };
+    if event_id.trim().is_empty() {
+        return Err("Malformed event payload: empty event id".to_string());
+    }
+    Ok(event_id.to_string())
+}
+
+fn parse_ok_payload(value: &Value) -> Option<(String, bool, Option<String>)> {
+    let array = value.as_array()?;
+    if array.first()?.as_str()? != "OK" {
+        return None;
+    }
+    let event_id = array.get(1)?.as_str()?.to_string();
+    let ok = array.get(2).and_then(Value::as_bool).unwrap_or(false);
+    let message = array
+        .get(3)
+        .and_then(Value::as_str)
+        .map(|raw| raw.to_string())
+        .filter(|raw| !raw.trim().is_empty());
+    Some((event_id, ok, message))
+}
+
+fn resolve_pending_ack(
+    pending_acks: &Arc<Mutex<HashMap<PendingAckKey, PendingRelayAck>>>,
+    window_label: &str,
+    relay_url: &str,
+    event_id: &str,
+    ok: bool,
+    message: Option<String>,
+) {
+    let key = (
+        window_label.to_string(),
+        relay_url.to_string(),
+        event_id.to_string(),
+    );
+    let sender = {
+        let mut pending = pending_acks.lock().unwrap();
+        pending.remove(&key).map(|entry| entry.sender)
+    };
+    if let Some(sender) = sender {
+        let _ = sender.send(RelayPublishAck { ok, message });
+    }
+}
+
+fn fail_pending_acks_for_scope_relay(
+    pending_acks: &Arc<Mutex<HashMap<PendingAckKey, PendingRelayAck>>>,
+    window_label: &str,
+    relay_url: &str,
+    message: &str,
+) {
+    let keys = {
+        let pending = pending_acks.lock().unwrap();
+        pending
+            .keys()
+            .filter(|(scope, url, _)| scope == window_label && url == relay_url)
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    if keys.is_empty() {
+        return;
+    }
+    let mut pending = pending_acks.lock().unwrap();
+    for key in keys {
+        if let Some(entry) = pending.remove(&key) {
+            let _ = entry.sender.send(RelayPublishAck {
+                ok: false,
+                message: Some(message.to_string()),
+            });
         }
     }
 }
@@ -280,20 +428,16 @@ async fn connect_relay_internal(
                     let error_message = format_ws_connect_error(&err);
                     println!(
                         "[NativeRelay] Tor connect attempt {} failed: {}",
-                        attempts,
-                        error_message
+                        attempts, error_message
                     );
                     last_error_message = Some(error_message);
                 }
                 Err(_) => {
-                    let error_message = format!(
-                        "attempt timed out after {}ms",
-                        attempt_timeout.as_millis()
-                    );
+                    let error_message =
+                        format!("attempt timed out after {}ms", attempt_timeout.as_millis());
                     println!(
                         "[NativeRelay] Tor connect attempt {} failed: {}",
-                        attempts,
-                        error_message
+                        attempts, error_message
                     );
                     last_error_message = Some(error_message);
                 }
@@ -307,12 +451,11 @@ async fn connect_relay_internal(
         if let Some(stream) = connected_stream {
             stream
         } else {
-            let message = last_error_message.unwrap_or_else(|| "Unknown Tor connect error".to_string());
+            let message =
+                last_error_message.unwrap_or_else(|| "Unknown Tor connect error".to_string());
             let final_error = format!(
                 "Tor proxy connect failed after {} attempt(s) within {}ms: {}",
-                attempts,
-                CONNECT_COMMAND_BUDGET_MS,
-                message
+                attempts, CONNECT_COMMAND_BUDGET_MS, message
             );
             if let Some(window) = app.get_webview_window(&window_label) {
                 let _ = window.emit(
@@ -345,10 +488,7 @@ async fn connect_relay_internal(
                 return Err(message);
             }
             Err(_) => {
-                let message = format!(
-                    "Connect timed out after {}ms",
-                    CONNECT_COMMAND_BUDGET_MS
-                );
+                let message = format!("Connect timed out after {}ms", CONNECT_COMMAND_BUDGET_MS);
                 if let Some(window) = app.get_webview_window(&window_label) {
                     let _ = window.emit(
                         "relay-status",
@@ -370,7 +510,12 @@ async fn connect_relay_internal(
     // Spawn write task (Messages from app -> Relay)
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            match timeout(Duration::from_millis(RELAY_WRITE_SEND_TIMEOUT_MS), write.send(msg)).await {
+            match timeout(
+                Duration::from_millis(RELAY_WRITE_SEND_TIMEOUT_MS),
+                write.send(msg),
+            )
+            .await
+            {
                 Ok(Ok(())) => {}
                 Ok(Err(_)) => break,
                 Err(_) => {
@@ -387,6 +532,7 @@ async fn connect_relay_internal(
     // Spawn read task (Messages from Relay -> App)
     let app_handle = app.clone();
     let connections_clone = state.connections.clone();
+    let pending_acks_clone = state.pending_acks.clone();
     let win_label_loop = window_label.clone();
     let read_url = url.clone();
     let control_tx = tx.clone();
@@ -397,6 +543,16 @@ async fn connect_relay_internal(
             match msg {
                 Ok(Message::Text(text)) => {
                     if let Ok(json) = serde_json::from_str::<Value>(&text) {
+                        if let Some((event_id, ok, message)) = parse_ok_payload(&json) {
+                            resolve_pending_ack(
+                                &pending_acks_clone,
+                                &win_label_loop,
+                                &read_url,
+                                &event_id,
+                                ok,
+                                message,
+                            );
+                        }
                         if let Some(window) = app_handle.get_webview_window(&win_label_loop) {
                             let _ = window.emit(
                                 "relay-event",
@@ -425,6 +581,13 @@ async fn connect_relay_internal(
         }
 
         // Cleanup on disconnect
+        fail_pending_acks_for_scope_relay(
+            &pending_acks_clone,
+            &win_label_loop,
+            &read_url,
+            "Relay disconnected before OK response",
+        );
+
         if let Some(window) = app_handle.get_webview_window(&win_label_loop) {
             let _ = window.emit(
                 "relay-status",
@@ -443,7 +606,10 @@ async fn connect_relay_internal(
     // Add to pool
     {
         let mut connections = state.connections.lock().unwrap();
-        connections.insert((window_label.clone(), url.clone()), RelayConnection { tx: tx.clone() });
+        connections.insert(
+            (window_label.clone(), url.clone()),
+            RelayConnection { tx: tx.clone() },
+        );
     }
 
     // Auto-resubscribe from persistent state
@@ -502,6 +668,12 @@ pub async fn disconnect_relay(
     };
 
     if let Some(tx) = tx {
+        fail_pending_acks_for_scope_relay(
+            &state.pending_acks,
+            &window_label,
+            &url,
+            "Relay disconnected before OK response",
+        );
         // Sending Close message will terminate the read loop eventually
         let _ = tx.send(Message::Close(None)).await;
         if let Some(window) = app.get_webview_window(&window_label) {
@@ -532,7 +704,13 @@ pub async fn recycle_relays(
         let states = state.states.lock().unwrap();
         states
             .iter()
-            .filter_map(|((w, u), _)| if w == &window_label { Some(u.clone()) } else { None })
+            .filter_map(|((w, u), _)| {
+                if w == &window_label {
+                    Some(u.clone())
+                } else {
+                    None
+                }
+            })
             .collect()
     };
 
@@ -554,7 +732,7 @@ pub async fn recycle_relays(
                 to_remove.push((w.clone(), u.clone()));
             }
         }
-        
+
         let mut results = Vec::new();
         for key in to_remove {
             if let Some(conn) = connections.remove(&key) {
@@ -565,6 +743,12 @@ pub async fn recycle_relays(
     };
 
     for (url, tx) in active_connections {
+        fail_pending_acks_for_scope_relay(
+            &state.pending_acks,
+            &window_label,
+            &url,
+            "Relay recycled before OK response",
+        );
         let _ = tx.send(Message::Close(None)).await;
         if let Some(window) = app.get_webview_window(&window_label) {
             let _ = window.emit(

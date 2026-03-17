@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check release source integrity
+        run: pnpm release:integrity-check
+
       - name: Check version alignment
         run: pnpm version:check
 
@@ -198,6 +201,8 @@ jobs:
     name: Build Android (APK + AAB)
     needs: preflight-checks
     runs-on: ubuntu-latest
+    outputs:
+      android_signing_state: ${{ steps.determine-signing.outputs.android_signing_state }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -270,6 +275,22 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
+      - name: Determine Android signing state
+        id: determine-signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          signing_state="unsigned"
+          if [ "${ANDROID_SIGNING_READY:-false}" = "true" ] && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
+            signing_state="signed"
+          fi
+          echo "android_signing_state=${signing_state}" >> "$GITHUB_OUTPUT"
+          echo "ANDROID_SIGNING_STATE=${signing_state}" >> "$GITHUB_ENV"
+        env:
+          TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}
+          TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
         run: |
@@ -319,12 +340,30 @@ jobs:
             apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
           if-no-files-found: error
 
+      - name: Upload Android Build Metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android-metadata
+          path: |
+            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/output-metadata.json
+            apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/output-metadata.json
+          if-no-files-found: error
+
+      - name: Android signing summary
+        shell: bash
+        run: |
+          {
+            echo "### Android Build Status";
+            echo "- Android signing state: ${ANDROID_SIGNING_STATE}";
+          } >> "$GITHUB_STEP_SUMMARY"
+
   ios-precheck:
     name: iOS Signing Precheck
     needs: preflight-checks
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.check.outputs.ready }}
+      ios_lane_state: ${{ steps.check.outputs.ios_lane_state }}
     steps:
       - name: Check required iOS signing secrets
         id: check
@@ -336,9 +375,16 @@ jobs:
           [[ -n "${{ secrets.APPLE_DEVELOPMENT_TEAM }}" ]] || missing+=("APPLE_DEVELOPMENT_TEAM")
           if [ ${#missing[@]} -eq 0 ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "ios_lane_state=executed" >> "$GITHUB_OUTPUT"
+            echo "### iOS Lane Status" >> "$GITHUB_STEP_SUMMARY"
+            echo "- iOS lane state: executed" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "ios_lane_state=skipped_missing_secrets" >> "$GITHUB_OUTPUT"
             echo "Missing required iOS secrets: ${missing[*]}"
+            echo "### iOS Lane Status" >> "$GITHUB_STEP_SUMMARY"
+            echo "- iOS lane state: skipped_missing_secrets" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Missing secrets: ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   build-ios:
@@ -388,7 +434,7 @@ jobs:
 
   verify-artifacts:
     name: Verify Artifacts
-    needs: [build-desktop, build-web-pwa, build-android]
+    needs: [build-desktop, build-web-pwa, build-android, ios-precheck]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -418,6 +464,12 @@ jobs:
           name: mobile-android
           path: ./release-assets/android
 
+      - name: Download Android Metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android-metadata
+          path: ./release-assets/android
+
       - name: Download Web/PWA Artifact
         uses: actions/download-artifact@v4
         with:
@@ -430,6 +482,18 @@ jobs:
         with:
           name: mobile-ios
           path: ./release-assets/ios
+
+      - name: Run artifact version parity check
+        run: pnpm release:artifact-version-parity -- --assets-dir release-assets
+
+      - name: Release lane summary
+        shell: bash
+        run: |
+          {
+            echo "### Release Lane Summary";
+            echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state }}";
+            echo "- ios_lane_state: ${{ needs.ios-precheck.outputs.ios_lane_state }}";
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify required artifact matrix
         shell: bash
@@ -508,7 +572,7 @@ jobs:
   publish-release:
     name: Publish Release
     needs: [verify-artifacts]
-    if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true && startsWith(github.ref, 'refs/tags/v')) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

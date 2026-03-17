@@ -104,18 +104,30 @@ describe('MessageQueue Property Tests', () => {
     });
 
     it('should persist messages in the correct conversation', async () => {
+      let runCount = 0;
       await fc.assert(
         fc.asyncProperty(
           fc.array(validMessage, { minLength: 1, maxLength: 10 }),
           async (messages) => {
+            runCount += 1;
+            // Store key is global message ID; enforce uniqueness to validate conversation grouping deterministically.
+            const uniqueMessages = messages.map((message, index) => ({
+              ...message,
+              id: `${message.id}_${index}`
+            }));
+            const scopedMessages = uniqueMessages.map((message) => ({
+              ...message,
+              conversationId: `${message.conversationId}::run-${runCount}`
+            }));
+
             // Persist all messages
-            for (const message of messages) {
+            for (const message of scopedMessages) {
               await messageQueue.persistMessage(message);
             }
 
             // Group messages by conversation
             const messagesByConversation = new Map<string, Message[]>();
-            for (const message of messages) {
+            for (const message of scopedMessages) {
               if (!messagesByConversation.has(message.conversationId)) {
                 messagesByConversation.set(message.conversationId, []);
               }

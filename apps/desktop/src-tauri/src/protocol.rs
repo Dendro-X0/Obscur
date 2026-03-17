@@ -1,14 +1,18 @@
+use crate::relay::RelayPool;
 use libobscur::protocol::types::{
     DeviceAuthorizationRecord, DeviceRevocationResult, EnvelopeVerifyContext, IdentityRootState,
     MessageVerifyResult, ProtocolCommandResult, QuorumPublishReport, RatchetSessionState,
-    SecurityReasonCode, SessionKeyState, StorageHealthState, StorageRecoveryReport,
-    X3DHHandshakeResult,
+    RelayPublishAttempt, SecurityReasonCode, SessionKeyState, StorageHealthState,
+    StorageRecoveryReport, X3DHHandshakeResult,
 };
 use libobscur::protocol::ProtocolRuntime;
 use serde::Deserialize;
+use serde_json::Value;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
+use std::time::{Duration, Instant};
+use tauri::{State, WebviewWindow};
 
 pub struct ProtocolState {
     runtime: Mutex<Option<ProtocolRuntime>>,
@@ -94,6 +98,43 @@ pub struct PublishWithQuorumArgs {
     pub relay_urls: Vec<String>,
 }
 
+const DEFAULT_PUBLISH_ACK_TIMEOUT_MS: u64 = 12_000;
+
+fn parse_event_payload(payload: &str) -> Result<Value, String> {
+    let parsed: Value = serde_json::from_str(payload)
+        .map_err(|_| "Malformed event payload: expected JSON payload".to_string())?;
+    let Some(items) = parsed.as_array() else {
+        return Err("Malformed event payload: expected EVENT frame array".to_string());
+    };
+    if items.len() < 2 || items.first().and_then(Value::as_str) != Some("EVENT") {
+        return Err("Malformed event payload: expected [\"EVENT\", <event>]".to_string());
+    }
+    let Some(event) = items.get(1) else {
+        return Err("Malformed event payload: missing EVENT body".to_string());
+    };
+    if !event.is_object() {
+        return Err("Malformed event payload: EVENT body must be an object".to_string());
+    }
+    Ok(event.clone())
+}
+
+fn normalize_relay_urls(relay_urls: &[String]) -> Vec<String> {
+    let mut seen = HashSet::new();
+    relay_urls
+        .iter()
+        .map(|raw| raw.trim())
+        .filter(|url| !url.is_empty())
+        .filter_map(|url| {
+            let candidate = url.to_string();
+            if seen.insert(candidate.clone()) {
+                Some(candidate)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[tauri::command]
 pub async fn protocol_get_identity_root_state(
     state: State<'_, ProtocolState>,
@@ -166,10 +207,69 @@ pub async fn protocol_verify_message_envelope(
 
 #[tauri::command]
 pub async fn protocol_publish_with_quorum(
+    window: WebviewWindow,
     state: State<'_, ProtocolState>,
+    relay_pool: State<'_, RelayPool>,
     args: PublishWithQuorumArgs,
 ) -> Result<ProtocolCommandResult<QuorumPublishReport>, String> {
-    Ok(state.with_runtime(|runtime| runtime.publish_with_quorum(&args.payload, &args.relay_urls)))
+    if args.payload.trim().is_empty() {
+        return Ok(ProtocolCommandResult::failed(
+            SecurityReasonCode::InvalidInput,
+            "payload is required",
+            false,
+        ));
+    }
+    let event = match parse_event_payload(&args.payload) {
+        Ok(event) => event,
+        Err(message) => {
+            return Ok(ProtocolCommandResult::failed(
+                SecurityReasonCode::InvalidInput,
+                message,
+                false,
+            ));
+        }
+    };
+
+    let relay_urls = normalize_relay_urls(&args.relay_urls);
+    if relay_urls.is_empty() {
+        return Ok(ProtocolCommandResult::failed(
+            SecurityReasonCode::InvalidInput,
+            "relayUrls is required",
+            false,
+        ));
+    }
+
+    let started = Instant::now();
+    let mut attempts = Vec::<RelayPublishAttempt>::with_capacity(relay_urls.len());
+    let window_label = window.label().to_string();
+
+    for relay_url in &relay_urls {
+        match relay_pool
+            .publish_event_with_ack(
+                &window_label,
+                relay_url,
+                event.clone(),
+                Duration::from_millis(DEFAULT_PUBLISH_ACK_TIMEOUT_MS),
+            )
+            .await
+        {
+            Ok(_) => attempts.push(RelayPublishAttempt {
+                relay_url: relay_url.clone(),
+                success: true,
+                error: None,
+            }),
+            Err(error) => attempts.push(RelayPublishAttempt {
+                relay_url: relay_url.clone(),
+                success: false,
+                error: Some(error),
+            }),
+        }
+    }
+
+    let elapsed_ms = started.elapsed().as_millis() as u64;
+    Ok(state.with_runtime(|runtime| {
+        runtime.publish_with_quorum_attempts(&args.payload, &relay_urls, &attempts, elapsed_ms)
+    }))
 }
 
 #[tauri::command]
@@ -184,4 +284,40 @@ pub async fn protocol_run_storage_recovery(
     state: State<'_, ProtocolState>,
 ) -> Result<ProtocolCommandResult<StorageRecoveryReport>, String> {
     Ok(state.with_runtime(|runtime| runtime.run_storage_recovery()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_event_payload_accepts_event_frame() {
+        let payload = r#"["EVENT", {"id":"evt-1","kind":4}]"#;
+        let parsed = parse_event_payload(payload).expect("event payload");
+        assert_eq!(parsed.get("id").and_then(Value::as_str), Some("evt-1"));
+    }
+
+    #[test]
+    fn parse_event_payload_rejects_invalid_payload() {
+        let err = parse_event_payload(r#"{"id":"evt-1"}"#).expect_err("invalid");
+        assert!(err.contains("Malformed event payload"));
+    }
+
+    #[test]
+    fn normalize_relay_urls_dedupes_and_trims() {
+        let relays = vec![
+            " wss://relay-1.example ".to_string(),
+            "wss://relay-1.example".to_string(),
+            "".to_string(),
+            "wss://relay-2.example".to_string(),
+        ];
+        let normalized = normalize_relay_urls(&relays);
+        assert_eq!(
+            normalized,
+            vec![
+                "wss://relay-1.example".to_string(),
+                "wss://relay-2.example".to_string()
+            ]
+        );
+    }
 }

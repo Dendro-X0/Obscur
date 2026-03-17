@@ -322,20 +322,23 @@ mod desktop {
     }
 }
 
-// Mobile implementations (store-based)
+// Mobile implementations (secure-key scoped)
 #[cfg(any(target_os = "android", target_os = "ios"))]
 mod mobile {
     use crate::session::SessionState;
+    use libobscur::ffi::{delete_key, has_key, load_key, store_key};
     use nostr::prelude::*;
     use serde::{Deserialize, Serialize};
     use std::borrow::Cow;
-    use std::path::PathBuf;
-    use tauri::{AppHandle, Manager, State};
-    use tauri_plugin_store::StoreExt;
+    use tauri::{AppHandle, State};
     use zeroize::Zeroizing;
 
-    const STORE_PATH: &str = "secrets.bin";
+    const MOBILE_PROFILE_ID: &str = "default";
     const KEY_NAME: &str = "nsec";
+
+    fn scoped_key_id() -> String {
+        format!("mobile::{MOBILE_PROFILE_ID}::{KEY_NAME}")
+    }
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct NativeSignRequest {
@@ -356,30 +359,29 @@ mod mobile {
         pub sig: String,
     }
 
-    /// Ensure session is hydrated from store if not present
-    async fn ensure_session(app: &AppHandle, session: &SessionState) -> Result<Keys, String> {
-        if let Some(keys) = session.get_keys().await {
+    /// Ensure session is hydrated from secure key storage if not present.
+    async fn ensure_session(_app: &AppHandle, session: &SessionState) -> Result<Keys, String> {
+        if let Some(keys) = session.get_keys(MOBILE_PROFILE_ID).await {
             return Ok(keys);
         }
 
-        // Fallback to store
-        let store = app
-            .store(PathBuf::from(STORE_PATH))
-            .map_err(|e| e.to_string())?;
-
-        if let Some(val) = store.get(KEY_NAME) {
-            if let Some(nsec) = val.as_str() {
-                let nsec_zero = Zeroizing::new(nsec.to_string());
-                session.set_keys(&*nsec_zero).await?;
-                eprintln!("[SESSION] Mobile session re-hydrated from store");
-                return session
-                    .get_keys()
-                    .await
-                    .ok_or_else(|| "Failed to hydrate session".to_string());
-            }
+        let key_id = scoped_key_id();
+        let key_exists = has_key(key_id.clone()).map_err(|error| error.to_string())?;
+        if !key_exists {
+            return Err("locked_no_secure_key".to_string());
         }
-
-        Err("No active native session and no key in storage".to_string())
+        let key_bytes = load_key(key_id).map_err(|error| error.to_string())?;
+        let key_hex = String::from_utf8(key_bytes)
+            .map_err(|_| "integrity_mismatch: secure key payload is invalid".to_string())?;
+        session
+            .set_keys(MOBILE_PROFILE_ID, &key_hex)
+            .await
+            .map_err(|error| format!("failed_to_restore_secure_session: {error}"))?;
+        eprintln!("[SESSION] Mobile session re-hydrated from secure key store");
+        session
+            .get_keys(MOBILE_PROFILE_ID)
+            .await
+            .ok_or_else(|| "failed_to_restore_secure_session".to_string())
     }
 
     #[tauri::command]
@@ -401,16 +403,15 @@ mod mobile {
     ) -> Result<String, String> {
         let nsec_zero = Zeroizing::new(nsec);
         let keys = Keys::parse(&*nsec_zero).map_err(|e| e.to_string())?;
+        let key_hex = keys.secret_key().to_secret_hex();
 
-        // Update session
-        session.set_keys(&*nsec_zero).await?;
+        session
+            .set_keys(MOBILE_PROFILE_ID, &key_hex)
+            .await
+            .map_err(|error| format!("failed_to_set_secure_session: {error}"))?;
 
-        // Update store
-        let store = app
-            .store(PathBuf::from(STORE_PATH))
-            .map_err(|e| e.to_string())?;
-        store.set(KEY_NAME, serde_json::Value::String((*nsec_zero).clone()));
-        store.save().map_err(|e| e.to_string())?;
+        store_key(scoped_key_id(), key_hex.into_bytes())
+            .map_err(|error| format!("rust_secure_store: {}", error.to_string()))?;
 
         Ok(keys.public_key().to_string())
     }
@@ -421,18 +422,16 @@ mod mobile {
         session: State<'_, SessionState>,
     ) -> Result<String, String> {
         let keys = Keys::generate();
-        let nsec = keys.secret_key().to_bech32().map_err(|e| e.to_string())?;
-        let nsec_zero = Zeroizing::new(nsec);
+        let key_hex = keys.secret_key().to_secret_hex();
+        let key_hex_zero = Zeroizing::new(key_hex);
 
-        // Update session
-        session.set_keys(&*nsec_zero).await?;
+        session
+            .set_keys(MOBILE_PROFILE_ID, &*key_hex_zero)
+            .await
+            .map_err(|error| format!("failed_to_set_secure_session: {error}"))?;
 
-        // Update store
-        let store = app
-            .store(PathBuf::from(STORE_PATH))
-            .map_err(|e| e.to_string())?;
-        store.set(KEY_NAME, serde_json::Value::String((*nsec_zero).clone()));
-        store.save().map_err(|e| e.to_string())?;
+        store_key(scoped_key_id(), key_hex_zero.as_bytes().to_vec())
+            .map_err(|error| format!("rust_secure_store: {}", error.to_string()))?;
 
         Ok(keys.public_key().to_string())
     }
@@ -485,15 +484,9 @@ mod mobile {
         app: AppHandle,
         session: State<'_, SessionState>,
     ) -> Result<(), String> {
-        // Clear session
-        session.clear().await;
-
-        // Clear store
-        let store = app
-            .store(PathBuf::from(STORE_PATH))
-            .map_err(|e| e.to_string())?;
-        store.delete(KEY_NAME);
-        store.save().map_err(|e| e.to_string())?;
+        let _ = app;
+        session.clear(Some(MOBILE_PROFILE_ID)).await;
+        delete_key(scoped_key_id()).map_err(|error| error.to_string())?;
         Ok(())
     }
 

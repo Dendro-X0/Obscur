@@ -18,16 +18,13 @@ import { getSybilRiskSnapshot } from "@/app/shared/sybil-risk-signals";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { getNip96StorageKey } from "@/app/features/messaging/lib/nip96-upload-service";
 import { uploadServiceInternals } from "@/app/features/messaging/lib/upload-service";
-import {
-    runRelayNipProbe,
-    summarizeRelayNipProbeResults,
-    type RelayNipProbeResult
-} from "@/app/features/relays/lib/relay-nip-probe.mjs";
+import { summarizeRelayNipProbeResults } from "@/app/features/relays/lib/relay-nip-probe.mjs";
 import {
     auditCommunityMigrationState,
     type CommunityMigrationAuditReport
 } from "@/app/features/groups/services/community-migration-audit";
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
+import { useRelayDiagnosticsProbeState } from "@/app/features/relays/hooks/use-relay-diagnostics-probe-state";
 import { useWindowRuntimeSnapshot } from "@/app/features/runtime/services/window-runtime-supervisor";
 import type { SenderDeliveryIssueReport } from "@/app/features/messaging/services/delivery-troubleshooting-reporter";
 import type { DevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
@@ -52,13 +49,11 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const { requestsInbox } = useNetwork();
     const { enabledRelayUrls, relayPool, relayRecovery, relayRuntime } = useRelay();
     const identity = useIdentity();
+    const identityPublicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
     const [isOpen, setIsOpen] = useState(false);
     const [activeScenario, setActiveScenario] = useState<string | null>(null);
     const [stopScenario, setStopScenario] = useState<(() => void) | null>(null);
     const [migrationAuditReport, setMigrationAuditReport] = useState<CommunityMigrationAuditReport | null>(null);
-    const [probeResults, setProbeResults] = useState<ReadonlyArray<RelayNipProbeResult>>([]);
-    const [isRunningProbe, setIsRunningProbe] = useState(false);
-    const [lastProbeAtUnixMs, setLastProbeAtUnixMs] = useState<number | null>(null);
     const [isCopyingAudit, setIsCopyingAudit] = useState(false);
     const [isCopyingAffectedKeys, setIsCopyingAffectedKeys] = useState(false);
     const [isRunAndCopyingAudit, setIsRunAndCopyingAudit] = useState(false);
@@ -74,12 +69,13 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
         displayName: string;
     }>>>([]);
     const accountSyncSnapshot = useAccountSyncSnapshot();
+    const relayProbeState = useRelayDiagnosticsProbeState({ publicKeyHex: identityPublicKeyHex });
+    const { probeResults, isRunningProbe, lastProbeAtUnixMs, probeSummary } = relayProbeState;
     const windowRuntimeSnapshot = useWindowRuntimeSnapshot();
     const uiResponsiveness = useUiResponsivenessSnapshot();
     const identityDiagnostics = identity.getIdentityDiagnostics?.() ?? { status: identity.state.status };
     const abuseMetrics = getAbuseMetricsSnapshot();
     const sybilRisk = getSybilRiskSnapshot();
-    const probeSummary = useMemo(() => summarizeRelayNipProbeResults(probeResults), [probeResults]);
     const filteredRuntimeIssues = useMemo(() => {
         return runtimeIssues.filter((issue) => {
             if (runtimeIssueDomainFilter !== "all" && issue.domain !== runtimeIssueDomainFilter) {
@@ -337,25 +333,20 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
     };
 
     const handleRunRelayProbe = async () => {
-        setIsRunningProbe(true);
         try {
             const relayUrls = enabledRelayUrls.length > 0
                 ? enabledRelayUrls
                 : relayPool.connections.map((connection) => connection.url);
             const nip96Urls = readNip96ProviderUrls();
-            const results = await runRelayNipProbe({
+            const snapshot = await relayProbeState.runProbe({
                 relayUrls,
                 nip96Urls,
                 timeoutMs: 4500,
             });
-            setProbeResults(results);
-            setLastProbeAtUnixMs(Date.now());
-            const summary = summarizeRelayNipProbeResults(results);
+            const summary = summarizeRelayNipProbeResults(snapshot.results);
             toast.info(`Probe done: ok=${summary.ok}, degraded=${summary.degraded}, failed=${summary.failed}, unsupported=${summary.unsupported}`);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Relay/NIP probe failed");
-        } finally {
-            setIsRunningProbe(false);
         }
     };
 

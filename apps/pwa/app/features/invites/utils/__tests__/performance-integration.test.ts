@@ -413,18 +413,15 @@ describe('Performance Optimizations Integration', () => {
 
       await connectionStore.addConnection(connection);
 
-      // First access (from database)
-      const start1 = Date.now();
-      await connectionStore.getConnection('test-connection');
-      const time1 = Date.now() - start1;
+      // First access populates cache from IndexedDB.
+      const firstRead = await connectionStore.getConnection('test-connection');
+      expect(firstRead).not.toBeNull();
 
-      // Second access (from cache)
-      const start2 = Date.now();
-      await connectionStore.getConnection('test-connection');
-      const time2 = Date.now() - start2;
+      // Second access should come from cache and return the same cached object reference.
+      const secondRead = await connectionStore.getConnection('test-connection');
+      expect(secondRead).not.toBeNull();
 
-      // Cached access should be faster
-      expect(time2).toBeLessThanOrEqual(time1);
+      expect(secondRead).toBe(firstRead);
     });
   });
 

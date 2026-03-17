@@ -68,6 +68,30 @@ pub struct PushPreview {
     pub content: String,
 }
 
+#[derive(uniffi::Record)]
+pub struct BackgroundSyncRelayReport {
+    pub relay_url: String,
+    pub ok: bool,
+    pub events_scanned: u32,
+    pub decrypted_messages: u32,
+    pub last_seen_unix: Option<u64>,
+    pub reason: Option<String>,
+    pub duration_ms: u64,
+}
+
+#[derive(uniffi::Record)]
+pub struct BackgroundSyncReport {
+    pub ok: bool,
+    pub key_id: String,
+    pub scanned_relays: u32,
+    pub total_events: u32,
+    pub decrypted_messages: u32,
+    pub checkpoint_unix: Option<u64>,
+    pub reason: Option<String>,
+    pub owner: String,
+    pub outcomes: Vec<BackgroundSyncRelayReport>,
+}
+
 #[uniffi::export]
 pub fn generate_key_pair() -> KeyPair {
     let (sk, pk) = nip01::generate_key_pair();
@@ -142,9 +166,64 @@ pub fn decrypt_push_payload(secret_key_hex: String, gift_wrap_json: String) -> R
         content: preview_content,
     })
 }
+
+fn load_secure_secret_key_hex(key_id: &str) -> Result<String, ObscurError> {
+    let key_exists = crate::keystore::get_platform_keystore().has_key(key_id)?;
+    if !key_exists {
+        return Err(ObscurError::from(format!(
+            "locked_no_secure_key: secure key unavailable for key_id={key_id}"
+        )));
+    }
+    let secret_bytes = crate::keystore::get_platform_keystore().load_key(key_id)?;
+    String::from_utf8(secret_bytes).map_err(|_| {
+        ObscurError::from("integrity_mismatch: secure key payload is not valid UTF-8".to_string())
+    })
+}
+
+#[uniffi::export]
+pub fn decrypt_push_payload_for_key(
+    key_id: String,
+    gift_wrap_json: String,
+) -> Result<PushPreview, ObscurError> {
+    let secret_key_hex = load_secure_secret_key_hex(&key_id)?;
+    decrypt_push_payload(secret_key_hex, gift_wrap_json)
+}
+
 #[uniffi::export]
 pub async fn background_sync(secret_key_hex: String) -> Result<u32, ObscurError> {
     crate::net::background_sync(secret_key_hex).await
+}
+
+#[uniffi::export]
+pub async fn background_sync_for_key(
+    key_id: String,
+    relay_urls: Vec<String>,
+) -> Result<BackgroundSyncReport, ObscurError> {
+    let secret_key_hex = load_secure_secret_key_hex(&key_id)?;
+    let outcome = crate::net::background_sync_scoped(secret_key_hex, relay_urls, None).await?;
+    Ok(BackgroundSyncReport {
+        ok: outcome.ok,
+        key_id,
+        scanned_relays: outcome.scanned_relays,
+        total_events: outcome.total_events,
+        decrypted_messages: outcome.decrypted_messages,
+        checkpoint_unix: outcome.checkpoint_unix,
+        reason: outcome.reason,
+        owner: "rust_secure_store".to_string(),
+        outcomes: outcome
+            .outcomes
+            .into_iter()
+            .map(|item| BackgroundSyncRelayReport {
+                relay_url: item.relay_url,
+                ok: item.ok,
+                events_scanned: item.events_scanned,
+                decrypted_messages: item.decrypted_messages,
+                last_seen_unix: item.last_seen_unix,
+                reason: item.reason,
+                duration_ms: item.duration_ms,
+            })
+            .collect(),
+    })
 }
 
 #[uniffi::export]
@@ -172,4 +251,20 @@ pub fn mine_pow(unsigned_event_json: String, difficulty: u8) -> Result<String, O
     let unsigned_event: nostr::prelude::UnsignedEvent = serde_json::from_str(&unsigned_event_json).map_err(|e| e.to_string())?;
     let mined_event = crate::crypto::pow::mine_pow(unsigned_event, difficulty).map_err(ObscurError::from)?;
     serde_json::to_string(&mined_event).map_err(|e| ObscurError::from(e.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decrypt_push_payload_for_key_fails_closed_when_key_missing() {
+        let result = decrypt_push_payload_for_key(
+            "missing-key-id".to_string(),
+            r#"{"content":"abc","pubkey":"def"}"#.to_string(),
+        );
+        assert!(result.is_err());
+        let message = result.err().map(|error| error.to_string()).unwrap_or_default();
+        assert!(message.contains("locked_no_secure_key"));
+    }
 }

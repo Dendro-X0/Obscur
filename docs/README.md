@@ -32,7 +32,9 @@ pnpm docs:check
 ```bash
 pnpm version:sync
 pnpm version:check
+pnpm release:integrity-check
 pnpm docs:check
+pnpm release:artifact-version-contract-check
 pnpm release:preflight -- --allow-dirty 1
 ```
 

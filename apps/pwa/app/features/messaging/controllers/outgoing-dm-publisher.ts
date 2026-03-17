@@ -15,6 +15,7 @@ import { transitionMessageStatus } from "../state-machines/message-delivery-mach
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { publishViaRelayCore } from "@/app/features/relays/lib/nostr-core-relay";
 import type { DeliveryReasonCode, RelayCircuitState } from "@dweb/core/security-foundation-contracts";
 import {
@@ -132,6 +133,83 @@ const publishToScopedRelayUrls = async (
     return pool.publishToUrls(relayScopeUrls, eventPayload);
   }
   return null;
+};
+
+const classifyProtocolFailureReasonCode = (
+  reason: "unsupported" | "failed",
+  message?: string
+): DeliveryReasonCode => {
+  if (reason === "unsupported") {
+    return "unsupported_runtime";
+  }
+  const normalizedMessage = (message || "").toLowerCase();
+  if (normalizedMessage.includes("no writable relay")) {
+    return "no_writable_relays";
+  }
+  if (normalizedMessage.includes("timeout")) {
+    return "relay_degraded";
+  }
+  if (normalizedMessage.includes("disconnected")) {
+    return "relay_degraded";
+  }
+  if (normalizedMessage.includes("malformed event payload")) {
+    return "provider_unavailable";
+  }
+  return "quorum_not_met";
+};
+
+const mapProtocolAdapterFailureToMultiRelayResult = (
+  relayScopeUrls: ReadonlyArray<string>,
+  failure: Readonly<{ reason: "unsupported" | "failed"; message?: string }>
+): MultiRelayPublishResult => {
+  const reasonCode = classifyProtocolFailureReasonCode(failure.reason, failure.message);
+  const message = failure.message || "Protocol publish failed";
+  const totalRelays = relayScopeUrls.length;
+  const quorumRequired = Math.max(1, Math.ceil(Math.max(1, totalRelays) / 2));
+  const failures = relayScopeUrls.map((relayUrl) => ({
+    relayUrl,
+    success: false,
+    error: message,
+  }));
+  return {
+    success: false,
+    status: "failed",
+    reasonCode,
+    successCount: 0,
+    totalRelays,
+    metQuorum: false,
+    quorumRequired,
+    results: failures,
+    failures,
+    overallError: message,
+  };
+};
+
+const mapProtocolAdapterFailureToRelayResult = (
+  relayScopeUrls: ReadonlyArray<string>,
+  failure: Readonly<{ reason: "unsupported" | "failed"; message?: string }>
+): RelayPublishResult => {
+  const reasonCode = classifyProtocolFailureReasonCode(failure.reason, failure.message);
+  const message = failure.message || "Protocol publish failed";
+  const totalRelays = relayScopeUrls.length;
+  const quorumRequired = Math.max(1, Math.ceil(Math.max(1, totalRelays) / 2));
+  const failures = relayScopeUrls.map((relayUrl) => ({
+    relayUrl,
+    success: false,
+    error: message,
+  }));
+  return {
+    status: "failed",
+    reasonCode,
+    success: false,
+    successCount: 0,
+    totalRelays,
+    metQuorum: false,
+    quorumRequired,
+    results: failures,
+    failures,
+    overallError: message,
+  };
 };
 
 const isRetryablePublishFailure = (reasonCode?: DeliveryReasonCode): boolean => (
@@ -353,6 +431,19 @@ export const publishOutgoingDm = async (params: Readonly<{
 
   const publishOnce = async (signedEvent: NostrEvent): Promise<MultiRelayPublishResult> => {
     const eventPayload = JSON.stringify(["EVENT", signedEvent]);
+    const policy = getV090RolloutPolicy(PrivacySettingsService.getSettings());
+    const protocolOwnerActive = policy.protocolCoreEnabled && hasNativeRuntime();
+    logAppEvent({
+      name: "messaging.transport.publish_owner",
+      level: "info",
+      scope: { feature: "messaging", action: "send_dm" },
+      context: {
+        owner: protocolOwnerActive ? "rust_protocol" : "legacy_transport",
+        peerPubkey: params.recipientPubkey.slice(0, 16),
+        eventId: signedEvent.id.slice(0, 16),
+      },
+    });
+
     logAppEvent({
       name: "messaging.transport.publish_attempt",
       level: "info",
@@ -364,6 +455,18 @@ export const publishOutgoingDm = async (params: Readonly<{
         openRelayCount: params.openRelays.length,
       },
     });
+
+    if (protocolOwnerActive) {
+      if (relayScopeUrls.length === 0) {
+        return createUnsupportedRelayPublishResult(relayScopeUrls, "No scoped relay URLs available for protocol publish.");
+      }
+      const protocolPublish = await protocolCoreAdapter.publishWithQuorum(eventPayload, relayScopeUrls);
+      if (protocolPublish.ok) {
+        return mapProtocolPublishReportToRelayPublishResult(protocolPublish.value, relayScopeUrls);
+      }
+      return mapProtocolAdapterFailureToMultiRelayResult(relayScopeUrls, protocolPublish);
+    }
+
     if (canUseRelayCorePublisher(params.pool)) {
       const coreResult = await publishViaRelayCore({
         pool: params.pool,
@@ -380,22 +483,6 @@ export const publishOutgoingDm = async (params: Readonly<{
     const scopedPublishResult = await publishToScopedRelayUrls(params.pool, relayScopeUrls, eventPayload);
     if (scopedPublishResult) {
       return mapLegacyPublishResultToRelayPublishResult(scopedPublishResult);
-    }
-
-    const policy = getV090RolloutPolicy(PrivacySettingsService.getSettings());
-    if (policy.protocolCoreEnabled && relayScopeUrls.length > 0) {
-      const protocolPublish = await protocolCoreAdapter.publishWithQuorum(eventPayload, relayScopeUrls);
-      if (protocolPublish.ok) {
-        return mapProtocolPublishReportToRelayPublishResult(protocolPublish.value, relayScopeUrls);
-      }
-      if (protocolPublish.reason === "failed") {
-        logAppEvent({
-          name: "messaging.dm.send.protocol_publish_failed",
-          level: "warn",
-          scope: { feature: "messaging", action: "send_dm" },
-          context: { reason: protocolPublish.message || "Protocol publish failed" },
-        });
-      }
     }
 
     if (!params.pool.publishToAll) {
@@ -691,6 +778,26 @@ export const publishQueuedOutgoingMessage = async (params: Readonly<{
       );
     };
 
+    const policy = getV090RolloutPolicy(PrivacySettingsService.getSettings());
+    const protocolOwnerActive = policy.protocolCoreEnabled && hasNativeRuntime();
+    if (protocolOwnerActive) {
+      if (scopedRelayUrls.length === 0) {
+        return evaluateAttempt(mapProtocolAdapterFailureToRelayResult(scopedRelayUrls, {
+          reason: "failed",
+          message: "No scoped relay URLs available for protocol publish.",
+        }));
+      }
+      const protocolPublish = await protocolCoreAdapter.publishWithQuorum(eventPayload, scopedRelayUrls);
+      if (protocolPublish.ok) {
+        const result = applyDurableRelayEvidenceGateToMappedResult(
+          mapProtocolPublishReportToRelayPublishResult(protocolPublish.value, scopedRelayUrls),
+          scopedRelayUrls.length
+        );
+        return evaluateAttempt(result);
+      }
+      return evaluateAttempt(mapProtocolAdapterFailureToRelayResult(scopedRelayUrls, protocolPublish));
+    }
+
     if (canUseRelayCorePublisher(params.pool)) {
       const coreResult = await publishViaRelayCore({
         pool: params.pool,
@@ -715,26 +822,6 @@ export const publishQueuedOutgoingMessage = async (params: Readonly<{
         scopedRelayUrls.length
       );
       return evaluateAttempt(result);
-    }
-
-    const policy = getV090RolloutPolicy(PrivacySettingsService.getSettings());
-    if (policy.protocolCoreEnabled && scopedRelayUrls.length > 0) {
-      const protocolPublish = await protocolCoreAdapter.publishWithQuorum(eventPayload, scopedRelayUrls);
-      if (protocolPublish.ok) {
-        const result = applyDurableRelayEvidenceGateToMappedResult(
-          mapProtocolPublishReportToRelayPublishResult(protocolPublish.value, scopedRelayUrls),
-          scopedRelayUrls.length
-        );
-        return evaluateAttempt(result);
-      }
-      if (protocolPublish.reason === "failed") {
-        logAppEvent({
-          name: "messaging.dm.queue.protocol_publish_failed",
-          level: "warn",
-          scope: { feature: "messaging", action: "queue_retry" },
-          context: { reason: protocolPublish.message || "Protocol publish failed" },
-        });
-      }
     }
 
     if (params.pool.publishToAll) {

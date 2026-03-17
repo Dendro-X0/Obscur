@@ -30,6 +30,7 @@ describe("privacy-settings-service", () => {
     expect(settings.deterministicDiscoveryV090).toBe(false);
     expect(settings.protocolCoreRustV090).toBe(false);
     expect(settings.x3dhRatchetV090).toBe(false);
+    expect(settings.tanstackQueryV1).toBe(false);
   });
 
   it("persists v0.9 recovery flags", () => {
@@ -39,6 +40,7 @@ describe("privacy-settings-service", () => {
       deterministicDiscoveryV090: true,
       protocolCoreRustV090: true,
       x3dhRatchetV090: true,
+      tanstackQueryV1: true,
     };
     PrivacySettingsService.saveSettings(next);
     const loaded = PrivacySettingsService.getSettings();
@@ -46,6 +48,7 @@ describe("privacy-settings-service", () => {
     expect(loaded.deterministicDiscoveryV090).toBe(true);
     expect(loaded.protocolCoreRustV090).toBe(true);
     expect(loaded.x3dhRatchetV090).toBe(true);
+    expect(loaded.tanstackQueryV1).toBe(true);
   });
 
   it("defaults discovery feature flags to rollout baseline values", () => {

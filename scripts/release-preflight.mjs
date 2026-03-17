@@ -50,6 +50,8 @@ const verifyRequiredPaths = () => {
     ".github/workflows/release.yml",
     "scripts/check-version-alignment.mjs",
     "scripts/docs-check.mjs",
+    "scripts/check-release-source-integrity.mjs",
+    "scripts/check-release-artifact-version-contract.mjs",
     "apps/desktop/src-tauri/tauri.conf.json",
     "version.json",
   ];
@@ -199,6 +201,10 @@ const main = () => {
   verifyTagDoesNotExistRemotely(tag);
   verifyLocalTagPointsToHead(tag);
 
+  console.log("[release:preflight] Running release source integrity check...");
+  run("pnpm", ["release:integrity-check"]);
+  console.log("[release:preflight] Verifying artifact version parity workflow contract...");
+  run("pnpm", ["release:artifact-version-contract-check"]);
   console.log("[release:preflight] Running version alignment check...");
   run("pnpm", ["version:check"]);
   console.log("[release:preflight] Running docs check...");

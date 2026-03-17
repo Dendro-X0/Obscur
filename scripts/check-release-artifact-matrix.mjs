@@ -23,6 +23,8 @@ const requiredSnippets = [
   "*.apk",
   "*.aab",
   "*.tar.gz",
+  "output-metadata.json",
+  "Run artifact version parity check",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));

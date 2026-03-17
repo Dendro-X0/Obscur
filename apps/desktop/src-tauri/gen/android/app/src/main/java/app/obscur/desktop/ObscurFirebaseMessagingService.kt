@@ -3,17 +3,59 @@ package app.obscur.desktop
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import org.json.JSONObject
+import java.lang.reflect.Method
 
-// Note: These imports assume uniffi-generated bindings are available
-// import uniffi.obscur.decryptPushPayload
-// import uniffi.obscur.PushPreview
+private const val MOBILE_PUSH_SECURE_KEY_ID = "mobile::default::nsec"
+
+private object RustPushBridge {
+    private val bridgeClassCandidates = listOf(
+        "uniffi.obscur.ObscurKt",
+        "uniffi.libobscur.LibobscurKt",
+        "obscur.ObscurKt",
+        "obscur.LibobscurKt"
+    )
+
+    data class DecryptPreview(
+        val title: String,
+        val body: String,
+    )
+
+    private fun findDecryptMethod(): Pair<Class<*>, Method>? {
+        for (className in bridgeClassCandidates) {
+            val clazz = runCatching { Class.forName(className) }.getOrNull() ?: continue
+            val method = clazz.methods.firstOrNull { candidate ->
+                candidate.name == "decryptPushPayloadForKey" && candidate.parameterCount == 2
+            } ?: continue
+            return clazz to method
+        }
+        return null
+    }
+
+    fun decryptPushPayloadForKey(keyId: String, payload: String): DecryptPreview {
+        val (_, method) = findDecryptMethod()
+            ?: throw IllegalStateException("rust_bridge_unavailable/decrypt_push_payload_for_key")
+        val result = method.invoke(null, keyId, payload)
+            ?: throw IllegalStateException("malformed_payload/null_decrypt_preview")
+        val bodyAccessor = result.javaClass.methods.firstOrNull { accessor ->
+            accessor.name == "getContent" && accessor.parameterCount == 0
+        } ?: throw IllegalStateException("malformed_payload/missing_content")
+        val body = bodyAccessor.invoke(result)?.toString()?.trim().orEmpty()
+        if (body.isEmpty()) {
+            throw IllegalStateException("malformed_payload/empty_content")
+        }
+        val senderAccessor = result.javaClass.methods.firstOrNull { accessor ->
+            accessor.name == "getSenderPubkey" && accessor.parameterCount == 0
+        }
+        val sender = senderAccessor?.invoke(result)?.toString()?.take(12)
+        val title = if (sender.isNullOrBlank()) "New Message" else "Message from $sender"
+        return DecryptPreview(title = title, body = body)
+    }
+}
 
 class ObscurFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -26,30 +68,25 @@ class ObscurFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onNewToken(token: String) {
-        // In a real app, we'd send this to the Tauri layer or the relay directly
-        // However, the PWA/Tauri layer will usually request the token via a plugin
         super.onNewToken(token)
     }
 
     private fun handleEncryptedPush(encryptedPayload: String) {
         try {
-            // 1. Get current user's secret key from secure storage
-            // In a production app, this would be retrieved from encrypted shared preferences or Keystore
-            val sharedPrefs = getSharedPreferences("obscur_native_state", Context.MODE_PRIVATE)
-            val secretKeyHex = sharedPrefs.getString("active_secret_key", null) ?: return
-
-            // 2. Decrypt using libobscur via Uniffi
-            // This is a placeholder for the actual Uniffi call
-            // val preview = decryptPushPayload(secretKeyHex, encryptedPayload)
-            
-            // For now, we simulate the decryption result for the skeleton
-            val title = "New Message"
-            val body = "You have received a new encrypted message."
-            
-            showNotification(title, body)
-
+            val preview = RustPushBridge.decryptPushPayloadForKey(
+                MOBILE_PUSH_SECURE_KEY_ID,
+                encryptedPayload
+            )
+            showNotification(preview.title, preview.body)
         } catch (e: Exception) {
-            // If decryption fails, we might show a generic "New Encrypted Message" notification
+            val message = e.message ?: "unknown"
+            if (
+                message.contains("locked_no_secure_key", ignoreCase = true)
+                || message.contains("secure key unavailable", ignoreCase = true)
+            ) {
+                showNotification("Obscur", "Identity locked. Open the app to unlock.")
+                return
+            }
             showNotification("Obscur", "New encrypted message received")
         }
     }
@@ -76,7 +113,7 @@ class ObscurFirebaseMessagingService : FirebaseMessagingService() {
         )
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher) // Assuming standard icon
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)

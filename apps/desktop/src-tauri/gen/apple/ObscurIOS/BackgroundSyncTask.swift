@@ -1,5 +1,44 @@
 import BackgroundTasks
-import obscur // Assuming framework name
+import Foundation
+import obscur
+
+private let mobileSecureKeyId = "mobile::default::nsec"
+private let mobileSyncRelays = [
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://relay.snort.social",
+    "wss://relay.primal.net",
+]
+
+private enum MobileSyncBridgeError: Error {
+    case unavailable(String)
+    case malformed(String)
+}
+
+private final class MobileSyncRustBridge {
+    static func backgroundSyncForKey() throws -> Int {
+        guard let bridgeType = NSClassFromString("ObscurBridge") as? NSObject.Type else {
+            throw MobileSyncBridgeError.unavailable("rust_bridge_unavailable/background_sync_for_key")
+        }
+        let bridge = bridgeType.init()
+        let selector = NSSelectorFromString("backgroundSyncForKey:relayUrls:")
+        guard bridge.responds(to: selector) else {
+            throw MobileSyncBridgeError.unavailable("rust_bridge_unavailable/background_sync_for_key")
+        }
+        guard let unmanaged = bridge.perform(selector, with: mobileSecureKeyId, with: mobileSyncRelays as NSArray) else {
+            throw MobileSyncBridgeError.malformed("relay_offline_or_timeout")
+        }
+        let payload = unmanaged.takeUnretainedValue()
+        if let number = payload as? NSNumber {
+            return number.intValue
+        }
+        if let report = payload as? NSDictionary,
+           let decrypted = report["decryptedMessages"] as? NSNumber {
+            return decrypted.intValue
+        }
+        return 0
+    }
+}
 
 class BackgroundSyncManager {
     static let shared = BackgroundSyncManager()
@@ -34,24 +73,19 @@ class BackgroundSyncManager {
         }
 
         let operation = BlockOperation {
-            // 1. Get secret key from shared UserDefaults
-            let defaults = UserDefaults(suiteName: "group.app.obscur.desktop")
-            guard let secretKeyHex = defaults?.string(forKey: "active_secret_key") else {
+            do {
+                let decryptedCount = try MobileSyncRustBridge.backgroundSyncForKey()
+                print("Background sync finished, decrypted messages: \(decryptedCount)")
                 task.setTaskCompleted(success: true)
-                return
+            } catch {
+                let message = String(describing: error)
+                if message.localizedCaseInsensitiveContains("locked_no_secure_key")
+                    || message.localizedCaseInsensitiveContains("secure key unavailable") {
+                    task.setTaskCompleted(success: true)
+                    return
+                }
+                task.setTaskCompleted(success: false)
             }
-
-            // 2. Call libobscur sync via FFI
-            // do {
-            //     let count = try LibObscur.backgroundSync(secretKeyHex: secretKeyHex)
-            //     print("Background sync finished: \(count) new messages")
-            //     task.setTaskCompleted(success: true)
-            // } catch {
-            //     task.setTaskCompleted(success: false)
-            // }
-            
-            // Simulation for skeleton
-            task.setTaskCompleted(success: true)
         }
 
         queue.addOperation(operation)

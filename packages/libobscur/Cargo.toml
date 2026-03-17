@@ -31,7 +31,7 @@ rayon = "1.10"
 num_cpus = "1.16"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 tokio = { version = "1.37", features = ["full"] }
-tokio-tungstenite = { version = "0.21", default-features = false, features = ["rustls-tls-native-roots"] }
+tokio-tungstenite = { version = "0.21", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 url = "2.5"
 futures-util = "0.3"
 tokio-socks = "0.5"

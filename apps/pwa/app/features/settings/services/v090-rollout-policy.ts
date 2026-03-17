@@ -5,6 +5,7 @@ export type V090RolloutPolicy = Readonly<{
   deterministicDiscoveryEnabled: boolean;
   protocolCoreEnabled: boolean;
   x3dhRatchetEnabled: boolean;
+  tanstackQueryEnabled?: boolean;
 }>;
 
 export const normalizeV090Flags = (settings: PrivacySettings): PrivacySettings => {
@@ -14,6 +15,7 @@ export const normalizeV090Flags = (settings: PrivacySettings): PrivacySettings =
     normalized.deterministicDiscoveryV090 = false;
     normalized.protocolCoreRustV090 = false;
     normalized.x3dhRatchetV090 = false;
+    normalized.tanstackQueryV1 = false;
     return normalized;
   }
 
@@ -35,5 +37,6 @@ export const getV090RolloutPolicy = (settings: PrivacySettings): V090RolloutPoli
     deterministicDiscoveryEnabled: normalized.deterministicDiscoveryV090 && normalized.protocolCoreRustV090,
     protocolCoreEnabled: normalized.protocolCoreRustV090,
     x3dhRatchetEnabled: normalized.x3dhRatchetV090,
+    tanstackQueryEnabled: normalized.tanstackQueryV1 === true,
   };
 };

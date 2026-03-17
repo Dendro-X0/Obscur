@@ -23,9 +23,11 @@ Tracked sync targets include:
 ## Pre-Tag Checklist
 
 ```bash
+pnpm release:integrity-check
 pnpm docs:check
 pnpm release:ci-signal-check
 pnpm release:artifact-matrix-check
+pnpm release:artifact-version-contract-check
 pnpm release:test-pack -- --skip-preflight
 pnpm release:preflight
 ```
@@ -33,8 +35,10 @@ pnpm release:preflight
 ## Tagging Model
 
 - Release workflow triggers on `v*` tags.
+- Tag pushes run preflight + build + artifact verification.
+- GitHub Release publication is manual-only (`workflow_dispatch` with `publish_release=true`) and must be run on a tag ref.
 - Do not tag until `main` contains exactly the intended release tree.
-- If tag rerun is required, retag only after fixing root cause on `main`.
+- If tag rerun is required, fix root cause on `main`, then use a new version tag (do not rely on retagging).
 
 ## Release Workflow Outputs
 
@@ -42,6 +46,7 @@ From `.github/workflows/release.yml`:
 
 - Desktop bundles (Windows/macOS/Linux)
 - Android APK + AAB
+- Android metadata (`output-metadata.json`) for version parity checks
 - Web/PWA static artifact
 - Optional iOS IPA lane when signing prerequisites exist
 - GitHub Release publication and artifact verification
@@ -57,6 +62,9 @@ From `.github/workflows/release.yml`:
 
 - Remote-only type/build drift
 : run `pnpm ci:scan:pwa:head` before pushing release changes.
+
+- Installer/version drift across lanes
+: artifact verification now enforces desktop filename version markers and Android `versionName` parity from metadata.
 
 ## Minimal Incident Response
 

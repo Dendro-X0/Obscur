@@ -20,11 +20,18 @@ const requiredReleaseWorkflowSnippets = [
   "verify-artifacts:",
   "publish-release:",
   "Check version alignment",
+  "Check release source integrity",
   "Check docs consistency",
   "Run release test pack (reliability gate)",
   "Verify required artifact matrix",
+  "Run artifact version parity check",
+  "pnpm release:artifact-version-parity -- --assets-dir release-assets",
   "Download Web/PWA Artifact",
   "web pwa bundle (.tar.gz)",
+  "github.event_name == 'workflow_dispatch'",
+  "inputs.publish_release == true",
+  "android_signing_state",
+  "ios_lane_state",
 ];
 
 const requiredReliabilityWorkflowSnippets = [

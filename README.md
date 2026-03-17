@@ -92,13 +92,20 @@ Before tagging:
 ```bash
 pnpm version:sync
 pnpm version:check
+pnpm release:integrity-check
 pnpm docs:check
 pnpm release:ci-signal-check
 pnpm release:artifact-matrix-check
+pnpm release:artifact-version-contract-check
 pnpm release:test-pack
 pnpm release:preflight
 pnpm release:verify-tag --tag vX.Y.Z
 ```
+
+Release execution model:
+
+- Step 1: push tag to run preflight/build/artifact verification.
+- Step 2: manually run `.github/workflows/release.yml` with `publish_release=true` on the tag ref to publish GitHub Release assets.
 
 Release references:
 

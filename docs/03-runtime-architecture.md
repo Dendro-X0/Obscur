@@ -41,6 +41,23 @@ No feature should create a parallel owner for these lifecycles.
 - Tauri commands are implemented in Rust under `apps/desktop/src-tauri/src`.
 - Protocol-related native behavior lives in `packages/libobscur/src/protocol`.
 
+Phase 2 owner contract (publish/storage):
+- `protocol_publish_with_quorum` uses native relay ACK evidence (`OK`) and Rust quorum evaluation.
+- When `protocolCoreEnabled && hasNativeRuntime()` is true, messaging publish orchestration uses protocol owner path.
+- Pure web runtime stays deterministic:
+  - protocol command path remains unsupported,
+  - legacy relay/storage owner path remains explicit.
+
+Phase 3 owner contract (mobile native adapters):
+- Android/iOS adapter files under `apps/desktop/src-tauri/gen` are thin shells only.
+- Rust (`packages/libobscur/src/ffi.rs`) owns:
+  - key-scoped push decrypt (`decrypt_push_payload_for_key`),
+  - key-scoped background sync (`background_sync_for_key`),
+  - secure-key load/store contracts.
+- Mobile runtime fail-closed rule:
+  - no secure key => locked path,
+  - no local secret fallback in adapter files.
+
 ## Required Runtime Invariants
 
 - Signed-out windows do not run heavy sync/transport flows.

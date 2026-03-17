@@ -1,5 +1,40 @@
 import UserNotifications
-import obscur // Assuming the framework name for libobscur
+import Foundation
+import obscur
+
+private let mobilePushSecureKeyId = "mobile::default::nsec"
+
+private enum MobilePushBridgeError: Error {
+    case unavailable(String)
+    case malformed(String)
+}
+
+private final class MobilePushRustBridge {
+    static func decryptPushPayloadForKey(_ payload: String) throws -> (title: String, body: String) {
+        guard let bridgeType = NSClassFromString("ObscurBridge") as? NSObject.Type else {
+            throw MobilePushBridgeError.unavailable("rust_bridge_unavailable/decrypt_push_payload_for_key")
+        }
+        let bridge = bridgeType.init()
+        let selector = NSSelectorFromString("decryptPushPayloadForKey:giftWrapJson:")
+        guard bridge.responds(to: selector) else {
+            throw MobilePushBridgeError.unavailable("rust_bridge_unavailable/decrypt_push_payload_for_key")
+        }
+        guard let unmanaged = bridge.perform(selector, with: mobilePushSecureKeyId, with: payload) else {
+            throw MobilePushBridgeError.malformed("malformed_payload/null_preview")
+        }
+        let value = unmanaged.takeUnretainedValue()
+        if let preview = value as? NSDictionary {
+            let body = (preview["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let sender = (preview["senderPubkey"] as? String)?.prefix(12) ?? ""
+            if body.isEmpty {
+                throw MobilePushBridgeError.malformed("malformed_payload/empty_content")
+            }
+            let title = sender.isEmpty ? "New Message" : "Message from \(sender)"
+            return (title, body)
+        }
+        throw MobilePushBridgeError.malformed("malformed_payload/unexpected_preview")
+    }
+}
 
 class NotificationService: UNNotificationServiceExtension {
 
@@ -11,36 +46,26 @@ class NotificationService: UNNotificationServiceExtension {
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
         
         if let bestAttemptContent = bestAttemptContent {
-            // 1. Extract the encrypted payload from the push data
             guard let payload = bestAttemptContent.userInfo["payload"] as? String else {
                 contentHandler(bestAttemptContent)
                 return
             }
-            
-            // 2. Retrieve the active secret key from the shared Keychain/Group
-            // In a real app, this would be in an App Group shared with the main Tauri app
-            let defaults = UserDefaults(suiteName: "group.app.obscur.desktop")
-            guard let secretKeyHex = defaults?.string(forKey: "active_secret_key") else {
-                bestAttemptContent.title = "New Message"
-                bestAttemptContent.body = "Identity locked. Open the app to decrypt."
-                contentHandler(bestAttemptContent)
-                return
+
+            do {
+                let preview = try MobilePushRustBridge.decryptPushPayloadForKey(payload)
+                bestAttemptContent.title = preview.title
+                bestAttemptContent.body = preview.body
+            } catch {
+                let message = String(describing: error)
+                if message.localizedCaseInsensitiveContains("locked_no_secure_key")
+                    || message.localizedCaseInsensitiveContains("secure key unavailable") {
+                    bestAttemptContent.title = "New Message"
+                    bestAttemptContent.body = "Identity locked. Open the app to decrypt."
+                } else {
+                    bestAttemptContent.title = "Obscur"
+                    bestAttemptContent.body = "New encrypted message received"
+                }
             }
-            
-            // 3. Decrypt using libobscur
-            // This is a placeholder for the actual FFI call
-            // do {
-            //     let preview = try LibObscur.decryptPushPayload(secretKey: secretKeyHex, giftWrap: payload)
-            //     bestAttemptContent.title = preview.title
-            //     bestAttemptContent.body = preview.body
-            // } catch {
-            //     bestAttemptContent.body = "New encrypted message received"
-            // }
-            
-            // For now, simulate the result for the skeleton
-            bestAttemptContent.title = "New Message"
-            bestAttemptContent.body = "You have received a new encrypted message."
-            
             contentHandler(bestAttemptContent)
         }
     }

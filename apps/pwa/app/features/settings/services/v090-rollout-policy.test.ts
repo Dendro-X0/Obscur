@@ -11,12 +11,14 @@ describe("v090-rollout-policy", () => {
       deterministicDiscoveryV090: true,
       protocolCoreRustV090: true,
       x3dhRatchetV090: true,
+      tanstackQueryV1: true,
     });
     expect(normalized.useModernDMs).toBe(false);
     expect(normalized.stabilityModeV090).toBe(true);
     expect(normalized.deterministicDiscoveryV090).toBe(false);
     expect(normalized.protocolCoreRustV090).toBe(false);
     expect(normalized.x3dhRatchetV090).toBe(false);
+    expect(normalized.tanstackQueryV1).toBe(false);
   });
 
   it("auto-enables protocol core when x3dh is enabled", () => {
@@ -52,8 +54,10 @@ describe("v090-rollout-policy", () => {
       stabilityModeV090: false,
       deterministicDiscoveryV090: true,
       protocolCoreRustV090: true,
+      tanstackQueryV1: true,
     });
     expect(withProtocol.deterministicDiscoveryEnabled).toBe(true);
+    expect(withProtocol.tanstackQueryEnabled).toBe(true);
   });
 
   it("forces legacy DMs when protocol core is disabled", () => {

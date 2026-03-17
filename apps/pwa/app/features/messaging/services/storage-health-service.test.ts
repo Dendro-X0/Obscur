@@ -6,6 +6,16 @@ const mocks = vi.hoisted(() => ({
   getMock: vi.fn(),
   getLocalMediaIndexSnapshotMock: vi.fn(),
   repairLocalMediaIndexMock: vi.fn(),
+  checkStorageHealthMock: vi.fn(),
+  runStorageRecoveryMock: vi.fn(),
+  hasNativeRuntimeMock: vi.fn(() => false),
+  getV090RolloutPolicyMock: vi.fn(() => ({
+    stabilityModeEnabled: false,
+    deterministicDiscoveryEnabled: false,
+    protocolCoreEnabled: false,
+    x3dhRatchetEnabled: false,
+    tanstackQueryEnabled: false,
+  })),
 }));
 
 vi.mock("@dweb/storage/indexed-db", () => ({
@@ -20,6 +30,27 @@ vi.mock("@/app/features/vault/services/local-media-store", () => ({
   repairLocalMediaIndex: mocks.repairLocalMediaIndexMock,
 }));
 
+vi.mock("@/app/features/runtime/protocol-core-adapter", () => ({
+  protocolCoreAdapter: {
+    checkStorageHealth: mocks.checkStorageHealthMock,
+    runStorageRecovery: mocks.runStorageRecoveryMock,
+  },
+}));
+
+vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
+  hasNativeRuntime: mocks.hasNativeRuntimeMock,
+}));
+
+vi.mock("@/app/features/settings/services/privacy-settings-service", () => ({
+  PrivacySettingsService: {
+    getSettings: vi.fn(() => ({})),
+  },
+}));
+
+vi.mock("@/app/features/settings/services/v090-rollout-policy", () => ({
+  getV090RolloutPolicy: mocks.getV090RolloutPolicyMock,
+}));
+
 import { checkStorageHealth, runStorageRecovery } from "./storage-health-service";
 
 describe("storage-health-service", () => {
@@ -32,6 +63,16 @@ describe("storage-health-service", () => {
     mocks.getMock.mockReset();
     mocks.getLocalMediaIndexSnapshotMock.mockReset();
     mocks.repairLocalMediaIndexMock.mockReset();
+    mocks.checkStorageHealthMock.mockReset();
+    mocks.runStorageRecoveryMock.mockReset();
+    mocks.hasNativeRuntimeMock.mockReturnValue(false);
+    mocks.getV090RolloutPolicyMock.mockReturnValue({
+      stabilityModeEnabled: false,
+      deterministicDiscoveryEnabled: false,
+      protocolCoreEnabled: false,
+      x3dhRatchetEnabled: false,
+      tanstackQueryEnabled: false,
+    });
   });
 
   it("reports healthy state when stores and index checks pass", async () => {
@@ -79,5 +120,53 @@ describe("storage-health-service", () => {
     const metrics = getReliabilityMetricsSnapshot();
     expect(metrics.storage_recovery_runs).toBe(1);
     expect(metrics.storage_recovery_records).toBe(4);
+  });
+
+  it("uses protocol storage checks when protocol owner is active", async () => {
+    mocks.hasNativeRuntimeMock.mockReturnValue(true);
+    mocks.getV090RolloutPolicyMock.mockReturnValue({
+      stabilityModeEnabled: false,
+      deterministicDiscoveryEnabled: false,
+      protocolCoreEnabled: true,
+      x3dhRatchetEnabled: false,
+      tanstackQueryEnabled: false,
+    });
+    mocks.checkStorageHealthMock.mockResolvedValue({
+      ok: true,
+      value: {
+        healthy: true,
+        lastCheckedAtUnixMs: 123,
+      },
+    });
+
+    const health = await checkStorageHealth();
+    expect(health.messageStoreOk).toBe(true);
+    expect(health.checkedAtUnixMs).toBe(123);
+    expect(mocks.getAllByIndexMock).not.toHaveBeenCalled();
+  });
+
+  it("uses protocol storage recovery when protocol owner is active", async () => {
+    mocks.hasNativeRuntimeMock.mockReturnValue(true);
+    mocks.getV090RolloutPolicyMock.mockReturnValue({
+      stabilityModeEnabled: false,
+      deterministicDiscoveryEnabled: false,
+      protocolCoreEnabled: true,
+      x3dhRatchetEnabled: false,
+      tanstackQueryEnabled: false,
+    });
+    mocks.runStorageRecoveryMock.mockResolvedValue({
+      ok: true,
+      value: {
+        repaired: true,
+        recoveredEntries: 2,
+        durationMs: 88,
+      },
+    });
+
+    const report = await runStorageRecovery();
+    expect(report.status).toBe("repaired");
+    expect(report.recoveredEntries).toBe(2);
+    expect(report.durationMs).toBe(88);
+    expect(mocks.repairLocalMediaIndexMock).not.toHaveBeenCalled();
   });
 });

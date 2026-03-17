@@ -22,11 +22,18 @@ pnpm ci:scan:pwa:head
 
 ```bash
 pnpm version:check
+pnpm release:integrity-check
 pnpm release:artifact-matrix-check
+pnpm release:artifact-version-contract-check
 pnpm release:ci-signal-check
 pnpm release:test-pack -- --skip-preflight
 pnpm release:preflight
 ```
+
+Tag-release publication policy:
+
+- Tag workflows must complete preflight/build/verify lanes first.
+- GitHub Release publication is manual-only from `workflow_dispatch` with `publish_release=true` on a tag ref.
 
 ## CI Workflows to Watch
 
@@ -48,3 +55,23 @@ For auth, account sync, relay, request, and DM changes, leave at least one of:
 - tightened typed contract,
 - new diagnostics surface,
 - docs update describing invariant/gate.
+
+## Phase 2 Boundary Checks (Rust Core)
+
+For Rust protocol boundary work, run:
+
+```bash
+pnpm.cmd -C apps/pwa exec vitest run app/features/runtime/protocol-core-adapter.test.ts app/features/runtime/protocol-acl-parity.test.ts app/features/messaging/controllers/outgoing-dm-publisher.test.ts app/features/profile/hooks/use-profile-publisher.test.ts app/features/messaging/services/storage-health-service.test.ts
+cargo test --manifest-path packages/libobscur/Cargo.toml protocol -- --nocapture
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+```
+
+## Phase 3 Mobile Boundary Checks
+
+For Kotlin/Swift adapter hardening and mobile secure-store parity, run:
+
+```bash
+pnpm -C apps/pwa exec vitest run app/features/runtime/mobile-native-boundary.drift-guard.test.ts app/features/runtime/protocol-core-adapter.test.ts app/features/runtime/protocol-acl-parity.test.ts
+cargo test --manifest-path packages/libobscur/Cargo.toml -- --nocapture
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+```

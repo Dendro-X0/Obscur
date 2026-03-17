@@ -21,6 +21,7 @@ export interface PrivacySettings {
     discoveryInviteCodeV1?: boolean; // Phase-0 flag: invite-code-based discovery path
     discoveryDeepLinkV1?: boolean; // Phase-0 flag: deep-link add-contact discovery path
     discoverySuggestionsV1?: boolean; // Phase-0 flag: friend suggestions discovery path
+    tanstackQueryV1?: boolean; // Phase-1 flag: TanStack Query adapter lane
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -43,6 +44,7 @@ export const defaultPrivacySettings: PrivacySettings = {
     discoveryInviteCodeV1: false,
     discoveryDeepLinkV1: true,
     discoverySuggestionsV1: true,
+    tanstackQueryV1: false,
 };
 
 export type DiscoveryFeatureFlags = Readonly<{

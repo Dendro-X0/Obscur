@@ -15,7 +15,7 @@ import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';
  */
 
 // Mock dependencies
-vi.mock('../../crypto/crypto-service', () => ({
+vi.mock('@/app/features/crypto/crypto-service', () => ({
   cryptoService: {
     encryptDM: vi.fn(),
     signEvent: vi.fn(),
@@ -86,7 +86,7 @@ vi.mock('../../nostr-safety-limits', () => ({
 
 // Import after mocking
 import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
-import { cryptoService } from '../../../../features/crypto/crypto-service';
+import { cryptoService } from '@/app/features/crypto/crypto-service';
 
 describe('Checkpoint: Basic Sending Functionality', () => {
   const mockPublicKey: PublicKeyHex = 'a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc' as PublicKeyHex;

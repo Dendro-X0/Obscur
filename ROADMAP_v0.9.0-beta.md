@@ -49,10 +49,10 @@ Exit criteria:
 - Cross-profile cache contamination tests pass.
 
 Status checklist:
-- [ ] P1.1 Query-key and invalidation contract approved
-- [ ] P1.2 Discovery/search slice migrated
-- [ ] P1.3 Relay/account-sync read surfaces migrated
-- [ ] P1.4 Cache isolation tests passing
+- [x] P1.1 Query-key and invalidation contract approved
+- [x] P1.2 Discovery/search slice migrated
+- [x] P1.3 Relay/account-sync read surfaces migrated
+- [x] P1.4 Cache isolation tests passing
 
 ## Phase 2: Rust Core Boundary Tightening
 
@@ -69,9 +69,9 @@ Exit criteria:
 - No duplicate owners for security-sensitive state transitions.
 
 Status checklist:
-- [ ] P2.1 Ownership map completed
-- [ ] P2.2 Contract hardening landed
-- [ ] P2.3 Boundary tests passing
+- [x] P2.1 Ownership map completed
+- [x] P2.2 Contract hardening landed
+- [x] P2.3 Boundary tests passing
 
 ## Phase 3: Kotlin/Swift Adapter Hardening
 
@@ -88,9 +88,12 @@ Exit criteria:
 - Security-sensitive fallback behavior is deterministic on both platforms.
 
 Status checklist:
-- [ ] P3.1 FFI adapter paths standardized
-- [ ] P3.2 Secure storage policy applied
-- [ ] P3.3 Parity matrix verified
+- [x] P3.1 FFI adapter paths standardized
+- [x] P3.2 Secure storage policy applied
+- [x] P3.3 Parity matrix verified
+
+Gate note:
+- Phase 3 gates were re-run on 2026-03-17 and are currently green, including full `pnpm --dir apps/pwa exec vitest run`.
 
 ## Phase 4: Beta Release Hardening and Repeatability
 
@@ -110,6 +113,12 @@ Status checklist:
 - [ ] P4.1 Full release workflow green
 - [ ] P4.2 Artifact version parity verified
 - [ ] P4.3 Final docs/changelog sync complete
+
+Gate note:
+- Local Phase 4 gates are green on 2026-03-17, including `release:test-pack -- --skip-preflight`, `ci:scan:pwa:head`, and dry-run preflight.
+- Phase 4 completion remains blocked until:
+  - manual non-publish `release.yml` workflow evidence is captured on a tag ref, and
+  - strict `pnpm release:preflight` passes on clean `main`.
 
 ## Command Gate (Must Pass Before Tag)
 

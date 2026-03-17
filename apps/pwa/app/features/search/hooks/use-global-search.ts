@@ -6,6 +6,11 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
 import { DiscoveryEngine } from "@/app/features/search/services/discovery-engine";
 import { discoverySessionDiagnosticsStore } from "@/app/features/search/services/discovery-session-diagnostics";
+import { useTanstackQueryRuntime } from "@/app/features/query/providers/tanstack-query-runtime-provider";
+import { queryKeyFactory } from "@/app/features/query/services/query-key-factory";
+import { markTanstackQueryPath } from "@/app/features/query/services/tanstack-query-diagnostics";
+import { createQueryScope } from "@/app/features/query/services/query-scope";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import type {
     DiscoveryIntent,
     DiscoveryQueryState,
@@ -97,6 +102,7 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
     const defaultIntent = options.intent ?? "add_friend";
     void options.myPublicKeyHex;
     const { relayPool: pool, relayRecovery } = useRelay();
+    const tanstackQueryRuntime = useTanstackQueryRuntime();
     const { createdGroups } = useGroups();
 
     const [results, setResults] = useState<ReadonlyArray<DiscoveryResult>>([]);
@@ -105,6 +111,11 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
 
     const searchRunIdRef = useRef(0);
     const searchAbortRef = useRef<AbortController | null>(null);
+    const lastSearchQueryKeyRef = useRef<ReturnType<typeof queryKeyFactory.discoverySearch> | null>(null);
+
+    useEffect(() => {
+        markTanstackQueryPath("discovery_search", tanstackQueryRuntime?.enabled === true ? "tanstack" : "legacy");
+    }, [tanstackQueryRuntime?.enabled]);
 
     const clearResults = useCallback(() => {
         setResults([]);
@@ -118,7 +129,14 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
             searchAbortRef.current.abort();
             searchAbortRef.current = null;
         }
-    }, []);
+        if (tanstackQueryRuntime?.enabled && lastSearchQueryKeyRef.current) {
+            void tanstackQueryRuntime.queryClient.cancelQueries({
+                queryKey: lastSearchQueryKeyRef.current,
+                exact: true,
+            });
+            lastSearchQueryKeyRef.current = null;
+        }
+    }, [tanstackQueryRuntime]);
 
     useEffect(() => {
         return () => {
@@ -148,28 +166,48 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
         setQueryState(createDefaultQueryState(effectiveIntent));
 
         try {
-            const finalResult = await DiscoveryEngine.run({
+            const runDiscoverySearch = async (signal: AbortSignal) => {
+                return DiscoveryEngine.run({
+                    query: trimmedQuery,
+                    intent: effectiveIntent,
+                    pool,
+                    relayTimeoutMs: SEARCH_TIMEOUT_MS,
+                    signal,
+                    localCommunities: createdGroups.map((group) => ({
+                        communityId: group.groupId,
+                        relayUrl: group.relayUrl,
+                        name: group.displayName,
+                        about: undefined,
+                        picture: group.avatar,
+                        updatedAtUnixMs: group.lastMessageTime?.getTime?.() ?? Date.now(),
+                    })),
+                    indexBaseUrl: process.env.NEXT_PUBLIC_DISCOVERY_INDEX_URL,
+                    skipRelayLookup: relayRecovery.writableRelayCount === 0 && typeof navigator !== "undefined" && navigator.onLine !== false,
+                    onProgress: (state, partialResults) => {
+                        if (searchRunIdRef.current !== runId) return;
+                        setQueryState(state);
+                        setResults(Array.from(partialResults));
+                    },
+                });
+            };
+
+            const queryScope = tanstackQueryRuntime?.scope ?? createQueryScope({
+                profileId: getActiveProfileIdSafe(),
+                publicKeyHex: options.myPublicKeyHex,
+            });
+            const searchQueryKey = queryKeyFactory.discoverySearch({
+                scope: queryScope,
                 query: trimmedQuery,
                 intent: effectiveIntent,
-                pool,
-                relayTimeoutMs: SEARCH_TIMEOUT_MS,
-                signal: abortController.signal,
-                localCommunities: createdGroups.map((group) => ({
-                    communityId: group.groupId,
-                    relayUrl: group.relayUrl,
-                    name: group.displayName,
-                    about: undefined,
-                    picture: group.avatar,
-                    updatedAtUnixMs: group.lastMessageTime?.getTime?.() ?? Date.now(),
-                })),
-                indexBaseUrl: process.env.NEXT_PUBLIC_DISCOVERY_INDEX_URL,
-                skipRelayLookup: relayRecovery.writableRelayCount === 0 && typeof navigator !== "undefined" && navigator.onLine !== false,
-                onProgress: (state, partialResults) => {
-                    if (searchRunIdRef.current !== runId) return;
-                    setQueryState(state);
-                    setResults(Array.from(partialResults));
-                },
             });
+            lastSearchQueryKeyRef.current = searchQueryKey;
+
+            const finalResult = tanstackQueryRuntime?.enabled
+                ? await tanstackQueryRuntime.queryClient.fetchQuery({
+                    queryKey: searchQueryKey,
+                    queryFn: ({ signal }) => runDiscoverySearch(signal),
+                })
+                : await runDiscoverySearch(abortController.signal);
 
             if (searchRunIdRef.current !== runId) {
                 return;
