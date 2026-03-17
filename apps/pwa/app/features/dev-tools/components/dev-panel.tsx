@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Ghost, Bot, Zap, Settings, ChevronUp, ChevronDown, Trash2, Play, MessageSquare, UserPlus } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { Card } from "@dweb/ui-kit";
@@ -15,30 +15,123 @@ import { chatStateStoreService } from "@/app/features/messaging/services/chat-st
 import { loadGroupTombstones } from "@/app/features/groups/services/group-tombstone-store";
 import { getAbuseMetricsSnapshot } from "@/app/shared/abuse-observability";
 import { getSybilRiskSnapshot } from "@/app/shared/sybil-risk-signals";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { getNip96StorageKey } from "@/app/features/messaging/lib/nip96-upload-service";
+import { uploadServiceInternals } from "@/app/features/messaging/lib/upload-service";
+import {
+    runRelayNipProbe,
+    summarizeRelayNipProbeResults,
+    type RelayNipProbeResult
+} from "@/app/features/relays/lib/relay-nip-probe.mjs";
 import {
     auditCommunityMigrationState,
     type CommunityMigrationAuditReport
 } from "@/app/features/groups/services/community-migration-audit";
+import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
+import { useWindowRuntimeSnapshot } from "@/app/features/runtime/services/window-runtime-supervisor";
+import type { SenderDeliveryIssueReport } from "@/app/features/messaging/services/delivery-troubleshooting-reporter";
+import type { DevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
+import { uiResponsivenessMonitor, useUiResponsivenessSnapshot } from "@/app/shared/ui-responsiveness-monitor";
+
+type RuntimeIssueDomainFilter = DevRuntimeIssue["domain"] | "all";
+type RuntimeIssueSeverityFilter = DevRuntimeIssue["severity"] | "all";
+type RuntimeIssueRetryabilityFilter = "all" | "retryable" | "terminal";
+
+const formatBytes = (bytes: number | null): string => {
+    if (typeof bytes !== "number" || Number.isNaN(bytes) || bytes <= 0) {
+        return "n/a";
+    }
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
+};
+
+const formatMillis = (ms: number): string => `${Math.round(ms)}ms`;
 
 export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const { isDevMode, toggleDevMode, botEngine, mockPool } = useDevMode();
     const { requestsInbox } = useNetwork();
+    const { enabledRelayUrls, relayPool, relayRecovery, relayRuntime } = useRelay();
     const identity = useIdentity();
     const [isOpen, setIsOpen] = useState(false);
     const [activeScenario, setActiveScenario] = useState<string | null>(null);
     const [stopScenario, setStopScenario] = useState<(() => void) | null>(null);
     const [migrationAuditReport, setMigrationAuditReport] = useState<CommunityMigrationAuditReport | null>(null);
+    const [probeResults, setProbeResults] = useState<ReadonlyArray<RelayNipProbeResult>>([]);
+    const [isRunningProbe, setIsRunningProbe] = useState(false);
+    const [lastProbeAtUnixMs, setLastProbeAtUnixMs] = useState<number | null>(null);
     const [isCopyingAudit, setIsCopyingAudit] = useState(false);
     const [isCopyingAffectedKeys, setIsCopyingAffectedKeys] = useState(false);
     const [isRunAndCopyingAudit, setIsRunAndCopyingAudit] = useState(false);
+    const [isCopyingRuntimeIssues, setIsCopyingRuntimeIssues] = useState(false);
+    const [senderDeliveryIssues, setSenderDeliveryIssues] = useState<ReadonlyArray<SenderDeliveryIssueReport>>([]);
+    const [runtimeIssues, setRuntimeIssues] = useState<ReadonlyArray<DevRuntimeIssue>>([]);
+    const [runtimeIssueDomainFilter, setRuntimeIssueDomainFilter] = useState<RuntimeIssueDomainFilter>("all");
+    const [runtimeIssueSeverityFilter, setRuntimeIssueSeverityFilter] = useState<RuntimeIssueSeverityFilter>("all");
+    const [runtimeIssueRetryabilityFilter, setRuntimeIssueRetryabilityFilter] = useState<RuntimeIssueRetryabilityFilter>("all");
     const [affectedCommunities, setAffectedCommunities] = useState<ReadonlyArray<Readonly<{
         key: string;
         conversationId: string;
         displayName: string;
     }>>>([]);
+    const accountSyncSnapshot = useAccountSyncSnapshot();
+    const windowRuntimeSnapshot = useWindowRuntimeSnapshot();
+    const uiResponsiveness = useUiResponsivenessSnapshot();
     const identityDiagnostics = identity.getIdentityDiagnostics?.() ?? { status: identity.state.status };
     const abuseMetrics = getAbuseMetricsSnapshot();
     const sybilRisk = getSybilRiskSnapshot();
+    const probeSummary = useMemo(() => summarizeRelayNipProbeResults(probeResults), [probeResults]);
+    const filteredRuntimeIssues = useMemo(() => {
+        return runtimeIssues.filter((issue) => {
+            if (runtimeIssueDomainFilter !== "all" && issue.domain !== runtimeIssueDomainFilter) {
+                return false;
+            }
+            if (runtimeIssueSeverityFilter !== "all" && issue.severity !== runtimeIssueSeverityFilter) {
+                return false;
+            }
+            if (runtimeIssueRetryabilityFilter === "retryable" && issue.retryable !== true) {
+                return false;
+            }
+            if (runtimeIssueRetryabilityFilter === "terminal" && issue.retryable === true) {
+                return false;
+            }
+            return true;
+        });
+    }, [runtimeIssues, runtimeIssueDomainFilter, runtimeIssueSeverityFilter, runtimeIssueRetryabilityFilter]);
+
+    const refreshSenderDeliveryIssues = () => {
+        if (typeof window === "undefined") return;
+        setSenderDeliveryIssues(
+            window.obscurDeliveryTroubleshooting?.getRecentSenderDeliveryIssues() ?? []
+        );
+    };
+
+    const refreshRuntimeIssues = () => {
+        if (typeof window === "undefined") return;
+        setRuntimeIssues(
+            window.obscurDevRuntimeIssues?.getRecentIssues() ?? []
+        );
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        refreshSenderDeliveryIssues();
+        refreshRuntimeIssues();
+        if (typeof window === "undefined") return;
+        const refreshIntervalId = window.setInterval(() => {
+            refreshSenderDeliveryIssues();
+            refreshRuntimeIssues();
+        }, 1500);
+        return () => {
+            window.clearInterval(refreshIntervalId);
+        };
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isDevMode && process.env.NODE_ENV !== "development") {
+            return;
+        }
+        uiResponsivenessMonitor.start();
+    }, [isDevMode]);
 
     if (!isDevMode && process.env.NODE_ENV !== "development") {
         return null;
@@ -68,6 +161,38 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const handleClearBots = () => {
         handleStopScenario();
         botEngine.clearBots();
+    };
+
+    const handleClearSenderDeliveryIssues = () => {
+        if (typeof window === "undefined") return;
+        window.obscurDeliveryTroubleshooting?.clearSenderDeliveryIssues();
+        refreshSenderDeliveryIssues();
+    };
+
+    const handleClearRuntimeIssues = () => {
+        if (typeof window === "undefined") return;
+        window.obscurDevRuntimeIssues?.clearIssues();
+        refreshRuntimeIssues();
+    };
+
+    const handleCopyRuntimeIssues = async () => {
+        if (typeof navigator === "undefined" || !navigator.clipboard) {
+            return;
+        }
+        try {
+            setIsCopyingRuntimeIssues(true);
+            await navigator.clipboard.writeText(JSON.stringify(filteredRuntimeIssues, null, 2));
+            toast.success("Runtime issues copied");
+        } catch {
+            toast.error("Failed to copy runtime issues");
+        } finally {
+            setIsCopyingRuntimeIssues(false);
+        }
+    };
+
+    const handleResetUiResponsiveness = () => {
+        uiResponsivenessMonitor.reset();
+        toast.success("UI responsiveness counters reset");
     };
 
     const simulateIncomingMessage = () => {
@@ -194,6 +319,46 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
         }
     };
 
+    const readNip96ProviderUrls = (): ReadonlyArray<string> => {
+        if (typeof window === "undefined") {
+            return uploadServiceInternals.DEFAULT_NIP96_PROVIDER_URLS;
+        }
+        try {
+            const raw = localStorage.getItem(getNip96StorageKey());
+            if (!raw) return uploadServiceInternals.DEFAULT_NIP96_PROVIDER_URLS;
+            const parsed = JSON.parse(raw) as Readonly<{ apiUrls?: ReadonlyArray<string>; enabled?: boolean }>;
+            const urls = Array.isArray(parsed?.apiUrls) ? parsed.apiUrls.filter((url): url is string => typeof url === "string") : [];
+            if (parsed?.enabled === false) return [];
+            if (urls.length === 0) return uploadServiceInternals.DEFAULT_NIP96_PROVIDER_URLS;
+            return Array.from(new Set(urls.map((url) => url.trim()).filter((url) => url.length > 0)));
+        } catch {
+            return uploadServiceInternals.DEFAULT_NIP96_PROVIDER_URLS;
+        }
+    };
+
+    const handleRunRelayProbe = async () => {
+        setIsRunningProbe(true);
+        try {
+            const relayUrls = enabledRelayUrls.length > 0
+                ? enabledRelayUrls
+                : relayPool.connections.map((connection) => connection.url);
+            const nip96Urls = readNip96ProviderUrls();
+            const results = await runRelayNipProbe({
+                relayUrls,
+                nip96Urls,
+                timeoutMs: 4500,
+            });
+            setProbeResults(results);
+            setLastProbeAtUnixMs(Date.now());
+            const summary = summarizeRelayNipProbeResults(results);
+            toast.info(`Probe done: ok=${summary.ok}, degraded=${summary.degraded}, failed=${summary.failed}, unsupported=${summary.unsupported}`);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Relay/NIP probe failed");
+        } finally {
+            setIsRunningProbe(false);
+        }
+    };
+
     const openCommunity = (conversationId: string) => {
         if (typeof window === "undefined") return;
         window.location.href = `/?convId=${encodeURIComponent(conversationId)}`;
@@ -292,6 +457,62 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                         </div>
 
                         <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Account Sync</div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div>phase: <span className="font-mono">{accountSyncSnapshot.phase}</span></div>
+                                <div>status: <span className="font-mono">{accountSyncSnapshot.status}</span></div>
+                                <div>portable: <span className="font-mono">{accountSyncSnapshot.portabilityStatus}</span></div>
+                                <div>backup: <span className="font-mono">{accountSyncSnapshot.hasEncryptedBackup ? "present" : "missing"}</span></div>
+                                <div>restore source: <span className="font-mono">{accountSyncSnapshot.lastRestoreSource || "none"}</span></div>
+                                <div>profile proof: <span className="font-mono">{accountSyncSnapshot.profileProof ? `${accountSyncSnapshot.profileProof.deliveryStatus} ${accountSyncSnapshot.profileProof.successCount ?? 0}/${accountSyncSnapshot.profileProof.totalRelays ?? 0}` : "none"}</span></div>
+                                <div>backup proof: <span className="font-mono">{accountSyncSnapshot.backupProof ? `${accountSyncSnapshot.backupProof.deliveryStatus} ${accountSyncSnapshot.backupProof.successCount ?? 0}/${accountSyncSnapshot.backupProof.totalRelays ?? 0}` : "none"}</span></div>
+                                <div>last profile fetch: <span className="font-mono">{accountSyncSnapshot.lastPublicProfileFetchAtUnixMs ? new Date(accountSyncSnapshot.lastPublicProfileFetchAtUnixMs).toISOString() : "n/a"}</span></div>
+                                <div>last backup publish: <span className="font-mono">{accountSyncSnapshot.lastEncryptedBackupPublishAtUnixMs ? new Date(accountSyncSnapshot.lastEncryptedBackupPublishAtUnixMs).toISOString() : "n/a"}</span></div>
+                                <div>relay failure: <span className="font-mono">{accountSyncSnapshot.lastRelayFailureReason || "none"}</span></div>
+                                <div className="pt-2">runtime phase: <span className="font-mono">{windowRuntimeSnapshot.phase}</span></div>
+                                <div>runtime profile: <span className="font-mono">{windowRuntimeSnapshot.session.profileId}</span></div>
+                                <div>runtime window: <span className="font-mono">{windowRuntimeSnapshot.session.windowLabel}</span></div>
+                                <div>runtime identity: <span className="font-mono">{windowRuntimeSnapshot.session.identityStatus}</span></div>
+                                <div>runtime degraded: <span className="font-mono">{windowRuntimeSnapshot.degradedReason}</span></div>
+                                <div>incoming owners: <span className="font-mono">{windowRuntimeSnapshot.messagingTransportRuntime.activeIncomingOwnerCount}</span></div>
+                                <div>queue processors: <span className="font-mono">{windowRuntimeSnapshot.messagingTransportRuntime.activeQueueProcessorCount}</span></div>
+                                <div>relay runtime: <span className="font-mono">{relayRuntime.phase}</span></div>
+                                <div>relay instance: <span className="font-mono">{relayRuntime.instanceId.slice(0, 8)}</span></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                                <span>UI Responsiveness</span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 text-[10px]"
+                                    onClick={handleResetUiResponsiveness}
+                                >
+                                    Reset
+                                </Button>
+                            </div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div>monitor started: <span className="font-mono">{new Date(uiResponsiveness.startedAtUnixMs).toISOString()}</span></div>
+                                <div>dropped frames: <span className="font-mono">{uiResponsiveness.droppedFrameCount}</span></div>
+                                <div>lag spikes (&gt;=120ms): <span className="font-mono">{uiResponsiveness.frameLagSpikeCount}</span></div>
+                                <div>worst frame gap: <span className="font-mono">{formatMillis(uiResponsiveness.worstFrameGapMs)}</span></div>
+                                <div>last frame lag: <span className="font-mono">{uiResponsiveness.lastFrameLagAtUnixMs ? new Date(uiResponsiveness.lastFrameLagAtUnixMs).toISOString() : "n/a"}</span></div>
+                                <div className="pt-2">long task observer: <span className="font-mono">{uiResponsiveness.longTaskSupported ? "available" : "unavailable"}</span></div>
+                                <div>long task count: <span className="font-mono">{uiResponsiveness.longTaskCount}</span></div>
+                                <div>long task total: <span className="font-mono">{formatMillis(uiResponsiveness.longTaskTotalDurationMs)}</span></div>
+                                <div>worst long task: <span className="font-mono">{formatMillis(uiResponsiveness.longTaskWorstDurationMs)}</span></div>
+                                <div>last long task: <span className="font-mono">{uiResponsiveness.lastLongTaskAtUnixMs ? new Date(uiResponsiveness.lastLongTaskAtUnixMs).toISOString() : "n/a"}</span></div>
+                                <div className="pt-2">memory api: <span className="font-mono">{uiResponsiveness.memorySupported ? "available" : "unavailable"}</span></div>
+                                <div>heap used: <span className="font-mono">{formatBytes(uiResponsiveness.heapUsedBytes)}</span></div>
+                                <div>heap total: <span className="font-mono">{formatBytes(uiResponsiveness.heapTotalBytes)}</span></div>
+                                <div>heap limit: <span className="font-mono">{formatBytes(uiResponsiveness.heapLimitBytes)}</span></div>
+                                <div>last memory sample: <span className="font-mono">{uiResponsiveness.lastMemorySampleAtUnixMs ? new Date(uiResponsiveness.lastMemorySampleAtUnixMs).toISOString() : "n/a"}</span></div>
+                            </div>
+                        </div>
+
+                        <div>
                             <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Abuse Metrics</div>
                             <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
                                 <div>request suppressed: <span className="font-mono">{abuseMetrics.request_send_suppressed}</span></div>
@@ -311,6 +532,235 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                                 <div>malformed burst: <span className="font-mono">{sybilRisk.counts.malformed_event_quarantined}</span></div>
                                 <div>identity churn: <span className="font-mono">{sybilRisk.counts.identity_churn}</span></div>
                                 <div>distinct identities: <span className="font-mono">{sybilRisk.distinctIdentityCount}</span></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                                <span>Sender Delivery Issues</span>
+                                <div className="flex items-center gap-1">
+                                    <span className="rounded-full bg-zinc-500/20 px-1.5 py-0.5 text-[10px] text-zinc-700 dark:text-zinc-300">
+                                        {senderDeliveryIssues.length}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 text-[10px]"
+                                        onClick={handleClearSenderDeliveryIssues}
+                                        disabled={senderDeliveryIssues.length === 0}
+                                    >
+                                        Clear
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                {senderDeliveryIssues.length === 0 ? (
+                                    <div className="text-zinc-500">No sender delivery issues captured.</div>
+                                ) : (
+                                    <div className="max-h-36 space-y-1 overflow-auto">
+                                        {senderDeliveryIssues
+                                            .slice(-8)
+                                            .reverse()
+                                            .map((issue) => (
+                                                <div key={`${issue.atUnixMs}:${issue.messageId || issue.recipientPublicKeyHex}`} className="rounded bg-white/70 px-2 py-1 dark:bg-black/20">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className={cn(
+                                                            "rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                                            issue.deliveryStatus === "failed"
+                                                                ? "bg-rose-500/20 text-rose-700"
+                                                                : "bg-amber-500/20 text-amber-700"
+                                                        )}>
+                                                            {issue.deliveryStatus}
+                                                        </span>
+                                                        <span className="font-mono text-[10px] text-zinc-500">
+                                                            {new Date(issue.atUnixMs).toLocaleTimeString()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="truncate font-mono text-[10px] text-zinc-600 dark:text-zinc-300">
+                                                        to {issue.recipientPublicKeyHex.slice(0, 16)} via {issue.attemptPhase}
+                                                    </div>
+                                                    <div className="truncate text-[10px] text-zinc-600 dark:text-zinc-300">
+                                                        reason={issue.reasonCode || issue.failureReason || "unknown"} relays={issue.relayFailureCount}/{issue.relayResultCount}
+                                                    </div>
+                                                    {issue.error ? (
+                                                        <div className="truncate text-[10px] text-rose-600 dark:text-rose-300">{issue.error}</div>
+                                                    ) : null}
+                                                </div>
+                                            ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                                <span>Runtime Issue Feed</span>
+                                <div className="flex items-center gap-1">
+                                    <span className="rounded-full bg-zinc-500/20 px-1.5 py-0.5 text-[10px] text-zinc-700 dark:text-zinc-300">
+                                        {filteredRuntimeIssues.length}/{runtimeIssues.length}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 text-[10px]"
+                                        onClick={handleCopyRuntimeIssues}
+                                        disabled={filteredRuntimeIssues.length === 0 || isCopyingRuntimeIssues}
+                                    >
+                                        {isCopyingRuntimeIssues ? "Copying..." : "Copy"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 text-[10px]"
+                                        onClick={handleClearRuntimeIssues}
+                                        disabled={runtimeIssues.length === 0}
+                                    >
+                                        Clear
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div className="mb-2 grid grid-cols-3 gap-1">
+                                    <select
+                                        className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] dark:border-zinc-700 dark:bg-zinc-900"
+                                        value={runtimeIssueDomainFilter}
+                                        onChange={(event) => setRuntimeIssueDomainFilter(event.target.value as RuntimeIssueDomainFilter)}
+                                    >
+                                        <option value="all">domain: all</option>
+                                        <option value="relay">relay</option>
+                                        <option value="messaging">messaging</option>
+                                        <option value="upload">upload</option>
+                                        <option value="runtime">runtime</option>
+                                        <option value="storage">storage</option>
+                                        <option value="unknown">unknown</option>
+                                    </select>
+                                    <select
+                                        className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] dark:border-zinc-700 dark:bg-zinc-900"
+                                        value={runtimeIssueSeverityFilter}
+                                        onChange={(event) => setRuntimeIssueSeverityFilter(event.target.value as RuntimeIssueSeverityFilter)}
+                                    >
+                                        <option value="all">severity: all</option>
+                                        <option value="error">error</option>
+                                        <option value="warn">warn</option>
+                                    </select>
+                                    <select
+                                        className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] dark:border-zinc-700 dark:bg-zinc-900"
+                                        value={runtimeIssueRetryabilityFilter}
+                                        onChange={(event) => setRuntimeIssueRetryabilityFilter(event.target.value as RuntimeIssueRetryabilityFilter)}
+                                    >
+                                        <option value="all">retry: all</option>
+                                        <option value="retryable">retryable</option>
+                                        <option value="terminal">terminal</option>
+                                    </select>
+                                </div>
+                                {filteredRuntimeIssues.length === 0 ? (
+                                    <div className="text-zinc-500">No runtime issues captured.</div>
+                                ) : (
+                                    <div className="max-h-36 space-y-1 overflow-auto">
+                                        {filteredRuntimeIssues
+                                            .slice(-8)
+                                            .reverse()
+                                            .map((issue) => (
+                                                <div key={issue.id} className="rounded bg-white/70 px-2 py-1 dark:bg-black/20">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className={cn(
+                                                            "rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                                            issue.severity === "error"
+                                                                ? "bg-rose-500/20 text-rose-700"
+                                                                : "bg-amber-500/20 text-amber-700"
+                                                        )}>
+                                                            {issue.domain}:{issue.operation}
+                                                        </span>
+                                                        <span className="font-mono text-[10px] text-zinc-500">
+                                                            {new Date(issue.lastSeenAtUnixMs).toLocaleTimeString()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="truncate text-[10px] text-zinc-600 dark:text-zinc-300">
+                                                        {issue.message}
+                                                    </div>
+                                                    <div className="truncate font-mono text-[10px] text-zinc-500">
+                                                        reason={issue.reasonCode || "unknown"} repeats={issue.occurrenceCount} retryable={issue.retryable === true ? "yes" : "no"}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Relay/NIP Probe</div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div>readiness: <span className="font-mono">{relayRecovery.readiness}</span></div>
+                                <div>writable relays: <span className="font-mono">{relayRecovery.writableRelayCount}</span></div>
+                                <div>subscribable relays: <span className="font-mono">{relayRecovery.subscribableRelayCount}</span></div>
+                                <div>subscriptions: <span className="font-mono">{relayRuntime.activeSubscriptionCount}</span></div>
+                                <div>probe summary: <span className="font-mono">ok={probeSummary.ok} degraded={probeSummary.degraded} failed={probeSummary.failed}</span></div>
+                            </div>
+                            <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
+                                <div className="mb-2 rounded-lg bg-white/70 px-2 py-2 dark:bg-black/20">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Recovery</div>
+                                        <div className={cn(
+                                            "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                                            relayRecovery.readiness === "healthy" ? "bg-emerald-500/20 text-emerald-700" :
+                                                relayRecovery.readiness === "recovering" ? "bg-blue-500/20 text-blue-700" :
+                                                    relayRecovery.readiness === "degraded" ? "bg-amber-500/20 text-amber-700" :
+                                                        "bg-rose-500/20 text-rose-700"
+                                        )}>
+                                            {relayRecovery.readiness}
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-zinc-500">
+                                        <div>writable: {relayRecovery.writableRelayCount}</div>
+                                        <div>readable: {relayRecovery.subscribableRelayCount}</div>
+                                        <div>recoveries: {relayRecovery.recoveryAttemptCount}</div>
+                                        <div>action: {relayRecovery.currentAction || "none"}</div>
+                                    </div>
+                                    {relayRecovery.lastFailureReason ? (
+                                        <div className="mt-2 text-[10px] text-zinc-500">
+                                            failure: {relayRecovery.lastFailureReason}
+                                        </div>
+                                    ) : null}
+                                </div>
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                    <div className="text-[10px] text-zinc-500">
+                                        last: {lastProbeAtUnixMs ? new Date(lastProbeAtUnixMs).toLocaleTimeString() : "never"}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-[10px]"
+                                        onClick={handleRunRelayProbe}
+                                        disabled={isRunningProbe}
+                                    >
+                                        {isRunningProbe ? "Running..." : "Run Probe"}
+                                    </Button>
+                                </div>
+                                {probeResults.length === 0 ? (
+                                    <div className="text-[10px] text-zinc-500">No probe results yet.</div>
+                                ) : (
+                                    <div className="max-h-36 space-y-1 overflow-auto">
+                                        {probeResults.slice(0, 16).map((result, index) => (
+                                            <div key={`${result.target}:${result.check}:${index}`} className="flex items-center justify-between gap-2 rounded bg-white/70 px-2 py-1 dark:bg-black/20">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-[10px] font-bold">{result.check}</div>
+                                                    <div className="truncate text-[10px] text-zinc-500">{result.target}</div>
+                                                </div>
+                                                <div className={cn(
+                                                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                                                    result.status === "ok" ? "bg-emerald-500/20 text-emerald-700" :
+                                                        result.status === "degraded" ? "bg-amber-500/20 text-amber-700" :
+                                                            result.status === "unsupported" ? "bg-zinc-500/20 text-zinc-700" :
+                                                                "bg-rose-500/20 text-rose-700"
+                                                )}>
+                                                    {result.status}
+                                                </div>
+                                                <div className="shrink-0 text-[10px] text-zinc-500">{result.reasonCode || "ok"}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

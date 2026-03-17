@@ -7,6 +7,7 @@ import { Label } from '../../../components/ui/label';
 import { cn } from '../../../lib/cn';
 import { SettingsActionStatus, type SettingsActionPhase } from './settings-action-status';
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 
 /**
  * Premium Privacy & Safety Settings Panel
@@ -24,9 +25,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
 
     const handleRestart = () => {
         if (isTauri) {
-            import('@tauri-apps/api/core').then(({ invoke }) => {
-                invoke('restart_app').catch(console.error);
-            });
+            void invokeNativeCommand("restart_app");
         }
     };
 
@@ -174,9 +173,8 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                 if (!settings.biometricLockEnabled) {
                                     // Verify biometrics before enabling
                                     try {
-                                        const { invoke } = await import('@tauri-apps/api/core');
-                                        const success = await invoke<boolean>('request_biometric_auth');
-                                        if (success) {
+                                        const result = await invokeNativeCommand<boolean>("request_biometric_auth");
+                                        if (result.ok && result.value) {
                                             applySetting({ biometricLockEnabled: true }, "Biometric lock enabled.");
                                         }
                                     } catch (e) {

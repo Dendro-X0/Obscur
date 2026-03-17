@@ -1,10 +1,21 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { powService } from "@/app/features/crypto/pow-service";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useTranslation } from "react-i18next";
+import { toast } from "@dweb/ui-kit";
+import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
+import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
+import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
+import { publishViaRelayCore } from "@/app/features/relays/lib/nostr-core-relay";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { seedProfileMetadataCache } from "./use-profile-metadata";
+import { encryptedAccountBackupService } from "@/app/features/account-sync/services/encrypted-account-backup-service";
+import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
 
 export type PublishProfileParams = Readonly<{
     username: string;
@@ -17,6 +28,7 @@ export type PublishProfileParams = Readonly<{
 
 type UseProfilePublisherResult = Readonly<{
     publishProfile: (params: PublishProfileParams) => Promise<boolean>;
+    getLastReportSnapshot: () => ProfilePublishReport | null;
     isPublishing: boolean;
     isMining: boolean;
     error: string | null;
@@ -36,12 +48,108 @@ export type ProfilePublishPhase =
 
 export type ProfilePublishReport = Readonly<{
     phase: ProfilePublishPhase;
+    deliveryStatus?: "sent_quorum" | "sent_partial" | "queued" | "failed";
     successCount?: number;
     totalRelays?: number;
     attempts?: number;
     message?: string;
     updatedAtIso: string;
 }>;
+
+const PUBLISH_ATTEMPT_TIMEOUT_MS = 9_000;
+
+const withTimeout = async <T>(
+    operation: Promise<T>,
+    timeoutMs: number,
+    timeoutMessage: string
+): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    try {
+        return await Promise.race([
+            operation,
+            new Promise<T>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    reject(new Error(timeoutMessage));
+                }, timeoutMs);
+            })
+        ]);
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+    }
+};
+
+const isDegradedFailure = (message: string): boolean => (
+    /no relays are currently connected/i.test(message) ||
+    /no scoped relays are currently connected/i.test(message) ||
+    /no writable relays available/i.test(message) ||
+    /relay not connected/i.test(message) ||
+    /timeout waiting for ok response/i.test(message) ||
+    /timed out while publishing profile/i.test(message)
+);
+
+const isPartialRelaySuccess = (successCount?: number, totalRelays?: number): boolean => {
+    if (typeof successCount !== "number" || typeof totalRelays !== "number") {
+        return false;
+    }
+    return successCount > 0 && successCount < totalRelays;
+};
+
+const toDeliveryStatus = (status: "ok" | "partial" | "queued" | "failed"): ProfilePublishReport["deliveryStatus"] => {
+    if (status === "ok") return "sent_quorum";
+    if (status === "partial") return "sent_partial";
+    if (status === "queued") return "queued";
+    return "failed";
+};
+
+const normalizeInviteCode = (inviteCode: string | undefined): string | undefined => {
+    const normalized = inviteCode?.trim().toUpperCase();
+    return normalized && normalized.length > 0 ? normalized : undefined;
+};
+
+const syncPublishedProfileCaches = (pubkey: string, params: PublishProfileParams): void => {
+    const normalizedInviteCode = normalizeInviteCode(params.inviteCode);
+    discoveryCache.upsertProfile({
+        pubkey,
+        name: params.username.trim() || undefined,
+        displayName: params.username.trim() || undefined,
+        about: params.about?.trim() || undefined,
+        picture: params.avatarUrl?.trim() || undefined,
+        nip05: params.nip05?.trim() || undefined,
+        inviteCode: normalizedInviteCode,
+    });
+    seedProfileMetadataCache({
+        pubkey: pubkey as any,
+        displayName: params.username.trim() || undefined,
+        avatarUrl: params.avatarUrl?.trim() || undefined,
+        about: params.about?.trim() || undefined,
+        nip05: params.nip05?.trim() || undefined,
+    });
+};
+
+const refreshEncryptedAccountBackup = (
+    pubkey: string,
+    privkey: string,
+    pool: ReturnType<typeof useRelay>["relayPool"],
+    enabledRelayUrls: ReadonlyArray<string>
+): void => {
+    void encryptedAccountBackupService.publishEncryptedAccountBackup({
+        publicKeyHex: pubkey as PublicKeyHex,
+        privateKeyHex: privkey as PrivateKeyHex,
+        pool,
+        scopedRelayUrls: enabledRelayUrls,
+    }).catch(() => {
+        // Best-effort backup refresh after canonical profile save.
+    });
+};
+
+export const profilePublisherInternals = {
+    withTimeout,
+    isDegradedFailure,
+    isPartialRelaySuccess,
+    toDeliveryStatus,
+};
 
 /**
  * Hook to handle publishing User Metadata (Kind 0) events to relays.
@@ -55,6 +163,12 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
     const [error, setError] = useState<string | null>(null);
     const [phase, setPhase] = useState<ProfilePublishPhase>("idle");
     const [lastReport, setLastReport] = useState<ProfilePublishReport | null>(null);
+    const lastReportRef = useRef<ProfilePublishReport | null>(null);
+
+    const updateLastReport = useCallback((report: ProfilePublishReport): void => {
+        lastReportRef.current = report;
+        setLastReport(report);
+    }, []);
 
     // Use shared relay pool
     const { relayPool: pool, enabledRelayUrls } = useRelay();
@@ -114,10 +228,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             });
 
             // Construct Kind 0 Event content
+            const normalizedInviteCode = normalizeInviteCode(params.inviteCode);
             let aboutContent = params.about || "";
-            if (params.inviteCode && !aboutContent.includes(params.inviteCode)) {
+            if (normalizedInviteCode && !aboutContent.includes(normalizedInviteCode)) {
                 if (aboutContent) aboutContent += "\n\n";
-                aboutContent += `Find me on Obscur with this code: ${params.inviteCode}`;
+                aboutContent += `Find me on Obscur with this code: ${normalizedInviteCode}`;
             }
 
             const content = JSON.stringify({
@@ -130,9 +245,12 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             });
 
             const tags: string[][] = [];
-            if (params.inviteCode) {
-                tags.push(["code", params.inviteCode]);
+            if (normalizedInviteCode) {
+                tags.push(["code", normalizedInviteCode]);
+                // Use a single-letter tag so relays can index with #i filters.
+                tags.push(["i", normalizedInviteCode]);
                 tags.push(["l", "obscur-invite"]);
+                tags.push(["t", "obscur"]);
             }
 
             const unsignedEvent: UnsignedNostrEvent = {
@@ -166,80 +284,181 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
 
             // Publish to all connected relays
             const payload = JSON.stringify(["EVENT", signedEvent]);
+            const rolloutPolicy = getV090RolloutPolicy(PrivacySettingsService.getSettings());
 
             const maxAttempts = 4;
             let lastError: string | null = null;
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                setPhase("publishing");
-                setLastReport({
-                    phase: "publishing",
-                    attempts: attempt,
-                    updatedAtIso: new Date().toISOString()
-                });
-                await pool.waitForConnection(3000);
-
-                if (pool.publishToUrls && enabledRelayUrls.length > 0) {
-                    const scopedResult = await pool.publishToUrls(enabledRelayUrls, payload);
-                    if (scopedResult.success || scopedResult.successCount > 0) {
-                        setPhase("success");
-                        setLastReport({
-                            phase: "success",
-                            attempts: attempt,
-                            successCount: scopedResult.successCount,
-                            totalRelays: scopedResult.totalRelays,
-                            updatedAtIso: new Date().toISOString()
-                        });
-                        return true;
-                    }
-                    lastError = scopedResult.overallError || "Failed to publish profile to enabled relays";
-                    setLastReport({
+                try {
+                    setPhase("publishing");
+                    updateLastReport({
                         phase: "publishing",
                         attempts: attempt,
-                        message: lastError,
-                        successCount: scopedResult.successCount,
-                        totalRelays: scopedResult.totalRelays,
                         updatedAtIso: new Date().toISOString()
                     });
-                } else if (pool.publishToAll) {
-                    const result = await pool.publishToAll(payload);
-                    if (result.success || result.successCount > 0) {
-                        setPhase("success");
-                        setLastReport({
-                            phase: "success",
+                    await pool.waitForConnection(3000);
+
+                    if (rolloutPolicy.protocolCoreEnabled && enabledRelayUrls.length > 0) {
+                        const protocolPublish = await withTimeout(
+                            protocolCoreAdapter.publishWithQuorum(payload, enabledRelayUrls),
+                            PUBLISH_ATTEMPT_TIMEOUT_MS,
+                            "Timed out while publishing profile via protocol core"
+                        );
+                        if (protocolPublish.ok) {
+                            const report = protocolPublish.value;
+                            if (report.successCount > 0) {
+                                setPhase("success");
+                                syncPublishedProfileCaches(pubkey, params);
+                                updateLastReport({
+                                    phase: "success",
+                                    deliveryStatus: report.metQuorum ? "sent_quorum" : "sent_partial",
+                                    attempts: attempt,
+                                    successCount: report.successCount,
+                                    totalRelays: report.totalRelays,
+                                    updatedAtIso: new Date().toISOString()
+                                });
+                                accountSyncStatusStore.setProfileProof({
+                                    publicKeyHex: pubkey as PublicKeyHex,
+                                    eventId: signedEvent.id,
+                                    deliveryStatus: report.metQuorum ? "sent_quorum" : "sent_partial",
+                                    successCount: report.successCount,
+                                    totalRelays: report.totalRelays,
+                                    message: report.metQuorum
+                                        ? "Profile published with protocol quorum."
+                                        : "Profile published with degraded relay coverage.",
+                                });
+                                if (isPartialRelaySuccess(report.successCount, report.totalRelays)) {
+                                    toast.warning(`Profile saved with degraded relay coverage (${report.successCount}/${report.totalRelays}).`);
+                                }
+                                refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
+                                return true;
+                            }
+                            lastError = "Protocol publish returned zero relay successes";
+                        } else if (protocolPublish.reason !== "unsupported") {
+                            lastError = protocolPublish.message || "Protocol publish failed";
+                        }
+                    }
+
+                    const relayCorePublish = await withTimeout(
+                        publishViaRelayCore({
+                            pool,
+                            payload,
+                            scopedRelayUrls: enabledRelayUrls,
+                            waitForConnectionMs: 3_000,
+                        }),
+                        PUBLISH_ATTEMPT_TIMEOUT_MS,
+                        "Timed out while publishing profile to relays"
+                    );
+
+                    if (relayCorePublish.status === "ok" || relayCorePublish.status === "partial") {
+                        const report = relayCorePublish.value;
+                        const successCount = report?.successCount ?? 0;
+                        const totalRelays = report?.totalRelays ?? enabledRelayUrls.length;
+                        if (successCount > 0) {
+                            setPhase("success");
+                            syncPublishedProfileCaches(pubkey, params);
+                            setLastReport({
+                                phase: "success",
+                                deliveryStatus: toDeliveryStatus(relayCorePublish.status),
+                                attempts: attempt,
+                                successCount,
+                                totalRelays,
+                                message: relayCorePublish.message,
+                                updatedAtIso: new Date().toISOString()
+                            });
+                            accountSyncStatusStore.setProfileProof({
+                                publicKeyHex: pubkey as PublicKeyHex,
+                                eventId: signedEvent.id,
+                                deliveryStatus: toDeliveryStatus(relayCorePublish.status) ?? "failed",
+                                successCount,
+                                totalRelays,
+                                message: relayCorePublish.message,
+                            });
+                            if (relayCorePublish.status === "partial" || isPartialRelaySuccess(successCount, totalRelays)) {
+                                toast.warning(`Profile saved with degraded relay coverage (${successCount}/${totalRelays}).`);
+                            }
+                            refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
+                            return true;
+                        }
+                    }
+
+                    if (relayCorePublish.status !== "unsupported") {
+                        const report = relayCorePublish.value;
+                        lastError = relayCorePublish.message || "Failed to publish profile to relays";
+                        updateLastReport({
+                            phase: "publishing",
+                            deliveryStatus: toDeliveryStatus(relayCorePublish.status),
                             attempts: attempt,
+                            message: lastError,
+                            successCount: report?.successCount,
+                            totalRelays: report?.totalRelays ?? enabledRelayUrls.length,
+                            updatedAtIso: new Date().toISOString()
+                        });
+                    } else if (pool.publishToAll) {
+                        const result = await withTimeout(
+                            pool.publishToAll(payload),
+                            PUBLISH_ATTEMPT_TIMEOUT_MS,
+                            "Timed out while publishing profile to relays"
+                        );
+                        if (result.success || result.successCount > 0) {
+                            setPhase("success");
+                            syncPublishedProfileCaches(pubkey, params);
+                            updateLastReport({
+                                phase: "success",
+                                deliveryStatus: result.successCount === result.totalRelays ? "sent_quorum" : "sent_partial",
+                                attempts: attempt,
+                                successCount: result.successCount,
+                                totalRelays: result.totalRelays,
+                                updatedAtIso: new Date().toISOString()
+                            });
+                            accountSyncStatusStore.setProfileProof({
+                                publicKeyHex: pubkey as PublicKeyHex,
+                                eventId: signedEvent.id,
+                                deliveryStatus: result.successCount === result.totalRelays ? "sent_quorum" : "sent_partial",
+                                successCount: result.successCount,
+                                totalRelays: result.totalRelays,
+                                message: result.overallError,
+                            });
+                            if (isPartialRelaySuccess(result.successCount, result.totalRelays)) {
+                                toast.warning(`Profile saved with degraded relay coverage (${result.successCount}/${result.totalRelays}).`);
+                            }
+                            refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
+                            return true;
+                        }
+                        lastError = result.overallError || "Failed to publish to any relay";
+                        updateLastReport({
+                            phase: "publishing",
+                            deliveryStatus: "failed",
+                            attempts: attempt,
+                            message: lastError,
                             successCount: result.successCount,
                             totalRelays: result.totalRelays,
                             updatedAtIso: new Date().toISOString()
                         });
-                        return true;
+                    } else {
+                        lastError = "Relay pool does not support evidence-backed profile publish APIs.";
+                        updateLastReport({
+                            phase: "publishing",
+                            deliveryStatus: "failed",
+                            attempts: attempt,
+                            message: lastError,
+                            updatedAtIso: new Date().toISOString()
+                        });
                     }
-                    lastError = result.overallError || "Failed to publish to any relay";
-                    setLastReport({
+                } catch (attemptError) {
+                    lastError = attemptError instanceof Error ? attemptError.message : "Failed to publish profile";
+                    updateLastReport({
                         phase: "publishing",
+                        deliveryStatus: isDegradedFailure(lastError) ? "queued" : "failed",
                         attempts: attempt,
                         message: lastError,
-                        successCount: result.successCount,
-                        totalRelays: result.totalRelays,
                         updatedAtIso: new Date().toISOString()
                     });
-                } else {
-                    // Best-effort compatibility fallback for generic pools.
-                    pool.sendToOpen(payload);
-                    setPhase("success");
-                    setLastReport({
-                        phase: "success",
-                        attempts: attempt,
-                        updatedAtIso: new Date().toISOString()
-                    });
-                    return true;
                 }
 
                 const transientRelayFailure = !!lastError && (
-                    /no relays are currently connected/i.test(lastError) ||
-                    /no scoped relays are currently connected/i.test(lastError) ||
-                    /relay not connected/i.test(lastError) ||
-                    /timeout waiting for ok response/i.test(lastError)
+                    isDegradedFailure(lastError)
                 );
                 if (!transientRelayFailure || attempt >= maxAttempts) {
                     break;
@@ -254,20 +473,31 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             const message = err instanceof Error ? err.message : "Failed to publish profile";
             setError(message);
             setPhase("error");
-            setLastReport({
+            updateLastReport({
                 phase: "error",
+                deliveryStatus: isDegradedFailure(message) ? "queued" : "failed",
                 message,
                 updatedAtIso: new Date().toISOString()
             });
+            accountSyncStatusStore.setProfileProof({
+                publicKeyHex: pubkey as PublicKeyHex,
+                eventId: undefined,
+                deliveryStatus: isDegradedFailure(message) ? "queued" : "failed",
+                message,
+            });
+            if (isDegradedFailure(message)) {
+                toast.warning("Relay network is degraded. Profile publish did not fully propagate.");
+            }
             return false;
         } finally {
             setIsMining(false);
             setIsPublishing(false);
         }
-    }, [identity, enabledRelayUrls, pool, t]);
+    }, [identity, enabledRelayUrls, pool, t, updateLastReport]);
 
     return useMemo(() => ({
         publishProfile,
+        getLastReportSnapshot: () => lastReportRef.current,
         isPublishing,
         isMining,
         error,

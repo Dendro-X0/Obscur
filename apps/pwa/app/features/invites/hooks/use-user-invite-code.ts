@@ -4,19 +4,11 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
+import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
+import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
 
 import { nip19 } from "nostr-tools";
-
-const generateRandomCode = (): string => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No O, 0, I, 1
-    let result = "";
-    for (let i = 0; i < 6; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return `OBSCUR-${result}`;
-};
 
 /**
  * Hook to manage the user's personal invite code
@@ -26,8 +18,9 @@ export const useUserInviteCode = (params: {
     privateKeyHex: PrivateKeyHex | null;
 }) => {
     const { publicKeyHex, privateKeyHex } = params;
-    const { relayPool: pool, enabledRelayUrls } = useRelay();
+    const { enabledRelayUrls } = useRelay();
     const profile = useProfile();
+    const { publishProfile } = useProfilePublisher();
 
     const [inviteCode, setInviteCode] = useState<string | null>(null);
     const [isPublishing, setIsPublishing] = useState(false);
@@ -36,12 +29,16 @@ export const useUserInviteCode = (params: {
     useEffect(() => {
         if (!publicKeyHex) return;
 
-        const currentCode = profile.state.profile.inviteCode;
+        const currentCodeRaw = profile.state.profile.inviteCode;
+        const currentCode = currentCodeRaw?.trim().toUpperCase();
         if (!currentCode) {
-            const newCode = generateRandomCode();
+            const newCode = generateRandomInviteCode();
             profile.setInviteCode({ inviteCode: newCode });
             setInviteCode(newCode);
         } else {
+            if (currentCode !== currentCodeRaw) {
+                profile.setInviteCode({ inviteCode: currentCode });
+            }
             setInviteCode(currentCode);
         }
     }, [publicKeyHex, profile]);
@@ -63,39 +60,26 @@ export const useUserInviteCode = (params: {
     /**
      * Publish the invite code to the network
      */
-    const publishCode = useCallback(async (): Promise<void> => {
-        if (!publicKeyHex || !privateKeyHex || !inviteCode) return;
+    const publishCode = useCallback(async (): Promise<boolean> => {
+        if (!publicKeyHex || !privateKeyHex || !inviteCode) return false;
 
         setIsPublishing(true);
         try {
-            // Include invite code in Kind 0 metadata
-            // Some clients might use 'name', but we also use a custom tag for our resolver
-            const content = JSON.stringify({
-                name: profile.state.profile.username || "Anon",
-                display_name: profile.state.profile.username || "Anon",
-                about: `Find me on Obscur with this code: ${inviteCode}`,
-                picture: profile.state.profile.avatarUrl
+            const success = await publishProfile({
+                username: profile.state.profile.username || "Anon",
+                about: profile.state.profile.about || "",
+                avatarUrl: profile.state.profile.avatarUrl || "",
+                nip05: profile.state.profile.nip05 || "",
+                inviteCode,
             });
-
-            const event = await cryptoService.signEvent({
-                kind: 0,
-                content,
-                created_at: Math.floor(Date.now() / 1000),
-                tags: [
-                    ["code", inviteCode],
-                    ["l", "obscur-invite"]
-                ],
-                pubkey: publicKeyHex
-            }, privateKeyHex);
-
-            pool.sendToOpen(JSON.stringify(["EVENT", event]));
-            console.log("Published invite code to relays:", inviteCode);
-        } catch (err) {
-            console.error("Failed to publish invite code:", err);
+            return success;
+        } catch {
+            // publishProfile already reports user-facing failure details.
+            return false;
         } finally {
             setIsPublishing(false);
         }
-    }, [publicKeyHex, privateKeyHex, inviteCode, pool, profile.state.profile.username, profile.state.profile.avatarUrl]);
+    }, [publicKeyHex, privateKeyHex, inviteCode, profile.state.profile.username, profile.state.profile.about, profile.state.profile.avatarUrl, profile.state.profile.nip05, publishProfile]);
 
     return useMemo(() => ({
         inviteCode,

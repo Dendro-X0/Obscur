@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import Image from "next/image";
 import { Upload, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
@@ -91,27 +90,26 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, onClear, class
             <div className="relative group">
                 <div
                     className={cn(
-                        "h-24 w-24 rounded-full overflow-hidden border-2 transition-all flex items-center justify-center bg-zinc-100 dark:bg-zinc-800",
+                        "relative h-24 w-24 rounded-full overflow-hidden border-2 transition-all flex items-center justify-center",
+                        displayUrl ? "bg-transparent" : "bg-zinc-100 dark:bg-zinc-800",
                         status === 'uploading' ? "border-purple-500 animate-pulse" :
                             status === 'success' ? "border-emerald-500" :
                                 status === 'error' ? "border-red-500" : "border-zinc-200 dark:border-zinc-700"
                     )}
                 >
                     {displayUrl ? (
-                        <Image
+                        <img
                             src={displayUrl}
                             alt="Avatar Preview"
-                            width={96}
-                            height={96}
-                            className="h-full w-full object-cover"
-                            unoptimized
+                            className="h-full w-full rounded-full object-cover"
+                            draggable={false}
                         />
                     ) : (
                         <Upload className="h-8 w-8 text-zinc-400" />
                     )}
 
                     {isUploading && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
                             <Loader2 className="h-8 w-8 text-white animate-spin" />
                         </div>
                     )}

@@ -47,10 +47,7 @@ export const nip04Decrypt = async (params: Nip04DecryptParams): Promise<string> 
     const plaintextBuffer: ArrayBuffer = await crypto.subtle.decrypt({ name: "AES-CBC", iv: toArrayBuffer(parsed.iv) }, key, toArrayBuffer(parsed.ciphertext));
     return new TextDecoder().decode(new Uint8Array(plaintextBuffer));
   } catch (error) {
-    console.error("[nip04Decrypt] AES-CBC Decryption failed:", error);
-    console.debug("[nip04Decrypt] Sender Pubkey:", params.senderPublicKeyHex);
-    console.debug("[nip04Decrypt] Ciphertext Length:", parsed.ciphertext.length);
-    console.debug("[nip04Decrypt] IV Length:", parsed.iv.length);
-    throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`NIP-04 decrypt failed: ${message}`);
   }
 };

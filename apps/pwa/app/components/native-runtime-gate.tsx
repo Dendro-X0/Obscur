@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { getRuntimeHostInfo, hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 type RuntimeMode = "checking" | "native" | "web";
 
@@ -12,10 +12,8 @@ const WEB_RUNTIME_PROD_ENABLED =
 const NATIVE_BOOT_WAIT_MS = 5000;
 
 const isDevWebAllowed = (): boolean => {
-  if (typeof window === "undefined") return false;
-  const host = window.location.hostname.toLowerCase();
-  const isLocalHost = host === "localhost" || host === "127.0.0.1" || host === "::1";
-  return process.env.NODE_ENV !== "production" || isLocalHost;
+  const host = getRuntimeHostInfo();
+  return process.env.NODE_ENV !== "production" || host.isLocalDevelopment;
 };
 
 const shouldBlockWebRuntime = (): boolean => {
@@ -86,10 +84,11 @@ export function NativeRuntimeGate({
       <div className="max-w-lg rounded-2xl border border-white/10 bg-white/5 p-7">
         <h1 className="text-xl font-semibold text-white">Web Runtime Disabled</h1>
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-          Production web runtime is disabled by policy for v0.8.8.
+          Production web runtime is disabled by policy for v0.8.9 stabilization.
         </p>
         <p className="mt-2 text-xs text-zinc-500">
           Desktop and mobile remain fully supported. Use localhost/dev for web test harness flows.
+          Override for controlled environments: <code className="rounded bg-black/30 px-1.5 py-0.5">NEXT_PUBLIC_ENABLE_WEB_RUNTIME_PROD=1</code>.
         </p>
       </div>
     </div>

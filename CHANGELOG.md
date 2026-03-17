@@ -1,3 +1,399 @@
+## [Unreleased - v0.9.x Foundation Recovery]
+
+Maintainer note:
+
+- This branch remains the unreleased `v0.9.0 beta` recovery line.
+- It is not yet release-ready for trustworthy two-user communication.
+- See [docs/40-v0.9.0-beta-status-and-recovery-handoff.md](./docs/40-v0.9.0-beta-status-and-recovery-handoff.md) for the current branch-state handoff and blocker summary.
+
+### Added
+
+- **Protocol-Core Runtime Adapter Surface (Flag-Gated)**:
+  - Added typed protocol-core adapter coverage for identity/session/envelope/relay-quorum/storage paths in shared runtime code.
+  - Added runtime ACL parity checks for protocol commands in web-dev and desktop adapter contracts.
+- **Deterministic Discovery/Request Foundations**:
+  - Added `IdentityResolver`/contact-card/friend-code foundation services and typed resolver contracts for staged rollout.
+  - Added contact request outbox hook + tests with persisted status metadata (`failureReason`, `blockReason`, `publishReport`, `error`).
+- **Relay-Core Foundation Contracts and Service**:
+  - Added shared `CoreResult`, `RelaySnapshot`, `PublishOutcome`, and relay reason-code contracts under `@dweb/core`.
+  - Added `nostr-core-relay` service + tests for typed relay snapshot and publish outcome mapping.
+- **v0.9 Recovery Docs**:
+  - Added and linked v0.9 recovery/foundation roadmap docs (`docs/35`-`docs/37`) as active execution baseline.
+  - Added Wave 0 canonical relay/NIP audit matrix (`docs/38`).
+- **R0 Drift-Control Doc**:
+  - Added `docs/39-v0.9-r0-architectural-drift-control.md` to define contract/gate correction scope and exit criteria before deeper transport rewrites.
+- **v0.9.0 Beta Recovery Handoff Doc**:
+  - Added `docs/40-v0.9.0-beta-status-and-recovery-handoff.md` to record the actual unreleased beta state, release blockers, and recommended recovery order.
+- **Relay Runtime Resilience Foundation Doc**:
+  - Added `docs/41-v0.9-relay-runtime-resilience-foundation.md` to define the desktop-first relay/runtime recovery model, subscription journal, sticky send queue, and recovery-stage ownership needed for stable multi-window communication.
+
+### Changed
+
+- **v0.9.0-beta Pre-release Finalization (2026-03-16)**:
+  - Extended `.github/workflows/release.yml` artifact matrix to include a required Web/PWA static export lane (`build-web-pwa`) in addition to Desktop and Android lanes (with iOS remaining optional behind signing precheck).
+  - Updated release verification to require Web/PWA bundle presence during artifact-matrix checks and CI-signal contract checks (`scripts/check-release-artifact-matrix.mjs`, `scripts/check-release-ci-signals.mjs`).
+  - Updated release-facing docs and README to align with the GitHub-Releases-only distribution model and current v0.9.0-beta pre-release checklist.
+
+- **Release CI Reliability Gate Hardening (2026-03-16)**:
+  - Added `.github/workflows/reliability-gates.yml` to enforce `pnpm release:test-pack -- --skip-preflight` on PR/main code changes.
+  - Updated reliability gate trigger behavior so the `release:test-pack` status check always reports on PR/main while the heavy test-pack step runs only for reliability-scope file changes.
+  - Updated `.github/workflows/release.yml` preflight to run `release:test-pack` before build/publish jobs.
+  - Extended `scripts/check-release-ci-signals.mjs` to require reliability gate workflow contracts in CI-signal checks.
+  - Added CI-safe `--skip-preflight` mode to `scripts/run-release-test-pack.mjs` so PR/main automation can run release-blocking reliability tests while preserving local `release:preflight` branch/clean-tree constraints.
+  - Repaired current `release:test-pack` blockers in touched runtime/test/UI contracts so the CI-mode pack is green (`typecheck + focused vitest + artifact matrix assertion`).
+- **Discovery Phase 1 - Invite Code Restore + Canonicalization (2026-03-15)**:
+  - Rewired Settings profile validation to include `inviteCode` in the canonical profile preflight path so malformed codes are blocked before save/publish.
+  - Normalized invite codes to uppercase canonical form on save/publish and in user invite-code bootstrap, preventing mixed-case metadata/tag drift.
+  - Improved Identity settings UX for invite codes with explicit suggested-code restore, copy action, and availability caveat text.
+  - Added focused invite-code test coverage (`invite-parser`, `use-user-invite-code`, `use-profile`, `use-profile-publisher`) for normalization, persistence isolation, and publish metadata consistency.
+- **Discovery Phase 2 - Deep-Link Add-Friend Routing (2026-03-15)**:
+  - Added canonical deep-link parsing for contact-card onboarding (`obscur://contact?...`) and URL query-card handoff into deterministic Add Friend search input.
+  - Wired the runtime deep-link owner (`useDeepLinks`) to route contact-card deep links directly to `/search?q=obscur-card:...` so identity resolution stays on the canonical discovery path.
+  - Guarded routing behind discovery feature flags and promoted `discoveryDeepLinkV1` default baseline to enabled for Phase 2 rollout.
+  - Added focused deep-link parser tests and updated privacy settings flag baseline tests.
+- **Discovery Phase 3 - Local Friend Suggestions (2026-03-15)**:
+  - Added a typed local suggestions service that ranks cached identity candidates by recency and profile completeness while excluding self, accepted peers, blocked peers, and active request peers.
+  - Wired Add Friend UI to render local suggestion cards when query is empty and suggestions are enabled, with deterministic `Use` routing into exact-match resolver state.
+  - Promoted `discoverySuggestionsV1` rollout baseline to enabled and added focused suggestion service tests plus updated privacy settings baseline tests.
+- **Discovery Phase 4 - Rollout Controls + Invite-Lane Gate Enforcement (2026-03-15)**:
+  - Enforced `discoveryInviteCodeV1` as a real resolver gate in deterministic and fallback Add Friend flows so legacy invite-code lookup can be safely enabled/disabled per policy.
+  - Added discovery rollout controls in Settings for invite-code lookup, deep-link contact import, and local friend suggestions.
+  - Added Add Friend diagnostics surface (session lookup/conversion counters, primary match source, active flag chips) with clear action.
+  - Added focused resolver coverage for disabled invite-code lane behavior.
+
+- **Relay Runtime Convergence + Stability Planning Update (2026-03-15)**:
+  - Recorded latest beta progress in docs: cross-device chat history convergence is recovered in current desktop/web flows, while relay churn remains the primary reliability risk before release.
+  - Documented an unresolved account-sync data omission as release-blocking: on web restore, contact/profile metadata converges but private DM history can still miss self-authored outbound messages.
+  - Clarified that this self-authored DM history loss is tracked as a state-reconstruction/integrity defect (separate from relay availability churn).
+  - Updated `docs/40-v0.9.0-beta-status-and-recovery-handoff.md` with a new status addendum clarifying that release-critical blockers are now centered on relay fault tolerance and evidence-backed runtime readiness.
+  - Expanded `docs/41-v0.9-relay-runtime-resilience-foundation.md` with an explicit relay module map (`use-relay-list` -> `relay-provider` -> `enhanced-relay-pool` -> recovery/runtime supervisor -> native adapter) and code-level gap analysis.
+  - Documented the v0.9 relay hardening execution plan: runtime transport journal ownership, scoped connection readiness, reason-aware recovery ladder, fallback demotion, stronger relay-list validation, and SLO-based beta gates.
+- **Messaging UI Layering + Viewport Guardrails (2026-03-15)**:
+  - Raised stacking and viewport-clamped positioning for emoji/reaction/context surfaces to prevent menus from rendering behind bubbles or outside window bounds.
+  - Moved composer emoji picker rendering to a body portal with fixed-position clamping so it remains visible above chat content.
+  - Elevated sidebar tab and conversation-row overflow menus with explicit high z-index so "More options" actions are not obscured by surrounding layout layers.
+- **Relay Runtime Resilience Phase 1 (2026-03-15)**:
+  - Added relay transport journal service (`relay-transport-journal`) as canonical runtime evidence surface for desired subscriptions, replay attempt/result diagnostics, and per-source outbound backlog counters.
+  - Wired journal updates from `SubscriptionManager` and relay-open replay flows in `enhanced-relay-pool` with reason-coded replay evidence (`manual`, `recycle`, `relay_open`).
+  - Wired pending outbound sources from `profile-transport-queue` and `use-contact-request-outbox` into relay transport journal source counters.
+  - Extended relay runtime contracts/supervisor projection with Phase 1 fields (`pendingOutboundCount`, pending subscription batch count, replay attempt/result metadata) and replaced placeholder pending outbound projection.
+  - Added focused Phase 1 tests for relay transport journal and runtime/sync integration paths.
+- **Relay Runtime Resilience Phase 2 (2026-03-15)**:
+  - Added scoped relay readiness waiting (`waitForScopedConnection`) in enhanced relay runtime and switched scoped publish recovery waits to scoped relay targets rather than any-relay readiness.
+  - Extended relay transport activity evidence with `writeBlockedRelayCount` and `coolingDownRelayCount` so watchdog recovery can classify blocked-vs-cooldown outage modes.
+  - Upgraded relay watchdog reason classification to distinguish `no_writable_relays`, `write_queue_blocked`, `cooldown_active`, and `stale_event_flow` while preserving centralized reconnect/resubscribe/recycle ownership in runtime recovery policy.
+  - Added fallback demotion policy for auto-added fallback relays: once configured relays remain stably healthy for a bounded window, fallback relays are retired automatically.
+  - Updated relay and messaging scoped-send tests for Phase 2 contracts (`relay-recovery-policy`, `enhanced-relay-pool` reliability paths, and outgoing DM scoped readiness usage).
+- **Relay Runtime Resilience Phase 3 (2026-03-15)**:
+  - Hardened relay-list input trust policy in `use-relay-list`: all relay add/replace/load normalization now uses shared relay URL validation instead of `trim`-only normalization.
+  - Enforced explicit allowlist policy for user relay configuration: trusted `wss://` URLs by default, with `ws://localhost` as the only local-dev exception; other insecure/non-relay schemes are rejected.
+  - Removed sync unverified NIP-65 cache ingest path and kept signature-verified relay hint ingestion as the only event-driven cache mutation path in `Nip65Service`.
+  - Added focused validation and ingestion tests (`validate-relay-url`, `use-relay-list`, and `nip65-service` verified update path coverage).
+- **Relay Runtime Resilience Phase 4 (2026-03-15)**:
+  - Added `relay-resilience-observability` service to track per-relay flap rate, recovery latency samples/p95, replay result ratios, scoped publish readiness block ratio, and operator interventions.
+  - Wired observability to canonical relay/runtime owners:
+    - connection status + scoped publish readiness in `enhanced-relay-pool`,
+    - runtime phase and replay-result transitions in `relay-runtime-supervisor`,
+    - manual relay refresh intervention signal in Settings.
+  - Added beta readiness gate evaluation with thresholded checks (observation window, operator interventions, p95 recovery latency, replay success ratio, scoped blocked ratio).
+  - Added Settings reliability surface for Phase 4 SLO diagnostics (metrics, sample counts, beta gate state, and not-ready reasons).
+  - Added focused test coverage in `relay-resilience-observability.test.ts` and updated `relay-runtime-supervisor.test.ts` for replay observability wiring.
+- **Messaging Render-Phase Safety + Account-Sync Noise Guard (2026-03-15)**:
+  - Refactored `MessagingProvider` state wrapper paths to keep setter updaters render-pure and move persistence side effects outside render-phase updater execution, reducing cross-component render update risk.
+  - Added account-sync mutation publish suppression while backup restore is in flight to reduce restore/mutation feedback churn and log amplification.
+  - Added focused account-sync convergence test coverage for restore-in-flight mutation suppression behavior.
+
+- **Path B v1 Account Projection Foundation (2026-03-14)**:
+  - Scoped account-sync migration policy state by `{profileId, accountPublicKeyHex}` so shadow/drift/cutover phases no longer bleed across profile/account windows; runtime activation now promotes deterministically `shadow -> drift_gate -> read_cutover` only after projection-ready evidence.
+  - Switched encrypted-backup restore for v1 `contacts + DMs + sync-checkpoint` domains to canonical account-event append (with replay-safe idempotency keys) and kept direct restore writes only for non-v1 domains (profile/privacy/relay-list).
+  - Tagged incoming canonical ingest by source (`relay_live` vs `relay_sync`) and updated DM sync cold-start behavior to full-history replay (`since=0`, elevated initial limit) instead of the old 24h bootstrap window.
+  - Added a canonical account-event ingest bridge and wired dual-write append events for core contact/DM transitions at canonical transport boundaries (request transport lifecycle events, incoming DM routing events, sent-DM confirmations, sync-checkpoint advancement, and contact removal).
+  - Added startup-gate coverage test for runtime transport ownership so incoming transport only enables when account projection readiness is explicitly `ready`.
+  - Added deterministic reducer replay tests for account projection state (`contacts`, `messages`, `sync checkpoints`) and an explicit dual-write request-transport test for canonical contact-request event append.
+  - Added projection-read migration authority + selectors for `contacts + requests` with rollback-on-critical-drift behavior, and wired read-cutover support into `usePeerTrust`/`useRequestsInbox` while keeping dual-write compatibility.
+  - Added projection-backed DM conversation list seeding for cutover phases so accepted contacts can recover conversation list metadata (`last message`, `unread`) from canonical projections when local legacy stores are empty on new-device web sessions.
+  - Added projection-backed conversation timeline fallback in `useConversationMessages` so active chats can hydrate from canonical account-event projections when IndexedDB is empty on first web/new-device login.
+  - Updated canonical DM event ingest/reducer behavior to keep full normalized plaintext in message projections while still clipping conversation-list preview strings to concise UI length.
+  - Added legacy-write gating for contacts/request inbox mutations via migration phase (`legacy_writes_disabled`) so canonical event append can remain active while legacy writes are disabled.
+  - Added runtime activation drift-gate enforcement for cutover phases, including promotion support from `drift_gate -> read_cutover` when critical drift is clean and structured activation diagnostics with projection/migration phase context.
+  - Added focused migration tests (`account-projection-read-authority`, `account-projection-selectors`, `account-sync-migration-policy`) and updated runtime activation manager tests for projection/drift-gate behavior.
+  - Hardened account-event contact reducer transitions so `CONTACT_ACCEPTED` cannot be regressed to `pending/declined/canceled` by stale replayed request events; accepted contacts now only regress on explicit `CONTACT_REMOVED` evidence.
+  - Added deterministic cross-device replay integration coverage proving accepted contact + DM timeline visibility survive new-device/web bootstrap replay and no longer regress to stranger state from stale request imports.
+  - Removed legacy requests-inbox handled-item collapsing so non-pending contact/request states are preserved per peer instead of truncating to a single global handled row (prevents cross-peer state churn and related update-loop risk).
+  - Added `useRequestsInbox` integration coverage to ensure multiple accepted peers remain stable under repeated status updates without collapsing state.
+  - Added a `useRequestsInbox` render-loop regression test that mirrors accepted statuses from `useEffect` dependency on inbox items, guarding against `Maximum update depth exceeded` recursion on repeated `setStatus` no-op updates.
+  - Added runtime activation transport-owner invariant diagnostics after projection readiness (`incoming owner = 1`, `queue processor = 1`) with structured warn/info emission for drift visibility during startup churn.
+  - Expanded runtime/messaging ownership tests to cover runtime-phase gating (`activating_runtime` keeps transport disabled), post-ready owner invariant reporting, and rapid register/unregister churn behavior for transport runtime counters.
+  - Added deterministic transition tests for projection/runtime gate flapping plus relay-connection churn to ensure transport-owner invariant logging is emitted only on true counter state transitions (deduped across relay-only churn).
+  - Added a runtime activation transport-gate integration harness (`runtime-activation-transport-gate.integration.test.tsx`) covering one deterministic flow across: cutover critical-drift degrade -> clean recover -> runtime ready owner invariant convergence -> relay-only churn dedupe.
+  - Expanded account-sync drift detection to include message timeline-count deltas as `messages` domain non-critical drift (in addition to contact drift), with focused detector tests for clean/messaging/contact drift classification.
+  - Updated `dm-delivery-deterministic.integration.test.ts` to assert canonical durable-evidence behavior (local retry queue state plus accepted retry once durable minimum is met), removing stale assertions tied to legacy `publishResult.status` and pre-gate quorum semantics.
+  - Expanded `dm-sync-orchestrator` regression coverage for cold-start pagination edge cases: stable-cursor duplicate windows, max-pass exhaustion safety, and timed-out paginated-pass diagnostics/checkpoint evidence.
+  - Fixed pending-request inbox regression where generic replies with outgoing-request evidence could be persisted with `status=undefined`, causing unread badge accumulation that disappeared when opening Requests; these events now remain `pending` with focused incoming-handler coverage.
+  - Hardened projection read authority so `legacy_writes_disabled` phase no longer rolls reads back to legacy on critical drift (prevents no-read/no-write black-hole windows during cutover recovery).
+  - Normalized `_Last reviewed` stamps in docs `37/39/40/41` to the enforced docs-check contract so release preflight remains deterministic in dirty-worktree dry-runs.
+
+- **Desktop Runtime Timeout + Restore Access Stabilization (2026-03-14)**:
+  - Added command-aware native invoke timeout policy for critical startup commands (`desktop_get_profile_isolation_snapshot`) and raised profile runtime command timeout budgets to reduce false bootstrap failures under slow native startup.
+  - Removed client-side timeout enforcement for `init_native_session` so local identity import/unlock no longer fails fast when native session hydration is slow.
+  - Switched account-restore UI from hard-block overlays to non-blocking runtime banners so locally unlocked/imported identities remain usable while relay restore continues in degraded conditions.
+  - Narrowed runtime transport-owner activation to stable runtime phases (`ready`, `degraded`) and relaxed invariant warning severity for expected idle states (`0` owners / `0` queue processors) to reduce startup warning noise.
+  - Added sender-side delivery troubleshooting reports for dev mode so non-delivered DM sends now emit structured diagnostics (`recipient`, `reason`, `relay scope`, relay failure summary) and are queryable via `window.obscurDeliveryTroubleshooting`.
+  - Extended sender delivery troubleshooting to queued retry processing so `retry_scheduled` and terminal queue failures also emit structured sender-delivery issue reports from the queue owner path.
+  - Added a Dev Panel `Sender Delivery Issues` card with live issue list + clear action, making sender->recipient transmit failures visible without digging through raw console spam.
+  - Added a shared dev runtime issue reporter (`window.obscurDevRuntimeIssues`) with normalized issue schema, bounded history, and dedupe windows so repeated failures are surfaced without console flood.
+  - Wired canonical relay connection/publish failures, messaging sender-delivery failures, and NIP-96 upload terminal failures into the shared runtime issue feed.
+  - Added global dev runtime capture for unhandled browser errors and unhandled promise rejections, mounted from app providers and routed into the shared runtime issue feed.
+  - Added `logAppEvent` issue escalation bridge so high-signal warn/error app events are automatically surfaced in the runtime issue feed for future feature work, with exclusions to avoid duplicate sender-delivery reports.
+  - Added a Dev Panel `Runtime Issue Feed` card for cross-domain troubleshooting (relay/messaging/upload) with live updates and clear action.
+  - Added Runtime Issue Feed triage controls (domain/severity/retryability filters) and JSON export in Dev Panel to speed debugging handoffs and issue reporting.
+  - Added focused tests for native timeout policy, native session init invocation contract, account-sync UI policy, and transport invariant severity behavior.
+
+- **Messaging Transport Single-Owner Stabilization (2026-03-13)**:
+  - Added a runtime singleton messaging transport owner provider mounted once in `UnlockedAppRuntimeShell`; this owner now exclusively controls incoming DM subscriptions, sync orchestration, and automatic offline queue processing per window.
+  - Switched non-owner DM controller surfaces (global dialog/search/network/invite cards) to explicit send-only mode (`enableIncomingTransport: false`, `autoSubscribeIncoming: false`, `enableAutoQueueProcessing: false`) and removed route-driven incoming ownership toggling.
+  - Hardened `useEnhancedDMController` lifecycle contract with explicit owner/instance diagnostics (`transportOwnerId`, `controllerInstanceId`), deterministic cleanup on disable/unmount, and queue-processor owner registration lifecycle tracking.
+  - Added strict durable-send preflight queueing: when writable scoped relays cannot satisfy durable minimum (`2-of-3`, otherwise `1`), send is queued immediately with typed failure reason `insufficient_writable_relays` instead of waiting on timeout-driven failure paths.
+  - Added window-scoped transport runtime invariants and DevPanel/runtime snapshot counters for active incoming owners and active queue processors, including warn-level invariant diagnostics when incoming owner count diverges from exactly one.
+  - Added focused runtime diagnostics test coverage for owner/queue counter tracking and invariant emission behavior.
+
+- **Desktop Relay Churn Stabilization (2026-03-13)**:
+  - Added per-relay connection-generation gating in `enhanced-relay-pool` so stale socket events no longer mutate live relay state or trigger duplicate reconnect loops.
+  - Added reconnect in-flight dedupe and minimum reconnect interval suppression to reduce same-URL reconnect fan-out under runtime recovery pressure.
+  - Added hard-failure cooldown gating for relay errors matching Tor/Cloudflare challenge signatures so repeated `403` relay failures do not trigger immediate reconnect hammering.
+  - Hardened `NativeRelay` close/disconnect lifecycle to avoid duplicate native disconnect calls and emit structured connect-failure error detail for relay-pool classification.
+  - Added focused regression coverage for hard-failure classification and native relay structured failure/close behavior.
+
+- **Canonical Relay Reconnect Owner Correction (2026-03-13)**:
+  - Removed Rust-side background auto-reconnect scheduling from `apps/desktop/src-tauri/src/relay.rs` so native relay transport no longer competes with JS reconnect orchestration.
+  - Kept reconnect lifecycle ownership in `enhanced-relay-pool` as the single per-window owner, reducing relay flap races and transient `Not connected` publish failures during desktop runtime churn.
+  - Updated native event adapter lifecycle to detach Tauri listeners on `beforeunload`, reducing stale callback-id warning floods after reload/hot-reload cycles.
+  - Added explicit native connect-time budgeting for `connect_relay` (Tor and non-Tor paths) so command completion stays inside frontend invoke timeout windows and avoids stale timed-out connect races.
+  - Added native relay ping/pong handling in Rust relay read/write loops so native websocket sessions answer control-frame heartbeats and do not churn from missed pong responses under long-lived connections.
+  - Deduplicated native relay `open` emission when `relay-status: connected` and `connect_relay => Already connected` arrive in the same lifecycle window.
+  - Hardened relay-pool generation gating to dispose stale native relay handles without disconnecting the active URL-scoped native transport when a replacement socket already owns that URL.
+
+- **Console Flood Guard + Image Fill Warning Reduction (2026-03-12)**:
+  - Added rate-limited app-event logging in `logAppEvent` so repeated warn/error/info events collapse into bounded output windows instead of flooding DevTools.
+  - Replaced high-frequency native gift-wrap and native crypto fallback `console.error`/`console.warn` paths with classified runtime-log hygiene to prevent repeated decrypt noise from overwhelming diagnostics.
+  - Fixed two `next/image` `fill` parent-position warnings by marking image wrappers as `relative` in chat empty-state and onboarding contact resolution avatars.
+  - Added focused regression coverage for `logAppEvent` rate-limiting behavior.
+
+- **Recipient Relay Evidence Targeting + Inbound Relay Diagnostics (2026-03-12)**:
+  - Added profile-scoped peer relay evidence persistence (`peer-relay-evidence-store`) to record trusted inbound relay URLs observed for each peer from actual received DM/request events.
+  - Wired inbound relay URL context through the live subscription and sync receive paths into incoming DM handling, and surfaced relay URL on delivery diagnostics for event routing triage.
+  - Outgoing relay targeting now includes recipient inbound relay evidence when NIP-65/discovery recipient scope is empty, reducing asymmetric one-way delivery cases where sender-only relay fallback misses recipient-observed relays.
+  - Added focused regression coverage for peer relay evidence persistence/isolation, incoming relay evidence recording, and outbound target resolution using inbound evidence fallback.
+
+- **Native Session Status Wire Compatibility + Rehydrate Fallback (2026-03-12)**:
+  - Fixed native session status parsing to accept both camelCase and snake_case payloads (`isActive` / `is_active`) from Tauri command responses.
+  - Added session status fallback rehydration through `get_native_npub` when `get_session_status` reports inactive, allowing keychain-backed native sessions to recover before DM receive/send guards fail.
+  - Added regression coverage in `session-api.test.ts` for snake_case payload normalization and inactive-status fallback hydration behavior.
+
+- **Desktop DM Modern Path Preference + Receipt ACK Alignment (2026-03-12)**:
+  - Desktop runtime now prefers modern gift-wrap (`kind:1059`) for ordinary direct messages even while v0.9 stability-mode flags remain enabled, with legacy `nip04` retained as fallback when modern event build fails.
+  - Connection receipt ACK (`t=connection-received`) now follows the same modern-first lifecycle path instead of being hardcoded to legacy `nip04`, reducing pending-state drift when legacy decrypt paths regress.
+  - Outgoing relay targeting now includes configured sender relays in addition to currently open relays to improve delivery convergence when recipient relay discovery is temporarily empty.
+
+- **Native Session Congruence Guard + Decrypt Retry Semantics (2026-03-12)**:
+  - Added a native-session identity congruence gate for DM send/receive when running with native key sentinel mode so windows fail deterministically on profile/session pubkey mismatch instead of publishing/decrypting with the wrong native identity.
+  - Tightened incoming decrypt-failure suppression so only permanently malformed/scope-mismatch events are tombstoned; transient/regression decrypt failures are now retryable on later sync passes.
+  - Added regression coverage for transient decrypt retry and permanent malformed-event suppression behavior in the incoming DM handler suite.
+- **Context Recovery Note (2026-03-12)**:
+  - Recorded the current two-window desktop reproduction where account A resolves account B by `npub`, sends an invitation from Discovery, sees `Invitation delivered`, and retains an outgoing pending request while account B does not receive the invitation/DM from account A.
+  - Recorded that account B still receives unrelated inbound traffic (for example advertisement-style request/inbox items), so the failure is not "recipient window cannot receive anything" but a narrower request/message convergence problem across relay scope, inbound routing, or runtime ownership.
+  - Recorded code-audit findings that the Discovery exact-match CTA currently sends through `requestTransport.sendRequest(...)` in `apps/pwa/app/search/page.tsx`, while request list/manage surfaces still render through the legacy `inviteManager` bridge configured from `apps/pwa/app/features/main-shell/main-shell.tsx`, confirming overlapping request owners remain live in the branch.
+  - Recorded that incoming request routing still depends on the DM subscription path plus tag/decrypt routing in `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`, so this failure should be investigated as transport/runtime convergence rather than a simple requests UI rendering bug.
+- **Relay Runtime Audit Recovery Note (2026-03-12)**:
+  - Recorded the relay-system architecture chain and audit findings in `docs/41-v0.9-relay-runtime-resilience-foundation.md` after tracing relay configuration, socket/publish handling, runtime recovery state, and native desktop relay transport.
+  - Recorded that the current relay runtime supervisor still projects state more than it owns it: no subscription journal exists yet and `pendingOutboundCount` remains non-evidence-backed.
+  - Recorded a concrete relay health-scoring bug where `successRate` is stored as a percentage but clamped as though it were `0..1`, which can distort relay ordering and failover decisions.
+  - Recorded that transient/discovered relay URLs are still accepted too trustingly and that desktop native relay probing/connecting remains broader than the intended privacy-tight trust model.
+- **Relay Scoring + Hint Hardening (2026-03-12)**:
+  - Fixed relay health-score normalization so percentage-based `successRate` metrics are converted correctly before relay ordering/failover scoring.
+  - Added a strict relay-hint trust gate for recipient relay hints from `nprofile`, NIP-65, and legacy kind-3 discovery paths so only validated `wss://` relay URLs are cached or connected as transient relays.
+  - Added focused regression tests for relay-score ordering and relay-hint filtering in the PWA relay/messaging stack.
+- **Relay Verified Hint Ingestion + Freshness Semantics (2026-03-12)**:
+  - Added verification-aware NIP-65 ingestion so incoming kind `10002` relay lists require a valid event shape, normalized pubkey, valid signature, and at least one trusted `wss://` relay before cache mutation.
+  - Switched live kind `10002` handling onto the verified ingestion path and preserved prior relay-hint cache state when invalid/unsigned events arrive.
+  - Split relay transport freshness into raw inbound message freshness vs inbound event freshness, and tightened stale-subscription recovery to key off useful event progress instead of generic relay chatter.
+  - Extended relay recovery/runtime snapshots and runtime sync checks with the new freshness evidence fields.
+- **Relay Status UI Accuracy (2026-03-12)**:
+  - Tightened the overall relay status banner so it now considers runtime phase, writable/subscribable relay counts, fallback relay usage, and recent inbound event freshness instead of only open socket counts.
+  - Added a richer per-relay derived status model for Settings and relay metrics surfaces with clearer badges such as `Connected`, `Connecting`, `Cooling down`, `Fallback active`, and `No recent events`.
+  - Replaced overly optimistic per-relay success display with sample-aware confidence messaging so low-sample relays no longer present as confidently `100% stable`.
+  - Fixed split-brain relay UI sources so the dashboard and sidebar relay indicator now read the live provider/runtime state instead of standalone or singleton-only relay monitor state.
+  - Updated the dashboard wording from `Last 10 polls` to `Last samples` to match the actual metric source.
+- **Desktop Request/Invite Receive Recovery (2026-03-12)**:
+  - Fixed requests inbox hydration so live incoming request state is merged with persisted state instead of being overwritten during startup hydration for the same profile window.
+  - Broadened connection lifecycle publish targeting so invitations/connection requests publish to recipient-facing relays plus sender open/write relays when recipient scope is known, reducing the chance of live desktop-window misses caused by overly narrow relay scope.
+  - Added focused regression coverage for requests inbox hydration merge safety and broader lifecycle relay targeting.
+- **Desktop Relay Reconnect Storm Guard (2026-03-12)**:
+  - Hardened browser-WebSocket relay fallback so handshake failures become a single terminal relay failure state instead of feeding duplicate error/close reconnect churn.
+  - Updated the enhanced relay pool to evict dead socket handles immediately on terminal failure/close before scheduling reconnect, allowing replacement sockets to start cleanly.
+  - Added focused regression coverage for browser-fallback terminal-state handling in the desktop relay transport path.
+- **Desktop Relay Native-First Startup (2026-03-12)**:
+  - Changed desktop relay startup to prefer the native relay transport path even when Tor is disabled, with browser WebSocket fallback only if native relay initialization actually fails.
+  - This reduces dependence on webview/browser TLS and handshake behavior during desktop relay startup and avoids repeating browser-fallback certificate and handshake failures when the native path is available.
+- **Relay Settings Manual Refresh (2026-03-12)**:
+  - Added a manual `Refresh Status` action in relay settings that reconnects relays, replays subscriptions, triggers manual relay recovery, and refreshes writable relay status without requiring a page reload.
+- **Messaging Receive Owner Deduplication (2026-03-12)**:
+  - Added `autoSubscribeIncoming` control to the enhanced DM controller so non-canonical send-only surfaces no longer auto-subscribe to live incoming DM streams.
+  - Moved desktop notifications onto the canonical `messageBus` instead of creating an additional background DM controller/subscription owner.
+  - Reduced duplicate incoming-event logging by suppressing repeated `incoming_event_seen` logs for the same event id within one runtime instance.
+- **Connection Lifecycle Modernization (2026-03-12)**:
+  - Stopped forcing legacy `kind: 4` formatting for connection lifecycle messages (`connection-request`, `connection-accept`, `connection-decline`, `connection-cancel`, and receipt variants).
+  - Connection lifecycle sends now stay on the modern encrypted path even while broader stability-mode legacy fallbacks remain in place for ordinary DMs.
+  - This directly targets desktop/web decrypt mismatches where current live request events were arriving with correct recipient tags but failing to decrypt as legacy NIP-04 payloads.
+
+- **Messaging Protocol Wiring (PWA Shared Paths)**:
+  - Outgoing DM publish now prefers protocol-core quorum publish when enabled, with deterministic fallback to legacy relay publish.
+  - Offline/queued DM retry path now uses the same protocol-aware publisher flow.
+  - Relay-core typed publish outcomes now back DM send/queued retry fallback paths.
+  - Incoming DM handling now verifies `v090_x3dr` envelope metadata through protocol adapter (flag-gated) and rejects invalid envelopes with typed outcomes.
+- **Queue Retry Determinism (Wave 2)**:
+  - Offline queue send contract now returns structured outcomes (`accepted | retry_scheduled | terminal_failed`) instead of booleans.
+  - Queued DM retries now persist `retryCount`, `nextRetryAt`, and reason metadata, and stop at terminal budget instead of rapid reattempt loops.
+  - Added a minimum forward retry-delay floor for queued DM retries so jitter cannot schedule immediate reattempts.
+  - Queue processor now removes terminal-failed entries and tracks scheduled retries explicitly.
+- **Profile Publish Reliability Path**:
+  - Profile network publish now routes through relay-core typed outcomes (`ok|partial|queued|failed|unsupported`) with bounded timeout handling.
+  - Added degraded classification for `no writable relays` cases.
+- **Request/Transport Outcome Normalization**:
+  - `SendResult` now carries deterministic delivery state (`sent_quorum|sent_partial|queued_retrying|failed`) for request outbox mapping.
+  - Request outbox retry scheduling now honors queued retry hints and typed failure metadata.
+- **Upload Outcome Classification**:
+  - Added internal upload failure normalization to shared reason-code domain (`provider_unavailable|upload_timeout|upload_provider_failed`) with retryable classification for telemetry/UI consistency.
+  - Added NIP-96 provider URL migration (`nostr.build` legacy endpoint auto-rewritten to `/api/v2/nip96/upload`) and refreshed default provider set.
+  - Added native upload transport fallback: when Tor proxy path fails with network errors, desktop native uploader retries via direct client path before failing terminally.
+- **Cross-Runtime Profile Media Portability**:
+  - Added a shared public URL normalizer so local upload paths and absolute CDN URLs resolve through the same contract across web-dev and desktop UI.
+  - Normalized avatar/profile media at upload return boundaries, local profile persistence, relay metadata resolution, and preview/profile presentation hooks.
+  - Moved remaining profile-facing UI surfaces onto `useResolvedProfileMetadata` where they were still reading raw metadata directly.
+  - Extended `release:test-pack` with public URL and resolved-profile metadata regression coverage.
+- **Restart Recovery Proof Tightening**:
+  - Fixed remaining profile-scoped discovery/request evidence caches to resolve storage keys at access time instead of module load, preventing cross-profile leakage after profile switches.
+  - Added restart-style regression coverage for local profile persistence and profile-scoped request/discovery evidence stores.
+  - Extended `release:test-pack` with the new scoped persistence and local profile restart checks.
+- **DM Persistence Isolation Repair**:
+  - Fixed `MessageQueue` reads so shared IndexedDB message and retry-queue stores are filtered by owning identity instead of leaking entries across identities/profiles.
+  - Preserved recovery compatibility for older owner-less records by inferring message ownership from persisted DM participants and queued-entry ownership from the signed-event sender.
+  - Added IndexedDB-backed message/retry isolation regressions and included them in `release:test-pack`.
+- **Relay Publish Chaos Proof**:
+  - Added relay-core chaos coverage for zero-writable windows, relay flap recovery, intermittent timeout, intermittent `503`, quorum-met degraded publish, and hard relay rejection.
+  - Locked timeout-only zero-success publish windows to typed `queued`/`relay_degraded` instead of terminal failure, while preserving terminal failure for non-retryable relay-policy rejection.
+  - Added the relay publish chaos suite to `release:test-pack`.
+- **Runtime Boundary Parity Hardening**:
+  - Added timeout-aware shared native command invocation and moved native session/crypto calls onto that adapter path.
+  - Added explicit session fallback regression coverage so unsupported/failed native session checks settle to deterministic inactive state.
+  - Centralized notification permission/show behavior behind one runtime-safe service used by desktop/web callers instead of split native-vs-browser branches.
+  - Added runtime notification regression coverage and crypto runtime-selection coverage to keep native/web service choice deterministic.
+- **Native Event + Vault Boundary Extraction**:
+  - Added a shared native event listener adapter and moved deep-link/Tor event subscriptions off direct feature-level Tauri event imports.
+  - Added a native local-media adapter so vault cache path/join/fs/open/picker operations no longer own their own scattered Tauri imports.
+  - Reused centralized standalone-shell detection for deep-link compatibility logic instead of inline display-mode checks.
+  - Extended `release:test-pack` with native event and native local-media adapter regression coverage.
+- **Native Host Integration Boundary Extraction**:
+  - Added a shared native host adapter for external-open, native file-picking/file-read, and background-service registration flows.
+  - Moved upload file selection, media external-open, and background keepalive registration off direct feature-level plugin imports.
+  - Kept background-plugin loading lazy behind the adapter so non-native web/test builds do not couple to that plugin at import time.
+  - Extended `release:test-pack` with native host adapter and background-service regression coverage.
+- **Relay Native Bridge Extraction**:
+  - Added a dedicated relay native adapter for Tor status, relay command/probe calls, and relay event subscriptions.
+  - Refactored `NativeRelay` to depend on that adapter instead of importing raw Tauri core/event APIs directly.
+  - Extended `release:test-pack` with relay-native adapter and `NativeRelay` regression coverage.
+- **X3DH Envelope Metadata Injection (Gated)**:
+  - Outgoing message orchestration now adds envelope version/session/counter tags for `v090_x3dr` policy paths.
+  - Handshake/ratchet/session lookup failures are bounded and fall back to legacy publish path.
+- **Request UX and Error Hygiene**:
+  - Request outbox transitions now distinguish retryable vs non-retryable failures and prevent blind retries for blocked/non-recoverable records.
+  - Search outbox UI now surfaces partial/quorum/failure states with relay success ratios, reason badges, and bounded transition toasts.
+- **R1 Request Delivery Hardening (Kickoff)**:
+  - Incoming tagged connection requests/accepts now bypass `contacts-only` stranger filtering so request traffic is not silently dropped.
+  - Outgoing pending-request guard now treats missing timestamps as stale and shortens stale lock window to 3 minutes to avoid long local lockouts.
+  - Contact request outbox now enforces a max retry budget with terminal `max_retries_exceeded` classification.
+  - Incoming connection requests now trigger a control-plane receipt ACK (`t=connection-received`) so sender pending state has a recipient-evidence refresh path.
+  - Incoming receipt control events now refresh existing outgoing pending state without creating chat messages.
+  - Contact request outbox now reconciles terminal-failed records back into inbox request state by releasing stale outgoing pending guard entries.
+- **R1 Reliability Hard Gate Continuation**:
+  - Added shared request transport convergence contracts (`RequestFlowEvidence`, `RequestConvergenceState`) with profile-scoped evidence persistence.
+  - Unified request send/accept transitions for Search, Network Profile, Chat creation, and dashboard accept actions through `request-transport-service`.
+  - Unified invite-redemption auto-request send path onto `request-transport-service` typed outcomes, removing raw-success assumptions in that entry point.
+  - Added a runtime bridge from the legacy invite manager send path into shared request transport, so direct/deep-link invite sends no longer create local pending records before transport evidence exists.
+  - Added a runtime bridge from the legacy invite manager inbox/accept/decline/cancel path into shared request inbox + trust state, so legacy invite surfaces no longer depend on a separate pending-request truth source when the app shell is active.
+  - Centralized runtime host/bridge policy in `runtime-capabilities` and reused it for Tauri invoke checks plus upload-provider bootstrap/fallback decisions, reducing web-vs-desktop drift from duplicated environment detection.
+  - Added deterministic two-user request flow integration test (`10/10` consecutive runs) with restart checkpoint and wire-evidence assertions.
+  - Added relay-chaos outbox reliability test coverage for forward-only `nextRetryAt`, bounded retry budget, terminal failure convergence, and stale pending lock release.
+  - Added invite-redemption regression coverage to ensure partial delivery persists dedupe state while queued delivery remains retryable on the next redemption attempt.
+  - Added legacy invite-manager regression coverage to ensure partial transport acceptance stores outgoing pending exactly once and relayless failures do not leave stale local pending entries.
+  - Added shared invite-manager regression coverage for inbox-backed request listing plus bridged accept/cancel actions.
+  - Added runtime capability regression coverage for local-dev/hosted-preview host classification used by upload/runtime policy.
+  - Added shared relay/NIP probe module + CLI (`pnpm probe:relay-nip`) and Dev Panel snapshot card for socket/publish/subscribe/NIP-11/NIP-96 diagnostics.
+  - Extended `release:test-pack` to include request transport deterministic/chaos suites and relay/NIP probe contract tests.
+  - Tightened request acceptance convergence so queued/failed accept publishes no longer mutate receiver state to `accepted` before transport evidence exists.
+  - Expanded the deterministic two-user request suite to cover request publish, receiver pending evidence, receipt ACK, accept evidence, and three restart checkpoints within the required `10/10` run.
+  - Removed evidence-free DM success fallbacks so `sendToOpen`-only runtimes no longer report `sent_quorum`/`accepted`; unsupported transport now settles to deterministic failure instead of optimistic delivery.
+  - Tightened queued DM retry classification so unsupported transport becomes terminal failure while retryable relay churn still schedules bounded retries.
+  - Queued DM retry now settles on partial relay evidence instead of looping for more retries after at least one relay accepted the message.
+  - Extended DM controller/publisher regression coverage for unsupported publish transport and non-optimistic failure behavior.
+  - Added deterministic two-user DM delivery integration coverage (`10/10`) for queued first-send recovery, sender/receiver restart checkpoints, partial relay quorum, and decrypt/receive convergence.
+  - Normalized profile publish reporting with typed delivery status (`sent_quorum`, `sent_partial`, `queued`, `failed`) and removed the legacy `sendToOpen` success fallback from profile network publish.
+  - Added hook-level profile publish regression coverage for partial success, queued no-writable-relay state, and unsupported transport failure.
+  - **Fixed Invitation Resend Logic**: Removed hard blocks on repeated invitations in `EnhancedDMController`, enabling users to re-send requests after a decline.
+  - **Fixed Request Evidence Poisoning**: Added explicit evidence reset when re-initiating a connection request, preventing stale receipt acknowledgments from blocking new invitations.
+  - **Fixed Network Profile Primary Action**: Corrected guards on the profile "Connect" button to allow re-sending invitations when in terminal failed or rejected states.
+- **Release Tooling Determinism**:
+
+  - Fixed `scripts/run-release-test-pack.mjs` preflight argument forwarding (`--tag`, `--allow-dirty`) to keep dry-run behavior deterministic.
+- **R0 Gate Hardening**:
+  - Expanded `release:test-pack` to include messaging controller determinism tests:
+    - `dm-subscription-manager`,
+    - `incoming-dm-event-handler`,
+    - `enhanced-dm-controller`,
+    - relay `subscription-manager`.
+- **Docs-to-Reality Synchronization**:
+  - Updated the v0.9 Wave 0 audit matrix to reclassify contact-request delivery as `flaky` under relay churn/state drift scenarios.
+  - Updated release/testing docs to require R0 drift-control gate alignment before release reliability claims.
+- **Delivery Diagnostics and Sync Guarding**:
+  - Added per-window delivery diagnostics for subscription, sync, publish, and inbound-event tracing in dev builds.
+  - Tightened DM sync so checkpoints no longer advance on incomplete or timed-out sync runs.
+- **Relay Recovery Stickiness and Invitation Queueing**:
+  - Added event-driven relay recovery nudges on `online`, focus, visibility return, and zero-writable-relay states so reconnect/resubscribe/recycle recovery no longer depends only on a watchdog or page refresh.
+  - Tightened desktop relay fallback transport so browser-fallback sockets are not treated as native relay sessions during async shutdown races.
+  - Unified invitation compose/send UI across discovery and contact profile surfaces behind one shared composer contract and shared delivery copy.
+  - Removed hard invitation send blocking when relays are temporarily unwritable; the UI now supports queue-and-retry behavior instead of forcing a manual refresh/retry loop.
+- **Recipient Relay Scope Tightening**:
+  - Recipient relay discovery now returns and caches resolved relay URLs for send-time use.
+  - Outgoing request/DM transport now carries explicit relay scope inputs more consistently instead of relying only on already-open sender relays.
+- **Branch Status Clarification**:
+  - Reclassified the current `v0.9.0 beta` line as a recovery branch with unresolved communication/runtime blockers rather than a releasable beta candidate.
+
+## [v0.8.9] - Unreleased
+
+### Added
+
+- **Release Determinism Tooling**:
+  - Added `pnpm release:ci-signal-check` to enforce required release workflow signal contracts.
+  - Added `pnpm release:verify-tag` to validate post-tag artifact matrix and changelog/version/tag consistency.
+  - Added `pnpm release:test-pack` as deterministic targeted release gate.
+- **v0.8.9 Docs**:
+  - Added `docs/32-v0.8.9-stability-and-release-integrity-roadmap.md`.
+  - Added `docs/33-v0.8.9-known-failures-registry.md`.
+
+### Changed
+
+- **Release Preflight Hardening**:
+  - `release:preflight` now enforces clean working tree, remote tag non-existence, local tag-to-HEAD consistency, and CI signal contract checks.
+- **Runtime Boundary Hygiene**:
+  - Replaced remaining settings/runtime direct native invoke paths with adapter calls in key PWA shared flows.
+  - Reduced unsupported native command noise in web harness via bounded runtime classification logs.
+- **Reliability Contracts (v0.8.9)**:
+  - Added relay circuit-state classification (`healthy | degraded | cooling_down`) and cooling counters.
+  - Added sync checkpoint repair contract before backfill decisions.
+  - Expanded storage recovery report diagnostics (`status`, `durationMs`, `recoveredEntries`) and storage retry counters.
+- **Web Policy Messaging**:
+  - Updated blocked runtime screen copy for v0.8.9 policy and explicit override key hint.
+
 ## [v0.8.8] - 2026-03-06
 
 ### Added

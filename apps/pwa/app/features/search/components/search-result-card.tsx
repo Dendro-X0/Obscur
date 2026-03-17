@@ -2,55 +2,64 @@
 
 import React from "react";
 import { Avatar, AvatarFallback } from "@dweb/ui-kit";
-import { User, Users, PlusCircle, MessageSquare, ChevronRight, UserPlus, Globe } from "lucide-react";
+import { User, Users, PlusCircle, ChevronRight, UserPlus, Globe } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import Image from "next/image";
 import { cn } from "@dweb/ui-kit";
 import { useRouter } from "next/navigation";
-import type { SearchResult } from "../hooks/use-global-search";
+import type { DiscoveryResult } from "@/app/features/search/types/discovery";
+import { getPublicGroupHref, getPublicProfileHref } from "@/app/features/navigation/public-routes";
+import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
+import { discoverySessionDiagnosticsStore } from "@/app/features/search/services/discovery-session-diagnostics";
 
 interface SearchResultCardProps {
-    result: SearchResult;
-    onClick?: (result: SearchResult) => void;
-    onAdd?: (result: SearchResult) => void;
+    result: DiscoveryResult;
+    onClick?: (result: DiscoveryResult) => void;
+    onAdd?: (result: DiscoveryResult) => void;
 }
 
 export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardProps) {
     const router = useRouter();
+    const resolvedMetadata = useResolvedProfileMetadata(result.display.pubkey ?? null);
+    const resolvedTitle = resolvedMetadata.displayName || result.display.title || result.display.pubkey || "Unknown";
+    const resolvedPicture = resolvedMetadata.avatarUrl || result.display.picture;
+    const resolvedDescription = resolvedMetadata.about || result.display.description;
+    const resolvedSubtitle = result.kind === "community"
+        ? result.display.subtitle
+        : (resolvedMetadata.nip05 || result.display.subtitle);
+    const rawIdentifier = result.display.pubkey || result.display.communityId || result.display.relayUrl || "";
 
     const handleClick = () => {
         if (onClick) {
             onClick(result);
         } else {
-            if ((result.type === "person" || result.type === "invite") && result.pubkey) {
-                router.push(`/network/${result.pubkey}`);
-            } else if (result.type === "community" && result.id) {
-                const params = new URLSearchParams();
-                if (result.relayUrl) params.set("relay", result.relayUrl);
-                const query = params.toString();
-                router.push(`/groups/${encodeURIComponent(result.id)}${query ? `?${query}` : ""}`);
+            if ((result.kind === "person" || result.kind === "invite" || result.kind === "contact_card") && result.display.pubkey) {
+                router.push(getPublicProfileHref(result.display.pubkey));
+            } else if (result.kind === "community" && result.display.communityId) {
+                router.push(getPublicGroupHref(result.display.communityId, result.display.relayUrl));
             }
         }
     };
 
     const handleAdd = (e: React.MouseEvent) => {
         e.stopPropagation();
+        discoverySessionDiagnosticsStore.recordAddContactConversion({ result });
         if (onAdd) {
             onAdd(result);
-        } else if (result.pubkey) {
-            router.push(`/?pubkey=${result.pubkey}`);
+        } else if (result.display.pubkey) {
+            router.push(`/?pubkey=${result.display.pubkey}`);
         }
     };
 
     const getIcon = () => {
-        switch (result.type) {
+        switch (result.kind) {
             case "community":
                 return <Users className="h-5 w-5 text-muted-foreground" />;
             case "person":
                 return <User className="h-5 w-5 text-muted-foreground" />;
             case "invite":
                 return <PlusCircle className="h-5 w-5 text-muted-foreground" />;
-            case "link":
+            case "contact_card":
                 return <Globe className="h-5 w-5 text-muted-foreground" />;
             default:
                 return <User className="h-5 w-5 text-muted-foreground" />;
@@ -65,14 +74,14 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
             onKeyDown={(e) => {
                 if (e.key === 'Enter') handleClick();
             }}
-            className="group relative flex items-center gap-4 p-4 rounded-3xl bg-card hover:bg-accent/40 border border-border/50 hover:border-primary/20 transition-all cursor-pointer shadow-sm hover:shadow-xl hover:shadow-primary/5 active:scale-[0.99]"
+            className="group relative flex items-center gap-4 rounded-[28px] border border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_24px_60px_rgba(79,70,229,0.12)] active:scale-[0.995] dark:bg-[linear-gradient(180deg,rgba(10,16,34,0.92),rgba(7,12,24,0.94))]"
         >
             <div className="relative">
-                <Avatar className="h-14 w-14 border border-border shadow-sm group-hover:border-primary/30 transition-colors bg-muted">
-                    {result.picture ? (
+                <Avatar className="h-14 w-14 border border-border/70 bg-muted shadow-sm transition-colors group-hover:border-primary/40">
+                    {resolvedPicture ? (
                         <Image
-                            src={result.picture}
-                            alt={result.name}
+                            src={resolvedPicture}
+                            alt={resolvedTitle}
                             width={56}
                             height={56}
                             className="object-cover"
@@ -84,8 +93,8 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
                     )}
                 </Avatar>
 
-                {(result.type === "person" || result.type === "invite") && (
-                    <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-primary border-2 border-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {(result.kind === "person" || result.kind === "invite" || result.kind === "contact_card") && (
+                    <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-background bg-primary opacity-0 transition-opacity group-hover:opacity-100">
                         <PlusCircle className="h-3 w-3 text-primary-foreground" />
                     </div>
                 )}
@@ -93,56 +102,55 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
 
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <h4 className="font-black text-base text-foreground truncate group-hover:text-primary transition-colors">
-                        {result.name || result.display_name}
+                    <h4 className="truncate text-base font-black text-foreground transition-colors group-hover:text-primary">
+                        {resolvedTitle}
                     </h4>
-                    {result.nip05 && (
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/60 bg-primary/5 px-2 py-0.5 rounded-full">
-                            Verified
+                    {result.confidence === "direct" && (
+                        <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-primary/70">
+                            Direct
                         </span>
                     )}
                 </div>
 
-                {result.display_name && result.display_name !== result.name && (
-                    <p className="text-sm text-muted-foreground/80 truncate font-medium">
-                        @{result.display_name}
+                {resolvedSubtitle && resolvedSubtitle !== resolvedTitle && (
+                    <p className="truncate text-sm font-medium text-muted-foreground/80">
+                        {result.kind === "community" ? resolvedSubtitle : `@${resolvedSubtitle}`}
                     </p>
                 )}
 
-                <p className="text-[10px] text-muted-foreground font-mono mt-1 opacity-60 truncate">
-                    {result.pubkey || result.id || result.relayUrl}
+                <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground opacity-60">
+                    {rawIdentifier}
                 </p>
 
-                {result.about && (
-                    <p className="text-xs text-muted-foreground/70 mt-2 line-clamp-1 italic">
-                        {result.about}
+                {resolvedDescription && (
+                    <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground/75">
+                        {resolvedDescription}
                     </p>
                 )}
             </div>
 
-            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
-                {(result.type === "person" || result.type === "invite") && (
+            <div className="flex items-center gap-2 opacity-0 translate-x-2 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
+                {(result.kind === "person" || result.kind === "invite" || result.kind === "contact_card") && (
                     <Button
                         size="icon"
                         variant="ghost"
                         onClick={handleAdd}
-                        className="h-9 w-9 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground transition-all"
+                        className="h-9 w-9 rounded-xl bg-primary/10 text-primary transition-all hover:bg-primary hover:text-primary-foreground"
                     >
                         <UserPlus className="h-4 w-4" />
                     </Button>
                 )}
-                <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-muted/50 group-hover:bg-primary/10 text-muted-foreground group-hover:text-primary transition-all">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground transition-all group-hover:bg-primary/10 group-hover:text-primary">
                     <ChevronRight className="h-5 w-5" />
                 </div>
             </div>
 
-            {/* Entity Badge */}
-            <div className="absolute top-2 right-4">
+            <div className="absolute right-4 top-2">
                 <span className={cn(
-                    "text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full",
-                    result.type === "community" ? "bg-amber-500/10 text-amber-500" : "bg-indigo-500/10 text-indigo-500"
+                    "rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.2em]",
+                    result.kind === "community" ? "bg-amber-500/10 text-amber-600 dark:text-amber-300" : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"
                 )}>
-                    {result.type}
+                    {result.kind === "community" ? "Community" : "Profile"}
                 </span>
             </div>
         </div>

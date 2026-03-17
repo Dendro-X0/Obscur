@@ -9,7 +9,14 @@ commands.allow = [
     "window_is_maximized",
     "window_set_fullscreen",
     "window_is_fullscreen",
-    "save_window_state"
+    "save_window_state",
+    "desktop_get_profile_isolation_snapshot",
+    "desktop_list_profiles",
+    "desktop_create_profile",
+    "desktop_rename_profile",
+    "desktop_open_profile_window",
+    "desktop_bind_window_profile",
+    "desktop_remove_profile"
 ]
 
 [[permission]]
@@ -35,7 +42,8 @@ commands.allow = [
     "nip96_upload",
     "nip96_upload_v2",
     "restart_app",
-    "reset_app_storage"
+    "reset_app_storage",
+    "mine_pow"
 ]
 
 [[permission]]
@@ -72,6 +80,22 @@ commands.allow = [
     "get_session_status"
 ]
 
+[[permission]]
+identifier = "allow-protocol-commands"
+description = "Protocol core commands"
+commands.allow = [
+    "protocol_get_identity_root_state",
+    "protocol_get_session_state",
+    "protocol_authorize_device",
+    "protocol_revoke_device",
+    "protocol_x3dh_handshake",
+    "protocol_get_ratchet_session",
+    "protocol_verify_message_envelope",
+    "protocol_publish_with_quorum",
+    "protocol_check_storage_health",
+    "protocol_run_storage_recovery"
+]
+
 [[set]]
 identifier = "default"
 description = "Default application permissions"
@@ -80,5 +104,6 @@ permissions = [
     "allow-tor-commands",
     "allow-misc-commands",
     "allow-relay-commands",
-    "allow-wallet-commands"
+    "allow-wallet-commands",
+    "allow-protocol-commands"
 ]

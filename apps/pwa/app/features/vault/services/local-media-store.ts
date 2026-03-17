@@ -4,6 +4,7 @@ import type { Attachment } from "../../messaging/types";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { nativeLocalMediaAdapter } from "./native-local-media-adapter";
 
 type LocalMediaIndexEntry = Readonly<{
     remoteUrl: string;
@@ -53,8 +54,8 @@ const isTauriRuntime = (): boolean => {
 };
 
 const isBrowser = (): boolean => typeof window !== "undefined";
-const scopedConfigKey = (): string => getScopedStorageKey(STORAGE_CONFIG_KEY);
-const scopedIndexKey = (): string => getScopedStorageKey(STORAGE_INDEX_KEY);
+const scopedConfigKey = (profileId?: string): string => getScopedStorageKey(STORAGE_CONFIG_KEY, profileId);
+const scopedIndexKey = (profileId?: string): string => getScopedStorageKey(STORAGE_INDEX_KEY, profileId);
 
 const sanitizeSubdir = (raw: string): string => {
     const clean = raw.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
@@ -65,6 +66,15 @@ const sanitizeFileName = (raw: string): string => {
     const file = raw.trim();
     const cleaned = file.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
     return cleaned.length > 0 ? cleaned : "file";
+};
+
+const LEGACY_HASHED_CACHE_FILE_NAME_PATTERN = /^\d{10,}-[a-f0-9]{12,}-(.+)$/i;
+
+export const normalizeLocalMediaDisplayFileName = (value: string): string => {
+    const sanitized = sanitizeFileName(value);
+    const legacyMatch = LEGACY_HASHED_CACHE_FILE_NAME_PATTERN.exec(sanitized);
+    const normalized = legacyMatch?.[1]?.trim() ?? sanitized;
+    return normalized.length > 0 ? normalized : "file";
 };
 
 const inferExtension = (attachment: Attachment): string => {
@@ -82,12 +92,63 @@ const inferExtension = (attachment: Attachment): string => {
     return "bin";
 };
 
-const toHex = (bytes: Uint8Array): string =>
-    Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+const splitFileName = (fileName: string): Readonly<{ stem: string; ext: string | null }> => {
+    const dotIndex = fileName.lastIndexOf(".");
+    if (dotIndex <= 0 || dotIndex >= fileName.length - 1) {
+        return { stem: fileName, ext: null };
+    }
+    const ext = fileName.slice(dotIndex + 1);
+    if (!/^[a-z0-9]{1,8}$/i.test(ext)) {
+        return { stem: fileName, ext: null };
+    }
+    return {
+        stem: fileName.slice(0, dotIndex),
+        ext,
+    };
+};
 
-const hashUrl = async (url: string): Promise<string> => {
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(url));
-    return toHex(new Uint8Array(digest)).slice(0, 24);
+const withSuffix = (stem: string, ext: string | null, suffix: number): string => (
+    ext ? `${stem}-${suffix}.${ext}` : `${stem}-${suffix}`
+);
+
+const withExtension = (fileName: string, ext: string): string => {
+    if (/\.[a-z0-9]{1,8}$/i.test(fileName)) {
+        return fileName;
+    }
+    return `${fileName}.${ext}`;
+};
+
+const buildPreferredLocalFileName = (attachment: Attachment): string => {
+    const ext = inferExtension(attachment);
+    const normalized = normalizeLocalMediaDisplayFileName(attachment.fileName || "file");
+    return withExtension(normalized, ext);
+};
+
+const resolveUniqueLocalFileTarget = async (
+    cfg: LocalMediaStorageConfig,
+    preferredFileName: string,
+): Promise<Readonly<{ relativePath: string; fileName: string }>> => {
+    const { stem, ext } = splitFileName(preferredFileName);
+    const absoluteRoot = cfg.customRootPath.trim().length > 0
+        ? await resolveStorageAbsolutePath()
+        : null;
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+        const fileName = attempt === 0 ? preferredFileName : withSuffix(stem, ext, attempt + 1);
+        const relativePath = absoluteRoot
+            ? await nativeLocalMediaAdapter.joinPaths(absoluteRoot, fileName)
+            : `${cfg.subdir}/${fileName}`;
+        const exists = absoluteRoot
+            ? await nativeLocalMediaAdapter.fileExists({ path: relativePath })
+            : await nativeLocalMediaAdapter.fileExists({ path: relativePath, appDataRelative: true });
+        if (!exists) {
+            return { relativePath, fileName };
+        }
+    }
+    const fallbackFileName = withSuffix(stem, ext, Date.now());
+    const fallbackRelativePath = absoluteRoot
+        ? await nativeLocalMediaAdapter.joinPaths(absoluteRoot, fallbackFileName)
+        : `${cfg.subdir}/${fallbackFileName}`;
+    return { relativePath: fallbackRelativePath, fileName: fallbackFileName };
 };
 
 const loadIndex = (): LocalMediaIndex => {
@@ -129,7 +190,13 @@ export const repairLocalMediaIndex = (): Readonly<{ repaired: number; removed: n
         }
         const normalizedRemoteUrl = entry.remoteUrl.trim().length > 0 ? entry.remoteUrl.trim() : remoteUrl;
         const normalizedRelativePath = entry.relativePath.trim();
+        const normalizedFileName = typeof entry.fileName === "string" && entry.fileName.trim().length > 0
+            ? normalizeLocalMediaDisplayFileName(entry.fileName)
+            : normalizeLocalMediaDisplayFileName(normalizedRelativePath.split(/[\\/]/).pop() ?? "file");
         if (normalizedRemoteUrl !== entry.remoteUrl || normalizedRelativePath !== entry.relativePath) {
+            repaired += 1;
+        }
+        if (normalizedFileName !== entry.fileName) {
             repaired += 1;
         }
         if (normalizedRelativePath.length === 0) {
@@ -140,6 +207,7 @@ export const repairLocalMediaIndex = (): Readonly<{ repaired: number; removed: n
             ...entry,
             remoteUrl: normalizedRemoteUrl,
             relativePath: normalizedRelativePath,
+            fileName: normalizedFileName,
         };
     });
 
@@ -152,10 +220,10 @@ export const getLocalMediaIndexEntryByRemoteUrl = (remoteUrl: string): LocalMedi
     return index[remoteUrl] ?? null;
 };
 
-export const getLocalMediaStorageConfig = (): LocalMediaStorageConfig => {
+export const getLocalMediaStorageConfig = (profileId?: string): LocalMediaStorageConfig => {
     if (!isBrowser()) return DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG;
     try {
-        const raw = localStorage.getItem(scopedConfigKey());
+        const raw = localStorage.getItem(scopedConfigKey(profileId));
         if (!raw) return DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG;
         const parsed = JSON.parse(raw) as Partial<LocalMediaStorageConfig>;
         return {
@@ -170,7 +238,10 @@ export const getLocalMediaStorageConfig = (): LocalMediaStorageConfig => {
     }
 };
 
-export const saveLocalMediaStorageConfig = (config: LocalMediaStorageConfig): LocalMediaStorageConfig => {
+export const saveLocalMediaStorageConfig = (
+    config: LocalMediaStorageConfig,
+    profileId?: string,
+): LocalMediaStorageConfig => {
     const normalized: LocalMediaStorageConfig = {
         enabled: config.enabled,
         subdir: sanitizeSubdir(config.subdir),
@@ -179,28 +250,27 @@ export const saveLocalMediaStorageConfig = (config: LocalMediaStorageConfig): Lo
         cacheReceivedFiles: config.cacheReceivedFiles,
     };
     if (isBrowser()) {
-        localStorage.setItem(scopedConfigKey(), JSON.stringify(normalized));
+        localStorage.setItem(scopedConfigKey(profileId), JSON.stringify(normalized));
     }
     return normalized;
 };
 
 const ensureStorageDir = async (subdir: string): Promise<void> => {
-    const { mkdir } = await import("@tauri-apps/plugin-fs");
-    const { BaseDirectory } = await import("@tauri-apps/api/path");
-    await mkdir(subdir, { baseDir: BaseDirectory.AppData, recursive: true });
+    await nativeLocalMediaAdapter.ensureDirectory({ path: subdir, appDataRelative: true });
 };
 
 const buildAbsolutePath = async (relativePath: string): Promise<string> => {
-    const { appDataDir, join } = await import("@tauri-apps/api/path");
-    const root = await appDataDir();
-    return join(root, relativePath);
+    const root = await nativeLocalMediaAdapter.getAppDataDirPath();
+    if (!root) {
+        throw new Error("Native local media path is unavailable");
+    }
+    return nativeLocalMediaAdapter.joinPaths(root, relativePath);
 };
 
 const resolveStorageAbsolutePath = async (): Promise<string> => {
     const cfg = getLocalMediaStorageConfig();
-    const { join } = await import("@tauri-apps/api/path");
     if (cfg.customRootPath.trim().length > 0) {
-        return join(cfg.customRootPath, cfg.subdir);
+        return nativeLocalMediaAdapter.joinPaths(cfg.customRootPath, cfg.subdir);
     }
     return buildAbsolutePath(cfg.subdir);
 };
@@ -208,9 +278,8 @@ const resolveStorageAbsolutePath = async (): Promise<string> => {
 const ensureStorageAbsoluteDir = async (): Promise<void> => {
     const cfg = getLocalMediaStorageConfig();
     if (cfg.customRootPath.trim().length > 0) {
-        const { mkdir } = await import("@tauri-apps/plugin-fs");
         const absolutePath = await resolveStorageAbsolutePath();
-        await mkdir(absolutePath, { recursive: true });
+        await nativeLocalMediaAdapter.ensureDirectory({ path: absolutePath });
         return;
     }
     await ensureStorageDir(cfg.subdir);
@@ -226,9 +295,7 @@ export const openLocalMediaStoragePath = async (): Promise<boolean> => {
     const path = await getLocalMediaStorageAbsolutePath();
     if (!path) return false;
     try {
-        const { open } = await import("@tauri-apps/plugin-shell");
-        await open(path);
-        return true;
+        return await nativeLocalMediaAdapter.openPath(path);
     } catch (error) {
         logRuntimeEvent(
             "local_media_store.open_storage_path_failed",
@@ -246,14 +313,12 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
     const entry = index[remoteUrl];
     if (!entry) return null;
     try {
-        const { exists } = await import("@tauri-apps/plugin-fs");
         const cfg = getLocalMediaStorageConfig();
         let hasFile = false;
         if (cfg.customRootPath.trim().length > 0) {
-            hasFile = await exists(entry.relativePath);
+            hasFile = await nativeLocalMediaAdapter.fileExists({ path: entry.relativePath });
         } else {
-            const { BaseDirectory } = await import("@tauri-apps/api/path");
-            hasFile = await exists(entry.relativePath, { baseDir: BaseDirectory.AppData });
+            hasFile = await nativeLocalMediaAdapter.fileExists({ path: entry.relativePath, appDataRelative: true });
         }
         if (!hasFile) {
             delete index[remoteUrl];
@@ -263,8 +328,7 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
         const absolutePath = cfg.customRootPath.trim().length > 0
             ? entry.relativePath
             : await buildAbsolutePath(entry.relativePath);
-        const { convertFileSrc } = await import("@tauri-apps/api/core");
-        return convertFileSrc(absolutePath);
+        return nativeLocalMediaAdapter.convertAbsolutePathToFileSrc(absolutePath);
     } catch {
         return null;
     }
@@ -338,20 +402,15 @@ export const cacheAttachmentLocally = async (
             throw new Error("Cannot cache empty file (0 bytes)");
         }
 
-        const urlHash = await hashUrl(attachment.url);
-        const ext = inferExtension(attachment);
-        const baseName = sanitizeFileName(attachment.fileName.replace(/\.[^.]+$/, ""));
-        const fileName = `${Date.now()}-${urlHash}-${baseName}.${ext}`;
-        const relativePath = cfg.customRootPath.trim().length > 0
-            ? await (await import("@tauri-apps/api/path")).join(await resolveStorageAbsolutePath(), fileName)
-            : `${cfg.subdir}/${fileName}`;
+        const preferredFileName = buildPreferredLocalFileName(attachment);
+        const target = await resolveUniqueLocalFileTarget(cfg, preferredFileName);
+        const fileName = target.fileName;
+        const relativePath = target.relativePath;
 
-        const { writeFile } = await import("@tauri-apps/plugin-fs");
         if (cfg.customRootPath.trim().length > 0) {
-            await writeFile(relativePath, bytes);
+            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, bytes });
         } else {
-            const { BaseDirectory } = await import("@tauri-apps/api/path");
-            await writeFile(relativePath, bytes, { baseDir: BaseDirectory.AppData, create: true });
+            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, appDataRelative: true, bytes });
         }
 
         // Reload index to avoid race conditions when uploading multiple files concurrently
@@ -400,12 +459,10 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
     localCacheBlockedWarningEmitted = false;
     const cfg = getLocalMediaStorageConfig();
     try {
-        const { remove } = await import("@tauri-apps/plugin-fs");
         if (cfg.customRootPath.trim().length > 0) {
-            await remove(await resolveStorageAbsolutePath(), { recursive: true });
+            await nativeLocalMediaAdapter.removePath({ path: await resolveStorageAbsolutePath(), recursive: true });
         } else {
-            const { BaseDirectory } = await import("@tauri-apps/api/path");
-            await remove(cfg.subdir, { baseDir: BaseDirectory.AppData, recursive: true });
+            await nativeLocalMediaAdapter.removePath({ path: cfg.subdir, appDataRelative: true, recursive: true });
         }
     } catch {
         // ignore
@@ -422,13 +479,11 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
     if (!entry) return false;
 
     try {
-        const { remove } = await import("@tauri-apps/plugin-fs");
         const cfg = getLocalMediaStorageConfig();
         if (cfg.customRootPath.trim().length > 0) {
-            await remove(entry.relativePath);
+            await nativeLocalMediaAdapter.removePath({ path: entry.relativePath });
         } else {
-            const { BaseDirectory } = await import("@tauri-apps/api/path");
-            await remove(entry.relativePath, { baseDir: BaseDirectory.AppData });
+            await nativeLocalMediaAdapter.removePath({ path: entry.relativePath, appDataRelative: true });
         }
     } catch {
         // Ignore file removal failures; still clean stale index below.
@@ -442,10 +497,7 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
 export const pickLocalMediaStorageRootPath = async (): Promise<string | null> => {
     if (!isTauriRuntime()) return null;
     try {
-        const { open } = await import("@tauri-apps/plugin-dialog");
-        const selected = await open({ directory: true, multiple: false });
-        if (typeof selected !== "string" || selected.trim().length === 0) return null;
-        return selected;
+        return await nativeLocalMediaAdapter.pickDirectory();
     } catch {
         return null;
     }

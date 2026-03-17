@@ -16,8 +16,11 @@ export type StorageHealthState = Readonly<{
 }>;
 
 export type StorageRecoveryReport = Readonly<{
+  status: "ok" | "repaired";
   repairedEntries: number;
   removedEntries: number;
+  recoveredEntries: number;
+  durationMs: number;
   ranAtUnixMs: number;
 }>;
 
@@ -53,6 +56,7 @@ export const checkStorageHealth = async (): Promise<StorageHealthState> => {
     await messagingDB.getAllByIndex("messages", "conversation_timestamp", IDBKeyRange.bound(["", 0], ["~", Date.now()]), 1);
   } catch (error) {
     messageStoreOk = false;
+    incrementReliabilityMetric("storage_write_retry");
     errorMessage = error instanceof Error ? error.message : String(error);
   }
 
@@ -60,6 +64,7 @@ export const checkStorageHealth = async (): Promise<StorageHealthState> => {
     await messagingDB.get("chatState", "__health__");
   } catch (error) {
     queueStoreOk = false;
+    incrementReliabilityMetric("storage_write_retry");
     errorMessage = error instanceof Error ? error.message : String(error);
   }
 
@@ -87,6 +92,7 @@ export const checkStorageHealth = async (): Promise<StorageHealthState> => {
 export const getLastStorageHealthState = (): StorageHealthState => lastHealthState;
 
 export const runStorageRecovery = async (): Promise<StorageRecoveryReport> => {
+  const startedAt = Date.now();
   incrementReliabilityMetric("storage_recovery_runs");
   const result = repairLocalMediaIndex();
   const repairedEntries = result.repaired + result.removed;
@@ -94,8 +100,11 @@ export const runStorageRecovery = async (): Promise<StorageRecoveryReport> => {
     incrementReliabilityMetric("storage_recovery_records", repairedEntries);
   }
   return {
+    status: repairedEntries > 0 ? "repaired" : "ok",
     repairedEntries: result.repaired,
     removedEntries: result.removed,
+    recoveredEntries: repairedEntries,
+    durationMs: Date.now() - startedAt,
     ranAtUnixMs: Date.now(),
   };
 };

@@ -1,167 +1,73 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useProfile } from "@/app/features/profile/hooks/use-profile";
-import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
-import { LockScreen } from "@/app/components/lock-screen";
-import { AuthScreen } from "../components/auth-screen";
+import type React from "react";
+import { useEffect, useState } from "react";
 import type { Passphrase } from "@dweb/crypto/passphrase";
-import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
-import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
-import { getAuthTokenStorageKey, getRememberMeStorageKey } from "../utils/auth-storage-keys";
-
-const LEGACY_REMEMBER_ME_KEY = "obscur_remember_me";
-const LEGACY_AUTH_TOKEN_KEY = "obscur_auth_token";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import {
+  getAuthTokenStorageKeyCandidates,
+  getRememberMeStorageKeyCandidates,
+} from "@/app/features/auth/utils/auth-storage-keys";
+import { ProfileBoundAuthShell } from "@/app/features/runtime/components/profile-bound-auth-shell";
+import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 
 interface AuthGatewayProps {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }
 
-/**
- * AuthGateway handles the top-level authentication and security lifecycle.
- * It decides whether to show the Loading splash, the Lock Screen (passphrase),
- * the Auth Screen (new users), or the main application.
- */
 export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
-    const identity = useIdentity();
-    const profile = useProfile();
-    const { isLocked, unlock: clearInactivityLock } = useAutoLock();
-    const [isOnboarding, setIsOnboarding] = useState(false);
-    const [isUnlocking, setIsUnlocking] = useState(false);
-    const [hasAttemptedAutoUnlock, setHasAttemptedAutoUnlock] = useState(false);
+  const identity = useIdentity();
+  const runtime = useWindowRuntime();
+  const [hasAttemptedAutoUnlock, setHasAttemptedAutoUnlock] = useState(false);
 
-    const isIdentityLocked = identity.state.status === "locked";
-    const hasStoredIdentity = !!identity.state.stored;
+  const isIdentityLocked = identity.state.status === "locked";
+  const hasStoredIdentity = !!identity.state.stored;
+  const shouldResolveStoredSession = isIdentityLocked && hasStoredIdentity && !hasAttemptedAutoUnlock;
 
-    // 1. Handle "Remember Me" Auto-Unlock logic
-    useEffect(() => {
-        const attemptAutoUnlock = async () => {
-            if (isIdentityLocked && hasStoredIdentity && !hasAttemptedAutoUnlock) {
-                const isRemembered = (localStorage.getItem(getRememberMeStorageKey()) ?? localStorage.getItem(LEGACY_REMEMBER_ME_KEY)) === "true";
-                const token = localStorage.getItem(getAuthTokenStorageKey()) ?? localStorage.getItem(LEGACY_AUTH_TOKEN_KEY);
-
-                if (isRemembered && token !== null) {
-                    try {
-                        console.info("[AuthGateway] Attempting auto-unlock via Remember Me...");
-                        const success = await handleUnlock(token);
-                        if (success) {
-                            console.info("[AuthGateway] Auto-unlock successful.");
-                        } else {
-                            // If it failed (maybe password changed?), clear it or let user manually unlock
-                            console.warn("[AuthGateway] Auto-unlock failed.");
-                            localStorage.setItem(getRememberMeStorageKey(), "false");
-                            localStorage.removeItem(getAuthTokenStorageKey());
-                            localStorage.setItem(LEGACY_REMEMBER_ME_KEY, "false");
-                            localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
-                        }
-                    } catch (e) {
-                        console.error("[AuthGateway] Auto-unlock error:", e);
-                        localStorage.setItem(getRememberMeStorageKey(), "false");
-                        localStorage.removeItem(getAuthTokenStorageKey());
-                        localStorage.setItem(LEGACY_REMEMBER_ME_KEY, "false");
-                        localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
-                    }
-                }
-                setHasAttemptedAutoUnlock(true);
-            }
-        };
-
-        if (identity.state.status !== "loading") {
-            void attemptAutoUnlock();
-        }
-    }, [identity.state.status, isIdentityLocked, hasStoredIdentity, hasAttemptedAutoUnlock]);
-
-    // 2. Track when we should be in onboarding/login mode
-    useEffect(() => {
-        if (identity.state.status === "locked") {
-            setIsOnboarding(true);
-        } else if (identity.state.status === "unlocked") {
-            setIsOnboarding(false);
-        }
-    }, [identity.state.status]);
-
-    const handleUnlock = async (passphrase: string): Promise<boolean> => {
-        setIsUnlocking(true);
-        try {
-            await identity.unlockIdentity({ passphrase: passphrase as Passphrase });
-            // Clear the inactivity lock state
-            clearInactivityLock();
-            return true;
-        } catch (error) {
-            console.error("[AuthGateway] Unlock failed:", error);
-            return false;
-        } finally {
-            setIsUnlocking(false);
-        }
-    };
-
-    const { settings } = useAutoLock();
-
-    const handleBiometricUnlock = async (): Promise<boolean> => {
-        if (!hasNativeRuntime()) {
-            return false;
-        }
-        try {
-            const result = await invokeNativeCommand<boolean>("request_biometric_auth");
-            if (result.ok && result.value) {
-                // Biometrics successful, clear inactivity lock
-                clearInactivityLock();
-                return true;
-            }
-            return false;
-        } catch (e) {
-            console.error("[AuthGateway] Biometric unlock error:", e);
-            return false;
-        }
-    };
-
-    // 1. Loading state
+  useEffect(() => {
     if (identity.state.status === "loading") {
-        return (
-            <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-black">
-                <div className="relative flex h-24 w-24 items-center justify-center">
-                    <Image src="/obscur-logo-light.svg" alt="Loading" width={80} height={80} className="animate-pulse dark:hidden" priority />
-                    <Image src="/obscur-logo-dark.svg" alt="Loading" width={80} height={80} className="hidden animate-pulse dark:block" priority />
-                </div>
-            </div>
-        );
+      return;
     }
-
-    // 2. Error state
-    if (identity.state.status === "error") {
-        return (
-            <LockScreen
-                publicKeyHex={identity.state.stored?.publicKeyHex}
-                isUnlocking={false}
-                onUnlock={handleUnlock}
-                onForget={identity.forgetIdentity}
-                errorMessage={identity.state.error ?? "An unknown error occurred. Please try again."}
-            />
-        );
+    if (!shouldResolveStoredSession) {
+      return;
     }
+    let cancelled = false;
+    const run = async (): Promise<void> => {
+      const profileId = runtime.snapshot.session.profileId;
+      const rememberKeys = getRememberMeStorageKeyCandidates({ profileId, includeLegacy: true });
+      const tokenKeys = getAuthTokenStorageKeyCandidates({ profileId, includeLegacy: true });
+      const rememberedRaw = rememberKeys
+        .map((key) => localStorage.getItem(key))
+        .find((value): value is string => value !== null);
+      const token = tokenKeys
+        .map((key) => localStorage.getItem(key))
+        .find((value): value is string => value !== null && value.length > 0);
+      const isRemembered = rememberedRaw === "true";
+      if (isRemembered && token) {
+        try {
+          await runtime.unlockBoundProfile({ passphrase: token as Passphrase });
+        } catch {
+          rememberKeys.forEach((key) => {
+            localStorage.setItem(key, "false");
+          });
+          tokenKeys.forEach((key) => {
+            localStorage.removeItem(key);
+          });
+        }
+      }
+      if (!cancelled) {
+        setHasAttemptedAutoUnlock(true);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [identity.state.status, runtime, shouldResolveStoredSession]);
 
-    // 3. New User Flow
-    if (isOnboarding) {
-        return <AuthScreen />;
-    }
-
-    // 4. Identity is Unlocked but inactive-lock is active
-    const shouldShowLockScreen = isLocked;
-
-    if (shouldShowLockScreen) {
-        return (
-            <LockScreen
-                publicKeyHex={identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex}
-                isUnlocking={isUnlocking}
-                onUnlock={handleUnlock}
-                onUnlockBiometric={settings.biometricLockEnabled ? handleBiometricUnlock : undefined}
-                onForget={identity.forgetIdentity}
-            />
-        );
-    }
-
-    // 5. Success - Render Main App
+  if (runtime.snapshot.phase === "activating_runtime" || runtime.snapshot.phase === "ready" || runtime.snapshot.phase === "degraded") {
     return <>{children}</>;
+  }
+
+  return <ProfileBoundAuthShell />;
 };

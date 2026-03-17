@@ -1,180 +1,231 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { useInviteResolver } from "@/app/features/invites/utils/use-invite-resolver";
-import { isValidInviteCode } from "@/app/features/invites/utils/invite-parser";
-import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
-import { parseNip29GroupIdentifier } from "@/app/features/groups/utils/parse-nip29-group-identifier";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
+import { DiscoveryEngine } from "@/app/features/search/services/discovery-engine";
+import { discoverySessionDiagnosticsStore } from "@/app/features/search/services/discovery-session-diagnostics";
+import type {
+    DiscoveryIntent,
+    DiscoveryQueryState,
+    DiscoveryReasonCode,
+    DiscoveryResult
+} from "@/app/features/search/types/discovery";
+import { useGroups } from "@/app/features/groups/providers/group-provider";
 
-export interface SearchResult {
-    type: "person" | "community" | "invite" | "link";
-    pubkey?: string;
-    id?: string;
-    name: string;
-    display_name?: string;
-    picture?: string;
-    about?: string;
-    nip05?: string;
-    relayUrl?: string;
-}
+export type SearchResult = DiscoveryResult;
 
 export interface UseGlobalSearchOptions {
     myPublicKeyHex: PublicKeyHex | null;
-    onResult?: (result: SearchResult) => void;
+    intent?: DiscoveryIntent;
+    onResult?: (result: DiscoveryResult) => void;
 }
 
-export function useGlobalSearch(options: UseGlobalSearchOptions) {
-    const { t } = useTranslation();
-    const { relayPool: pool } = useRelay();
-    const inviteResolver = useInviteResolver({ myPublicKeyHex: options.myPublicKeyHex });
+const SEARCH_TIMEOUT_MS = 8_000;
+const SEARCH_FALLBACK_WINDOW_SECONDS = 60 * 60 * 24 * 120;
 
-    const [results, setResults] = useState<SearchResult[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
+const toLower = (value: unknown): string => (typeof value === "string" ? value.toLowerCase() : "");
+
+const profileMatchesQuery = (query: string, content: Record<string, unknown>, pubkey: string): boolean => {
+    const q = query.toLowerCase();
+    if (toLower(content.name).includes(q)) return true;
+    if (toLower(content.display_name).includes(q)) return true;
+    if (toLower(content.about).includes(q)) return true;
+    if (toLower(content.nip05).includes(q)) return true;
+    if (pubkey.toLowerCase().includes(q)) return true;
+    return false;
+};
+
+const buildGlobalSearchFilters = (query: string): ReadonlyArray<NostrFilter> => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    return [
+        { kinds: [0], search: query, limit: 40 },
+        { kinds: [0], since: nowSeconds - SEARCH_FALLBACK_WINDOW_SECONDS, limit: 400 },
+    ];
+};
+
+export const globalSearchInternals = {
+    profileMatchesQuery,
+    buildGlobalSearchFilters,
+};
+
+const createDefaultQueryState = (intent: DiscoveryIntent): DiscoveryQueryState => ({
+    intent,
+    query: "",
+    phase: "idle",
+    elapsedMs: 0,
+    sourceStatusMap: {
+        local: { state: "idle" },
+        relay: { state: "idle" },
+        index: { state: "idle" },
+    },
+});
+
+const reasonToMessage = (reasonCode: DiscoveryReasonCode | undefined): string | null => {
+    switch (reasonCode) {
+        case "invalid_input":
+            return "Input format is invalid.";
+        case "unsupported_token":
+            return "Use QR/contact card/Friend Code/npub for deterministic add.";
+        case "invalid_code":
+            return "Code format is invalid.";
+        case "expired_code":
+            return "Code expired. Ask for a new code.";
+        case "code_used":
+            return "Code already used. Ask for a new code.";
+        case "legacy_code_unresolvable":
+            return "Legacy code not resolvable. Ask for QR/contact card/Friend Code.";
+        case "index_unavailable_fallback":
+            return "Index unavailable and relay fallback degraded.";
+        case "no_match":
+            return "No matching people or communities were found.";
+        case "offline":
+            return "You are offline. Showing cached results only.";
+        case "relay_degraded":
+            return "Relay network is degraded. Results may be partial.";
+        case "index_unavailable":
+            return "Index service is unavailable.";
+        case "canceled":
+            return "Search canceled.";
+        default:
+            return null;
+    }
+};
+
+export function useGlobalSearch(options: UseGlobalSearchOptions) {
+    const defaultIntent = options.intent ?? "add_friend";
+    void options.myPublicKeyHex;
+    const { relayPool: pool, relayRecovery } = useRelay();
+    const { createdGroups } = useGroups();
+
+    const [results, setResults] = useState<ReadonlyArray<DiscoveryResult>>([]);
+    const [queryState, setQueryState] = useState<DiscoveryQueryState>(() => createDefaultQueryState(defaultIntent));
     const [error, setError] = useState<string | null>(null);
 
-    const subIdRef = useRef<string | null>(null);
+    const searchRunIdRef = useRef(0);
+    const searchAbortRef = useRef<AbortController | null>(null);
 
     const clearResults = useCallback(() => {
         setResults([]);
         setError(null);
+        setQueryState(createDefaultQueryState(defaultIntent));
+    }, [defaultIntent]);
+
+    const invalidatePreviousSearches = useCallback(() => {
+        searchRunIdRef.current += 1;
+        if (searchAbortRef.current) {
+            searchAbortRef.current.abort();
+            searchAbortRef.current = null;
+        }
     }, []);
 
-    const search = useCallback(async (query: string) => {
+    useEffect(() => {
+        return () => {
+            invalidatePreviousSearches();
+        };
+    }, [invalidatePreviousSearches]);
+
+    const search = useCallback(async (query: string, intent?: DiscoveryIntent) => {
         const trimmedQuery = query.trim();
+        const effectiveIntent = intent ?? defaultIntent;
         if (!trimmedQuery) {
+            invalidatePreviousSearches();
             clearResults();
             return;
         }
 
-        setIsSearching(true);
+        invalidatePreviousSearches();
+        const runId = searchRunIdRef.current;
+        const diagnosticsRunId = discoverySessionDiagnosticsStore.startLookup({
+            intent: effectiveIntent,
+            query: trimmedQuery,
+        });
+        const abortController = new AbortController();
+        searchAbortRef.current = abortController;
         setError(null);
         setResults([]);
+        setQueryState(createDefaultQueryState(effectiveIntent));
 
-        // 1. Check for Invite Code
-        const upperQuery = trimmedQuery.toUpperCase();
-        if (isValidInviteCode(upperQuery)) {
-            try {
-                const resolved = await inviteResolver.resolveCode(upperQuery);
-                if (resolved) {
-                    const result: SearchResult = {
-                        type: "invite",
-                        pubkey: resolved.publicKeyHex,
-                        name: resolved.displayName || t("common.unknown"),
-                        display_name: resolved.displayName,
-                        picture: resolved.avatar,
-                    };
-                    setResults([result]);
-                    setIsSearching(false);
-                    return;
-                }
-            } catch (err) {
-                console.error("Failed to resolve invite code:", err);
-            }
-        }
+        try {
+            const finalResult = await DiscoveryEngine.run({
+                query: trimmedQuery,
+                intent: effectiveIntent,
+                pool,
+                relayTimeoutMs: SEARCH_TIMEOUT_MS,
+                signal: abortController.signal,
+                localCommunities: createdGroups.map((group) => ({
+                    communityId: group.groupId,
+                    relayUrl: group.relayUrl,
+                    name: group.displayName,
+                    about: undefined,
+                    picture: group.avatar,
+                    updatedAtUnixMs: group.lastMessageTime?.getTime?.() ?? Date.now(),
+                })),
+                indexBaseUrl: process.env.NEXT_PUBLIC_DISCOVERY_INDEX_URL,
+                skipRelayLookup: relayRecovery.writableRelayCount === 0 && typeof navigator !== "undefined" && navigator.onLine !== false,
+                onProgress: (state, partialResults) => {
+                    if (searchRunIdRef.current !== runId) return;
+                    setQueryState(state);
+                    setResults(Array.from(partialResults));
+                },
+            });
 
-        // 2. Check for exact pubkey
-        const parsedPubkey = parsePublicKeyInput(trimmedQuery);
-        if (parsedPubkey.ok) {
-            const result: SearchResult = {
-                type: "person",
-                pubkey: parsedPubkey.publicKeyHex,
-                name: parsedPubkey.publicKeyHex.slice(0, 8) + "...",
-            };
-            setResults([result]);
-            setIsSearching(false);
-            // We could also fetch metadata for this pubkey here
-            return;
-        }
-
-        // 3. Check for group identifier (NIP-29) - only if formatted as host'id
-        if (trimmedQuery.includes("'")) {
-            const parsedGroup = parseNip29GroupIdentifier(trimmedQuery);
-            if (parsedGroup.ok) {
-                const result: SearchResult = {
-                    type: "community",
-                    id: parsedGroup.groupId,
-                    relayUrl: parsedGroup.relayUrl,
-                    name: parsedGroup.groupId,
-                };
-                setResults([result]);
-                setIsSearching(false);
+            if (searchRunIdRef.current !== runId) {
                 return;
             }
-        }
-
-        // 4. Global Relay Search (NIP-50)
-        if (subIdRef.current) {
-            pool.sendToOpen(JSON.stringify(["CLOSE", subIdRef.current]));
-        }
-
-        const subId = Math.random().toString(36).substring(7);
-        subIdRef.current = subId;
-
-        // Search for profiles (kind 0)
-        const filter = {
-            kinds: [0],
-            limit: 20,
-            search: trimmedQuery
-        };
-        const req = JSON.stringify(["REQ", subId, filter]);
-
-        void pool.broadcastEvent(req);
-
-        const cleanup = pool.subscribeToMessages(({ message }) => {
-            try {
-                const parsedMessage = JSON.parse(message);
-                if (parsedMessage[0] === "EVENT" && parsedMessage[1] === subId) {
-                    const event = parsedMessage[2];
-                    if (event.kind === 0) {
-                        try {
-                            const content = JSON.parse(event.content);
-                            const result: SearchResult = {
-                                type: "person",
-                                pubkey: event.pubkey,
-                                name: content.name || content.display_name || t("common.unknown"),
-                                display_name: content.display_name,
-                                picture: content.picture,
-                                about: content.about,
-                                nip05: content.nip05,
-                            };
-
-                            setResults(prev => {
-                                if (prev.some(r => r.pubkey === event.pubkey)) return prev;
-                                return [...prev, result];
-                            });
-                        } catch (e) {
-                            // Ignore invalid content
-                        }
-                    }
-                }
-                if (parsedMessage[0] === "EOSE" && parsedMessage[1] === subId) {
-                    setIsSearching(false);
-                }
-            } catch (err) {
-                console.error("Search result parse failed:", err);
+            setResults(Array.from(finalResult.results));
+            setQueryState(finalResult.state);
+            setError(reasonToMessage(finalResult.state.reasonCode));
+            discoverySessionDiagnosticsStore.completeLookup({
+                runId: diagnosticsRunId,
+                state: finalResult.state,
+                results: finalResult.results,
+            });
+            if (options.onResult && finalResult.results.length > 0) {
+                finalResult.results.forEach(options.onResult);
             }
-        });
-
-        // Timeout fallback
-        setTimeout(() => {
-            if (subIdRef.current === subId) {
-                pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
-                cleanup();
-                setIsSearching(false);
-                subIdRef.current = null;
+        } catch (err) {
+            const reasonCode = err instanceof DOMException && err.name === "AbortError"
+                ? "canceled"
+                : "relay_degraded";
+            const fallbackState: DiscoveryQueryState = {
+                ...createDefaultQueryState(effectiveIntent),
+                query: trimmedQuery,
+                phase: "degraded",
+                reasonCode,
+                elapsedMs: 0,
+            };
+            discoverySessionDiagnosticsStore.completeLookup({
+                runId: diagnosticsRunId,
+                state: fallbackState,
+                results: [],
+            });
+            if (searchRunIdRef.current !== runId) {
+                return;
             }
-        }, 8000);
+            const message = err instanceof Error ? err.message : "Search failed";
+            setError(message);
+            setQueryState((prev) => ({
+                ...prev,
+                phase: "degraded",
+                reasonCode: "relay_degraded",
+            }));
+        } finally {
+            if (searchAbortRef.current === abortController) {
+                searchAbortRef.current = null;
+            }
+        }
+    }, [pool, relayRecovery.writableRelayCount, invalidatePreviousSearches, clearResults, createdGroups, defaultIntent, options]);
 
-    }, [inviteResolver.resolveCode, pool, t, clearResults]);
+    const isSearching = queryState.phase === "running" || queryState.phase === "partial";
 
     return useMemo(() => ({
         results,
         isSearching,
+        queryState,
         error,
         search,
         clearResults
-    }), [results, isSearching, error, search, clearResults]);
+    }), [results, isSearching, queryState, error, search, clearResults]);
 }

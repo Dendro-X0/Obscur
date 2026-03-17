@@ -1,16 +1,29 @@
 // Desktop-only wallet implementation with native keychain
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use crate::profiles::{DesktopProfileState, resolve_profile_for_window};
     use crate::session::SessionState;
     use keyring::Entry;
     use nostr::prelude::*;
     use serde::{Deserialize, Serialize};
-    use tauri::State;
-    use zeroize::Zeroizing;
     use std::borrow::Cow;
+    use tauri::{AppHandle, State, WebviewWindow};
+    use zeroize::Zeroizing;
 
     const APP_SERVICE: &str = "app.obscur.desktop";
     const KEY_NAME: &str = "nsec";
+
+    fn key_name_for_profile(profile_id: &str) -> String {
+        format!("{KEY_NAME}::{profile_id}")
+    }
+
+    async fn resolve_profile_id(
+        app: &AppHandle,
+        profiles: &State<'_, DesktopProfileState>,
+        window: &WebviewWindow,
+    ) -> Result<String, String> {
+        resolve_profile_for_window(app, profiles, window).await
+    }
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct NativeSignRequest {
@@ -34,95 +47,142 @@ mod desktop {
     /// Get the native public key if it exists in the session or keychain.
     /// This also hydrations the in-memory session from the keychain if found.
     #[tauri::command]
-    pub async fn get_native_npub(session: State<'_, SessionState>) -> Result<Option<String>, String> {
-        match ensure_session(&session).await {
+    pub async fn get_native_npub(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+    ) -> Result<Option<String>, String> {
+        match ensure_session(&app, &window, &profiles, &session).await {
             Ok(keys) => Ok(Some(keys.public_key().to_string())),
             Err(_) => Ok(None),
         }
     }
 
     /// Ensure session is hydrated from keychain if not present
-    async fn ensure_session(session: &SessionState) -> Result<Keys, String> {
-        if let Some(keys) = session.get_keys().await {
+    async fn ensure_session(
+        app: &AppHandle,
+        window: &WebviewWindow,
+        profiles: &State<'_, DesktopProfileState>,
+        session: &SessionState,
+    ) -> Result<Keys, String> {
+        let profile_id = resolve_profile_id(app, profiles, window).await?;
+        if let Some(keys) = session.get_keys(&profile_id).await {
             return Ok(keys);
         }
 
         // Fallback to keychain
-        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
-        
+        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
+
         match entry.get_password() {
             Ok(nsec) => {
                 let nsec_zero = Zeroizing::new(nsec);
                 // Hydrate session from keychain
-                match session.set_keys(&*nsec_zero).await {
+                match session.set_keys(&profile_id, &*nsec_zero).await {
                     Ok(_pubkey) => {
-                        eprintln!("[SESSION] Native session re-hydrated from OS keychain");
-                        session.get_keys().await.ok_or_else(|| "Failed to hydrate session".to_string())
+                        eprintln!("[SESSION] Native session re-hydrated from OS keychain for profile {}", profile_id);
+                        session
+                            .get_keys(&profile_id)
+                            .await
+                            .ok_or_else(|| "Failed to hydrate session".to_string())
                     }
                     Err(e) => Err(format!("Failed to hydrate session from keychain: {}", e)),
                 }
             }
-            Err(keyring::Error::NoEntry) => Err("No active native session and no key in keychain".to_string()),
+            Err(keyring::Error::NoEntry) => {
+                Err("No active native session and no key in keychain".to_string())
+            }
             Err(e) => Err(e.to_string()),
         }
     }
 
     /// Store an nsec in the native keychain and session.
     #[tauri::command]
-    pub async fn import_native_nsec(session: State<'_, SessionState>, nsec: String) -> Result<String, String> {
+    pub async fn import_native_nsec(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        nsec: String,
+    ) -> Result<String, String> {
         let nsec_zero = Zeroizing::new(nsec);
         let keys = Keys::parse(&*nsec_zero).map_err(|e| e.to_string())?;
-        
+        let profile_id = resolve_profile_id(&app, &profiles, &window).await?;
+
         // Update session
-        session.set_keys(&*nsec_zero).await?;
+        session.set_keys(&profile_id, &*nsec_zero).await?;
 
         // Update keychain
-        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
+        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
         entry.set_password(&*nsec_zero).map_err(|e| e.to_string())?;
-        
+
         Ok(keys.public_key().to_string())
     }
 
     /// Generate a new nsec and store it in the native keychain and session.
     #[tauri::command]
-    pub async fn generate_native_nsec(session: State<'_, SessionState>) -> Result<String, String> {
+    pub async fn generate_native_nsec(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+    ) -> Result<String, String> {
         let keys = Keys::generate();
-        let nsec = keys.secret_key()
-            .to_bech32()
-            .map_err(|e| e.to_string())?;
+        let nsec = keys.secret_key().to_bech32().map_err(|e| e.to_string())?;
         let nsec_zero = Zeroizing::new(nsec);
+        let profile_id = resolve_profile_id(&app, &profiles, &window).await?;
 
         // Update session
-        session.set_keys(&*nsec_zero).await?;
+        session.set_keys(&profile_id, &*nsec_zero).await?;
 
         // Update keychain
-        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
+        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
         entry.set_password(&*nsec_zero).map_err(|e| e.to_string())?;
-        
+
         Ok(keys.public_key().to_string())
     }
 
     /// Sign a Nostr event using the in-memory session.
     #[tauri::command]
-    pub async fn sign_event_native(session: State<'_, SessionState>, req: NativeSignRequest) -> Result<NativeSignResponse, String> {
-        let keys = ensure_session(&session).await?;
-        
-        let unsigned_event = EventBuilder::new(
-            Kind::from(req.kind as u16),
-            req.content.clone(),
-        )
-        .tags(req.tags.iter().map(|t| Tag::parse(t).unwrap_or(Tag::custom(TagKind::Custom(Cow::Owned(t[0].clone())), t[1..].to_vec()))).collect::<Vec<_>>())
-        .custom_created_at(Timestamp::from(req.created_at))
-        .build(keys.public_key());
+    pub async fn sign_event_native(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        req: NativeSignRequest,
+    ) -> Result<NativeSignResponse, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
 
-        let signed_event = unsigned_event.sign(&keys).await.map_err(|e| e.to_string())?;
+        let unsigned_event = EventBuilder::new(Kind::from(req.kind as u16), req.content.clone())
+            .tags(
+                req.tags
+                    .iter()
+                    .map(|t| {
+                        Tag::parse(t).unwrap_or(Tag::custom(
+                            TagKind::Custom(Cow::Owned(t[0].clone())),
+                            t[1..].to_vec(),
+                        ))
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .custom_created_at(Timestamp::from(req.created_at))
+            .build(keys.public_key());
+
+        let signed_event = unsigned_event
+            .sign(&keys)
+            .await
+            .map_err(|e| e.to_string())?;
 
         Ok(NativeSignResponse {
             id: signed_event.id.to_string(),
             pubkey: signed_event.pubkey.to_string(),
             created_at: signed_event.created_at.as_u64(),
             kind: signed_event.kind.as_u16() as u64,
-            tags: signed_event.tags.iter().map(|t| t.clone().to_vec()).collect(),
+            tags: signed_event
+                .tags
+                .iter()
+                .map(|t| t.clone().to_vec())
+                .collect(),
             content: signed_event.content.clone(),
             sig: signed_event.sig.to_string(),
         })
@@ -130,12 +190,18 @@ mod desktop {
 
     /// Delete the stored nsec from the keychain and clear session.
     #[tauri::command]
-    pub async fn logout_native(session: State<'_, SessionState>) -> Result<(), String> {
+    pub async fn logout_native(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+    ) -> Result<(), String> {
+        let profile_id = resolve_profile_id(&app, &profiles, &window).await?;
         // Clear session
-        session.clear().await;
+        session.clear(Some(&profile_id)).await;
 
         // Clear keychain
-        let entry = Entry::new(APP_SERVICE, KEY_NAME).map_err(|e| e.to_string())?;
+        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
         match entry.delete_credential() {
             Ok(_) => Ok(()),
             Err(keyring::Error::NoEntry) => Ok(()),
@@ -145,70 +211,113 @@ mod desktop {
 
     /// Encrypt content using NIP-04 (Legacy)
     #[tauri::command]
-    pub async fn encrypt_nip04(session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
-        let keys = ensure_session(&session).await?;
+    pub async fn encrypt_nip04(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        public_key: String,
+        content: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip04::encrypt_nip04(&sk_hex, &public_key, &content)
     }
 
     /// Decrypt content using NIP-04 (Legacy)
     #[tauri::command]
-    pub async fn decrypt_nip04(session: State<'_, SessionState>, public_key: String, ciphertext: String) -> Result<String, String> {
-        let keys = ensure_session(&session).await?;
+    pub async fn decrypt_nip04(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        public_key: String,
+        ciphertext: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip04::decrypt_nip04(&sk_hex, &public_key, &ciphertext)
     }
 
     /// Encrypt content using NIP-44 (Modern)
     #[tauri::command]
-    pub async fn encrypt_nip44(session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
-        let keys = ensure_session(&session).await?;
+    pub async fn encrypt_nip44(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        public_key: String,
+        content: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip44::encrypt_nip44(&sk_hex, &public_key, &content)
     }
 
     /// Decrypt content using NIP-44 (Modern)
     #[tauri::command]
-    pub async fn decrypt_nip44(session: State<'_, SessionState>, public_key: String, payload: String) -> Result<String, String> {
-        let keys = ensure_session(&session).await?;
+    pub async fn decrypt_nip44(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        public_key: String,
+        payload: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip44::decrypt_nip44(&sk_hex, &public_key, &payload)
     }
 
     /// Encrypt content using NIP-17 Gift Wrap
     #[tauri::command]
     pub async fn encrypt_gift_wrap(
-        session: State<'_, SessionState>, 
-        recipient_pk: String, 
-        rumor: libobscur::crypto::nip17::Rumor
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        recipient_pk: String,
+        rumor: libobscur::crypto::nip17::Rumor,
     ) -> Result<String, String> {
-        let keys = ensure_session(&session).await?;
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip17::wrap_rumor(&sk_hex, &recipient_pk, &rumor, None)
     }
 
     /// Decrypt content using NIP-17 Gift Wrap
     #[tauri::command]
     pub async fn decrypt_gift_wrap(
-        session: State<'_, SessionState>, 
-        gift_wrap_content: String, 
-        gift_wrap_sender_pk: String
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        gift_wrap_content: String,
+        gift_wrap_sender_pk: String,
     ) -> Result<libobscur::crypto::nip17::Rumor, String> {
-        let keys = ensure_session(&session).await?;
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
-        libobscur::crypto::nip17::unwrap_gift_wrap(&sk_hex, &gift_wrap_content, &gift_wrap_sender_pk)
+
+        libobscur::crypto::nip17::unwrap_gift_wrap(
+            &sk_hex,
+            &gift_wrap_content,
+            &gift_wrap_sender_pk,
+        )
     }
 
     /// Get the current session secret key as a hex string.
     #[tauri::command]
-    pub async fn get_session_nsec(session: State<'_, SessionState>) -> Result<String, String> {
-        let keys = ensure_session(&session).await?;
+    pub async fn get_session_nsec(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
         Ok(keys.secret_key().to_secret_hex())
     }
 }
@@ -219,11 +328,11 @@ mod mobile {
     use crate::session::SessionState;
     use nostr::prelude::*;
     use serde::{Deserialize, Serialize};
-    use tauri::{AppHandle, State, Manager};
-    use tauri_plugin_store::StoreExt;
-    use zeroize::Zeroizing;
     use std::borrow::Cow;
     use std::path::PathBuf;
+    use tauri::{AppHandle, Manager, State};
+    use tauri_plugin_store::StoreExt;
+    use zeroize::Zeroizing;
 
     const STORE_PATH: &str = "secrets.bin";
     const KEY_NAME: &str = "nsec";
@@ -254,22 +363,30 @@ mod mobile {
         }
 
         // Fallback to store
-        let store = app.store(PathBuf::from(STORE_PATH)).map_err(|e| e.to_string())?;
-        
+        let store = app
+            .store(PathBuf::from(STORE_PATH))
+            .map_err(|e| e.to_string())?;
+
         if let Some(val) = store.get(KEY_NAME) {
             if let Some(nsec) = val.as_str() {
                 let nsec_zero = Zeroizing::new(nsec.to_string());
                 session.set_keys(&*nsec_zero).await?;
                 eprintln!("[SESSION] Mobile session re-hydrated from store");
-                return session.get_keys().await.ok_or_else(|| "Failed to hydrate session".to_string());
+                return session
+                    .get_keys()
+                    .await
+                    .ok_or_else(|| "Failed to hydrate session".to_string());
             }
         }
-        
+
         Err("No active native session and no key in storage".to_string())
     }
 
     #[tauri::command]
-    pub async fn get_native_npub(app: AppHandle, session: State<'_, SessionState>) -> Result<Option<String>, String> {
+    pub async fn get_native_npub(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+    ) -> Result<Option<String>, String> {
         match ensure_session(&app, &session).await {
             Ok(keys) => Ok(Some(keys.public_key().to_string())),
             Err(_) => Ok(None),
@@ -277,139 +394,198 @@ mod mobile {
     }
 
     #[tauri::command]
-    pub async fn import_native_nsec(app: AppHandle, session: State<'_, SessionState>, nsec: String) -> Result<String, String> {
+    pub async fn import_native_nsec(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        nsec: String,
+    ) -> Result<String, String> {
         let nsec_zero = Zeroizing::new(nsec);
         let keys = Keys::parse(&*nsec_zero).map_err(|e| e.to_string())?;
-        
+
         // Update session
         session.set_keys(&*nsec_zero).await?;
 
         // Update store
-        let store = app.store(PathBuf::from(STORE_PATH)).map_err(|e| e.to_string())?;
+        let store = app
+            .store(PathBuf::from(STORE_PATH))
+            .map_err(|e| e.to_string())?;
         store.set(KEY_NAME, serde_json::Value::String((*nsec_zero).clone()));
         store.save().map_err(|e| e.to_string())?;
-        
+
         Ok(keys.public_key().to_string())
     }
 
     #[tauri::command]
-    pub async fn generate_native_nsec(app: AppHandle, session: State<'_, SessionState>) -> Result<String, String> {
+    pub async fn generate_native_nsec(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+    ) -> Result<String, String> {
         let keys = Keys::generate();
-        let nsec = keys.secret_key()
-            .to_bech32()
-            .map_err(|e| e.to_string())?;
+        let nsec = keys.secret_key().to_bech32().map_err(|e| e.to_string())?;
         let nsec_zero = Zeroizing::new(nsec);
 
         // Update session
         session.set_keys(&*nsec_zero).await?;
 
         // Update store
-        let store = app.store(PathBuf::from(STORE_PATH)).map_err(|e| e.to_string())?;
+        let store = app
+            .store(PathBuf::from(STORE_PATH))
+            .map_err(|e| e.to_string())?;
         store.set(KEY_NAME, serde_json::Value::String((*nsec_zero).clone()));
         store.save().map_err(|e| e.to_string())?;
-        
+
         Ok(keys.public_key().to_string())
     }
 
     #[tauri::command]
-    pub async fn sign_event_native(app: AppHandle, session: State<'_, SessionState>, req: NativeSignRequest) -> Result<NativeSignResponse, String> {
+    pub async fn sign_event_native(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        req: NativeSignRequest,
+    ) -> Result<NativeSignResponse, String> {
         let keys = ensure_session(&app, &session).await?;
-        
-        let unsigned_event = EventBuilder::new(
-            Kind::from(req.kind as u16),
-            req.content.clone(),
-        )
-        .tags(req.tags.iter().map(|t| Tag::parse(t).unwrap_or(Tag::custom(TagKind::Custom(Cow::Owned(t[0].clone())), t[1..].to_vec()))).collect::<Vec<_>>())
-        .custom_created_at(Timestamp::from(req.created_at))
-        .build(keys.public_key());
 
-        let signed_event = unsigned_event.sign(&keys).await.map_err(|e| e.to_string())?;
+        let unsigned_event = EventBuilder::new(Kind::from(req.kind as u16), req.content.clone())
+            .tags(
+                req.tags
+                    .iter()
+                    .map(|t| {
+                        Tag::parse(t).unwrap_or(Tag::custom(
+                            TagKind::Custom(Cow::Owned(t[0].clone())),
+                            t[1..].to_vec(),
+                        ))
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .custom_created_at(Timestamp::from(req.created_at))
+            .build(keys.public_key());
+
+        let signed_event = unsigned_event
+            .sign(&keys)
+            .await
+            .map_err(|e| e.to_string())?;
 
         Ok(NativeSignResponse {
             id: signed_event.id.to_string(),
             pubkey: signed_event.pubkey.to_string(),
             created_at: signed_event.created_at.as_u64(),
             kind: signed_event.kind.as_u16() as u64,
-            tags: signed_event.tags.iter().map(|t| t.clone().to_vec()).collect(),
+            tags: signed_event
+                .tags
+                .iter()
+                .map(|t| t.clone().to_vec())
+                .collect(),
             content: signed_event.content.clone(),
             sig: signed_event.sig.to_string(),
         })
     }
 
     #[tauri::command]
-    pub async fn logout_native(app: AppHandle, session: State<'_, SessionState>) -> Result<(), String> {
+    pub async fn logout_native(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+    ) -> Result<(), String> {
         // Clear session
         session.clear().await;
 
         // Clear store
-        let store = app.store(PathBuf::from(STORE_PATH)).map_err(|e| e.to_string())?;
+        let store = app
+            .store(PathBuf::from(STORE_PATH))
+            .map_err(|e| e.to_string())?;
         store.delete(KEY_NAME);
         store.save().map_err(|e| e.to_string())?;
         Ok(())
     }
 
     #[tauri::command]
-    pub async fn encrypt_nip04(app: AppHandle, session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
+    pub async fn encrypt_nip04(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        public_key: String,
+        content: String,
+    ) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip04::encrypt_nip04(&sk_hex, &public_key, &content)
     }
 
     #[tauri::command]
-    pub async fn decrypt_nip04(app: AppHandle, session: State<'_, SessionState>, public_key: String, ciphertext: String) -> Result<String, String> {
+    pub async fn decrypt_nip04(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        public_key: String,
+        ciphertext: String,
+    ) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip04::decrypt_nip04(&sk_hex, &public_key, &ciphertext)
     }
 
     /// Encrypt content using NIP-44 (Modern)
     #[tauri::command]
-    pub async fn encrypt_nip44(app: AppHandle, session: State<'_, SessionState>, public_key: String, content: String) -> Result<String, String> {
+    pub async fn encrypt_nip44(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        public_key: String,
+        content: String,
+    ) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip44::encrypt_nip44(&sk_hex, &public_key, &content)
     }
 
     /// Decrypt content using NIP-44 (Modern)
     #[tauri::command]
-    pub async fn decrypt_nip44(app: AppHandle, session: State<'_, SessionState>, public_key: String, payload: String) -> Result<String, String> {
+    pub async fn decrypt_nip44(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        public_key: String,
+        payload: String,
+    ) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip44::decrypt_nip44(&sk_hex, &public_key, &payload)
     }
 
     #[tauri::command]
     pub async fn encrypt_gift_wrap(
         app: AppHandle,
-        session: State<'_, SessionState>, 
-        recipient_pk: String, 
-        rumor: libobscur::crypto::nip17::Rumor
+        session: State<'_, SessionState>,
+        recipient_pk: String,
+        rumor: libobscur::crypto::nip17::Rumor,
     ) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
+
         libobscur::crypto::nip17::wrap_rumor(&sk_hex, &recipient_pk, &rumor, None)
     }
 
     #[tauri::command]
     pub async fn decrypt_gift_wrap(
         app: AppHandle,
-        session: State<'_, SessionState>, 
-        gift_wrap_content: String, 
-        gift_wrap_sender_pk: String
+        session: State<'_, SessionState>,
+        gift_wrap_content: String,
+        gift_wrap_sender_pk: String,
     ) -> Result<libobscur::crypto::nip17::Rumor, String> {
         let keys = ensure_session(&app, &session).await?;
         let sk_hex = keys.secret_key().to_secret_hex();
-        
-        libobscur::crypto::nip17::unwrap_gift_wrap(&sk_hex, &gift_wrap_content, &gift_wrap_sender_pk)
+
+        libobscur::crypto::nip17::unwrap_gift_wrap(
+            &sk_hex,
+            &gift_wrap_content,
+            &gift_wrap_sender_pk,
+        )
     }
 
     #[tauri::command]
-    pub async fn get_session_nsec(app: AppHandle, session: State<'_, SessionState>) -> Result<String, String> {
+    pub async fn get_session_nsec(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+    ) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
         Ok(keys.secret_key().to_secret_hex())
     }

@@ -1,6 +1,6 @@
 # Operations and Release Flow
 
-_Last reviewed: 2026-03-06 (baseline commit 51a511b)._
+_Last reviewed: 2026-03-16 (baseline commit ab08104)._
 
 
 ## Versioning
@@ -12,46 +12,76 @@ _Last reviewed: 2026-03-06 (baseline commit 51a511b)._
 pnpm version:sync
 pnpm version:check
 pnpm release:preflight
+pnpm release:test-pack
+pnpm release:verify-tag --tag vX.Y.Z
 pnpm version:bump
 pnpm security:audit
 ```
 
 ## Release Channels
 
-Current alpha distribution is via GitHub releases and internal/dev deployment workflows.
+Current distribution is GitHub Releases only.
 
 ## Authoritative Release Workflow
 
 - Tag release publisher: `.github/workflows/release.yml`
+  - Required release artifact lanes:
+    - `build-web-pwa` (Web/PWA static export bundle)
+    - `build-desktop` (Windows/macOS/Linux installers)
+    - `build-android` (APK + AAB)
+    - `build-ios` (optional IPA when signing secrets are present)
+- Branch reliability gate: `.github/workflows/reliability-gates.yml`
+  - Always runs on PR/main so required status check reporting is deterministic.
+  - Runs `pnpm release:test-pack -- --skip-preflight` only when reliability-scope files changed (`apps`, `packages`, `scripts`, root manifests, workflows).
 - Manual mobile-only helpers:
   - `.github/workflows/build-android.yml`
   - `.github/workflows/build-ios.yml`
 
 Tag pushes should only publish through `release.yml`.
 
+## Branch Protection (Beta Baseline)
+
+Recommended required status checks for `main` during v0.9 beta recovery:
+
+1. `release:test-pack` (from `reliability-gates.yml`).
+
+Notes:
+
+1. `docs-check` and `version-check` remain valuable signal workflows, but they are path-filtered; only require them in branch protection if your policy allows skipped/path-unmatched checks or you remove path filters.
+2. Local release readiness still requires full `pnpm release:preflight` (clean tree + branch/tag guardrails). CI `--skip-preflight` in reliability gates is only for PR/main automation.
+
 ## Recommended Release Checklist
 
 1. Freeze risky feature work.
 2. Run `pnpm version:sync` and commit resulting manifest changes.
-3. Run `pnpm release:preflight` and ensure it passes before tagging.
-4. Run full quality gates.
-5. Validate app startup and core chat flows in PWA + desktop builds.
-6. Confirm migration-free startup on existing local data.
-7. For v0.8.8+, validate one-time profile migration and verify profile isolation (`default` + one extra profile) on local state.
-8. For v0.8.8+, production web is blocked by default; validate dev/localhost web harness behavior separately from native artifacts.
-9. Update `CHANGELOG.md` with dated release entry.
-10. Tag and publish artifacts.
-11. Never retag an existing version. If a tag already exists on remote, bump patch version and tag the new version.
+3. Run `pnpm release:test-pack` and ensure it passes before tagging.
+4. Confirm branch CI reliability gate is green (`reliability-gates` workflow).
+5. Confirm the P2P core pack is green (resolver + outbox + profile publish timeout tests included in `release:test-pack`).
+6. Confirm R0 drift-control gate is green:
+  - `docs/39-v0.9-r0-architectural-drift-control.md` is current.
+  - `release:test-pack` includes messaging controller determinism tests (request guard, incoming routing, subscription churn).
+7. Run `pnpm release:preflight` and ensure it passes before tagging.
+  - Preflight enforces v0.9 rollout flag policy coherence and Tauri ACL parity for `protocol_*` + `mine_pow` commands.
+8. Run full quality gates.
+9. Validate app startup and core chat flows in PWA + desktop builds.
+10. Confirm migration-free startup on existing local data.
+11. For v0.8.8+, validate one-time profile migration and verify profile isolation (`default` + one extra profile) on local state.
+12. Validate Web/PWA static release bundle boot (`index.html`) from artifact output before tagging.
+13. Update `CHANGELOG.md` with dated release entry.
+14. Tag and publish artifacts.
+15. Run `pnpm release:verify-tag --tag vX.Y.Z` against published assets.
+16. Never retag an existing version. If a tag already exists on remote, bump patch version and tag the new version.
 
-## Artifact Matrix (v0.8.3 Gate)
+## Artifact Matrix (v0.9.0-beta Gate)
 
 Required:
 
-1. Windows installer (`.exe`)
-2. macOS installer (`.dmg`)
-3. Linux desktop bundle (`.AppImage` or `.deb`)
-4. Android APK (`.apk`)
-5. Android AAB (`.aab`, signed or unsigned)
+1. Web/PWA static export bundle (`.tar.gz`)
+2. Windows installer (`.exe`)
+3. macOS installer (`.dmg`)
+4. Linux desktop bundle (`.AppImage` or `.deb`)
+5. Android APK (`.apk`)
+6. Android AAB (`.aab`, signed or unsigned)
 
 Optional (when signing inputs are present):
 
@@ -92,4 +122,8 @@ Use these specs/checklists as the current release planning references:
 8. [v0.8.7 Reliability Core Roadmap](./30-v0.8.7-reliability-core-roadmap.md)
 9. [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md)
 10. [v0.8.8 Runtime Decoupling + Multi-Profile Roadmap](./31-v0.8.8-runtime-decoupling-and-multi-profile-roadmap.md)
+11. [v0.8.9 Stability + Release Integrity Roadmap](./32-v0.8.9-stability-and-release-integrity-roadmap.md)
+12. [v0.8.9 Known Failures Registry](./33-v0.8.9-known-failures-registry.md)
+13. [v0.9 Security + Identity Restructure Roadmap](./36-v0.9-security-identity-restructure-roadmap.md)
+14. [v0.9 Rescue Wave 0 API/Function Audit Matrix](./38-v0.9-rescue-wave0-api-function-audit-matrix.md)
 

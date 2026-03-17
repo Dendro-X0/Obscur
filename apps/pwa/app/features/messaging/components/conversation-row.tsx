@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 import { formatTime } from "../utils/formatting";
 import type { Conversation } from "../types";
-import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { MoreVertical, Pin, PinOff, Trash2 } from "lucide-react";
 import {
     DropdownMenu,
@@ -39,18 +39,18 @@ export function ConversationRow({
     onDelete
 }: ConversationRowProps) {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
+    const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null, { live: false });
     const resolvedName = metadata?.displayName || conversation.displayName;
 
     return (
         <div
             role="button"
             tabIndex={0}
-            onClick={() => onSelect(conversation)}
+            onClick={() => React.startTransition(() => onSelect(conversation))}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onSelect(conversation);
+                    React.startTransition(() => onSelect(conversation));
                 }
             }}
             className={cn(
@@ -96,7 +96,7 @@ export function ConversationRow({
                                 <MoreVertical className="h-5 w-5 text-zinc-400 md:h-3 md:w-3" />
                             </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="z-[10040]">
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin?.(); }}>
                                 {isPinned ? <PinOff className="h-4 w-4 mr-2" /> : <Pin className="h-4 w-4 mr-2" />}
                                 {isPinned ? t("messaging.unpin_chat") : t("messaging.pin_chat")}

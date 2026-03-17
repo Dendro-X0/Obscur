@@ -79,6 +79,25 @@ type CoordinationErrorResponse = Readonly<{
 
 type CoordinationResponse<T> = CoordinationOkResponse<T> | CoordinationErrorResponse;
 
+type InviteRequestTransportBridge = (params: Readonly<{
+  peerPublicKeyHex: PublicKeyHex;
+  introMessage?: string;
+}>) => Promise<Readonly<{
+  status: "ok" | "partial" | "queued" | "failed" | "unsupported";
+  message?: string;
+}>>;
+
+type InviteRequestStateBridge = Readonly<{
+  listIncoming: () => Promise<ReadonlyArray<ConnectionRequest>>;
+  listOutgoing: () => Promise<ReadonlyArray<ConnectionRequest>>;
+  accept: (request: ConnectionRequest) => Promise<Connection>;
+  decline: (request: ConnectionRequest, block?: boolean) => Promise<void>;
+  cancel: (request: ConnectionRequest) => Promise<void>;
+}>;
+
+let inviteRequestTransportBridge: InviteRequestTransportBridge | null = null;
+let inviteRequestStateBridge: InviteRequestStateBridge | null = null;
+
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const isString = (value: unknown): value is string => typeof value === "string";
@@ -167,6 +186,18 @@ const getEnabledRelayUrlsForIdentity = (publicKeyHex: string): ReadonlyArray<str
   } catch {
     return [];
   }
+};
+
+export const configureInviteRequestTransportBridge = (
+  bridge: InviteRequestTransportBridge | null
+): void => {
+  inviteRequestTransportBridge = bridge;
+};
+
+export const configureInviteRequestStateBridge = (
+  bridge: InviteRequestStateBridge | null
+): void => {
+  inviteRequestStateBridge = bridge;
 };
 
 const parseCoordinationResponse = <T>(value: unknown): CoordinationResponse<T> | null => {
@@ -277,6 +308,16 @@ const coordinationRedeemInvite = async (params: Readonly<{ token: string; redeem
  * Central orchestrator for all invite-related operations
  */
 class InviteManagerImpl implements InviteManager {
+  private async getBridgedRequestById(requestId: string): Promise<ConnectionRequest | null> {
+    if (!inviteRequestStateBridge) {
+      return null;
+    }
+    const [incoming, outgoing] = await Promise.all([
+      inviteRequestStateBridge.listIncoming(),
+      inviteRequestStateBridge.listOutgoing(),
+    ]);
+    return [...incoming, ...outgoing].find((request) => request.id === requestId) ?? null;
+  }
 
   // QR Code Operations
   async generateQRInvite(options: QRInviteOptions): Promise<QRInviteData> {
@@ -747,10 +788,19 @@ class InviteManagerImpl implements InviteManager {
         createdAt: new Date()
       };
 
-      // Store the connection request
-      await this.storeConnectionRequest(connectionRequest);
+      if (inviteRequestTransportBridge) {
+        const outcome = await inviteRequestTransportBridge({
+          peerPublicKeyHex: request.recipientPublicKey,
+          introMessage: request.message,
+        });
+        if (outcome.status === "failed" || outcome.status === "unsupported") {
+          throw new Error(outcome.message || "Connection request transport failed");
+        }
+        await this.storeConnectionRequest(connectionRequest);
+        return;
+      }
 
-      // 5) Send the connection request via Nostr relay
+      // 5) Send the connection request via legacy relay publish path
       const event = await NostrCompatibilityService.createInviteRequestEvent(
         identity.privateKey,
         request.recipientPublicKey,
@@ -759,16 +809,19 @@ class InviteManagerImpl implements InviteManager {
       );
 
       const targetRelays = getEnabledRelayUrlsForIdentity(identity.publicKey);
-      if (targetRelays.length > 0) {
-        logAppEvent({
-          name: "invites.send_request.publishing",
-          level: "info",
-          scope: { feature: "invites", action: "send" },
-          context: { relaysCount: targetRelays.length, eventId: event.id }
-        });
-
-        await publishToUrlsStandalone(targetRelays, JSON.stringify(["EVENT", event]));
+      if (targetRelays.length === 0) {
+        throw new Error("No active relays available for connection request");
       }
+
+      logAppEvent({
+        name: "invites.send_request.publishing",
+        level: "info",
+        scope: { feature: "invites", action: "send" },
+        context: { relaysCount: targetRelays.length, eventId: event.id }
+      });
+
+      await publishToUrlsStandalone(targetRelays, JSON.stringify(["EVENT", event]));
+      await this.storeConnectionRequest(connectionRequest);
     } catch (error) {
       throw new Error(`Connection request sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -776,6 +829,11 @@ class InviteManagerImpl implements InviteManager {
 
   async acceptConnectionRequest(requestId: string): Promise<Connection> {
     try {
+      const bridgedRequest = await this.getBridgedRequestById(requestId);
+      if (bridgedRequest && inviteRequestStateBridge) {
+        return await inviteRequestStateBridge.accept(bridgedRequest);
+      }
+
       // Get the connection request
       const connectionRequest = await this.getConnectionRequest(requestId);
       if (!connectionRequest) {
@@ -816,6 +874,12 @@ class InviteManagerImpl implements InviteManager {
 
   async declineConnectionRequest(requestId: string, block?: boolean): Promise<void> {
     try {
+      const bridgedRequest = await this.getBridgedRequestById(requestId);
+      if (bridgedRequest && inviteRequestStateBridge) {
+        await inviteRequestStateBridge.decline(bridgedRequest, block);
+        return;
+      }
+
       // Get the connection request
       const connectionRequest = await this.getConnectionRequest(requestId);
       if (!connectionRequest) {
@@ -853,6 +917,12 @@ class InviteManagerImpl implements InviteManager {
 
   async cancelConnectionRequest(requestId: string): Promise<void> {
     try {
+      const bridgedRequest = await this.getBridgedRequestById(requestId);
+      if (bridgedRequest && inviteRequestStateBridge) {
+        await inviteRequestStateBridge.cancel(bridgedRequest);
+        return;
+      }
+
       // Get the connection request
       const connectionRequest = await this.getConnectionRequest(requestId);
       if (!connectionRequest) {
@@ -896,6 +966,9 @@ class InviteManagerImpl implements InviteManager {
 
   async getIncomingConnectionRequests(): Promise<ConnectionRequest[]> {
     try {
+      if (inviteRequestStateBridge) {
+        return [...await inviteRequestStateBridge.listIncoming()];
+      }
       const pendingRequests = await this.getPendingConnectionRequests();
       return pendingRequests.filter(request => request.type === 'incoming');
     } catch (error) {
@@ -905,6 +978,9 @@ class InviteManagerImpl implements InviteManager {
 
   async getOutgoingConnectionRequests(): Promise<ConnectionRequest[]> {
     try {
+      if (inviteRequestStateBridge) {
+        return [...await inviteRequestStateBridge.listOutgoing()];
+      }
       const pendingRequests = await this.getPendingConnectionRequests();
       return pendingRequests.filter(request => request.type === 'outgoing');
     } catch (error) {

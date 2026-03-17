@@ -131,6 +131,11 @@ export default function ProfilePage(): React.JSX.Element {
       <header className="flex items-center justify-between border-b border-black/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-black">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold tracking-tight">{t("profile.title")}</h1>
+          {publicKey ? (
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-700 dark:text-emerald-300">
+              Current Account
+            </span>
+          ) : null}
           <Link className="text-sm text-zinc-600 hover:underline dark:text-zinc-400" href="/">
             {t("common.back")}
           </Link>

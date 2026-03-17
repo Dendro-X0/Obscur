@@ -9,6 +9,7 @@ pub mod db;
 pub mod net;
 pub mod keystore;
 pub mod ffi;
+pub mod protocol;
 
 uniffi::setup_scaffolding!("libobscur");
 

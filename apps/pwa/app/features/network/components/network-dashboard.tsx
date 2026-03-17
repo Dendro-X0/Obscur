@@ -32,7 +32,7 @@ import { cn } from "@dweb/ui-kit";
 import { useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RequestsInboxItem } from "@/app/features/messaging/types";
-import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { JoinGroupInputDialog } from "@/app/features/groups/components/join-group-input-dialog";
 import { GroupJoinDialog } from "@/app/features/groups/components/group-join-dialog";
 import { AddConnectionModal } from "./add-connection-modal";
@@ -45,12 +45,15 @@ import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-k
 import { useInviteResolver } from "@/app/features/invites/utils/use-invite-resolver";
 import { isValidInviteCode } from "@/app/features/invites/utils/invite-parser";
 import { parseNip29GroupIdentifier } from "@/app/features/groups/utils/parse-nip29-group-identifier";
+import { getPublicGroupHref, getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import Image from "next/image";
 import QRCode from "qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@dweb/ui-kit";
 import { QRScanner } from "@/app/components/qr-scanner";
 import { useToasts } from "@dweb/ui-kit";
 import { ConnectionImportExport } from "@/app/components/invites/connection-import-export";
+import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
+import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 
 type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked" | "manage";
 
@@ -81,6 +84,22 @@ export function NetworkDashboard() {
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
     const inviteResolver = useInviteResolver({ myPublicKeyHex: publicKeyHex });
     const { relayPool: pool } = useRelay();
+    const dmController = useEnhancedDmController({
+        myPublicKeyHex: publicKeyHex,
+        myPrivateKeyHex: (identity.state.privateKeyHex ?? null) as any,
+        pool,
+        blocklist,
+        peerTrust,
+        requestsInbox,
+        autoSubscribeIncoming: false,
+        enableIncomingTransport: false,
+        enableAutoQueueProcessing: false,
+    });
+    const requestTransport = useRequestTransport({
+        dmController,
+        peerTrust,
+        requestsInbox,
+    });
 
     // Clear unread marks when switching to invitations tab
     React.useEffect(() => {
@@ -89,9 +108,15 @@ export function NetworkDashboard() {
         }
     }, [activeTab, requestsInbox.markAllRead, requestsInbox.state.items]);
 
-    const filteredRequests = useMemo(() => {
+    const filteredIncomingRequests = useMemo(() => {
         return requestsInbox.state.items
-            .filter(req => req.status === 'pending')
+            .filter(req => req.status === 'pending' && !req.isOutgoing)
+            .filter(req => (req.peerPublicKeyHex || "").toLowerCase().includes(searchQuery.toLowerCase()));
+    }, [requestsInbox.state.items, searchQuery]);
+
+    const filteredOutgoingRequests = useMemo(() => {
+        return requestsInbox.state.items
+            .filter(req => req.status === 'pending' && !!req.isOutgoing)
             .filter(req => (req.peerPublicKeyHex || "").toLowerCase().includes(searchQuery.toLowerCase()));
     }, [requestsInbox.state.items, searchQuery]);
 
@@ -138,7 +163,7 @@ export function NetworkDashboard() {
         // Check for exact pubkey
         const parsed = parsePublicKeyInput(trimmedQuery);
         if (parsed.ok) {
-            router.push(`/network/${parsed.publicKeyHex}`);
+            router.push(getPublicProfileHref(parsed.publicKeyHex));
             return;
         }
 
@@ -146,7 +171,7 @@ export function NetworkDashboard() {
         if (trimmedQuery.includes("'")) {
             const parsedGroup = parseNip29GroupIdentifier(trimmedQuery);
             if (parsedGroup.ok) {
-                router.push(`/groups/${encodeURIComponent(parsedGroup.identifier)}`);
+                router.push(getPublicGroupHref(parsedGroup.identifier));
                 return;
             }
         }
@@ -294,7 +319,7 @@ export function NetworkDashboard() {
                                         t("network.noConnectionsFound"),
                                         t("network.noConnectionsDesc"),
                                         UserCheck,
-                                        { label: t("network.findPeople"), onClick: () => setIsNewChatOpen(true) }
+                                        { label: t("network.findPeople"), onClick: () => router.push("/search") }
                                     )
                                 ) : (
                                     <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col"}>
@@ -305,7 +330,7 @@ export function NetworkDashboard() {
                                                     key={pk}
                                                     pubkey={pk}
                                                     displayName={connection?.displayName}
-                                                    onClick={() => router.push(`/network/${pk}`)}
+                                                    onClick={() => router.push(getPublicProfileHref(pk))}
                                                     viewMode={viewMode}
                                                 />
                                             );
@@ -315,24 +340,54 @@ export function NetworkDashboard() {
                             </div>
 
                             {/* Recent Requests: Compact List */}
-                            {requestsInbox.state.items.filter(r => r.status === 'pending').length > 0 && (
+                            {filteredIncomingRequests.length > 0 && (
                                 <div className="space-y-6">
                                     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-amber-500 px-2 opacity-60">
-                                        {t("network.pending", "Pending Invitations")}
+                                        {t("network.pending", "Incoming Invitations")}
                                     </h3>
                                     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                        {requestsInbox.state.items.filter(r => r.status === 'pending').map(req => (
+                                        {filteredIncomingRequests.map(req => (
                                             <PendingRequestCard
                                                 key={req.peerPublicKeyHex}
                                                 req={req}
                                                 onAccept={() => {
-                                                    peerTrust.acceptPeer({ publicKeyHex: req.peerPublicKeyHex as PublicKeyHex });
-                                                    requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'accepted' });
+                                                    void requestTransport.acceptIncomingRequest({
+                                                        peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
+                                                        requestEventId: req.eventId,
+                                                    }).then((outcome) => {
+                                                        if (outcome.status === "failed" || outcome.status === "queued") {
+                                                            addToast({ type: "warning", message: "Request acceptance is pending relay confirmation." });
+                                                        } else {
+                                                            addToast({ type: "success", message: "Request accepted." });
+                                                        }
+                                                    });
                                                 }}
                                                 onBlock={() => {
                                                     blocklist.addBlocked({ publicKeyInput: req.peerPublicKeyHex });
-                                                    requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'declined' });
+                                                    void requestTransport.declineIncomingRequest({
+                                                        peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
+                                                        plaintext: "Declined",
+                                                        requestEventId: req.eventId,
+                                                    });
                                                 }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {filteredOutgoingRequests.length > 0 && (
+                                <div className="space-y-6">
+                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-sky-400 px-2 opacity-60">
+                                        {t("network.outgoingPending", "Outgoing Invitations")}
+                                    </h3>
+                                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                        {filteredOutgoingRequests.map(req => (
+                                            <PendingRequestCard
+                                                key={req.peerPublicKeyHex}
+                                                req={req}
+                                                onAccept={() => undefined}
+                                                onBlock={() => undefined}
                                             />
                                         ))}
                                     </div>
@@ -364,7 +419,7 @@ export function NetworkDashboard() {
                                                 memberCount={group.memberCount}
                                                 avatar={group.avatar}
                                                 onClick={() => {
-                                                    router.push(`/groups/${encodeURIComponent(group.id)}`);
+                                                    router.push(getPublicGroupHref(group.id));
                                                 }}
                                                 viewMode={viewMode}
                                             />
@@ -395,7 +450,7 @@ export function NetworkDashboard() {
                                             memberCount={group.memberCount}
                                             avatar={group.avatar}
                                             onClick={() => {
-                                                router.push(`/groups/${encodeURIComponent(group.id)}`);
+                                                router.push(getPublicGroupHref(group.id));
                                             }}
                                             viewMode={viewMode}
                                         />
@@ -413,7 +468,7 @@ export function NetworkDashboard() {
 
                     {activeTab === "invitations" && (
                         <div className="space-y-10 max-w-3xl mx-auto w-full animate-in fade-in duration-700 flex-1 flex flex-col">
-                            {filteredRequests.length === 0 && filteredDeclined.length === 0 ? (
+                            {filteredIncomingRequests.length === 0 && filteredOutgoingRequests.length === 0 && filteredDeclined.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noRequestsFound"),
                                     t("network.noRequestsDesc"),
@@ -421,30 +476,67 @@ export function NetworkDashboard() {
                                 )
                             ) : (
                                 <>
-                                    {filteredRequests.length > 0 && (
+                                    {filteredIncomingRequests.length > 0 && (
                                         <div className="space-y-4">
                                             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground px-6">
-                                                {t("network.pending", "Pending Invitations")}
+                                                {t("network.pending", "Incoming Invitations")}
                                             </h3>
                                             <div className="space-y-4">
-                                                {filteredRequests.map(req => (
+                                                {filteredIncomingRequests.map(req => (
                                                     <InvitationCard
                                                         key={req.peerPublicKeyHex}
                                                         req={req}
                                                         isRevealed={!!revealedByPubkey[req.peerPublicKeyHex]}
                                                         onReveal={() => setRevealedByPubkey(prev => ({ ...prev, [req.peerPublicKeyHex]: true }))}
                                                         onAccept={() => {
-                                                            peerTrust.acceptPeer({ publicKeyHex: req.peerPublicKeyHex as PublicKeyHex });
-                                                            requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'accepted' });
+                                                            void requestTransport.acceptIncomingRequest({
+                                                            peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
+                                                            requestEventId: req.eventId,
+                                                            }).then((outcome) => {
+                                                                if (outcome.status === "failed" || outcome.status === "queued") {
+                                                                    addToast({ type: "warning", message: "Request acceptance is pending relay confirmation." });
+                                                                } else {
+                                                                    addToast({ type: "success", message: "Request accepted." });
+                                                                }
+                                                            });
                                                         }}
                                                         onBlock={() => {
                                                             blocklist.addBlocked({ publicKeyInput: req.peerPublicKeyHex });
-                                                            requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'declined' });
+                                                            void requestTransport.declineIncomingRequest({
+                                                                peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
+                                                                plaintext: "Declined",
+                                                                requestEventId: req.eventId,
+                                                            });
                                                         }}
                                                         onMute={() => {
                                                             peerTrust.mutePeer({ publicKeyHex: req.peerPublicKeyHex as PublicKeyHex });
-                                                            requestsInbox.setStatus({ peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex, status: 'declined' });
+                                                            void requestTransport.declineIncomingRequest({
+                                                                peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
+                                                                plaintext: "Declined",
+                                                                requestEventId: req.eventId,
+                                                            });
                                                         }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {filteredOutgoingRequests.length > 0 && (
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground px-6">
+                                                {t("network.outgoingPending", "Outgoing Invitations")}
+                                            </h3>
+                                            <div className="space-y-4">
+                                                {filteredOutgoingRequests.map(req => (
+                                                    <InvitationCard
+                                                        key={req.peerPublicKeyHex}
+                                                        req={req}
+                                                        isRevealed={true}
+                                                        onReveal={() => undefined}
+                                                        onAccept={() => undefined}
+                                                        onBlock={() => undefined}
+                                                        onMute={() => undefined}
                                                     />
                                                 ))}
                                             </div>
@@ -716,7 +808,7 @@ function PendingRequestCard({
     onBlock: () => void;
 }) {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(req.peerPublicKeyHex);
+    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
     const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 8)}...`;
 
     return (
@@ -726,7 +818,9 @@ function PendingRequestCard({
                 <div className="flex-1 overflow-hidden">
                     <h4 className="font-bold text-sm truncate text-foreground">{displayName}</h4>
                     <p className="text-[10px] text-amber-600/80 font-black uppercase tracking-tighter">
-                        {t("network.pendingRequest", "Incoming Request")}
+                        {req.isOutgoing
+                            ? t("network.outgoingRequest", "Outgoing Request")
+                            : t("network.pendingRequest", "Incoming Request")}
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -771,7 +865,7 @@ function InvitationCard({ req, isRevealed, onReveal, onAccept, onBlock, onMute }
     onMute: () => void
 }) {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(req.peerPublicKeyHex);
+    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
     const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 10)}...`;
 
     return (
@@ -858,7 +952,7 @@ function InvitationCard({ req, isRevealed, onReveal, onAccept, onBlock, onMute }
 }
 function DeclinedRequestRow({ req, onRestore, onRemove }: { req: RequestsInboxItem, onRestore: (pk: PublicKeyHex) => void, onRemove: (pk: PublicKeyHex) => void }) {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(req.peerPublicKeyHex);
+    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
     const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 8)}...${req.peerPublicKeyHex.slice(-8)}`;
 
     return (

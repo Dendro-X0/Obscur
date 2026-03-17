@@ -1,6 +1,6 @@
 # Obscur
 
-Experimental alpha software. Not production-ready.
+Pre-release beta software. Not production-ready.
 
 Obscur is a local-first, decentralized, end-to-end encrypted communication app for private one-on-one and small community/group messaging over Nostr relays.
 
@@ -10,6 +10,7 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - A cross-platform app suite:
   - `apps/pwa`: web/PWA client.
   - `apps/desktop`: Tauri desktop client (native networking, updater, Tor support).
+  - Mobile runtime via Tauri targets (Android and iOS) from `apps/desktop`.
 - A shared protocol/runtime workspace:
   - `packages/dweb-*`: core, crypto, nostr, storage, and UI primitives.
 
@@ -64,7 +65,8 @@ Use `/docs` as the source of truth for maintainers and contributors.
 - Messaging and groups: [`docs/04-messaging-and-groups.md`](docs/04-messaging-and-groups.md)
 - Testing and quality gates: [`docs/06-testing-and-quality-gates.md`](docs/06-testing-and-quality-gates.md)
 - Operations and release flow: [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- v0.8.2 roadmap: [`docs/23-v0.8.2-roadmap.md`](docs/23-v0.8.2-roadmap.md)
+- v0.9 beta status handoff: [`docs/40-v0.9.0-beta-status-and-recovery-handoff.md`](docs/40-v0.9.0-beta-status-and-recovery-handoff.md)
+- v0.9 relay/runtime resilience plan: [`docs/41-v0.9-relay-runtime-resilience-foundation.md`](docs/41-v0.9-relay-runtime-resilience-foundation.md)
 
 ## Demo Placeholders (To Be Replaced)
 
@@ -81,7 +83,7 @@ These placeholders are for future GIF demos in README and the future official we
 5. `docs/assets/demo-desktop-updater.gif`  
    Placeholder: current vs latest version state and install prompt.
 
-## Release Preparation (v0.8.3)
+## Release Preparation (v0.9.0-beta)
 
 Before tagging:
 
@@ -89,11 +91,22 @@ Before tagging:
 pnpm version:sync
 pnpm version:check
 pnpm docs:check
+pnpm release:ci-signal-check
+pnpm release:artifact-matrix-check
+pnpm release:test-pack
 pnpm release:preflight
-pnpm security:audit
+pnpm release:verify-tag --tag vX.Y.Z
 ```
 
 Release references:
 
 - [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- [`docs/24-v0.8.3-roadmap.md`](docs/24-v0.8.3-roadmap.md)
+- [`docs/40-v0.9.0-beta-status-and-recovery-handoff.md`](docs/40-v0.9.0-beta-status-and-recovery-handoff.md)
+
+Current distribution channel:
+
+- GitHub Releases only (`.github/workflows/release.yml`), with required artifact lanes for:
+  - Web/PWA static bundle (`.tar.gz`)
+  - Desktop installers (Windows/macOS/Linux)
+  - Android (`.apk` + `.aab`)
+  - iOS (`.ipa`) when signing secrets are available

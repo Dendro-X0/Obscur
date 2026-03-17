@@ -2,10 +2,11 @@
 
 import React from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
-import { useProfileMetadata } from "../hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "../hooks/use-resolved-profile-metadata";
 import { cn } from "@/app/lib/utils";
 import { useRouter } from "next/navigation";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
 
 interface UserAvatarProps {
     pubkey: string;
@@ -13,6 +14,7 @@ interface UserAvatarProps {
     fallbackClassName?: string;
     size?: "sm" | "md" | "lg" | "xl";
     showProfileOnClick?: boolean;
+    metadataLive?: boolean;
 }
 
 export const UserAvatar = ({
@@ -20,9 +22,10 @@ export const UserAvatar = ({
     className,
     fallbackClassName,
     size = "md",
-    showProfileOnClick = true
+    showProfileOnClick = true,
+    metadataLive = true,
 }: UserAvatarProps) => {
-    const metadata = useProfileMetadata(pubkey);
+    const metadata = useResolvedProfileMetadata(pubkey, { live: metadataLive });
     const router = useRouter();
 
     const sizeClasses = {
@@ -41,7 +44,7 @@ export const UserAvatar = ({
         if (pubkey === myPubkey) {
             router.push("/settings#profile");
         } else {
-            router.push(`/network/${pubkey}`);
+            router.push(getPublicProfileHref(pubkey));
         }
     };
 

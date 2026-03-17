@@ -10,11 +10,18 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { clearStoredIdentity } from "../utils/clear-stored-identity";
 import { getStoredIdentity } from "../utils/get-stored-identity";
 import { saveStoredIdentity } from "../utils/save-stored-identity";
+import {
+  ensureIdentityProfileBinding,
+  recoverSingleStoredIdentityProfile,
+} from "../utils/identity-profile-binding";
 import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import { recordIdentityActivationRisk } from "@/app/shared/sybil-risk-signals";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { resolveAccountImportEvidence } from "../services/account-import-evidence";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
+import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -34,6 +41,7 @@ type UseIdentityResult = Readonly<{
   resetPassphraseWithPrivateKey: (params: Readonly<{ privateKeyHex: PrivateKeyHex; newPassphrase: Passphrase }>) => Promise<void>;
   lockIdentity: () => void;
   forgetIdentity: () => Promise<void>;
+  resetNativeSecureStorage?: () => Promise<void>;
   getIdentitySnapshot: () => IdentityState;
   getIdentityDiagnostics?: () => IdentityDiagnostics;
 }>;
@@ -50,6 +58,8 @@ export type IdentityDiagnostics = Readonly<{
 const createLoadingState = (): IdentityState => ({ status: "loading" });
 
 const createLockedState = (stored?: IdentityRecord): IdentityState => ({ status: "locked", stored });
+
+const PASSWORDLESS_NATIVE_ONLY_SENTINEL = "__obscur_native_only__";
 
 const createUnlockedState = (params: Readonly<{ stored: IdentityRecord; privateKeyHex: PrivateKeyHex }>): IdentityState => ({
   status: "unlocked",
@@ -75,6 +85,26 @@ const normalizePrivateKeyHex = (value: string): PrivateKeyHex | null => {
     return null;
   }
   return normalized as PrivateKeyHex;
+};
+
+const resolveImportedIdentityUsername = (params: Readonly<{
+  requestedUsername?: string;
+  importedPublicKeyHex: PublicKeyHex;
+  existingStoredPublicKeyHex?: PublicKeyHex;
+  existingStoredUsername?: string;
+}>): string | undefined => {
+  const requestedUsername = params.requestedUsername?.trim();
+  if (requestedUsername && requestedUsername.length > 0) {
+    return requestedUsername;
+  }
+  if (params.existingStoredPublicKeyHex !== params.importedPublicKeyHex) {
+    return undefined;
+  }
+  const existingStoredUsername = params.existingStoredUsername?.trim();
+  if (!existingStoredUsername || existingStoredUsername.length === 0) {
+    return undefined;
+  }
+  return existingStoredUsername;
 };
 
 const normalizeStoredIdentityRecord = (record: IdentityRecord): IdentityRecord => {
@@ -133,6 +163,7 @@ export const useIdentity = (): UseIdentityResult => {
     resetPassphraseWithPrivateKey: resetPassphraseWithPrivateKeyAction,
     lockIdentity: lockIdentityAction,
     forgetIdentity: forgetIdentityAction,
+    resetNativeSecureStorage: resetNativeSecureStorageAction,
     getIdentitySnapshot,
     getIdentityDiagnostics: getIdentityDiagnosticsSnapshot
   }), [state]);
@@ -152,6 +183,10 @@ const hasFn = <T extends (...args: never[]) => unknown>(value: unknown): value i
   return typeof value === "function";
 };
 
+const isPasswordlessNativeOnlyRecord = (record: IdentityRecord | undefined): boolean => {
+  return record?.encryptedPrivateKey === PASSWORDLESS_NATIVE_ONLY_SENTINEL;
+};
+
 let identityState: IdentityState = createLoadingState();
 let hasInitialized: boolean = false;
 const listeners: Set<() => void> = new Set();
@@ -166,12 +201,40 @@ const notifyListeners = (): void => {
 const setIdentityState = (next: IdentityState): void => {
   identityState = next;
   identityDiagnostics = {
-    ...identityDiagnostics,
     status: next.status,
     storedPublicKeyHex: next.stored?.publicKeyHex,
-    message: next.error
+    nativeSessionPublicKeyHex: identityDiagnostics.nativeSessionPublicKeyHex,
+    ...(next.error ? { message: next.error } : {})
   };
   notifyListeners();
+};
+
+const syncNativeSessionInBackground = async (params: Readonly<{
+  publicKeyHex: PublicKeyHex;
+  privateKeyHex: PrivateKeyHex;
+  stored: IdentityRecord;
+  context: "create" | "import" | "unlock" | "raw_unlock";
+}>): Promise<void> => {
+  const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
+  if (!canUseNativeSession() || !hasFn(cs.initNativeSession)) {
+    return;
+  }
+  try {
+    await cs.initNativeSession(params.privateKeyHex);
+    const current = getIdentitySnapshot();
+    if (current.status === "unlocked" && current.stored?.publicKeyHex === params.publicKeyHex) {
+      setIdentityState(createUnlockedState({
+        stored: params.stored,
+        privateKeyHex: NATIVE_KEY_SENTINEL,
+      }));
+    }
+  } catch (error) {
+    console.error(`Failed to initialize native session during ${params.context}:`, error);
+    accountSyncStatusStore.updateSnapshot({
+      publicKeyHex: params.publicKeyHex,
+      lastRelayFailureReason: error instanceof Error ? error.message : String(error),
+    });
+  }
 };
 
 const subscribeToIdentity = (listener: () => void): (() => void) => {
@@ -187,13 +250,27 @@ export const getIdentitySnapshot = (): IdentityState => {
 
 const setIdentityDiagnostics = (next: IdentityDiagnostics): void => {
   identityDiagnostics = next;
+  notifyListeners();
 };
 
 export const getIdentityDiagnosticsSnapshot = (): IdentityDiagnostics => identityDiagnostics;
 
 const rehydrateIdentityForActiveProfile = async (): Promise<void> => {
+  const current = getIdentitySnapshot();
   try {
-    const stored = (await getStoredIdentity()).record;
+    const { record: stored } = await getStoredIdentity();
+    if (
+      stored
+      && current.status === "unlocked"
+      && current.privateKeyHex
+      && current.stored?.publicKeyHex === stored.publicKeyHex
+    ) {
+      setIdentityState(createUnlockedState({
+        stored,
+        privateKeyHex: current.privateKeyHex,
+      }));
+      return;
+    }
     setIdentityState(createLockedState(stored));
   } catch {
     setIdentityState(createLockedState(undefined));
@@ -208,9 +285,17 @@ const ensureInitialized = async (): Promise<void> => {
   let stored: IdentityRecord | undefined;
   try {
     stored = (await getStoredIdentity()).record;
+    if (!stored) {
+      const recovered = await recoverSingleStoredIdentityProfile();
+      stored = recovered?.record;
+    }
     if (stored) {
       const normalizedStored = normalizeStoredIdentityRecord(stored);
       if (normalizedStored.publicKeyHex !== stored.publicKeyHex) {
+        await ensureIdentityProfileBinding({
+          publicKeyHex: normalizedStored.publicKeyHex,
+          username: normalizedStored.username,
+        });
         await saveStoredIdentity({ record: normalizedStored });
       }
       stored = normalizedStored;
@@ -238,19 +323,14 @@ const ensureInitialized = async (): Promise<void> => {
           return;
         }
         if (normalizedNativeNpub && normalizedNativeNpub !== stored.publicKeyHex) {
+          setIdentityState(createLockedState(stored));
           setIdentityDiagnostics({
-            status: "error",
+            status: "locked",
             storedPublicKeyHex: stored.publicKeyHex,
             nativeSessionPublicKeyHex: normalizedNativeNpub,
             mismatchReason: "native_mismatch",
-            message: "Secure storage key does not match this account. Please unlock manually or reset secure storage."
+            message: "Secure storage belonged to another account. Native auto-unlock was skipped. Unlock with your password/private key or reset secure storage."
           });
-          setIdentityState(
-            createErrorState(
-              "Secure storage key mismatch detected. Please unlock manually or reset secure storage from Identity settings.",
-              stored
-            )
-          );
           return;
         }
       } catch (e) {
@@ -269,6 +349,10 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
   let record: IdentityRecord | undefined;
   try {
     record = await createNewIdentityRecord({ passphrase: params.passphrase, username: params.username });
+    await ensureIdentityProfileBinding({
+      publicKeyHex: record.publicKeyHex,
+      username: record.username,
+    });
     await saveStoredIdentity({ record });
     const decryptedPrivateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: record.encryptedPrivateKey, passphrase: params.passphrase });
     const { privateKeyHex } = assertIdentityKeyPair({
@@ -276,23 +360,14 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
       expectedPublicKeyHex: record.publicKeyHex
     });
 
-    let activeKey: PrivateKeyHex = privateKeyHex;
-
-    // Sync to native keychain if in Tauri
-    const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
-      try {
-        await cs.initNativeSession(privateKeyHex);
-        activeKey = NATIVE_KEY_SENTINEL;
-      } catch (e) {
-        console.error("Failed to initialize native session:", e);
-        // On Desktop/Tauri, failing to sync with native is a hard error for onboarding
-        throw new Error(e instanceof Error ? e.message : "Failed to initialize secure storage. Please restart the app.");
-      }
-    }
-
-    setIdentityState(createUnlockedState({ stored: record, privateKeyHex: activeKey }));
+    setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
+    void syncNativeSessionInBackground({
+      publicKeyHex: record.publicKeyHex,
+      privateKeyHex,
+      stored: record,
+      context: "create",
+    });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message, record));
@@ -304,30 +379,58 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
   let record: IdentityRecord | undefined;
   try {
     const { privateKeyHex, publicKeyHex } = assertIdentityKeyPair({ privateKeyHex: params.privateKeyHex });
-    const encryptedPrivateKey: string = await encryptPrivateKeyHex({
-      privateKeyHex,
-      passphrase: params.passphrase
+    accountSyncStatusStore.updateSnapshot({
+      publicKeyHex,
+      phase: "found_account",
+      status: "identity_only",
+      message: "Found your account",
+    });
+    const encryptedPrivateKey: string = params.passphrase.trim().length === 0
+      ? PASSWORDLESS_NATIVE_ONLY_SENTINEL
+      : await encryptPrivateKeyHex({
+        privateKeyHex,
+        passphrase: params.passphrase
+      });
+    const username = resolveImportedIdentityUsername({
+      requestedUsername: params.username,
+      importedPublicKeyHex: publicKeyHex,
+      existingStoredPublicKeyHex: identityState.stored?.publicKeyHex,
+      existingStoredUsername: identityState.stored?.username,
     });
 
-    record = { encryptedPrivateKey, publicKeyHex, username: params.username };
+    record = { encryptedPrivateKey, publicKeyHex, username };
+    await ensureIdentityProfileBinding({
+      publicKeyHex: record.publicKeyHex,
+      username: record.username,
+    });
     await saveStoredIdentity({ record });
 
-    let activeKey: PrivateKeyHex = privateKeyHex;
-
-    // Sync to native keychain if in Tauri
-    const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
-      try {
-        await cs.initNativeSession(privateKeyHex);
-        activeKey = NATIVE_KEY_SENTINEL;
-      } catch (e) {
-        console.error("Failed to initialize native session during import:", e);
-        throw new Error(e instanceof Error ? e.message : "Failed to initialize secure storage.");
-      }
-    }
-
-    setIdentityState(createUnlockedState({ stored: record, privateKeyHex: activeKey }));
+    setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
+    void syncNativeSessionInBackground({
+      publicKeyHex: record.publicKeyHex,
+      privateKeyHex,
+      stored: record,
+      context: "import",
+    });
+    void resolveAccountImportEvidence(publicKeyHex)
+      .then((importEvidence) => {
+        accountSyncStatusStore.updateSnapshot({
+          publicKeyHex,
+          lastImportEvidence: {
+            localBinding: importEvidence.localBinding,
+            relayProfileEventSeen: importEvidence.relayProfileEventSeen,
+            relayBackupEventSeen: importEvidence.relayBackupEventSeen,
+            checkedAtUnixMs: Date.now(),
+          },
+        });
+      })
+      .catch((error) => {
+        accountSyncStatusStore.updateSnapshot({
+          publicKeyHex,
+          lastRelayFailureReason: error instanceof Error ? error.message : String(error),
+        });
+      });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Import failed";
     setIdentityState(createErrorState(message, record));
@@ -339,29 +442,25 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
   if (!identityState.stored) {
     return;
   }
+  const storedIdentity = identityState.stored;
   try {
-    const decryptedPrivateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: identityState.stored.encryptedPrivateKey, passphrase: params.passphrase });
+    if (isPasswordlessNativeOnlyRecord(storedIdentity)) {
+      throw new Error("This profile was imported without a local password. Import the private key again or rely on native session restore.");
+    }
+    const decryptedPrivateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: storedIdentity.encryptedPrivateKey, passphrase: params.passphrase });
     const { privateKeyHex } = assertIdentityKeyPair({
       privateKeyHex: decryptedPrivateKeyHex,
-      expectedPublicKeyHex: identityState.stored.publicKeyHex
+      expectedPublicKeyHex: storedIdentity.publicKeyHex
     });
 
-    let activeKey: PrivateKeyHex = privateKeyHex;
-
-    // Sync to native keychain if in Tauri
-    const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
-      try {
-        await cs.initNativeSession(privateKeyHex);
-        activeKey = NATIVE_KEY_SENTINEL;
-      } catch (e) {
-        console.error("Failed to initialize native session during unlock:", e);
-        throw new Error(e instanceof Error ? e.message : "Failed to sync with secure storage.");
-      }
-    }
-
-    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: activeKey }));
-    recordIdentityActivationRisk(identityState.stored.publicKeyHex);
+    setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
+    recordIdentityActivationRisk(storedIdentity.publicKeyHex);
+    void syncNativeSessionInBackground({
+      publicKeyHex: storedIdentity.publicKeyHex,
+      privateKeyHex,
+      stored: storedIdentity,
+      context: "unlock",
+    });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     if (message.includes("does not match stored identity")) {
@@ -372,7 +471,8 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
         message
       });
     }
-    setIdentityState(createErrorState(message, identityState.stored));
+    // Failed unlock attempts should keep auth flow recoverable instead of escalating runtime to fatal.
+    setIdentityState(createLockedState(storedIdentity));
     throw error;
   }
 };
@@ -386,22 +486,14 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
       privateKeyHex: params.privateKeyHex,
       expectedPublicKeyHex: identityState.stored.publicKeyHex
     });
-    let activeKey: PrivateKeyHex = privateKeyHex;
-
-    // Sync to native keychain if in Tauri
-    const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (canUseNativeSession() && hasFn(cs.initNativeSession)) {
-      try {
-        await cs.initNativeSession(privateKeyHex);
-        activeKey = NATIVE_KEY_SENTINEL;
-      } catch (e) {
-        console.error("Failed to initialize native session during raw unlock:", e);
-        throw new Error(e instanceof Error ? e.message : "Failed to sync with secure storage.");
-      }
-    }
-
-    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex: activeKey }));
+    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex }));
     recordIdentityActivationRisk(identityState.stored.publicKeyHex);
+    void syncNativeSessionInBackground({
+      publicKeyHex: identityState.stored.publicKeyHex,
+      privateKeyHex,
+      stored: identityState.stored,
+      context: "raw_unlock",
+    });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     if (message.includes("does not match stored identity")) {
@@ -435,6 +527,7 @@ const changePassphraseAction = async (params: Readonly<{ oldPassphrase: Passphra
       encryptedPrivateKey
     };
     await saveStoredIdentity({ record: updatedRecord });
+    emitAccountSyncMutation("identity_unlock_changed");
     setIdentityState({
       ...identityState,
       stored: updatedRecord
@@ -466,6 +559,7 @@ const resetPassphraseWithPrivateKeyAction = async (params: Readonly<{ privateKey
     };
 
     await saveStoredIdentity({ record: updatedRecord });
+    emitAccountSyncMutation("identity_unlock_changed");
 
     setIdentityState({
       ...identityState,
@@ -502,4 +596,48 @@ const forgetIdentityAction = async (): Promise<void> => {
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message, identityState.stored));
   }
+};
+
+const resetNativeSecureStorageAction = async (): Promise<void> => {
+  const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
+  try {
+    if (canUseNativeSession() && hasFn(cs.clearNativeSession)) {
+      await cs.clearNativeSession();
+    }
+    if (canUseNativeSession() && hasFn(cs.deleteNativeKey)) {
+      await cs.deleteNativeKey();
+    }
+    setIdentityDiagnostics({
+      status: identityState.stored ? "locked" : "loading",
+      storedPublicKeyHex: identityState.stored?.publicKeyHex,
+      message: undefined,
+      nativeSessionPublicKeyHex: null,
+    });
+    if (identityState.stored) {
+      setIdentityState(createLockedState(identityState.stored));
+      return;
+    }
+    setIdentityState(createLoadingState());
+    await ensureInitialized();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to reset secure storage";
+    setIdentityState(createErrorState(message, identityState.stored));
+    throw new Error(message);
+  }
+};
+
+export const useIdentityInternals = {
+  rehydrateIdentityForActiveProfile,
+  getIdentitySnapshot,
+  setIdentityState,
+  createUnlockedState,
+  createLockedState,
+  resolveImportedIdentityUsername,
+  PASSWORDLESS_NATIVE_ONLY_SENTINEL,
+  resetForTests: (): void => {
+    identityState = createLoadingState();
+    identityDiagnostics = { status: "loading" };
+    hasInitialized = false;
+    listeners.clear();
+  },
 };

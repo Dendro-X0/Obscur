@@ -2,7 +2,8 @@
  * Tauri API Integration Layer
  * Provides TypeScript types and safe access to Tauri APIs with fallbacks for web environment
  */
-import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { getRuntimeCapabilities, hasCallableNativeBridge } from "@/app/features/runtime/runtime-capabilities";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 const DESKTOP_SHELL_FLAG = process.env.NEXT_PUBLIC_DESKTOP_SHELL;
 const IS_FORCED_DESKTOP_SHELL = DESKTOP_SHELL_FLAG === "1" || DESKTOP_SHELL_FLAG === "true";
@@ -71,16 +72,24 @@ async function invokeTauri<T>(command: string, args?: Record<string, unknown>): 
       __TAURI_INTERNALS__?: { invoke?: unknown };
       __TAURI_IPC__?: unknown;
     };
-    const hasCallableBridge =
-      typeof w.__TAURI_INTERNALS__?.invoke === "function" ||
-      typeof w.__TAURI__?.core?.invoke === "function" ||
-      typeof w.__TAURI_IPC__ === "function";
-    if (!hasCallableBridge) {
+    void w;
+    if (!hasCallableNativeBridge()) {
+      logRuntimeEvent(
+        `tauri.invoke.unsupported.${command}`,
+        "expected",
+        [`[TauriAPI] Command ${command} unsupported in current runtime.`],
+      );
       return null;
     }
     const { invoke } = await import("@tauri-apps/api/core");
     return (await invoke(command, args)) as T;
   } catch (error) {
+    logRuntimeEvent(
+      `tauri.invoke.failed.${command}`,
+      "degraded",
+      [`[TauriAPI] Command ${command} failed.`, error],
+      { maxPerWindow: 2, windowMs: 20_000 }
+    );
     return null;
   }
 }

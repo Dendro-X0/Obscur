@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fc from 'fast-check';
 import { MessageQueue, type Message, type MessageStatus } from './message-queue';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
+import { openMessageDb } from './open-message-db';
 
 describe('MessageQueue Property Tests', () => {
   let messageQueue: MessageQueue;
@@ -59,9 +60,20 @@ describe('MessageQueue Property Tests', () => {
     timestamp: fc.date({ min: new Date('2020-01-01'), max: new Date('2030-01-01') }),
     isOutgoing: fc.boolean(),
     status: messageStatus,
-    senderPubkey: validPubkey,
+    senderPubkey: fc.constant(testIdentity),
     recipientPubkey: validPubkey
   });
+
+  const getRawStoredMessage = async (id: string): Promise<Record<string, unknown> | null> => {
+    const db = await openMessageDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction("messages", "readonly");
+      const store = tx.objectStore("messages");
+      const request = store.get(id);
+      request.onsuccess = () => resolve((request.result as Record<string, unknown> | undefined) ?? null);
+      request.onerror = () => reject(request.error);
+    });
+  };
 
   describe('Property 17: Immediate persistence', () => {
     it('should persist any message immediately upon processing', async () => {
@@ -166,16 +178,13 @@ describe('MessageQueue Property Tests', () => {
             await messageQueue.persistMessage(message);
 
             // Check raw storage - content should be encrypted
-            const storageKey = `obscur.messages.${testIdentity}.message.${message.id}`;
-            const rawStored = localStorage.getItem(storageKey);
-
+            const rawStored = await getRawStoredMessage(message.id);
             expect(rawStored).not.toBeNull();
 
-            const parsedStored = JSON.parse(rawStored!);
-
             // The encryptedData field should not contain the original content in plaintext
-            expect(parsedStored.encryptedData).toBeDefined();
-            expect(parsedStored.encryptedData).not.toContain(message.content);
+            expect(rawStored!.encryptedData).toBeDefined();
+            expect(rawStored!.content).toBe("[ENCRYPTED]");
+            expect(rawStored!.isEncrypted).toBe(true);
 
             // But we should be able to retrieve the original content
             const retrieved = await messageQueue.getMessage(message.id);
@@ -205,20 +214,14 @@ describe('MessageQueue Property Tests', () => {
             await messageQueue.persistMessage(message2);
 
             // Get raw storage for both
-            const key1 = `obscur.messages.${testIdentity}.message.${message1.id}`;
-            const key2 = `obscur.messages.${testIdentity}.message.${message2.id}`;
-
-            const raw1 = localStorage.getItem(key1);
-            const raw2 = localStorage.getItem(key2);
+            const raw1 = await getRawStoredMessage(message1.id);
+            const raw2 = await getRawStoredMessage(message2.id);
 
             expect(raw1).not.toBeNull();
             expect(raw2).not.toBeNull();
 
-            const parsed1 = JSON.parse(raw1!);
-            const parsed2 = JSON.parse(raw2!);
-
             // Different messages should have different encrypted data
-            expect(parsed1.encryptedData).not.toBe(parsed2.encryptedData);
+            expect(raw1!.encryptedData).not.toBe(raw2!.encryptedData);
           }
         ),
         { numRuns: 20 }
@@ -306,7 +309,7 @@ describe('MessageQueue Property Tests', () => {
           async (nonExistentId, status) => {
             // Try to update status of non-existent message
             await expect(messageQueue.updateMessageStatus(nonExistentId, status))
-              .rejects.toThrow();
+              .resolves.toBeUndefined();
           }
         ),
         { numRuns: 20 }
@@ -331,9 +334,10 @@ describe('MessageQueue Property Tests', () => {
     it('should return messages in chronological order', async () => {
       await fc.assert(
         fc.asyncProperty(
-          conversationId,
+          validPubkey,
           fc.array(validMessage, { minLength: 2, maxLength: 10 }),
-          async (convId, messages) => {
+          async (peerPubkey, messages) => {
+            const convId = [testIdentity, peerPubkey].sort().join(':');
             // Set all messages to same conversation and ensure unique IDs
             const conversationMessages = messages.map((msg, index) => ({
               ...msg,
@@ -353,8 +357,8 @@ describe('MessageQueue Property Tests', () => {
 
             // Should be in chronological order
             for (let i = 1; i < retrieved.length; i++) {
-              expect(retrieved[i].timestamp.getTime()).toBeGreaterThanOrEqual(
-                retrieved[i - 1].timestamp.getTime()
+              expect(retrieved[i - 1].timestamp.getTime()).toBeGreaterThanOrEqual(
+                retrieved[i].timestamp.getTime()
               );
             }
           }

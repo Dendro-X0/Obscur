@@ -1,5 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { getRuntimeCapabilities } from "./runtime-capabilities";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getRuntimeCapabilities,
+  getRuntimeShellInfo,
+  runtimeCapabilitiesInternals,
+} from "./runtime-capabilities";
 
 describe("runtime-capabilities", () => {
   beforeEach(() => {
@@ -35,5 +39,26 @@ describe("runtime-capabilities", () => {
 
     const caps = getRuntimeCapabilities();
     expect(caps.isNativeRuntime).toBe(false);
+  });
+
+  it("classifies local dev host for shared runtime policy", () => {
+    const host = runtimeCapabilitiesInternals.classifyRuntimeHost("127.0.0.1");
+    expect(host.isLocalDevelopment).toBe(true);
+    expect(host.isHostedPreview).toBe(false);
+  });
+
+  it("classifies hosted preview for shared runtime policy", () => {
+    const host = runtimeCapabilitiesInternals.classifyRuntimeHost("obscur-preview.vercel.app");
+    expect(host.isHostedPreview).toBe(true);
+    expect(host.isLocalDevelopment).toBe(false);
+  });
+
+  it("detects standalone pwa shell state", () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as unknown as typeof window.matchMedia;
+
+    expect(getRuntimeShellInfo().isStandalonePwa).toBe(true);
+
+    window.matchMedia = originalMatchMedia;
   });
 });

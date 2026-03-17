@@ -64,13 +64,17 @@ describe("storage-health-service", () => {
     expect(health.messageStoreOk).toBe(false);
     expect(health.errorMessage).toContain("idb down");
     expect(getReliabilityMetricsSnapshot().storage_health_failed).toBe(1);
+    expect(getReliabilityMetricsSnapshot().storage_write_retry).toBe(1);
   });
 
   it("reports recovery counters from repair runs", async () => {
     mocks.repairLocalMediaIndexMock.mockReturnValue({ repaired: 3, removed: 1 });
     const report = await runStorageRecovery();
+    expect(report.status).toBe("repaired");
     expect(report.repairedEntries).toBe(3);
     expect(report.removedEntries).toBe(1);
+    expect(report.recoveredEntries).toBe(4);
+    expect(report.durationMs).toBeGreaterThanOrEqual(0);
 
     const metrics = getReliabilityMetricsSnapshot();
     expect(metrics.storage_recovery_runs).toBe(1);

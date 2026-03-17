@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MessageQueue, type Message, type MessageStatus, type OutgoingMessage } from '../message-queue';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
+import { openMessageDb } from '../open-message-db';
 
 /**
  * Property-based tests for message queue service
@@ -167,6 +168,29 @@ describe('MessageQueue Property Tests', () => {
       const allMessages = await messageQueue.getMessages('conv_1');
       expect(allMessages).toHaveLength(concurrentMessages.length);
     });
+
+    it('isolates persisted messages by owning identity across restart-style instances', async () => {
+      const sharedConversationId = [testPubkey1, testPubkey2].sort().join(':');
+      const queueForIdentity1 = new MessageQueue(testPubkey1);
+      const queueForIdentity2 = new MessageQueue(testPubkey2);
+
+      await queueForIdentity1.persistMessage(createTestMessage({
+        id: 'owned-by-identity-1',
+        conversationId: sharedConversationId,
+        senderPubkey: testPubkey1,
+        recipientPubkey: testPubkey2,
+        content: 'private-to-identity-1',
+      }));
+
+      expect((await queueForIdentity1.getMessage('owned-by-identity-1'))?.content).toBe('private-to-identity-1');
+      expect(await queueForIdentity2.getMessage('owned-by-identity-1')).toBeNull();
+
+      const restartedQueueForIdentity1 = new MessageQueue(testPubkey1);
+      const restartedQueueForIdentity2 = new MessageQueue(testPubkey2);
+
+      expect((await restartedQueueForIdentity1.getAllMessages()).map((message) => message.id)).toContain('owned-by-identity-1');
+      expect((await restartedQueueForIdentity2.getAllMessages()).map((message) => message.id)).not.toContain('owned-by-identity-1');
+    });
   });
 
   describe('Property 21: At-rest encryption', () => {
@@ -272,6 +296,66 @@ describe('MessageQueue Property Tests', () => {
       expect(readyMessages.some(m => m.id === 'ready_now')).toBe(true);
       // All returned messages must be eligible for retry
       expect(readyMessages.every(m => m.nextRetryAt.getTime() <= Date.now() && m.retryCount < maxRetries)).toBe(true);
+    });
+
+    it('isolates queued retry entries by owning identity across restart-style instances', async () => {
+      const sharedConversationId = [testPubkey1, testPubkey2].sort().join(':');
+      const readyNow = new Date(Date.now() - 1000);
+      const queueForIdentity1 = new MessageQueue(testPubkey1);
+      const queueForIdentity2 = new MessageQueue(testPubkey2);
+
+      await queueForIdentity1.queueOutgoingMessage(createTestOutgoingMessage({
+        id: 'queued-owned-by-identity-1',
+        conversationId: sharedConversationId,
+        nextRetryAt: readyNow,
+        retryCount: 1,
+        lastReasonCode: 'relay_degraded',
+      }));
+
+      expect((await queueForIdentity1.getQueuedMessages()).map((message) => message.id)).toContain('queued-owned-by-identity-1');
+      expect((await queueForIdentity2.getQueuedMessages()).map((message) => message.id)).not.toContain('queued-owned-by-identity-1');
+
+      const restartedQueueForIdentity1 = new MessageQueue(testPubkey1);
+      const restartedQueueForIdentity2 = new MessageQueue(testPubkey2);
+      const restartedOwnedQueue = await restartedQueueForIdentity1.getQueuedMessages();
+
+      expect(restartedOwnedQueue.find((message) => message.id === 'queued-owned-by-identity-1')?.lastReasonCode).toBe('relay_degraded');
+      expect((await restartedQueueForIdentity2.getQueuedMessages()).map((message) => message.id)).not.toContain('queued-owned-by-identity-1');
+    });
+
+    it('recovers legacy owner-less queued entries only for the matching identity', async () => {
+      const db = await openMessageDb();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction("queue", "readwrite");
+        tx.objectStore("queue").put({
+          id: 'legacy-ownerless-queued',
+          conversationId: [testPubkey1, testPubkey2].sort().join(':'),
+          content: 'legacy-queued-message',
+          recipientPubkey: testPubkey2,
+          createdAt: Date.now() - 5_000,
+          retryCount: 1,
+          nextRetryAt: Date.now() - 1_000,
+          signedEvent: {
+            id: 'legacy-signed-event',
+            pubkey: testPubkey1,
+            kind: 4,
+            created_at: Math.floor(Date.now() / 1000),
+            sig: 'sig',
+            content: 'ciphertext',
+            tags: [['p', testPubkey2]],
+          },
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+
+      const restartedQueueForIdentity1 = new MessageQueue(testPubkey1);
+      const restartedQueueForIdentity2 = new MessageQueue(testPubkey2);
+      const unrelatedIdentity = new MessageQueue('0'.repeat(64) as PublicKeyHex);
+
+      expect((await restartedQueueForIdentity1.getQueuedMessages()).map((message) => message.id)).toContain('legacy-ownerless-queued');
+      expect((await restartedQueueForIdentity2.getQueuedMessages()).map((message) => message.id)).not.toContain('legacy-ownerless-queued');
+      expect((await unrelatedIdentity.getQueuedMessages()).map((message) => message.id)).not.toContain('legacy-ownerless-queued');
     });
   });
 

@@ -20,6 +20,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
 import { useTranslation } from "react-i18next";
 import { toast } from "@/app/components/ui/toast";
+import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
 
 /**
  * PasswordResetPanel provides a secure flow for users to reset their master password.
@@ -301,6 +302,7 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                             autoFocus
                                             className="h-14 px-4 rounded-[20px] bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus:ring-4 focus:ring-purple-500/5 transition-all text-lg text-zinc-900 dark:text-white"
                                         />
+                                        <PasswordStrengthIndicator password={newPassword} />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">Confirm New Password</Label>

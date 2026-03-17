@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ProfileRegistryService } from "./profile-registry-service";
+import { ProfileRegistryService, profileRegistryServiceInternals } from "./profile-registry-service";
 
 describe("profile-registry-service", () => {
   beforeEach(() => {
     localStorage.clear();
+    profileRegistryServiceInternals.resetForTests();
   });
 
   it("creates default state with one active default profile", () => {

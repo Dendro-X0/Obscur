@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 import { toast } from "../../../components/ui/toast";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
 
 export function TrustSettingsPanel() {
@@ -148,7 +148,7 @@ export function TrustSettingsPanel() {
                 onConfirm={() => {
                     if (confirmUntrustPk) {
                         peerTrust.unacceptPeer({ publicKeyHex: confirmUntrustPk as PublicKeyHex });
-                        requestsInbox.setStatus({ peerPublicKeyHex: confirmUntrustPk as PublicKeyHex, status: 'declined' });
+                        requestsInbox.remove({ peerPublicKeyHex: confirmUntrustPk as PublicKeyHex });
                         setConfirmUntrustPk(null);
                         toast.success(t("contacts.notifications.removed", "Contact removed"));
                     }
@@ -163,7 +163,7 @@ export function TrustSettingsPanel() {
 }
 
 function AcceptedPeerRow({ pk, t, onMute, onUntrust }: { pk: string; t: any; onMute: () => void; onUntrust: () => void }) {
-    const metadata = useProfileMetadata(pk);
+    const metadata = useResolvedProfileMetadata(pk);
     return (
         <div className="group flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
@@ -202,7 +202,7 @@ function AcceptedPeerRow({ pk, t, onMute, onUntrust }: { pk: string; t: any; onM
 }
 
 function MutedPeerRow({ pk, t, onUnmute }: { pk: string; t: any; onUnmute: () => void }) {
-    const metadata = useProfileMetadata(pk);
+    const metadata = useResolvedProfileMetadata(pk);
     return (
         <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-950/40 opacity-70">
             <div className="flex items-center gap-3 min-w-0">
@@ -232,7 +232,7 @@ function MutedPeerRow({ pk, t, onUnmute }: { pk: string; t: any; onUnmute: () =>
 }
 
 function BlockedPeerRow({ pk, t, onUnblock }: { pk: string; t: any; onUnblock: () => void }) {
-    const metadata = useProfileMetadata(pk);
+    const metadata = useResolvedProfileMetadata(pk);
     return (
         <div className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-950/10">
             <div className="flex items-center gap-3 min-w-0">

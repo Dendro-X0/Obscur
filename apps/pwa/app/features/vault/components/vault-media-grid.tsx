@@ -32,6 +32,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 import type { VaultMediaItem } from "../hooks/use-vault-media";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 type VaultMediaGridProps = Readonly<{
     mediaItems: ReadonlyArray<VaultMediaItem>;
@@ -91,6 +92,22 @@ const readFavorites = (): ReadonlySet<string> => {
 const persistFavorites = (favorites: ReadonlySet<string>): void => {
     if (typeof window === "undefined") return;
     localStorage.setItem(scopedFavoritesStorageKey(), JSON.stringify(Array.from(favorites)));
+};
+
+const sameMediaUrl = (a: string, b: string): boolean => a.trim() === b.trim();
+
+const buildVideoPreviewUrl = (sourceUrl: string): string => {
+    if (!sourceUrl || sourceUrl.includes("#")) {
+        return sourceUrl;
+    }
+    return `${sourceUrl}#t=0.1`;
+};
+
+const isPdfAttachment = (attachment: VaultMediaItem["attachment"]): boolean => {
+    const contentType = (attachment.contentType ?? "").toLowerCase();
+    if (contentType.includes("pdf")) return true;
+    const name = (attachment.fileName ?? "").toLowerCase();
+    return name.endsWith(".pdf");
 };
 
 export function VaultMediaGrid(props: VaultMediaGridProps) {
@@ -302,7 +319,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         className={cn("h-8 gap-2 rounded-full border px-4 transition-all duration-300", typeFilter === "file" ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : "border-border/40 hover:bg-white/5")}
                     >
                         <FileText className={cn("h-3.5 w-3.5", typeFilter === "file" ? "text-amber-400" : "text-muted-foreground")} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">{props.stats.fileCount} Documents</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">{props.stats.fileCount} Others</span>
                     </Button>
 
                     <div className="flex items-center gap-1.5 bg-zinc-500/10 px-2 py-1 rounded-full border border-zinc-500/20 ml-2">
@@ -393,26 +410,9 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                             >
                                 <div className="absolute inset-0 z-0">
                                     {item.attachment.kind === "image" ? (
-                                        <img
-                                            src={item.attachment.url}
-                                            alt={item.attachment.fileName}
-                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                        />
+                                        <VaultImageTile item={item} />
                                     ) : item.attachment.kind === "video" ? (
-                                        <div className="w-full h-full relative">
-                                            <video
-                                                src={`${item.attachment.url}#t=0.1`}
-                                                className="w-full h-full object-cover"
-                                                preload="metadata"
-                                                playsInline
-                                                muted
-                                            />
-                                            <div className="absolute inset-0 flex items-center justify-center bg-indigo-500/5 transition-colors group-hover:bg-indigo-500/10">
-                                                <div className="h-12 w-12 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
-                                                    <VideoIcon className="h-6 w-6 text-white" />
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <VaultVideoTile item={item} />
                                     ) : item.attachment.kind === "audio" ? (
                                         <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/5 transition-colors group-hover:bg-emerald-500/10">
                                             <Music2 className="h-8 w-8 text-emerald-500/50" />
@@ -421,7 +421,9 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     ) : (
                                         <div className="w-full h-full flex flex-col items-center justify-center bg-amber-500/5 transition-colors group-hover:bg-amber-500/10 text-center p-4">
                                             <FileIcon className="h-8 w-8 text-amber-500/50" />
-                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/50 mt-2">DOCUMENT</span>
+                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/50 mt-2">
+                                                {isPdfAttachment(item.attachment) ? "PDF" : "OTHER"}
+                                            </span>
                                         </div>
                                     )}
                                 </div>
@@ -642,35 +644,125 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     );
 }
 
+function VaultImageTile({ item }: { item: VaultMediaItem }) {
+    const [currentUrl, setCurrentUrl] = React.useState(item.attachment.url);
+    const [failed, setFailed] = React.useState(false);
+
+    React.useEffect(() => {
+        setCurrentUrl(item.attachment.url);
+        setFailed(false);
+    }, [item.attachment.url, item.remoteUrl]);
+
+    const handleError = (): void => {
+        if (!sameMediaUrl(currentUrl, item.remoteUrl)) {
+            logRuntimeEvent(
+                "vault.media.image_preview_fallback_to_remote",
+                "degraded",
+                ["[Vault] Image preview failed for local URL; retrying with remote URL.", { currentUrl, remoteUrl: item.remoteUrl }]
+            );
+            setCurrentUrl(item.remoteUrl);
+            return;
+        }
+        setFailed(true);
+    };
+
+    if (failed) {
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-rose-500/5 text-center p-4">
+                <ImageIcon className="h-7 w-7 text-rose-300/70" />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-200/70 mt-2">No Preview</span>
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={currentUrl}
+            alt={item.attachment.fileName}
+            onError={handleError}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            loading="lazy"
+        />
+    );
+}
+
+function VaultVideoTile({ item }: { item: VaultMediaItem }) {
+    const [currentUrl, setCurrentUrl] = React.useState(item.attachment.url);
+    const [failed, setFailed] = React.useState(false);
+
+    React.useEffect(() => {
+        setCurrentUrl(item.attachment.url);
+        setFailed(false);
+    }, [item.attachment.url, item.remoteUrl]);
+
+    const handleError = (): void => {
+        if (!sameMediaUrl(currentUrl, item.remoteUrl)) {
+            logRuntimeEvent(
+                "vault.media.video_preview_fallback_to_remote",
+                "degraded",
+                ["[Vault] Video preview failed for local URL; retrying with remote URL.", { currentUrl, remoteUrl: item.remoteUrl }]
+            );
+            setCurrentUrl(item.remoteUrl);
+            return;
+        }
+        setFailed(true);
+    };
+
+    if (failed) {
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-indigo-500/5 text-center p-4">
+                <VideoIcon className="h-7 w-7 text-indigo-200/70" />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-100/70 mt-2">No Preview</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full h-full relative">
+            <video
+                src={buildVideoPreviewUrl(currentUrl)}
+                className="w-full h-full object-cover"
+                preload="metadata"
+                playsInline
+                muted
+                onError={handleError}
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-indigo-500/5 transition-colors group-hover:bg-indigo-500/10">
+                <div className="h-12 w-12 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
+                    <VideoIcon className="h-6 w-6 text-white" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function MediaUnavailableStage(props: Readonly<{ icon: React.ReactNode; title: string; note: string }>) {
+    return (
+        <div className="w-full max-w-xl bg-white/5 backdrop-blur-3xl rounded-[40px] p-10 border border-white/10 shadow-2xl flex flex-col items-center text-center">
+            <div className="h-24 w-24 rounded-[28px] bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+                {props.icon}
+            </div>
+            <div className="text-lg font-black text-white">{props.title}</div>
+            <div className="text-xs text-white/60 mt-2">{props.note}</div>
+        </div>
+    );
+}
+
 function MediaStage({ item }: { item: VaultMediaItem }) {
     if (item.attachment.kind === "image") {
-        return <ImageStage url={item.attachment.url} name={item.attachment.fileName} />;
+        return <ImageStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} name={item.attachment.fileName} />;
     }
 
     if (item.attachment.kind === "video") {
-        return (
-            <video
-                src={item.attachment.url}
-                controls
-                autoPlay
-                className="max-h-full max-w-full rounded-2xl shadow-[0_0_100px_rgba(0,0,0,0.5)] z-0"
-            />
-        );
+        return <VideoStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} fileName={item.attachment.fileName} />;
     }
 
     if (item.attachment.kind === "audio") {
-        return (
-            <div className="w-full max-w-xl bg-white/5 backdrop-blur-3xl rounded-[48px] p-12 border border-white/10 shadow-2xl flex flex-col items-center">
-                <div className="h-32 w-32 rounded-[40px] bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center border border-emerald-500/20 mb-8 shadow-inner">
-                    <Music2 className="h-16 w-16 text-emerald-400" />
-                </div>
-                <div className="text-center mb-10 space-y-2">
-                    <div className="text-xl font-black text-white">{item.attachment.fileName}</div>
-                    <div className="text-[10px] text-white/30 font-black tracking-widest uppercase italic tracking-[0.3em]">HIFI-AUDIO.DAT</div>
-                </div>
-                <audio src={item.attachment.url} controls className="w-full" />
-            </div>
-        );
+        return <AudioStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} fileName={item.attachment.fileName} />;
+    }
+
+    if (item.attachment.kind === "file" && isPdfAttachment(item.attachment)) {
+        return <PdfStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} fileName={item.attachment.fileName} />;
     }
 
     return (
@@ -693,8 +785,10 @@ function MediaStage({ item }: { item: VaultMediaItem }) {
     );
 }
 
-function ImageStage({ url, name }: { url: string; name: string }) {
+function ImageStage({ primaryUrl, fallbackUrl, name }: { primaryUrl: string; fallbackUrl: string; name: string }) {
     const [scale, setScale] = React.useState(1);
+    const [currentUrl, setCurrentUrl] = React.useState(primaryUrl);
+    const [failed, setFailed] = React.useState(false);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const dragRef = React.useRef<HTMLDivElement>(null);
     const x = useMotionValue(0);
@@ -703,6 +797,14 @@ function ImageStage({ url, name }: { url: string; name: string }) {
     const springY = useSpring(y, { damping: 40, stiffness: 300 });
 
     const [constraints, setConstraints] = React.useState({ left: 0, right: 0, top: 0, bottom: 0 });
+
+    React.useEffect(() => {
+        setCurrentUrl(primaryUrl);
+        setFailed(false);
+        setScale(1);
+        x.set(0);
+        y.set(0);
+    }, [primaryUrl, fallbackUrl, x, y]);
 
     React.useEffect(() => {
         if (!containerRef.current || !dragRef.current) return;
@@ -729,7 +831,7 @@ function ImageStage({ url, name }: { url: string; name: string }) {
         updateConstraints();
         const timeout = setTimeout(updateConstraints, 100);
         return () => clearTimeout(timeout);
-    }, [scale, url]);
+    }, [scale, currentUrl]);
 
     const handleWheel = (e: React.WheelEvent) => {
         if (e.ctrlKey || e.metaKey || e.deltaY) {
@@ -754,6 +856,30 @@ function ImageStage({ url, name }: { url: string; name: string }) {
         }
     };
 
+    const handleImageError = (): void => {
+        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+            logRuntimeEvent(
+                "vault.media.image_stage_fallback_to_remote",
+                "degraded",
+                ["[Vault] Image viewer failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]
+            );
+            setCurrentUrl(fallbackUrl);
+            return;
+        }
+
+        setFailed(true);
+    };
+
+    if (failed) {
+        return (
+            <MediaUnavailableStage
+                icon={<ImageIcon className="h-10 w-10 text-rose-300/70" />}
+                title="Image preview unavailable"
+                note="This media could not be rendered from either local or remote source."
+            />
+        );
+    }
+
     return (
         <div
             ref={containerRef}
@@ -773,8 +899,9 @@ function ImageStage({ url, name }: { url: string; name: string }) {
                 className="relative cursor-grab active:cursor-grabbing flex items-center justify-center"
             >
                 <img
-                    src={url}
+                    src={currentUrl}
                     alt={name}
+                    onError={handleImageError}
                     draggable={false}
                     className="max-h-[85vh] max-w-full object-contain pointer-events-none select-none rounded-sm"
                 />
@@ -819,6 +946,167 @@ function ImageStage({ url, name }: { url: string; name: string }) {
                     <RotateCcw className="h-3.5 w-3.5" />
                     Reset
                 </button>
+            </div>
+        </div>
+    );
+}
+
+function VideoStage({
+    primaryUrl,
+    fallbackUrl,
+    fileName
+}: {
+    primaryUrl: string;
+    fallbackUrl: string;
+    fileName: string;
+}) {
+    const [currentUrl, setCurrentUrl] = React.useState(primaryUrl);
+    const [failed, setFailed] = React.useState(false);
+
+    React.useEffect(() => {
+        setCurrentUrl(primaryUrl);
+        setFailed(false);
+    }, [primaryUrl, fallbackUrl]);
+
+    const handleVideoError = (): void => {
+        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+            logRuntimeEvent(
+                "vault.media.video_stage_fallback_to_remote",
+                "degraded",
+                ["[Vault] Video playback failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]
+            );
+            setCurrentUrl(fallbackUrl);
+            return;
+        }
+        setFailed(true);
+    };
+
+    if (failed) {
+        return (
+            <MediaUnavailableStage
+                icon={<VideoIcon className="h-10 w-10 text-indigo-200/70" />}
+                title="Video playback unavailable"
+                note={`Unable to render "${fileName}" from local or remote source.`}
+            />
+        );
+    }
+
+    return (
+        <video
+            src={currentUrl}
+            controls
+            autoPlay
+            playsInline
+            preload="metadata"
+            onError={handleVideoError}
+            className="max-h-full max-w-full rounded-2xl shadow-[0_0_100px_rgba(0,0,0,0.5)] z-0"
+        />
+    );
+}
+
+function AudioStage({
+    primaryUrl,
+    fallbackUrl,
+    fileName
+}: {
+    primaryUrl: string;
+    fallbackUrl: string;
+    fileName: string;
+}) {
+    const [currentUrl, setCurrentUrl] = React.useState(primaryUrl);
+    const [failed, setFailed] = React.useState(false);
+
+    React.useEffect(() => {
+        setCurrentUrl(primaryUrl);
+        setFailed(false);
+    }, [primaryUrl, fallbackUrl]);
+
+    const handleAudioError = (): void => {
+        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+            logRuntimeEvent(
+                "vault.media.audio_stage_fallback_to_remote",
+                "degraded",
+                ["[Vault] Audio playback failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]
+            );
+            setCurrentUrl(fallbackUrl);
+            return;
+        }
+        setFailed(true);
+    };
+
+    if (failed) {
+        return (
+            <MediaUnavailableStage
+                icon={<Music2 className="h-10 w-10 text-emerald-200/70" />}
+                title="Audio playback unavailable"
+                note={`Unable to play "${fileName}" from local or remote source.`}
+            />
+        );
+    }
+
+    return (
+        <div className="w-full max-w-xl bg-white/5 backdrop-blur-3xl rounded-[48px] p-12 border border-white/10 shadow-2xl flex flex-col items-center">
+            <div className="h-32 w-32 rounded-[40px] bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center border border-emerald-500/20 mb-8 shadow-inner">
+                <Music2 className="h-16 w-16 text-emerald-400" />
+            </div>
+            <div className="text-center mb-10 space-y-2">
+                <div className="text-xl font-black text-white">{fileName}</div>
+                <div className="text-[10px] text-white/30 font-black tracking-widest uppercase italic tracking-[0.3em]">HIFI-AUDIO.DAT</div>
+            </div>
+            <audio src={currentUrl} controls className="w-full" onError={handleAudioError} />
+        </div>
+    );
+}
+
+function PdfStage({
+    primaryUrl,
+    fallbackUrl,
+    fileName
+}: {
+    primaryUrl: string;
+    fallbackUrl: string;
+    fileName: string;
+}) {
+    const [currentUrl, setCurrentUrl] = React.useState(primaryUrl);
+    const [failed, setFailed] = React.useState(false);
+
+    React.useEffect(() => {
+        setCurrentUrl(primaryUrl);
+        setFailed(false);
+    }, [primaryUrl, fallbackUrl]);
+
+    const handlePdfError = (): void => {
+        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+            logRuntimeEvent(
+                "vault.media.pdf_stage_fallback_to_remote",
+                "degraded",
+                ["[Vault] PDF preview failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]
+            );
+            setCurrentUrl(fallbackUrl);
+            return;
+        }
+        setFailed(true);
+    };
+
+    if (failed) {
+        return (
+            <MediaUnavailableStage
+                icon={<FileText className="h-10 w-10 text-amber-200/70" />}
+                title="PDF preview unavailable"
+                note={`Unable to render "${fileName}" in-app. Use Source URL to open externally.`}
+            />
+        );
+    }
+
+    return (
+        <div className="h-full w-full p-4 md:p-6">
+            <div className="h-full w-full rounded-2xl overflow-hidden border border-white/10 bg-black/20">
+                <iframe
+                    src={currentUrl}
+                    title={`PDF preview: ${fileName}`}
+                    className="h-full w-full"
+                    onError={handlePdfError}
+                />
             </div>
         </div>
     );

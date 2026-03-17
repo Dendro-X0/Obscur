@@ -7,7 +7,7 @@ import { cn } from "@dweb/ui-kit";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { motion, AnimatePresence } from "framer-motion";
-import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { openNativeExternal } from "@/app/features/runtime/native-host-adapter";
 
 interface VideoPlayerProps {
     src: string;
@@ -45,12 +45,10 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
         if (e) e.stopPropagation();
 
         try {
-            const isDesktop = hasNativeRuntime();
-            if (isDesktop) {
-                const { open } = await import("@tauri-apps/plugin-shell");
-                await open(src);
+            const openedNatively = await openNativeExternal(src);
+            if (openedNatively) {
                 return;
-            }
+            } 
         } catch {
             // ignore
         }

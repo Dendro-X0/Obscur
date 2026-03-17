@@ -1,4 +1,3 @@
-import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 /**

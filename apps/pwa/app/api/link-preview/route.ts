@@ -2,6 +2,24 @@ import { type NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
+const DIRECT_MEDIA_EXTENSIONS = [
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
+    ".mp4", ".webm", ".mov", ".m4v", ".ogv",
+    ".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac", ".opus",
+    ".pdf", ".txt", ".csv", ".rtf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp"
+] as const;
+
+const isDirectMediaLikeUrl = (rawUrl: string): boolean => {
+    try {
+        const parsed = new URL(rawUrl);
+        const pathname = parsed.pathname.toLowerCase();
+        if (pathname.includes("/uploads/")) return true;
+        return DIRECT_MEDIA_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+    } catch {
+        return false;
+    }
+};
+
 /**
  * GET /api/link-preview?url=...
  * Server-side proxy to fetch metadata from a URL to avoid CORS issues.
@@ -14,6 +32,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ ok: false, message: "URL is required" }, { status: 400 });
     }
 
+    if (isDirectMediaLikeUrl(url)) {
+        return NextResponse.json({ ok: false, message: "Direct media URL does not require link preview" }, { status: 200 });
+    }
+
     try {
         const response = await fetch(url, {
             headers: {
@@ -23,7 +45,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (!response.ok) {
-            return NextResponse.json({ ok: false, message: `Failed to fetch URL: ${response.status}` }, { status: response.status });
+            return NextResponse.json({ ok: false, message: `Failed to fetch URL: ${response.status}` }, { status: 200 });
         }
 
         const html = await response.text();

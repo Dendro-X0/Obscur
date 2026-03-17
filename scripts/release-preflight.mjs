@@ -69,6 +69,13 @@ const verifyBranchContext = () => {
   }
 };
 
+const verifyWorkingTreeClean = () => {
+  const status = run("git", ["status", "--porcelain"], { capture: true }).trim();
+  if (status.length > 0) {
+    throw new Error("Working tree is not clean. Commit or stash changes before running release preflight.");
+  }
+};
+
 const getRootVersion = () => {
   const rootPkg = JSON.parse(readFileSync(resolve(rootDir, "package.json"), "utf8"));
   if (!rootPkg.version || typeof rootPkg.version !== "string") {
@@ -86,6 +93,25 @@ const verifyTagDoesNotExistRemotely = (tagName) => {
   }
 };
 
+const verifyLocalTagPointsToHead = (tagName) => {
+  let localRef = "";
+  try {
+    localRef = run("git", ["show-ref", "--tags", "--verify", `refs/tags/${tagName}`], { capture: true }).trim();
+  } catch {
+    localRef = "";
+  }
+  if (!localRef) {
+    return;
+  }
+  const localTagCommit = localRef.split(" ")[0];
+  const headCommit = run("git", ["rev-parse", "HEAD"], { capture: true }).trim();
+  if (localTagCommit !== headCommit) {
+    throw new Error(
+      `Local tag ${tagName} already exists but does not point to HEAD (${localTagCommit} != ${headCommit}).`
+    );
+  }
+};
+
 const verifyVersionConsistency = () => {
   const rootVersion = getRootVersion();
   const versionJson = JSON.parse(readFileSync(resolve(rootDir, "version.json"), "utf8"));
@@ -94,8 +120,69 @@ const verifyVersionConsistency = () => {
   }
 };
 
+const verifyV090FlagPolicyCoherence = () => {
+  const privacySettingsPath = resolve(
+    rootDir,
+    "apps/pwa/app/features/settings/services/privacy-settings-service.ts"
+  );
+  const rolloutPolicyPath = resolve(
+    rootDir,
+    "apps/pwa/app/features/settings/services/v090-rollout-policy.ts"
+  );
+  const privacySource = readFileSync(privacySettingsPath, "utf8");
+  const rolloutSource = readFileSync(rolloutPolicyPath, "utf8");
+  const requiredPrivacyDefaults = [
+    "stabilityModeV090: true",
+    "deterministicDiscoveryV090: false",
+    "protocolCoreRustV090: false",
+    "x3dhRatchetV090: false",
+  ];
+  for (const needle of requiredPrivacyDefaults) {
+    if (!privacySource.includes(needle)) {
+      throw new Error(`Missing required v0.9 default policy in privacy settings: ${needle}`);
+    }
+  }
+  const requiredPolicyRules = [
+    "normalized.stabilityModeV090",
+    "normalized.deterministicDiscoveryV090 = false",
+    "normalized.protocolCoreRustV090 = false",
+    "normalized.x3dhRatchetV090 = false",
+    "if (!normalized.protocolCoreRustV090)",
+  ];
+  for (const needle of requiredPolicyRules) {
+    if (!rolloutSource.includes(needle)) {
+      throw new Error(`Missing required v0.9 rollout policy rule: ${needle}`);
+    }
+  }
+};
+
+const extractQuotedCommands = (source) => {
+  const matches = source.match(/"([a-z0-9_]+)"/g) ?? [];
+  return new Set(matches.map((value) => value.slice(1, -1)));
+};
+
+const verifyProtocolAclParity = () => {
+  const aclPath = resolve(rootDir, "apps/desktop/src-tauri/permissions/app.toml");
+  const aclSource = readFileSync(aclPath, "utf8");
+  const adapterPath = resolve(rootDir, "apps/pwa/app/features/runtime/protocol-core-adapter.ts");
+  const powPath = resolve(rootDir, "apps/pwa/app/features/crypto/pow-service.ts");
+  const adapterSource = readFileSync(adapterPath, "utf8");
+  const powSource = readFileSync(powPath, "utf8");
+
+  const invokedFromAdapter = [...adapterSource.matchAll(/"(protocol_[a-z0-9_]+)"/g)].map((m) => m[1]);
+  const invokedFromPow = [...powSource.matchAll(/"(mine_pow)"/g)].map((m) => m[1]);
+  const invoked = new Set([...invokedFromAdapter, ...invokedFromPow]);
+  const aclCommands = extractQuotedCommands(aclSource);
+
+  const missing = [...invoked].filter((cmd) => !aclCommands.has(cmd));
+  if (missing.length > 0) {
+    throw new Error(`ACL parity failed. Missing Tauri permissions for commands:\n- ${missing.join("\n- ")}`);
+  }
+};
+
 const main = () => {
   const requestedTag = getArg("--tag");
+  const allowDirty = getArg("--allow-dirty") === "1" || getArg("--allow-dirty") === "true";
   const rootVersion = getRootVersion();
   const defaultTag = `v${rootVersion}`;
   const tag = requestedTag ?? defaultTag;
@@ -103,8 +190,14 @@ const main = () => {
   console.log(`[release:preflight] Target tag: ${tag}`);
   verifyRequiredPaths();
   verifyBranchContext();
+  if (!allowDirty) {
+    verifyWorkingTreeClean();
+  }
   verifyVersionConsistency();
+  verifyV090FlagPolicyCoherence();
+  verifyProtocolAclParity();
   verifyTagDoesNotExistRemotely(tag);
+  verifyLocalTagPointsToHead(tag);
 
   console.log("[release:preflight] Running version alignment check...");
   run("pnpm", ["version:check"]);
@@ -112,6 +205,8 @@ const main = () => {
   run("pnpm", ["docs:check"]);
   console.log("[release:preflight] Verifying release artifact matrix workflow...");
   run("pnpm", ["release:artifact-matrix-check"]);
+  console.log("[release:preflight] Verifying CI signal contract...");
+  run("pnpm", ["release:ci-signal-check"]);
 
   console.log("[release:preflight] Passed");
 };

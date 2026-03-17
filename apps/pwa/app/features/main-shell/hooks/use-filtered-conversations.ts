@@ -18,7 +18,12 @@ export function useFilteredConversations(
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
     const allConversations = useMemo(() => {
-        const visibleConnections = createdConnections.filter(c => isPeerAccepted({ publicKeyHex: c.pubkey }));
+        const visibleConnections = createdConnections.filter(c => {
+            if (myPublicKeyHex && c.pubkey === myPublicKeyHex) {
+                return false;
+            }
+            return isPeerAccepted({ publicKeyHex: c.pubkey });
+        });
         const all = [...visibleConnections, ...createdGroups];
 
         // Deduplicate
@@ -30,7 +35,7 @@ export function useFilteredConversations(
         });
 
         return unique.map(c => applyConnectionOverrides(c, connectionOverridesByConnectionId));
-    }, [createdConnections, createdGroups, connectionOverridesByConnectionId, isPeerAccepted]);
+    }, [createdConnections, createdGroups, connectionOverridesByConnectionId, isPeerAccepted, myPublicKeyHex]);
 
     const [messageSearchResults, setMessageSearchResults] = useState<ReadonlyArray<{ conversationId: string; messageId: string; timestamp: Date; preview: string }>>([]);
 

@@ -52,7 +52,7 @@ export function WindowControls(): React.JSX.Element | null {
   };
 
   return (
-    <div className="flex items-center gap-1.5" data-tauri-drag-region>
+    <div className="flex items-center gap-1.5">
       <Button
         variant="ghost"
         size="sm"

@@ -14,6 +14,7 @@ export function useDmSync(
     isReady: boolean = true
 ) {
     const prevMessagesRef = useRef<Record<string, Message>>({});
+    const seenMessageIdsRef = useRef<Set<string>>(new Set());
     const hasInitializedRef = useRef(false);
 
     useEffect(() => {
@@ -26,11 +27,12 @@ export function useDmSync(
             if (!cid) return;
 
             const prev = prevMessagesRef.current[m.id];
+            const hasSeen = seenMessageIdsRef.current.has(m.id);
 
             if (!prev) {
                 // Emit to MessageBus and increment unread ONLY if we are fully initialized
                 // This prevents hydration from treating hundreds of stored messages as "new"
-                if (hasInitializedRef.current) {
+                if (hasInitializedRef.current && !hasSeen) {
                     messageBus.emitNewMessage(cid, m);
 
                     // Track for unread count increment if not outgoing and not selected
@@ -49,6 +51,11 @@ export function useDmSync(
                     messageBus.emitMessageUpdated(cid, m);
                 }
             }
+
+            // Keep message identity sticky across transient controller resets/churn.
+            // Without this, a reset -> reload cycle can repeatedly re-mark the same
+            // message as "new" and inflate unread counts.
+            seenMessageIdsRef.current.add(m.id);
         });
 
         prevMessagesRef.current = currentMessages;
@@ -66,5 +73,5 @@ export function useDmSync(
                 return next;
             });
         }
-    }, [dmMessages, selectedConversationId, setUnreadByConversationId]);
+    }, [dmMessages, selectedConversationId, setUnreadByConversationId, isReady]);
 }

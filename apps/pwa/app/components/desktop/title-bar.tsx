@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { WindowControls } from "./window-controls";
+import { TitleBarProfileSwitcher } from "./title-bar-profile-switcher";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { isDesktopEnvironment } from "@/app/features/desktop/utils/tauri-api";
 import { useEffect, useState } from "react";
@@ -35,13 +36,11 @@ export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProp
 
   return (
     <div
-      className="flex h-12 items-center justify-between px-4 titlebar-glass border-b border-black/10 dark:border-white/10 relative z-[9999]"
-      data-tauri-drag-region
+      className="relative z-[9999] flex h-12 items-center px-4 titlebar-glass border-b border-black/10 dark:border-white/10"
     >
-      {/* Background Gradient Layer */}
       <div className="absolute inset-0 titlebar-gradient pointer-events-none" />
 
-      <div className="flex items-center gap-3 relative z-10 select-none" data-tauri-drag-region>
+      <div className="relative z-10 flex shrink-0 items-center gap-3 select-none" data-tauri-drag-region>
         <div className="flex items-center justify-center h-6 w-6" data-tauri-drag-region>
           <img src="/obscur-logo-light.svg" className="h-full w-full dark:hidden" alt="Obscur" data-tauri-drag-region />
           <img src="/obscur-logo-dark.svg" className="h-full w-full hidden dark:block" alt="Obscur" data-tauri-drag-region />
@@ -51,11 +50,14 @@ export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProp
         </span>
       </div>
 
+      <div className="h-full min-w-0 flex-1" data-tauri-drag-region />
+
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-40" data-tauri-drag-region>
         <div className="h-px w-24 bg-gradient-to-r from-transparent via-primary/50 to-transparent" data-tauri-drag-region />
       </div>
 
-      <div className="relative z-10 flex items-center">
+      <div className="relative z-10 flex shrink-0 items-center gap-3">
+        <TitleBarProfileSwitcher title={title} />
         {showControls && <WindowControls />}
       </div>
     </div>

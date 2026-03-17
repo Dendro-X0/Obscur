@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PrivacySettingsService, type PrivacySettings } from "../services/privacy-settings-service";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
 
 const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
 const getAutolockStorageKey = (): string => getScopedStorageKey(AUTOLOCK_STORAGE_KEY);
@@ -48,33 +50,33 @@ export function useAutoLock() {
         let unlistenError: (() => void) | undefined;
 
         if (isTauri) {
-            import('@tauri-apps/api/event').then(({ listen }) => {
-                listen('tor-status', (event) => {
-                    const payload: unknown = event.payload;
-                    if (payload === "disconnected" || payload === "starting" || payload === "connected" || payload === "error" || payload === "stopped") {
-                        setTorStatus(payload);
-                    }
-                    if (payload === 'connected') {
-                        setTorRestartRequired(false);
-                    }
-                }).then(u => unlistenStatus = u);
+            void listenToNativeEvent<unknown>('tor-status', (event) => {
+                const payload: unknown = event.payload;
+                if (payload === "disconnected" || payload === "starting" || payload === "connected" || payload === "error" || payload === "stopped") {
+                    setTorStatus(payload);
+                }
+                if (payload === 'connected') {
+                    setTorRestartRequired(false);
+                }
+            }).then(u => unlistenStatus = u);
 
-                listen('tor-log', (event) => {
-                    const log = event.payload as string;
+            void listenToNativeEvent<string>('tor-log', (event) => {
+                const log = event.payload;
+                if (typeof log === "string") {
                     setTorLogs(prev => [...prev.slice(-99), log]);
-                }).then(u => unlistenLog = u);
+                }
+            }).then(u => unlistenLog = u);
 
-                listen('tor-error', (event) => {
-                    console.error('[Tor Error]', event.payload);
-                    setTorStatus('error');
-                }).then(u => unlistenError = u);
-            });
+            void listenToNativeEvent<unknown>('tor-error', (event) => {
+                console.error('[Tor Error]', event.payload);
+                setTorStatus('error');
+            }).then(u => unlistenError = u);
 
             // Initial status check
-            import('@tauri-apps/api/core').then(({ invoke }) => {
-                invoke<boolean>('get_tor_status').then(running => {
-                    if (running) setTorStatus('connected');
-                });
+            void invokeNativeCommand<boolean>("get_tor_status").then((result) => {
+                if (result.ok && result.value) {
+                    setTorStatus("connected");
+                }
             });
         }
 
@@ -95,9 +97,7 @@ export function useAutoLock() {
     // Auto-start Tor on mount if enabled
     useEffect(() => {
         if (isTauri && settings.enableTorProxy && torStatus === 'disconnected') {
-            import('@tauri-apps/api/core').then(({ invoke }) => {
-                invoke('start_tor').catch(console.error);
-            });
+            void invokeNativeCommand("start_tor");
         }
     }, [isTauri, settings.enableTorProxy, torStatus]);
 
@@ -208,21 +208,21 @@ export function useAutoLock() {
 
         // Handle Tor process if enableTorProxy changed
         if (isTauri && newSettings.enableTorProxy !== undefined && newSettings.enableTorProxy !== current.enableTorProxy) {
-            import('@tauri-apps/api/core').then(({ invoke }) => {
+            void (async () => {
                 if (newSettings.enableTorProxy) {
-                    invoke('start_tor').catch(console.error);
+                    await invokeNativeCommand("start_tor");
                 } else {
-                    invoke('stop_tor').catch(console.error);
+                    await invokeNativeCommand("stop_tor");
                 }
 
-                // Persist settings to Rust for startup proxy and flag restart
-                invoke('save_tor_settings', {
+                const persisted = await invokeNativeCommand("save_tor_settings", {
                     enableTor: newSettings.enableTorProxy,
-                    proxyUrl: updated.torProxyUrl
-                }).then(() => {
+                    proxyUrl: updated.torProxyUrl,
+                });
+                if (persisted.ok) {
                     setTorRestartRequired(false);
-                }).catch(console.error);
-            });
+                }
+            })();
         }
 
         PrivacySettingsService.saveSettings(updated);

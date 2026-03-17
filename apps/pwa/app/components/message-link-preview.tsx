@@ -13,12 +13,31 @@ type MessageLinkPreviewProps = Readonly<{
   isOutgoing: boolean;
 }>;
 
+const DIRECT_MEDIA_EXTENSIONS = [
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
+  ".mp4", ".webm", ".mov", ".m4v", ".ogv",
+  ".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac", ".opus",
+  ".pdf", ".txt", ".csv", ".rtf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp"
+] as const;
+
+const isDirectMediaLikeUrl = (rawUrl: string): boolean => {
+  try {
+    const parsed = new URL(rawUrl);
+    const pathname = parsed.pathname.toLowerCase();
+    if (pathname.includes("/uploads/")) return true;
+    return DIRECT_MEDIA_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+  } catch {
+    return false;
+  }
+};
+
 const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element | null => {
   const url: string | null = useMemo((): string | null => {
     return extractFirstUrl(props.content);
   }, [props.content]);
+  const shouldSkip = useMemo((): boolean => (url ? isDirectMediaLikeUrl(url) : false), [url]);
   const previewState = useLinkPreview(url).state;
-  if (!url) {
+  if (!url || shouldSkip) {
     return null;
   }
   if (previewState.status === "loading") {

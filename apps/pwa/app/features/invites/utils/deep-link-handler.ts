@@ -1,6 +1,7 @@
 import type { ConnectionRequest } from './types';
 import { inviteManager } from './invite-manager';
 import { NostrCompatibilityService } from './nostr-compatibility';
+import { getRuntimeShellInfo } from "@/app/features/runtime/runtime-capabilities";
 
 /**
  * Deep link route types for invite processing
@@ -366,11 +367,11 @@ export class DeepLinkHandler {
         };
 
       case 'group':
-        const relayParam = route.relay ? `?relay=${encodeURIComponent(route.relay)}` : '';
+        const groupHref = getPublicGroupHref(route.groupId, route.relay);
         return {
-          webUrl: `${baseUrl}/groups/${route.groupId}${relayParam}`,
-          installUrl: `${baseUrl}/install?redirect=groups/${route.groupId}${relayParam}`,
-          universalUrl: `${baseUrl}/groups/${route.groupId}${relayParam}`
+          webUrl: `${baseUrl}${groupHref}`,
+          installUrl: `${baseUrl}/install?redirect=${encodeURIComponent(groupHref)}`,
+          universalUrl: `${baseUrl}${groupHref}`
         };
 
       default:
@@ -410,8 +411,7 @@ export class DeepLinkHandler {
     const canInstall = 'serviceWorker' in navigator && 'BeforeInstallPromptEvent' in window;
 
     // Check if running in standalone mode (installed PWA)
-    const hasNativeApp = window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
+    const hasNativeApp = getRuntimeShellInfo().isStandalonePwa;
 
     return { hasNativeApp, canInstall, platform };
   }
@@ -473,3 +473,4 @@ export const useDeepLinkHandler = () => {
     getPlatformSupport
   };
 };
+import { getPublicGroupHref } from "@/app/features/navigation/public-routes";

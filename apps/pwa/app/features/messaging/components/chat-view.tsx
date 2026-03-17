@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
 import { MessageList } from "./message-list";
@@ -90,12 +90,23 @@ export interface ChatViewProps {
 export function ChatView(props: ChatViewProps) {
     const { t } = useTranslation();
     const [isDragging, setIsDragging] = useState(false);
-    const metadata = useProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
+    const [messageMenuAnchorHoverId, setMessageMenuAnchorHoverId] = useState<string | null>(null);
+    const [isMessageMenuHovered, setIsMessageMenuHovered] = useState(false);
+    const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
     const resolvedName = metadata?.displayName || props.conversation.displayName;
 
     const getMessageById = (messageId: string): Message | undefined => {
         return props.messages.find(m => m.id === messageId);
     };
+
+    const handleMessageMenuAnchorHoverChange = React.useCallback((params: { messageId: string; isHovered: boolean }): void => {
+        setMessageMenuAnchorHoverId((current) => {
+            if (params.isHovered) {
+                return params.messageId;
+            }
+            return current === params.messageId ? null : current;
+        });
+    }, []);
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -121,28 +132,60 @@ export function ChatView(props: ChatViewProps) {
         }
     };
 
+    const {
+        messageMenu,
+        reactionPicker,
+        setMessageMenu,
+        setReactionPicker,
+        messageMenuRef,
+        reactionPickerRef,
+    } = props;
+
     // Close menu when clicking outside
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (props.messageMenu && props.messageMenuRef.current && !props.messageMenuRef.current.contains(event.target as Node)) {
-                props.setMessageMenu(null);
+            if (messageMenu && messageMenuRef.current && !messageMenuRef.current.contains(event.target as Node)) {
+                setMessageMenu(null);
+                setMessageMenuAnchorHoverId(null);
+                setIsMessageMenuHovered(false);
             }
-            if (props.reactionPicker && props.reactionPickerRef.current && !props.reactionPickerRef.current.contains(event.target as Node)) {
-                props.setReactionPicker(null);
+            if (reactionPicker && reactionPickerRef.current && !reactionPickerRef.current.contains(event.target as Node)) {
+                setReactionPicker(null);
             }
         };
 
-        if (props.messageMenu || props.reactionPicker) {
+        if (messageMenu || reactionPicker) {
             document.addEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [props.messageMenu, props.reactionPicker, props.setMessageMenu, props.setReactionPicker, props.messageMenuRef, props.reactionPickerRef]);
+    }, [messageMenu, messageMenuRef, reactionPicker, reactionPickerRef, setMessageMenu, setReactionPicker]);
+
+    React.useEffect(() => {
+        if (!messageMenu) {
+            setMessageMenuAnchorHoverId(null);
+            setIsMessageMenuHovered(false);
+            return;
+        }
+
+        const menuAnchoredToHoveredBubble = messageMenuAnchorHoverId === messageMenu.messageId;
+        if (menuAnchoredToHoveredBubble || isMessageMenuHovered) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setMessageMenu(null);
+        }, 120);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [isMessageMenuHovered, messageMenu, messageMenuAnchorHoverId, setMessageMenu]);
 
 
-    const activeMessage = props.messageMenu && getMessageById(props.messageMenu.messageId);
+    const activeMessage = messageMenu && getMessageById(messageMenu.messageId);
 
     return (
         <div
@@ -177,7 +220,7 @@ export function ChatView(props: ChatViewProps) {
                 <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6 text-center opacity-0 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-forwards delay-200">
                     <div className="relative">
                         <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center shadow-2xl shadow-purple-500/10 ring-1 ring-black/5 dark:ring-white/5">
-                            <span className="text-4xl font-black text-zinc-300 dark:text-zinc-600 select-none overflow-hidden h-full w-full flex items-center justify-center rounded-3xl">
+                            <span className="relative text-4xl font-black text-zinc-300 dark:text-zinc-600 select-none overflow-hidden h-full w-full flex items-center justify-center rounded-3xl">
                                 {metadata?.avatarUrl ? (
                                     <Image src={metadata.avatarUrl} alt={resolvedName} fill unoptimized className="object-cover" />
                                 ) : (
@@ -215,6 +258,8 @@ export function ChatView(props: ChatViewProps) {
                     nowMs={props.nowMs}
                     flashMessageId={props.flashMessageId}
                     onOpenMessageMenu={(params) => props.setMessageMenu(params)}
+                    openMessageMenuMessageId={props.messageMenu?.messageId ?? null}
+                    onMessageMenuAnchorHoverChange={handleMessageMenuAnchorHoverChange}
                     onOpenReactionPicker={(params) => props.setReactionPicker(params)}
                     onToggleReaction={props.onToggleReaction}
                     onRetryMessage={props.onRetryMessage}
@@ -286,6 +331,7 @@ export function ChatView(props: ChatViewProps) {
                         props.setMessageMenu(null);
                     }}
                     menuRef={props.messageMenuRef}
+                    onHoverChange={setIsMessageMenuHovered}
                 />
             )}
 

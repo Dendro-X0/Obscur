@@ -1,10 +1,10 @@
 "use client";
 
 import type React from "react";
-import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, startTransition, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import AppShell from "@/app/components/app-shell";
-import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
+import { useRuntimeMessagingTransportOwnerController } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { toast } from "@dweb/ui-kit";
@@ -54,10 +54,17 @@ import { useFilteredConversations } from "./hooks/use-filtered-conversations";
 import { useAttachmentHandler } from "./hooks/use-attachment-handler";
 import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
-import { AuthScreen } from "../auth/components/auth-screen";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
+import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { getIncomingInboxRequests } from "@/app/features/messaging/services/request-inbox-view";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
+import { configureInviteRequestStateBridge, configureInviteRequestTransportBridge } from "@/app/features/invites/utils/invite-manager";
+import type { Connection as LegacyInviteConnection, ConnectionRequest as LegacyInviteRequest } from "@/app/features/invites/utils/types";
+import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
+import { resolveAccountSyncUiPolicy } from "@/app/features/account-sync/services/account-sync-ui-policy";
+import { AppLoadingScreen } from "@/app/components/app-loading-screen";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
@@ -102,6 +109,7 @@ function NostrMessengerContent() {
   } = useMessaging();
 
   const { relayPool, relayStatus } = useRelay();
+  const accountSyncSnapshot = useAccountSyncSnapshot();
   const {
     createdGroups, isNewGroupOpen, setIsNewGroupOpen,
     isGroupInfoOpen, setIsGroupInfoOpen, updateGroup,
@@ -122,25 +130,64 @@ function NostrMessengerContent() {
 
   // No-op - moved to top
 
-  const dmController = useEnhancedDmController({
-    myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox,
-    onConnectionCreated: (pubkey) => {
-      const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pubkey });
-      if (!cid) return;
-      setCreatedConnections(prev => {
-        if (prev.some(c => c.id === cid)) return prev;
-        return [...prev, {
-          kind: 'dm',
-          id: cid,
-          pubkey: pubkey as PublicKeyHex,
-          displayName: pubkey.slice(0, 8),
-          lastMessage: '',
-          unreadCount: 0,
-          lastMessageTime: new Date()
-        } as DmConversation];
-      });
+  const dmController = useRuntimeMessagingTransportOwnerController();
+
+  useEffect(() => {
+    if (!myPublicKeyHex) {
+      return;
     }
-  });
+    setCreatedConnections((prev) => {
+      const acceptedPeers = peerTrust.state.acceptedPeers
+        .filter((pubkey) => pubkey !== myPublicKeyHex)
+        .sort();
+      const previousByPubkey = new Map(prev.map((connection) => [connection.pubkey, connection] as const));
+      const derivedConnections = acceptedPeers
+        .map((pubkey) => {
+          const existing = previousByPubkey.get(pubkey);
+          const derived = createDmConversation({
+            myPublicKeyHex,
+            peerPublicKeyHex: pubkey,
+            displayName: existing?.displayName || pubkey.slice(0, 8),
+          });
+          if (!derived) {
+            return null;
+          }
+          return existing ? { ...existing, id: derived.id, pubkey } : derived;
+        })
+        .filter((connection): connection is DmConversation => connection !== null)
+        .sort((left, right) => {
+          const byTime = right.lastMessageTime.getTime() - left.lastMessageTime.getTime();
+          if (byTime !== 0) {
+            return byTime;
+          }
+          return left.id.localeCompare(right.id);
+        });
+
+      if (derivedConnections.length !== prev.length) {
+        return derivedConnections;
+      }
+
+      for (let index = 0; index < derivedConnections.length; index += 1) {
+        const nextConnection = derivedConnections[index];
+        const previousConnection = prev[index];
+        if (!previousConnection) {
+          return derivedConnections;
+        }
+        if (
+          previousConnection.id !== nextConnection.id
+          || previousConnection.pubkey !== nextConnection.pubkey
+          || previousConnection.displayName !== nextConnection.displayName
+          || previousConnection.lastMessage !== nextConnection.lastMessage
+          || previousConnection.unreadCount !== nextConnection.unreadCount
+          || previousConnection.lastMessageTime.getTime() !== nextConnection.lastMessageTime.getTime()
+        ) {
+          return derivedConnections;
+        }
+      }
+
+      return prev;
+    });
+  }, [myPublicKeyHex, peerTrust.state.acceptedPeers, setCreatedConnections]);
 
   const { state: groupState, members: groupMembers } = useSealedCommunity({
     pool: relayPool,
@@ -176,7 +223,124 @@ function NostrMessengerContent() {
 
   // Feature hooks
   const { handleSendMessage, deleteMessage, toggleReaction } = useChatActions(dmController);
-  const { handleRedeemInvite } = useInviteRedemption(dmController);
+  const requestTransport = useRequestTransport({
+    dmController,
+    peerTrust,
+    requestsInbox,
+  });
+  const inviteStateBridge = useMemo(() => {
+    const toLegacyRequest = (item: Readonly<{
+      peerPublicKeyHex: PublicKeyHex;
+      lastMessagePreview: string;
+      lastReceivedAtUnixSeconds: number;
+      status?: "pending" | "accepted" | "declined" | "canceled";
+      isOutgoing?: boolean;
+    }>): LegacyInviteRequest => {
+      const matchedConnection = createdConnections.find(
+        (entry) => entry.kind === "dm" && entry.pubkey === item.peerPublicKeyHex
+      );
+      const fallbackName = matchedConnection?.displayName || `User ${item.peerPublicKeyHex.slice(0, 8)}`;
+      const timestampMs = item.lastReceivedAtUnixSeconds * 1000;
+      return {
+        id: `shared:${item.peerPublicKeyHex}`,
+        type: item.isOutgoing ? "outgoing" : "incoming",
+        senderPublicKey: item.isOutgoing ? (myPublicKeyHex as PublicKeyHex) : (item.peerPublicKeyHex as PublicKeyHex),
+        recipientPublicKey: item.isOutgoing ? (item.peerPublicKeyHex as PublicKeyHex) : (myPublicKeyHex as PublicKeyHex),
+        profile: {
+          publicKey: item.peerPublicKeyHex as PublicKeyHex,
+          displayName: fallbackName,
+          timestamp: timestampMs,
+          signature: "shared-runtime-bridge",
+        },
+        message: item.lastMessagePreview || undefined,
+        status: item.status === "canceled" ? "cancelled" : (item.status ?? "pending"),
+        createdAt: new Date(timestampMs),
+      };
+    };
+
+    return {
+      listIncoming: async (): Promise<ReadonlyArray<LegacyInviteRequest>> => {
+        return requestsInbox.state.items
+          .filter((item) => !item.isOutgoing && item.status === "pending")
+          .map(toLegacyRequest);
+      },
+      listOutgoing: async (): Promise<ReadonlyArray<LegacyInviteRequest>> => {
+        return requestsInbox.state.items
+          .filter((item) => item.isOutgoing && item.status === "pending")
+          .map(toLegacyRequest);
+      },
+      accept: async (request: LegacyInviteRequest): Promise<LegacyInviteConnection> => {
+        const outcome = await requestTransport.acceptIncomingRequest({
+          peerPublicKeyHex: request.senderPublicKey,
+          plaintext: request.message || "Accepted",
+        });
+        if (outcome.status !== "ok" && outcome.status !== "partial") {
+          throw new Error(outcome.message || "Failed to accept connection request");
+        }
+        return {
+          id: request.senderPublicKey,
+          publicKey: request.senderPublicKey,
+          displayName: request.profile.displayName || `User ${request.senderPublicKey.slice(0, 8)}`,
+          avatar: request.profile.avatar,
+          bio: request.profile.bio,
+          trustLevel: "neutral",
+          groups: [],
+          addedAt: new Date(),
+          metadata: {
+            source: "manual",
+            notes: request.message,
+          },
+        };
+      },
+      decline: async (request: LegacyInviteRequest, block?: boolean): Promise<void> => {
+        const outcome = await requestTransport.declineIncomingRequest({
+          peerPublicKeyHex: request.senderPublicKey,
+          plaintext: request.message || "Declined",
+        });
+        if (block) {
+          peerTrust.mutePeer({ publicKeyHex: request.senderPublicKey });
+        }
+        if (outcome.status === "failed") {
+          throw new Error(outcome.message || "Failed to decline connection request");
+        }
+      },
+      cancel: async (request: LegacyInviteRequest): Promise<void> => {
+        const outcome = await requestTransport.cancelOutgoingRequest({
+          peerPublicKeyHex: request.recipientPublicKey,
+          plaintext: request.message || "Canceled",
+        });
+        if (outcome.status === "failed") {
+          throw new Error(outcome.message || "Failed to cancel connection request");
+        }
+      },
+    };
+  }, [createdConnections, myPublicKeyHex, peerTrust, requestTransport, requestsInbox]);
+  useEffect(() => {
+    configureInviteRequestTransportBridge(async ({ peerPublicKeyHex, introMessage }) => {
+      const outcome = await requestTransport.sendRequest({
+        peerPublicKeyHex,
+        introMessage,
+      });
+      return {
+        status: outcome.status,
+        message: outcome.message,
+      };
+    });
+    return () => {
+      configureInviteRequestTransportBridge(null);
+    };
+  }, [requestTransport]);
+  useEffect(() => {
+    if (!myPublicKeyHex) {
+      configureInviteRequestStateBridge(null);
+      return;
+    }
+    configureInviteRequestStateBridge(inviteStateBridge);
+    return () => {
+      configureInviteRequestStateBridge(null);
+    };
+  }, [inviteStateBridge, myPublicKeyHex]);
+  const { handleRedeemInvite } = useInviteRedemption(requestTransport);
   useDeepLinks(handleRedeemInvite);
   useDmSync(
     dmController.state.messages,
@@ -269,9 +433,8 @@ function NostrMessengerContent() {
     selectedConversation,
     myPublicKeyHex
   });
-
   const updateSidebarTab = (tab: "chats" | "requests") => {
-    setSidebarTab(tab);
+    startTransition(() => setSidebarTab(tab));
     localStorage.setItem(getLastPageStorageKey(), JSON.stringify({ type: 'tab', id: tab }));
   };
 
@@ -286,10 +449,8 @@ function NostrMessengerContent() {
   const shouldShowLockScreen = (isLocked || identity.state.status === "locked") && !!identity.state.stored;
 
   if (identity.state.status === "loading") {
-    return <div className="fixed inset-0 flex items-center justify-center bg-zinc-50 dark:bg-black z-[200]">Loading...</div>;
+    return <AppLoadingScreen title="Restoring identity" detail="Unlocking profile context..." />;
   }
-
-  const hasStoredAccount = !!identity.state.stored;
 
   if (shouldShowLockScreen) {
     return (
@@ -305,12 +466,18 @@ function NostrMessengerContent() {
     );
   }
 
-  if (!hasStoredAccount && identity.state.status !== "unlocked") {
-    return <AuthScreen />;
-  }
+  const accountSyncUiPolicy = resolveAccountSyncUiPolicy({
+    isIdentityUnlocked,
+    snapshot: accountSyncSnapshot,
+  });
 
   const visibleChatsList = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
-  const accurateChatsUnreadCount = visibleChatsList.reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
+  const accurateChatsUnreadCount = visibleChatsList.reduce((acc, c) => {
+    if (selectedConversation?.id === c.id) {
+      return acc;
+    }
+    return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
+  }, 0);
 
   return (
     <AppShell
@@ -337,7 +504,7 @@ function NostrMessengerContent() {
             activeTab={sidebarTab}
             setActiveTab={updateSidebarTab}
             selectConversation={setSelectedConversation}
-            requests={requestsInbox.state.items}
+            requests={getIncomingInboxRequests(requestsInbox.state.items)}
             pinnedChatIds={pinnedChatIds}
             togglePin={togglePin}
             hiddenChatIds={hiddenChatIds}
@@ -345,14 +512,20 @@ function NostrMessengerContent() {
             clearHistory={clearHistory}
             onClearHistory={requestsInbox.clearHistory}
             onAcceptRequest={(pk) => {
-              peerTrust.acceptPeer({ publicKeyHex: pk as PublicKeyHex });
-              requestsInbox.setStatus({ peerPublicKeyHex: pk as PublicKeyHex, status: 'accepted' });
-
-              void dmController.sendDm({
-                peerPublicKeyInput: pk,
-                plaintext: "Accepted",
-                customTags: [['t', 'connection-accept']]
-              });
+              const requestEventId = requestsInbox.state.items.find(
+                (item) => item.peerPublicKeyHex === (pk as PublicKeyHex) && !item.isOutgoing
+              )?.eventId;
+              void requestTransport.acceptIncomingRequest({
+                peerPublicKeyHex: pk as PublicKeyHex,
+                requestEventId,
+              })
+                .then((outcome) => {
+                  if (outcome.status === "failed" || outcome.status === "queued") {
+                    toast.warning("Request acceptance is pending relay confirmation.");
+                    return;
+                  }
+                  toast.success("Request accepted.");
+                });
 
               const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
               if (!cid) return;
@@ -365,12 +538,6 @@ function NostrMessengerContent() {
                 unreadCount: 0,
                 lastMessageTime: new Date()
               };
-
-              // Ensure it's in createdConnections
-              setCreatedConnections(prev => {
-                if (prev.some(c => c.id === cid)) return prev;
-                return [...prev, newConv];
-              });
 
               setSelectedConversation(newConv);
               updateSidebarTab("chats");
@@ -395,6 +562,16 @@ function NostrMessengerContent() {
         ) : null
       }
     >
+      {accountSyncUiPolicy.showRestoreProgress ? (
+        <div className="border-b border-sky-500/20 bg-sky-500/10 px-4 py-2 text-sm text-sky-800 dark:text-sky-200">
+          <span className="font-semibold">Account Restore:</span> {accountSyncSnapshot.message}. You can keep using the app while relay recovery runs.
+        </div>
+      ) : null}
+      {accountSyncUiPolicy.showMissingSharedDataWarning ? (
+        <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
+          <span className="font-semibold">Account Restore Warning:</span> Shared account data was not found on relays yet. Local identity access remains active.
+        </div>
+      ) : null}
       <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
         {!selectedConversationView ? (
           <EmptyConversationView
@@ -479,6 +656,7 @@ function NostrMessengerContent() {
               const pk = selectedConversationView.pubkey;
               if (peerTrust.isAccepted({ publicKeyHex: pk })) return true;
               const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
+              if (rs?.status === "accepted") return true;
               return !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
             })()}
             isInitiator={(() => {
@@ -491,14 +669,25 @@ function NostrMessengerContent() {
             onAcceptPeer={() => {
               if (selectedConversationView.kind === 'dm') {
                 const pk = selectedConversationView.pubkey;
-                peerTrust.acceptPeer({ publicKeyHex: pk });
-                requestsInbox.setStatus({ peerPublicKeyHex: pk, status: 'accepted' });
-
-                void dmController.sendDm({
-                  peerPublicKeyInput: pk,
-                  plaintext: "Accepted",
-                  customTags: [['t', 'connection-accept']]
-                });
+                const requestEventId = requestsInbox.state.items.find(
+                  (item) => item.peerPublicKeyHex === pk && !item.isOutgoing
+                )?.eventId;
+                const existingRequestState = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
+                if (!peerTrust.isAccepted({ publicKeyHex: pk }) && existingRequestState?.status === "accepted") {
+                  peerTrust.acceptPeer({ publicKeyHex: pk });
+                }
+                if (peerTrust.isAccepted({ publicKeyHex: pk })) {
+                  updateSidebarTab("chats");
+                  return;
+                }
+                void requestTransport.acceptIncomingRequest({ peerPublicKeyHex: pk, requestEventId })
+                  .then((outcome) => {
+                    if (outcome.status === "failed" || outcome.status === "queued") {
+                      toast.warning("Request acceptance is pending relay confirmation.");
+                      return;
+                    }
+                    toast.success("Request accepted.");
+                  });
                 updateSidebarTab("chats");
 
                 const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
@@ -541,7 +730,7 @@ function NostrMessengerContent() {
 
 export default function NostrMessenger() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AppLoadingScreen title="Loading messages" detail="Rebuilding chat workspace..." />}>
       <NostrMessengerContent />
     </Suspense>
   );

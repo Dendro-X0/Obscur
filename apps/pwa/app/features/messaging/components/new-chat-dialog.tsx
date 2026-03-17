@@ -16,8 +16,8 @@ import { SearchResultsList } from "../../search/components/search-results-list";
 import { QRScanner } from "../../invites/components/qr-scanner";
 import { SendRequestDialog } from "../../network/components/send-request-dialog";
 import type { ProfileSearchResult } from "../../search/services/profile-search-service";
-import type { SendResult } from "../controllers/enhanced-dm-controller";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { RequestTransportOutcome } from "@/app/features/messaging/services/request-transport-service";
 
 type NostrProfileMetadata = Readonly<{
     name?: string;
@@ -62,7 +62,7 @@ interface NewChatDialogProps {
     verifyRecipient: (pubkeyHex: string) => Promise<{ exists: boolean; profile?: NostrProfileMetadata }>;
     searchProfiles: (query: string) => Promise<ProfileSearchResult[]>;
     isAccepted: (pubkeyHex: string) => boolean;
-    sendConnectionRequest: (params: { peerPublicKeyHex: PublicKeyHex; introMessage?: string }) => Promise<SendResult>;
+    sendConnectionRequest: (params: { peerPublicKeyHex: PublicKeyHex; introMessage?: string }) => Promise<RequestTransportOutcome>;
 }
 
 export function NewChatDialog({
@@ -301,13 +301,19 @@ export function NewChatDialog({
             introMessage
         });
 
-        if (result.success) {
+        if (result.status === "ok" || result.status === "partial") {
             // Also create the conversation locally so it appears in the sidebar using the resolved hex
             onCreate(resolvedPubkeyHex);
             onClose();
-            toast.success(t("network.notifications.requestSent", "Connection request sent"));
+            if (result.status === "ok") {
+                toast.success(t("network.notifications.requestSent", "Connection request sent"));
+            } else {
+                toast.warning(t("network.notifications.requestPartial", "Connection request partially delivered"));
+            }
+        } else if (result.status === "queued") {
+            toast.warning(t("network.notifications.requestQueued", "Connection request queued and retrying"));
         } else {
-            toast.error(result.error || t("network.notifications.requestFailed", "Failed to send connection request"));
+            toast.error(result.message || t("network.notifications.requestFailed", "Failed to send connection request"));
         }
     };
 

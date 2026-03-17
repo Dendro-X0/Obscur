@@ -2325,16 +2325,22 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`",
+          "description": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`\n- `allow-protocol-commands`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`"
+          "markdownDescription": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`\n- `allow-protocol-commands`"
         },
         {
           "description": "Miscellaneous app commands",
           "type": "string",
           "const": "allow-misc-commands",
           "markdownDescription": "Miscellaneous app commands"
+        },
+        {
+          "description": "Protocol core commands",
+          "type": "string",
+          "const": "allow-protocol-commands",
+          "markdownDescription": "Protocol core commands"
         },
         {
           "description": "Native Relay Transport commands",

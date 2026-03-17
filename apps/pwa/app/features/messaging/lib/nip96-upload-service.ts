@@ -10,8 +10,12 @@ import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { createNostrEvent } from "@dweb/nostr/create-nostr-event";
 import { toBase64 } from "@dweb/crypto/to-base64";
-import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { getRuntimeHostInfo, hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
+import { normalizePublicUrl } from "@/app/shared/public-url";
+import { reportDevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
 
 export interface Nip96Config {
     apiUrl?: string;
@@ -30,9 +34,60 @@ type Nip96Response = Readonly<Record<string, unknown>>;
 const BROWSER_FETCH_TIMEOUT_MS = 45_000;
 const BROWSER_PROVIDER_TIMEOUT_MS = 60_000;
 const DEV_BROWSER_PROVIDER_TIMEOUT_MS = 20_000;
-const DEV_TAURI_FALLBACK_TIMEOUT_MS = 15_000;
+const DEV_TAURI_PROVIDER_TIMEOUT_MS = 30_000;
 const TAURI_PROVIDER_TIMEOUT_MS = 45_000;
 const HEX_PRIVATE_KEY_REGEX = /^[0-9a-f]{64}$/i;
+const DEV_UPLOAD_BROWSER_FIRST =
+    process.env.NEXT_PUBLIC_UPLOAD_DEV_BROWSER_FIRST === "1"
+    || process.env.NEXT_PUBLIC_UPLOAD_DEV_BROWSER_FIRST === "true";
+const DEV_ALLOW_TAURI_BROWSER_FALLBACK =
+    process.env.NEXT_PUBLIC_UPLOAD_ALLOW_TAURI_BROWSER_FALLBACK === "1"
+    || process.env.NEXT_PUBLIC_UPLOAD_ALLOW_TAURI_BROWSER_FALLBACK === "true";
+const WEB_UPLOAD_ENABLE_LOCAL_API_FALLBACK =
+    process.env.NEXT_PUBLIC_UPLOAD_ENABLE_LOCAL_API_FALLBACK === "1"
+    || process.env.NEXT_PUBLIC_UPLOAD_ENABLE_LOCAL_API_FALLBACK === "true";
+
+type UploadOutcome = Readonly<{
+    status: "failed";
+    reasonCode: DeliveryReasonCode;
+    retryable: boolean;
+    message: string;
+}>;
+
+const classifyUploadError = (error: UploadError): UploadOutcome => {
+    if (error.code === UploadErrorCode.NETWORK_ERROR) {
+        const message = error.message || "Network upload error";
+        const timeoutLike = /timeout|timed out/i.test(message);
+        return {
+            status: "failed",
+            reasonCode: timeoutLike ? "upload_timeout" : "provider_unavailable",
+            retryable: true,
+            message,
+        };
+    }
+    if (error.code === UploadErrorCode.PROVIDER_ERROR) {
+        return {
+            status: "failed",
+            reasonCode: "upload_provider_failed",
+            retryable: true,
+            message: error.message || "Upload provider failed",
+        };
+    }
+    if (error.code === UploadErrorCode.AUTH_MISSING_KEY || error.code === UploadErrorCode.NO_SESSION || error.code === UploadErrorCode.AUTH_ERROR) {
+        return {
+            status: "failed",
+            reasonCode: "unsupported_runtime",
+            retryable: false,
+            message: error.message || "Upload authentication unavailable",
+        };
+    }
+    return {
+        status: "failed",
+        reasonCode: "failed",
+        retryable: false,
+        message: error.message || "Upload failed",
+    };
+};
 
 const getStringProp = (obj: Nip96Response, key: string): string | null => {
     const value = obj[key];
@@ -86,6 +141,7 @@ const getUrlFromNip96Response = (obj: Nip96Response): string | null => {
  */
 export class Nip96UploadService implements UploadService {
     private resolvedFallbackPrivateKeyHex: string | null | undefined = undefined;
+    private providerUploadTargetCache = new Map<string, ReadonlyArray<string>>();
 
     constructor(
         private readonly apiUrls: ReadonlyArray<string>,
@@ -104,11 +160,126 @@ export class Nip96UploadService implements UploadService {
     }
 
     private shouldPreferBrowserPathInDev(): boolean {
+        if (!this.isTauri() || typeof window === "undefined" || !DEV_UPLOAD_BROWSER_FIRST) {
+            return false;
+        }
+        return getRuntimeHostInfo().isLocalDevelopment;
+    }
+
+    private shouldUseFastDevNativeTimeouts(): boolean {
         if (!this.isTauri() || typeof window === "undefined") {
             return false;
         }
-        const host = window.location.hostname;
-        return host === "localhost" || host === "127.0.0.1";
+        return getRuntimeHostInfo().isLocalDevelopment;
+    }
+
+    private shouldAllowBrowserFallback(providerUrl: string): boolean {
+        if (!this.isTauri()) {
+            return true;
+        }
+        if (typeof window === "undefined") {
+            return true;
+        }
+        const isLocalDevHost = getRuntimeHostInfo().isLocalDevelopment;
+        if (isLocalDevHost && !DEV_ALLOW_TAURI_BROWSER_FALLBACK) {
+            return false;
+        }
+        // If explicitly enabled, allow fallback even in tauri dev.
+        void providerUrl;
+        return true;
+    }
+
+    private shouldUseLocalApiFallbackInWeb(): boolean {
+        if (this.isTauri()) {
+            return false;
+        }
+        if (typeof window === "undefined") {
+            return false;
+        }
+        return WEB_UPLOAD_ENABLE_LOCAL_API_FALLBACK || getRuntimeHostInfo().isLocalDevelopment;
+    }
+
+    public static toRootUploadVariants(url: string): ReadonlyArray<string> {
+        try {
+            const parsed = new URL(url);
+            const origin = parsed.origin;
+            return Array.from(new Set([origin, `${origin}/`]));
+        } catch {
+            return [url];
+        }
+    }
+
+    private static normalizeUploadTarget(url: string): string {
+        const trimmed = url.trim();
+        try {
+            return new URL(trimmed).toString();
+        } catch {
+            return trimmed;
+        }
+    }
+
+    private async resolveApiUrlFromWellKnown(originUrl: string): Promise<string | null> {
+        const origin = originUrl.replace(/\/+$/, "");
+        const endpoint = `${origin}/.well-known/nostr/nip96.json`;
+        try {
+            const response = await fetch(endpoint, { method: "GET" });
+            if (!response.ok) return null;
+            const data = await response.json() as Readonly<Record<string, unknown>>;
+            const apiUrl = typeof data.api_url === "string" ? data.api_url.trim() : "";
+            if (!apiUrl) return null;
+            return Nip96UploadService.normalizeUploadTarget(apiUrl);
+        } catch {
+            return null;
+        }
+    }
+
+    private async resolveBrowserUploadTargets(providerUrl: string): Promise<ReadonlyArray<string>> {
+        const normalizedProvider = providerUrl.trim();
+        if (!normalizedProvider) {
+            return [];
+        }
+        const cached = this.providerUploadTargetCache.get(normalizedProvider);
+        if (cached) {
+            return cached;
+        }
+
+        const discovered: string[] = [];
+        const direct: string[] = [];
+        const add = (list: string[], value: string | null | undefined): void => {
+            if (!value) return;
+            const normalized = Nip96UploadService.normalizeUploadTarget(value);
+            if (!normalized) return;
+            if (!list.includes(normalized)) {
+                list.push(normalized);
+            }
+        };
+
+        add(direct, normalizedProvider);
+
+        try {
+            const parsed = new URL(normalizedProvider);
+            const rootPath = parsed.pathname === "" || parsed.pathname === "/";
+            if (rootPath) {
+                for (const variant of Nip96UploadService.toRootUploadVariants(parsed.origin)) {
+                    add(direct, variant);
+                }
+            }
+
+            const apiUrlFromSameOrigin = await this.resolveApiUrlFromWellKnown(parsed.origin);
+            add(discovered, apiUrlFromSameOrigin);
+
+            if (!apiUrlFromSameOrigin && parsed.hostname.startsWith("cdn.")) {
+                const parentHostOrigin = `${parsed.protocol}//${parsed.hostname.slice(4)}`;
+                const apiUrlFromParent = await this.resolveApiUrlFromWellKnown(parentHostOrigin);
+                add(discovered, apiUrlFromParent);
+            }
+        } catch {
+            // Ignore parse/discovery errors and keep direct targets only.
+        }
+
+        const merged = Array.from(new Set([...discovered, ...direct]));
+        this.providerUploadTargetCache.set(normalizedProvider, merged);
+        return merged;
     }
 
     private logTelemetry(event: "upload.started" | "upload.success" | "upload.failed" | "upload.attempt", context: Record<string, any>) {
@@ -155,11 +326,10 @@ export class Nip96UploadService implements UploadService {
         }
 
         try {
-            const { invoke } = await import("@tauri-apps/api/core");
-            const sessionKey = await invoke<string>("get_session_nsec");
-            if (typeof sessionKey === "string" && HEX_PRIVATE_KEY_REGEX.test(sessionKey)) {
-                this.resolvedFallbackPrivateKeyHex = sessionKey;
-                return sessionKey;
+            const sessionKeyResult = await invokeNativeCommand<string>("get_session_nsec");
+            if (sessionKeyResult.ok && typeof sessionKeyResult.value === "string" && HEX_PRIVATE_KEY_REGEX.test(sessionKeyResult.value)) {
+                this.resolvedFallbackPrivateKeyHex = sessionKeyResult.value;
+                return sessionKeyResult.value;
             }
         } catch {
             // Ignore and keep fallback disabled.
@@ -182,11 +352,16 @@ export class Nip96UploadService implements UploadService {
             message.includes("timed out");
     }
 
-    private async uploadViaTauriWithFallback(file: File, providerUrl: string): Promise<Attachment> {
+    private async uploadViaTauriWithFallback(
+        file: File,
+        providerUrl: string,
+        nativeTimeoutMs = TAURI_PROVIDER_TIMEOUT_MS,
+        browserFallbackTimeoutMs = BROWSER_PROVIDER_TIMEOUT_MS
+    ): Promise<Attachment> {
         try {
             return await this.withTimeout(
                 this.uploadViaTauri(file, providerUrl),
-                TAURI_PROVIDER_TIMEOUT_MS,
+                nativeTimeoutMs,
                 `native provider ${providerUrl}`
             );
         } catch (err: any) {
@@ -198,6 +373,16 @@ export class Nip96UploadService implements UploadService {
                 throw nativeError;
             }
 
+            if (!this.shouldAllowBrowserFallback(providerUrl)) {
+                if (nativeError.code === UploadErrorCode.NETWORK_ERROR) {
+                    throw new UploadError(
+                        UploadErrorCode.NETWORK_ERROR,
+                        `${nativeError.message} (browser fallback disabled in tauri dev to avoid CORS false-failures)`
+                    );
+                }
+                throw nativeError;
+            }
+
             const browserFallbackKey = await this.resolveFallbackPrivateKeyHex();
             if (!browserFallbackKey) {
                 throw nativeError;
@@ -206,7 +391,7 @@ export class Nip96UploadService implements UploadService {
             console.warn("[NIP96] Native upload failed, trying browser fallback for provider:", providerUrl, nativeError.message);
             return this.withTimeout(
                 this.uploadViaBrowser(file, providerUrl, browserFallbackKey),
-                BROWSER_PROVIDER_TIMEOUT_MS,
+                browserFallbackTimeoutMs,
                 `browser fallback provider ${providerUrl}`
             );
         }
@@ -288,33 +473,64 @@ export class Nip96UploadService implements UploadService {
                             this.logTelemetry("upload.attempt", {
                                 providerUrl,
                                 path: "tauri-dev-fallback",
-                                timeoutMs: DEV_TAURI_FALLBACK_TIMEOUT_MS
+                                timeoutMs: DEV_TAURI_PROVIDER_TIMEOUT_MS
                             });
                             attachment = await this.withTimeout(
                                 this.uploadViaTauri(uploadFile, providerUrl),
-                                DEV_TAURI_FALLBACK_TIMEOUT_MS,
+                                DEV_TAURI_PROVIDER_TIMEOUT_MS,
                                 `native provider ${providerUrl}`
                             );
                         }
                     } else {
+                        const nativeTimeoutMs = this.shouldUseFastDevNativeTimeouts()
+                            ? DEV_TAURI_PROVIDER_TIMEOUT_MS
+                            : TAURI_PROVIDER_TIMEOUT_MS;
+                        const browserFallbackTimeoutMs = this.shouldUseFastDevNativeTimeouts()
+                            ? DEV_BROWSER_PROVIDER_TIMEOUT_MS
+                            : BROWSER_PROVIDER_TIMEOUT_MS;
                         this.logTelemetry("upload.attempt", {
                             providerUrl,
                             path: "tauri-native-with-fallback",
-                            timeoutMs: TAURI_PROVIDER_TIMEOUT_MS
+                            timeoutMs: nativeTimeoutMs
                         });
-                        attachment = await this.uploadViaTauriWithFallback(uploadFile, providerUrl);
+                        attachment = await this.uploadViaTauriWithFallback(
+                            uploadFile,
+                            providerUrl,
+                            nativeTimeoutMs,
+                            browserFallbackTimeoutMs
+                        );
                     }
                 } else {
-                    this.logTelemetry("upload.attempt", {
-                        providerUrl,
-                        path: "browser",
-                        timeoutMs: BROWSER_PROVIDER_TIMEOUT_MS
-                    });
-                    attachment = await this.withTimeout(
-                        this.uploadViaBrowser(uploadFile, providerUrl),
-                        BROWSER_PROVIDER_TIMEOUT_MS,
-                        `browser provider ${providerUrl}`
-                    );
+                    const uploadTargets = await this.resolveBrowserUploadTargets(providerUrl);
+                    const providerErrors: UploadError[] = [];
+                    let providerAttachment: Attachment | null = null;
+
+                    for (const targetUrl of uploadTargets) {
+                        try {
+                            this.logTelemetry("upload.attempt", {
+                                providerUrl,
+                                targetUrl,
+                                path: "browser",
+                                timeoutMs: BROWSER_PROVIDER_TIMEOUT_MS
+                            });
+                            providerAttachment = await this.withTimeout(
+                                this.uploadViaBrowser(uploadFile, targetUrl),
+                                BROWSER_PROVIDER_TIMEOUT_MS,
+                                `browser provider ${targetUrl}`
+                            );
+                            break;
+                        } catch (innerErr: any) {
+                            const uploadError = innerErr instanceof UploadError
+                                ? innerErr
+                                : new UploadError(UploadErrorCode.UNKNOWN, innerErr?.message || String(innerErr));
+                            providerErrors.push(uploadError);
+                        }
+                    }
+
+                    if (!providerAttachment) {
+                        throw providerErrors[providerErrors.length - 1] || new UploadError(UploadErrorCode.PROVIDER_ERROR, `Browser upload failed for provider ${providerUrl}`);
+                    }
+                    attachment = providerAttachment;
                 }
 
                 this.logTelemetry("upload.success", {
@@ -341,12 +557,67 @@ export class Nip96UploadService implements UploadService {
             }
         }
 
+        if (!this.isTauri() && this.shouldUseLocalApiFallbackInWeb()) {
+            try {
+                this.logTelemetry("upload.attempt", {
+                    providerUrl: "local:/api/upload",
+                    path: "browser-local-fallback",
+                    timeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                });
+                const localAttachment = await this.withTimeout(
+                    this.uploadViaLocalApi(uploadFile),
+                    BROWSER_PROVIDER_TIMEOUT_MS,
+                    "local browser fallback /api/upload"
+                );
+                this.logTelemetry("upload.success", {
+                    providerUrl: "local:/api/upload",
+                    latencyMs: Date.now() - startTime,
+                    url: localAttachment.url,
+                    fallback: true,
+                });
+                return localAttachment;
+            } catch (localErr: any) {
+                const uploadError = localErr instanceof UploadError
+                    ? localErr
+                    : new UploadError(UploadErrorCode.UNKNOWN, localErr?.message || String(localErr));
+                errors.push(uploadError);
+            }
+        }
+
         const lastError = errors[errors.length - 1];
+        const normalizedOutcome = lastError ? classifyUploadError(lastError) : null;
         this.logTelemetry("upload.failed", {
             latencyMs: Date.now() - startTime,
             errorCount: errors.length,
             lastErrorCode: lastError?.code,
-            lastErrorMessage: lastError?.message
+            lastErrorMessage: lastError?.message,
+            reasonCode: normalizedOutcome?.reasonCode,
+            retryable: normalizedOutcome?.retryable
+        });
+        reportDevRuntimeIssue({
+            domain: "upload",
+            operation: "upload_file",
+            severity: "error",
+            reasonCode: normalizedOutcome?.reasonCode ?? "upload_failed",
+            message: normalizedOutcome?.message
+                || lastError?.message
+                || "Upload failed without a specific provider error.",
+            retryable: normalizedOutcome?.retryable,
+            source: "nip96-upload-service",
+            context: {
+                providerCount: providers.length,
+                errorCount: errors.length,
+                fileSize: uploadFile.size,
+                fileKind: kind,
+                isNativeRuntime: this.isTauri(),
+                lastErrorCode: lastError?.code ?? null,
+            },
+            fingerprint: [
+                "upload",
+                kind,
+                normalizedOutcome?.reasonCode ?? "upload_failed",
+                lastError?.code ?? "unknown",
+            ].join("|"),
         });
 
         throw lastError || new UploadError(
@@ -363,8 +634,6 @@ export class Nip96UploadService implements UploadService {
     private async uploadViaTauri(file: File, providerUrl: string): Promise<Attachment> {
         const arrayBuffer = await file.arrayBuffer();
         const fileBytes = new Uint8Array(arrayBuffer);
-
-        const { invoke } = await import("@tauri-apps/api/core");
         interface UploadResult {
             status: string;
             url: string | null;
@@ -373,12 +642,16 @@ export class Nip96UploadService implements UploadService {
         }
 
         try {
-            const result = await invoke<UploadResult>("nip96_upload_v2", {
+            const nativeResult = await invokeNativeCommand<UploadResult>("nip96_upload_v2", {
                 apiUrl: providerUrl.trim(),
                 fileBytes,
                 fileName: file.name,
                 contentType: file.type || getMimeType(file.name),
             });
+            if (!nativeResult.ok) {
+                throw new UploadError(UploadErrorCode.PROVIDER_ERROR, nativeResult.message || "Native upload command failed");
+            }
+            const result = nativeResult.value;
 
             if (result.status === "error") {
                 // If it came back as "status: error" but didn't throw, 
@@ -395,7 +668,7 @@ export class Nip96UploadService implements UploadService {
 
             return {
                 kind: getAttachmentKind(file),
-                url: result.url,
+                url: normalizePublicUrl(result.url),
                 contentType: file.type,
                 fileName: file.name,
             };
@@ -494,13 +767,55 @@ export class Nip96UploadService implements UploadService {
 
             return {
                 kind: getAttachmentKind(file),
-                url: url,
+                url: normalizePublicUrl(url),
                 contentType: file.type,
                 fileName: file.name,
             };
         }
 
         throw errors[errors.length - 1] || new UploadError(UploadErrorCode.UNKNOWN, "Upload failed unexpectedly");
+    }
+
+    private async uploadViaLocalApi(file: File): Promise<Attachment> {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        let response: Response;
+        try {
+            response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+            });
+        } catch (e) {
+            throw new UploadError(UploadErrorCode.NETWORK_ERROR, `Local API upload failed: ${e}`);
+        }
+
+        if (!response.ok) {
+            let errorMessage = `Local API upload failed with status ${response.status}`;
+            try {
+                const body = await response.json() as Readonly<Record<string, unknown>>;
+                if (typeof body.error === "string" && body.error.trim()) {
+                    errorMessage = body.error;
+                }
+            } catch {
+                // Ignore response parse failures.
+            }
+            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, errorMessage);
+        }
+
+        const result = await response.json() as Readonly<Record<string, unknown>>;
+        const rawUrl = typeof result.url === "string" ? result.url : "";
+        const contentType = typeof result.contentType === "string" ? result.contentType : (file.type || getMimeType(file.name));
+        if (!rawUrl) {
+            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Local API upload succeeded but URL is missing");
+        }
+
+        return {
+            kind: getAttachmentKind(file),
+            url: normalizePublicUrl(rawUrl),
+            contentType,
+            fileName: file.name,
+        };
     }
 
     private async signNip98Header(url: string, method: string, privateKeyHex: string, file?: File): Promise<string> {
@@ -533,3 +848,8 @@ export class Nip96UploadService implements UploadService {
         return toBase64(new TextEncoder().encode(JSON.stringify(event)));
     }
 }
+
+export const nip96UploadInternals = {
+    classifyUploadError,
+    toRootUploadVariants: Nip96UploadService.toRootUploadVariants,
+};

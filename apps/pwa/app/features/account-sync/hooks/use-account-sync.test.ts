@@ -1,0 +1,249 @@
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { AccountSyncSnapshot } from "../account-sync-contracts";
+
+const ACCOUNT_PUBKEY = "a".repeat(64) as PublicKeyHex;
+const ACCOUNT_PRIVKEY = "b".repeat(64) as PrivateKeyHex;
+
+function createSnapshot(overrides: Partial<AccountSyncSnapshot> = {}): AccountSyncSnapshot {
+  return {
+    publicKeyHex: "a".repeat(64) as PublicKeyHex,
+    status: "private_restored" as const,
+    portabilityStatus: "portable" as const,
+    phase: "ready",
+    message: "ready",
+    ...overrides,
+  };
+}
+
+const mocks = vi.hoisted(() => {
+  let snapshot = createSnapshot();
+  const listeners = new Set<(next: any) => void>();
+  let mutationListener: ((detail: { reason: string; atUnixMs: number }) => void) | null = null;
+
+  const emitSnapshot = (next: any): void => {
+    snapshot = next;
+    listeners.forEach((listener) => listener(snapshot));
+  };
+
+  return {
+    get snapshot() {
+      return snapshot;
+    },
+    setSnapshot: (next: any) => emitSnapshot(next),
+    triggerMutation: () => mutationListener?.({
+      reason: "chat_state_changed",
+      atUnixMs: Date.now(),
+    }),
+    subscribeMutationMock: vi.fn((listener: (detail: { reason: string; atUnixMs: number }) => void) => {
+      mutationListener = listener;
+      return () => {
+        if (mutationListener === listener) {
+          mutationListener = null;
+        }
+      };
+    }),
+    getSettingsMock: vi.fn(() => ({ accountSyncConvergenceV091: false })),
+    rehydrateAccountMock: vi.fn(),
+    publishBackupMock: vi.fn(),
+    restoreBackupMock: vi.fn(),
+    accountSyncStatusStore: {
+      getSnapshot: vi.fn(() => snapshot),
+      subscribe: vi.fn((listener: (next: any) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      }),
+      updateSnapshot: vi.fn((patch: Record<string, unknown>) => {
+        emitSnapshot({
+          ...snapshot,
+          ...patch,
+        });
+        return snapshot;
+      }),
+      resetSnapshot: vi.fn((publicKeyHex: PublicKeyHex | null = null) => {
+        emitSnapshot(createSnapshot({
+          publicKeyHex,
+          status: "identity_only",
+          portabilityStatus: "unknown",
+          phase: "idle",
+          message: "Idle",
+        }));
+        return snapshot;
+      }),
+    },
+  };
+});
+
+vi.mock("@/app/features/settings/services/privacy-settings-service", () => ({
+  PrivacySettingsService: {
+    getSettings: mocks.getSettingsMock,
+  },
+}));
+
+vi.mock("@/app/shared/account-sync-mutation-signal", () => ({
+  subscribeAccountSyncMutation: mocks.subscribeMutationMock,
+}));
+
+vi.mock("../services/account-rehydrate-service", () => ({
+  accountRehydrateService: {
+    rehydrateAccount: mocks.rehydrateAccountMock,
+  },
+}));
+
+vi.mock("../services/encrypted-account-backup-service", () => ({
+  encryptedAccountBackupService: {
+    publishEncryptedAccountBackup: mocks.publishBackupMock,
+    restoreEncryptedAccountBackup: mocks.restoreBackupMock,
+  },
+}));
+
+vi.mock("../services/account-sync-status-store", () => ({
+  accountSyncStatusStore: mocks.accountSyncStatusStore,
+}));
+
+vi.mock("../services/account-projection-runtime", () => ({
+  accountProjectionRuntime: {
+    appendCanonicalEvents: vi.fn(async () => undefined),
+  },
+}));
+
+vi.mock("@/app/features/profiles/services/profile-scope", () => ({
+  getActiveProfileIdSafe: () => "default",
+}));
+
+import { useAccountSync } from "./use-account-sync";
+
+describe("useAccountSync convergence orchestration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.setSnapshot(createSnapshot());
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+    mocks.rehydrateAccountMock.mockResolvedValue({
+      relayList: [],
+      restoreStatus: "identity_only",
+    } as any);
+    mocks.publishBackupMock.mockResolvedValue({
+      publishResult: { status: "ok" },
+    } as any);
+    mocks.restoreBackupMock.mockResolvedValue({
+      event: null,
+      payload: { version: 1 },
+      hasBackup: true,
+      degradedReason: undefined,
+    } as any);
+  });
+
+  it("runs startup fast-follow restore when convergence guard is enabled and cached backup exists", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: true });
+    mocks.rehydrateAccountMock.mockResolvedValue({
+      relayList: [],
+      restoreStatus: "private_restored",
+    } as any);
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreReason).toBe("startup_fast_follow");
+  });
+
+  it("triggers mutation fast-follow restore after a mutation-driven backup publish", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: true });
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.subscribeMutationMock).toHaveBeenCalledTimes(1);
+    });
+    mocks.publishBackupMock.mockClear();
+    mocks.restoreBackupMock.mockClear();
+
+    act(() => {
+      mocks.triggerMutation();
+    });
+
+    await waitFor(() => {
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("mutation");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("skipped_cooldown");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreReason).toBe("mutation_fast_follow");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreResult).toBe("applied");
+  });
+
+  it("does not run startup fast-follow restore when convergence guard is disabled", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+    mocks.rehydrateAccountMock.mockResolvedValue({
+      relayList: [],
+      restoreStatus: "private_restored",
+    } as any);
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.publishBackupMock).toHaveBeenCalled();
+    });
+    expect(mocks.restoreBackupMock).not.toHaveBeenCalled();
+  });
+
+  it("suppresses mutation-driven backup publish while restore is in flight", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: true });
+    mocks.rehydrateAccountMock.mockResolvedValue({
+      relayList: [],
+      restoreStatus: "private_restored",
+    } as any);
+
+    let resolveRestore: ((value: any) => void) | null = null;
+    const pendingRestore = new Promise((resolve) => {
+      resolveRestore = resolve;
+    });
+    mocks.restoreBackupMock.mockImplementation(() => pendingRestore as any);
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+    });
+    mocks.publishBackupMock.mockClear();
+
+    await act(async () => {
+      mocks.triggerMutation();
+      await Promise.resolve();
+    });
+
+    expect(mocks.publishBackupMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveRestore?.({
+        event: null,
+        payload: { version: 1 },
+        hasBackup: true,
+        degradedReason: undefined,
+      });
+      await Promise.resolve();
+    });
+  });
+});

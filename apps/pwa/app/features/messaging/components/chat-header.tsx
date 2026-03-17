@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
 import type { Conversation } from "../types";
-import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 
 export interface ChatHeaderProps {
     conversation: Conversation;
@@ -14,7 +14,7 @@ export interface ChatHeaderProps {
 
 export function ChatHeader({ conversation, onCopyPubkey, onOpenMedia, onOpenInfo }: ChatHeaderProps) {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
+    const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
     const resolvedName = metadata?.displayName || conversation.displayName;
 
     return (

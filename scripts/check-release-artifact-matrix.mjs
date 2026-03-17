@@ -14,6 +14,7 @@ const requiredSnippets = [
   "release-assets/macos",
   "release-assets/linux",
   "release-assets/android",
+  "release-assets/web",
   "*.exe",
   "*.msi",
   "*.dmg",
@@ -21,6 +22,7 @@ const requiredSnippets = [
   "*.deb",
   "*.apk",
   "*.aab",
+  "*.tar.gz",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));

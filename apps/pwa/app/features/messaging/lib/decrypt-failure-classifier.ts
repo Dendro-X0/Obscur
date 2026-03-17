@@ -28,6 +28,11 @@ export const classifyDecryptFailure = (error: unknown): DecryptFailureClassifica
       "bad decrypt",
       "could not decrypt",
       "invalid ciphertext",
+      "version not found in payload",
+      "unknown version",
+      "expected value at line 1 column 1",
+      "decoding from base64",
+      "invalid input length",
     ])
   ) {
     return {
@@ -67,4 +72,3 @@ export const classifyDecryptFailure = (error: unknown): DecryptFailureClassifica
     shouldSurfaceToUser: true,
   };
 };
-

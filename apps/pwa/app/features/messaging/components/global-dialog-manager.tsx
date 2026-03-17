@@ -15,11 +15,13 @@ import { cryptoService } from "../../crypto/crypto-service";
 import { roomKeyStore } from "../../crypto/room-key-store";
 import { SocialGraphService } from "@/app/features/social-graph/services/social-graph-service";
 import { ProfileSearchService } from "@/app/features/search/services/profile-search-service";
-import type { DmConversation, GroupConversation, PublicKeyHex } from "@/app/features/messaging/types";
+import type { GroupConversation, PublicKeyHex } from "@/app/features/messaging/types";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
+import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
+import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 
 export function GlobalDialogManager() {
     const { t } = useTranslation();
@@ -31,7 +33,7 @@ export function GlobalDialogManager() {
         isNewChatOpen, setIsNewChatOpen,
         newChatPubkey, setNewChatPubkey,
         newChatDisplayName, setNewChatDisplayName,
-        createdConnections, setCreatedConnections,
+        createdConnections,
         setSelectedConversation,
         unhideConversation
     } = useMessaging();
@@ -46,7 +48,20 @@ export function GlobalDialogManager() {
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
 
     const dmController = useEnhancedDmController({
-        myPublicKeyHex, myPrivateKeyHex, pool: relayPool, blocklist, peerTrust, requestsInbox
+        myPublicKeyHex,
+        myPrivateKeyHex,
+        pool: relayPool,
+        blocklist,
+        peerTrust,
+        requestsInbox,
+        autoSubscribeIncoming: false,
+        enableIncomingTransport: false,
+        enableAutoQueueProcessing: false,
+    });
+    const requestTransport = useRequestTransport({
+        dmController,
+        peerTrust,
+        requestsInbox,
     });
 
     const socialGraph = React.useMemo(() => new SocialGraphService(relayPool), [relayPool]);
@@ -76,23 +91,22 @@ export function GlobalDialogManager() {
         if (existing) {
             setSelectedConversation(existing);
         } else {
-            const newConv: DmConversation = {
-                kind: 'dm',
-                id: newId,
-                pubkey: targetPubkey as PublicKeyHex,
+            const newConv = createDmConversation({
+                myPublicKeyHex: myPublicKeyHex || "",
+                peerPublicKeyHex: targetPubkey as PublicKeyHex,
                 displayName: newChatDisplayName || targetPubkey.slice(0, 8),
-                lastMessage: '',
-                unreadCount: 0,
-                lastMessageTime: new Date()
-            };
-            setCreatedConnections(prev => [...prev, newConv]);
+            });
+            if (!newConv) {
+                toast.error("Invalid conversation identity. Please verify the target public key.");
+                return;
+            }
             setSelectedConversation(newConv);
         }
         setIsNewChatOpen(false);
         setNewChatPubkey("");
         setNewChatDisplayName("");
         toast.success(t("messaging.chatCreated", "Conversation started"));
-    }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setSelectedConversation, setCreatedConnections, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
+    }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
 
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
         if (!myPrivateKeyHex || !myPublicKeyHex) {
@@ -197,7 +211,7 @@ export function GlobalDialogManager() {
                 verifyRecipient={dmController.verifyRecipient}
                 searchProfiles={(query) => profileSearch.searchByName(query)}
                 isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })}
-                sendConnectionRequest={dmController.sendConnectionRequest}
+                sendConnectionRequest={requestTransport.sendRequest}
             />
             <CreateGroupDialog
                 isOpen={isNewGroupOpen}

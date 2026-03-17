@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { nip19 } from "nostr-tools";
 import {
@@ -40,6 +40,7 @@ import { Button } from "@dweb/ui-kit";
 import { ConfirmDialog } from "@dweb/ui-kit";
 import { Input } from "@dweb/ui-kit";
 import { Label } from "@dweb/ui-kit";
+import { Textarea } from "@dweb/ui-kit";
 import { toast } from "@dweb/ui-kit";
 import { DesktopUpdater } from "@/app/components/desktop-updater";
 import { ThemeToggle } from "@/app/components/theme-toggle";
@@ -47,10 +48,13 @@ import { LanguageSelector } from "@/app/components/language-selector";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
+import { ProfileCompletenessIndicator } from "@/app/features/profile/components/profile-completeness-indicator";
+import { seedProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
 import { useNotificationPreference } from "@/app/features/notifications/hooks/use-notification-preference";
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
+import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
@@ -65,7 +69,18 @@ import type { Nip96Config } from "@/app/features/messaging/lib/nip96-upload-serv
 import { getNip96StorageKey } from "@/app/features/messaging/lib/nip96-upload-service";
 import { resolveNip05 } from "@/app/features/profile/utils/nip05-resolver";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
+import { getV090RolloutPolicy, normalizeV090Flags } from "@/app/features/settings/services/v090-rollout-policy";
 import { useUserInviteCode } from "@/app/features/invites/hooks/use-user-invite-code";
+import { queryRelayProfiles } from "@/app/features/search/services/relay-discovery-query";
+import {
+  INVITE_CODE_PREFIX,
+  INVITE_CODE_SUFFIX_LENGTH,
+  buildInviteCodeFromSuffix,
+  extractInviteCodeSuffix,
+  generateRandomInviteCode,
+  isCanonicalInviteCode,
+  normalizeInviteCodeSuffixInput,
+} from "@/app/features/invites/utils/invite-code-format";
 import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
 import type { ProfilePublishPhase } from "@/app/features/profile/hooks/use-profile-publisher";
 import { SettingsActionStatus, type SettingsActionPhase } from "@/app/features/settings/components/settings-action-status";
@@ -93,13 +108,20 @@ import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-pu
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
+import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
+import { isSupportedPublicUrl, normalizePublicUrl } from "@/app/shared/public-url";
+import { relayResilienceObservability } from "@/app/features/relays/services/relay-resilience-observability";
 
 const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+const ENABLE_API_HEALTH_PROBE =
+  process.env.NEXT_PUBLIC_ENABLE_API_HEALTH_PROBE === "1"
+  || process.env.NEXT_PUBLIC_ENABLE_API_HEALTH_PROBE === "true";
 
 type ApiHealthState = Readonly<
   | { status: "idle" }
   | { status: "checking" }
   | { status: "ok"; latencyMs: number; timeIso: string; baseUrl: string }
+  | { status: "disabled"; message: string; baseUrl: string }
   | { status: "error"; message: string; baseUrl: string }
 >;
 
@@ -115,6 +137,13 @@ type SettingsTabType =
   | "storage"
   | "updates";
 
+type InviteCodeAvailabilityStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "claimed_by_other"
+  | "unverified";
+
 const toSettingsActionPhase = (phase: ProfilePublishPhase): SettingsActionPhase => {
   if (phase === "waiting_relays") return "waiting";
   if (phase === "preparing") return "preparing";
@@ -127,8 +156,10 @@ const toSettingsActionPhase = (phase: ProfilePublishPhase): SettingsActionPhase 
 
 type ProfileValidationResult = Readonly<{
   usernameError?: string;
+  aboutError?: string;
   nip05Error?: string;
   avatarUrlError?: string;
+  inviteCodeError?: string;
   isValid: boolean;
 }>;
 
@@ -137,6 +168,7 @@ const DEFAULT_APP_LANGUAGE = "en";
 const DEFAULT_THEME_PREFERENCE = "system" as const;
 const TEXT_SCALE_OPTIONS: ReadonlyArray<TextScale> = [90, 100, 110, 120];
 const PRIVATE_KEY_REVEAL_WINDOW_MS = 20_000;
+const PROFILE_PUBLISH_UI_TIMEOUT_MS = 20_000;
 const DELETE_ACCOUNT_CONFIRM_TEXT = "WIPE ACCOUNT";
 
 type IdentityStorageMode = "native" | "encrypted_local" | "session_only" | "unknown";
@@ -229,19 +261,49 @@ const formatBytes = (bytes: number): string => {
   return `${value.toFixed(value >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 };
 
-const validateProfileInput = (profile: Readonly<{ username: string; nip05?: string; avatarUrl?: string }>): ProfileValidationResult => {
+const formatRatioPercent = (ratio: number): string => {
+  if (!Number.isFinite(ratio)) {
+    return "n/a";
+  }
+  return `${(ratio * 100).toFixed(1)}%`;
+};
+
+const withActionTimeout = async <T,>(operation: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
+const validateProfileInput = (profile: Readonly<{ username: string; about?: string; nip05?: string; avatarUrl?: string; inviteCode?: string }>): ProfileValidationResult => {
   const username = profile.username.trim();
+  const about = (profile.about ?? "").trim();
   const nip05 = (profile.nip05 ?? "").trim();
   const avatarUrl = (profile.avatarUrl ?? "").trim();
+  const inviteCode = (profile.inviteCode ?? "").trim();
 
   let usernameError: string | undefined;
+  let aboutError: string | undefined;
   let nip05Error: string | undefined;
   let avatarUrlError: string | undefined;
+  let inviteCodeError: string | undefined;
 
   if (username.length < 3) {
     usernameError = "Username must be at least 3 characters.";
   } else if (username.length > 48) {
     usernameError = "Username is too long (max 48 characters).";
+  }
+  if (about.length > 280) {
+    aboutError = "Description is too long (max 280 characters).";
   }
 
   if (nip05.length > 0 && !NIP05_IDENTIFIER_PATTERN.test(nip05)) {
@@ -249,21 +311,23 @@ const validateProfileInput = (profile: Readonly<{ username: string; nip05?: stri
   }
 
   if (avatarUrl.length > 0) {
-    try {
-      const parsed = new URL(avatarUrl);
-      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-        avatarUrlError = "Avatar URL must start with http:// or https://.";
-      }
-    } catch {
-      avatarUrlError = "Avatar URL is invalid.";
+    const normalizedAvatarUrl = normalizePublicUrl(avatarUrl);
+    if (!isSupportedPublicUrl(normalizedAvatarUrl)) {
+      avatarUrlError = "Avatar URL must start with /, http://, or https://.";
     }
+  }
+
+  if (inviteCode.length > 0 && !isCanonicalInviteCode(inviteCode)) {
+    inviteCodeError = `Code must use ${INVITE_CODE_PREFIX}-XXXXXX (6 letters/numbers).`;
   }
 
   return {
     usernameError,
+    aboutError,
     nip05Error,
     avatarUrlError,
-    isValid: !usernameError && !nip05Error && !avatarUrlError,
+    inviteCodeError,
+    isValid: !usernameError && !aboutError && !nip05Error && !avatarUrlError && !inviteCodeError,
   };
 };
 
@@ -500,18 +564,25 @@ export default function SettingsPage(): React.JSX.Element {
 function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const identity = useIdentity();
+  const accountSyncSnapshot = useAccountSyncSnapshot();
   const theme = useTheme();
   const accessibility = useAccessibilityPreferences();
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
   const profile = useProfile();
   const notificationPreference = useNotificationPreference();
-  const { publishProfile, isPublishing, phase: profilePublishPhase, lastReport: profilePublishReport, error: profilePublishError } = useProfilePublisher();
-  const { relayPool: pool, relayList } = useRelay();
+  const {
+    publishProfile,
+    getLastReportSnapshot: getProfilePublishReportSnapshot,
+    isPublishing,
+    phase: profilePublishPhase,
+    lastReport: profilePublishReport,
+    error: profilePublishError
+  } = useProfilePublisher();
+  const { relayPool: pool, relayList, relayRuntime, triggerRelayRecovery } = useRelay();
   const blocklist = useBlocklist({ publicKeyHex });
 
-  // Ensure we have an invite code generated
-  useUserInviteCode({
+  const userInviteCode = useUserInviteCode({
     publicKeyHex,
     privateKeyHex: identity.state.privateKeyHex || null
   });
@@ -520,8 +591,8 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const [newRelayUrl, setNewRelayUrl] = useState<string>("");
   const [showAdvancedRelays, setShowAdvancedRelays] = useState<boolean>(false);
   const [isVerifyingNip05, setIsVerifyingNip05] = useState(false);
-  const [savedInviteCode, setSavedInviteCode] = useState<string>(profile.state.profile.inviteCode || "");
-  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => PrivacySettingsService.getSettings());
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => normalizeV090Flags(PrivacySettingsService.getSettings()));
+  const rolloutPolicy = useMemo(() => getV090RolloutPolicy(privacySettings), [privacySettings]);
   const [isPrivateKeyVisible, setIsPrivateKeyVisible] = useState<boolean>(false);
   const [nsecKey, setNsecKey] = useState<string | null>(null);
   const [challangePassword, setChallengePassword] = useState("");
@@ -542,9 +613,13 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const [storageActionMessage, setStorageActionMessage] = useState<string>("");
   const [moderationActionPhase, setModerationActionPhase] = useState<SettingsActionPhase>("idle");
   const [moderationActionMessage, setModerationActionMessage] = useState<string>("");
+  const [profileSaveActionPhase, setProfileSaveActionPhase] = useState<SettingsActionPhase>("idle");
+  const [profileSaveActionMessage, setProfileSaveActionMessage] = useState<string>("");
   const [blocklistQuery, setBlocklistQuery] = useState<string>("");
   const [blocklistInput, setBlocklistInput] = useState<string>("");
   const [profilePreflightError, setProfilePreflightError] = useState<string | null>(null);
+  const [inviteCodeAvailabilityStatus, setInviteCodeAvailabilityStatus] = useState<InviteCodeAvailabilityStatus>("idle");
+  const [inviteCodeAvailabilityMessage, setInviteCodeAvailabilityMessage] = useState<string>("");
   const [isClearDataDialogOpen, setIsClearDataDialogOpen] = useState(false);
   const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
 
@@ -610,13 +685,118 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     return "weak";
   }, [privacySettings, securityCapabilityStates]);
 
+  const persistedInviteCodeSuffix = useMemo(() => (
+    extractInviteCodeSuffix(profile.state.profile.inviteCode)
+  ), [profile.state.profile.inviteCode]);
+  const [inviteCodeDraftSuffix, setInviteCodeDraftSuffix] = useState<string>(() => persistedInviteCodeSuffix);
+  const [isInviteCodeDraftDirty, setIsInviteCodeDraftDirty] = useState<boolean>(false);
+  const inviteCodeDraft = useMemo(() => buildInviteCodeFromSuffix(inviteCodeDraftSuffix), [inviteCodeDraftSuffix]);
+
   const profileValidation = useMemo(() => {
     return validateProfileInput({
       username: profile.state.profile.username,
+      about: profile.state.profile.about,
       nip05: profile.state.profile.nip05,
-      avatarUrl: profile.state.profile.avatarUrl
+      avatarUrl: profile.state.profile.avatarUrl,
+      inviteCode: inviteCodeDraft,
     });
-  }, [profile.state.profile.username, profile.state.profile.nip05, profile.state.profile.avatarUrl]);
+  }, [inviteCodeDraft, profile.state.profile.username, profile.state.profile.about, profile.state.profile.nip05, profile.state.profile.avatarUrl]);
+
+  const setInviteCodeFromSuffix = useCallback((suffixInput: string): void => {
+    const suffix = normalizeInviteCodeSuffixInput(suffixInput);
+    setInviteCodeDraftSuffix(suffix);
+    setIsInviteCodeDraftDirty(suffix !== persistedInviteCodeSuffix);
+    setInviteCodeAvailabilityStatus("idle");
+    setInviteCodeAvailabilityMessage("");
+  }, [persistedInviteCodeSuffix]);
+
+  const verifyInviteCodeAvailability = useCallback(async (
+    inviteCode: string
+  ): Promise<Exclude<InviteCodeAvailabilityStatus, "idle" | "checking">> => {
+    if (!inviteCode || !isCanonicalInviteCode(inviteCode)) {
+      setInviteCodeAvailabilityStatus("idle");
+      setInviteCodeAvailabilityMessage("");
+      return "unverified";
+    }
+    setInviteCodeAvailabilityStatus("checking");
+    setInviteCodeAvailabilityMessage("Checking code availability...");
+    try {
+      const [inviteResult, textResult] = await Promise.allSettled([
+        queryRelayProfiles({
+          pool,
+          mode: "invite",
+          query: inviteCode,
+          timeoutMs: 4_500,
+          maxResults: 48,
+        }),
+        queryRelayProfiles({
+          pool,
+          mode: "text",
+          query: inviteCode,
+          timeoutMs: 4_500,
+          maxResults: 48,
+        }),
+      ]);
+      if (inviteResult.status === "rejected" && textResult.status === "rejected") {
+        throw new Error("invite_code_lookup_failed");
+      }
+      const recordsByPubkey = new Map<string, Awaited<ReturnType<typeof queryRelayProfiles>>[number]>();
+      if (inviteResult.status === "fulfilled") {
+        for (const record of inviteResult.value) {
+          recordsByPubkey.set(record.pubkey, record);
+        }
+      }
+      if (textResult.status === "fulfilled") {
+        for (const record of textResult.value) {
+          recordsByPubkey.set(record.pubkey, record);
+        }
+      }
+      const records = Array.from(recordsByPubkey.values());
+      const exactMatches = records.filter((record) => (record.inviteCode ?? "").toUpperCase() === inviteCode.toUpperCase());
+      const normalizedSelfPubkey = normalizePublicKeyHex(publicKeyHex ?? undefined);
+      const claimedByOther = exactMatches.some((record) => normalizePublicKeyHex(record.pubkey) !== normalizedSelfPubkey);
+      if (claimedByOther) {
+        setInviteCodeAvailabilityStatus("claimed_by_other");
+        setInviteCodeAvailabilityMessage("This code is already claimed. Try Random.");
+        return "claimed_by_other";
+      }
+      setInviteCodeAvailabilityStatus("available");
+      setInviteCodeAvailabilityMessage(exactMatches.length > 0 ? "This code is already linked to your account." : "This code appears available.");
+      return "available";
+    } catch {
+      setInviteCodeAvailabilityStatus("unverified");
+      setInviteCodeAvailabilityMessage("Could not verify code availability. Check network/relays and retry.");
+      return "unverified";
+    }
+  }, [pool, publicKeyHex]);
+
+  const handleRandomInviteCode = useCallback(async (): Promise<void> => {
+    setProfilePreflightError(null);
+    const candidate = generateRandomInviteCode();
+    const candidateSuffix = extractInviteCodeSuffix(candidate);
+    setInviteCodeDraftSuffix(candidateSuffix);
+    setIsInviteCodeDraftDirty(candidateSuffix !== persistedInviteCodeSuffix);
+    setInviteCodeAvailabilityStatus("idle");
+    setInviteCodeAvailabilityMessage("");
+    toast.success("Random code generated.");
+  }, [persistedInviteCodeSuffix]);
+
+  useEffect(() => {
+    if (!isInviteCodeDraftDirty) {
+      setInviteCodeDraftSuffix(persistedInviteCodeSuffix);
+    }
+  }, [isInviteCodeDraftDirty, persistedInviteCodeSuffix]);
+
+  useEffect(() => {
+    if (activeTab === "profile" || !isInviteCodeDraftDirty) {
+      return;
+    }
+    setInviteCodeDraftSuffix(persistedInviteCodeSuffix);
+    setIsInviteCodeDraftDirty(false);
+    setInviteCodeAvailabilityStatus("idle");
+    setInviteCodeAvailabilityMessage("");
+    setProfilePreflightError(null);
+  }, [activeTab, isInviteCodeDraftDirty, persistedInviteCodeSuffix]);
 
   useEffect(() => {
     if (profilePreflightError) {
@@ -624,7 +804,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     }
     // intentionally keyed to profile validation so field edits clear stale errors
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileValidation.isValid, profile.state.profile.username, profile.state.profile.nip05, profile.state.profile.avatarUrl]);
+  }, [profileValidation.isValid, profile.state.profile.username, profile.state.profile.about, profile.state.profile.nip05, profile.state.profile.avatarUrl, inviteCodeDraft]);
 
   const handleClearData = async () => {
     try {
@@ -686,14 +866,24 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       // If we have a native key, we might need biometrics/native challenge
       if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
         try {
+          let biometricVerified = false;
           try {
             const biometricResult = await invokeNativeCommand<boolean>("request_biometric_auth");
-            if (!biometricResult.ok || !biometricResult.value) {
+            if (biometricResult.ok && biometricResult.value) {
+              biometricVerified = true;
+            } else if (privacySettings.biometricLockEnabled) {
               toast.error("Native authentication failed.");
               return;
             }
           } catch {
             // If biometric command is unavailable, fallback to session access path.
+            if (privacySettings.biometricLockEnabled) {
+              toast.error("Native authentication failed.");
+              return;
+            }
+          }
+          if (!biometricVerified && !privacySettings.biometricLockEnabled) {
+            toast.warning("Biometric check unavailable. Using active native session.");
           }
           const nsecResult = await invokeNativeCommand<string>("get_session_nsec");
           if (!nsecResult.ok || !nsecResult.value) {
@@ -826,12 +1016,6 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   };
 
   useEffect(() => {
-    if (profile.state.profile.inviteCode && !savedInviteCode) {
-      setSavedInviteCode(profile.state.profile.inviteCode);
-    }
-  }, [profile.state.profile.inviteCode, savedInviteCode]);
-
-  useEffect(() => {
     return () => {
       profile.revert();
     };
@@ -884,12 +1068,32 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
   const [nip96Config, setNip96Config] = useState<Nip96Config>(() => {
     const fallback: Nip96Config = { apiUrl: "", enabled: false };
+    const rewriteLegacyNip96Url = (value: string): string => {
+      if (value === "https://nostr.build/api/v2/upload/files") {
+        return "https://nostr.build/api/v2/nip96/upload";
+      }
+      if (value === "https://sovbit.host/api/v2/upload/files") {
+        return "https://api.sovbit.host/api/upload/files";
+      }
+      return value;
+    };
     if (typeof window === "undefined") return fallback;
     try {
       const stored = localStorage.getItem(getNip96StorageKey());
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Nip96Config;
+        const normalized: Nip96Config = {
+          ...parsed,
+          apiUrl: typeof parsed.apiUrl === "string" ? rewriteLegacyNip96Url(parsed.apiUrl) : parsed.apiUrl,
+          apiUrls: Array.isArray(parsed.apiUrls)
+            ? Array.from(new Set(parsed.apiUrls.map((url) => rewriteLegacyNip96Url(url))))
+            : parsed.apiUrls,
+        };
+        localStorage.setItem(getNip96StorageKey(), JSON.stringify(normalized));
+        return normalized;
+      }
       if (window.location.hostname.includes("vercel.app") || getRuntimeCapabilities().isNativeRuntime) {
-        return { apiUrl: "https://nostr.build/api/v2/upload/files", enabled: true };
+        return { apiUrl: "https://nostr.build/api/v2/nip96/upload", enabled: true };
       }
       return fallback;
     } catch {
@@ -954,8 +1158,9 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   }, []);
 
   const handleSavePrivacy = (newSettings: PrivacySettings) => {
-    setPrivacySettings(newSettings);
-    PrivacySettingsService.saveSettings(newSettings);
+    const normalized = normalizeV090Flags(newSettings);
+    setPrivacySettings(normalized);
+    PrivacySettingsService.saveSettings(normalized);
   };
 
   const handleVerifyNip05 = async () => {
@@ -985,6 +1190,14 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
   const handleCheckApi = (): void => {
     const baseUrl: string = getApiBaseUrl().replace(/\/$/, "");
+    if (!ENABLE_API_HEALTH_PROBE) {
+      setApiHealth({
+        status: "disabled",
+        baseUrl,
+        message: "API probe is disabled in recovery mode. Relay connectivity is the source of truth.",
+      });
+      return;
+    }
     setApiHealth({ status: "checking" });
     const startMs: number = Date.now();
     void fetch(`${baseUrl}/v1/health`, { method: "GET" })
@@ -1041,7 +1254,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     setNotificationActionMessage("Notification preferences updated.");
   };
 
-  const handleSendTestNotification = (): void => {
+  const handleSendTestNotification = async (): Promise<void> => {
     const permission = notificationPreference.state.permission;
     if (permission === "unsupported") {
       setNotificationActionPhase("error");
@@ -1066,11 +1279,17 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       return;
     }
 
-    showDesktopNotification({
+    const result = await showDesktopNotification({
       title: "Obscur test notification",
       body: "Notification delivery is working correctly.",
       tag: "obscur-settings-test"
     });
+    if (!result.ok) {
+      setNotificationActionPhase("error");
+      setNotificationActionMessage("Notification delivery failed in the current runtime.");
+      toast.error("Notification delivery failed.");
+      return;
+    }
     setNotificationActionPhase("success");
     setNotificationActionMessage("Test notification sent.");
     toast.success("Test notification sent.");
@@ -1111,27 +1330,99 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     toast.success("Accessibility options reset.");
   };
 
-  const handleSaveAndPublishProfile = async (): Promise<void> => {
+  const handleSaveProfile = async (): Promise<void> => {
     setProfilePreflightError(null);
     if (!profileValidation.isValid) {
-      const firstError = profileValidation.usernameError || profileValidation.nip05Error || profileValidation.avatarUrlError || "Please fix profile validation errors.";
+      const firstError = profileValidation.usernameError || profileValidation.aboutError || profileValidation.nip05Error || profileValidation.avatarUrlError || profileValidation.inviteCodeError || "Please fix profile validation errors.";
       setProfilePreflightError(firstError);
+      setProfileSaveActionPhase("error");
+      setProfileSaveActionMessage(firstError);
       toast.error(firstError);
       return;
     }
 
-    const success = await publishProfile({
-      username: profile.state.profile.username.trim(),
-      about: profile.state.profile.about,
-      avatarUrl: profile.state.profile.avatarUrl?.trim(),
-      nip05: profile.state.profile.nip05?.trim(),
-      inviteCode: profile.state.profile.inviteCode
+    const normalizedInviteCode = inviteCodeDraft.trim().toUpperCase();
+    if (normalizedInviteCode !== profile.state.profile.inviteCode) {
+      profile.setInviteCode({ inviteCode: normalizedInviteCode });
+    }
+    if (normalizedInviteCode.length > 0) {
+      setProfileSaveActionPhase("working");
+      setProfileSaveActionMessage("Validating friend code...");
+      const availability = await verifyInviteCodeAvailability(normalizedInviteCode);
+      if (availability === "claimed_by_other") {
+        const message = "This friend code is already claimed by another account.";
+        setProfilePreflightError(message);
+        setProfileSaveActionPhase("error");
+        setProfileSaveActionMessage(message);
+        toast.error(message);
+        return;
+      }
+      if (availability === "unverified") {
+        const message = "Unable to verify friend code uniqueness right now. Please retry.";
+        setProfilePreflightError(message);
+        setProfileSaveActionPhase("error");
+        setProfileSaveActionMessage(message);
+        toast.error(message);
+        return;
+      }
+    }
+
+    profile.save();
+    setIsInviteCodeDraftDirty(false);
+    if (publicKeyHex) {
+      discoveryCache.upsertProfile({
+        pubkey: publicKeyHex,
+        name: profile.state.profile.username.trim() || undefined,
+        displayName: profile.state.profile.username.trim() || undefined,
+        about: profile.state.profile.about?.trim() || undefined,
+        picture: profile.state.profile.avatarUrl?.trim() || undefined,
+        nip05: profile.state.profile.nip05?.trim() || undefined,
+        inviteCode: normalizedInviteCode || undefined,
+      });
+      seedProfileMetadataCache({
+        pubkey: publicKeyHex,
+        displayName: profile.state.profile.username.trim() || undefined,
+        avatarUrl: profile.state.profile.avatarUrl?.trim() || undefined,
+        about: profile.state.profile.about?.trim() || undefined,
+        nip05: profile.state.profile.nip05?.trim() || undefined,
+      });
+    }
+    setProfileSaveActionPhase("working");
+    setProfileSaveActionMessage("Saving profile and publishing it to relays...");
+    const success = await withActionTimeout(
+      publishProfile({
+        username: profile.state.profile.username.trim(),
+        about: profile.state.profile.about,
+        avatarUrl: profile.state.profile.avatarUrl?.trim(),
+        nip05: profile.state.profile.nip05?.trim(),
+        inviteCode: normalizedInviteCode
+      }),
+      PROFILE_PUBLISH_UI_TIMEOUT_MS,
+      "Save finished on this device, but relay publishing timed out. Obscur will keep your saved profile."
+    ).catch((error) => {
+      const message = error instanceof Error ? error.message : "Failed to publish profile.";
+      setProfileSaveActionPhase("error");
+      setProfileSaveActionMessage(message);
+      toast.error(message);
+      return false;
     });
+
     if (success) {
-      profile.save();
+      setProfileSaveActionPhase("success");
+      setProfileSaveActionMessage("Profile saved and published to the network.");
       toast.success(t("settings.profileSaved"));
       return;
     }
+    const latestPublishReport = getProfilePublishReportSnapshot();
+    if (latestPublishReport?.deliveryStatus === "queued") {
+      const message = latestPublishReport.message || "Profile is saved on this device, but relay publishing needs a healthier connection.";
+      setProfileSaveActionPhase("error");
+      setProfileSaveActionMessage(message);
+      toast.warning(message);
+      return;
+    }
+    setProfileSaveActionPhase("error");
+    setProfileSaveActionMessage(profilePublishError || "Profile publish failed.");
     toast.error(t("settings.profilePublishFailed"));
   };
 
@@ -1147,8 +1438,17 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     const totalCount = relayList.state.relays.filter((relay) => relay.enabled).length;
     const enabledRelaySet = new Set(relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url));
     const openCount = pool.connections.filter((connection) => connection.status === "open" && enabledRelaySet.has(connection.url)).length;
-    return deriveRelayRuntimeStatus({ openCount, totalCount });
-  }, [pool.connections, relayList.state.relays]);
+    return deriveRelayRuntimeStatus({
+      openCount,
+      totalCount,
+      writableCount: relayRuntime.writableRelayCount,
+      subscribableCount: relayRuntime.subscribableRelayCount,
+      phase: relayRuntime.phase,
+      recoveryStage: relayRuntime.recoveryStage,
+      lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
+      fallbackRelayCount: relayRuntime.fallbackRelayUrls.length,
+    });
+  }, [pool.connections, relayList.state.relays, relayRuntime]);
 
   const relayQuickHealth = useMemo(() => {
     const enabledRelays = relayList.state.relays.filter((relay) => relay.enabled);
@@ -1161,16 +1461,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       ? Math.round(latencyValues.reduce((sum, value) => sum + value, 0) / latencyValues.length)
       : undefined;
 
-    let recommendation = "Connections look healthy.";
-    if (enabledRelays.length === 0) {
-      recommendation = "Enable at least one relay or apply a preset.";
-    } else if (openCount === 0) {
-      recommendation = "No active connections. Try High Redundancy preset.";
-    } else if (openCount < enabledRelays.length) {
-      recommendation = "Some relays are offline. Consider Default Stable preset.";
-    } else if (typeof averageLatencyMs === "number" && averageLatencyMs > 1500) {
-      recommendation = "Latency is high. Try Low Latency preset.";
-    }
+    const recommendation = relayRuntimeStatus.actionText;
 
     return {
       openCount,
@@ -1178,7 +1469,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       averageLatencyMs,
       recommendation,
     };
-  }, [pool.connections, relayHealthMetricsMap, relayList.state.relays]);
+  }, [pool.connections, relayHealthMetricsMap, relayList.state.relays, relayRuntimeStatus]);
 
   const storageMode = useMemo<StorageMode>(() => {
     return deriveStorageMode(nip96Config.enabled, localMediaConfig.enabled);
@@ -1190,6 +1481,11 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     [reliabilityTick, storageStatsTick, storageHealthState.checkedAtUnixMs]
   );
   const reliabilityRuntime = useMemo(() => getReliabilityRuntimeSnapshot(), [reliabilityTick]);
+  const relayResilienceSnapshot = useMemo(() => relayResilienceObservability.getSnapshot(), [reliabilityTick]);
+  const relayResilienceBetaGate = useMemo(
+    () => relayResilienceObservability.evaluateBetaReadiness({ snapshot: relayResilienceSnapshot }),
+    [relayResilienceSnapshot]
+  );
   const lastSyncLabel = reliabilityRuntime.lastSyncCompletedAtUnixMs > 0
     ? new Date(reliabilityRuntime.lastSyncCompletedAtUnixMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
     : "n/a";
@@ -1251,6 +1547,45 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     setRelayActionPhase("success");
     setRelayActionMessage("Relay section reset to default list.");
     toast.success("Relay section reset.");
+  };
+
+  const handleRefreshRelayStatus = async (): Promise<void> => {
+    relayResilienceObservability.recordOperatorIntervention();
+    const enabledCount = relayList.state.relays.filter((relay) => relay.enabled).length;
+    if (enabledCount === 0) {
+      setRelayActionPhase("error");
+      setRelayActionMessage("Enable at least one relay before refreshing status.");
+      toast.error("No enabled relays to refresh.");
+      return;
+    }
+
+    setRelayActionPhase("working");
+    setRelayActionMessage("Refreshing relay status...");
+
+    try {
+      pool.reconnectAll();
+      pool.resubscribeAll();
+      await triggerRelayRecovery("manual");
+      const connected = await pool.waitForConnection(2_500);
+      const writableSnapshot = pool.getWritableRelaySnapshot(
+        relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url)
+      );
+      if (connected && writableSnapshot.openRelayCount > 0) {
+        setRelayActionPhase("success");
+        setRelayActionMessage(`Relay status refreshed. ${writableSnapshot.openRelayCount}/${writableSnapshot.totalRelayCount} relays are writable.`);
+        toast.success("Relay status refreshed.");
+        return;
+      }
+
+      setRelayActionPhase("error");
+      setRelayActionMessage("Refresh completed, but no writable relays are currently available.");
+      toast.error("Relay refresh completed without a writable connection.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Relay refresh failed.";
+      setRelayActionPhase("error");
+      setRelayActionMessage(message);
+      toast.error(message);
+    }
   };
 
   const handleResetStorageSection = async (): Promise<void> => {
@@ -1339,6 +1674,13 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
           <Card title={t("profile.title")} description={t("profile.description")} className="w-full">
             <div id="profile" className="space-y-6">
               <div className="space-y-6 rounded-2xl border border-black/10 bg-gradient-to-br from-white/90 to-zinc-50/50 p-6 backdrop-blur-md shadow-sm dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+                <ProfileCompletenessIndicator
+                  hasAvatar={(profile.state.profile.avatarUrl || "").trim().length > 0}
+                  hasUsername={profile.state.profile.username.trim().length >= 3}
+                  hasDescription={(profile.state.profile.about || "").trim().length > 0}
+                  hasNip05={(profile.state.profile.nip05 || "").trim().length > 0}
+                />
+
                 <div className="flex flex-col items-center justify-center space-y-4 pt-2">
                   <AvatarUpload
                     currentAvatarUrl={profile.state.profile.avatarUrl}
@@ -1369,6 +1711,30 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="profile-about">{t("profile.aboutLabel", "Description")}</Label>
+                  <Textarea
+                    id="profile-about"
+                    value={profile.state.profile.about || ""}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => profile.setAbout({ about: e.target.value })}
+                    placeholder={t("profile.aboutPlaceholder", "Tell others who you are (developer, artist, trader, etc.)")}
+                    rows={4}
+                    aria-invalid={!!profileValidation.aboutError}
+                    className={cn(
+                      "resize-y border-black/10 bg-white/70 text-zinc-900 placeholder:text-zinc-500",
+                      "dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500",
+                      profileValidation.aboutError ? "border-rose-500/50 focus-visible:ring-rose-500" : ""
+                    )}
+                  />
+                  <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
+                    <span>{t("profile.aboutHelp", "Public profile bio shown in discovery previews.")}</span>
+                    <span>{(profile.state.profile.about || "").trim().length}/280</span>
+                  </div>
+                  {profileValidation.aboutError ? (
+                    <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.aboutError}</div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="profile-nip05">{t("profile.nip05Label")}</Label>
                   <div className="flex gap-2">
                     <Input
@@ -1395,65 +1761,123 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="profile-invite-code">{t("profile.inviteCodeLabel", "Personal Invite Code")}</Label>
-                  </div>
-                  <div className="relative">
+                  <Label htmlFor="profile-invite-code">Friend Code</Label>
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl border px-2 py-1.5",
+                      "border-black/10 bg-gradient-card dark:border-white/10",
+                      profileValidation.inviteCodeError ? "border-rose-500/50" : ""
+                    )}
+                  >
+                    <div className="rounded-lg border border-black/10 bg-black/[0.03] px-3 py-2 text-xs font-semibold tracking-wide text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
+                      {INVITE_CODE_PREFIX}-
+                    </div>
                     <Input
                       id="profile-invite-code"
-                      value={profile.state.profile.inviteCode || ""}
-                      readOnly
-                      className="pr-12"
+                      value={inviteCodeDraftSuffix}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteCodeFromSuffix(e.target.value)}
+                      placeholder="XXXXXX"
+                      maxLength={INVITE_CODE_SUFFIX_LENGTH}
+                      aria-invalid={!!profileValidation.inviteCodeError}
+                      className={cn(
+                        "h-9 flex-1 border-0 bg-transparent px-1 py-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
+                        profileValidation.inviteCodeError ? "text-rose-700 dark:text-rose-300" : ""
+                      )}
                     />
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={isPublishing}
                       onClick={() => {
-                        if (profile.state.profile.inviteCode) {
-                          void navigator.clipboard.writeText(profile.state.profile.inviteCode);
-                          toast.success(t("common.copied"));
+                        void handleRandomInviteCode();
+                      }}
+                    >
+                      Random
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={!inviteCodeDraft.trim()}
+                      onClick={async () => {
+                        const code = inviteCodeDraft.trim().toUpperCase();
+                        if (!code) return;
+                        try {
+                          await navigator.clipboard.writeText(code);
+                          toast.success("Copied friend code.");
+                        } catch {
+                          toast.error("Unable to copy friend code.");
                         }
                       }}
                     >
-                      <Copy className="h-4 w-4" />
+                      Copy
                     </Button>
                   </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span>Use this friend code for quick account discovery.</span>
+                    <span>Prefix is fixed by app identity; edit only the 6-character suffix.</span>
+                    {userInviteCode.nprofile ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto px-0 py-0 text-xs font-semibold"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(userInviteCode.nprofile!);
+                          toast.success("Copied shareable identity link.");
+                        }}
+                      >
+                        Copy identity link
+                      </Button>
+                    ) : null}
+                  </div>
+                  {inviteCodeAvailabilityMessage ? (
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 text-xs",
+                        inviteCodeAvailabilityStatus === "available" && "text-emerald-600 dark:text-emerald-400",
+                        inviteCodeAvailabilityStatus === "claimed_by_other" && "text-rose-600 dark:text-rose-400",
+                        inviteCodeAvailabilityStatus === "unverified" && "text-amber-600 dark:text-amber-400",
+                        (inviteCodeAvailabilityStatus === "checking" || inviteCodeAvailabilityStatus === "idle") && "text-zinc-600 dark:text-zinc-400",
+                      )}
+                    >
+                      {inviteCodeAvailabilityStatus === "checking" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      <span>{inviteCodeAvailabilityMessage}</span>
+                    </div>
+                  ) : null}
+                  {profileValidation.inviteCodeError ? (
+                    <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.inviteCodeError}</div>
+                  ) : null}
                 </div>
+
               </div>
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button
-                  type="submit"
-                  disabled={isPublishing || !profileValidation.isValid}
+                  type="button"
+                  disabled={isPublishing || !profileValidation.isValid || inviteCodeAvailabilityStatus === "checking"}
                   className="h-11 px-8 font-bold text-white bg-gradient-primary border-none shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
-                  onClick={handleSaveAndPublishProfile}
+                  onClick={handleSaveProfile}
                 >
                   {isPublishing ? (
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Publishing...</span>
+                      <span>Saving...</span>
                     </div>
                   ) : (
-                    "Save & Publish"
+                    "Save"
                   )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => profile.revert()}
-                  disabled={isPublishing}
-                  className="h-11 px-8 font-semibold border-black/10 dark:border-white/10"
-                >
-                  Reset Changes
                 </Button>
               </div>
               <SettingsActionStatus
-                title="Publish Status"
-                phase={toSettingsActionPhase(profilePublishPhase)}
+                title="Profile Save Status"
+                phase={isPublishing ? toSettingsActionPhase(profilePublishPhase) : profileSaveActionPhase}
                 message={
                   profilePreflightError
                     ? profilePreflightError
+                    : profileSaveActionMessage
+                      ? profileSaveActionMessage
                     : profilePublishReport?.message
                     ? profilePublishReport.message
                     : profilePublishError
@@ -1461,11 +1885,109 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                       : undefined
                 }
                 summary={
-                  profilePublishReport?.phase === "success" && typeof profilePublishReport.successCount === "number" && typeof profilePublishReport.totalRelays === "number"
-                    ? `Published to ${profilePublishReport.successCount}/${profilePublishReport.totalRelays} relays.`
-                    : "Ready to publish your profile."
+                  accountSyncSnapshot.portabilityStatus === "portable"
+                    ? "Account is portable across devices. Profile publish and encrypted backup both have relay evidence."
+                    : accountSyncSnapshot.portabilityStatus === "profile_only"
+                      ? "Profile publish has relay evidence, but encrypted backup is not proven yet. Cross-device restore is not guaranteed."
+                      : accountSyncSnapshot.portabilityStatus === "local_only"
+                        ? "Profile is saved locally, but network sync proof is incomplete. Another device may not restore this account yet."
+                        : "Profile save and account sync are separate proof steps. Portability is only claimed after both relay-backed proofs succeed."
                 }
               />
+              <div className="rounded-2xl border border-black/10 bg-white/70 p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/50">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Account Sync</div>
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                      Private key = account. This device restores and refreshes account state from relays.
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
+                      accountSyncSnapshot.portabilityStatus === "portable" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                      accountSyncSnapshot.portabilityStatus === "profile_only" && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                      accountSyncSnapshot.portabilityStatus === "local_only" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                      accountSyncSnapshot.portabilityStatus === "degraded" && "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+                      accountSyncSnapshot.portabilityStatus === "unknown" && "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
+                    )}
+                  >
+                    {accountSyncSnapshot.portabilityStatus.replace("_", " ")}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
+                    <div className="font-bold uppercase tracking-wider text-zinc-500">Portability</div>
+                    <div className="mt-1 text-zinc-900 dark:text-zinc-100">
+                      {accountSyncSnapshot.portabilityStatus === "portable"
+                        ? "Portable across devices"
+                        : accountSyncSnapshot.portabilityStatus === "profile_only"
+                          ? "Public profile synced, private backup missing"
+                          : accountSyncSnapshot.portabilityStatus === "local_only"
+                            ? "Only local device save is proven"
+                            : accountSyncSnapshot.portabilityStatus === "degraded"
+                              ? "Relay sync degraded"
+                              : "Not proven yet"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
+                    <div className="font-bold uppercase tracking-wider text-zinc-500">Restore phase</div>
+                    <div className="mt-1 text-zinc-900 dark:text-zinc-100">{accountSyncSnapshot.message}</div>
+                  </div>
+                  <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
+                    <div className="font-bold uppercase tracking-wider text-zinc-500">Encrypted backup</div>
+                    <div className="mt-1 text-zinc-900 dark:text-zinc-100">
+                      {accountSyncSnapshot.hasEncryptedBackup ? "Available on relays" : "Not found yet"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
+                    <div className="font-bold uppercase tracking-wider text-zinc-500">Last public profile fetch</div>
+                    <div className="mt-1 text-zinc-900 dark:text-zinc-100">
+                      {accountSyncSnapshot.lastPublicProfileFetchAtUnixMs
+                        ? new Date(accountSyncSnapshot.lastPublicProfileFetchAtUnixMs).toLocaleString()
+                        : "Not fetched yet"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
+                    <div className="font-bold uppercase tracking-wider text-zinc-500">Last encrypted backup publish</div>
+                    <div className="mt-1 text-zinc-900 dark:text-zinc-100">
+                      {accountSyncSnapshot.lastEncryptedBackupPublishAtUnixMs
+                        ? new Date(accountSyncSnapshot.lastEncryptedBackupPublishAtUnixMs).toLocaleString()
+                        : "Not published yet"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
+                    <div className="font-bold uppercase tracking-wider text-zinc-500">Profile proof</div>
+                    <div className="mt-1 text-zinc-900 dark:text-zinc-100">
+                      {accountSyncSnapshot.profileProof
+                        ? `${accountSyncSnapshot.profileProof.deliveryStatus} ${accountSyncSnapshot.profileProof.successCount ?? 0}/${accountSyncSnapshot.profileProof.totalRelays ?? 0}`
+                        : "No relay proof yet"}
+                    </div>
+                    {accountSyncSnapshot.latestProfileEventId ? (
+                      <div className="mt-1 font-mono text-[10px] text-zinc-500">{accountSyncSnapshot.latestProfileEventId.slice(0, 16)}...</div>
+                    ) : null}
+                  </div>
+                  <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
+                    <div className="font-bold uppercase tracking-wider text-zinc-500">Backup proof</div>
+                    <div className="mt-1 text-zinc-900 dark:text-zinc-100">
+                      {accountSyncSnapshot.backupProof
+                        ? `${accountSyncSnapshot.backupProof.deliveryStatus} ${accountSyncSnapshot.backupProof.successCount ?? 0}/${accountSyncSnapshot.backupProof.totalRelays ?? 0}`
+                        : "No relay proof yet"}
+                    </div>
+                    {accountSyncSnapshot.latestBackupEventId ? (
+                      <div className="mt-1 font-mono text-[10px] text-zinc-500">{accountSyncSnapshot.latestBackupEventId.slice(0, 16)}...</div>
+                    ) : null}
+                  </div>
+                </div>
+                {accountSyncSnapshot.lastRelayFailureReason ? (
+                  <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+                    Last relay failure: {accountSyncSnapshot.lastRelayFailureReason}
+                  </div>
+                ) : null}
+                <div className="mt-3 rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-400">
+                  Last restore source: {accountSyncSnapshot.lastRestoreSource?.replace("_", " ") || "none"}
+                </div>
+              </div>
             </div>
           </Card>
         </div>
@@ -2041,11 +2563,25 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   disabled={apiHealth.status === "checking"}
                   className="shrink-0"
                 >
-                  {apiHealth.status === "checking" ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.health.check", "Test Connection")}
+                  {apiHealth.status === "checking"
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : ENABLE_API_HEALTH_PROBE
+                      ? t("settings.health.check", "Test Connection")
+                      : "Show Advisory"}
                 </Button>
               </div>
 
               <AnimatePresence mode="wait">
+                {apiHealth.status === "disabled" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2 font-medium"
+                  >
+                    <Activity className="h-3 w-3" />
+                    {apiHealth.message}
+                  </motion.div>
+                )}
                 {apiHealth.status === "ok" && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
@@ -2108,6 +2644,10 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                       {preset.label}
                     </Button>
                   ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => void handleRefreshRelayStatus()}>
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Refresh Status
+                  </Button>
                   <Button type="button" variant="ghost" size="sm" onClick={handleResetRelaySection} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
                     Reset Relay Section
                   </Button>
@@ -2119,6 +2659,8 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   "rounded-xl border p-4 transition-all duration-300",
                   relayRuntimeStatus.status === "healthy"
                     ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 shadow-[0_0_15px_-5px_rgba(16,185,129,0.1)]"
+                    : relayRuntimeStatus.status === "recovering"
+                      ? "border-sky-500/30 bg-sky-500/5 text-sky-700 dark:text-sky-300 shadow-[0_0_15px_-5px_rgba(14,165,233,0.1)]"
                     : relayRuntimeStatus.status === "degraded"
                       ? "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 shadow-[0_0_15px_-5px_rgba(245,158,11,0.1)]"
                       : "border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-300 shadow-[0_0_15px_-5px_rgba(244,63,94,0.1)]"
@@ -2127,7 +2669,13 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "h-2.5 w-2.5 rounded-full shadow-sm animate-pulse",
-                    relayRuntimeStatus.status === "healthy" ? "bg-emerald-500" : relayRuntimeStatus.status === "degraded" ? "bg-amber-500" : "bg-rose-500"
+                    relayRuntimeStatus.status === "healthy"
+                      ? "bg-emerald-500"
+                      : relayRuntimeStatus.status === "recovering"
+                        ? "bg-sky-500"
+                        : relayRuntimeStatus.status === "degraded"
+                          ? "bg-amber-500"
+                          : "bg-rose-500"
                   )} />
                   <div className="space-y-0.5">
                     <div className="text-sm font-bold">{relayRuntimeStatus.label}</div>
@@ -2180,19 +2728,16 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                       {relayList.state.relays.map((relay, index) => {
                         const connection = relayConnectionMap.get(relay.url);
                         const health = relayHealthMetricsMap.get(relay.url);
-                        const status = connection?.status ?? "connecting";
-                        const isOpen = status === "open";
-                        const isError = status === "error";
-                        const hintType = classifyRelayFailureHint(connection?.errorMessage ?? health?.lastError);
-                        const hintText = hintType === "timeout"
-                          ? "Timeout, retrying."
-                          : hintType === "network"
-                            ? "Network unreachable."
-                            : hintType === "tls"
-                              ? "TLS/handshake issue."
-                              : hintType === "rate_limited"
-                                ? "Rate-limited by relay."
-                                : "Unknown error.";
+                        const derivedStatus = deriveRelayNodeStatus({
+                          url: relay.url,
+                          enabled: relay.enabled,
+                          connection,
+                          metrics: health,
+                          isConfigured: true,
+                          isFallback: relayRuntime.fallbackRelayUrls.includes(relay.url),
+                          runtimePhase: relayRuntime.phase,
+                          lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
+                        });
 
                         return (
                           <div
@@ -2214,21 +2759,38 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                                 <div className="flex items-center gap-2">
                                   <div className={cn(
                                     "h-1.5 w-1.5 rounded-full ring-2 ring-offset-1 ring-offset-transparent",
-                                    isOpen ? "bg-emerald-500 ring-emerald-500/20" : isError ? "bg-rose-500 ring-rose-500/20" : "bg-zinc-400 ring-zinc-400/20"
+                                    derivedStatus.status === "healthy"
+                                      ? "bg-emerald-500 ring-emerald-500/20"
+                                      : derivedStatus.status === "recovering"
+                                        ? "bg-sky-500 ring-sky-500/20"
+                                        : derivedStatus.status === "degraded"
+                                          ? "bg-amber-500 ring-amber-500/20"
+                                          : "bg-rose-500 ring-rose-500/20"
                                   )} />
                                   <span className={cn(
                                     "text-[10px] font-black uppercase tracking-[0.2em] leading-none",
-                                    isOpen ? "text-emerald-600 dark:text-emerald-400" : isError ? "text-rose-600 dark:text-rose-400" : "text-zinc-500/80"
+                                    derivedStatus.status === "healthy"
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : derivedStatus.status === "recovering"
+                                        ? "text-sky-600 dark:text-sky-400"
+                                        : derivedStatus.status === "degraded"
+                                          ? "text-amber-600 dark:text-amber-400"
+                                          : "text-rose-600 dark:text-rose-400"
                                   )}>
-                                    {status}
+                                    {derivedStatus.badge}
+                                  </span>
+                                  <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
+                                    {derivedStatus.roleLabel}
                                   </span>
                                 </div>
-                                {isError && (
-                                  <div className="mt-1 flex items-center gap-1.5 py-0.5 px-1.5 rounded bg-rose-500/10 border border-rose-500/10 text-[9px] font-bold text-rose-600 dark:text-rose-400">
-                                    <ShieldAlert className="h-3 w-3" />
-                                    {hintText}
-                                  </div>
-                                )}
+                                <div className="mt-1 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                                  {derivedStatus.detail}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400">
+                                  <span>Success {derivedStatus.successLabel}</span>
+                                  <span>•</span>
+                                  <span>{derivedStatus.confidenceLabel}</span>
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">
@@ -2607,6 +3169,133 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 />
               </div>
 
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-blue-500/20 p-5 dark:border-blue-400/20 bg-blue-500/5">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">Stability Mode (v0.9 recovery)</Label>
+                  <p className="text-xs text-zinc-500">
+                    Forces the safe Add Friend path (contact card/npub/pubkey) and hides unstable discovery UI.
+                  </p>
+                </div>
+                <SettingsToggle
+                  checked={privacySettings.stabilityModeV090}
+                  onChange={(checked) => handleSavePrivacy({
+                    ...privacySettings,
+                    stabilityModeV090: checked,
+                    deterministicDiscoveryV090: checked ? false : privacySettings.deterministicDiscoveryV090,
+                  })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">Deterministic Discovery (v0.9 Wave B)</Label>
+                  <p className="text-xs text-zinc-500">
+                    Resolver + request outbox experimental flow. Requires Rust protocol core and stability mode disabled.
+                  </p>
+                </div>
+                <SettingsToggle
+                  checked={privacySettings.deterministicDiscoveryV090}
+                  onChange={(checked) => handleSavePrivacy({
+                    ...privacySettings,
+                    deterministicDiscoveryV090: checked,
+                    stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
+                  })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">Rust Protocol Core (v0.9 Wave B)</Label>
+                  <p className="text-xs text-zinc-500">
+                    Enables runtime adapters backed by Rust protocol contracts for identity/session/outbox paths.
+                  </p>
+                </div>
+                <SettingsToggle
+                  checked={privacySettings.protocolCoreRustV090}
+                  onChange={(checked) => handleSavePrivacy({
+                    ...privacySettings,
+                    protocolCoreRustV090: checked,
+                    x3dhRatchetV090: checked ? privacySettings.x3dhRatchetV090 : false,
+                    stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
+                  })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">X3DH + Ratchet (v0.9 Wave C)</Label>
+                  <p className="text-xs text-zinc-500">
+                    Enables the full rewritten E2EE handshake/session path. Keep off until Wave C gates pass.
+                  </p>
+                </div>
+                <SettingsToggle
+                  checked={privacySettings.x3dhRatchetV090}
+                  onChange={(checked) => handleSavePrivacy({
+                    ...privacySettings,
+                    x3dhRatchetV090: checked,
+                    protocolCoreRustV090: checked ? true : privacySettings.protocolCoreRustV090,
+                    stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
+                  })}
+                />
+              </div>
+
+              <div className="rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20 space-y-4">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">Discovery Rollout Flags</Label>
+                  <p className="text-xs text-zinc-500">
+                    Guard incremental discovery lanes while keeping deterministic add as the canonical path.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 p-3 dark:border-white/10 bg-zinc-50/60 dark:bg-zinc-900/40">
+                  <div>
+                    <p className="text-sm font-semibold">Invite Code Lookup</p>
+                    <p className="text-xs text-zinc-500">Allow `OBSCUR-*` code resolution in Add Friend.</p>
+                  </div>
+                  <SettingsToggle
+                    checked={privacySettings.discoveryInviteCodeV1 === true}
+                    onChange={(checked) => handleSavePrivacy({
+                      ...privacySettings,
+                      discoveryInviteCodeV1: checked,
+                    })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 p-3 dark:border-white/10 bg-zinc-50/60 dark:bg-zinc-900/40">
+                  <div>
+                    <p className="text-sm font-semibold">Deep-Link Contact Import</p>
+                    <p className="text-xs text-zinc-500">Route `obscur://contact?...` links to deterministic Add Friend resolve.</p>
+                  </div>
+                  <SettingsToggle
+                    checked={privacySettings.discoveryDeepLinkV1 === true}
+                    onChange={(checked) => handleSavePrivacy({
+                      ...privacySettings,
+                      discoveryDeepLinkV1: checked,
+                    })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 p-3 dark:border-white/10 bg-zinc-50/60 dark:bg-zinc-900/40">
+                  <div>
+                    <p className="text-sm font-semibold">Local Friend Suggestions</p>
+                    <p className="text-xs text-zinc-500">Show local-cache candidate suggestions on empty Add Friend search.</p>
+                  </div>
+                  <SettingsToggle
+                    checked={privacySettings.discoverySuggestionsV1 === true}
+                    onChange={(checked) => handleSavePrivacy({
+                      ...privacySettings,
+                      discoverySuggestionsV1: checked,
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/40 text-xs text-zinc-500">
+                Effective v0.9 policy: stability={rolloutPolicy.stabilityModeEnabled ? "on" : "off"}, protocol-core={rolloutPolicy.protocolCoreEnabled ? "on" : "off"}, deterministic-discovery={rolloutPolicy.deterministicDiscoveryEnabled ? "on" : "off"}, x3dh-ratchet={rolloutPolicy.x3dhRatchetEnabled ? "on" : "off"}.
+                <br />
+                Discovery lanes: invite-code={privacySettings.discoveryInviteCodeV1 ? "on" : "off"}, deep-link={privacySettings.discoveryDeepLinkV1 ? "on" : "off"}, suggestions={privacySettings.discoverySuggestionsV1 ? "on" : "off"}.
+              </div>
+
               <div className="rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20 space-y-4">
                 <div className="flex items-center justify-between gap-2">
                   <Label className="font-semibold text-base">Reliability Status</Label>
@@ -2647,13 +3336,61 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     Reconnect suppressed: <span className="font-semibold">{reliabilityMetrics.relay_reconnect_suppressed}</span>
                   </div>
                   <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Relay cooling down: <span className="font-semibold">{reliabilityMetrics.relay_cooling_down}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
                     Sync backfills: <span className="font-semibold">{reliabilityMetrics.sync_backfill_requested}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Checkpoint repairs: <span className="font-semibold">{reliabilityMetrics.sync_checkpoint_repaired}</span>
                   </div>
                   <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
                     Storage health failures: <span className="font-semibold">{reliabilityMetrics.storage_health_failed}</span>
                   </div>
                   <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
                     Storage recovered records: <span className="font-semibold">{reliabilityMetrics.storage_recovery_records}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Storage retries: <span className="font-semibold">{reliabilityMetrics.storage_write_retry}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Relay Resilience SLO (Phase 4)</div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-4">
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Recovery p95: <span className="font-semibold">{relayResilienceSnapshot.recoveryLatency.sampleCount > 0 ? `${relayResilienceSnapshot.recoveryLatency.p95LatencyMs} ms` : "n/a"}</span>
+                    </div>
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Replay success: <span className="font-semibold">{formatRatioPercent(relayResilienceSnapshot.replay.successRatio)}</span>
+                    </div>
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Scoped blocked: <span className="font-semibold">{formatRatioPercent(relayResilienceSnapshot.scopedReadiness.blockedByReadinessRatio)}</span>
+                    </div>
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Operator interventions: <span className="font-semibold">{relayResilienceSnapshot.operatorInterventionCount}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Replay samples: <span className="font-semibold">{relayResilienceSnapshot.replay.attemptedReplayCount}</span>
+                    </div>
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Scoped publish samples: <span className="font-semibold">{relayResilienceSnapshot.scopedReadiness.scopedPublishAttemptCount}</span>
+                    </div>
+                    <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                      Observation window: <span className="font-semibold">{Math.round(relayResilienceSnapshot.observedWindowMs / 60_000)} min</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Beta gate: <span className={cn("font-semibold", relayResilienceBetaGate.ready ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>
+                      {relayResilienceBetaGate.ready ? "ready" : "not_ready"}
+                    </span>
+                    {!relayResilienceBetaGate.ready ? (
+                      <div className="mt-1 text-[11px] text-zinc-500">
+                        Reasons: {relayResilienceBetaGate.reasons.join(", ")}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

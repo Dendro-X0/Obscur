@@ -2,6 +2,13 @@
 
 This folder is the source of truth for engineers and maintenance agents working on Obscur.
 
+## Current Focus
+
+- Active execution baseline: [v0.9.x Foundation Recovery Roadmap](./37-v0.9x-foundation-recovery-roadmap.md)
+- Release-state handoff for the unreleased beta: [v0.9.0 Beta Status and Recovery Handoff](./40-v0.9.0-beta-status-and-recovery-handoff.md)
+- Relay/runtime resilience foundation: [v0.9 Relay Runtime Resilience Foundation](./41-v0.9-relay-runtime-resilience-foundation.md)
+- Latest implementation status snapshot: see the 2026-03-16 notes in docs 40 and 41.
+
 ## Audience
 
 - Core contributors implementing features/fixes.
@@ -41,6 +48,16 @@ This folder is the source of truth for engineers and maintenance agents working 
 29. [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md)
 30. [v0.8.7 Reliability Core Roadmap](./30-v0.8.7-reliability-core-roadmap.md)
 31. [v0.8.8 Runtime Decoupling + Multi-Profile Roadmap](./31-v0.8.8-runtime-decoupling-and-multi-profile-roadmap.md)
+32. [v0.8.9 Stability + Release Integrity Roadmap](./32-v0.8.9-stability-and-release-integrity-roadmap.md)
+33. [v0.8.9 Known Failures Registry](./33-v0.8.9-known-failures-registry.md)
+34. [v0.9 Discovery Overhaul Spec](./34-v0.9-discovery-overhaul-spec.md)
+35. [v0.9 Recovery Stability Hotfix Roadmap](./35-v0.9-recovery-stability-hotfix-roadmap.md)
+36. [v0.9 Security + Identity Restructure Roadmap](./36-v0.9-security-identity-restructure-roadmap.md)
+37. [v0.9.x Foundation Recovery Roadmap](./37-v0.9x-foundation-recovery-roadmap.md)
+38. [v0.9 Rescue Wave 0 API/Function Audit Matrix](./38-v0.9-rescue-wave0-api-function-audit-matrix.md)
+39. [v0.9 R0 Architectural Drift Control](./39-v0.9-r0-architectural-drift-control.md)
+40. [v0.9.0 Beta Status and Recovery Handoff](./40-v0.9.0-beta-status-and-recovery-handoff.md)
+41. [v0.9 Relay Runtime Resilience Foundation](./41-v0.9-relay-runtime-resilience-foundation.md)
 
 ## Quick Paths By Task
 
@@ -65,6 +82,15 @@ This folder is the source of truth for engineers and maintenance agents working 
    [v0.8.6 Settings Maintainer Notes + QA Matrix](./29-v0.8.6-settings-maintainer-notes-and-qa-matrix.md),
    [v0.8.7 Reliability Core Roadmap](./30-v0.8.7-reliability-core-roadmap.md),
    [v0.8.8 Runtime Decoupling + Multi-Profile Roadmap](./31-v0.8.8-runtime-decoupling-and-multi-profile-roadmap.md),
+   [v0.8.9 Stability + Release Integrity Roadmap](./32-v0.8.9-stability-and-release-integrity-roadmap.md),
+   [v0.8.9 Known Failures Registry](./33-v0.8.9-known-failures-registry.md),
+   [v0.9 Discovery Overhaul Spec](./34-v0.9-discovery-overhaul-spec.md),
+   [v0.9 Recovery Stability Hotfix Roadmap](./35-v0.9-recovery-stability-hotfix-roadmap.md),
+   [v0.9 Security + Identity Restructure Roadmap](./36-v0.9-security-identity-restructure-roadmap.md),
+   [v0.9.x Foundation Recovery Roadmap](./37-v0.9x-foundation-recovery-roadmap.md),
+   [v0.9 Rescue Wave 0 API/Function Audit Matrix](./38-v0.9-rescue-wave0-api-function-audit-matrix.md),
+   [v0.9 R0 Architectural Drift Control](./39-v0.9-r0-architectural-drift-control.md),
+   [v0.9 Relay Runtime Resilience Foundation](./41-v0.9-relay-runtime-resilience-foundation.md),
    [v0.9.0 Ticketized Roadmap](./25-v0.9.0-roadmap.md),
    [v0.9.0 Persona Adoption Scorecard](./26-v0.9.0-persona-adoption-scorecard.md)
 4. Terminology and policy checks:

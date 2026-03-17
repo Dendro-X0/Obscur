@@ -493,12 +493,13 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
 
 const parsePersistedConnectionRequest = (value: unknown): PersistedConnectionRequest | null => {
     if (!isRecord(value)) return null;
-    const { id, status, isOutgoing, introMessage, timestampMs } = value;
+    const { id, status, isOutgoing, introMessage, timestampMs, eventId } = value;
     if (!isString(id) || id.trim().length === 0) return null;
     if (!isString(status)) return null;
     if (!isBoolean(isOutgoing)) return null;
     if (!isNumber(timestampMs)) return null;
     if (introMessage !== undefined && !isString(introMessage)) return null;
+    if (eventId !== undefined && !isString(eventId)) return null;
     if (status !== "pending" && status !== "accepted" && status !== "declined" && status !== "canceled") {
         return null;
     }
@@ -507,7 +508,8 @@ const parsePersistedConnectionRequest = (value: unknown): PersistedConnectionReq
         status,
         isOutgoing,
         introMessage: introMessage as string | undefined,
-        timestampMs
+        timestampMs,
+        eventId: eventId as string | undefined,
     };
 };
 

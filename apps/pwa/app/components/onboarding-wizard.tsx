@@ -460,7 +460,7 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
 
               {resolvedProfile ? (
                 <div className="p-4 rounded-xl border border-purple-200 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                  <div className="h-10 w-10 rounded-full bg-purple-200 dark:bg-purple-800 flex items-center justify-center overflow-hidden">
+                  <div className="relative h-10 w-10 rounded-full bg-purple-200 dark:bg-purple-800 flex items-center justify-center overflow-hidden">
                     {resolvedProfile.avatar ? (
                       <Image src={resolvedProfile.avatar!} alt={resolvedProfile.displayName || "Avatar"} fill unoptimized className="object-cover" />
                     ) : (

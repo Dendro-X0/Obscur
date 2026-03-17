@@ -55,6 +55,7 @@ import type { GroupConversation } from "../../messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupAccessMode } from "../types";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -786,8 +787,7 @@ export function GroupManagementDialog({
                         <Button
                             className="w-full h-14 bg-indigo-500 hover:bg-indigo-600 text-white rounded-[20px] font-black shadow-xl shadow-indigo-500/20"
                             onClick={() => {
-                                const baseUrl = window.location.origin;
-                                const url = `${baseUrl}/groups/${group.groupId}?relay=${encodeURIComponent(group.relayUrl)}${roomKeyHex ? `#k=${roomKeyHex}` : ""}`;
+                                const url = `${toAbsoluteAppUrl(getPublicGroupHref(group.groupId, group.relayUrl))}${roomKeyHex ? `#k=${roomKeyHex}` : ""}`;
                                 navigator.clipboard.writeText(url);
                                 toast.success("Access link copied to clipboard");
                             }}

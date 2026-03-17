@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { useTauri } from "./use-tauri";
 import { useNotificationPreference } from "../../notifications/hooks/use-notification-preference";
 import { showDesktopNotification } from "../../notifications/utils/show-desktop-notification";
+import { requestNotificationPermission } from "../../notifications/utils/request-notification-permission";
 import type { NotificationChannels } from "../../notifications/utils/notification-channels";
 
 const DESKTOP_NOTIFICATION_TAG: string = "obscur-notification";
@@ -14,22 +14,21 @@ type NotificationChannelKey = keyof NotificationChannels;
  * Automatically uses Tauri notifications when in desktop environment
  */
 export function useDesktopNotifications() {
-  const { isDesktop, api } = useTauri();
   const { state, setEnabled, setChannels } = useNotificationPreference();
 
   // Request permission when enabled
   useEffect(() => {
-    if (!state.enabled || !isDesktop) return;
+    if (!state.enabled) return;
 
     const requestPermission = async () => {
-      const permission = await api.notification.requestPermission();
+      const { permission } = await requestNotificationPermission();
       if (permission !== "granted") {
         console.warn("Desktop notification permission denied");
       }
     };
 
-    requestPermission();
-  }, [state.enabled, isDesktop, api]);
+    void requestPermission();
+  }, [state.enabled]);
 
   // Show notification function that uses desktop or web notifications
   const showNotification = useCallback(
@@ -38,15 +37,9 @@ export function useDesktopNotifications() {
         return;
       }
 
-      if (isDesktop) {
-        // Use Tauri desktop notifications
-        await api.notification.show({ title, body });
-      } else {
-        // Use web notifications
-        showDesktopNotification({ title, body, tag: DESKTOP_NOTIFICATION_TAG });
-      }
+      await showDesktopNotification({ title, body, tag: DESKTOP_NOTIFICATION_TAG });
     },
-    [state.enabled, state.channels, isDesktop, api]
+    [state.enabled, state.channels]
   );
 
   return {

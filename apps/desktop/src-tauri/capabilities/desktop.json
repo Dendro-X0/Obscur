@@ -1,7 +1,8 @@
 {
     "identifier": "desktop",
     "windows": [
-        "main"
+        "main",
+        "profile-*"
     ],
     "permissions": [
         "core:default",

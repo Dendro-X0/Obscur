@@ -24,6 +24,7 @@ import {
     DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
 import { RelayStatusIndicator } from "../../relays/components/relay-status-indicator";
+import { getIncomingPendingRequestCount, getIncomingUnreadRequestTotal } from "../services/request-inbox-view";
 
 export interface SidebarProps {
     isNewChatOpen: boolean;
@@ -102,9 +103,16 @@ export function Sidebar({
 
     const visibleConversations = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
 
-    const chatsUnreadTotal = visibleConversations.reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
-    const requestsUnreadTotal = requests.reduce((sum: number, r: RequestsInboxItem) => sum + r.unreadCount, 0);
-    const pendingRequestsCount = requests.filter(r => r.status === 'pending').length;
+    const resolveConversationUnread = React.useCallback((conversation: Conversation): number => {
+        if (selectedConversation?.id === conversation.id) {
+            return 0;
+        }
+        return unreadByConversationId[conversation.id] ?? conversation.unreadCount;
+    }, [selectedConversation?.id, unreadByConversationId]);
+
+    const chatsUnreadTotal = visibleConversations.reduce((acc, c) => acc + resolveConversationUnread(c), 0);
+    const requestsUnreadTotal = getIncomingUnreadRequestTotal(requests);
+    const pendingRequestsCount = getIncomingPendingRequestCount(requests);
 
     const [isDmsExpanded, setIsDmsExpanded] = useState(true);
     const [isCommunitiesExpanded, setIsCommunitiesExpanded] = useState(true);
@@ -118,8 +126,8 @@ export function Sidebar({
     const dms = unpinnedConversations.filter(c => c.kind === 'dm');
     const communities = unpinnedConversations.filter(c => c.kind === 'group');
 
-    const dmsUnread = visibleConversations.filter(c => c.kind === 'dm').reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
-    const groupsUnread = visibleConversations.filter(c => c.kind === 'group').reduce((acc, c) => acc + (unreadByConversationId[c.id] ?? c.unreadCount), 0);
+    const dmsUnread = visibleConversations.filter(c => c.kind === 'dm').reduce((acc, c) => acc + resolveConversationUnread(c), 0);
+    const groupsUnread = visibleConversations.filter(c => c.kind === 'group').reduce((acc, c) => acc + resolveConversationUnread(c), 0);
 
     const renderConversationList = (list: ReadonlyArray<Conversation>) => (
         list.map((conversation) => (
@@ -128,7 +136,7 @@ export function Sidebar({
                 conversation={conversation}
                 isSelected={selectedConversation?.id === conversation.id}
                 onSelect={selectConversation}
-                unreadCount={unreadByConversationId[conversation.id] ?? conversation.unreadCount}
+                unreadCount={resolveConversationUnread(conversation)}
                 nowMs={resolvedNowMs}
                 isPinned={pinnedChatIds.includes(conversation.id)}
                 onTogglePin={() => togglePin(conversation.id)}
@@ -147,7 +155,7 @@ export function Sidebar({
                                 <MoreVertical className="h-5 w-5" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48">
+                        <DropdownMenuContent align="start" className="z-[10040] w-48">
                             <DropdownMenuItem className="gap-2">
                                 <Pin className="h-4 w-4" />
                                 <span>{t("messaging.pin_chat")}</span>

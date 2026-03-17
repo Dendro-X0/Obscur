@@ -4,6 +4,9 @@ import { useState, useCallback, useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { isValidInviteCode } from "./invite-parser";
+import type { NostrFilter } from "../../relays/types/nostr-filter";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { queryRelayProfiles } from "@/app/features/search/services/relay-discovery-query";
 
 export type ResolvedInvite = {
     publicKeyHex: PublicKeyHex;
@@ -12,8 +15,58 @@ export type ResolvedInvite = {
     about?: string;
 };
 
+const normalizeInviteCode = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const normalized = value.trim().toUpperCase();
+    return normalized.length > 0 ? normalized : null;
+};
+
+const hasInviteCodeTag = (event: { tags?: unknown }, inviteCode: string): boolean => {
+    if (!Array.isArray(event.tags)) return false;
+    return event.tags.some((tag): boolean => {
+        if (!Array.isArray(tag)) return false;
+        return normalizeInviteCode(tag[1]) === inviteCode;
+    });
+};
+
+const parseProfileContent = (rawContent: unknown): Record<string, unknown> => {
+    if (typeof rawContent !== "string") return {};
+    try {
+        const parsed = JSON.parse(rawContent);
+        return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : {};
+    } catch {
+        return {};
+    }
+};
+
+const contentContainsInviteCode = (content: Record<string, unknown>, inviteCode: string): boolean => {
+    const about = typeof content.about === "string" ? content.about.toUpperCase() : "";
+    const name = normalizeInviteCode(content.name);
+    const displayName = normalizeInviteCode(content.display_name);
+    return about.includes(inviteCode) || name === inviteCode || displayName === inviteCode;
+};
+
+const buildInviteLookupFilters = (inviteCode: string): ReadonlyArray<NostrFilter> => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const recentWindowSeconds = 60 * 60 * 24 * 180; // 180 days
+    return [
+        { kinds: [0], "#code": [inviteCode], limit: 3 },
+        { kinds: [0], search: inviteCode, limit: 10 },
+        // Fallback for relays that don't support custom-tag or NIP-50 search.
+        { kinds: [0], since: nowSeconds - recentWindowSeconds, limit: 300 },
+    ];
+};
+
+export const inviteResolverInternals = {
+    normalizeInviteCode,
+    hasInviteCodeTag,
+    parseProfileContent,
+    contentContainsInviteCode,
+    buildInviteLookupFilters,
+};
+
 export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null }) => {
-    const { myPublicKeyHex } = params;
+    void params;
     const { relayPool: pool } = useRelay();
 
 
@@ -26,60 +79,45 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
             return null;
         }
 
+        const cached = discoveryCache.resolveInviteCode(code);
+        if (cached) {
+            return {
+                publicKeyHex: cached.pubkey as PublicKeyHex,
+                displayName: cached.displayName || cached.name,
+                avatar: cached.picture,
+                about: cached.about,
+            };
+        }
+
         setIsResolving(true);
         setError(null);
 
-        return new Promise((resolve) => {
-            let found: ResolvedInvite | null = null;
-            let subId: string | null = null;
-
-            const onEvent = (event: any, _url: string) => {
-                try {
-                    if (event.kind === 0) {
-                        const content = JSON.parse(event.content);
-                        // Double check this event actually belongs to the code
-                        // We check tags first (reliable for Obscur PWA), then name/displayName
-                        const hasCodeTag = event.tags?.some((t: any) => t[0] === 'code' && t[1]?.toUpperCase() === code);
-                        const namesMatch = content.name === code || content.display_name === code;
-
-                        if (hasCodeTag || namesMatch) {
-                            console.log(`[InviteResolver] Found user for code ${code}: ${event.pubkey}`);
-                            found = {
-                                publicKeyHex: event.pubkey as PublicKeyHex,
-                                displayName: content.display_name || content.name,
-                                avatar: content.picture || content.avatar,
-                                about: content.about
-                            };
-                            if (subId) pool.unsubscribe(subId);
-                            setIsResolving(false);
-                            resolve(found);
-                        }
-                    }
-                } catch (e) {
-                    console.warn("[InviteResolver] Error parsing profile:", e);
-                }
+        try {
+            const records = await queryRelayProfiles({
+                pool,
+                mode: "invite",
+                query: code,
+                timeoutMs: 7_000,
+                maxResults: 20,
+            });
+            const matched = records.find((record) => (record.inviteCode ?? "").toUpperCase() === code.toUpperCase())
+                ?? records[0];
+            if (!matched) {
+                setError("Could not find user with this code");
+                return null;
+            }
+            return {
+                publicKeyHex: matched.pubkey as PublicKeyHex,
+                displayName: matched.displayName || matched.name,
+                avatar: matched.picture,
+                about: matched.about,
             };
-
-            // Strategy 1: Search by custom #code tag (Primary)
-            // Strategy 2: NIP-50 Keyword search (Secondary)
-            const filters = [
-                { kinds: [0], "#code": [code], limit: 1 },
-                { kinds: [0], search: code, limit: 3 }
-            ];
-
-            console.log(`[InviteResolver] Subscribing with dual search filters for: ${code}`);
-            subId = pool.subscribe(filters, onEvent);
-
-            // Timeout after 7 seconds (allow more time for dual relay search)
-            setTimeout(() => {
-                if (!found) {
-                    if (subId) pool.unsubscribe(subId);
-                    setError("Could not find user with this code");
-                    setIsResolving(false);
-                    resolve(null);
-                }
-            }, 7000);
-        });
+        } catch {
+            setError("Could not find user with this code");
+            return null;
+        } finally {
+            setIsResolving(false);
+        }
     }, [pool]);
 
     return useMemo(() => ({

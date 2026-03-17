@@ -15,6 +15,7 @@ import { useDesktopLayout } from "@/app/features/desktop/hooks/use-desktop-layou
 import { RelayStatusBadge } from "./relay-status-badge";
 import { useTranslation } from "react-i18next";
 import { MobileTabBar } from "./mobile-tab-bar";
+import { AppLoadingScreen } from "./app-loading-screen";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
@@ -121,7 +122,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         <div className="relative hidden md:flex h-full z-40">
           <div className="flex w-14 flex-col items-center justify-between border-r border-black/10 bg-gradient-sidebar py-3 dark:border-white/10 shrink-0 h-full relative z-20">
             <div className="flex flex-col items-center gap-4 flex-none py-2">
-              <RelayStatusBadge />
+              <RelayStatusBadge compact compactNavigateHref="/settings?tab=relays" />
             </div>
 
             <div className="flex flex-1 flex-col items-center gap-2 overflow-y-auto no-scrollbar py-4 scroll-smooth">              {NAV_ITEMS.map((item: NavItem) => {
@@ -201,7 +202,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           </header>
         )}
         <div className="flex flex-1 flex-col min-h-0 pb-[calc(env(safe-area-inset-bottom)+5rem)] md:pb-0">
-          <React.Suspense fallback={null}>
+          <React.Suspense fallback={<AppLoadingScreen fullScreen={false} title="Loading page" detail="Preparing view..." />}>
             {props.children}
           </React.Suspense>
           {/* Explicit mobile spacer to force scroll clearance for fixed bottom bar */}

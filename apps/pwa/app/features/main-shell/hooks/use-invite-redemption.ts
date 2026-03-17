@@ -10,6 +10,7 @@ import { toast } from "@dweb/ui-kit";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import type { RequestTransportOutcome } from "@/app/features/messaging/services/request-transport-service";
 
 // Constants (moved from MainShell)
 const INVITE_REQUEST_SENT_PREFIX = "obscur.invites.request_sent.v1";
@@ -21,6 +22,13 @@ export interface InviteRedemptionState {
     token: string | null;
     message: string | null;
 }
+
+type InviteRequestTransport = Readonly<{
+    sendRequest: (params: Readonly<{
+        peerPublicKeyHex: PublicKeyHex;
+        introMessage?: string;
+    }>) => Promise<RequestTransportOutcome>;
+}>;
 
 const getInviteRequestSentKey = (params: { redeemerPubkeyHex: string; inviteId: string }): string => {
     return getScopedStorageKey(`${INVITE_REQUEST_SENT_PREFIX}.${params.redeemerPubkeyHex}.${params.inviteId}`);
@@ -74,7 +82,7 @@ async function redeemInviteToken(params: { token: string; redeemerPubkey: string
     return data.data;
 }
 
-export function useInviteRedemption(dmController: any) {
+export function useInviteRedemption(requestTransport: InviteRequestTransport) {
     const router = useRouter();
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
@@ -114,10 +122,19 @@ export function useInviteRedemption(dmController: any) {
             if (parsed.ok) {
                 if (!wasInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId })) {
                     try {
-                        const sent = await dmController.sendConnectionRequest({ peerPublicKeyHex: parsed.publicKeyHex as PublicKeyHex });
-                        if (sent.success) {
+                        const outcome = await requestTransport.sendRequest({
+                            peerPublicKeyHex: parsed.publicKeyHex as PublicKeyHex
+                        });
+                        if (outcome.status === "ok") {
                             markInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId });
                             toast.success("Connection request sent.");
+                        } else if (outcome.status === "partial") {
+                            markInviteRequestSent({ redeemerPubkeyHex: myPk, inviteId: redeemed.inviteId });
+                            toast.warning("Connection request partially delivered.");
+                        } else if (outcome.status === "queued") {
+                            toast.warning("Connection request queued; retrying.");
+                        } else {
+                            toast.error(outcome.message || "Failed to send connection request.");
                         }
                     } catch (e) {
                         console.error("Auto request failed", e);
@@ -136,7 +153,7 @@ export function useInviteRedemption(dmController: any) {
             const status = classifyInviteRedeemError(message);
             setInviteRedemption({ status, token, message });
         }
-    }, [identity.state.publicKeyHex, dmController, relayList, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen]);
+    }, [identity.state.publicKeyHex, relayList, requestTransport, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen]);
 
     // Status Notification Effect
     useEffect(() => {

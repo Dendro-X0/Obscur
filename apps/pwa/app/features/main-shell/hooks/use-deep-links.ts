@@ -8,13 +8,20 @@ import { useMessaging } from "@/app/features/messaging/providers/messaging-provi
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
+import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
+import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
+import {
+    resolveDiscoveryQueryFromDeepLinkUrl,
+    resolveDiscoveryQueryFromSearchParams,
+} from "@/app/features/search/services/discovery-deep-link";
 
 export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void>) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
-    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdConnections, setCreatedConnections, setSelectedConversation, unhideConversation } = useMessaging();
+    const { setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdConnections, setSelectedConversation, unhideConversation } = useMessaging();
     const { createdGroups } = useGroups();
     const handledSearchParamRef = useRef<string | null>(null);
 
@@ -24,14 +31,22 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
 
         let unlisten: (() => void) | undefined;
 
-        void (async () => {
-            try {
-                const { listen } = await import("@tauri-apps/api/event");
-                unlisten = await listen<{ url: string }>("deep-link", (event) => {
-                    const urlStr = event.payload.url;
+        void listenToNativeEvent<{ url: string }>("deep-link", (event) => {
+                    const urlStr = event.payload?.url;
                     if (!urlStr) return;
 
                     try {
+                        const discoveryFlags = PrivacySettingsService.getDiscoveryFeatureFlags();
+                        if (discoveryFlags.deepLinkV1) {
+                            const discoveryQuery = resolveDiscoveryQueryFromDeepLinkUrl(urlStr);
+                            if (discoveryQuery) {
+                                queueMicrotask(() => {
+                                    router.replace(`/search?q=${encodeURIComponent(discoveryQuery)}`);
+                                });
+                                return;
+                            }
+                        }
+
                         const url = new URL(urlStr);
                         // Case 1: obscur://invite/TOKEN
                         if (url.protocol === "obscur:" && url.host === "invite") {
@@ -56,16 +71,11 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                                         setSelectedConversation(existingConnection);
                                         unhideConversation(cid);
                                     } else {
-                                        const newConv: any = {
-                                            kind: 'dm',
-                                            id: cid,
-                                            pubkey: parsed.publicKeyHex,
-                                            displayName: parsed.publicKeyHex.slice(0, 8),
-                                            lastMessage: '',
-                                            unreadCount: 0,
-                                            lastMessageTime: new Date()
-                                        };
-                                        setCreatedConnections((prev: any) => [...prev, newConv]);
+                                        const newConv = createDmConversation({
+                                            myPublicKeyHex: myPk,
+                                            peerPublicKeyHex: parsed.publicKeyHex,
+                                        });
+                                        if (!newConv) return;
                                         setSelectedConversation(newConv);
                                     }
                                     router.replace("/");
@@ -75,16 +85,14 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                     } catch (e) {
                         console.error("Failed to parse deep link URL:", e);
                     }
+                }).then((nextUnlisten) => {
+                    unlisten = nextUnlisten;
                 });
-            } catch (e) {
-                // Not in Tauri
-            }
-        })();
 
         return () => {
             if (unlisten) unlisten();
         };
-    }, [handleRedeemInvite, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen]);
+    }, [createdConnections, handleRedeemInvite, identity.state.publicKeyHex, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, setSelectedConversation, unhideConversation]);
 
     // Query Param Listener (Web)
     useEffect(() => {
@@ -92,13 +100,24 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
         const relays = (searchParams.get("relays") || "").trim();
         const inviteToken = (searchParams.get("inviteToken") || "").trim();
         const convId = (searchParams.get("convId") || "").trim();
+        const discoveryFlags = PrivacySettingsService.getDiscoveryFeatureFlags();
+        const discoveryQuery = discoveryFlags.deepLinkV1
+            ? resolveDiscoveryQueryFromSearchParams(searchParams)
+            : null;
 
-        if (!pubkey && !relays && !inviteToken && !convId) return;
+        if (!pubkey && !relays && !inviteToken && !convId && !discoveryQuery) return;
 
         const myPk = identity.state.publicKeyHex || "";
-        const cacheKey = `${pubkey}:${relays}:${inviteToken}:${convId}:${myPk}`;
+        const cacheKey = `${pubkey}:${relays}:${inviteToken}:${convId}:${myPk}:${discoveryQuery || ""}`;
         if (handledSearchParamRef.current === cacheKey) return;
         handledSearchParamRef.current = cacheKey;
+
+        if (discoveryQuery) {
+            queueMicrotask(() => {
+                router.replace(`/search?q=${encodeURIComponent(discoveryQuery)}`);
+            });
+            return;
+        }
 
         if (inviteToken) void handleRedeemInvite(inviteToken);
 
@@ -118,16 +137,11 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                         setSelectedConversation(existingConnection);
                         unhideConversation(cid);
                     } else {
-                        const newConv: any = {
-                            kind: 'dm',
-                            id: cid,
-                            pubkey: parsed.publicKeyHex,
-                            displayName: parsed.publicKeyHex.slice(0, 8),
-                            lastMessage: '',
-                            unreadCount: 0,
-                            lastMessageTime: new Date()
-                        };
-                        setCreatedConnections((prev: any) => [...prev, newConv]);
+                        const newConv = createDmConversation({
+                            myPublicKeyHex: myPk,
+                            peerPublicKeyHex: parsed.publicKeyHex,
+                        });
+                        if (!newConv) return;
                         setSelectedConversation(newConv);
                     }
                     router.replace("/");
@@ -148,5 +162,5 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                 }
             }
         }
-    }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdConnections, setSelectedConversation]);
+    }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdConnections, setSelectedConversation, unhideConversation]);
 }

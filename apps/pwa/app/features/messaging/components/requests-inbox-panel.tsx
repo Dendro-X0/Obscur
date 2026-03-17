@@ -11,6 +11,7 @@ import { formatTime } from "../utils/formatting";
 import { useTranslation } from "react-i18next";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
+import { getInvitationInboxStatusCopy, type InvitationTone } from "../services/invitation-presentation";
 
 import type { ConnectionRequestStatusValue } from "../../messaging/types";
 
@@ -21,6 +22,7 @@ type RequestItem = Readonly<{
     unreadCount: number;
     status?: ConnectionRequestStatusValue;
     isRequest?: boolean;
+    isOutgoing?: boolean;
 }>;
 
 interface RequestsInboxPanelProps {
@@ -39,13 +41,13 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
 
     if (requests.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center opacity-60">
-                <div className="mb-4 rounded-full bg-zinc-100 dark:bg-zinc-800 p-4 ring-1 ring-black/5 dark:ring-white/5">
+            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                <div className="mb-4 rounded-full bg-zinc-100 p-4 ring-1 ring-black/5 dark:bg-zinc-800 dark:ring-white/5">
                     <MessageSquare className="h-8 w-8 text-zinc-400" />
                 </div>
-                <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">{t("messaging.noPendingRequests")}</h3>
-                <p className="mt-2 text-xs text-zinc-400 max-w-[200px] leading-relaxed">
-                    {t("messaging.noPendingRequestsDesc")}
+                <h3 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-300">No open invitations</h3>
+                <p className="mt-3 max-w-[240px] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    When someone reaches out, their invitation will show up here with their note and clear actions.
                 </p>
                 {onFindSomeone && (
                     <Button
@@ -54,7 +56,7 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                         className="mt-6 dark:bg-zinc-800"
                         onClick={onFindSomeone}
                     >
-                        {t("invites.findPeople")}
+                        Find people
                     </Button>
                 )}
             </div>
@@ -64,9 +66,14 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="p-4 border-b border-black/5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
-                <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">
-                    {t("messaging.pendingRequests")} ({requests.length})
-                </h2>
+                <div>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">
+                        Invitations ({requests.length})
+                    </h2>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Obscur only lists invitations here after incoming relay evidence is received.
+                    </p>
+                </div>
                 <div className="flex items-center gap-2">
                     {onClearHistory && (
                         <Button
@@ -82,7 +89,7 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                     <div className="group relative">
                         <BadgeInfo className="h-4 w-4 text-zinc-400 cursor-help" />
                         <div className="absolute top-6 right-0 w-48 p-2 rounded-lg bg-white dark:bg-zinc-800 shadow-xl border border-black/5 dark:border-white/5 text-[10px] text-zinc-500 dark:text-zinc-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
-                            {t("messaging.pendingRequestsHelp")}
+                            Invitations appear here after the app has real incoming evidence, not just a sender-side claim.
                         </div>
                     </div>
                 </div>
@@ -114,16 +121,28 @@ interface RequestItemRowProps {
     onSelect: (pubkey: PublicKeyHex) => void;
 }
 
+const invitationToneClassName = (tone: InvitationTone): string => {
+    if (tone === "success") return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    if (tone === "warning") return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    if (tone === "danger") return "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300";
+    if (tone === "info") return "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+    return "border-black/5 bg-zinc-50 text-zinc-600 dark:border-white/5 dark:bg-zinc-800/70 dark:text-zinc-300";
+};
+
 function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect }: RequestItemRowProps) {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(request.peerPublicKeyHex);
+    const metadata = useProfileMetadata(request.peerPublicKeyHex, { live: false });
+    const isOutgoing = !!request.isOutgoing;
     const displayName = metadata?.displayName || (request.isRequest ? t("messaging.newConnection") : t("messaging.unknownPeer"));
+    const invitationStatus = getInvitationInboxStatusCopy(request.status, isOutgoing);
+    const preview = request.lastMessagePreview.trim();
 
     return (
-        <Card className="p-3 bg-white dark:bg-zinc-900 border-black/5 dark:border-white/5 hover:border-purple-500/30 transition-colors">
+        <Card className="border-black/5 bg-white p-4 dark:border-white/5 dark:bg-zinc-900">
             <div className="flex items-start gap-3">
                 <UserAvatar
                     pubkey={request.peerPublicKeyHex}
+                    metadataLive={false}
                     size="md"
                     className="shrink-0 rounded-xl"
                     showProfileOnClick={false}
@@ -136,9 +155,9 @@ function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect 
                                 {displayName}
                             </span>
                             {request.isRequest && (
-                                <span className="shrink-0 flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tight">
+                                <span className="shrink-0 flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
                                     <UserPlus className="h-3.5 w-3.5" />
-                                    {t("messaging.requestBadge")}
+                                    Invitation
                                 </span>
                             )}
                         </div>
@@ -146,8 +165,15 @@ function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect 
                             {formatTime(new Date(request.lastReceivedAtUnixSeconds * 1000), nowMs)}
                         </span>
                     </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed italic">
-                        {request.lastMessagePreview}
+                    <div className={cn("mt-2 rounded-2xl border px-3 py-2", invitationToneClassName(invitationStatus.tone))}>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em]">{invitationStatus.badge}</p>
+                        <p className="mt-1 text-xs leading-relaxed">{invitationStatus.detail}</p>
+                    </div>
+                    <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
+                        {isOutgoing ? "Your note" : "Their note"}
+                    </p>
+                    <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {preview || "No note was included with this invitation."}
                     </p>
                     <p className="text-[10px] text-zinc-400 mt-1 font-mono opacity-50">
                         {request.peerPublicKeyHex.slice(0, 8)}...
@@ -167,10 +193,23 @@ function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect 
 
             {request.status && request.status !== 'pending' ? (
                 <div className={cn(
-                    "mt-4 p-2 rounded-lg text-center text-[10px] font-bold uppercase tracking-widest",
-                    request.status === 'accepted' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" : "bg-rose-50 text-rose-600 dark:bg-rose-950/30"
+                    "mt-4 rounded-2xl border p-3 text-left",
+                    invitationToneClassName(invitationStatus.tone)
                 )}>
-                    {t(`messaging.status.${request.status}`)}
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em]">{invitationStatus.badge}</p>
+                    <p className="mt-1 text-sm font-semibold">{invitationStatus.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed opacity-90">{invitationStatus.detail}</p>
+                </div>
+            ) : isOutgoing ? (
+                <div className={cn(
+                    "mt-4 rounded-2xl border p-3 text-left",
+                    invitationToneClassName(invitationStatus.tone)
+                )}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em]">{invitationStatus.badge}</p>
+                    <p className="mt-1 text-sm font-semibold">Waiting for their response</p>
+                    <p className="mt-1 text-xs leading-relaxed opacity-90">
+                        Obscur has already sent this invitation. You do not need to accept your own request.
+                    </p>
                 </div>
             ) : (
                 <div className="mt-4 flex gap-2">

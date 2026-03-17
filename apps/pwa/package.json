@@ -1,9 +1,10 @@
 {
   "name": "pwa",
-  "version": "0.8.8",
+  "version": "0.9.0-beta",
   "private": true,
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1 --port 3340",
+    "dev": "next dev --webpack --hostname 127.0.0.1 --port 3340",
+    "dev:turbo": "next dev --turbopack --hostname 127.0.0.1 --port 3340",
     "build": "next build",
     "build:static": "node scripts/toggle-api.js hide && next build && node scripts/toggle-api.js show",
     "start": "next start",

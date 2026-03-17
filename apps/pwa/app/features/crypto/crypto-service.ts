@@ -77,3 +77,7 @@ export const cryptoService: CryptoService = initializeCryptoService();
 export const useCryptoService = (): CryptoService => {
   return cryptoService;
 };
+
+export const cryptoServiceInternals = {
+  initializeCryptoService,
+};

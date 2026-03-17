@@ -5,10 +5,38 @@ import { useConversationMessages } from "./use-conversation-messages";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
 
+const accountProjectionSnapshot = {
+    profileId: "default",
+    accountPublicKeyHex: "a".repeat(64),
+    projection: null as any,
+    phase: "ready",
+    status: "ready",
+    accountProjectionReady: true,
+    driftStatus: "clean",
+    updatedAtUnixMs: Date.now(),
+};
+
 vi.mock("@dweb/storage/indexed-db", () => ({
     messagingDB: {
         getAllByIndex: vi.fn(async () => []),
     }
+}));
+
+vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () => ({
+    useAccountProjectionSnapshot: () => accountProjectionSnapshot,
+}));
+
+vi.mock("@/app/features/account-sync/services/account-projection-read-authority", () => ({
+    resolveProjectionReadAuthority: () => ({
+        useProjectionReads: true,
+        reason: "read_cutover_enabled",
+        policy: {
+            phase: "read_cutover",
+            rollbackEnabled: true,
+            updatedAtUnixMs: Date.now(),
+        },
+        criticalDriftCount: 0,
+    }),
 }));
 
 const createMessage = (params: Readonly<{ id: string; timestampMs: number; content?: string }>) => ({
@@ -27,6 +55,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             chatPerformanceV2: true
         });
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
+        accountProjectionSnapshot.projection = null;
 
         vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback): number => {
             return setTimeout(() => cb(performance.now()), 0) as unknown as number;
@@ -117,6 +146,43 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         await waitFor(() => expect(result.current.messages.length).toBe(1));
         expect(result.current.messages[0]?.id).toBe("t2");
+        unmount();
+    });
+
+    it("hydrates from projection timeline when local indexeddb has no messages", async () => {
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: "a".repeat(64),
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                "c-projection": [
+                    {
+                        messageId: "p1",
+                        conversationId: "c-projection",
+                        peerPublicKeyHex: "b".repeat(64),
+                        direction: "incoming",
+                        eventCreatedAtUnixSeconds: 10,
+                        plaintextPreview: "hello from projection",
+                        observedAtUnixMs: 10_000,
+                    },
+                ],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 1,
+            updatedAtUnixMs: 10_000,
+        };
+
+        const { result, unmount } = renderHook(() => useConversationMessages("c-projection", "a".repeat(64)));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0]?.id).toBe("p1");
+        expect(result.current.messages[0]?.content).toBe("hello from projection");
+        expect(result.current.hasEarlier).toBe(false);
         unmount();
     });
 });

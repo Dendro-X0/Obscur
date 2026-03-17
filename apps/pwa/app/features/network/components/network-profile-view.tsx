@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
     ChevronLeft,
@@ -22,7 +22,7 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Button } from "@dweb/ui-kit";
 import { Card } from "@dweb/ui-kit";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
-import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { toast } from "@dweb/ui-kit";
@@ -30,22 +30,34 @@ import { InviteToGroupDialog } from "./invite-to-group-dialog";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
+import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { GroupMetadata } from "@/app/features/groups/types";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
-import type { Message, DmConversation } from "@/app/features/messaging/types";
+import type { Message } from "@/app/features/messaging/types";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
-import { ConnectRequestDialog } from "./connect-request-dialog";
+import { InvitationComposerDialog } from "@/app/features/messaging/components/invitation-composer-dialog";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
+import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
+import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
+import { deriveRequestProjection } from "@/app/features/messaging/services/request-status-projection";
+import {
+    buildInvitationRequestMessage,
+    DEFAULT_INVITATION_INTRO,
+    type InvitationComposerValues,
+} from "@/app/features/messaging/services/invitation-composer";
+import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/invitation-presentation";
 
 export default function ConnectionProfileView() {
     const { pubkey } = useParams();
+    const searchParams = useSearchParams();
     const router = useRouter();
     const { t } = useTranslation();
     const { peerTrust, requestsInbox, blocklist } = useNetwork();
-    const { createdConnections, setCreatedConnections, setSelectedConversation } = useMessaging();
+    const { createdConnections, setSelectedConversation } = useMessaging();
     const { relayPool } = useRelay();
     const identity = useIdentity();
 
@@ -53,6 +65,9 @@ export default function ConnectionProfileView() {
     const [isBlockDialogOpen, setIsBlockDialogOpen] = React.useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false);
     const [isConnectDialogOpen, setIsConnectDialogOpen] = React.useState(false);
+    const [requestIntroText, setRequestIntroText] = React.useState(DEFAULT_INVITATION_INTRO);
+    const [requestNoteText, setRequestNoteText] = React.useState("");
+    const [requestSecretCode, setRequestSecretCode] = React.useState("");
 
     const myPublicKeyHex = identity.state.publicKeyHex || null;
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
@@ -63,43 +78,156 @@ export default function ConnectionProfileView() {
         pool: relayPool,
         blocklist,
         peerTrust,
-        requestsInbox
+        requestsInbox,
+        autoSubscribeIncoming: false,
+        enableIncomingTransport: false,
+        enableAutoQueueProcessing: false,
+    });
+    const requestTransport = useRequestTransport({
+        dmController,
+        peerTrust,
+        requestsInbox,
     });
 
-    const pk = Array.isArray(pubkey) ? pubkey[0]! : pubkey!;
-    const metadata = useProfileMetadata(pk);
+    const queryPubkey = searchParams.get("pubkey");
+    const pk = (Array.isArray(pubkey) ? pubkey[0] : pubkey) || queryPubkey || "";
+    const metadata = useResolvedProfileMetadata(pk);
+    const isCurrentAccountProfile = Boolean(myPublicKeyHex && pk && myPublicKeyHex === pk);
+
+    React.useEffect(() => {
+        if (!isCurrentAccountProfile) {
+            return;
+        }
+        router.replace("/profile");
+    }, [isCurrentAccountProfile, router]);
 
     if (!pk) return null;
+    if (isCurrentAccountProfile) return null;
 
     const isTrusted = peerTrust?.state?.acceptedPeers?.includes(pk as PublicKeyHex) ?? false;
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes(pk as PublicKeyHex) ?? false;
     const requestStatus = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk as PublicKeyHex });
-    const isRequestPending = requestStatus?.status === 'pending' && requestStatus.isOutgoing;
+    const requestProjection = deriveRequestProjection({
+        requestStatus,
+        evidence: requestFlowEvidenceStore.get(pk),
+    });
     const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
 
     const resolvedName = metadata?.displayName || connection?.displayName || pk.slice(0, 8);
     const displayHandle = resolvedName ? `@${resolvedName}` : `@${pk.slice(0, 8)}...${pk.slice(-8)}`;
+    const publicProfileUrl = toAbsoluteAppUrl(getPublicProfileHref(pk));
 
-    const handleConnect = async () => {
+    const handleShareProfile = async () => {
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: resolvedName,
+                    text: `${resolvedName} on Obscur`,
+                    url: publicProfileUrl,
+                });
+            } else {
+                await navigator.clipboard.writeText(publicProfileUrl);
+                toast.success(t("network.notifications.copied", "Profile link copied"));
+            }
+        } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") {
+                return;
+            }
+            toast.error(t("network.notifications.shareFailed", "Could not share profile"));
+        }
+    };
+
+    const handleConnect = () => {
+        if (requestProjection.state === "accepted") {
+            toast.warning(t("network.notifications.alreadyConnected", "You are already connected to this user."));
+            return;
+        }
+        if (requestProjection.state === "incoming_pending") {
+            toast.warning(t("network.notifications.alreadyPending", "This user has already sent you a pending request."));
+            return;
+        }
         setIsConnectDialogOpen(true);
     };
 
+    const primaryActionLabel = isTrusted
+        ? t("network.actions.message", "Message")
+        : requestProjection.state === "recipient_seen"
+            ? t("network.actions.resend", "Resend Invitation")
+            : requestProjection.state === "sent_waiting" || requestProjection.state === "retry_available" || requestProjection.state === "rejected"
+                    ? t("network.actions.resend", "Resend Invitation")
+                    : t("network.actions.connect", "Connect");
 
-    const confirmConnect = async (introMessage: string) => {
+    const primaryActionIcon = isTrusted
+        ? <MessageSquare className="h-6 w-6" />
+        : <UserPlus className="h-6 w-6" />;
+
+    const connectionStatusTitle = isTrusted
+        ? "Trusted connection"
+        : requestProjection.state === "recipient_seen"
+            ? "Recipient saw prior invitation"
+            : requestProjection.state === "sent_waiting"
+                ? "Sent, awaiting confirmation"
+                : requestProjection.state === "retry_available"
+                    ? "Retry available"
+                    : isBlocked
+                        ? "Blocked"
+                        : "Not connected yet";
+
+    const connectionStatusBody = isTrusted
+        ? "You can message this person directly and invite them into groups."
+        : requestProjection.state === "recipient_seen"
+            ? "A prior invitation reached the recipient side. You can send a fresh invitation if the connection did not continue."
+            : requestProjection.state === "sent_waiting"
+                ? "Obscur published your invitation, but there is no proof the recipient has seen it yet."
+                : requestProjection.state === "retry_available"
+                    ? "No recipient evidence arrived in time. You can resend the invitation."
+                    : isBlocked
+                        ? "This profile is blocked on this device."
+                        : "You can review their public profile and send an invitation when you are ready.";
+
+
+    const handleInvitationDialogSubmit = async (values: InvitationComposerValues): Promise<boolean> => {
+        setRequestIntroText(values.intro);
+        setRequestNoteText(values.note);
+        setRequestSecretCode(values.secretCode);
+
         try {
-            const result = await dmController.sendConnectionRequest({
+            const result = await requestTransport.sendRequest({
                 peerPublicKeyHex: pk as PublicKeyHex,
-                introMessage
+                introMessage: buildInvitationRequestMessage(values)
             });
-            if (result.success) {
-                setIsConnectDialogOpen(false);
-                toast.success(t("network.notifications.requestSent", "Connection request sent to {{name}}", { name: resolvedName }));
-            } else {
-                toast.error(result.error || t("network.notifications.requestFailed", "Failed to send connection request"));
+
+            if (result.status === "ok") {
+                toast.success(getDirectInvitationToastCopy("ok").message);
+                return true;
             }
+
+            if (result.status === "partial") {
+                toast.warning(getDirectInvitationToastCopy("partial", {
+                    relaySuccessCount: result.relaySuccessCount,
+                    relayTotal: result.relayTotal,
+                }).message);
+                return true;
+            }
+
+            if (result.status === "queued") {
+                toast.warning(getDirectInvitationToastCopy("queued", {
+                    message: result.message,
+                }).message);
+                return true;
+            }
+
+            toast.error(getDirectInvitationToastCopy(result.status, {
+                message: result.message || t("network.notifications.requestFailed", "Failed to send connection request"),
+            }).message);
+            return false;
         } catch (error) {
             console.error("Failed to send connection request:", error);
-            toast.error(t("network.notifications.requestFailed", "Failed to send connection request"));
+            const message = error instanceof Error
+                ? error.message
+                : t("network.notifications.requestFailed", "Failed to send connection request");
+            toast.error(getDirectInvitationToastCopy("failed", { message }).message);
+            return false;
         }
     };
 
@@ -115,16 +243,15 @@ export default function ConnectionProfileView() {
         if (existing) {
             setSelectedConversation(existing);
         } else {
-            const newConv: DmConversation = {
-                kind: 'dm',
-                id: cid,
-                pubkey: pk as PublicKeyHex,
+            const newConv = createDmConversation({
+                myPublicKeyHex: myPk,
+                peerPublicKeyHex: pk as PublicKeyHex,
                 displayName: resolvedName || pk.slice(0, 8),
-                lastMessage: '',
-                unreadCount: 0,
-                lastMessageTime: new Date()
-            };
-            setCreatedConnections(prev => [...prev, newConv]);
+            });
+            if (!newConv) {
+                toast.error("Invalid conversation identity for this profile.");
+                return;
+            }
             setSelectedConversation(newConv);
         }
         router.push("/");
@@ -151,7 +278,7 @@ export default function ConnectionProfileView() {
 
     const confirmRemove = () => {
         peerTrust.unacceptPeer({ publicKeyHex: pk as PublicKeyHex });
-        requestsInbox.setStatus({ peerPublicKeyHex: pk as PublicKeyHex, status: 'declined' });
+        requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex });
         setIsRemoveDialogOpen(false);
         toast.success(t("network.notifications.removed", "Connection removed"));
         router.push("/network");
@@ -242,9 +369,9 @@ export default function ConnectionProfileView() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-main text-zinc-900 dark:text-zinc-100">
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_34%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,1))] text-zinc-900 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.14),_transparent_36%),linear-gradient(180deg,rgba(3,7,18,0.96),rgba(3,7,18,1))] dark:text-zinc-100">
             {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-background/80 dark:bg-zinc-900/40 backdrop-blur-xl border-b border-zinc-200 dark:border-white/5">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200/70 bg-background/80 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/60">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -253,40 +380,36 @@ export default function ConnectionProfileView() {
                 >
                     <ChevronLeft className="h-6 w-6" />
                 </Button>
-                <h1 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
-                    {t("network.profileTitle", "Connection Profile")}
+                <h1 className="text-sm font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    {t("network.profileTitle", "Public Profile")}
                 </h1>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={handleShareProfile}>
                     <Share2 className="h-5 w-5" />
                 </Button>
             </div>
 
-            <main className="max-w-3xl mx-auto p-4 sm:p-6 flex flex-col gap-10 pt-12 pb-32 md:pb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                {/* Immersive Profile Hero */}
+            <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 p-4 pb-32 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700 sm:p-6 md:pb-10">
                 <div className="relative group/hero">
-                    {/* Background Glows */}
-                    <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
-                    <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-emerald-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none delay-1000" />
+                    <div className="pointer-events-none absolute -left-[10%] -top-[18%] h-[42%] w-[42%] rounded-full bg-indigo-600/10 blur-[120px]" />
+                    <div className="pointer-events-none absolute -bottom-[16%] -right-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
 
-                    <Card className="relative overflow-hidden bg-[#0C0C0E]/80 backdrop-blur-2xl border-white/[0.03] rounded-[48px] p-10 sm:p-14 shadow-2xl">
-                        {/* Blurred Avatar Background */}
-                        <div className="absolute inset-0 z-0 opacity-[0.08] pointer-events-none overflow-hidden scale-110">
+                    <Card className="relative overflow-hidden rounded-[40px] border border-zinc-200/70 bg-white/88 p-8 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#07101f]/88 sm:p-10">
+                        <div className="absolute inset-0 z-0 scale-110 overflow-hidden opacity-[0.08] pointer-events-none">
                             {metadata?.avatarUrl ? (
                                 <Image src={metadata.avatarUrl} alt="" fill className="object-cover blur-3xl" unoptimized />
                             ) : (
-                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-zinc-800/20 blur-3xl" />
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 blur-3xl" />
                             )}
                         </div>
 
                         <div className="relative z-10 flex flex-col items-center gap-8">
-                            {/* Large Avatar with Enhanced Status */}
                             <motion.div
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 transition={{ duration: 0.6, ease: "easeOut" }}
-                                className="relative p-1.5 rounded-[54px] bg-gradient-to-br from-purple-500/30 to-emerald-500/30 shadow-2xl"
+                                className="relative rounded-[42px] bg-gradient-to-br from-indigo-500/25 to-cyan-500/20 p-1.5 shadow-2xl"
                             >
-                                <div className="h-44 w-44 rounded-[48px] border-[6px] border-[#0C0C0E] overflow-hidden bg-[#1A1A1E] relative">
+                                <div className="relative h-36 w-36 overflow-hidden rounded-[36px] border-[5px] border-white bg-slate-100 dark:border-[#07101f] dark:bg-[#101827] sm:h-40 sm:w-40">
                                     {metadata?.avatarUrl ? (
                                         <Image
                                             src={metadata.avatarUrl}
@@ -296,8 +419,8 @@ export default function ConnectionProfileView() {
                                             unoptimized
                                         />
                                     ) : (
-                                        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-900/40 to-black">
-                                            <span className="text-7xl font-black text-white/90">
+                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 dark:from-indigo-900/40 dark:to-black">
+                                            <span className="text-6xl font-black text-zinc-900/80 dark:text-white/90">
                                                 {resolvedName.slice(0, 1).toUpperCase()}
                                             </span>
                                         </div>
@@ -305,67 +428,80 @@ export default function ConnectionProfileView() {
                                 </div>
 
                                 {isTrusted && (
-                                    <div className="absolute -bottom-2 -right-2 h-12 w-12 rounded-2xl bg-emerald-500 border-[6px] border-[#0C0C0E] flex items-center justify-center shadow-xl">
+                                    <div className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-2xl border-[5px] border-white bg-emerald-500 shadow-xl dark:border-[#07101f]">
                                         <CheckCircle2 className="h-6 w-6 text-white" />
                                     </div>
                                 )}
                                 {isBlocked && (
-                                    <div className="absolute -bottom-2 -right-2 h-12 w-12 rounded-2xl bg-red-500 border-[6px] border-[#0C0C0E] flex items-center justify-center shadow-xl">
+                                    <div className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-2xl border-[5px] border-white bg-red-500 shadow-xl dark:border-[#07101f]">
                                         <Ban className="h-6 w-6 text-white" />
                                     </div>
                                 )}
                             </motion.div>
 
-                            {/* Identity Info */}
-                            <div className="text-center space-y-4">
+                            <div className="space-y-4 text-center">
                                 <motion.h2
                                     initial={{ y: 20, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
                                     transition={{ delay: 0.2 }}
-                                    className="text-4xl sm:text-5xl font-black text-white tracking-tight"
+                                    className="text-3xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-5xl"
                                 >
-                                    {displayHandle}
+                                    {resolvedName}
                                 </motion.h2>
+                                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{displayHandle}</p>
+                                {metadata?.about ? (
+                                    <p className="mx-auto max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                                        {metadata.about}
+                                    </p>
+                                ) : (
+                                    <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+                                        This is a public contact profile. You can review their public information before deciding whether to connect.
+                                    </p>
+                                )}
 
                                 <motion.div
                                     initial={{ scale: 0.9, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
                                     transition={{ delay: 0.4 }}
-                                    className="flex items-center justify-center gap-3"
+                                    className="flex flex-wrap items-center justify-center gap-3"
                                 >
                                     {isTrusted ? (
-                                        <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-widest">
+                                        <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">
                                             <Shield className="h-3.5 w-3.5" />
                                             Trusted Connection
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center gap-2">
-                                            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-500 text-xs font-black uppercase tracking-widest">
+                                            <div className="flex items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-950/[0.03] px-4 py-1.5 text-xs font-black uppercase tracking-widest text-zinc-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400">
                                                 Stranger
                                             </div>
-                                            <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
-                                                Send a message to request a connection
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
+                                                Public profile only until a connection is accepted
                                             </p>
+                                        </div>
+                                    )}
+                                    {metadata?.nip05 && (
+                                        <div className="rounded-full border border-zinc-200/70 bg-white/70 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
+                                            {metadata.nip05}
                                         </div>
                                     )}
                                 </motion.div>
                             </div>
 
-                            {/* Premium Action Bar */}
                             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
                                 <Button
                                     onClick={isTrusted ? handleMessage : handleConnect}
-                                    disabled={isRequestPending && !isTrusted}
-                                    className="h-16 px-10 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-lg shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                    disabled={!isTrusted && (requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")}
+                                    className="h-14 gap-3 rounded-2xl bg-indigo-600 px-8 text-base font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:scale-[1.02] hover:bg-indigo-500 active:scale-95"
                                 >
-                                    {isTrusted ? <MessageSquare className="h-6 w-6" /> : (isRequestPending ? <Clock className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />)}
-                                    {isTrusted ? t("network.actions.message", "Message") : (isRequestPending ? t("network.actions.pending", "Request Pending") : t("network.actions.connect", "Connect"))}
+                                    {primaryActionIcon}
+                                    {primaryActionLabel}
                                 </Button>
 
                                 {isTrusted && (
                                     <Button
                                         onClick={() => setIsInviteDialogOpen(true)}
-                                        className="h-16 px-8 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] text-white font-black border border-white/5 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                        className="h-14 gap-3 rounded-2xl border border-zinc-200/70 bg-white/70 px-8 font-black text-zinc-900 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-white active:scale-95 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/[0.08]"
                                     >
                                         <Plus className="h-6 w-6" />
                                         {t("network.actions.invite", "Invite")}
@@ -376,46 +512,60 @@ export default function ConnectionProfileView() {
                     </Card>
                 </div>
 
-                {/* Identity & Discovery Section (Bento Style) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Public Key Card */}
-                    <Card className="md:col-span-2 bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col gap-6 hover:border-purple-500/20 transition-all duration-500 group/key">
+                    <Card className="md:col-span-2 flex flex-col gap-6 rounded-[32px] border border-zinc-200/70 bg-white/88 p-8 backdrop-blur-xl transition-all duration-500 group/key dark:border-white/10 dark:bg-[#07101f]/88">
                         <div className="flex items-center justify-between">
-                            <div className="h-14 w-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                                <Shield className="h-7 w-7 text-purple-400" />
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10">
+                                <Shield className="h-7 w-7 text-indigo-500 dark:text-indigo-300" />
                             </div>
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-10 px-4 rounded-xl bg-white/[0.03] border border-white/5 text-zinc-400 hover:text-white transition-all gap-2"
+                                className="h-10 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] px-4 text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white"
                                 onClick={() => {
-                                    navigator.clipboard.writeText(pk);
-                                    toast.success(t("network.notifications.copied", "Public key copied"));
+                                    navigator.clipboard.writeText(publicProfileUrl);
+                                    toast.success(t("network.notifications.copied", "Profile link copied"));
                                 }}
                             >
                                 <Share2 className="h-4 w-4" />
-                                Copy Key
+                                Copy Link
                             </Button>
                         </div>
                         <div className="space-y-2">
-                            <h3 className="text-2xl font-black text-white uppercase tracking-tight">Public Identity</h3>
-                            <div className="p-4 rounded-2xl bg-black/40 border border-white/[0.02] font-mono text-sm text-zinc-500 break-all leading-relaxed shadow-inner group-hover:text-zinc-400 transition-colors">
+                            <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-950 dark:text-white">Public Identity</h3>
+                            <div className="rounded-2xl border border-zinc-200/70 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-zinc-600 shadow-inner transition-colors group-hover:text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400">
                                 {pk}
                             </div>
                         </div>
                     </Card>
+
+                    {metadata?.nip05 ? (
+                        <Card className="rounded-[32px] border border-zinc-200/70 bg-white/88 p-6 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
+                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">NIP-05</p>
+                            <p className="mt-3 break-all text-base font-semibold text-zinc-900 dark:text-white">{metadata.nip05}</p>
+                        </Card>
+                    ) : null}
+
+                    <Card className="rounded-[32px] border border-zinc-200/70 bg-white/88 p-6 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
+                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Connection Status</p>
+                        <p className="mt-3 text-base font-semibold text-zinc-900 dark:text-white">
+                            {connectionStatusTitle}
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+                            {connectionStatusBody}
+                        </p>
+                    </Card>
                 </div>
 
-                {/* Refined Danger Zone */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-3 px-2">
                         <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
                             Management Controls
                         </h3>
                     </div>
 
-                    <Card className="overflow-hidden border-white/[0.03] bg-[#0C0C0E]/40 backdrop-blur-xl rounded-[40px]">
+                    <Card className="overflow-hidden rounded-[32px] border border-zinc-200/70 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
                         <div className="flex flex-col">
                             <button
                                 onClick={handleToggleBlock}
@@ -426,7 +576,7 @@ export default function ConnectionProfileView() {
                                         <Ban className="h-6 w-6 text-rose-500" />
                                     </div>
                                     <div className="text-left space-y-1">
-                                        <p className="text-xl font-black text-white group-hover/item:text-rose-500 transition-colors">
+                                        <p className="text-xl font-black text-zinc-900 transition-colors group-hover/item:text-rose-500 dark:text-white">
                                             {isBlocked ? t("network.actions.unblock", "Unblock user") : t("network.actions.block", "Block user")}
                                         </p>
                                         <p className="text-sm text-zinc-500 font-medium">
@@ -437,7 +587,7 @@ export default function ConnectionProfileView() {
                             </button>
 
                             {isTrusted && (
-                                <div className="mx-8 h-[1px] bg-white/[0.03]" />
+                                <div className="mx-8 h-[1px] bg-zinc-200/70 dark:bg-white/[0.06]" />
                             )}
 
                             {isTrusted && (
@@ -450,7 +600,7 @@ export default function ConnectionProfileView() {
                                             <UserMinus className="h-6 w-6 text-rose-500" />
                                         </div>
                                         <div className="text-left space-y-1">
-                                            <p className="text-xl font-black text-white group-hover/item:text-rose-500 transition-colors">
+                                            <p className="text-xl font-black text-zinc-900 transition-colors group-hover/item:text-rose-500 dark:text-white">
                                                 {t("network.actions.remove", "Remove connection")}
                                             </p>
                                             <p className="text-sm text-zinc-500 font-medium">
@@ -491,11 +641,19 @@ export default function ConnectionProfileView() {
                 onInvite={handleInviteToGroup}
             />
 
-            <ConnectRequestDialog
+            <InvitationComposerDialog
                 isOpen={isConnectDialogOpen}
+                recipientName={resolvedName}
+                recipientPubkey={pk}
+                submitLabel="Send Invitation"
+                deliveryHint="Obscur will only mark this invitation as delivered after relay evidence comes back."
+                defaults={{
+                    intro: requestIntroText,
+                    note: requestNoteText,
+                    secretCode: requestSecretCode,
+                }}
                 onClose={() => setIsConnectDialogOpen(false)}
-                onSend={confirmConnect}
-                displayName={resolvedName}
+                onSubmit={handleInvitationDialogSubmit}
             />
         </div>
     );

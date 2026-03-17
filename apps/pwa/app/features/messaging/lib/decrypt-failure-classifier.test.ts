@@ -22,5 +22,18 @@ describe("classifyDecryptFailure", () => {
     expect(result.runtimeClass).toBe("actionable");
     expect(result.shouldSurfaceToUser).toBe(true);
   });
-});
 
+  it("classifies mixed-wire payload/version failures as expected", () => {
+    const result = classifyDecryptFailure(new Error("Version not found in payload"));
+    expect(result.reason).toBe("expected_foreign_or_malformed");
+    expect(result.runtimeClass).toBe("expected");
+    expect(result.shouldSurfaceToUser).toBe(false);
+  });
+
+  it("classifies malformed base64/json payload failures as expected", () => {
+    const result = classifyDecryptFailure(new Error("Error while decoding from base64: Invalid input length"));
+    expect(result.reason).toBe("expected_foreign_or_malformed");
+    expect(result.runtimeClass).toBe("expected");
+    expect(result.shouldSurfaceToUser).toBe(false);
+  });
+});

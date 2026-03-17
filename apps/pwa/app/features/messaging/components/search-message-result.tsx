@@ -22,7 +22,7 @@ export function SearchMessageResult({
     searchQuery,
     resolvedNowMs
 }: SearchMessageResultProps) {
-    const metadata = useProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
+    const metadata = useProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null, { live: false });
     const resolvedName = metadata?.displayName || conversation.displayName;
 
     return (
@@ -31,8 +31,10 @@ export function SearchMessageResult({
             type="button"
             className="w-full rounded-xl border border-black/5 bg-white p-3 text-left hover:border-purple-500/30 dark:border-white/5 dark:bg-zinc-900/50 transition-all shadow-sm"
             onClick={() => {
-                selectConversation(conversation);
-                setPendingScrollTarget({ conversationId: result.conversationId, messageId: result.messageId });
+                React.startTransition(() => {
+                    selectConversation(conversation);
+                    setPendingScrollTarget({ conversationId: result.conversationId, messageId: result.messageId });
+                });
             }}
         >
             <div className="flex items-center justify-between gap-2 mb-1">

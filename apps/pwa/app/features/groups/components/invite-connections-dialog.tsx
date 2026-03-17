@@ -19,7 +19,7 @@ import { GroupService } from "../services/group-service";
 import type { GroupMetadata } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { UserAvatar } from "../../profile/components/user-avatar";
-import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 
 interface InviteConnectionsDialogProps {
@@ -251,7 +251,7 @@ export function InviteConnectionsDialog({
 function ConnectionRow({ pubkey, isSelected, onToggle }: { pubkey: string, isSelected: boolean, onToggle: () => void }) {
     const { createdConnections } = useMessaging();
     const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pubkey);
-    const metadata = useProfileMetadata(pubkey);
+    const metadata = useResolvedProfileMetadata(pubkey);
     const displayName = connection?.displayName || metadata?.displayName || `${pubkey.slice(0, 8)}...`;
 
     return (

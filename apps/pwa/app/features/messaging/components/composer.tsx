@@ -1,6 +1,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
 import { cn } from "@/app/lib/utils";
@@ -65,6 +66,46 @@ export function Composer({
     const isGated: boolean = isPeerAccepted === false && isInitiator === false;
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const emojiPickerRef = React.useRef<HTMLDivElement>(null);
+    const emojiButtonRef = React.useRef<HTMLDivElement>(null);
+    const [emojiPickerPosition, setEmojiPickerPosition] = React.useState<Readonly<{ left: number; top: number }>>({
+        left: 16,
+        top: 16,
+    });
+    const [isMounted, setIsMounted] = React.useState(false);
+
+    const updateEmojiPickerPosition = React.useCallback(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const button = emojiButtonRef.current;
+        if (!button) {
+            return;
+        }
+        const buttonRect = button.getBoundingClientRect();
+        const pickerWidth = 320;
+        const pickerHeight = 400;
+        const margin = 12;
+        const gap = 10;
+
+        let nextLeft = buttonRect.right - pickerWidth;
+        let nextTop = buttonRect.top - pickerHeight - gap;
+
+        if (nextTop < margin) {
+            nextTop = buttonRect.bottom + gap;
+        }
+
+        const maxLeft = Math.max(margin, window.innerWidth - pickerWidth - margin);
+        const maxTop = Math.max(margin, window.innerHeight - pickerHeight - margin);
+
+        nextLeft = Math.min(Math.max(nextLeft, margin), maxLeft);
+        nextTop = Math.min(Math.max(nextTop, margin), maxTop);
+
+        setEmojiPickerPosition({ left: Math.round(nextLeft), top: Math.round(nextTop) });
+    }, []);
+
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     // Auto-resize logic
     React.useEffect(() => {
@@ -90,6 +131,22 @@ export function Composer({
         }
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [showEmojiPicker]);
+
+    React.useLayoutEffect(() => {
+        if (!showEmojiPicker) {
+            return;
+        }
+        updateEmojiPickerPosition();
+        const handleViewportChange = () => {
+            updateEmojiPickerPosition();
+        };
+        window.addEventListener("resize", handleViewportChange);
+        window.addEventListener("scroll", handleViewportChange, true);
+        return () => {
+            window.removeEventListener("resize", handleViewportChange);
+            window.removeEventListener("scroll", handleViewportChange, true);
+        };
+    }, [showEmojiPicker, updateEmojiPickerPosition]);
 
     const onEmojiClick = (emojiData: EmojiClickData) => {
         const textarea = textareaRef.current;
@@ -361,7 +418,7 @@ export function Composer({
                     rows={1}
                 />
 
-                <div className="relative flex items-center">
+                <div ref={emojiButtonRef} className="relative flex items-center">
                     <Button
                         type="button"
                         variant="ghost"
@@ -377,10 +434,11 @@ export function Composer({
                         <Smile className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
                     </Button>
 
-                    {showEmojiPicker && (
+                    {showEmojiPicker && isMounted && createPortal(
                         <div
                             ref={emojiPickerRef}
-                            className="absolute bottom-full right-0 mb-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            className="fixed z-[1200] animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            style={{ left: emojiPickerPosition.left, top: emojiPickerPosition.top }}
                         >
                             <EmojiPicker
                                 onEmojiClick={onEmojiClick}
@@ -392,7 +450,7 @@ export function Composer({
                                 searchPlaceHolder={t("messaging.searchEmojis")}
                             />
                         </div>
-                    )}
+                    , document.body)}
                 </div>
 
                 {onSendVoiceNote && !messageInput.trim() && pendingAttachments.length === 0 && (

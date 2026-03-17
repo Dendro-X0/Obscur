@@ -42,7 +42,10 @@ export const DirectMessagesCard = () => {
   const dmController = useEnhancedDMController({
     myPublicKeyHex: myPublicKeyHex || null,
     myPrivateKeyHex: myPrivateKeyHex || null,
-    pool
+    pool,
+    autoSubscribeIncoming: false,
+    enableIncomingTransport: false,
+    enableAutoQueueProcessing: false,
   });
 
   const formatErrorContext = (context: unknown): string | undefined => {

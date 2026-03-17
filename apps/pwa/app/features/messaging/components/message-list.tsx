@@ -20,7 +20,7 @@ import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { CommunityInviteCard } from "../../groups/components/community-invite-card";
 import { CommunityInviteResponseCard } from "../../groups/components/community-invite-response-card";
 import { inferAttachmentKind } from "../utils/logic";
-import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
+import { getLocalMediaIndexSnapshot, normalizeLocalMediaDisplayFileName } from "@/app/features/vault/services/local-media-store";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
 
@@ -33,6 +33,8 @@ interface MessageListProps {
     nowMs: number | null;
     flashMessageId: string | null;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
+    openMessageMenuMessageId?: string | null;
+    onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
     onRetryMessage: (message: Message) => void;
@@ -57,6 +59,7 @@ type MessageRenderMeta = Readonly<{
 }>;
 
 type InviteResponseStatus = "pending" | "accepted" | "declined" | "canceled";
+type MessageListScrollBehavior = "auto" | "smooth";
 
 export function MessageList({
     hasHydrated,
@@ -67,6 +70,8 @@ export function MessageList({
     nowMs,
     flashMessageId,
     onOpenMessageMenu,
+    openMessageMenuMessageId,
+    onMessageMenuAnchorHoverChange,
     onOpenReactionPicker,
     onToggleReaction,
     onRetryMessage,
@@ -120,12 +125,100 @@ export function MessageList({
     const [showScrollBottom, setShowScrollBottom] = React.useState(false);
     const prevLastId = React.useRef<string | null>(null);
     const prevLength = React.useRef(0);
+    const didInitialAutoScrollRef = React.useRef(false);
+    const autoStickBottomUntilUnixMsRef = React.useRef<number>(0);
 
-    const scrollToBottom = React.useCallback((behavior: ScrollBehavior = 'auto') => {
-        if (messages.length > 0) {
-            virtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: behavior as any });
+    const scrollToBottom = React.useCallback((behavior: MessageListScrollBehavior = "auto") => {
+        if (messages.length === 0) {
+            return;
         }
+
+        const container = parentRef.current;
+        if (!container) {
+            return;
+        }
+
+        try {
+            virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior });
+        } catch {
+            // Fallback to container anchoring below.
+        }
+
+        const scrollNow = (scrollBehavior: MessageListScrollBehavior) => {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: scrollBehavior,
+            });
+        };
+
+        // Virtualizer index-scrolling is noisy with dynamic row heights; anchor by container offset instead.
+        if (behavior === "smooth") {
+            scrollNow("smooth");
+            return;
+        }
+
+        scrollNow("auto");
+        requestAnimationFrame(() => {
+            const nextContainer = parentRef.current;
+            if (!nextContainer) {
+                return;
+            }
+            nextContainer.scrollTop = nextContainer.scrollHeight;
+            requestAnimationFrame(() => {
+                const settledContainer = parentRef.current;
+                if (settledContainer) {
+                    settledContainer.scrollTop = settledContainer.scrollHeight;
+                }
+            });
+        });
     }, [messages.length, virtualizer]);
+
+    const isNearBottom = React.useCallback((thresholdPx = 24): boolean => {
+        const container = parentRef.current;
+        if (!container) {
+            return false;
+        }
+        return (container.scrollHeight - container.scrollTop - container.clientHeight) <= thresholdPx;
+    }, []);
+
+    React.useEffect(() => {
+        if (messages.length === 0) {
+            didInitialAutoScrollRef.current = false;
+        }
+    }, [messages.length]);
+
+    React.useEffect(() => {
+        if (!hasHydrated || messages.length === 0 || didInitialAutoScrollRef.current) {
+            return;
+        }
+        didInitialAutoScrollRef.current = true;
+        autoStickBottomUntilUnixMsRef.current = Date.now() + 3000;
+        scrollToBottom("auto");
+
+        // Virtualized rows can finish measuring after initial paint.
+        // Retry a few frames so initial load reliably lands on latest messages.
+        let attempts = 0;
+        const settleToBottom = () => {
+            attempts += 1;
+            if (!isNearBottom() && attempts <= 8) {
+                scrollToBottom("auto");
+                requestAnimationFrame(settleToBottom);
+            }
+        };
+        requestAnimationFrame(settleToBottom);
+    }, [hasHydrated, isNearBottom, messages.length, scrollToBottom]);
+
+    React.useEffect(() => {
+        if (!hasHydrated || messages.length === 0) {
+            return;
+        }
+        if (Date.now() > autoStickBottomUntilUnixMsRef.current) {
+            return;
+        }
+        if (!isNearBottom()) {
+            scrollToBottom("auto");
+        }
+    }, [hasHydrated, isNearBottom, messages.length, scrollToBottom]);
 
     // Scroll to bottom and anchoring logic
     React.useEffect(() => {
@@ -133,8 +226,12 @@ export function MessageList({
             const lastMessage = messages[messages.length - 1];
             const isNewMessage = lastMessage.id !== prevLastId.current;
 
-            // Check if messages were prepended (e.g., from onLoadEarlier)
-            const isPrepended = messages.length > prevLength.current && messages[0].id !== prevFirstId.current;
+            // Check if messages were prepended (e.g., from onLoadEarlier).
+            // Guard against first-load false positives when previous length is zero.
+            const isPrepended =
+                prevLength.current > 0
+                && messages.length > prevLength.current
+                && messages[0].id !== prevFirstId.current;
 
             if (isPrepended && parentRef.current) {
                 // Record the current scroll bottom position relative to the last message
@@ -166,7 +263,7 @@ export function MessageList({
             prevFirstId.current = messages[0]?.id || null;
             prevLength.current = messages.length;
         }
-    }, [hasHydrated, messages, showScrollBottom, scrollToBottom]);
+    }, [hasHydrated, isNearBottom, messages, showScrollBottom, scrollToBottom]);
 
     const prevFirstId = React.useRef<string | null>(null);
 
@@ -175,6 +272,10 @@ export function MessageList({
         // Show button if we are more than 300px away from the bottom
         const isAwayFromBottom = scrollHeight - scrollTop - clientHeight > 300;
         setShowScrollBottom(isAwayFromBottom);
+        if (isAwayFromBottom) {
+            // User intentionally moved away from newest messages; stop auto-stick.
+            autoStickBottomUntilUnixMsRef.current = 0;
+        }
 
         if (chatPerformanceV2Enabled) {
             const now = performance.now();
@@ -423,6 +524,8 @@ export function MessageList({
                                         inviteResponseStatus={inviteResponseStatusByMessageId.get(message.id)}
                                         onOpenReactionPicker={onOpenReactionPicker}
                                         onOpenMessageMenu={onOpenMessageMenu}
+                                        openMessageMenuMessageId={openMessageMenuMessageId}
+                                        onMessageMenuAnchorHoverChange={onMessageMenuAnchorHoverChange}
                                         onToggleReaction={onToggleReaction}
                                         onRetryMessage={onRetryMessage}
                                         onReply={onReply}
@@ -483,6 +586,8 @@ type MessageRowProps = Readonly<{
     localAttachmentFileNameByUrl: Readonly<Record<string, string>>;
     inviteResponseStatus?: InviteResponseStatus;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
+    openMessageMenuMessageId?: string | null;
+    onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
     onRetryMessage: (message: Message) => void;
@@ -516,6 +621,8 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         localAttachmentFileNameByUrl,
         inviteResponseStatus,
         onOpenMessageMenu,
+        openMessageMenuMessageId,
+        onMessageMenuAnchorHoverChange,
         onOpenReactionPicker,
         onToggleReaction,
         onRetryMessage,
@@ -526,6 +633,16 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
     } = props;
 
     const timeLabel = formatTime(message.timestamp, nowMs);
+    const menuAnchoredToThisMessage = openMessageMenuMessageId === message.id;
+
+    const markMenuAnchorHover = React.useCallback((isHovered: boolean): void => {
+        onMessageMenuAnchorHoverChange?.({ messageId: message.id, isHovered });
+    }, [message.id, onMessageMenuAnchorHoverChange]);
+
+    const handleOpenMessageMenu = React.useCallback((clientX: number, clientY: number): void => {
+        markMenuAnchorHover(true);
+        onOpenMessageMenu({ messageId: message.id, x: clientX, y: clientY });
+    }, [markMenuAnchorHover, message.id, onOpenMessageMenu]);
 
     return (
         <div
@@ -548,6 +665,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                 {isGroupEnd && (
                     <UserAvatar
                         pubkey={message.senderPubkey!}
+                        metadataLive={false}
                         size="sm"
                         className="h-8 w-8 ring-1 ring-black/5 dark:ring-white/5 shadow-sm rounded-full"
                     />
@@ -577,7 +695,17 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                         id={`msg-${message.id}`}
                         onContextMenu={(e) => {
                             e.preventDefault();
-                            onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY });
+                            handleOpenMessageMenu(e.clientX, e.clientY);
+                        }}
+                        onMouseEnter={() => {
+                            if (menuAnchoredToThisMessage) {
+                                markMenuAnchorHover(true);
+                            }
+                        }}
+                        onMouseLeave={() => {
+                            if (menuAnchoredToThisMessage) {
+                                markMenuAnchorHover(false);
+                            }
                         }}
                         className={cn(
                             "relative max-w-[90%] sm:max-w-[80%] group transition-all duration-200",
@@ -616,7 +744,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
-                                onClick={(e) => onOpenMessageMenu({ messageId: message.id, x: e.clientX, y: e.clientY })}
+                                onClick={(e) => handleOpenMessageMenu(e.clientX, e.clientY)}
                             >
                                 <MoreHorizontal className="h-4 w-4" />
                             </Button>
@@ -787,6 +915,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.inviteResponseStatus === next.inviteResponseStatus &&
         prev.localAttachmentUrlSet === next.localAttachmentUrlSet &&
         prev.localAttachmentFileNameByUrl === next.localAttachmentFileNameByUrl &&
+        prev.openMessageMenuMessageId === next.openMessageMenuMessageId &&
         prev.admins === next.admins
     );
 });
@@ -950,10 +1079,10 @@ function MessageAttachmentLayout({
     const deriveDisplayFileName = (attachment: Attachment): string => {
         const localName = localAttachmentFileNameByUrl[attachment.url];
         if (localName && localName.trim().length > 0) {
-            return localName;
+            return normalizeLocalMediaDisplayFileName(localName);
         }
         if (attachment.fileName && attachment.fileName.trim().length > 0) {
-            return attachment.fileName;
+            return normalizeLocalMediaDisplayFileName(attachment.fileName);
         }
         try {
             const host = new URL(attachment.url).host;
@@ -1129,7 +1258,7 @@ function MessageAttachmentLayout({
                                     <div className="flex items-center gap-1.5">
                                         <span className={cn(
                                             "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest",
-                                            isOutgoing ? "bg-white/15 text-white/85" : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100"
+                                            isOutgoing ? "bg-black/35 text-white" : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100"
                                         )}>
                                             <Music2 className="h-2.5 w-2.5" />
                                             Audio
@@ -1211,7 +1340,7 @@ function MessageAttachmentLayout({
  * Sub-component to resolve and display sender name with badges
  */
 function SenderName({ pubkey, admins }: { pubkey: string, admins?: MessageListProps['admins'] }) {
-    const metadata = useProfileMetadata(pubkey);
+    const metadata = useProfileMetadata(pubkey, { live: false });
 
     const admin = admins?.find(a => a.pubkey === pubkey);
     const rolesLower = admin?.roles.map(r => r.toLowerCase()) || [];

@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useIsDesktop } from "./use-tauri";
-import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
+import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
 
 /**
  * Hook to handle deep links in desktop app
@@ -52,7 +53,7 @@ export function useDeepLink() {
           if (path === "//group" || path === "/group") {
             const id = parsed.searchParams.get("id");
             if (id) {
-              router.push(`/groups/${encodeURIComponent(id)}`);
+              router.push(getPublicGroupHref(id));
             }
             return;
           }
@@ -73,36 +74,26 @@ export function useDeepLink() {
     window.addEventListener("deep-link", listener);
 
     // Also listen via Tauri event system
-    if (hasNativeRuntime()) {
-      let disposed = false;
-      let detach: (() => void) | null = null;
-      void import("@tauri-apps/api/event")
-        .then(({ listen }) => listen("deep-link", (event: { payload?: { url?: string } }) => {
-          const url = event.payload?.url;
-          if (url) {
-            handleDeepLink(new CustomEvent("deep-link", { detail: { url } }));
-          }
-        }))
-        .then((unlisten) => {
-          if (disposed) {
-            unlisten();
-            return;
-          }
-          detach = unlisten;
-        })
-        .catch(() => {
-          // Ignore in runtimes without native event bridge support.
-        });
-
-      return () => {
-        disposed = true;
-        window.removeEventListener("deep-link", listener);
-        detach?.();
-      };
-    }
+    let disposed = false;
+    let detach: (() => void) | null = null;
+    void listenToNativeEvent<{ url?: string }>("deep-link", (event) => {
+      const url = event.payload?.url;
+      if (url) {
+        handleDeepLink(new CustomEvent("deep-link", { detail: { url } }));
+      }
+    }).then((unlisten) => {
+      if (disposed) {
+        unlisten();
+        return;
+      }
+      detach = unlisten;
+    });
 
     return () => {
+      disposed = true;
       window.removeEventListener("deep-link", listener);
+      detach?.();
     };
+
   }, [isDesktop, router]);
 }

@@ -1,6 +1,9 @@
 import { minePowWorker } from "@dweb/crypto/pow-worker-wrapper";
 import { type UnsignedNostrEvent } from "../crypto/crypto-service";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+
+let nativePowUnavailableLogged = false;
 
 /**
  * Proof of Work Service
@@ -23,19 +26,28 @@ export const powService = {
         // 1. Try Native Bridge (Tauri)
         if (hasNativeRuntime()) {
             try {
-                const { invoke } = await import("@tauri-apps/api/core");
                 console.info(`[PoW Service] Using native Rust miner (Difficulty: ${difficulty})`);
 
                 // The Rust command expects an UnsignedEvent and returns the mined one
                 // Note: The Rust side uses the 'mine_pow' command we registered
-                const minedEvent = await invoke<UnsignedNostrEvent>("mine_pow", {
+                const result = await invokeNativeCommand<UnsignedNostrEvent>("mine_pow", {
                     unsignedEvent: event,
                     difficulty
                 });
+                if (!result.ok) {
+                    throw new Error(result.message ?? "Native PoW unavailable");
+                }
 
-                return minedEvent;
+                return result.value;
             } catch (e) {
-                console.warn("[PoW Service] Native miner failed, falling back to WebWorker:", e);
+                const message = e instanceof Error ? e.message : String(e);
+                const unavailable = /not allowed|command not found/i.test(message);
+                if (!unavailable || !nativePowUnavailableLogged) {
+                    console.warn("[PoW Service] Native miner failed, falling back to WebWorker:", e);
+                    if (unavailable) {
+                        nativePowUnavailableLogged = true;
+                    }
+                }
                 // Fallback to WebWorker if native fails
             }
         }

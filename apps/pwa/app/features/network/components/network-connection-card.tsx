@@ -5,7 +5,7 @@ import { UserAvatar } from "../../profile/components/user-avatar";
 import { ChevronRight, ShieldCheck } from "lucide-react";
 import { cn } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
-import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 
 interface ConnectionCardProps {
     pubkey: string;
@@ -17,7 +17,7 @@ interface ConnectionCardProps {
 
 export const ConnectionCard = ({ pubkey, displayName, onClick, className, viewMode = "list" }: ConnectionCardProps) => {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(pubkey);
+    const metadata = useResolvedProfileMetadata(pubkey);
     const resolvedName = metadata?.displayName || displayName;
     const handle = resolvedName ? `@${resolvedName}` : `@${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
 

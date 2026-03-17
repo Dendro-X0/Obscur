@@ -1,186 +1,104 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ConnectionRequestInbox } from '../connection-request-inbox';
-import * as inviteManagerModule from '../../../features/invites/utils/invite-manager';
-import type { ConnectionRequest } from '../../../features/invites/utils/types';
 
-// Mock the invite manager
-vi.mock('../../../features/invites/utils/invite-manager');
+const mocks = vi.hoisted(() => ({
+  acceptIncomingRequest: vi.fn(),
+  declineIncomingRequest: vi.fn(),
+}));
+
+vi.mock('@/app/features/auth/hooks/use-identity', () => ({
+  useIdentity: () => ({
+    state: {
+      publicKeyHex: '1'.repeat(64),
+      privateKeyHex: '2'.repeat(64),
+    },
+  }),
+}));
+
+vi.mock('@/app/features/relays/providers/relay-provider', () => ({
+  useRelay: () => ({
+    relayPool: {},
+  }),
+}));
+
+vi.mock('@/app/features/network/providers/network-provider', () => ({
+  useNetwork: () => ({
+    peerTrust: {},
+    blocklist: {
+      addBlocked: vi.fn(),
+    },
+    requestsInbox: {
+      hasHydrated: true,
+      state: {
+        items: [
+          {
+            peerPublicKeyHex: '0'.repeat(64),
+            status: 'pending',
+            isOutgoing: false,
+            lastMessagePreview: "Hello, let's connect!",
+            lastReceivedAtUnixSeconds: 1_700_000_000,
+            unreadCount: 1,
+            eventId: 'request-1',
+          },
+        ],
+      },
+    },
+  }),
+}));
+
+vi.mock('@/app/features/messaging/hooks/use-enhanced-dm-controller', () => ({
+  useEnhancedDMController: () => ({}),
+  useEnhancedDmController: () => ({}),
+}));
+
+vi.mock('@/app/features/messaging/hooks/use-request-transport', () => ({
+  useRequestTransport: () => ({
+    acceptIncomingRequest: mocks.acceptIncomingRequest,
+    declineIncomingRequest: mocks.declineIncomingRequest,
+  }),
+}));
 
 describe('ConnectionRequestInbox', () => {
-  const mockConnectionRequest: ConnectionRequest = {
-    id: 'request-1',
-    type: 'incoming',
-    senderPublicKey: '0'.repeat(64) as any,
-    recipientPublicKey: '1'.repeat(64) as any,
-    profile: {
-      publicKey: '0'.repeat(64) as any,
-      displayName: 'Test User',
-      bio: 'Test bio',
-      timestamp: Date.now(),
-      signature: 'mock-signature',
-    },
-    message: 'Hello, let\'s connect!',
-    status: 'pending',
-    createdAt: new Date(),
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.acceptIncomingRequest.mockResolvedValue({ status: 'ok' });
+    mocks.declineIncomingRequest.mockResolvedValue({ status: 'ok' });
   });
 
-  it('should render loading state initially', () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockImplementation(
-      () => new Promise(() => { }) // Never resolves
-    );
-
+  it('renders canonical pending requests from requestsInbox', async () => {
     render(<ConnectionRequestInbox />);
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(screen.getByText(/user 00000000/i)).toBeInTheDocument();
+    expect(screen.getByText(/hello, let's connect!/i)).toBeInTheDocument();
+    expect(screen.getByText('0'.repeat(64))).toBeInTheDocument();
   });
 
-  it('should render empty state when no requests', async () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockResolvedValue([]);
-
+  it('handles accept action via request transport', async () => {
     render(<ConnectionRequestInbox />);
+
+    fireEvent.click(screen.getByRole('button', { name: /accept/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/no pending connection requests/i)).toBeInTheDocument();
-    });
-  });
-
-  it('should render connection requests', async () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockResolvedValue([
-      mockConnectionRequest,
-    ]);
-
-    render(<ConnectionRequestInbox />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Test User')).toBeInTheDocument();
-      expect(screen.getByText(/hello, let's connect!/i)).toBeInTheDocument();
+      expect(mocks.acceptIncomingRequest).toHaveBeenCalledWith({
+        peerPublicKeyHex: '0'.repeat(64),
+        plaintext: 'Accepted',
+        requestEventId: 'request-1',
+      });
     });
   });
 
-  it('should display sender information correctly', async () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockResolvedValue([
-      mockConnectionRequest,
-    ]);
-
+  it('handles decline action via request transport', async () => {
     render(<ConnectionRequestInbox />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Test User')).toBeInTheDocument();
-      expect(screen.getByText(/test bio/i)).toBeInTheDocument();
-      expect(screen.getByText(mockConnectionRequest.senderPublicKey)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle accept action', async () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockResolvedValue([
-      mockConnectionRequest,
-    ]);
-    vi.mocked(inviteManagerModule.inviteManager.acceptConnectionRequest).mockResolvedValue({
-      id: 'connection-1',
-      publicKey: mockConnectionRequest.senderPublicKey,
-      displayName: 'Test User',
-      trustLevel: 'neutral',
-      groups: [],
-      addedAt: new Date(),
-      metadata: { source: 'qr' },
-    });
-
-    render(<ConnectionRequestInbox />);
+    fireEvent.click(screen.getByRole('button', { name: /^decline$/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /accept/i })).toBeInTheDocument();
-    });
-
-    const acceptButton = screen.getByRole('button', { name: /accept/i });
-    fireEvent.click(acceptButton);
-
-    await waitFor(() => {
-      expect(inviteManagerModule.inviteManager.acceptConnectionRequest).toHaveBeenCalledWith(
-        mockConnectionRequest.id
-      );
-    });
-  });
-
-  it('should handle decline action', async () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockResolvedValue([
-      mockConnectionRequest,
-    ]);
-    vi.mocked(inviteManagerModule.inviteManager.declineConnectionRequest).mockResolvedValue();
-
-    render(<ConnectionRequestInbox />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^decline$/i })).toBeInTheDocument();
-    });
-
-    const declineButton = screen.getByRole('button', { name: /^decline$/i });
-    fireEvent.click(declineButton);
-
-    await waitFor(() => {
-      expect(inviteManagerModule.inviteManager.declineConnectionRequest).toHaveBeenCalledWith(
-        mockConnectionRequest.id,
-        false
-      );
-    });
-  });
-
-  it('should handle block action', async () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockResolvedValue([
-      mockConnectionRequest,
-    ]);
-    vi.mocked(inviteManagerModule.inviteManager.declineConnectionRequest).mockResolvedValue();
-
-    render(<ConnectionRequestInbox />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /block/i })).toBeInTheDocument();
-    });
-
-    const blockButton = screen.getByRole('button', { name: /block/i });
-    fireEvent.click(blockButton);
-
-    await waitFor(() => {
-      expect(inviteManagerModule.inviteManager.declineConnectionRequest).toHaveBeenCalledWith(
-        mockConnectionRequest.id,
-        true
-      );
-    });
-  });
-
-  it('should display error state when loading fails', async () => {
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockRejectedValue(
-      new Error('Failed to load')
-    );
-
-    render(<ConnectionRequestInbox />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/failed to load/i)).toBeInTheDocument();
-    });
-  });
-
-  it('should show fallback display name when profile has no name', async () => {
-    const requestWithoutName: ConnectionRequest = {
-      ...mockConnectionRequest,
-      profile: {
-        ...mockConnectionRequest.profile,
-        displayName: undefined,
-      },
-    };
-
-    vi.mocked(inviteManagerModule.inviteManager.getIncomingConnectionRequests).mockResolvedValue([
-      requestWithoutName,
-    ]);
-
-    render(<ConnectionRequestInbox />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/user 00000000/i)).toBeInTheDocument();
+      expect(mocks.declineIncomingRequest).toHaveBeenCalledWith({
+        peerPublicKeyHex: '0'.repeat(64),
+        plaintext: 'Declined',
+        requestEventId: 'request-1',
+      });
     });
   });
 });

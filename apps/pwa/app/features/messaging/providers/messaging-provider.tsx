@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useMemo, useEffect } from "react";
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { messageBus } from "../services/message-bus";
 import { messagePersistenceService } from "../services/message-persistence-service";
@@ -19,6 +19,9 @@ import type {
 import { chatStateStoreService } from "../services/chat-state-store";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
+import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
+import { selectProjectionDmConversations } from "@/app/features/account-sync/services/account-projection-selectors";
 import {
     toPersistedDmConversation,
     fromPersistedDmConversation,
@@ -103,6 +106,10 @@ const MessagingContext = createContext<MessagingContextType | null>(null);
 
 export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
+    const accountProjectionSnapshot = useAccountProjectionSnapshot();
+    const projectionReadAuthority = useMemo(() => (
+        resolveProjectionReadAuthority({ projectionSnapshot: accountProjectionSnapshot })
+    ), [accountProjectionSnapshot]);
     const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [selectedConversationState, setSelectedConversationState] = useState<Conversation | null>(null);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
@@ -153,6 +160,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const [pinnedChatIds, setPinnedChatIds] = useState<ReadonlyArray<string>>([]);
     const [hiddenChatIds, setHiddenChatIds] = useState<ReadonlyArray<string>>([]);
+    const createdConnectionsRef = React.useRef(createdConnections);
+    const unreadByConversationIdRef = React.useRef(unreadByConversationId);
+    const connectionOverridesByConnectionIdRef = React.useRef(connectionOverridesByConnectionId);
+    const pinnedChatIdsRef = React.useRef(pinnedChatIds);
+    const hiddenChatIdsRef = React.useRef(hiddenChatIds);
 
     // Initialize persistence service
     useEffect(() => {
@@ -160,29 +172,28 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, []);
 
     const togglePin = (conversationId: string) => {
-        setPinnedChatIds(prev => {
-            const next = prev.includes(conversationId)
-                ? prev.filter(id => id !== conversationId)
-                : [...prev, conversationId];
-            if (publicKeyHex) chatStateStoreService.updatePinnedChats(publicKeyHex, next);
-            return next;
-        });
+        const previous = pinnedChatIdsRef.current;
+        const next = previous.includes(conversationId)
+            ? previous.filter(id => id !== conversationId)
+            : [...previous, conversationId];
+        pinnedChatIdsRef.current = next;
+        setPinnedChatIds(next);
+        if (publicKeyHex) chatStateStoreService.updatePinnedChats(publicKeyHex, next);
     };
 
     const hideConversation = (conversationId: string) => {
-        setHiddenChatIds(prev => {
-            const next = prev.includes(conversationId) ? prev : [...prev, conversationId];
-            if (publicKeyHex) chatStateStoreService.updateHiddenChats(publicKeyHex, next);
-            return next;
-        });
+        const previous = hiddenChatIdsRef.current;
+        const next = previous.includes(conversationId) ? previous : [...previous, conversationId];
+        hiddenChatIdsRef.current = next;
+        setHiddenChatIds(next);
+        if (publicKeyHex) chatStateStoreService.updateHiddenChats(publicKeyHex, next);
     };
 
     const unhideConversation = (conversationId: string) => {
-        setHiddenChatIds(prev => {
-            const next = prev.filter(id => id !== conversationId);
-            if (publicKeyHex) chatStateStoreService.updateHiddenChats(publicKeyHex, next);
-            return next;
-        });
+        const next = hiddenChatIdsRef.current.filter(id => id !== conversationId);
+        hiddenChatIdsRef.current = next;
+        setHiddenChatIds(next);
+        if (publicKeyHex) chatStateStoreService.updateHiddenChats(publicKeyHex, next);
     };
 
     const clearHistory = (conversationId: string) => {
@@ -234,50 +245,105 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setHasHydrated(true);
     }, [publicKeyHex, hasHydrated]);
 
+    const projectionConnections = useMemo(() => {
+        if (!publicKeyHex) {
+            return [] as ReadonlyArray<DmConversation>;
+        }
+        return selectProjectionDmConversations({
+            projection: accountProjectionSnapshot.projection,
+            myPublicKeyHex: publicKeyHex as PublicKeyHex,
+        });
+    }, [accountProjectionSnapshot.projection, publicKeyHex]);
+
+    useEffect(() => {
+        if (!projectionReadAuthority.useProjectionReads) {
+            return;
+        }
+        createdConnectionsRef.current = projectionConnections;
+        setCreatedConnections(projectionConnections);
+        const unreadByConversation: Record<string, number> = {};
+        projectionConnections.forEach((conversation) => {
+            unreadByConversation[conversation.id] = conversation.unreadCount;
+        });
+        unreadByConversationIdRef.current = unreadByConversation;
+        setUnreadByConversationId(unreadByConversation);
+    }, [projectionConnections, projectionReadAuthority.useProjectionReads]);
+
     useEffect(() => {
         if (!selectedConversation || !hasHydrated) {
             return;
         }
         const conversationId = selectedConversation.id;
+        if ((unreadByConversationId[conversationId] ?? 0) === 0) {
+            return;
+        }
         queueMicrotask(() => {
-            setUnreadByConversationId(prev => {
-                if (prev[conversationId] === 0) return prev;
-                const next = { ...prev, [conversationId]: 0 };
-                if (publicKeyHex) chatStateStoreService.updateUnreadCounts(publicKeyHex, next);
-                return next;
-            });
-        });
-    }, [selectedConversation?.id, hasHydrated, publicKeyHex]);
-
-    const updateCreatedConnections: React.Dispatch<React.SetStateAction<ReadonlyArray<DmConversation>>> = (updater) => {
-        setCreatedConnections(prev => {
-            const next = typeof updater === "function" ? updater(prev) : updater;
-            if (publicKeyHex) {
-                chatStateStoreService.updateConnections(publicKeyHex, next.map(c => toPersistedDmConversation(c)));
+            const latestUnread = unreadByConversationIdRef.current;
+            if ((latestUnread[conversationId] ?? 0) === 0) {
+                return;
             }
-            return next;
+            const next = { ...latestUnread, [conversationId]: 0 };
+            unreadByConversationIdRef.current = next;
+            setUnreadByConversationId(next);
+            if (publicKeyHex) chatStateStoreService.updateUnreadCounts(publicKeyHex, next);
         });
-    };
+    }, [selectedConversation?.id, unreadByConversationId, hasHydrated, publicKeyHex]);
 
-    const updateUnreadByConversationId: React.Dispatch<React.SetStateAction<UnreadByConversationId>> = (updater) => {
-        setUnreadByConversationId(prev => {
-            const next = typeof updater === "function" ? updater(prev) : updater;
-            if (publicKeyHex) {
-                chatStateStoreService.updateUnreadCounts(publicKeyHex, next);
-            }
-            return next;
-        });
-    };
+    const updateCreatedConnections: React.Dispatch<React.SetStateAction<ReadonlyArray<DmConversation>>> = useCallback((updater) => {
+        const current = createdConnectionsRef.current;
+        const next = typeof updater === "function"
+            ? (updater as (prevState: ReadonlyArray<DmConversation>) => ReadonlyArray<DmConversation>)(current)
+            : updater;
+        createdConnectionsRef.current = next;
+        setCreatedConnections(next);
+        if (publicKeyHex) {
+            chatStateStoreService.updateConnections(publicKeyHex, next.map(c => toPersistedDmConversation(c)));
+        }
+    }, [publicKeyHex]);
 
-    const updateConnectionOverridesByConnectionId: React.Dispatch<React.SetStateAction<ConnectionOverridesByConnectionId>> = (updater) => {
-        setConnectionOverridesByConnectionId(prev => {
-            const next = typeof updater === "function" ? updater(prev) : updater;
-            if (publicKeyHex) {
-                chatStateStoreService.updateConnectionOverrides(publicKeyHex, toPersistedOverridesByConnectionId(next));
-            }
-            return next;
-        });
-    };
+    const updateUnreadByConversationId: React.Dispatch<React.SetStateAction<UnreadByConversationId>> = useCallback((updater) => {
+        const current = unreadByConversationIdRef.current;
+        const next = typeof updater === "function"
+            ? (updater as (prevState: UnreadByConversationId) => UnreadByConversationId)(current)
+            : updater;
+        unreadByConversationIdRef.current = next;
+        setUnreadByConversationId(next);
+        if (publicKeyHex) {
+            chatStateStoreService.updateUnreadCounts(publicKeyHex, next);
+        }
+    }, [publicKeyHex]);
+
+    const updateConnectionOverridesByConnectionId: React.Dispatch<React.SetStateAction<ConnectionOverridesByConnectionId>> = useCallback((updater) => {
+        const current = connectionOverridesByConnectionIdRef.current;
+        const next = typeof updater === "function"
+            ? (updater as (prevState: ConnectionOverridesByConnectionId) => ConnectionOverridesByConnectionId)(current)
+            : updater;
+        connectionOverridesByConnectionIdRef.current = next;
+        setConnectionOverridesByConnectionId(next);
+        if (publicKeyHex) {
+            chatStateStoreService.updateConnectionOverrides(publicKeyHex, toPersistedOverridesByConnectionId(next));
+        }
+    }, [publicKeyHex]);
+
+    useEffect(() => {
+        createdConnectionsRef.current = createdConnections;
+    }, [createdConnections]);
+
+    useEffect(() => {
+        unreadByConversationIdRef.current = unreadByConversationId;
+    }, [unreadByConversationId]);
+
+    useEffect(() => {
+        connectionOverridesByConnectionIdRef.current = connectionOverridesByConnectionId;
+    }, [connectionOverridesByConnectionId]);
+
+    useEffect(() => {
+        pinnedChatIdsRef.current = pinnedChatIds;
+    }, [pinnedChatIds]);
+
+    useEffect(() => {
+        hiddenChatIdsRef.current = hiddenChatIds;
+    }, [hiddenChatIds]);
 
     // Removed: const updateMessagesByConversationId ...
 
@@ -375,7 +441,9 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         pinnedChatIds,
         hiddenChatIds,
         chatsUnreadCount,
-        publicKeyHex,
+        updateCreatedConnections,
+        updateUnreadByConversationId,
+        updateConnectionOverridesByConnectionId,
         clearHistory
     ]);
 

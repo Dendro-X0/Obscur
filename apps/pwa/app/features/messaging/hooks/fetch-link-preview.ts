@@ -1,4 +1,20 @@
 import type { LinkPreview } from "../lib/link-preview";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+
+type LinkPreviewErrorBody = Readonly<{
+  ok?: boolean;
+  message?: string;
+}>;
+
+const toFallbackPreview = (url: string): LinkPreview => ({
+  url,
+  type: "web",
+  title: null,
+  description: null,
+  siteName: null,
+  imageUrl: null,
+  provider: null,
+});
 
 export const fetchLinkPreview = async (url: string): Promise<LinkPreview> => {
   const normalizedUrl: string = url.trim();
@@ -12,12 +28,30 @@ export const fetchLinkPreview = async (url: string): Promise<LinkPreview> => {
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch preview: ${response.status}`);
+      let body: LinkPreviewErrorBody | null = null;
+      try {
+        body = (await response.json()) as LinkPreviewErrorBody;
+      } catch {
+        body = null;
+      }
+      logRuntimeEvent(
+        "messaging.link_preview.fetch_non_ok",
+        "degraded",
+        ["[LinkPreview] Preview endpoint returned non-OK; using fallback card.", { url: normalizedUrl, status: response.status, message: body?.message ?? null }],
+        { windowMs: 20_000, maxPerWindow: 2, summaryEverySuppressed: 20 }
+      );
+      return toFallbackPreview(normalizedUrl);
     }
 
     const data = await response.json();
     if (!data.ok) {
-      throw new Error(data.message || "Unknown API error");
+      logRuntimeEvent(
+        "messaging.link_preview.fetch_api_not_ok",
+        "degraded",
+        ["[LinkPreview] Preview API returned ok=false; using fallback card.", { url: normalizedUrl, message: data.message ?? null }],
+        { windowMs: 20_000, maxPerWindow: 2, summaryEverySuppressed: 20 }
+      );
+      return toFallbackPreview(normalizedUrl);
     }
 
     return {
@@ -30,16 +64,12 @@ export const fetchLinkPreview = async (url: string): Promise<LinkPreview> => {
       provider: data.provider,
     };
   } catch (error) {
-    console.error("Link preview fetch failed:", error);
-    // Fallback to basic preview
-    return {
-      url: normalizedUrl,
-      type: "web",
-      title: null,
-      description: null,
-      siteName: null,
-      imageUrl: null,
-      provider: null,
-    };
+    logRuntimeEvent(
+      "messaging.link_preview.fetch_failed",
+      "degraded",
+      ["[LinkPreview] Unexpected preview fetch failure; using fallback card.", { url: normalizedUrl, error: error instanceof Error ? error.message : String(error) }],
+      { windowMs: 20_000, maxPerWindow: 2, summaryEverySuppressed: 20 }
+    );
+    return toFallbackPreview(normalizedUrl);
   }
 };

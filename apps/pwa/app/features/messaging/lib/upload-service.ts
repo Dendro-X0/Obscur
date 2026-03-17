@@ -1,7 +1,9 @@
 import { Attachment, AttachmentKind, UploadApiResponse, UploadError, UploadErrorCode } from "../types";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { hasNativeRuntime, shouldAutoEnableDefaultUploadProviders } from "@/app/features/runtime/runtime-capabilities";
+import { normalizePublicUrl } from "@/app/shared/public-url";
+import { pickNativeFiles, readNativeFileBytes } from "@/app/features/runtime/native-host-adapter";
 
 export interface UploadService {
     uploadFile: (file: File) => Promise<Attachment>;
@@ -118,7 +120,7 @@ export class LocalUploadService implements UploadService {
 
         return {
             kind,
-            url: result.url,
+            url: normalizePublicUrl(result.url),
             contentType: result.contentType,
             fileName: file.name,
         };
@@ -137,29 +139,27 @@ export async function pickFilesInternal(): Promise<File[] | null> {
 
     if (isTauri) {
         try {
-            // Using regular dynamic imports as they are in package.json
-            const { open } = await import("@tauri-apps/plugin-dialog");
-            const { readFile } = await import("@tauri-apps/plugin-fs");
-
-            const selected = await open({
+            const paths = await pickNativeFiles({
                 multiple: true,
-                filters: [{
-                    name: "Media and documents",
-                    extensions: [...PICKABLE_EXTENSIONS]
-                }]
+                extensions: [...PICKABLE_EXTENSIONS]
             });
-
-            if (!selected) return null;
-
-            const paths = Array.isArray(selected) ? selected : [selected];
+            if (!paths || paths.length === 0) return null;
             const files: File[] = [];
 
             for (const path of paths) {
-                const data = await readFile(path);
+                const data = await readNativeFileBytes(path);
+                if (!data) {
+                    continue;
+                }
                 const fileName = path.split(/[\\/]/).pop() || "file";
+                const fileBytes = new Uint8Array(data);
+                const fileBuffer = fileBytes.buffer.slice(
+                    fileBytes.byteOffset,
+                    fileBytes.byteOffset + fileBytes.byteLength
+                );
 
                 const type = getMimeType(fileName);
-                files.push(new File([data], fileName, { type }));
+                files.push(new File([fileBuffer], fileName, { type }));
             }
             return files;
         } catch (e) {
@@ -189,12 +189,24 @@ import { useMemo, useState } from "react";
 import { Nip96UploadService, getNip96StorageKey, Nip96Config } from "./nip96-upload-service";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 
+const LEGACY_PROVIDER_URL_REWRITES: Readonly<Record<string, string>> = {
+    "https://nostr.build/api/v2/upload/files": "https://nostr.build/api/v2/nip96/upload",
+    "https://sovbit.host/api/v2/upload/files": "https://api.sovbit.host/api/upload/files",
+};
+
+const DEFAULT_NIP96_PROVIDER_URLS: ReadonlyArray<string> = [
+    "https://nostr.build/api/v2/nip96/upload",
+    "https://cdn.nostrcheck.me",
+];
+
 const normalizeProviderUrls = (params: Readonly<{ apiUrl?: string; apiUrls?: ReadonlyArray<string> }>): ReadonlyArray<string> => {
     const urlsFromList: ReadonlyArray<string> = Array.isArray(params.apiUrls) ? params.apiUrls : [];
     const urlsFromSingle: ReadonlyArray<string> = typeof params.apiUrl === "string" ? [params.apiUrl] : [];
-    return [...urlsFromList, ...urlsFromSingle]
+    const rewritten = [...urlsFromList, ...urlsFromSingle]
         .map((value: string): string => value.trim())
-        .filter((value: string): boolean => value.length > 0);
+        .filter((value: string): boolean => value.length > 0)
+        .map((value: string): string => LEGACY_PROVIDER_URL_REWRITES[value] ?? value);
+    return Array.from(new Set(rewritten));
 };
 
 export const useUploadService = (): UploadService => {
@@ -220,24 +232,17 @@ export const useUploadService = (): UploadService => {
                             apiUrls: Array.isArray(apiUrls) ? apiUrls.filter((v: unknown): v is string => typeof v === "string") : undefined
                         });
                         if (normalizedApiUrls.length > 0) {
-                            return { apiUrls: normalizedApiUrls, enabled };
+                            const nextConfig: Nip96Config = { apiUrls: normalizedApiUrls, enabled };
+                            localStorage.setItem(getNip96StorageKey(), JSON.stringify(nextConfig));
+                            return nextConfig;
                         }
                     }
                 }
             }
 
-            // If no config found, and we are on Vercel, Tauri (Desktop), or Localhost, auto-enable a default
-            const isVercel = window.location.hostname.includes("vercel.app");
-            const isTauri = hasNativeRuntime();
-            const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-
-            if (isVercel || isTauri || isLocalhost) {
+            if (shouldAutoEnableDefaultUploadProviders()) {
                 const defaultConfig: Nip96Config = {
-                    apiUrls: [
-                        "https://nostr.build/api/v2/upload/files",
-                        "https://void.cat/nostr",
-                        "https://api.sovbit.host/api/upload/files"
-                    ],
+                    apiUrls: DEFAULT_NIP96_PROVIDER_URLS,
                     enabled: true
                 };
                 localStorage.setItem(getNip96StorageKey(), JSON.stringify(defaultConfig));
@@ -263,4 +268,10 @@ export const useUploadService = (): UploadService => {
         }
         return new LocalUploadService();
     }, [config, publicKeyHex, privateKeyHex]);
+};
+
+export const uploadServiceInternals = {
+    normalizeProviderUrls,
+    DEFAULT_NIP96_PROVIDER_URLS,
+    LEGACY_PROVIDER_URL_REWRITES,
 };

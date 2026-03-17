@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { Button } from "@dweb/ui-kit";
 import { Copy, Check, Share2 } from "lucide-react";
 import { toast } from "@dweb/ui-kit";
+import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 
 interface GroupQRCodeProps {
     groupId: string;
@@ -23,8 +24,7 @@ export function GroupQRCode({ groupId, relayUrl, groupName, roomKeyHex }: GroupQ
     const relayHost = new URL(relayUrl).hostname;
 
     // In Phase 2, we encode the Room Key in the hash fragment to prevent leakage to the web server
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://obscur.app";
-    const universalUrl = `${baseUrl}/groups/${groupId}?relay=${encodeURIComponent(relayUrl)}${roomKeyHex ? `#k=${roomKeyHex}` : ""}`;
+    const universalUrl = `${toAbsoluteAppUrl(getPublicGroupHref(groupId, relayUrl))}${roomKeyHex ? `#k=${roomKeyHex}` : ""}`;
 
     useEffect(() => {
         if (canvasRef.current) {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
-import { inviteManager } from '../invite-manager';
+import { configureInviteRequestStateBridge, configureInviteRequestTransportBridge, inviteManager } from '../invite-manager';
 import { cryptoService } from '@/app/features/crypto/crypto-service';
 import { connectionStore } from '../connection-store';
 import { profileManager } from '../profile-manager';
@@ -23,11 +23,136 @@ describe('Invite Manager Property Tests', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    configureInviteRequestTransportBridge(null);
+    configureInviteRequestStateBridge(null);
+    localStorage.clear();
 
     // Mock getCurrentUserIdentity to avoid the "not implemented" error
     vi.spyOn(inviteManager as any, 'getCurrentUserIdentity').mockResolvedValue({
       publicKey: 'a'.repeat(64),
       privateKey: 'b'.repeat(64)
+    });
+  });
+
+  describe('Request Transport Bridge', () => {
+    it('stores outgoing request only after shared transport accepts partial delivery', async () => {
+      configureInviteRequestTransportBridge(async () => ({
+        status: 'partial',
+      }));
+      vi.spyOn(cryptoService, 'normalizeKey').mockResolvedValue('c'.repeat(64) as any);
+      vi.spyOn(cryptoService, 'isValidPubkey').mockResolvedValue(true as any);
+      vi.spyOn(cryptoService, 'generateInviteId').mockResolvedValue('invite-request-1' as any);
+      vi.spyOn(cryptoService, 'signInviteData').mockResolvedValue('signed-profile' as any);
+      vi.spyOn(profileManager, 'getShareableProfile').mockResolvedValue({
+        publicKey: 'a'.repeat(64) as any,
+        displayName: 'Alice',
+        timestamp: Date.now(),
+        signature: 'signed-profile',
+      } as any);
+      const storeSpy = vi.spyOn(inviteManager as any, 'storeConnectionRequest').mockResolvedValue(undefined);
+
+      await inviteManager.sendConnectionRequest({
+        recipientPublicKey: 'c'.repeat(64) as any,
+        message: 'hello',
+        includeProfile: true,
+      });
+
+      expect(storeSpy).toHaveBeenCalledTimes(1);
+      const storedRequest = storeSpy.mock.calls[0]?.[0] as any;
+      expect(storedRequest?.recipientPublicKey).toBe('c'.repeat(64));
+      expect(storedRequest?.status).toBe('pending');
+      expect(storedRequest?.message).toBe('hello');
+    });
+
+    it('does not store stale pending request when transport fails or relays are unavailable', async () => {
+      vi.spyOn(cryptoService, 'normalizeKey').mockResolvedValue('d'.repeat(64) as any);
+      vi.spyOn(cryptoService, 'isValidPubkey').mockResolvedValue(true as any);
+      vi.spyOn(cryptoService, 'generateInviteId').mockResolvedValue('invite-request-2' as any);
+      vi.spyOn(cryptoService, 'signInviteData').mockResolvedValue('signed-profile' as any);
+      const storeSpy = vi.spyOn(inviteManager as any, 'storeConnectionRequest').mockResolvedValue(undefined);
+
+      await expect(inviteManager.sendConnectionRequest({
+        recipientPublicKey: 'd'.repeat(64) as any,
+        message: 'hello',
+        includeProfile: false,
+      })).rejects.toThrow('No active relays available for connection request');
+
+      expect(storeSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Request State Bridge', () => {
+    it('surfaces shared incoming requests and routes accept through bridge', async () => {
+      const acceptSpy = vi.fn(async () => ({
+        id: 'conn-1',
+        publicKey: 'c'.repeat(64) as any,
+        displayName: 'User cccccccc',
+        trustLevel: 'neutral' as const,
+        groups: [],
+        addedAt: new Date(),
+        metadata: { source: 'manual' as const },
+      }));
+      configureInviteRequestStateBridge({
+        listIncoming: async () => ([
+          {
+            id: 'shared:incoming-1',
+            type: 'incoming',
+            senderPublicKey: 'c'.repeat(64) as any,
+            recipientPublicKey: 'a'.repeat(64) as any,
+            profile: {
+              publicKey: 'c'.repeat(64) as any,
+              displayName: 'User cccccccc',
+              timestamp: Date.now(),
+              signature: 'shared',
+            },
+            status: 'pending',
+            createdAt: new Date(),
+          },
+        ]),
+        listOutgoing: async () => ([]),
+        accept: acceptSpy,
+        decline: vi.fn(async () => undefined),
+        cancel: vi.fn(async () => undefined),
+      });
+
+      const incoming = await inviteManager.getIncomingConnectionRequests();
+      expect(incoming).toHaveLength(1);
+      expect(incoming[0]?.id).toBe('shared:incoming-1');
+
+      const connection = await inviteManager.acceptConnectionRequest('shared:incoming-1');
+      expect(acceptSpy).toHaveBeenCalledTimes(1);
+      expect(connection.publicKey).toBe('c'.repeat(64));
+    });
+
+    it('routes shared outgoing cancellation through bridge without local lookup', async () => {
+      const cancelSpy = vi.fn(async () => undefined);
+      configureInviteRequestStateBridge({
+        listIncoming: async () => ([]),
+        listOutgoing: async () => ([
+          {
+            id: 'shared:outgoing-1',
+            type: 'outgoing',
+            senderPublicKey: 'a'.repeat(64) as any,
+            recipientPublicKey: 'd'.repeat(64) as any,
+            profile: {
+              publicKey: 'd'.repeat(64) as any,
+              displayName: 'User dddddddd',
+              timestamp: Date.now(),
+              signature: 'shared',
+            },
+            status: 'pending',
+            createdAt: new Date(),
+          },
+        ]),
+        accept: vi.fn(async () => {
+          throw new Error('not used');
+        }),
+        decline: vi.fn(async () => undefined),
+        cancel: cancelSpy,
+      });
+
+      await inviteManager.cancelConnectionRequest('shared:outgoing-1');
+      expect(cancelSpy).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -43,6 +43,11 @@ jobs:
       - name: Check docs consistency
         run: pnpm docs:check
 
+      - name: Run release test pack (reliability gate)
+        env:
+          RELEASE_TEST_PACK_SKIP_PREFLIGHT: "1"
+        run: pnpm release:test-pack -- --skip-preflight
+
   build-desktop:
     name: Build Desktop (${{ matrix.os }})
     needs: preflight-checks
@@ -126,6 +131,68 @@ jobs:
           path: |
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+
+  build-web-pwa:
+    name: Build Web/PWA (static export)
+    needs: preflight-checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare PWA (Disable Dynamic Routes)
+        shell: bash
+        run: |
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
+          if [ -d "apps/pwa/app/api-backup" ]; then
+            mv apps/pwa/app/api-backup apps/pwa/app/_api-backup_hidden
+          fi
+          for file in \
+            apps/pwa/app/icon-192.png/route.ts \
+            apps/pwa/app/icon-512.png/route.ts \
+            apps/pwa/app/sw.js/route.ts \
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invites/page.tsx \
+            apps/pwa/app/groups/[...id]/page.tsx
+          do
+            if [ -f "$file" ]; then
+              mv "$file" "$file.ignored"
+            fi
+          done
+
+      - name: Build PWA static export
+        env:
+          TAURI_BUILD: true
+        run: pnpm -C apps/pwa build
+
+      - name: Package PWA artifact
+        shell: bash
+        run: |
+          test -f apps/pwa/out/index.html
+          tar -czf obscur-pwa-static.tar.gz -C apps/pwa/out .
+
+      - name: Upload Web/PWA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-pwa
+          path: obscur-pwa-static.tar.gz
+          if-no-files-found: error
 
   build-android:
     name: Build Android (APK + AAB)
@@ -321,7 +388,7 @@ jobs:
 
   verify-artifacts:
     name: Verify Artifacts
-    needs: [build-desktop, build-android]
+    needs: [build-desktop, build-web-pwa, build-android]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -350,6 +417,12 @@ jobs:
         with:
           name: mobile-android
           path: ./release-assets/android
+
+      - name: Download Web/PWA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-pwa
+          path: ./release-assets/web
 
       - name: Download iOS Artifacts
         continue-on-error: true
@@ -391,12 +464,18 @@ jobs:
             has_android_aab=1
           fi
 
+          has_web_bundle=0
+          if find release-assets/web -type f -iname "*.tar.gz" | grep -q .; then
+            has_web_bundle=1
+          fi
+
           echo "Artifact matrix status:"
           echo "- windows installer (.exe/.msi): ${has_windows_installer}"
           echo "- macOS installer (.dmg): ${has_macos_installer}"
           echo "- linux installer (.AppImage/.deb): ${has_linux_installer}"
           echo "- android apk (.apk): ${has_android_apk}"
           echo "- android aab (.aab): ${has_android_aab}"
+          echo "- web pwa bundle (.tar.gz): ${has_web_bundle}"
           echo "- ios ipa (.ipa, optional): $(find release-assets/ios -type f -iname \"*.ipa\" | wc -l || true)"
 
           if [ "$has_windows_installer" -ne 1 ]; then
@@ -417,6 +496,10 @@ jobs:
           fi
           if [ "$has_android_aab" -ne 1 ]; then
             echo "Missing required Android AAB (.aab)." >&2
+            exit 1
+          fi
+          if [ "$has_web_bundle" -ne 1 ]; then
+            echo "Missing required Web/PWA static bundle (.tar.gz)." >&2
             exit 1
           fi
 
@@ -455,6 +538,12 @@ jobs:
           name: mobile-android
           path: ./release-assets/android
 
+      - name: Download Web/PWA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-pwa
+          path: ./release-assets/web
+
       - name: Download iOS Artifacts
         continue-on-error: true
         uses: actions/download-artifact@v4
@@ -476,4 +565,5 @@ jobs:
             ./release-assets/macos/**/*
             ./release-assets/linux/**/*
             ./release-assets/android/**/*
+            ./release-assets/web/**/*
             ./release-assets/ios/**/*

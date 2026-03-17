@@ -40,17 +40,19 @@ import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 
 export default function GroupHomePage() {
     const params = useParams();
-    const id = Array.isArray(params.id) ? params.id.join("/") : params.id;
+    const searchParams = useSearchParams();
+    const routeId = Array.isArray(params.id) ? params.id.join("/") : params.id;
+    const id = routeId || searchParams.get("id") || "";
     const router = useRouter();
     const { t } = useTranslation();
     const { createdGroups, leaveGroup, updateGroup } = useGroups();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
     const { blocklist } = useNetwork();
-    const searchParams = useSearchParams();
     const discoveredRelay = searchParams.get("relay");
     const [isLeaving, setIsLeaving] = useState(false);
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
@@ -346,7 +348,9 @@ export default function GroupHomePage() {
                                                 variant="ghost"
                                                 className="h-14 w-14 rounded-xl text-zinc-400 hover:text-white transition-all hover:bg-white/5"
                                                 onClick={() => {
-                                                    const url = `${window.location.origin}/groups/${encodeURIComponent(group?.id || id || "")}`;
+                                                    const url = toAbsoluteAppUrl(
+                                                        getPublicGroupHref(group?.id || id || "", effectiveRelay || undefined)
+                                                    );
                                                     navigator.clipboard.writeText(url);
                                                     toast.success("Discovery link copied");
                                                 }}
@@ -565,7 +569,7 @@ export default function GroupHomePage() {
                                                 status="online"
                                                 onOpenProfile={(memberPubkey) => {
                                                     setIsMemberListOpen(false);
-                                                    router.push(`/network/${memberPubkey}`);
+                                                    router.push(getPublicProfileHref(memberPubkey));
                                                 }}
                                             />
                                         ))
@@ -583,7 +587,7 @@ export default function GroupHomePage() {
                                                 status="offline"
                                                 onOpenProfile={(memberPubkey) => {
                                                     setIsMemberListOpen(false);
-                                                    router.push(`/network/${memberPubkey}`);
+                                                    router.push(getPublicProfileHref(memberPubkey));
                                                 }}
                                             />
                                         ))

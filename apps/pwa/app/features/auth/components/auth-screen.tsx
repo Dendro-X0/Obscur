@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
     UserPlus,
@@ -25,7 +25,6 @@ import { Card } from "@dweb/ui-kit";
 import { Label } from "@dweb/ui-kit";
 import { cn } from "@/app/lib/utils";
 import { useIdentity } from "../hooks/use-identity";
-import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import type { Passphrase } from "@dweb/crypto/passphrase";
@@ -34,19 +33,13 @@ import { LanguageSelector } from "@/app/components/language-selector";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { Checkbox } from "@dweb/ui-kit";
 import { FlashMessage } from "@/app/components/ui/flash-message";
-import { getAuthTokenStorageKey, getRememberMeStorageKey } from "../utils/auth-storage-keys";
-
-const LEGACY_REMEMBER_ME_KEY = "obscur_remember_me";
-const LEGACY_AUTH_TOKEN_KEY = "obscur_auth_token";
-
-const generateRandomCode = (): string => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No O, 0, I, 1
-    let result = "";
-    for (let i = 0; i < 6; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return `OBSCUR-${result}`;
-};
+import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
+import {
+    getAuthTokenStorageKeyCandidates,
+    getRememberMeStorageKeyCandidates,
+} from "../utils/auth-storage-keys";
+import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
+import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
 
 const generateSecurePassword = (): string => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
@@ -59,13 +52,18 @@ const generateSecurePassword = (): string => {
     return result;
 };
 
+const normalizeLoginUsername = (value: string): string => value.trim().toLowerCase();
+
 type AuthMode = "welcome" | "create" | "login";
 
 export function AuthScreen() {
     const { t } = useTranslation();
     const identity = useIdentity();
+    const runtime = useWindowRuntime();
     const profile = useProfile();
-    const profilePublisher = useProfilePublisher();
+    const identityDiagnostics = identity.getIdentityDiagnostics?.();
+    const hasNativeMismatch = identityDiagnostics?.mismatchReason === "native_mismatch";
+    const hasStoredIdentity = Boolean(identity.state.stored);
 
     const [mode, setMode] = useState<AuthMode>("welcome");
     const [step, setStep] = useState(1);
@@ -83,33 +81,62 @@ export function AuthScreen() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [privateKey, setPrivateKey] = useState("");
+    const hasAppliedInitialEntryRouteRef = useRef(false);
 
+    const rememberProfileId = runtime.snapshot.session.profileId;
     const persistRememberMe = useCallback((params: Readonly<{ remember: boolean; token?: string }>) => {
-        localStorage.setItem(getRememberMeStorageKey(), params.remember ? "true" : "false");
-        if (params.remember && params.token !== undefined) {
-            localStorage.setItem(getAuthTokenStorageKey(), params.token);
-        } else {
-            localStorage.removeItem(getAuthTokenStorageKey());
-        }
-    }, []);
+        const rememberKeys = getRememberMeStorageKeyCandidates({
+            profileId: rememberProfileId,
+            includeLegacy: true,
+        });
+        const tokenKeys = getAuthTokenStorageKeyCandidates({
+            profileId: rememberProfileId,
+            includeLegacy: true,
+        });
+        rememberKeys.forEach((key) => {
+            localStorage.setItem(key, params.remember ? "true" : "false");
+        });
+        tokenKeys.forEach((key) => {
+            if (params.remember && params.token !== undefined && params.token.length > 0) {
+                localStorage.setItem(key, params.token);
+                return;
+            }
+            localStorage.removeItem(key);
+        });
+    }, [rememberProfileId]);
 
     React.useEffect(() => {
-        const remembered = localStorage.getItem(getRememberMeStorageKey()) ?? localStorage.getItem(LEGACY_REMEMBER_ME_KEY);
+        const remembered = getRememberMeStorageKeyCandidates({
+            profileId: rememberProfileId,
+            includeLegacy: true,
+        })
+            .map((key) => localStorage.getItem(key))
+            .find((value): value is string => value !== null);
         if (remembered === "true") {
             setRememberMe(true);
         } else if (remembered === "false") {
             setRememberMe(false);
         }
-    }, []);
+    }, [rememberProfileId]);
 
     React.useEffect(() => {
         if (!rememberMe) {
-            localStorage.setItem(getRememberMeStorageKey(), "false");
-            localStorage.removeItem(getAuthTokenStorageKey());
-            localStorage.setItem(LEGACY_REMEMBER_ME_KEY, "false");
-            localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+            persistRememberMe({ remember: false });
         }
-    }, [rememberMe]);
+    }, [persistRememberMe, rememberMe]);
+
+    React.useEffect(() => {
+        if (hasAppliedInitialEntryRouteRef.current) {
+            return;
+        }
+        if (mode !== "welcome" || identity.state.status === "loading") {
+            return;
+        }
+        if (hasNativeMismatch || identity.state.stored) {
+            setMode("login");
+        }
+        hasAppliedInitialEntryRouteRef.current = true;
+    }, [hasNativeMismatch, identity.state.status, identity.state.stored, mode]);
 
     const handleBack = () => {
         if (step > 1) {
@@ -120,6 +147,23 @@ export function AuthScreen() {
         }
     };
 
+    const handleResetNativeSecureStorage = useCallback(async () => {
+        if (!identity.resetNativeSecureStorage) {
+            setAuthError("Secure storage reset is not available in this runtime.");
+            return;
+        }
+        setIsLoading(true);
+        setAuthError(null);
+        try {
+            await identity.resetNativeSecureStorage();
+            toast.success("Secure storage reset. You can now unlock this profile manually.");
+        } catch (error) {
+            setAuthError(error instanceof Error ? error.message : "Failed to reset secure storage");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [identity]);
+
     const resetForm = () => {
         setStep(1);
         setUsername("");
@@ -128,6 +172,16 @@ export function AuthScreen() {
         setPrivateKey("");
         setAuthError(null);
         setAcknowledged(false);
+    };
+
+    const handleContinueImportKey = (): void => {
+        setAuthError(null);
+        const keyToUse = decodePrivateKey(privateKey);
+        if (!keyToUse) {
+            setAuthError("Invalid private key. Enter a valid `nsec` or 64-character hex key.");
+            return;
+        }
+        setStep(2);
     };
 
     const handleCreateFinal = async (e?: React.FormEvent) => {
@@ -143,19 +197,15 @@ export function AuthScreen() {
 
         setIsLoading(true);
         try {
-            await identity.createIdentity({
+            await runtime.createIdentityForBoundProfile({
                 passphrase: password as Passphrase,
                 username
             });
 
             const state = identity.getIdentitySnapshot();
             if (state.publicKeyHex && state.privateKeyHex) {
-                // Generate and publish invite code
-                const inviteCode = generateRandomCode();
-                await profilePublisher.publishProfile({
-                    username,
-                    inviteCode
-                }).catch(console.error);
+                // Generate local profile defaults immediately. Relay publish happens after auth.
+                const inviteCode = generateRandomInviteCode();
 
                 // Handle Remember Me logic
                 persistRememberMe({ remember: rememberMe, token: password });
@@ -163,6 +213,7 @@ export function AuthScreen() {
                 // Persist profile locally
                 profile.setUsername({ username });
                 profile.setInviteCode({ inviteCode });
+                profile.save();
 
                 toast.success("Identity Secured!");
             }
@@ -175,7 +226,8 @@ export function AuthScreen() {
 
     const handleLoginUsername = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!username || !password) {
+        const enteredUsername = username.trim();
+        if (!enteredUsername || !password) {
             setAuthError("Please fill in all fields");
             return;
         }
@@ -184,18 +236,22 @@ export function AuthScreen() {
         try {
             const stored = identity.state.stored;
             if (!stored) {
-                setAuthError("No local account found. Please import your private key.");
+                setAuthError("No local account exists on this device yet. Import your private key first, then you can use username/password unlock locally.");
+                setLoginTab("key");
                 setIsLoading(false);
                 return;
             }
-            if (stored.username?.toLowerCase() !== username.toLowerCase()) {
-                setAuthError(t("auth.error.usernameMismatch"));
-                setIsLoading(false);
-                return;
+            // Username is a convenience hint. Password/private-key proof remains canonical.
+            // Some legacy/imported identities do not persist a username and should still unlock.
+            const storedUsername = stored.username?.trim();
+            const normalizedEnteredUsername = normalizeLoginUsername(enteredUsername);
+            const normalizedStoredUsername = storedUsername ? normalizeLoginUsername(storedUsername) : null;
+            if (normalizedStoredUsername && normalizedStoredUsername !== normalizedEnteredUsername) {
+                toast.info(t("auth.error.usernameMismatch"));
             }
 
             try {
-                await identity.unlockIdentity({ passphrase: password as Passphrase });
+                await runtime.unlockBoundProfile({ passphrase: password as Passphrase });
             } catch (e) {
                 setAuthError(t("auth.error.incorrectPassword"));
                 setIsLoading(false);
@@ -238,7 +294,7 @@ export function AuthScreen() {
                 return;
             }
 
-            await identity.importIdentity({
+            await runtime.importIdentityForBoundProfile({
                 privateKeyHex: keyToUse,
                 passphrase: (finalPassword || "") as Passphrase,
                 username: username || undefined
@@ -247,8 +303,7 @@ export function AuthScreen() {
             const state = identity.getIdentitySnapshot();
             if (state.publicKeyHex && state.privateKeyHex) {
                 persistRememberMe({ remember: rememberMe, token: skipPassword ? undefined : (finalPassword || "") as string });
-
-                toast.success("Welcome Back!");
+                toast.info("Key accepted. Restoring account data...");
             }
         } catch (error) {
             setAuthError(error instanceof Error ? error.message : "Failed to import key");
@@ -305,6 +360,37 @@ export function AuthScreen() {
 
             <Card className="w-full max-w-lg relative bg-white/40 dark:bg-zinc-900/40 backdrop-blur-3xl border-0 ring-1 ring-black/[0.05] dark:ring-white/[0.05] rounded-[48px] shadow-2xl overflow-hidden p-0">
                 <div className="p-8 sm:p-12 min-h-[500px] flex flex-col justify-center">
+                    {hasNativeMismatch && (
+                        <div className="mb-6 rounded-[28px] border border-amber-500/20 bg-amber-500/10 p-5">
+                            <div className="flex items-start gap-4">
+                                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                                <div className="min-w-0 flex-1 space-y-3">
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+                                            Secure Storage Needs Recovery
+                                        </p>
+                                        <p className="mt-2 text-sm font-medium leading-relaxed text-amber-700 dark:text-amber-200">
+                                            {identityDiagnostics?.message ?? "Native auto-unlock was skipped for this profile."}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-3">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleResetNativeSecureStorage}
+                                            disabled={isLoading}
+                                            className="rounded-2xl border-amber-500/30 bg-white/70 text-amber-700 hover:bg-white dark:bg-zinc-950/30 dark:text-amber-300"
+                                        >
+                                            Reset Secure Storage
+                                        </Button>
+                                        <p className="self-center text-xs font-semibold text-amber-700/80 dark:text-amber-300/80">
+                                            You can also continue with your password or private key below.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <AnimatePresence mode="wait">
                         {mode !== "welcome" && (
                             <motion.button
@@ -455,6 +541,7 @@ export function AuthScreen() {
                                                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                                     </button>
                                                 </div>
+                                                <PasswordStrengthIndicator password={password} />
                                             </div>
 
                                             <div className="space-y-2">
@@ -515,10 +602,10 @@ export function AuthScreen() {
 
                                         <Button
                                             type="submit"
-                                            disabled={isLoading || profilePublisher.isMining || password !== confirmPassword || password.length < 8 || !acknowledged}
+                                            disabled={isLoading || password !== confirmPassword || password.length < 8 || !acknowledged}
                                             className="w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20 disabled:opacity-50 relative overflow-hidden group"
                                         >
-                                            {isLoading || profilePublisher.isMining ? (
+                                            {isLoading ? (
                                                 <div className="flex items-center gap-2">
                                                     <motion.div
                                                         animate={{ rotate: 360 }}
@@ -526,13 +613,13 @@ export function AuthScreen() {
                                                     >
                                                         <Sparkles className="h-5 w-5" />
                                                     </motion.div>
-                                                    <span>{profilePublisher.isMining ? "Securing Identity..." : "Generating..."}</span>
+                                                    <span>Generating...</span>
                                                 </div>
                                             ) : (
                                                 "Generate Safe Identity"
                                             )}
 
-                                            {(isLoading || profilePublisher.isMining) && (
+                                            {isLoading && (
                                                 <motion.div
                                                     initial={{ x: "-100%" }}
                                                     animate={{ x: "100%" }}
@@ -542,28 +629,6 @@ export function AuthScreen() {
                                             )}
                                         </Button>
 
-                                        <AnimatePresence>
-                                            {profilePublisher.isMining && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: -10 }}
-                                                    className="flex flex-col items-center gap-3 pt-2"
-                                                >
-                                                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em] animate-pulse">
-                                                        Mining Cryptographic Proof...
-                                                    </p>
-                                                    <div className="w-full h-1 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
-                                                        <motion.div
-                                                            initial={{ width: "0%" }}
-                                                            animate={{ width: "100%" }}
-                                                            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                                                            className="h-full bg-purple-500"
-                                                        />
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
                                     </form>
                                 )}
                             </motion.div>
@@ -597,7 +662,14 @@ export function AuthScreen() {
                                             <button
                                                 type="button"
                                                 onClick={() => setLoginTab("username")}
-                                                className={cn("flex-1 py-3 text-sm font-bold rounded-xl transition-all", loginTab === "username" ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300")}
+                                                disabled={!hasStoredIdentity}
+                                                className={cn(
+                                                    "flex-1 py-3 text-sm font-bold rounded-xl transition-all",
+                                                    loginTab === "username"
+                                                        ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5"
+                                                        : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
+                                                    !hasStoredIdentity ? "cursor-not-allowed opacity-50 hover:text-zinc-500 dark:hover:text-zinc-500" : "",
+                                                )}
                                             >
                                                 Log In
                                             </button>
@@ -609,11 +681,19 @@ export function AuthScreen() {
                                                 Import Key
                                             </button>
                                         </div>
+                                        {!hasStoredIdentity && (
+                                            <p className="px-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                                Username/password unlock is device-local. Import your private key once on this device to enable it.
+                                            </p>
+                                        )}
 
                                         {loginTab === "key" ? (
                                             <>
                                                 <div className="space-y-3 mt-4">
                                                     <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Private Key</Label>
+                                                    <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                        Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.
+                                                    </p>
                                                     <div className="relative group">
                                                         <Key className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
                                                         <input
@@ -639,12 +719,17 @@ export function AuthScreen() {
                                                 </div>
                                                 <Button
                                                     disabled={privateKey.length < 10}
-                                                    onClick={() => setStep(2)}
+                                                    onClick={handleContinueImportKey}
                                                     className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
                                                 >
                                                     Continue
                                                     <ArrowRight className="h-5 w-5 ml-2" />
                                                 </Button>
+                                                <FlashMessage
+                                                    message={authError}
+                                                    onClose={() => setAuthError(null)}
+                                                    className="mt-4"
+                                                />
                                             </>
                                         ) : (
                                             <>

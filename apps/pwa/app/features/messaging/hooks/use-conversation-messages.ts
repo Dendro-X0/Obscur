@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Message } from "../types";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { messageBus, type MessageBusEvent } from "../services/message-bus";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
+import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
+import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
+import { selectProjectionConversationMessages } from "@/app/features/account-sync/services/account-projection-selectors";
 
 interface UseConversationMessagesResult {
     messages: ReadonlyArray<Message>;
@@ -22,6 +26,7 @@ const LOAD_EARLIER_BATCH_SIZE_PERF_V2 = 60;
 const LIVE_WINDOW_SOFT_LIMIT = 120;
 const DELETE_TOMBSTONE_TTL_MS = 2 * 60 * 1000;
 type DeleteTombstones = Map<string, number>;
+const EMPTY_PROJECTION_MESSAGES: ReadonlyArray<Message> = [];
 
 const getInitialBatchSize = (chatPerformanceV2Enabled: boolean): number =>
     chatPerformanceV2Enabled ? INITIAL_BATCH_SIZE_PERF_V2 : INITIAL_BATCH_SIZE_DEFAULT;
@@ -92,6 +97,12 @@ export function useConversationMessages(
     conversationId: string | undefined,
     publicKeyHex: string | null
 ): UseConversationMessagesResult {
+    const accountProjectionSnapshot = useAccountProjectionSnapshot();
+    const projectionReadAuthority = useMemo(() => (
+        resolveProjectionReadAuthority({
+            projectionSnapshot: accountProjectionSnapshot,
+        })
+    ), [accountProjectionSnapshot]);
     const [messages, setMessages] = useState<ReadonlyArray<Message>>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasEarlier, setHasEarlier] = useState(false);
@@ -103,6 +114,16 @@ export function useConversationMessages(
     const expandedHistoryRef = useRef(false);
     const messagesRef = useRef<ReadonlyArray<Message>>([]);
     const deletedTombstonesRef = useRef<DeleteTombstones>(new Map());
+    const projectionMessages = useMemo(() => {
+        if (!conversationId || !publicKeyHex) {
+            return EMPTY_PROJECTION_MESSAGES;
+        }
+        return selectProjectionConversationMessages({
+            projection: accountProjectionSnapshot.projection,
+            conversationId,
+            myPublicKeyHex: publicKeyHex as PublicKeyHex,
+        });
+    }, [accountProjectionSnapshot.projection, conversationId, publicKeyHex]);
 
     useEffect(() => {
         messagesRef.current = messages;
@@ -137,15 +158,24 @@ export function useConversationMessages(
             // Cursor direction 'prev' returns newest first, so reverse to maintain chronological order
             const mapped: Message[] = latestMessages.reverse().map((m: any) => normalizeMessage(m));
 
-            setMessages(mapped);
-            setHasEarlier(mapped.length >= initialBatchSize);
+            const shouldUseProjectionFallback = (
+                mapped.length === 0
+                && projectionReadAuthority.useProjectionReads
+                && projectionMessages.length > 0
+            );
+            const hydrated = shouldUseProjectionFallback
+                ? projectionMessages
+                : mapped;
+
+            setMessages(hydrated);
+            setHasEarlier(shouldUseProjectionFallback ? false : mapped.length >= initialBatchSize);
             expandedHistoryRef.current = false;
         } catch (e) {
             console.error("[useConversationMessages] Failed to hydrate history:", e);
         } finally {
             setIsLoading(false);
         }
-    }, [chatPerformanceV2Enabled]);
+    }, [chatPerformanceV2Enabled, projectionMessages, projectionReadAuthority.useProjectionReads]);
 
     useEffect(() => {
         if (!conversationId) return;
@@ -161,6 +191,30 @@ export function useConversationMessages(
 
         hydrateHistory(conversationId);
     }, [conversationId, hydrateHistory, publicKeyHex]);
+
+    useEffect(() => {
+        if (!conversationId || !projectionReadAuthority.useProjectionReads) {
+            return;
+        }
+        if (projectionMessages.length === 0) {
+            return;
+        }
+        setMessages((prev) => {
+            const byId = new Map<string, Message>();
+            projectionMessages.forEach((message) => {
+                byId.set(message.id, message);
+            });
+            prev.forEach((message) => {
+                byId.set(message.id, message);
+            });
+            const merged = Array.from(byId.values()).sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+            if (merged.length === prev.length && merged.every((entry, index) => prev[index]?.id === entry.id)) {
+                return prev;
+            }
+            return merged;
+        });
+        setHasEarlier(false);
+    }, [conversationId, projectionMessages, projectionReadAuthority.useProjectionReads]);
 
     // Handle incoming real-time messages
     useEffect(() => {

@@ -7,6 +7,27 @@ export interface SessionStatus {
     isNative: boolean;
 }
 
+type SessionStatusWire = Readonly<{
+    isActive?: boolean;
+    is_active?: boolean;
+    npub?: string | null;
+    isNative?: boolean;
+    is_native?: boolean;
+}>;
+
+const normalizeSessionStatus = (payload: SessionStatusWire | null | undefined): SessionStatus => {
+    const isActive = payload?.isActive ?? payload?.is_active ?? false;
+    const isNative = payload?.isNative ?? payload?.is_native ?? true;
+    const npub = typeof payload?.npub === "string" && payload.npub.trim().length > 0
+        ? payload.npub
+        : null;
+    return {
+        isActive: Boolean(isActive),
+        npub,
+        isNative: Boolean(isNative),
+    };
+};
+
 export class SessionApi {
     /**
      * Get the current status of the native session.
@@ -16,9 +37,26 @@ export class SessionApi {
         if (!hasNativeRuntime()) {
             return { isActive: false, npub: null, isNative: false };
         }
-        const result = await invokeNativeCommand<SessionStatus>("get_session_status");
-        if (!result.ok) return { isActive: false, npub: null, isNative: false };
-        return result.value;
+        const statusResult = await invokeNativeCommand<SessionStatusWire>("get_session_status", undefined, { timeoutMs: 3_000 });
+        if (statusResult.ok) {
+            const normalized = normalizeSessionStatus(statusResult.value);
+            if (normalized.isActive) {
+                return normalized;
+            }
+        }
+
+        // Fallback rehydration path for native profile windows: get_native_npub can
+        // restore in-memory session from keychain when status payload is stale.
+        const npubResult = await invokeNativeCommand<string | null>("get_native_npub", undefined, { timeoutMs: 3_000 });
+        if (npubResult.ok && typeof npubResult.value === "string" && npubResult.value.trim().length > 0) {
+            return {
+                isActive: true,
+                npub: npubResult.value,
+                isNative: true,
+            };
+        }
+
+        return { isActive: false, npub: null, isNative: false };
     }
 
     /**
