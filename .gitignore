@@ -48,6 +48,9 @@ pnpm-debug.log*
 *.temp
 .cache/
 *.tsbuildinfo
+.tmp-ci-fix/
+.tmp-ci-head/
+.artifacts/
 
 # Package manager
 .pnpm-debug.log*
