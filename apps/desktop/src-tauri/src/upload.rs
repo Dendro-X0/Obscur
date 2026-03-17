@@ -6,16 +6,19 @@
 
 use crate::net::NativeNetworkRuntime;
 use crate::session::SessionState;
-use nostr::hashes::{sha256, Hash};
 use nostr::prelude::*;
 use serde::{Deserialize, Serialize};
 use tauri::{command, State, WebviewWindow};
 // #[cfg(not(target_os = "android"))]
 // use keyring::Entry;
 // use zeroize::Zeroizing;
-use base64::Engine;
-use std::borrow::Cow;
 use std::time::Duration;
+#[cfg(not(target_os = "android"))]
+use base64::Engine;
+#[cfg(not(target_os = "android"))]
+use nostr::hashes::{sha256, Hash};
+#[cfg(not(target_os = "android"))]
+use std::borrow::Cow;
 
 const BUILD_VERSION: &str = "2026-03-07-OPTION-C-V3-UPLOAD-HARDEN";
 const REQUEST_TIMEOUT_SECS: u64 = 12;

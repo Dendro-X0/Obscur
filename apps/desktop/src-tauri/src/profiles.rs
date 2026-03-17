@@ -148,8 +148,11 @@ fn ensure_window_binding(state: &mut PersistedProfileRegistry, window_label: &st
 
 fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Result<WebviewWindow, String> {
     if let Some(existing) = app.get_webview_window(&binding.window_label) {
-        let _ = existing.show();
-        let _ = existing.set_focus();
+        #[cfg(desktop)]
+        {
+            let _ = existing.show();
+            let _ = existing.set_focus();
+        }
         return Ok(existing);
     }
 
@@ -157,20 +160,31 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
     let profile_data_dir = app_dir.join("profiles").join(&binding.profile_id);
     std::fs::create_dir_all(&profile_data_dir).map_err(|e| e.to_string())?;
 
-    WebviewWindowBuilder::new(
+    let builder = WebviewWindowBuilder::new(
         app,
         binding.window_label.clone(),
         WebviewUrl::App("index.html".into()),
-    )
-    .title(format!("Obscur - {}", binding.profile_label))
-    .inner_size(1200.0, 800.0)
-    .min_inner_size(800.0, 600.0)
-    .resizable(true)
-    .decorations(false)
-    .shadow(true)
-    .data_directory(profile_data_dir)
-    .build()
-    .map_err(|e| e.to_string())
+    );
+
+    #[cfg(desktop)]
+    {
+        return builder
+            .title(format!("Obscur - {}", binding.profile_label))
+            .inner_size(1200.0, 800.0)
+            .min_inner_size(800.0, 600.0)
+            .resizable(true)
+            .decorations(false)
+            .shadow(true)
+            .data_directory(profile_data_dir)
+            .build()
+            .map_err(|e| e.to_string());
+    }
+
+    #[cfg(mobile)]
+    {
+        let _ = profile_data_dir;
+        builder.build().map_err(|e: tauri::Error| e.to_string())
+    }
 }
 
 impl DesktopProfileState {
