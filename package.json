@@ -24,6 +24,7 @@
     "release:ci-signal-check": "node scripts/check-release-ci-signals.mjs",
     "release:verify-tag": "node scripts/verify-release-tag.mjs",
     "release:test-pack": "node scripts/run-release-test-pack.mjs",
+    "ci:local": "powershell -ExecutionPolicy Bypass -File scripts/local-ci.ps1",
     "probe:relay-nip": "node scripts/relay-nip-probe.mjs",
     "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
     "ci:scan:pwa:head": "node scripts/pwa-ci-scan-head.mjs",
