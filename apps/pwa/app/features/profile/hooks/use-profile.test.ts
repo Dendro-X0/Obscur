@@ -38,9 +38,29 @@ describe("useProfile restart recovery", () => {
       expect(restarted.result.current.state.profile.username).toBe("Alice");
     });
     expect(restarted.result.current.state.profile.about).toBe("Builder");
-    expect(restarted.result.current.state.profile.avatarUrl).toBe(`${window.location.origin}/uploads/alice.png`);
+    expect(restarted.result.current.state.profile.avatarUrl).toBe("/uploads/alice.png");
     expect(restarted.result.current.state.profile.nip05).toBe("alice@example.com");
     expect(restarted.result.current.state.profile.inviteCode).toBe("OBSCUR-ALICE9");
+  });
+
+  it("keeps absolute avatar urls unchanged after a restart-style reset", async () => {
+    const { result, unmount } = renderHook(() => useProfile());
+
+    act(() => {
+      result.current.setUsername({ username: "Alice CDN" });
+      result.current.setAvatarUrl({ avatarUrl: "https://cdn.example.com/alice.png" });
+      result.current.save();
+    });
+
+    unmount();
+    useProfileInternals.resetForTests();
+
+    const restarted = renderHook(() => useProfile());
+
+    await waitFor(() => {
+      expect(restarted.result.current.state.profile.username).toBe("Alice CDN");
+    });
+    expect(restarted.result.current.state.profile.avatarUrl).toBe("https://cdn.example.com/alice.png");
   });
 
   it("keeps local profile state isolated per active profile across switches", async () => {
