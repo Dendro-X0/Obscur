@@ -48,6 +48,22 @@ This document is the short module map for day-to-day implementation and triage.
   - `apps/pwa/app/features/messaging/services/request-flow-evidence-store.ts`
   - `apps/pwa/app/features/messaging/services/request-status-projection.ts`
 
+## Network and Communities (Groups)
+
+- Network provider (identity + trust + requests + blocklist):
+  - `apps/pwa/app/features/network/providers/network-provider.tsx`
+- Group lifecycle/persistence owner:
+  - `apps/pwa/app/features/groups/providers/group-provider.tsx`
+- Sealed community runtime owner:
+  - `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
+- Membership truth reducer:
+  - `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+- Event constructor/signing service:
+  - `apps/pwa/app/features/groups/services/group-service.ts`
+
+Known active gap (v0.9.1 planning target):
+- Several moderation/admin handlers in `use-sealed-community.ts` are still placeholders (`noop`) and should be completed before claiming mature community operations.
+
 ## Search and Discovery
 
 - Search orchestration: `apps/pwa/app/features/search/hooks/use-global-search.ts`

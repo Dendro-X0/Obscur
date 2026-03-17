@@ -14,6 +14,8 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 6. [06 Testing and Quality Gates](./06-testing-and-quality-gates.md)
 7. [07 Operations and Release Flow](./07-operations-and-release-flow.md)
 8. [08 Maintainer Playbook and Continuation Handoff](./08-maintainer-playbook.md)
+9. [09 Mobile Native Parity Matrix](./09-mobile-native-parity-matrix.md)
+10. [10 Community and Groups Overhaul Roadmap](./10-community-and-groups-overhaul.md)
 
 ## Scope Rules
 
