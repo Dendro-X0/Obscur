@@ -264,6 +264,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Fast-fail Kotlin compile (Android)
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x apps/desktop/src-tauri/gen/android/gradlew
+          apps/desktop/src-tauri/gen/android/gradlew \
+            --project-dir apps/desktop/src-tauri/gen/android \
+            :app:compileUniversalReleaseKotlin \
+            --no-daemon
+
       - name: Decode Android keystore (optional)
         run: |
           if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
