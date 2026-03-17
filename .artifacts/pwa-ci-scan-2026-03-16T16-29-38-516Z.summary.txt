@@ -1,0 +1,2 @@
+failed_step=none
+log=E:\Web Project\experimental-workspace\newstart\.artifacts\pwa-ci-scan-2026-03-16T16-29-38-516Z.log
