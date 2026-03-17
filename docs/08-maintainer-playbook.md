@@ -1,47 +1,51 @@
-# Maintainer Playbook
+# 08 Maintainer Playbook and Continuation Handoff
 
-_Last reviewed: 2026-03-03 (baseline commit 7f57b32)._
+_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 
+This file is the minimal context needed to resume the project after a pause.
 
-## Purpose
+## Current State Snapshot
 
-This document is optimized for long-term maintainers (human and AI).
+- Cross-platform beta release pipeline is wired through GitHub Releases.
+- Runtime architecture has moved toward explicit ownership and contract-first behavior.
+- Docs were intentionally compacted to reduce maintenance overhead and token cost.
 
-## Change Strategy
+## Confirmed Ongoing Problem Areas
 
-- Prefer small, testable increments in core messaging paths.
-- Add feature flags for behavior changes that can affect message correctness.
-- Keep persistence, reducer logic, and rendering concerns separated.
+See `ISSUES.md` for user-facing language. Engineering focus remains:
 
-## Where to Implement What
+1. Cross-device account/session consistency (password/session restore behavior).
+2. Direct-message history consistency after device/account synchronization.
+3. Relay instability handling under partial outages.
 
-- New chat state behavior: `hooks/use-conversation-messages.ts`
-- Persistence write strategy: `services/message-persistence-service.ts`
-- Rendering/scroll behavior: `components/message-list.tsx`
-- Group realtime/event shaping: `groups/hooks/use-sealed-community.ts`
+## Default Recovery Heuristic
 
-## Documentation Rules
+When a core flow breaks:
 
-- Update docs in the same PR/commit as behavior changes.
-- Include absolute file references when describing implementation details.
-- Avoid speculative docs; only document behavior present in code.
+1. Identify canonical owner module.
+2. List all parallel code paths mutating the same state.
+3. Remove or isolate non-canonical mutations.
+4. Add diagnostics at the canonical boundary.
+5. Repair behavior only after ownership is clear.
 
-## Regression Risk Areas
+## High-Value Debug Surfaces
 
-- Message ordering and dedupe.
-- Delete/update race windows.
-- Virtualized list rendering identity and rerenders.
-- Group relay-scope filtering and event acceptance/rejection.
-- Desktop vs PWA runtime differences.
+- Runtime and app events: `apps/pwa/app/shared/log-app-event.ts`
+- Reliability metrics: `apps/pwa/app/shared/reliability-observability.ts`
+- Relay observability: `apps/pwa/app/features/relays/services/relay-resilience-observability.ts`
+- Messaging diagnostics: `apps/pwa/app/features/messaging/services/delivery-diagnostics-store.ts`
 
-## Deep References
+## Change Discipline
 
-- [Feature Change Maps (Deep References)](./10-feature-change-maps.md)
+- Prefer subtraction over compatibility layering.
+- Avoid hidden singleton assumptions for profile/account scope.
+- Treat sender-local optimistic state as provisional only.
+- Keep release claims tied to runtime evidence, not just passing tests.
 
+## Resume Checklist
 
-## Operational References
-
-- [On-Call Quickstart (15-Minute Triage)](./15-on-call-quickstart.md)
-- [Decision Log](./17-decision-log.md)
-- [Docs Maintenance Standard](./18-docs-maintenance-standard.md)
-
+1. Pull latest `main` and run `pnpm install`.
+2. Run `pnpm docs:check`.
+3. Run `pnpm ci:scan:pwa:head` before major pushes.
+4. Validate target flow in two-user reasoning terms (sender and receiver state).
+5. Update `ISSUES.md` and these docs when architecture truth changes.

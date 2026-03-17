@@ -1,33 +1,72 @@
-# Messaging and Groups
+# 04 Feature Modules
 
-_Last reviewed: 2026-03-03 (baseline commit 7f57b32)._
+_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 
+This document is the short module map for day-to-day implementation and triage.
 
-## Direct Message Flow (High Level)
+## Auth and Identity
 
-1. Event/message enters app logic.
-2. Message bus emits `new_message` / `message_updated` / `message_deleted`.
-3. Conversation hook (`use-conversation-messages`) applies changes to active view state.
-4. Persistence service syncs operations to IndexedDB.
+- Gateway/UI: `apps/pwa/app/features/auth/components/auth-gateway.tsx`
+- Session API bridge: `apps/pwa/app/features/auth/services/session-api.ts`
+- Identity storage and binding:
+  - `apps/pwa/app/features/auth/utils/auth-storage-keys.ts`
+  - `apps/pwa/app/features/auth/utils/identity-profile-binding.ts`
 
-## Group/Community Flow (High Level)
+## Runtime and Profile Scope
 
-- Sealed community hook (`use-sealed-community`) processes relay events.
-- Realtime events are deduped and merged into descending message state.
-- Group messages are also emitted into the messaging bus for unified chat rendering.
+- Runtime supervisor: `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
+- Runtime capability detection: `apps/pwa/app/features/runtime/runtime-capabilities.ts`
+- Native host/event adapters:
+  - `apps/pwa/app/features/runtime/native-host-adapter.ts`
+  - `apps/pwa/app/features/runtime/native-event-adapter.ts`
 
-## Key Implementation Files
+## Account Sync and Projection
 
-- DM view state: `apps/pwa/app/features/messaging/hooks/use-conversation-messages.ts`
-- Message persistence: `apps/pwa/app/features/messaging/services/message-persistence-service.ts`
-- Group realtime: `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
-- Chat rendering: `apps/pwa/app/features/messaging/components/message-list.tsx`
+- Sync hook: `apps/pwa/app/features/account-sync/hooks/use-account-sync.ts`
+- Projection runtime: `apps/pwa/app/features/account-sync/services/account-projection-runtime.ts`
+- Encrypted backup path: `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
+- Event ingest bridge: `apps/pwa/app/features/account-sync/services/account-event-ingest-bridge.ts`
 
-## Current Performance-Oriented Behavior
+## Relays and Transport
 
-When `chatPerformanceV2 = true`:
+- Relay pool/runtime: `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
+- Recovery policy: `apps/pwa/app/features/relays/services/relay-recovery-policy.ts`
+- Resilience diagnostics:
+  - `apps/pwa/app/features/relays/services/relay-resilience-observability.ts`
+  - `apps/pwa/app/features/relays/services/relay-transport-journal.ts`
+- NIP-65 helpers: `apps/pwa/app/features/relays/utils/nip65-service.ts`
 
-- bus events are buffered and applied per animation frame,
-- persistence flushes in timed/threshold batches,
-- live-message window is soft-capped for smooth scrolling,
-- high-load UI paths reduce expensive gestures.
+## Messaging
+
+- Controller: `apps/pwa/app/features/messaging/controllers/enhanced-dm-controller.ts`
+- Outgoing orchestration/publish:
+  - `apps/pwa/app/features/messaging/controllers/outgoing-dm-orchestrator.ts`
+  - `apps/pwa/app/features/messaging/controllers/outgoing-dm-publisher.ts`
+- Incoming handler: `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`
+- Delivery/request evidence services:
+  - `apps/pwa/app/features/messaging/services/delivery-diagnostics-store.ts`
+  - `apps/pwa/app/features/messaging/services/request-flow-evidence-store.ts`
+  - `apps/pwa/app/features/messaging/services/request-status-projection.ts`
+
+## Search and Discovery
+
+- Search orchestration: `apps/pwa/app/features/search/hooks/use-global-search.ts`
+- Discovery engine/cache:
+  - `apps/pwa/app/features/search/services/discovery-engine.ts`
+  - `apps/pwa/app/features/search/services/discovery-cache.ts`
+- Friend code logic: `apps/pwa/app/features/search/services/friend-code-v2.ts`
+
+## Settings, Vault, and UI Foundations
+
+- Privacy/reliability flags:
+  - `apps/pwa/app/features/settings/services/privacy-settings-service.ts`
+  - `apps/pwa/app/features/settings/services/v090-rollout-policy.ts`
+- Local vault/media: `apps/pwa/app/features/vault/services/local-media-store.ts`
+- Shared UI components: `packages/ui-kit/src/components`
+
+## Shared Contracts and Native Core
+
+- Core contracts: `packages/dweb-core/src/security-foundation-contracts.ts`
+- Nostr primitives: `packages/dweb-nostr/src`
+- Crypto primitives: `packages/dweb-crypto/src`
+- Rust protocol core: `packages/libobscur/src/protocol`

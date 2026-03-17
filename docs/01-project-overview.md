@@ -1,38 +1,53 @@
-# Project Overview
+# 01 Project Overview
 
-_Last reviewed: 2026-03-03 (baseline commit 7f57b32)._
+_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 
+Obscur is a privacy-first, local-first messenger built on Nostr relays. The project ships as Web/PWA and Tauri Desktop, with mobile builds produced from the desktop/Tauri stack.
 
-## Current Stage
+## Product Intent
 
-Obscur is an experimental alpha (current line: `v0.7.x-alpha`).
+- End-to-end encrypted messaging with self-custody identity.
+- Relay-based transport with no single backend dependency.
+- Cross-platform behavior consistency across PWA and native shells.
+- Deterministic runtime behavior: explicit ownership, explicit scope, evidence-backed sync and delivery states.
 
-- Product quality target: stability and correctness before broad rollout.
-- Delivery model: iterative alpha releases with feature flags for risky changes.
+## Platform Surfaces
 
-## Product Scope
+- `apps/pwa`: primary product surface and most feature logic.
+- `apps/desktop`: Tauri shell, native runtime bridge, updater, mobile build path.
+- `apps/website`: marketing/docs site surface.
+- `apps/relay-gateway`: relay-facing service surface.
+- `apps/coordination`: auxiliary app surface.
 
-Obscur is a local-first Nostr messenger focused on private communication:
+## Current Engineering Priorities
 
-- Direct messaging.
-- Invite-only group/community messaging.
-- Media/file attachments (NIP-96 providers).
-- Desktop/mobile runtime via Tauri v2.
+- Runtime/transport determinism (single owner per window, no duplicate lifecycle owners).
+- Account sync convergence and profile-scoped persistence.
+- Relay resilience and scoped publish/subscribe correctness.
+- Cross-device identity/session consistency.
 
-## Primary Runtime Components
+## Non-Goals
 
-- `apps/pwa`: main app surface (Next.js + React).
-- `apps/desktop`: native shell/runtime (Tauri v2).
-- `packages/*`: shared protocol, crypto, storage, and UI primitives.
+- Maintaining old roadmap narratives inside active docs.
+- Treating optimistic local state as network truth.
+- Mixing legacy and modern execution paths for the same user action.
 
-## Important Principles
+## Quick Start
 
-- Privacy-first defaults.
-- Feature-flagged rollout for performance and behavioral changes.
-- Incremental refactoring over disruptive rewrites in hot code paths.
-- Keep docs synchronized with code and changelog.
+```bash
+pnpm install
+pnpm dev:pwa
+```
 
-## Cross-Reference
+Desktop shell:
 
-- Version history: [`CHANGELOG.md`](../CHANGELOG.md)
-- Workspace root scripts: [`package.json`](../package.json)
+```bash
+pnpm dev:desktop
+```
+
+## Entry Points
+
+- Web app shell: `apps/pwa/app/components/app-shell.tsx`
+- Runtime supervisor: `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
+- Auth gateway: `apps/pwa/app/features/auth/components/auth-gateway.tsx`
+- Desktop runtime bridge: `apps/desktop/src-tauri/src/lib.rs`

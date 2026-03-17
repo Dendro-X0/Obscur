@@ -61,12 +61,14 @@ pnpm dev:desktop
 Use `/docs` as the source of truth for maintainers and contributors.
 
 - Docs index: [`docs/README.md`](docs/README.md)
-- Architecture and runtime: [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md)
-- Messaging and groups: [`docs/04-messaging-and-groups.md`](docs/04-messaging-and-groups.md)
+- Project overview: [`docs/01-project-overview.md`](docs/01-project-overview.md)
+- Repository map: [`docs/02-repository-map.md`](docs/02-repository-map.md)
+- Runtime architecture: [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md)
+- Feature module map: [`docs/04-messaging-and-groups.md`](docs/04-messaging-and-groups.md)
+- Data and sync flows: [`docs/05-performance-and-load-testing.md`](docs/05-performance-and-load-testing.md)
 - Testing and quality gates: [`docs/06-testing-and-quality-gates.md`](docs/06-testing-and-quality-gates.md)
 - Operations and release flow: [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- v0.9 beta status handoff: [`docs/40-v0.9.0-beta-status-and-recovery-handoff.md`](docs/40-v0.9.0-beta-status-and-recovery-handoff.md)
-- v0.9 relay/runtime resilience plan: [`docs/41-v0.9-relay-runtime-resilience-foundation.md`](docs/41-v0.9-relay-runtime-resilience-foundation.md)
+- Maintainer handoff: [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
 
 ## Demo Placeholders (To Be Replaced)
 
@@ -101,7 +103,7 @@ pnpm release:verify-tag --tag vX.Y.Z
 Release references:
 
 - [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- [`docs/40-v0.9.0-beta-status-and-recovery-handoff.md`](docs/40-v0.9.0-beta-status-and-recovery-handoff.md)
+- [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
 
 Current distribution channel:
 

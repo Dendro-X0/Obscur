@@ -1,33 +1,55 @@
-# Runtime Architecture
+# 03 Runtime Architecture
 
-_Last reviewed: 2026-03-03 (baseline commit 7f57b32)._
+_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 
+## Canonical Ownership Model
 
-## PWA Runtime (`apps/pwa`)
+Obscur runtime correctness depends on explicit owners:
 
-- Framework: Next.js 16 + React 19.
-- Architecture style: feature folders under `app/features/*`.
-- Key composition: provider + hook based state orchestration.
+1. Window runtime owner
+: `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
 
-Core providers include messaging, relays, identity/auth, groups, and network trust state.
+2. Account sync owner
+: `apps/pwa/app/features/account-sync/hooks/use-account-sync.ts`
 
-## Desktop Runtime (`apps/desktop`)
+3. Relay transport owner
+: `apps/pwa/app/features/relays/services/relay-runtime-supervisor.ts`
 
-- Host: Tauri v2.
-- Uses native sidecars/tooling setup scripts before dev/build.
-- Bridges web UI with native capabilities (networking, filesystem, OS integrations).
+4. Messaging transport owner
+: `apps/pwa/app/features/messaging/services/messaging-transport-runtime.ts`
 
-## Messaging Persistence Model
+No feature should create a parallel owner for these lifecycles.
 
-- IndexedDB-backed `messages` store (`packages/dweb-storage`).
-- Composite index support for fast conversation-time paging.
-- Message bus fan-out updates both persistence and UI paths.
+## Activation Sequence (PWA)
 
-## Performance Feature Flag Path
+1. Auth shell resolves identity/profile binding.
+: `apps/pwa/app/features/auth/hooks/use-identity.ts`
 
-`chatPerformanceV2` in privacy settings gates batched behavior in hot messaging flows:
+2. Runtime supervisor establishes window scope and capabilities.
+: `apps/pwa/app/features/runtime/runtime-capabilities.ts`
 
-- batched persistence writes,
-- RAF-batched UI state updates,
-- adaptive message list behavior,
-- group realtime batching.
+3. Profile/account scope is resolved before account-scoped storage access.
+: `apps/pwa/app/features/profiles/services/profile-scope.ts`
+
+4. Relay and messaging owners mount only when identity is available.
+
+5. Account sync and projection hydrate deterministic local state.
+
+## Native/Desktop Boundary
+
+- JS invokes typed Tauri commands through adapters in `apps/pwa/app/features/runtime`.
+- Tauri commands are implemented in Rust under `apps/desktop/src-tauri/src`.
+- Protocol-related native behavior lives in `packages/libobscur/src/protocol`.
+
+## Required Runtime Invariants
+
+- Signed-out windows do not run heavy sync/transport flows.
+- Storage keys are scope-derived at access time, not module-load time.
+- Incoming transport routes include diagnostics (subscription owner, recipient match, decrypt outcome, routing outcome).
+- Sync/checkpoint progress is evidence-backed; timeout-only advancement is disallowed.
+
+## Failure Patterns to Avoid
+
+- Duplicated subscription/sync owners.
+- Implicit "current active profile" fallbacks in shared services.
+- Optimistic success states without relay/recipient evidence.

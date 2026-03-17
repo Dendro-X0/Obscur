@@ -1,64 +1,71 @@
-# Repository Map
+# 02 Repository Map
 
-_Last reviewed: 2026-03-03 (baseline commit 7f57b32)._
+_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 
+## Top-Level Layout
 
-## Monorepo Layout
+- `apps/`: runtime applications and shells.
+- `packages/`: shared libraries and contracts.
+- `scripts/`: quality/release utilities.
+- `docs/`: canonical project docs.
+- `infra/`: infrastructure assets.
 
-```text
-apps/
-  pwa/            # Main product UI and messaging logic
-  desktop/        # Tauri host + native bridge
-  coordination/   # Cloudflare Worker for coordination flows
-  relay-gateway/  # Relay gateway service
-  website/        # Marketing/info site
-packages/
-  dweb-core/
-  dweb-crypto/
-  dweb-nostr/
-  dweb-storage/
-  libobscur/
-  ui-kit/
-docs/
-scripts/
-```
+## Apps
 
-## Frequently Touched Paths
+- `apps/pwa`
+: Main feature implementation surface (auth, runtime, messaging, account sync, relays, search, settings, vault).
 
-### Messaging
+- `apps/desktop`
+: Tauri host and native command boundary.
+  - Native command registration: `apps/desktop/src-tauri/src/lib.rs`
+  - Network and relay commands: `apps/desktop/src-tauri/src/net.rs`, `apps/desktop/src-tauri/src/relay.rs`
+  - Session/auth commands: `apps/desktop/src-tauri/src/session.rs`
+  - Upload bridge: `apps/desktop/src-tauri/src/upload.rs`
+  - Protocol/profile commands: `apps/desktop/src-tauri/src/protocol.rs`, `apps/desktop/src-tauri/src/profiles.rs`
 
-- `apps/pwa/app/features/messaging/components/`
-- `apps/pwa/app/features/messaging/hooks/`
-- `apps/pwa/app/features/messaging/services/`
-- `apps/pwa/app/features/messaging/lib/`
+- `apps/website`
+: Website/docs-facing app.
 
-### Groups/Communities
+- `apps/relay-gateway`
+: Relay integration service layer.
 
-- `apps/pwa/app/features/groups/components/`
-- `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
+- `apps/coordination`
+: Auxiliary coordination surface.
 
-### Settings
+## Shared Packages
 
-- `apps/pwa/app/settings/page.tsx`
-- `apps/pwa/app/features/settings/services/privacy-settings-service.ts`
+- `packages/dweb-core`
+: shared product contracts and base types (`packages/dweb-core/src/security-foundation-contracts.ts`).
 
-### Shared Storage/Crypto
+- `packages/dweb-crypto`
+: key derivation, encryption wrappers, PoW helpers.
 
-- `packages/dweb-storage/src/indexed-db.ts`
-- `packages/dweb-crypto/*`
-- `packages/dweb-nostr/*`
+- `packages/dweb-nostr`
+: Nostr event creation/verification and protocol helpers.
 
-## Workspace and Build Configuration
+- `packages/dweb-storage`
+: storage utility primitives.
 
-- Workspace: [`pnpm-workspace.yaml`](../pnpm-workspace.yaml)
-- Root scripts: [`package.json`](../package.json)
-- PWA scripts: [`apps/pwa/package.json`](../apps/pwa/package.json)
-- Desktop scripts: [`apps/desktop/package.json`](../apps/desktop/package.json)
+- `packages/ui-kit`
+: reusable UI components.
 
-## Known Workspace Script Mismatch
+- `packages/libobscur`
+: Rust native core and protocol implementation.
 
-Root scripts currently include `dev:api` and `build:api`, but the API app directory is not present in this workspace.
+## High-Value PWA Feature Roots
 
-- Root scripts source: [`../package.json`](../package.json)
-- Current apps: `apps/coordination`, `apps/desktop`, `apps/pwa`, `apps/relay-gateway`, `apps/website`
+- Runtime: `apps/pwa/app/features/runtime`
+- Auth: `apps/pwa/app/features/auth`
+- Account sync: `apps/pwa/app/features/account-sync`
+- Messaging: `apps/pwa/app/features/messaging`
+- Relays: `apps/pwa/app/features/relays`
+- Search/discovery: `apps/pwa/app/features/search`
+- Profile/settings: `apps/pwa/app/features/profile`, `apps/pwa/app/features/settings`
+- Vault/media: `apps/pwa/app/features/vault`
 
+## Tooling and Gates
+
+- Docs validation: `scripts/docs-check.mjs`
+- Version sync/check: `scripts/sync-versions.mjs`, `scripts/check-version-alignment.mjs`
+- Release preflight: `scripts/release-preflight.mjs`
+- Release test pack: `scripts/run-release-test-pack.mjs`

@@ -1,71 +1,74 @@
-# Performance and Load Testing
+# 05 Data, State, and Sync Flows
 
-_Last reviewed: 2026-03-03 (baseline commit 7f57b32)._
+_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 
+## Core Principle
 
-## Objective
+Local state is provisional. Durable states must be derived from evidence (relay ACK, recipient-side signals, checkpoint evidence).
 
-Validate smoothness under high message volume without relying on manual message spam.
+## Primary Persistence Surfaces
 
-## Performance Feature Flag
+- Messaging queue/state
+: `apps/pwa/app/features/messaging/lib/message-queue.ts`
 
-- Setting key: `chatPerformanceV2`
-- Default: `false` (safe rollout)
-- Toggle location: Settings -> Storage
+- Chat state projection
+: `apps/pwa/app/features/messaging/services/chat-state-store.ts`
 
-## Synthetic Load Tools (Dev Only)
+- Account sync events/projection
+: `apps/pwa/app/features/account-sync/services/account-event-store.ts`
 
-In development mode, use browser console:
+- Identity/session records
+: `apps/pwa/app/features/auth/utils/open-identity-db.ts`
 
-```js
-await window.obscurChatPerf.clearConversationMessages("demo:perf");
-await window.obscurChatPerf.seedConversationMessages({ conversationId: "demo:perf", count: 10000 });
-window.obscurChatPerf.emitBurstEvents({ conversationId: "demo:perf", count: 200 });
-```
+- Profile-scoped keys
+: `apps/pwa/app/features/profiles/services/profile-scope.ts`
 
-### Standardized Maintainer Scenario (10k + burst)
+## Outgoing DM Flow (Simplified)
 
-1. Start app: `pnpm -C apps/pwa dev`
-2. Open a chat and note `conversationId`.
-3. Run:
+1. Build encrypted event payload.
+2. Resolve target relay scope (recipient evidence + sender fallbacks).
+3. Publish via relay pool with quorum/evidence tracking.
+4. If publish is degraded, queue retry with reason code and diagnostics.
 
-```js
-await window.obscurChatPerf.clearConversationMessages("demo:perf");
-await window.obscurChatPerf.seedConversationMessages({ conversationId: "demo:perf", count: 10000, intervalMs: 500 });
-window.obscurChatPerf.emitBurstEvents({ conversationId: "demo:perf", count: 300, intervalMs: 0 });
-```
+Key files:
 
-4. Scroll from newest to older ranges and capture p95 UI latency from perf monitor.
+- `apps/pwa/app/features/messaging/controllers/outgoing-dm-orchestrator.ts`
+- `apps/pwa/app/features/messaging/controllers/outgoing-dm-publisher.ts`
+- `apps/pwa/app/features/messaging/controllers/dm-queue-orchestrator.ts`
 
-### Safety Notes
+## Incoming DM Flow (Simplified)
 
-- Use test/demo conversation IDs only.
-- `clearConversationMessages` deletes all persisted rows for that `conversationId`.
-- Never run synthetic seeding against production user conversations.
+1. Subscription manager receives relay events.
+2. Incoming handler verifies recipient, signature, decryptability, trust/routing.
+3. Message is persisted and projected into UI state.
+4. Diagnostics/evidence stores record routing and status transitions.
 
-Provided by:
+Key files:
 
-- `apps/pwa/app/features/messaging/dev/chat-performance-dev-tools.ts`
+- `apps/pwa/app/features/messaging/controllers/dm-subscription-manager.ts`
+- `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`
 
-## Production-Mode Verification
+## Account Sync Flow (Simplified)
 
-Always compare against production server behavior:
+1. Local mutations append account events.
+2. Encrypted backup publish attempts send account snapshots/events.
+3. Projection runtime rehydrates deterministic account state on startup.
+4. Drift detector and sync policy control reconciliation behavior.
 
-```bash
-pnpm -C apps/pwa build
-pnpm -C apps/pwa start
-```
+Key files:
 
-`next dev` can exaggerate lag due to development overhead.
+- `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
+- `apps/pwa/app/features/account-sync/services/account-projection-runtime.ts`
+- `apps/pwa/app/features/account-sync/services/account-sync-drift-detector.ts`
 
-## Performance Metrics
+## Discovery Flow (Friend Code, pubkey, QR)
 
-Performance monitor includes:
+- Search and identity resolution: `apps/pwa/app/features/search/services/discovery-engine.ts`
+- Friend code parsing/normalization: `apps/pwa/app/features/search/services/friend-code-v2.ts`
+- Outbox/state coupling: `apps/pwa/app/features/search/hooks/use-contact-request-outbox.ts`
 
-- message-bus events/sec,
-- average batch size,
-- average batch flush latency,
-- merged/dropped event counts,
-- UI update latency and p95.
+## Guardrails
 
-File: `apps/pwa/app/features/messaging/lib/performance-monitor.ts`
+- Do not advance sync/checkpoints on timeout-only signals.
+- Do not mark delivery successful from optimistic UI state.
+- Keep profile/account scope explicit in every storage access.
