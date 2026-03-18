@@ -264,10 +264,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare Tauri Android bridge files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "apps/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
+            echo "tauri.settings.gradle already present."
+            exit 0
+          fi
+
+          echo "tauri.settings.gradle missing in clean checkout; attempting tauri android init..."
+          pnpm -C apps/desktop tauri android init || true
+
+          if [ -f "apps/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
+            echo "tauri.settings.gradle generated successfully."
+            exit 0
+          fi
+
+          echo "tauri.settings.gradle still missing. Fast-fail Kotlin compile will be skipped; tauri android build remains canonical gate."
+
       - name: Fast-fail Kotlin compile (Android)
         shell: bash
         run: |
           set -euo pipefail
+          if [ ! -f "apps/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
+            echo "Skipping Kotlin fast-fail: tauri.settings.gradle not present yet."
+            exit 0
+          fi
           chmod +x apps/desktop/src-tauri/gen/android/gradlew
           apps/desktop/src-tauri/gen/android/gradlew \
             --project-dir apps/desktop/src-tauri/gen/android \
