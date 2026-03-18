@@ -43,6 +43,7 @@ commands.allow = [
     "nip96_upload_v2",
     "restart_app",
     "reset_app_storage",
+    "desktop_open_storage_path",
     "mine_pow"
 ]
 

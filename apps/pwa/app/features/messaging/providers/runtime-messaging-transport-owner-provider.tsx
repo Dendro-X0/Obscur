@@ -11,6 +11,7 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useWindowRuntimeSnapshot } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
+import { recordPeerLastActive } from "@/app/features/messaging/services/peer-interaction-store";
 
 const ACTIVE_OWNER_RUNTIME_PHASES = new Set(["ready", "degraded"]);
 const RUNTIME_TRANSPORT_OWNER_ID = "runtime_singleton_owner";
@@ -45,8 +46,15 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
   const myPublicKeyHex = ownerEnabled ? (identity.state.publicKeyHex ?? null) : null;
   const myPrivateKeyHex = ownerEnabled ? (identity.state.privateKeyHex ?? null) : null;
   const handleNewMessage = useCallback((message: Message) => {
+    if (!message.isOutgoing && activePublicKeyHex && message.senderPubkey) {
+      recordPeerLastActive({
+        publicKeyHex: activePublicKeyHex,
+        peerPublicKeyHex: message.senderPubkey,
+        activeAtMs: message.eventCreatedAt?.getTime() ?? message.timestamp.getTime(),
+      });
+    }
     messageBus.emitNewMessage(message.conversationId, message);
-  }, []);
+  }, [activePublicKeyHex]);
 
   const controller = useEnhancedDmController({
     myPublicKeyHex,

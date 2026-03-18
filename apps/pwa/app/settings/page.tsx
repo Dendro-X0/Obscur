@@ -88,6 +88,7 @@ import {
   getLocalMediaStorageConfig,
   getLocalMediaIndexSnapshot,
   getLocalMediaStorageAbsolutePath,
+  ensureLocalMediaStoragePathReady,
   openLocalMediaStoragePath,
   pickLocalMediaStorageRootPath,
   purgeLocalMediaCache,
@@ -1716,7 +1717,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     id="profile-about"
                     value={profile.state.profile.about || ""}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => profile.setAbout({ about: e.target.value })}
-                    placeholder={t("profile.aboutPlaceholder", "Tell others who you are (developer, artist, trader, etc.)")}
+                    placeholder={t("profile.aboutPlaceholder", "Briefly introduce yourself so your friends can get to know you.")}
                     rows={4}
                     aria-invalid={!!profileValidation.aboutError}
                     className={cn(
@@ -3525,9 +3526,17 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                           variant="ghost"
                           size="sm"
                           onClick={async () => {
+                            const previousConfig = localMediaConfig;
                             const selected = await pickLocalMediaStorageRootPath();
                             if (!selected) return;
                             saveLocalMediaConfig({ ...localMediaConfig, customRootPath: selected });
+                            const isReady = await ensureLocalMediaStoragePathReady();
+                            if (!isReady) {
+                              saveLocalMediaConfig(previousConfig);
+                              await refreshLocalMediaAbsolutePath();
+                              toast.error("Unable to use this folder. Please choose a different location.");
+                              return;
+                            }
                             await refreshLocalMediaAbsolutePath();
                             toast.success(t("settings.storage.pathSelected", "Local data path selected."));
                           }}

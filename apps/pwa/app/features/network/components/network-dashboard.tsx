@@ -59,7 +59,7 @@ type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked" | "manag
 
 export function NetworkDashboard() {
     const { t } = useTranslation();
-    const { identity, peerTrust, requestsInbox, blocklist } = useNetwork();
+    const { identity, peerTrust, requestsInbox, blocklist, presence } = useNetwork();
     const { createdGroups, setIsNewGroupOpen } = useGroups();
     const {
         setIsNewChatOpen,
@@ -147,11 +147,16 @@ export function NetworkDashboard() {
         });
     }, [peerTrust.state.acceptedPeers, createdConnections, searchQuery]);
 
+    const unreadInvitationCount = useMemo(
+        () => requestsInbox.state.items.filter((item) => item.unreadCount > 0).length,
+        [requestsInbox.state.items]
+    );
+
     const tabs: { id: TabId, label: string, icon: any, badge?: number }[] = [
         { id: "all", label: t("network.tabs.all"), icon: UserCheck, badge: filteredAcceptedPeers.length },
         { id: "groups", label: t("network.tabs.groups"), icon: Users, badge: filteredGroups.length },
         { id: "discovery", label: "Discovery", icon: Globe },
-        { id: "invitations", label: t("network.tabs.invitations"), icon: MailOpen, badge: requestsInbox.state.items.filter(i => i.unreadCount > 0).length },
+        { id: "invitations", label: t("network.tabs.invitations"), icon: MailOpen, badge: unreadInvitationCount },
         { id: "blocked", label: t("network.tabs.blocked"), icon: Ban },
         { id: "manage", label: "Manage", icon: Settings },
     ];
@@ -200,9 +205,9 @@ export function NetworkDashboard() {
     );
 
     return (
-        <div className="w-full flex flex-col min-h-full">
-            {/* Top Action Header - Premium Glassmorphism */}
-            <div className="sticky top-0 z-20 bg-background/60 backdrop-blur-2xl border-b border-border px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xl shadow-black/5 dark:shadow-black/50">
+        <div className="relative w-full flex flex-col min-h-full">
+            {/* Top Action Header */}
+            <div className="sticky top-0 z-20 border-b border-border/80 bg-background/80 px-4 py-3 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/65">
                 {/* Search Bar & View Toggle Group */}
                 <div className="flex items-center gap-3 w-full sm:max-w-xl">
                     <div className="relative group w-full">
@@ -214,18 +219,18 @@ export function NetworkDashboard() {
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") handleGlobalSearch();
                             }}
-                            className="pl-10 h-10 bg-muted/30 border-input text-foreground rounded-xl text-sm font-medium transition-all focus:ring-primary/30 focus:border-primary/30 w-full"
+                            className="pl-10 h-10 rounded-xl border-border/70 bg-card/70 text-sm font-medium text-foreground transition-all focus:border-primary/50 focus:ring-primary/30 w-full"
                         />
 
                     </div>
 
                     {/* View Toggle - Integrated next to search */}
-                    <div className="flex items-center bg-muted/50 rounded-xl p-0.5 border border-border shrink-0 ml-1">
+                    <div className="ml-1 flex shrink-0 items-center rounded-xl border border-border/70 bg-card/70 p-0.5">
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setViewMode("list")}
-                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === "list" ? "bg-background/80 text-foreground shadow-sm border border-border/50" : "text-muted-foreground hover:text-foreground")}
+                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === "list" ? "border border-border/70 bg-background/90 text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                         </Button>
@@ -233,7 +238,7 @@ export function NetworkDashboard() {
                             variant="ghost"
                             size="icon"
                             onClick={() => setViewMode("grid")}
-                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === "grid" ? "bg-background/80 text-foreground shadow-sm border border-border/50" : "text-muted-foreground hover:text-foreground")}
+                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === "grid" ? "border border-border/70 bg-background/90 text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                         </Button>
@@ -243,11 +248,11 @@ export function NetworkDashboard() {
                 </div>
 
                 {/* Compact Action Buttons */}
-                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto py-4 px-2 scrollbar-none shrink-0">
+                <div className="scrollbar-none flex w-full shrink-0 items-center gap-2 overflow-x-auto py-2 sm:w-auto">
                     <Button
                         onClick={() => setIsAddConnectionOpen(true)}
                         size="sm"
-                        className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all text-sm shrink-0"
+                        className="h-10 shrink-0 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-emerald-500"
                     >
                         <PlusCircle className="h-4 w-4 mr-2" />
                         <span>{t("network.addConnection", "Add Connection")}</span>
@@ -255,7 +260,7 @@ export function NetworkDashboard() {
                     <Button
                         onClick={() => setIsNewGroupOpen(true)}
                         size="sm"
-                        className="h-10 px-4 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold border border-border transition-all text-sm shrink-0"
+                        className="h-10 shrink-0 rounded-xl border border-border/70 bg-card px-4 text-sm font-bold text-foreground transition-all hover:bg-accent"
                     >
                         <Users className="h-4 w-4 mr-2" />
                         <span className="hidden sm:inline">{t("groups.createButton")}</span>
@@ -264,12 +269,12 @@ export function NetworkDashboard() {
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row flex-1 relative">
+            <div className="relative flex flex-1 min-h-0 flex-col lg:flex-row">
                 {/* Left Sidebar Menu */}
-                <div className="w-full lg:w-64 shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-background lg:h-[calc(100vh-60px)] lg:sticky top-[60px] z-10 p-4 flex flex-row lg:flex-col gap-1 overflow-x-auto scrollbar-none">
+                <div className="scrollbar-none z-10 flex w-full shrink-0 flex-row gap-1 overflow-x-auto border-b border-border/70 bg-card/35 p-3 lg:sticky lg:top-[110px] lg:h-[calc(100dvh-110px)] lg:min-h-[calc(100dvh-110px)] lg:w-72 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-background/40">
                     <div className="hidden lg:block mb-8 px-3">
                         <div className="flex items-center gap-2 mb-1.5 opacity-80">
-                            <div className="h-1 w-1 rounded-full bg-primary shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
+                            <div className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{t("network.directory", "Directory")}</h2>
                         </div>
                     </div>
@@ -278,16 +283,16 @@ export function NetworkDashboard() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as TabId)}
                             className={cn(
-                                "flex-shrink-0 lg:w-full relative flex items-center gap-3 h-10 px-4 rounded-xl text-xs font-bold transition-all duration-300",
+                                "relative flex h-10 flex-shrink-0 items-center gap-3 rounded-xl px-4 text-xs font-bold transition-all duration-300 lg:w-full",
                                 activeTab === tab.id
-                                    ? "bg-gradient-primary text-white shadow-lg shadow-primary/25 scale-[1.02] border-none active:scale-[0.98]"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                                    ? "scale-[1.01] border border-emerald-400/30 bg-emerald-500/15 text-foreground shadow-md shadow-emerald-900/10 active:scale-[0.98]"
+                                    : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                             )}
                         >
-                            <tab.icon className={cn("h-4 w-4 shrink-0", activeTab === tab.id ? "text-white" : "opacity-60")} />
+                            <tab.icon className={cn("h-4 w-4 shrink-0", activeTab === tab.id ? "text-emerald-500" : "opacity-60")} />
                             <span className="whitespace-nowrap">{tab.label}</span>
                             {tab.badge ? (
-                                <span className="ml-1.5 h-4 w-4 flex items-center justify-center rounded-full bg-rose-500/20 text-rose-500 text-[9px] font-black">
+                                <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1 text-[9px] font-black text-emerald-500">
                                     {tab.badge}
                                 </span>
                             ) : null}
@@ -296,7 +301,7 @@ export function NetworkDashboard() {
                 </div>
 
                 {/* Main Content Pane */}
-                <div className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 xl:px-12 pb-24 lg:pb-8 flex flex-col">
+                <div className="flex min-w-0 flex-1 flex-col p-3 pb-24 sm:p-6 lg:p-8 lg:pb-8 xl:px-10">
                     {activeTab === "all" && (
                         <div className="space-y-12 animate-in fade-in duration-700 flex-1 flex flex-col">
                             {/* Accepted Contacts Grid */}
@@ -330,6 +335,7 @@ export function NetworkDashboard() {
                                                     key={pk}
                                                     pubkey={pk}
                                                     displayName={connection?.displayName}
+                                                    online={presence.isPeerOnline(pk as PublicKeyHex)}
                                                     onClick={() => router.push(getPublicProfileHref(pk))}
                                                     viewMode={viewMode}
                                                 />
@@ -338,95 +344,6 @@ export function NetworkDashboard() {
                                     </div>
                                 )}
                             </div>
-
-                            {/* Recent Requests: Compact List */}
-                            {filteredIncomingRequests.length > 0 && (
-                                <div className="space-y-6">
-                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-amber-500 px-2 opacity-60">
-                                        {t("network.pending", "Incoming Invitations")}
-                                    </h3>
-                                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                        {filteredIncomingRequests.map(req => (
-                                            <PendingRequestCard
-                                                key={req.peerPublicKeyHex}
-                                                req={req}
-                                                onAccept={() => {
-                                                    void requestTransport.acceptIncomingRequest({
-                                                        peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
-                                                        requestEventId: req.eventId,
-                                                    }).then((outcome) => {
-                                                        if (outcome.status === "failed" || outcome.status === "queued") {
-                                                            addToast({ type: "warning", message: "Request acceptance is pending relay confirmation." });
-                                                        } else {
-                                                            addToast({ type: "success", message: "Request accepted." });
-                                                        }
-                                                    });
-                                                }}
-                                                onBlock={() => {
-                                                    blocklist.addBlocked({ publicKeyInput: req.peerPublicKeyHex });
-                                                    void requestTransport.declineIncomingRequest({
-                                                        peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
-                                                        plaintext: "Declined",
-                                                        requestEventId: req.eventId,
-                                                    });
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {filteredOutgoingRequests.length > 0 && (
-                                <div className="space-y-6">
-                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-sky-400 px-2 opacity-60">
-                                        {t("network.outgoingPending", "Outgoing Invitations")}
-                                    </h3>
-                                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                        {filteredOutgoingRequests.map(req => (
-                                            <PendingRequestCard
-                                                key={req.peerPublicKeyHex}
-                                                req={req}
-                                                onAccept={() => undefined}
-                                                onBlock={() => undefined}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Recent Communities Section */}
-                            {filteredGroups.length > 0 && (
-                                <div className="space-y-6">
-                                    <div className="flex items-center justify-between px-2">
-                                        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400/80">
-                                            {t("messaging.communities", "Communities")}
-                                        </h3>
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => setActiveTab("groups")}
-                                            className="text-[10px] font-black uppercase tracking-widest text-indigo-400 p-0 hover:bg-transparent hover:text-indigo-300"
-                                        >
-                                            {t("common.viewAll", "View All")}
-                                        </Button>
-                                    </div>
-                                    <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col"}>
-                                        {filteredGroups.slice(0, 4).map(group => (
-                                            <GroupCard
-                                                key={group.id}
-                                                id={group.id}
-                                                displayName={group.displayName}
-                                                relayUrl={group.relayUrl}
-                                                memberCount={group.memberCount}
-                                                avatar={group.avatar}
-                                                onClick={() => {
-                                                    router.push(getPublicGroupHref(group.id));
-                                                }}
-                                                viewMode={viewMode}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     )}
 
@@ -724,8 +641,8 @@ export function NetworkDashboard() {
 
             {/* Background Spotlights for Premium Look */}
             <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-                <div className="absolute top-[10%] left-[15%] w-[40%] h-[40%] bg-purple-500/5 blur-[120px] rounded-full animate-pulse" />
-                <div className="absolute bottom-[20%] right-[10%] w-[30%] h-[30%] bg-indigo-500/5 blur-[120px] rounded-full delay-700" />
+                <div className="absolute top-[8%] left-[14%] h-[42%] w-[42%] rounded-full bg-emerald-500/5 blur-[130px]" />
+                <div className="absolute bottom-[16%] right-[10%] h-[34%] w-[34%] rounded-full bg-cyan-500/5 blur-[120px]" />
             </div>
 
             <JoinGroupInputDialog
@@ -875,7 +792,7 @@ function InvitationCard({ req, isRevealed, onReveal, onAccept, onBlock, onMute }
                     <UserAvatar pubkey={req.peerPublicKeyHex} size="lg" className="rounded-[24px] border-2 border-background shadow-inner" />
                     {req.unreadCount > 0 && (
                         <div className="absolute -top-3 -right-3">
-                            <span className="flex items-center gap-1.5 bg-primary text-primary-foreground text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-primary/40 uppercase tracking-widest ring-4 ring-background">
+                            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-900/40 ring-4 ring-background">
                                 New
                             </span>
                         </div>
@@ -898,7 +815,7 @@ function InvitationCard({ req, isRevealed, onReveal, onAccept, onBlock, onMute }
                                 variant="ghost"
                                 size="sm"
                                 onClick={onReveal}
-                                className="w-fit text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 hover:bg-primary/10 px-4 rounded-full"
+                                className="w-fit rounded-full bg-emerald-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/15"
                             >
                                 <EyeOff className="h-3 w-3 mr-2" />
                                 Reveal Message

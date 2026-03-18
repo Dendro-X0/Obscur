@@ -31,6 +31,13 @@ describe("account-sync-mutation-signal", () => {
       reason: "identity_unlock_changed",
       atUnixMs: 789,
     });
+    expect(accountSyncMutationSignalInternals.toMutationDetail({
+      reason: "community_membership_changed",
+      atUnixMs: 999,
+    })).toEqual({
+      reason: "community_membership_changed",
+      atUnixMs: 999,
+    });
   });
 
   it("dispatches and subscribes to mutation events", () => {
@@ -43,6 +50,23 @@ describe("account-sync-mutation-signal", () => {
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({
       reason: "requests_inbox_status_changed",
     }));
+
+    unsubscribe();
+  });
+
+  it("replays latest mutation to late subscribers", () => {
+    emitAccountSyncMutation("chat_state_changed");
+    const listener = vi.fn();
+
+    const unsubscribe = subscribeAccountSyncMutation(listener);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({
+      reason: "chat_state_changed",
+    }));
+    expect(accountSyncMutationSignalInternals.getLatestMutationDetail()).toEqual(
+      expect.objectContaining({ reason: "chat_state_changed" })
+    );
 
     unsubscribe();
   });

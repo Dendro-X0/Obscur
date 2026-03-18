@@ -1,6 +1,6 @@
 # 05 Data, State, and Sync Flows
 
-_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
+_Last reviewed: 2026-03-18 (baseline commit 11f5602)._
 
 ## Core Principle
 
@@ -72,3 +72,10 @@ Key files:
 - Do not advance sync/checkpoints on timeout-only signals.
 - Do not mark delivery successful from optimistic UI state.
 - Keep profile/account scope explicit in every storage access.
+
+## v0.9.2 Sync Priorities
+
+1. Preserve joined-community state across logout/login and new-device restore for both inviter and invitee identities.
+2. Ensure account projection replay restores canonical DM and community views without identity-target navigation drift.
+3. Keep unread state scoped by canonical conversation target so group unread and DM unread cannot cross-trigger.
+4. Keep backup publish, mutation signals, and projection replay convergent under startup relay churn.

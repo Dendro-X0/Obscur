@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
-import { Search, Loader2, Send, Users, UserCheck, X } from "lucide-react";
+import { Search, Loader2, Send, Users, UserCheck, X, Check } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { toast } from "../../../components/ui/toast";
@@ -11,7 +10,6 @@ import { useNetwork } from "../../network/providers/network-provider";
 import { useMessaging } from "../../messaging/providers/messaging-provider";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
-import { useGroups } from "../providers/group-provider";
 import { MessageQueue } from "../../messaging/lib/message-queue";
 import { messageBus } from "../../messaging/services/message-bus";
 import type { Message } from "../../messaging/types";
@@ -21,11 +19,17 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
+import { discoveryCache } from "../../search/services/discovery-cache";
+import {
+    resolveInviteConnectionDisplayName,
+    toInviteConnectionSearchText
+} from "./invite-connection-display";
 
 interface InviteConnectionsDialogProps {
     isOpen: boolean;
     onClose: () => void;
     groupId: string;
+    relayUrl?: string;
     roomKeyHex: string;
     metadata: GroupMetadata;
     currentMemberPubkeys?: ReadonlyArray<string>;
@@ -38,6 +42,7 @@ export function InviteConnectionsDialog({
     isOpen,
     onClose,
     groupId,
+    relayUrl,
     roomKeyHex,
     metadata,
     currentMemberPubkeys = [],
@@ -45,18 +50,25 @@ export function InviteConnectionsDialog({
     genesisEventId,
     creatorPubkey
 }: InviteConnectionsDialogProps) {
-    const { t } = useTranslation();
     const { peerTrust } = useNetwork();
     const { createdConnections } = useMessaging();
     const { relayPool } = useRelay();
     const { state: identityState } = useIdentity();
-    const { createdGroups } = useGroups();
 
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedPubkeys, setSelectedPubkeys] = useState<Set<string>>(new Set());
     const [isSending, setIsSending] = useState(false);
 
     const groupService = useRef<GroupService | null>(null);
+    const normalizedCurrentMemberPubkeys = React.useMemo(
+        () => new Set(currentMemberPubkeys.map((pubkey) => pubkey.toLowerCase())),
+        [currentMemberPubkeys]
+    );
+
+    const isAlreadyMember = React.useCallback(
+        (pubkey: string) => normalizedCurrentMemberPubkeys.has(pubkey.toLowerCase()),
+        [normalizedCurrentMemberPubkeys]
+    );
 
     useEffect(() => {
         if (identityState.publicKeyHex && identityState.privateKeyHex) {
@@ -67,17 +79,43 @@ export function InviteConnectionsDialog({
         }
     }, [identityState.publicKeyHex, identityState.privateKeyHex]);
 
+    useEffect(() => {
+        setSelectedPubkeys((prev) => {
+            const next = new Set(Array.from(prev).filter((pubkey) => !isAlreadyMember(pubkey)));
+            return next.size === prev.size ? prev : next;
+        });
+    }, [isAlreadyMember]);
+
     const filteredConnections = React.useMemo(() => {
-        return peerTrust.state.acceptedPeers.filter((pk) => {
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+        return peerTrust.state.acceptedPeers.flatMap((pk) => {
             const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
-            const searchStr = (connection?.displayName || pk).toLowerCase();
-            return searchStr.includes(searchQuery.toLowerCase());
+            const cachedProfile = discoveryCache.getProfile(pk);
+            const metadataDisplayName = cachedProfile?.displayName || cachedProfile?.name;
+            const resolvedDisplayName = resolveInviteConnectionDisplayName({
+                pubkey: pk,
+                connectionDisplayName: connection?.displayName,
+                metadataDisplayName
+            });
+            const searchText = toInviteConnectionSearchText({
+                pubkey: pk,
+                resolvedDisplayName,
+                connectionDisplayName: connection?.displayName,
+                metadataDisplayName
+            });
+            if (normalizedQuery.length > 0 && !searchText.includes(normalizedQuery)) {
+                return [];
+            }
+            return [{
+                pubkey: pk,
+                connectionDisplayName: connection?.displayName,
+                cachedMetadataDisplayName: metadataDisplayName
+            }];
         });
     }, [peerTrust.state.acceptedPeers, createdConnections, searchQuery]);
 
     const handleToggleSelect = (pubkey: string) => {
-        if (currentMemberPubkeys.includes(pubkey)) {
-            toast.info("This connection is already a member of this community.");
+        if (isAlreadyMember(pubkey)) {
             return;
         }
 
@@ -101,13 +139,13 @@ export function InviteConnectionsDialog({
             const newMessages: Record<string, Message> = {};
 
             const promises = Array.from(selectedPubkeys).map(async (pubkey) => {
-                const activeRelayUrl = relayPool.connections.find((c: { url: string }) => c.url)?.url;
+                const scopedRelayUrl = relayUrl || relayPool.connections.find((c: { url: string }) => c.url)?.url;
                 const inviteEvent = await groupService.current!.distributeRoomKey({
                     recipientPubkey: pubkey as PublicKeyHex,
                     groupId,
                     roomKeyHex,
                     metadata,
-                    relayUrl: activeRelayUrl,
+                    relayUrl: scopedRelayUrl,
                     communityId,
                     genesisEventId,
                     creatorPubkey
@@ -212,14 +250,20 @@ export function InviteConnectionsDialog({
                                 <p className="text-zinc-500 font-black uppercase tracking-widest text-[10px]">No connections found</p>
                             </div>
                         ) : (
-                            filteredConnections.map(pk => (
-                                <ConnectionRow
-                                    key={pk}
-                                    pubkey={pk}
-                                    isSelected={selectedPubkeys.has(pk)}
-                                    onToggle={() => handleToggleSelect(pk)}
-                                />
-                            ))
+                            filteredConnections.map((connection) => {
+                                const alreadyMember = isAlreadyMember(connection.pubkey);
+                                return (
+                                    <ConnectionRow
+                                        key={connection.pubkey}
+                                        pubkey={connection.pubkey}
+                                        connectionDisplayName={connection.connectionDisplayName}
+                                        cachedMetadataDisplayName={connection.cachedMetadataDisplayName}
+                                        isSelected={selectedPubkeys.has(connection.pubkey)}
+                                        isAlreadyMember={alreadyMember}
+                                        onToggle={() => handleToggleSelect(connection.pubkey)}
+                                    />
+                                );
+                            })
                         )}
                     </div>
                 </div>
@@ -248,37 +292,66 @@ export function InviteConnectionsDialog({
     );
 }
 
-function ConnectionRow({ pubkey, isSelected, onToggle }: { pubkey: string, isSelected: boolean, onToggle: () => void }) {
-    const { createdConnections } = useMessaging();
-    const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pubkey);
+function ConnectionRow({
+    pubkey,
+    connectionDisplayName,
+    cachedMetadataDisplayName,
+    isSelected,
+    isAlreadyMember,
+    onToggle
+}: {
+    pubkey: string;
+    connectionDisplayName?: string;
+    cachedMetadataDisplayName?: string;
+    isSelected: boolean;
+    isAlreadyMember: boolean;
+    onToggle: () => void;
+}) {
     const metadata = useResolvedProfileMetadata(pubkey);
-    const displayName = connection?.displayName || metadata?.displayName || `${pubkey.slice(0, 8)}...`;
+    const displayName = resolveInviteConnectionDisplayName({
+        pubkey,
+        connectionDisplayName,
+        metadataDisplayName: metadata?.displayName || cachedMetadataDisplayName
+    });
+    const keyPreview = `${pubkey.slice(0, 12)}...${pubkey.slice(-8)}`;
+    const hasResolvedName = displayName !== `${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
 
     return (
         <div
-            onClick={onToggle}
+            onClick={isAlreadyMember ? undefined : onToggle}
             className={cn(
-                "flex items-center justify-between p-4 bg-[#0E0E10] border rounded-[24px] cursor-pointer transition-all group",
-                isSelected
-                    ? "border-indigo-500/50 bg-indigo-500/5 shadow-lg shadow-indigo-500/10"
-                    : "border-[#1A1A1E] hover:border-indigo-500/30"
+                "flex items-center justify-between p-4 bg-[#0E0E10] border rounded-[24px] transition-all group backdrop-blur-sm",
+                isAlreadyMember
+                    ? "border-emerald-500/30 bg-emerald-500/5 cursor-not-allowed opacity-80"
+                    : isSelected
+                    ? "border-indigo-400/70 bg-indigo-500/10 shadow-lg shadow-indigo-500/20"
+                    : "border-[#1A1A1E] hover:border-indigo-500/30 hover:bg-[#111115] cursor-pointer"
             )}
         >
             <div className="flex items-center gap-4">
                 <UserAvatar pubkey={pubkey} size="md" className="rounded-2xl border border-white/5" />
                 <div>
                     <p className="text-white font-black text-sm">{displayName}</p>
-                    <p className="text-zinc-600 text-[10px] font-mono mt-0.5">{pubkey.slice(0, 16)}...</p>
+                    <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-0.5">
+                        {hasResolvedName ? "Trusted connection" : "Unnamed connection"}
+                    </p>
+                    <p className="text-zinc-600 text-[10px] font-mono mt-1">{keyPreview}</p>
                 </div>
             </div>
-            <div className={cn(
-                "h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all",
-                isSelected
-                    ? "bg-indigo-500 border-indigo-500"
-                    : "border-zinc-700 group-hover:border-zinc-500"
-            )}>
-                {isSelected && <X className="h-3.5 w-3.5 text-white rotate-45" style={{ transform: "rotate(0deg)" }} />}
-            </div>
+            {isAlreadyMember ? (
+                <span className="text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 px-3 py-1.5">
+                    Already in this community.
+                </span>
+            ) : (
+                <div className={cn(
+                    "h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all",
+                    isSelected
+                        ? "bg-indigo-500 border-indigo-500"
+                        : "border-zinc-700 group-hover:border-zinc-500"
+                )}>
+                    {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
+                </div>
+            )}
         </div>
     );
 }

@@ -20,6 +20,9 @@ export interface ConversationRowProps {
     isSelected: boolean;
     onSelect: (conversation: Conversation) => void;
     unreadCount: number;
+    isOnline?: boolean;
+    lastActiveAtMs?: number;
+    lastViewedAtMs?: number;
     nowMs: number;
     isPinned?: boolean;
     onTogglePin?: () => void;
@@ -32,6 +35,9 @@ export function ConversationRow({
     isSelected,
     onSelect,
     unreadCount,
+    isOnline,
+    lastActiveAtMs,
+    lastViewedAtMs,
     nowMs,
     isPinned,
     onTogglePin,
@@ -41,6 +47,16 @@ export function ConversationRow({
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null, { live: false });
     const resolvedName = metadata?.displayName || conversation.displayName;
+    const lastActiveLabel = (
+        conversation.kind === "dm" && lastActiveAtMs
+            ? formatTime(new Date(lastActiveAtMs), nowMs)
+            : ""
+    );
+    const lastViewedLabel = (
+        conversation.kind === "dm" && lastViewedAtMs
+            ? formatTime(new Date(lastViewedAtMs), nowMs)
+            : ""
+    );
 
     return (
         <div
@@ -58,12 +74,20 @@ export function ConversationRow({
                 isSelected && "bg-zinc-100/50 dark:bg-zinc-900/60"
             )}
         >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white dark:from-zinc-100 dark:to-zinc-300 dark:text-black shadow-sm overflow-hidden">
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white dark:from-zinc-100 dark:to-zinc-300 dark:text-black shadow-sm overflow-hidden">
                 {metadata?.avatarUrl ? (
                     <Image src={metadata.avatarUrl} alt={resolvedName} width={48} height={48} className="h-full w-full object-cover" unoptimized />
                 ) : (
                     resolvedName[0]?.toUpperCase()
                 )}
+                {conversation.kind === "dm" ? (
+                    <span
+                        className={cn(
+                            "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-black",
+                            isOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"
+                        )}
+                    />
+                ) : null}
             </div>
 
             <div className="min-w-0 flex-1 py-0.5">
@@ -111,6 +135,22 @@ export function ConversationRow({
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
+                {conversation.kind === "dm" ? (
+                    <div className="mt-1 flex items-center gap-2 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className={cn("h-1.5 w-1.5 rounded-full", isOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
+                            <span className={cn("font-bold uppercase tracking-wider", isOnline ? "text-emerald-500" : "text-zinc-500")}>
+                                {isOnline ? "Online" : "Offline"}
+                            </span>
+                        </span>
+                        {lastActiveLabel ? (
+                            <span className="truncate">Active {lastActiveLabel}</span>
+                        ) : null}
+                        {lastViewedLabel ? (
+                            <span className="truncate">Viewed {lastViewedLabel}</span>
+                        ) : null}
+                    </div>
+                ) : null}
             </div>
         </div>
     );

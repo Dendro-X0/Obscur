@@ -8,6 +8,7 @@ interface InviteContactsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: string;
+  relayUrl?: string;
   roomKeyHex: string;
   metadata: GroupMetadata;
   currentMemberPubkeys?: ReadonlyArray<string>;

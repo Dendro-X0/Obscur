@@ -30,6 +30,7 @@ interface InviteMemberDialogProps {
     isOpen: boolean;
     onClose: () => void;
     groupId: string;
+    relayUrl?: string;
     roomKeyHex: string;
     metadata: GroupMetadata;
     currentMemberPubkeys?: ReadonlyArray<string>;
@@ -42,6 +43,7 @@ export function InviteMemberDialog({
     isOpen,
     onClose,
     groupId,
+    relayUrl,
     roomKeyHex,
     metadata,
     currentMemberPubkeys = [],
@@ -61,6 +63,15 @@ export function InviteMemberDialog({
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const searchService = useRef<ProfileSearchService | null>(null);
     const groupService = useRef<GroupService | null>(null);
+    const normalizedCurrentMemberPubkeys = React.useMemo(
+        () => new Set(currentMemberPubkeys.map((pubkey) => pubkey.toLowerCase())),
+        [currentMemberPubkeys]
+    );
+
+    const isAlreadyMember = React.useCallback(
+        (pubkey: string) => normalizedCurrentMemberPubkeys.has(pubkey.toLowerCase()),
+        [normalizedCurrentMemberPubkeys]
+    );
 
     useEffect(() => {
         if (pool && identityState.publicKeyHex) {
@@ -98,20 +109,19 @@ export function InviteMemberDialog({
     const handleSendInvite = async (user: ProfileSearchResult) => {
         if (!groupService.current) return;
 
-        if (currentMemberPubkeys.includes(user.pubkey)) {
-            toast.info("This user is already a member of this community.");
+        if (isAlreadyMember(user.pubkey)) {
             return;
         }
 
         setSendingInviteTo(user.pubkey);
         try {
-            const activeRelayUrl = pool.connections.find((c: { url: string }) => c.url)?.url;
+            const scopedRelayUrl = relayUrl || pool.connections.find((c: { url: string }) => c.url)?.url;
             const inviteEvent = await groupService.current.distributeRoomKey({
                 recipientPubkey: user.pubkey as PublicKeyHex,
                 groupId,
                 roomKeyHex,
                 metadata,
-                relayUrl: activeRelayUrl,
+                relayUrl: scopedRelayUrl,
                 communityId,
                 genesisEventId,
                 creatorPubkey
@@ -203,44 +213,56 @@ export function InviteMemberDialog({
                     </div>
 
                     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                        {results.map((user) => (
-                            <div
-                                key={user.pubkey}
-                                className="flex items-center justify-between p-4 bg-[#0E0E10] border border-[#1A1A1E] rounded-[24px] hover:border-indigo-500/30 transition-all group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <Avatar className="h-12 w-12 border border-white/5 shadow-lg">
-                                        <AvatarImage src={user.picture} />
-                                        <AvatarFallback className="font-black bg-zinc-800 text-zinc-400">
-                                            {(user.displayName || user.name || "?").slice(0, 2).toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="text-white font-black text-sm">{user.displayName || user.name || 'Unknown'}</p>
-                                        <p className="text-zinc-600 text-[10px] font-mono mt-0.5">{user.pubkey.slice(0, 16)}...</p>
-                                    </div>
-                                </div>
-                                <Button
-                                    onClick={() => handleSendInvite(user)}
-                                    disabled={sendingInviteTo === user.pubkey}
+                        {results.map((user) => {
+                            const alreadyMember = isAlreadyMember(user.pubkey);
+                            return (
+                                <div
+                                    key={user.pubkey}
                                     className={cn(
-                                        "h-10 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
-                                        sendingInviteTo === user.pubkey
-                                            ? "bg-zinc-800 text-zinc-500"
-                                            : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20"
+                                        "flex items-center justify-between p-4 bg-[#0E0E10] border rounded-[24px] transition-all group",
+                                        alreadyMember
+                                            ? "border-emerald-500/30 bg-emerald-500/5 opacity-80"
+                                            : "border-[#1A1A1E] hover:border-indigo-500/30"
                                     )}
                                 >
-                                    {sendingInviteTo === user.pubkey ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <>
-                                            <Send className="h-3 w-3 mr-2" />
-                                            Send Invite
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        ))}
+                                    <div className="flex items-center gap-4">
+                                        <Avatar className="h-12 w-12 border border-white/5 shadow-lg">
+                                            <AvatarImage src={user.picture} />
+                                            <AvatarFallback className="font-black bg-zinc-800 text-zinc-400">
+                                                {(user.displayName || user.name || "?").slice(0, 2).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="text-white font-black text-sm">{user.displayName || user.name || 'Unknown'}</p>
+                                            <p className="text-zinc-600 text-[10px] font-mono mt-0.5">{user.pubkey.slice(0, 16)}...</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        onClick={() => handleSendInvite(user)}
+                                        disabled={sendingInviteTo === user.pubkey || alreadyMember}
+                                        className={cn(
+                                            "h-10 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
+                                            alreadyMember
+                                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/40 cursor-not-allowed"
+                                                : sendingInviteTo === user.pubkey
+                                                    ? "bg-zinc-800 text-zinc-500"
+                                                    : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20"
+                                        )}
+                                    >
+                                        {alreadyMember ? (
+                                            "Already in this community."
+                                        ) : sendingInviteTo === user.pubkey ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <>
+                                                <Send className="h-3 w-3 mr-2" />
+                                                Send Invite
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            );
+                        })}
 
                         {query.length >= 3 && results.length === 0 && !isSearching && (
                             <div className="py-12 flex flex-col items-center justify-center text-center opacity-30">

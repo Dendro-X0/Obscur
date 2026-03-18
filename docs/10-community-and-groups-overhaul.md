@@ -38,7 +38,31 @@ Reason:
 
 No parallel owner should be introduced for the same lifecycle.
 
+## Governance Model Lock (v0.9.1)
+
+- Communities are decentralized and adminless: there is no privileged administrator role.
+- All participants are members under the same governance contract.
+- User-level safety remains local-first: members can mute each other in their own client.
+- Removal of a member is vote-based and must reach configured quorum before expulsion is applied.
+- Community avatar changes are also vote-based and should resolve through signed governance events.
+- Governance truth must come from sealed event ingest + ledger reduction, not local optimistic state.
+
 ## Current State (Reality Snapshot)
+
+Current functional coverage:
+- create/join/leave community flows,
+- invite members via room-key distribution,
+- sealed community timeline ingest/publish (`kind 10105` path),
+- local mute controls,
+- vote-to-kick flow scaffolding,
+- metadata updates with relay-scoped publish.
+
+Current technology map:
+- community runtime/state owner: `use-sealed-community.ts`,
+- persistence/projection owner: `group-provider.tsx`,
+- canonical membership/governance reducer: `community-ledger-reducer.ts`,
+- event construction/signing: `group-service.ts`,
+- relay transport layer: enhanced relay pool and scoped publish paths.
 
 What is already strong:
 - relay-scoped group publish path exists,
@@ -47,9 +71,9 @@ What is already strong:
 - membership ledger reducer exists,
 - group tombstone and migration guardrails exist.
 
-Gaps blocking “excellent” community UX:
-- moderation/admin action handlers are still placeholders in `use-sealed-community.ts`,
-- membership/admin role semantics are too minimal (`member`/`guest`),
+Gaps blocking "excellent" community UX:
+- several governance handlers are still placeholders in `use-sealed-community.ts`,
+- vote lifecycle UX (propose, tally, resolve) is fragmented across surfaces,
 - group discovery, join queue, and moderation queue UX are fragmented,
 - diagnostics are present but not yet exposed as operator-friendly community health views.
 
@@ -69,6 +93,66 @@ Must remain Obscur-specific:
 
 ## Phase Plan
 
+### Phase A: Cross-Device Membership Sync Foundation (Landed)
+
+Objective:
+- keep community presence durable across logout/login and new-device restore.
+
+Scope landed:
+- added profile-scoped durable membership ledger:
+  - `apps/pwa/app/features/groups/services/community-membership-ledger.ts`
+- wired group lifecycle owner (`group-provider`) to:
+  - persist `joined` on add/revive/update paths,
+  - persist `left` on leave/remove paths,
+  - hydrate groups from `chatState + joined-ledger` with tombstone filtering,
+  - react to scoped ledger-update events so mounted views refresh immediately after restore.
+- extended encrypted account backup payload to include optional community membership ledger snapshots and deterministic merge-on-restore behavior:
+  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
+- hardened community navigation token resolution so explicit group tokens do not silently downgrade into DM routing:
+  - `apps/pwa/app/features/messaging/utils/conversation-target.ts`
+  - `apps/pwa/app/features/groups/utils/group-route-token.ts`
+- hardened account-sync mutation signaling for cross-device durability:
+  - startup flow now attempts encrypted backup restore before first startup backup publish, even on identity-only rehydrate status,
+  - late account-sync subscribers now replay the latest private-state mutation signal,
+  - membership-ledger writes emit `community_membership_changed` mutation signals,
+  - `community_membership_changed` backup publishes bypass normal mutation cooldown to reduce logout-before-publish loss windows.
+
+Behavior contract:
+- community membership persistence is explicit and scoped per profile/account.
+- backup payload remains `version: 1`; ledger field is optional for backward compatibility.
+- ledger-only hydration keeps communities visible even when room keys are not yet present on that device.
+- explicit group navigation tokens (`community:*`, `group:*`, or canonical encoded group ids) resolve group-only; unresolved group tokens do not fallback to DM.
+- private-state mutation evidence should not be dropped due to account-sync subscription timing.
+- community membership mutations should trigger immediate encrypted backup publish attempts.
+
+### Phase B: Presence and Session Exclusivity Baseline (Landed)
+
+Objective:
+- add evidence-based contact presence and enforce one active account session per identity.
+
+Scope landed:
+- added relay-backed realtime presence contract:
+  - `apps/pwa/app/features/network/services/realtime-presence.ts`
+  - replaceable presence event (`kind 30315`, `d=obscur.presence.v1`) with heartbeat + stale timeout semantics.
+- added runtime presence owner hook:
+  - `apps/pwa/app/features/network/hooks/use-realtime-presence.ts`
+  - subscribes to accepted peers + self, publishes online heartbeat, emits offline best-effort on teardown.
+- wired canonical network owner to presence state + duplicate-session guard:
+  - `apps/pwa/app/features/network/providers/network-provider.tsx`
+  - when an older active self-session is observed, current runtime is deterministically locked.
+- wired Network contact cards to actual online/offline status:
+  - `apps/pwa/app/features/network/components/network-dashboard.tsx`
+  - `apps/pwa/app/features/network/components/network-connection-card.tsx`
+- added focused contract tests:
+  - `apps/pwa/app/features/network/services/realtime-presence.test.ts`
+
+Behavior contract:
+- contact status is derived from relay evidence, not local optimistic UI state.
+- online requires a fresh heartbeat; stale/missing heartbeat resolves to offline.
+- single-login guard is deterministic:
+  - if another active session for the same pubkey is older, current session locks,
+  - tie timestamps are resolved by stable session-id ordering.
+
 ### Phase C1: Security and Ownership Completion
 
 Objective:
@@ -80,12 +164,13 @@ Scope:
   - `setGroupStatus`
   - `approveJoin` / `denyJoin`
   - `putUser` / `removeUser`
-  - `promoteUser` / `demoteUser`
+  - vote-tally and resolution paths for `sendVoteKick`
+  - vote-tally and resolution paths for community avatar updates
 - make all moderation outcomes evidence-backed and relay-scoped,
 - ensure membership reducer remains the single truth for effective status.
 
 Exit criteria:
-- no placeholder moderation/admin paths in community runtime,
+- no placeholder governance paths in community runtime,
 - deterministic tests for success/failure classes (denied, cooldown, scoped relay mismatch, timeout).
 
 ### Phase C2: Community UX Rebuild
@@ -111,7 +196,7 @@ Objective:
 - protect niche communities without destroying usability.
 
 Scope:
-- expand role model and policy checks (owner/mod/member/guest as needed),
+- harden vote/policy checks for member-driven governance actions (kick + avatar updates),
 - stronger anti-spam/join-request throttling and abuse telemetry surfaces,
 - clear user-facing reason codes for blocked or denied actions.
 
@@ -138,6 +223,13 @@ Exit criteria:
 3. Keep community feature lane and CI hardening lane separate in commits/changelogs.
 4. Mark version tags only when product-value milestones (not just build fixes) are complete.
 
+## v0.9.2 Sync Continuation
+
+After v0.9.1 push, continue with account data synchronization as top priority:
+- cross-device community membership durability,
+- canonical projection replay for DM + community surfaces,
+- unread and navigation target consistency between DM and group conversations.
+
 ## Testing and Gate Strategy (Community Lane)
 
 Minimum per increment:
@@ -154,9 +246,8 @@ Required gates before merge to release branch:
 
 ## First Concrete Sprint (Recommended Next)
 
-1. Replace all moderation/admin `noop` handlers in `use-sealed-community.ts`.
-2. Add explicit role and join-policy contract tests.
-3. Add a compact moderation queue panel in the community UI.
-4. Add user-visible result states for moderation actions (accepted/denied/retryable).
+1. Replace all governance `noop` handlers in `use-sealed-community.ts`.
+2. Add explicit vote contract tests (kick quorum + avatar-change quorum) and join-policy tests.
+3. Add a compact governance queue panel in the community UI.
+4. Add user-visible result states for governance actions (accepted/denied/retryable).
 5. Update docs and ship as the first v0.9.1 community milestone.
-

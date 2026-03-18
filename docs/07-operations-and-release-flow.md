@@ -1,6 +1,6 @@
 # 07 Operations and Release Flow
 
-_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
+_Last reviewed: 2026-03-18 (baseline commit 11f5602)._
 
 ## Version Source of Truth
 
@@ -50,6 +50,15 @@ From `.github/workflows/release.yml`:
 - Web/PWA static artifact
 - Optional iOS IPA lane when signing prerequisites exist
 - GitHub Release publication and artifact verification
+- Release summary signals:
+  - `android_job_result` (`success` / `failure` / `cancelled`),
+  - `android_signing_state` (`signed` / `unsigned` / `unavailable`),
+  - `ios_lane_state` (`executed` / `skipped_missing_secrets`).
+
+Dynamic publish policy:
+- desktop + web verification/publish lanes are canonical release blockers,
+- Android lane is non-blocking for tag verification/publication when Android job fails,
+- if Android job succeeds, APK/AAB artifacts remain required.
 
 ## Known Pitfalls and Fixes
 
@@ -62,6 +71,12 @@ From `.github/workflows/release.yml`:
 
 - Remote-only type/build drift
 : run `pnpm ci:scan:pwa:head` before pushing release changes.
+
+- Local Android mismatch against CI
+: CI Android lane uses Java 17 (`actions/setup-java@v3`); local runs on newer Java (for example 25.x) may fail Gradle/Kotlin config before app code is compiled.
+  - Repro parity command:
+    - `pnpm -C apps/desktop tauri android build --apk --aab` under JDK 17
+    - or run `./apps/desktop/src-tauri/gen/android/gradlew` with `--project-dir apps/desktop/src-tauri/gen/android :app:compileUniversalReleaseKotlin --no-daemon` under JDK 17
 
 - Installer/version drift across lanes
 : artifact verification now enforces desktop filename version markers and Android `versionName` parity from metadata.

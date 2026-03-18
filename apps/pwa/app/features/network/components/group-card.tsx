@@ -29,7 +29,7 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
             <div
                 onClick={onClick}
                 className={cn(
-                    "group flex items-center justify-between p-3 bg-transparent hover:bg-muted/50 border-b border-border cursor-pointer transition-all",
+                    "group flex cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-3 transition-all hover:border-border/70 hover:bg-card/70",
                     className
                 )}
             >
@@ -58,13 +58,13 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
                 </div>
 
                 <div className="flex items-center gap-4 shrink-0">
-                    <div className="hidden sm:flex items-center gap-1.5 bg-muted px-2 py-1 rounded-md border border-border">
+                    <div className="hidden items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 sm:flex">
                         <Users className="h-3 w-3 text-primary" />
                         <span className="text-[10px] font-bold text-muted-foreground">
                             {memberCount ?? 0}
                         </span>
                     </div>
-                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-sm">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground shadow-sm transition-all group-hover:bg-emerald-500 group-hover:text-white">
                         <ChevronRight className="h-4 w-4" />
                     </div>
                 </div>
@@ -76,7 +76,7 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
         <div
             onClick={onClick}
             className={cn(
-                "group relative flex flex-col p-6 bg-card border border-border rounded-[32px] cursor-pointer transition-all duration-500 hover:border-primary/50 hover:bg-accent/10 hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:-translate-y-1 active:scale-[0.98]",
+                "group relative flex cursor-pointer flex-col rounded-[28px] border border-border/70 bg-card/65 p-6 transition-all duration-500 hover:-translate-y-1 hover:border-emerald-500/35 hover:bg-accent/20 hover:shadow-[0_20px_40px_rgba(3,8,20,0.24)] active:scale-[0.98]",
                 className
             )}
         >
@@ -91,13 +91,13 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
                     )}
                 </Avatar>
 
-                <div className="p-2.5 rounded-2xl bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-inner">
+                <div className="rounded-2xl bg-muted p-2.5 text-muted-foreground shadow-inner transition-all duration-300 group-hover:bg-emerald-500 group-hover:text-white">
                     <ChevronRight className="h-4 w-4" />
                 </div>
             </div>
 
             <div className="flex-1 space-y-2.5">
-                <h4 className="font-black text-lg text-foreground tracking-tight truncate group-hover:text-primary transition-all duration-300">
+                <h4 className="truncate text-lg font-black tracking-tight text-foreground transition-all duration-300 group-hover:text-emerald-500">
                     {displayName}
                 </h4>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
@@ -115,9 +115,9 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
                         {memberCount ?? 0}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
-                    <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-primary">
+                <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
+                    <div className="h-1 w-1 rounded-full bg-emerald-500" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">
                         Active
                     </span>
                 </div>

@@ -90,10 +90,11 @@ describe("account-projection-selectors", () => {
       myPublicKeyHex: "a".repeat(64) as any,
     });
     expect(conversations).toHaveLength(1);
+    const expectedCanonicalConversationId = ["a".repeat(64), "b".repeat(64)].sort().join(":");
     expect(conversations[0]).toMatchObject({
       kind: "dm",
       pubkey: "b".repeat(64),
-      id: "convo_b",
+      id: expectedCanonicalConversationId,
       lastMessage: "hi b",
       unreadCount: 0,
     });
@@ -194,6 +195,7 @@ describe("account-projection-selectors", () => {
     });
 
     expect(messages.map((message) => message.id)).toEqual(["m-out", "m-in"]);
+    expect(messages.every((message) => message.conversationId === "canonical")).toBe(true);
     expect(messages[0]).toMatchObject({
       isOutgoing: true,
       senderPubkey: my,
@@ -244,6 +246,57 @@ describe("account-projection-selectors", () => {
     });
 
     expect(messages.map((message) => message.id)).toEqual(["m1", "m2"]);
+    expect(messages.every((message) => message.conversationId === inferredConversationId)).toBe(true);
     expect(messages.every((message) => message.recipientPubkey === peer || message.senderPubkey === peer)).toBe(true);
+  });
+
+  it("does not merge group timeline entries into DM conversations", () => {
+    const my = "a".repeat(64);
+    const peer = "b".repeat(64);
+    const dmConversationId = [my, peer].sort().join(":");
+    const projection: AccountProjectionSnapshot = {
+      ...PROJECTION,
+      conversationsById: {
+        [dmConversationId]: {
+          conversationId: dmConversationId,
+          peerPublicKeyHex: peer as any,
+          lastMessagePreview: "dm latest",
+          lastMessageAtUnixMs: 2_000,
+          unreadCount: 1,
+        },
+      },
+      messagesByConversationId: {
+        [dmConversationId]: [
+          {
+            messageId: "dm-1",
+            conversationId: dmConversationId,
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 100,
+            plaintextPreview: "hello from dm",
+            observedAtUnixMs: 100_000,
+          },
+        ],
+        "community:group-1:wss://relay.example": [
+          {
+            messageId: "group-1",
+            conversationId: "community:group-1:wss://relay.example",
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 101,
+            plaintextPreview: "hello from group",
+            observedAtUnixMs: 101_000,
+          },
+        ],
+      },
+    };
+
+    const messages = selectProjectionConversationMessages({
+      projection,
+      conversationId: dmConversationId,
+      myPublicKeyHex: my as any,
+    });
+
+    expect(messages.map((message) => message.id)).toEqual(["dm-1"]);
   });
 });

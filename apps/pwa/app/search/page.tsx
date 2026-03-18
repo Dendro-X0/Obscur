@@ -351,7 +351,7 @@ export default function SearchPage() {
   const isResolvedIdentitySelf = Boolean(resolvedIdentity && publicKeyHex && resolvedIdentity.pubkey === publicKeyHex);
   const navigateToProfile = React.useCallback((targetPubkey: string): void => {
     if (publicKeyHex && targetPubkey === publicKeyHex) {
-      router.push("/profile");
+      router.push("/settings#profile");
       return;
     }
     router.push(getPublicProfileHref(targetPubkey));

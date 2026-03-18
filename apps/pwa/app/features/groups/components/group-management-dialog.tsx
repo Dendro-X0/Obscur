@@ -56,6 +56,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupAccessMode } from "../types";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
+import { useNetwork } from "@/app/features/network/providers/network-provider";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -78,6 +79,7 @@ export function GroupManagementDialog({
 }: GroupManagementDialogProps) {
     const { t } = useTranslation();
     const { leaveGroup, updateGroup } = useGroups();
+    const { presence } = useNetwork();
     const {
         state,
         approveJoin,
@@ -217,12 +219,26 @@ export function GroupManagementDialog({
         }
     }, [state.metadata, group.displayName]);
 
+    const memberRegistry = React.useMemo(
+        () => (members.length > 0 ? members : group.memberPubkeys),
+        [group.memberPubkeys, members]
+    );
+    const onlineMemberCount = React.useMemo(
+        () => memberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey as PublicKeyHex)).length,
+        [memberRegistry, presence]
+    );
+
     // Background Sync: Replace persisted members with live truth
     useEffect(() => {
         if (!members.length) return;
 
-        const live = [...members].sort();
-        const cached = [...group.memberPubkeys].sort();
+        const merged = Array.from(new Set([...(group.memberPubkeys ?? []), ...members]));
+        const filtered = merged.filter((pubkey) => (
+            !state.leftMembers.includes(pubkey as PublicKeyHex)
+            && !state.expelledMembers.includes(pubkey as PublicKeyHex)
+        ));
+        const live = [...filtered].sort();
+        const cached = [...(group.memberPubkeys ?? [])].sort();
 
         if (JSON.stringify(live) !== JSON.stringify(cached)) {
             updateGroup({
@@ -230,12 +246,12 @@ export function GroupManagementDialog({
                 relayUrl: group.relayUrl,
                 conversationId: group.id,
                 updates: {
-                    memberPubkeys: [...members],
-                    memberCount: members.length
+                    memberPubkeys: filtered,
+                    memberCount: filtered.length
                 }
             });
         }
-    }, [members, group.memberPubkeys, group.groupId, updateGroup]);
+    }, [members, group.memberPubkeys, group.groupId, group.relayUrl, group.id, state.leftMembers, state.expelledMembers, updateGroup]);
 
     const handleLeave = async () => {
         setIsProcessing(true);
@@ -523,8 +539,10 @@ export function GroupManagementDialog({
                                             <Users className="h-5 w-5 text-indigo-400" />
                                         </div>
                                         <div>
-                                            <p className="text-white font-black text-lg">{(members.length || group.memberPubkeys.length)} Registered Members</p>
-                                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">Global Group Registry</p>
+                                            <p className="text-white font-black text-lg">{memberRegistry.length} Registered Members</p>
+                                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">
+                                                Global Group Registry - {onlineMemberCount} Online
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
@@ -548,7 +566,7 @@ export function GroupManagementDialog({
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {(members.length > 0 ? members : group.memberPubkeys)
+                                    {memberRegistry
                                         .filter(pk => {
                                             const q = memberSearchQuery.toLowerCase();
                                             const name = (resolvedNames[pk] || "").toLowerCase();
@@ -560,15 +578,20 @@ export function GroupManagementDialog({
                                             const isMod = admin && !isOwner;
                                             const isMe = pk === myPublicKeyHex;
                                             const isMuted = mutedMembers.includes(pk);
+                                            const isMemberOnline = presence.isPeerOnline(pk as PublicKeyHex);
 
                                             return (
                                                 <div key={pk} className="flex items-center gap-4 p-5 bg-[#0E0E10] border border-[#1A1A1E] rounded-[24px] hover:border-purple-500/30 transition-all group/member">
-                                                    <div className="h-12 w-12 rounded-2xl bg-[#1A1A1E] flex items-center justify-center border border-white/5 relative shrink-0">
+                                                    <div className="relative h-12 w-12 rounded-2xl bg-[#1A1A1E] flex items-center justify-center border border-white/5 shrink-0">
                                                         {isMuted ? (
                                                             <Bell className="h-5 w-5 text-rose-500 opacity-50" />
                                                         ) : (
                                                             <Shield className="h-5 w-5 text-indigo-500/60" />
                                                         )}
+                                                        <span className={cn(
+                                                            "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#0E0E10]",
+                                                            isMemberOnline ? "bg-emerald-500" : "bg-zinc-500"
+                                                        )} />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
@@ -580,6 +603,14 @@ export function GroupManagementDialog({
                                                         </div>
                                                         <div className="flex items-center gap-2 mt-0.5">
                                                             <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter">Member</span>
+                                                            <span className={cn(
+                                                                "text-[8px] font-black px-1.5 py-0.5 rounded border uppercase",
+                                                                isMemberOnline
+                                                                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                                                                    : "bg-zinc-500/15 text-zinc-400 border-zinc-500/25"
+                                                            )}>
+                                                                {isMemberOnline ? "ONLINE" : "OFFLINE"}
+                                                            </span>
                                                             {(state.kickVotes[pk]?.length || 0) > 0 && (
                                                                 <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">
                                                                     ⚠️ {(state.kickVotes[pk]?.length || 0)}/{(Math.floor((members?.length || 0) / 2) + 1)} Votes to Kick
@@ -803,6 +834,7 @@ export function GroupManagementDialog({
                 isOpen={isInviteModalOpen}
                 onClose={() => setIsInviteModalOpen(false)}
                 groupId={group.groupId}
+                relayUrl={group.relayUrl}
                 roomKeyHex={roomKeyHex || ""}
                 communityId={group.communityId}
                 genesisEventId={group.genesisEventId}

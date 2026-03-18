@@ -23,6 +23,7 @@ const shellMocks = vi.hoisted(() => ({
 
 const coreMocks = vi.hoisted(() => ({
   convertFileSrc: vi.fn(),
+  invoke: vi.fn(),
 }));
 
 const dialogMocks = vi.hoisted(() => ({
@@ -52,6 +53,7 @@ vi.mock("@tauri-apps/plugin-shell", () => ({
 
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: coreMocks.convertFileSrc,
+  invoke: coreMocks.invoke,
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -82,6 +84,7 @@ describe("native-local-media-adapter", () => {
     fsMocks.writeFile.mockResolvedValue(undefined);
     fsMocks.remove.mockResolvedValue(undefined);
     shellMocks.open.mockResolvedValue(undefined);
+    coreMocks.invoke.mockResolvedValue(undefined);
     coreMocks.convertFileSrc.mockReturnValue("asset://vault-media/file.png");
     dialogMocks.open.mockResolvedValue("C:/picked");
 
@@ -94,7 +97,17 @@ describe("native-local-media-adapter", () => {
     ).resolves.toBe(true);
     await expect(nativeLocalMediaAdapter.removePath({ path: "vault-media", appDataRelative: true, recursive: true })).resolves.toBe(true);
     await expect(nativeLocalMediaAdapter.openPath("C:/data/vault-media")).resolves.toBe(true);
+    expect(coreMocks.invoke).not.toHaveBeenCalled();
     await expect(nativeLocalMediaAdapter.convertAbsolutePathToFileSrc("C:/data/vault-media/file.png")).resolves.toBe("asset://vault-media/file.png");
     await expect(nativeLocalMediaAdapter.pickDirectory()).resolves.toBe("C:/picked");
+  });
+
+  it("falls back to native command when plugin-shell open fails", async () => {
+    runtimeMocks.hasNativeRuntime.mockReturnValue(true);
+    shellMocks.open.mockRejectedValue(new Error("open failed"));
+    coreMocks.invoke.mockResolvedValue(undefined);
+
+    await expect(nativeLocalMediaAdapter.openPath("D:/ObscurData/vault-media")).resolves.toBe(true);
+    expect(coreMocks.invoke).toHaveBeenCalledWith("desktop_open_storage_path", { path: "D:/ObscurData/vault-media" });
   });
 });

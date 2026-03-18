@@ -1,12 +1,13 @@
 # 08 Maintainer Playbook and Continuation Handoff
 
-_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
+_Last reviewed: 2026-03-18 (baseline commit 11f5602)._
 
 This file is the minimal context needed to resume the project after a pause.
 
 ## Current State Snapshot
 
 - Cross-platform beta release pipeline is wired through GitHub Releases.
+- Release workflow now supports dynamic publication: desktop/web release verification and manual publish are not blocked by Android lane failures, with explicit Android status evidence in workflow summary.
 - Runtime architecture has moved toward explicit ownership and contract-first behavior.
 - Docs were intentionally compacted to reduce maintenance overhead and token cost.
 
@@ -17,6 +18,9 @@ See `ISSUES.md` for user-facing language. Engineering focus remains:
 1. Cross-device account/session consistency (password/session restore behavior).
 2. Direct-message history consistency after device/account synchronization.
 3. Relay instability handling under partial outages.
+
+v0.9.2 direction lock:
+- prioritize account data synchronization reliability as the primary engineering lane before additional feature expansion.
 
 ## Default Recovery Heuristic
 

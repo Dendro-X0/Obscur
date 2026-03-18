@@ -57,6 +57,7 @@ import { useChatViewProps } from "./hooks/use-chat-view-props";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { resolveConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { getIncomingInboxRequests } from "@/app/features/messaging/services/request-inbox-view";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
@@ -65,6 +66,7 @@ import type { Connection as LegacyInviteConnection, ConnectionRequest as LegacyI
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
 import { resolveAccountSyncUiPolicy } from "@/app/features/account-sync/services/account-sync-ui-policy";
 import { AppLoadingScreen } from "@/app/components/app-loading-screen";
+import { usePeerLastActiveByPeer } from "@/app/features/messaging/hooks/use-peer-last-active-by-peer";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
@@ -74,7 +76,7 @@ const LOAD_EARLIER_STEP = 50;
 function NostrMessengerContent() {
   const { t } = useTranslation();
   const identity = useIdentity();
-  const { blocklist, peerTrust, requestsInbox } = useNetwork();
+  const { blocklist, peerTrust, requestsInbox, presence } = useNetwork();
 
   const myPublicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
   const myPrivateKeyHex = identity.state.privateKeyHex || null;
@@ -83,6 +85,7 @@ function NostrMessengerContent() {
   const {
     selectedConversation, setSelectedConversation,
     unreadByConversationId, setUnreadByConversationId,
+    lastViewedByConversationId,
     connectionOverridesByConnectionId,
     visibleMessageCountByConversationId, setVisibleMessageCountByConversationId,
     replyTo, setReplyTo,
@@ -103,7 +106,7 @@ function NostrMessengerContent() {
     messageMenu, setMessageMenu,
     reactionPicker, setReactionPicker,
     pinnedChatIds, togglePin,
-    hiddenChatIds, deleteConversation, clearHistory, unhideConversation,
+    hiddenChatIds, hideConversation, deleteConversation, clearHistory, unhideConversation,
     chatsUnreadCount,
     createdConnections, setCreatedConnections
   } = useMessaging();
@@ -131,6 +134,7 @@ function NostrMessengerContent() {
   // No-op - moved to top
 
   const dmController = useRuntimeMessagingTransportOwnerController();
+  const peerLastActiveByPeerPubkey = usePeerLastActiveByPeer(myPublicKeyHex as PublicKeyHex | null);
 
   useEffect(() => {
     if (!myPublicKeyHex) {
@@ -205,17 +209,24 @@ function NostrMessengerContent() {
     if (selectedConversation?.kind !== 'group' || groupMembers.length === 0) return;
     const group = selectedConversation as GroupConversation;
     const current = group.memberPubkeys ?? [];
-    const same = current.length === groupMembers.length &&
-      groupMembers.every(pk => current.includes(pk));
+    const merged = Array.from(new Set([...current, ...groupMembers]));
+    const nextMembers = merged.filter((pubkey) => (
+      !groupState.leftMembers.includes(pubkey) && !groupState.expelledMembers.includes(pubkey)
+    ));
+    const same = current.length === nextMembers.length &&
+      nextMembers.every(pk => current.includes(pk));
     if (!same) {
       updateGroup({
         groupId: group.groupId,
         relayUrl: group.relayUrl,
         conversationId: group.id,
-        updates: { memberPubkeys: [...groupMembers] }
+        updates: {
+          memberPubkeys: nextMembers,
+          memberCount: nextMembers.length
+        }
       });
     }
-  }, [groupMembers, selectedConversation?.id]);
+  }, [groupMembers, groupState.expelledMembers, groupState.leftMembers, selectedConversation?.id, updateGroup]);
 
 
 
@@ -373,16 +384,40 @@ function NostrMessengerContent() {
 
   useEffect(() => {
     if (restoredChatId && !selectedConversation) {
-      const found = allConversations.find(c => c.id === restoredChatId);
-      if (found) {
-        setSelectedConversation(found);
+      const resolved = resolveConversationByToken({
+        token: restoredChatId,
+        groups: createdGroups,
+        connections: createdConnections,
+      });
+      if (resolved) {
+        setSelectedConversation(resolved);
+        if (resolved.kind === "dm") {
+          unhideConversation(resolved.id);
+        }
         setRestoredChatId("");
       }
     }
-  }, [restoredChatId, allConversations, selectedConversation, setSelectedConversation]);
+  }, [restoredChatId, selectedConversation, setSelectedConversation, createdGroups, createdConnections, unhideConversation]);
 
   const selectedConversationView = selectedConversation ? applyConnectionOverrides(selectedConversation, connectionOverridesByConnectionId) : null;
   const nowMs = useSyncExternalStore(subscribeNowMs, getNowMsSnapshot, getNowMsServerSnapshot);
+  const interactionByConversationId = useMemo(() => {
+    const map: Record<string, Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>> = {};
+    allConversations.forEach((conversation) => {
+      if (conversation.kind !== "dm") {
+        return;
+      }
+      const lastActiveAtMs = peerLastActiveByPeerPubkey[conversation.pubkey];
+      const lastViewedAtMs = lastViewedByConversationId[conversation.id];
+      if (lastActiveAtMs || lastViewedAtMs) {
+        map[conversation.id] = {
+          ...(lastActiveAtMs ? { lastActiveAtMs } : {}),
+          ...(lastViewedAtMs ? { lastViewedAtMs } : {}),
+        };
+      }
+    });
+    return map;
+  }, [allConversations, lastViewedByConversationId, peerLastActiveByPeerPubkey]);
 
   const handleUnlock = async (passphrase: string) => {
     setIsUnlocking(true);
@@ -471,7 +506,9 @@ function NostrMessengerContent() {
     snapshot: accountSyncSnapshot,
   });
 
-  const visibleChatsList = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
+  const visibleChatsList = filteredConversations.filter((conversation) => (
+    conversation.kind === "group" || !hiddenChatIds.includes(conversation.id)
+  ));
   const accurateChatsUnreadCount = visibleChatsList.reduce((acc, c) => {
     if (selectedConversation?.id === c.id) {
       return acc;
@@ -504,13 +541,16 @@ function NostrMessengerContent() {
             activeTab={sidebarTab}
             setActiveTab={updateSidebarTab}
             selectConversation={setSelectedConversation}
+            interactionByConversationId={interactionByConversationId}
             requests={getIncomingInboxRequests(requestsInbox.state.items)}
             pinnedChatIds={pinnedChatIds}
             togglePin={togglePin}
             hiddenChatIds={hiddenChatIds}
+            hideConversation={hideConversation}
             deleteConversation={deleteConversation}
             clearHistory={clearHistory}
             onClearHistory={requestsInbox.clearHistory}
+            isPeerOnline={(publicKeyHex) => presence.isPeerOnline(publicKeyHex)}
             onAcceptRequest={(pk) => {
               const requestEventId = requestsInbox.state.items.find(
                 (item) => item.peerPublicKeyHex === (pk as PublicKeyHex) && !item.isOutgoing
@@ -585,6 +625,12 @@ function NostrMessengerContent() {
         ) : (
           <ChatView
             conversation={selectedConversationView}
+            isPeerOnline={
+              selectedConversationView.kind === "dm"
+                ? presence.isPeerOnline(selectedConversationView.pubkey)
+                : undefined
+            }
+            interactionStatus={interactionByConversationId[selectedConversationView.id]}
             messages={visibleMessages}
             rawMessagesCount={rawMessagesCount}
             hasHydrated={hasHydrated}

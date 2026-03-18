@@ -23,6 +23,13 @@ import { publishViaRelayCore, type RelayPoolLike } from "@/app/features/relays/l
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
+  loadCommunityMembershipLedger,
+  mergeCommunityMembershipLedgerEntries,
+  parseCommunityMembershipLedgerSnapshot,
+  saveCommunityMembershipLedger,
+  selectJoinedCommunityMembershipLedgerEntries,
+} from "@/app/features/groups/services/community-membership-ledger";
+import {
   DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG,
   getLocalMediaStorageConfig,
   saveLocalMediaStorageConfig,
@@ -309,10 +316,12 @@ const hasAcceptedConnectionRequest = (value: EncryptedAccountBackupPayload["chat
 );
 
 const hasPortablePrivateStateEvidence = (payload: EncryptedAccountBackupPayload): boolean => {
+  const joinedCommunityCount = selectJoinedCommunityMembershipLedgerEntries(payload.communityMembershipLedger ?? []).length;
   const hasDurableAcceptanceState = payload.peerTrust.acceptedPeers.length > 0
     || hasAcceptedRequestFlowEvidence(payload.requestFlowEvidence)
     || (payload.chatState?.createdConnections.length ?? 0) > 0
     || (payload.chatState?.createdGroups.length ?? 0) > 0
+    || joinedCommunityCount > 0
     || hasAcceptedConnectionRequest(payload.chatState);
   return payload.peerTrust.mutedPeers.length > 0
     || hasDurableAcceptanceState
@@ -1017,7 +1026,8 @@ const buildBackupPayload = (
   chatStateOverride?: EncryptedAccountBackupPayload["chatState"],
 ): EncryptedAccountBackupPayload => {
   const profileId = getActiveProfileIdSafe();
-  return {
+  const communityMembershipLedger = loadCommunityMembershipLedger(publicKeyHex);
+  const payload: EncryptedAccountBackupPayload = {
     version: 1,
     publicKeyHex,
     createdAtUnixMs: Date.now(),
@@ -1030,6 +1040,13 @@ const buildBackupPayload = (
     privacySettings: PrivacySettingsService.getSettings(),
     relayList: relayListInternals.loadRelayListFromStorage(publicKeyHex),
     uiSettings: buildUiSettingsSnapshot(profileId),
+  };
+  if (communityMembershipLedger.length === 0) {
+    return payload;
+  }
+  return {
+    ...payload,
+    communityMembershipLedger,
   };
 };
 
@@ -1072,7 +1089,8 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
       }
       : fallbackUiSettings.localMediaStorageConfig
   );
-  return {
+  const communityMembershipLedger = parseCommunityMembershipLedgerSnapshot(parsed.communityMembershipLedger);
+  const payload: EncryptedAccountBackupPayload = {
     version: 1,
     publicKeyHex: parsed.publicKeyHex as PublicKeyHex,
     createdAtUnixMs: parsed.createdAtUnixMs,
@@ -1092,6 +1110,13 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
       accessibilityPreferences: parseAccessibilityPreferences(parsedUiSettings?.accessibilityPreferences),
       localMediaStorageConfig,
     },
+  };
+  if (communityMembershipLedger.length === 0) {
+    return payload;
+  }
+  return {
+    ...payload,
+    communityMembershipLedger,
   };
 };
 
@@ -1203,6 +1228,12 @@ const mergeIncomingRestorePayload = async (
   if (currentPayload) {
     saveRecoverySnapshot(publicKeyHex, currentPayload);
   }
+  const mergedCommunityMembershipLedger = (!freshDevice && currentPayload)
+    ? mergeCommunityMembershipLedgerEntries(
+      currentPayload.communityMembershipLedger ?? [],
+      sanitizedIncomingPayload.communityMembershipLedger ?? [],
+    )
+    : parseCommunityMembershipLedgerSnapshot(sanitizedIncomingPayload.communityMembershipLedger);
   const mergedPayload: EncryptedAccountBackupPayload = (!freshDevice && currentPayload)
     ? {
       ...sanitizedIncomingPayload,
@@ -1237,8 +1268,18 @@ const mergeIncomingRestorePayload = async (
           ...(sanitizedIncomingPayload.uiSettings?.localMediaStorageConfig ?? {}),
         },
       },
+      ...(mergedCommunityMembershipLedger.length > 0
+        ? { communityMembershipLedger: mergedCommunityMembershipLedger }
+        : {}),
     }
-    : sanitizedIncomingPayload;
+    : (
+      mergedCommunityMembershipLedger.length > 0
+        ? {
+          ...sanitizedIncomingPayload,
+          communityMembershipLedger: mergedCommunityMembershipLedger,
+        }
+        : sanitizedIncomingPayload
+    );
   return mergedPayload;
 };
 
@@ -1270,6 +1311,7 @@ const applyBackupPayload = async (
     // Backup restore should not immediately trigger mutation-driven backup publish.
     chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, { emitMutationSignal: false });
   }
+  saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
   PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
   relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList);
   persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);
@@ -1291,6 +1333,7 @@ const applyBackupPayloadNonV1Domains = async (
   useProfileInternals.saveToStorage({ profile: mergedPayload.profile });
   useProfileInternals.setState({ profile: mergedPayload.profile });
   useProfileInternals.notify();
+  saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
   PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
   relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList);
   persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);

@@ -19,13 +19,17 @@ import {
     UserPlus,
     Ban,
     X,
-    ChevronRight
+    ChevronRight,
+    ChevronLeft,
+    Search
 } from "lucide-react";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { PageShell } from "@/app/components/page-shell";
 import { Button } from "@dweb/ui-kit";
+import { Input } from "@dweb/ui-kit";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Card } from "@dweb/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
@@ -39,33 +43,39 @@ import Image from "next/image";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
+import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
+import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 
 export default function GroupHomePage() {
+    const MEMBERS_PER_PAGE = 20;
     const params = useParams();
     const searchParams = useSearchParams();
-    const routeId = Array.isArray(params.id) ? params.id.join("/") : params.id;
-    const id = routeId || searchParams.get("id") || "";
+    const id = resolveGroupRouteToken({
+        routeParam: params.id,
+        queryId: searchParams.get("id"),
+    });
     const router = useRouter();
     const { t } = useTranslation();
     const { createdGroups, leaveGroup, updateGroup } = useGroups();
+    const { setSelectedConversation } = useMessaging();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
-    const { blocklist } = useNetwork();
+    const { blocklist, presence } = useNetwork();
     const discoveredRelay = searchParams.get("relay");
     const [isLeaving, setIsLeaving] = useState(false);
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
     const [isMemberListOpen, setIsMemberListOpen] = useState(false);
+    const [memberSearchQuery, setMemberSearchQuery] = useState("");
+    const [onlinePage, setOnlinePage] = useState(1);
+    const [offlinePage, setOfflinePage] = useState(1);
     const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState(false);
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
 
-    // Strict identity matching only to prevent accidental ghost-group resolution.
-    const group = id ? createdGroups.find(g =>
-        g.id === id ||
-        encodeURIComponent(g.id) === id
-    ) : undefined;
+    const group = id ? (resolveGroupConversationByToken(createdGroups, id) ?? undefined) : undefined;
 
     const effectiveRelay = toScopedRelayUrl(group?.relayUrl || discoveredRelay || "") ?? "";
     const isGuest = !group;
@@ -94,7 +104,6 @@ export default function GroupHomePage() {
         return group?.memberPubkeys || [];
     }, [discoveredMembers, group?.memberPubkeys]);
 
-    const displayMemberCount = activeMembers.length;
     const allKnownMembers = React.useMemo(() => {
         const merged = new Set<PublicKeyHex>([
             ...((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []),
@@ -102,26 +111,98 @@ export default function GroupHomePage() {
         ]);
         return Array.from(merged);
     }, [activeMembers, group?.memberPubkeys]);
-    const offlineMembers = React.useMemo(
-        () => allKnownMembers.filter((pk) => !activeMembers.includes(pk)),
-        [allKnownMembers, activeMembers]
+    const displayMemberCount = allKnownMembers.length;
+    const onlineMembers = React.useMemo(
+        () => allKnownMembers.filter((pk) => presence.isPeerOnline(pk as PublicKeyHex)),
+        [allKnownMembers, presence]
     );
+    const offlineMembers = React.useMemo(
+        () => allKnownMembers.filter((pk) => !presence.isPeerOnline(pk as PublicKeyHex)),
+        [allKnownMembers, presence]
+    );
+
+    const normalizedMemberSearch = memberSearchQuery.trim().toLowerCase();
+    const memberMatchesSearch = React.useCallback((pubkey: string): boolean => {
+        if (normalizedMemberSearch.length === 0) {
+            return true;
+        }
+        const profile = discoveryCache.getProfile(pubkey);
+        const haystack = [
+            pubkey,
+            profile?.displayName,
+            profile?.name,
+            profile?.nip05,
+            profile?.about,
+        ]
+            .filter((value): value is string => typeof value === "string" && value.length > 0)
+            .join(" ")
+            .toLowerCase();
+        return haystack.includes(normalizedMemberSearch);
+    }, [normalizedMemberSearch]);
+
+    const filteredOnlineMembers = React.useMemo(
+        () => onlineMembers.filter((pubkey) => memberMatchesSearch(pubkey)),
+        [memberMatchesSearch, onlineMembers]
+    );
+    const filteredOfflineMembers = React.useMemo(
+        () => offlineMembers.filter((pubkey) => memberMatchesSearch(pubkey)),
+        [offlineMembers, memberMatchesSearch]
+    );
+
+    const onlineTotalPages = Math.max(1, Math.ceil(filteredOnlineMembers.length / MEMBERS_PER_PAGE));
+    const offlineTotalPages = Math.max(1, Math.ceil(filteredOfflineMembers.length / MEMBERS_PER_PAGE));
+
+    const pagedOnlineMembers = React.useMemo(() => {
+        const start = (onlinePage - 1) * MEMBERS_PER_PAGE;
+        return filteredOnlineMembers.slice(start, start + MEMBERS_PER_PAGE);
+    }, [filteredOnlineMembers, onlinePage, MEMBERS_PER_PAGE]);
+
+    const pagedOfflineMembers = React.useMemo(() => {
+        const start = (offlinePage - 1) * MEMBERS_PER_PAGE;
+        return filteredOfflineMembers.slice(start, start + MEMBERS_PER_PAGE);
+    }, [filteredOfflineMembers, offlinePage, MEMBERS_PER_PAGE]);
+
+    React.useEffect(() => {
+        setOnlinePage(1);
+        setOfflinePage(1);
+    }, [normalizedMemberSearch]);
+
+    React.useEffect(() => {
+        setOnlinePage((current) => Math.min(current, onlineTotalPages));
+    }, [onlineTotalPages]);
+
+    React.useEffect(() => {
+        setOfflinePage((current) => Math.min(current, offlineTotalPages));
+    }, [offlineTotalPages]);
 
     // Sync live member list back to the group provider so persistence stays current
     React.useEffect(() => {
         if (!group || discoveredMembers.length === 0) return;
         const current = group.memberPubkeys ?? [];
-        const same = current.length === discoveredMembers.length &&
-            discoveredMembers.every(pk => current.includes(pk));
+        const merged = Array.from(new Set([...current, ...discoveredMembers]));
+        const nextMembers = merged.filter((pubkey) => (
+            !groupState.leftMembers.includes(pubkey) && !groupState.expelledMembers.includes(pubkey)
+        ));
+        const same = current.length === nextMembers.length &&
+            nextMembers.every(pk => current.includes(pk));
         if (!same) {
             updateGroup({
                 groupId: group.groupId,
                 relayUrl: group.relayUrl,
                 conversationId: group.id,
-                updates: { memberPubkeys: [...discoveredMembers] }
+                updates: {
+                    memberPubkeys: nextMembers,
+                    memberCount: nextMembers.length
+                }
             });
         }
-    }, [discoveredMembers, group?.groupId]);
+    }, [discoveredMembers, group?.groupId, group?.id, group?.relayUrl, group?.memberPubkeys, groupState.expelledMembers, groupState.leftMembers, updateGroup]);
+
+    const handleEnterCommunityChat = React.useCallback(() => {
+        if (!group) return;
+        setSelectedConversation(group);
+        router.push(`/?convId=${encodeURIComponent(group.id)}`);
+    }, [group, router, setSelectedConversation]);
 
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const getScopedGroupNotificationsKey = (groupId: string): string => getScopedStorageKey(`obscur_group_notifications_${groupId}`);
@@ -165,6 +246,18 @@ export default function GroupHomePage() {
     };
 
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes((group?.groupId || id || "") as any) ?? false;
+    const openMemberList = (): void => {
+        setMemberSearchQuery("");
+        setOnlinePage(1);
+        setOfflinePage(1);
+        setIsMemberListOpen(true);
+    };
+    const closeMemberList = (): void => {
+        setIsMemberListOpen(false);
+        setMemberSearchQuery("");
+        setOnlinePage(1);
+        setOfflinePage(1);
+    };
     const handleBlockAction = () => {
         if (isBlocked) {
             handleToggleBlock();
@@ -303,7 +396,7 @@ export default function GroupHomePage() {
                                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                                     {!isGuest ? (
                                         <Button
-                                            onClick={() => router.push(`/?convId=${encodeURIComponent(group.id)}`)}
+                                            onClick={handleEnterCommunityChat}
                                             className="h-16 px-10 rounded-2xl bg-white text-black hover:bg-zinc-200 font-black text-lg shadow-2xl shadow-white/5 transition-all hover:scale-[1.02] active:scale-95 gap-3"
                                         >
                                             <MessageSquare className="h-6 w-6" />
@@ -385,7 +478,7 @@ export default function GroupHomePage() {
                     {/* Membership Card - Wide */}
                     <button
                         type="button"
-                        onClick={() => setIsMemberListOpen(true)}
+                        onClick={openMemberList}
                         className="md:col-span-2 lg:col-span-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 rounded-[40px]"
                     >
                         <Card className="bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative cursor-pointer">
@@ -515,6 +608,7 @@ export default function GroupHomePage() {
                         isOpen={isInviteConnectionsOpen}
                         onClose={() => setIsInviteConnectionsOpen(false)}
                         groupId={group.groupId}
+                        relayUrl={group.relayUrl}
                         roomKeyHex={roomKeyHex || ""}
                         communityId={group.communityId}
                         genesisEventId={group.genesisEventId}
@@ -533,7 +627,7 @@ export default function GroupHomePage() {
                 {isMemberListOpen && (
                     <div
                         className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-                        onClick={() => setIsMemberListOpen(false)}
+                        onClick={closeMemberList}
                     >
                         <div
                             className="w-full max-w-2xl bg-[#0C0C0E] border border-white/10 rounded-[28px] overflow-hidden shadow-2xl"
@@ -543,7 +637,7 @@ export default function GroupHomePage() {
                                 <div>
                                     <h3 className="text-white text-xl font-black">Community Members</h3>
                                     <p className="text-xs uppercase tracking-widest text-zinc-500 font-bold mt-1">
-                                        {activeMembers.length} online / {offlineMembers.length} offline
+                                        {filteredOnlineMembers.length} online / {filteredOfflineMembers.length} offline
                                     </p>
                                 </div>
                                 <Button
@@ -551,46 +645,115 @@ export default function GroupHomePage() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-9 w-9 text-zinc-400 hover:text-white hover:bg-white/5"
-                                    onClick={() => setIsMemberListOpen(false)}
+                                    onClick={closeMemberList}
                                 >
                                     <X className="h-4 w-4" />
                                 </Button>
                             </div>
+                            <div className="border-b border-white/10 p-6">
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                                    <Input
+                                        value={memberSearchQuery}
+                                        onChange={(event) => setMemberSearchQuery(event.target.value)}
+                                        placeholder="Search members by name, pubkey, or profile info..."
+                                        className="h-11 rounded-xl border-white/10 bg-white/[0.03] pl-10 text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-400/40 focus:ring-emerald-400/25"
+                                    />
+                                </div>
+                            </div>
                             <div className="grid gap-4 p-6 md:grid-cols-2 max-h-[70vh] overflow-y-auto">
-                                <div className="space-y-3">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400">Online</h4>
-                                    {activeMembers.length === 0 ? (
-                                        <p className="text-xs text-zinc-500">No online members detected.</p>
+                                <div className="space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3">
+                                    <h4 className="px-1 text-xs font-black uppercase tracking-widest text-emerald-400">Online</h4>
+                                    {filteredOnlineMembers.length === 0 ? (
+                                        <p className="px-1 py-2 text-xs text-zinc-500">No online members detected.</p>
                                     ) : (
-                                        activeMembers.map((pk) => (
+                                        pagedOnlineMembers.map((pk) => (
                                             <MemberProfileRow
                                                 key={`online-${pk}`}
                                                 pubkey={pk}
                                                 status="online"
                                                 onOpenProfile={(memberPubkey) => {
-                                                    setIsMemberListOpen(false);
+                                                    closeMemberList();
                                                     router.push(getPublicProfileHref(memberPubkey));
                                                 }}
                                             />
                                         ))
                                     )}
+                                    {filteredOnlineMembers.length > MEMBERS_PER_PAGE && (
+                                        <div className="flex items-center justify-between px-1 pt-1">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setOnlinePage((page) => Math.max(1, page - 1))}
+                                                disabled={onlinePage <= 1}
+                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                            >
+                                                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                                                Prev
+                                            </Button>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                Page {onlinePage} / {onlineTotalPages}
+                                            </p>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setOnlinePage((page) => Math.min(onlineTotalPages, page + 1))}
+                                                disabled={onlinePage >= onlineTotalPages}
+                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                            >
+                                                Next
+                                                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-3">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Offline</h4>
-                                    {offlineMembers.length === 0 ? (
-                                        <p className="text-xs text-zinc-500">No offline members detected.</p>
+                                <div className="space-y-3 rounded-2xl border border-violet-400/20 bg-gradient-to-b from-violet-500/[0.08] via-indigo-500/[0.03] to-transparent p-3">
+                                    <h4 className="px-1 text-xs font-black uppercase tracking-widest text-violet-300">Offline</h4>
+                                    {filteredOfflineMembers.length === 0 ? (
+                                        <p className="px-1 py-2 text-xs text-zinc-500">No offline members detected.</p>
                                     ) : (
-                                        offlineMembers.map((pk) => (
+                                        pagedOfflineMembers.map((pk) => (
                                             <MemberProfileRow
                                                 key={`offline-${pk}`}
                                                 pubkey={pk}
                                                 status="offline"
                                                 onOpenProfile={(memberPubkey) => {
-                                                    setIsMemberListOpen(false);
+                                                    closeMemberList();
                                                     router.push(getPublicProfileHref(memberPubkey));
                                                 }}
                                             />
                                         ))
+                                    )}
+                                    {filteredOfflineMembers.length > MEMBERS_PER_PAGE && (
+                                        <div className="flex items-center justify-between px-1 pt-1">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setOfflinePage((page) => Math.max(1, page - 1))}
+                                                disabled={offlinePage <= 1}
+                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                            >
+                                                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                                                Prev
+                                            </Button>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                Page {offlinePage} / {offlineTotalPages}
+                                            </p>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setOfflinePage((page) => Math.min(offlineTotalPages, page + 1))}
+                                                disabled={offlinePage >= offlineTotalPages}
+                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                            >
+                                                Next
+                                                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -646,10 +809,10 @@ function MemberProfileRow({
             type="button"
             onClick={() => onOpenProfile(pubkey)}
             className={cn(
-                "w-full rounded-2xl border p-3 text-left transition-all group",
+                "group w-full rounded-2xl border p-3 text-left transition-all",
                 status === "online"
-                    ? "border-emerald-500/20 bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08] hover:border-emerald-400/30"
-                    : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20"
+                    ? "border-emerald-400/30 bg-gradient-to-r from-emerald-500/[0.16] via-cyan-500/[0.08] to-transparent hover:border-emerald-300/40 hover:from-emerald-500/[0.2] hover:via-cyan-500/[0.12]"
+                    : "border-violet-400/25 bg-gradient-to-r from-violet-500/[0.14] via-indigo-500/[0.08] to-transparent hover:border-violet-300/35 hover:from-violet-500/[0.18] hover:via-indigo-500/[0.12]"
             )}
         >
             <div className="flex items-center gap-3">
@@ -657,27 +820,27 @@ function MemberProfileRow({
                     pubkey={pubkey}
                     size="sm"
                     showProfileOnClick={false}
-                    className="rounded-xl border border-white/10"
+                    className="rounded-xl border border-white/20 dark:border-white/10"
                 />
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-black text-zinc-100">{displayName}</p>
+                        <p className="truncate text-sm font-black text-zinc-900 dark:text-zinc-100">{displayName}</p>
                         <span
                             className={cn(
                                 "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest",
                                 status === "online"
-                                    ? "bg-emerald-500/15 text-emerald-300"
-                                    : "bg-zinc-500/20 text-zinc-300"
+                                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-200"
+                                    : "bg-violet-500/20 text-violet-700 dark:text-violet-200"
                             )}
                         >
                             {statusLabel}
                         </span>
                     </div>
-                    <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-500">
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-600 dark:text-zinc-400">
                         {pubkey.slice(0, 12)}...{pubkey.slice(-8)}
                     </p>
                 </div>
-                <div className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-center text-zinc-400 group-hover:text-white group-hover:border-white/20 transition-colors">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-black/[0.05] text-zinc-500 transition-colors group-hover:border-black/20 group-hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:border-white/20 dark:group-hover:text-white">
                     <ChevronRight className="h-4 w-4" />
                 </div>
             </div>

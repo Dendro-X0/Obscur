@@ -70,6 +70,9 @@ const resolvePublishCooldownMs = (reason: AccountSyncBackupPublishReason): numbe
   if (reason === "pagehide" || reason === "startup") {
     return 0;
   }
+  if (reason === "community_membership_changed") {
+    return 0;
+  }
   if (reason === "mutation") {
     return MUTATION_BACKUP_COOLDOWN_MS;
   }
@@ -99,6 +102,8 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   const restoreInFlightRef = useRef(false);
   const lastRestoreAtUnixMsRef = useRef<number>(0);
   const lastMutationPublishAtUnixMsRef = useRef<number | null>(null);
+  const lastObservedMutationSignalAtUnixMsRef = useRef<number>(0);
+  const pendingCommunityMembershipPublishRef = useRef(false);
   const suppressMutationPublishUntilUnixMsRef = useRef<number>(0);
   const convergenceGuardEnabled = PrivacySettingsService.getSettings().accountSyncConvergenceV091 === true;
 
@@ -228,7 +233,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     reason: AccountSyncBackupPublishReason
   ): Promise<AccountSyncBackupPublishResult> => {
     const now = Date.now();
-    if (reason === "mutation") {
+    if (reason === "mutation" || reason === "community_membership_changed") {
       lastMutationPublishAtUnixMsRef.current = now;
     }
     if (!params.publicKeyHex || !params.privateKeyHex) {
@@ -236,7 +241,9 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         lastBackupPublishReason: reason,
         lastBackupPublishAttemptAtUnixMs: now,
         lastBackupPublishResult: "skipped_identity",
-        lastMutationPublishAtUnixMs: reason === "mutation" ? now : undefined,
+        lastMutationPublishAtUnixMs: (
+          reason === "mutation" || reason === "community_membership_changed"
+        ) ? now : undefined,
       });
       return "skipped_identity";
     }
@@ -245,7 +252,9 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         lastBackupPublishReason: reason,
         lastBackupPublishAttemptAtUnixMs: now,
         lastBackupPublishResult: "in_flight",
-        lastMutationPublishAtUnixMs: reason === "mutation" ? now : undefined,
+        lastMutationPublishAtUnixMs: (
+          reason === "mutation" || reason === "community_membership_changed"
+        ) ? now : undefined,
       });
       return "in_flight";
     }
@@ -255,7 +264,9 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         lastBackupPublishReason: reason,
         lastBackupPublishAttemptAtUnixMs: now,
         lastBackupPublishResult: "skipped_cooldown",
-        lastMutationPublishAtUnixMs: reason === "mutation" ? now : undefined,
+        lastMutationPublishAtUnixMs: (
+          reason === "mutation" || reason === "community_membership_changed"
+        ) ? now : undefined,
       });
       return "skipped_cooldown";
     }
@@ -263,7 +274,9 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     updateConvergenceDiagnostics({
       lastBackupPublishReason: reason,
       lastBackupPublishAttemptAtUnixMs: now,
-      lastMutationPublishAtUnixMs: reason === "mutation" ? now : undefined,
+      lastMutationPublishAtUnixMs: (
+        reason === "mutation" || reason === "community_membership_changed"
+      ) ? now : undefined,
     });
     logAppEvent({
       name: "account_sync.backup_publish_attempt",
@@ -336,6 +349,8 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
       lastBackupAtUnixMsRef.current = 0;
       lastRestoreAtUnixMsRef.current = 0;
       lastMutationPublishAtUnixMsRef.current = null;
+      lastObservedMutationSignalAtUnixMsRef.current = 0;
+      pendingCommunityMembershipPublishRef.current = false;
       suppressMutationPublishUntilUnixMsRef.current = 0;
       return;
     }
@@ -357,10 +372,24 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
           return;
         }
         params.onRelayListRestored?.(report.relayList);
-        void maybePublishBackup("startup");
-        if (convergenceGuardEnabled && report.restoreStatus === "private_restored") {
-          void maybeRestoreBackup("startup_fast_follow");
+
+        // Ensure startup restore is applied before the first startup publish.
+        // Publishing first on a fresh device can propagate stale/empty local state.
+        const startupRestoreResult = await maybeRestoreBackup("startup_fast_follow");
+        if (startupRestoreResult === "failed" || startupRestoreResult === "in_flight") {
+          logAppEvent({
+            name: "account_sync.backup_publish_startup_suppressed",
+            level: "warn",
+            scope: { feature: "account_sync", action: "backup_publish" },
+            context: {
+              reason: "startup_restore_not_applied",
+              startupRestoreResult,
+              guardEnabled: convergenceGuardEnabled,
+            },
+          });
+          return;
         }
+        void maybePublishBackup("startup");
       } catch (error) {
         if (cancelled) {
           return;
@@ -410,8 +439,35 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     };
 
     const unsubscribeMutation = subscribeAccountSyncMutation((detail) => {
+      if (detail.atUnixMs <= lastObservedMutationSignalAtUnixMsRef.current) {
+        return;
+      }
+      lastObservedMutationSignalAtUnixMsRef.current = detail.atUnixMs;
+      const publishReason: AccountSyncBackupPublishReason = detail.reason === "community_membership_changed"
+        ? "community_membership_changed"
+        : "mutation";
       queueMicrotask(() => {
         if (restoreInFlightRef.current) {
+          if (publishReason === "community_membership_changed" && !pendingCommunityMembershipPublishRef.current) {
+            pendingCommunityMembershipPublishRef.current = true;
+            const flushCommunityMembershipPublish = (): void => {
+              if (!pendingCommunityMembershipPublishRef.current) {
+                return;
+              }
+              if (restoreInFlightRef.current) {
+                window.setTimeout(flushCommunityMembershipPublish, 250);
+                return;
+              }
+              pendingCommunityMembershipPublishRef.current = false;
+              void (async () => {
+                await maybePublishBackup("community_membership_changed");
+                if (convergenceGuardEnabled) {
+                  await maybeRestoreBackup("mutation_fast_follow");
+                }
+              })();
+            };
+            window.setTimeout(flushCommunityMembershipPublish, 250);
+          }
           logAppEvent({
             name: "account_sync.backup_publish_mutation_suppressed_restore_in_flight",
             level: "info",
@@ -423,7 +479,10 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
           });
           return;
         }
-        if (Date.now() < suppressMutationPublishUntilUnixMsRef.current) {
+        if (
+          publishReason !== "community_membership_changed"
+          && Date.now() < suppressMutationPublishUntilUnixMsRef.current
+        ) {
           logAppEvent({
             name: "account_sync.backup_publish_mutation_suppressed_after_restore",
             level: "info",
@@ -437,7 +496,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
           return;
         }
         void (async () => {
-          await maybePublishBackup("mutation");
+          await maybePublishBackup(publishReason);
           if (convergenceGuardEnabled) {
             await maybeRestoreBackup("mutation_fast_follow");
           }

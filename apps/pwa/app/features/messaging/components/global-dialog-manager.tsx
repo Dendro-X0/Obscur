@@ -41,7 +41,7 @@ export function GlobalDialogManager() {
     const {
         isNewGroupOpen, setIsNewGroupOpen,
         isCreatingGroup, setIsCreatingGroup,
-        setCreatedGroups
+        addGroup
     } = useGroups();
 
     const myPublicKeyHex = identity.state.publicKeyHex || null;
@@ -186,7 +186,7 @@ export function GlobalDialogManager() {
                 avatar
             };
 
-            setCreatedGroups(prev => [...prev, newGroup]);
+            addGroup(newGroup, { allowRevive: true });
             setSelectedConversation(newGroup);
             setIsNewGroupOpen(false);
             toast.success(t("groups.created", "Sealed Community created successfully"));
@@ -196,7 +196,7 @@ export function GlobalDialogManager() {
         } finally {
             setIsCreatingGroup(false);
         }
-    }, [myPrivateKeyHex, myPublicKeyHex, relayPool, setCreatedGroups, setSelectedConversation, setIsNewGroupOpen, setIsCreatingGroup, t]);
+    }, [myPrivateKeyHex, myPublicKeyHex, relayPool, addGroup, setSelectedConversation, setIsNewGroupOpen, setIsCreatingGroup, t]);
 
     return (
         <>

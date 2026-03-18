@@ -3,11 +3,30 @@ import { render } from "@testing-library/react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { RuntimeMessagingTransportOwnerProvider } from "./runtime-messaging-transport-owner-provider";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
+import type { Message } from "@/app/features/messaging/types";
+
+const busMocks = vi.hoisted(() => ({
+  emitNewMessage: vi.fn(),
+}));
+
+const peerInteractionMocks = vi.hoisted(() => ({
+  recordPeerLastActive: vi.fn(),
+}));
 
 vi.mock("@/app/features/messaging/hooks/use-enhanced-dm-controller", () => ({
   useEnhancedDmController: vi.fn(() => ({
     state: { status: "ready", messages: [] },
   })),
+}));
+
+vi.mock("@/app/features/messaging/services/message-bus", () => ({
+  messageBus: {
+    emitNewMessage: busMocks.emitNewMessage,
+  },
+}));
+
+vi.mock("@/app/features/messaging/services/peer-interaction-store", () => ({
+  recordPeerLastActive: peerInteractionMocks.recordPeerLastActive,
 }));
 
 const identityState = {
@@ -69,6 +88,8 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     projectionState.projection = null;
     runtimeState.phase = "ready";
     vi.mocked(useEnhancedDmController).mockClear();
+    busMocks.emitNewMessage.mockReset();
+    peerInteractionMocks.recordPeerLastActive.mockReset();
   });
 
   it("keeps transport disabled until projection is ready", () => {
@@ -204,5 +225,70 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
       autoSubscribeIncoming: true,
       enableAutoQueueProcessing: true,
     }));
+  });
+
+  it("records peer last-active from incoming message callbacks and still emits message bus events", () => {
+    projectionState.accountProjectionReady = true;
+    projectionState.phase = "ready";
+
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    const controllerParams = vi.mocked(useEnhancedDmController).mock.calls[0]?.[0] as Readonly<{
+      onNewMessage?: (message: Message) => void;
+    }>;
+    const incoming: Message = {
+      id: "evt-1",
+      kind: "user",
+      content: "hello",
+      timestamp: new Date(1_717_000_000_000),
+      eventCreatedAt: new Date(1_717_000_000_000),
+      isOutgoing: false,
+      status: "delivered",
+      senderPubkey: "b".repeat(64) as PublicKeyHex,
+      conversationId: "conversation-1",
+    };
+
+    controllerParams.onNewMessage?.(incoming);
+
+    expect(peerInteractionMocks.recordPeerLastActive).toHaveBeenCalledWith({
+      publicKeyHex: identityState.publicKeyHex,
+      peerPublicKeyHex: incoming.senderPubkey,
+      activeAtMs: incoming.eventCreatedAt?.getTime(),
+    });
+    expect(busMocks.emitNewMessage).toHaveBeenCalledWith(incoming.conversationId, incoming);
+  });
+
+  it("does not record peer activity for outgoing messages", () => {
+    projectionState.accountProjectionReady = true;
+    projectionState.phase = "ready";
+
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    const controllerParams = vi.mocked(useEnhancedDmController).mock.calls[0]?.[0] as Readonly<{
+      onNewMessage?: (message: Message) => void;
+    }>;
+    const outgoing: Message = {
+      id: "evt-2",
+      kind: "user",
+      content: "sent",
+      timestamp: new Date(1_717_000_000_000),
+      isOutgoing: true,
+      status: "delivered",
+      senderPubkey: "b".repeat(64) as PublicKeyHex,
+      conversationId: "conversation-2",
+    };
+
+    controllerParams.onNewMessage?.(outgoing);
+
+    expect(peerInteractionMocks.recordPeerLastActive).not.toHaveBeenCalled();
+    expect(busMocks.emitNewMessage).toHaveBeenCalledWith(outgoing.conversationId, outgoing);
   });
 });

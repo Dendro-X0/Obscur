@@ -39,6 +39,7 @@ export interface SidebarProps {
     selectConversation: (conversation: Conversation) => void;
     selectedConversation: Conversation | null;
     unreadByConversationId: Record<string, number>;
+    interactionByConversationId?: Readonly<Record<string, Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>>>;
     nowMs: number | null;
     messageSearchResults: ReadonlyArray<{ conversationId: string; messageId: string; timestamp: Date; preview: string }>;
     allConversations: ReadonlyArray<Conversation>;
@@ -57,9 +58,11 @@ export interface SidebarProps {
     pinnedChatIds: ReadonlyArray<string>;
     togglePin: (conversationId: string) => void;
     hiddenChatIds: ReadonlyArray<string>;
+    hideConversation: (conversationId: string) => void;
     deleteConversation: (conversationId: string) => void;
     clearHistory: (conversationId: string) => void;
     onClearHistory: () => void;
+    isPeerOnline?: (publicKeyHex: PublicKeyHex) => boolean;
 }
 
 export function Sidebar({
@@ -73,6 +76,7 @@ export function Sidebar({
     selectConversation,
     selectedConversation,
     unreadByConversationId,
+    interactionByConversationId,
     nowMs,
     messageSearchResults,
     allConversations,
@@ -87,9 +91,11 @@ export function Sidebar({
     pinnedChatIds,
     togglePin,
     hiddenChatIds,
+    hideConversation,
     deleteConversation,
     clearHistory,
     onClearHistory
+    , isPeerOnline
 }: SidebarProps) {
     const { t } = useTranslation();
     const [localNowMs, setLocalNowMs] = React.useState<number>(() => Date.now());
@@ -101,7 +107,9 @@ export function Sidebar({
 
     const resolvedNowMs: number = nowMs ?? localNowMs;
 
-    const visibleConversations = filteredConversations.filter(c => !hiddenChatIds.includes(c.id));
+    const visibleConversations = filteredConversations.filter((conversation) => (
+        conversation.kind === "group" || !hiddenChatIds.includes(conversation.id)
+    ));
 
     const resolveConversationUnread = React.useCallback((conversation: Conversation): number => {
         if (selectedConversation?.id === conversation.id) {
@@ -117,6 +125,13 @@ export function Sidebar({
     const [isDmsExpanded, setIsDmsExpanded] = useState(true);
     const [isCommunitiesExpanded, setIsCommunitiesExpanded] = useState(true);
     const [chatViewMode, setChatViewMode] = useState<"direct" | "community">("direct");
+
+    React.useEffect(() => {
+        if (selectedConversation?.kind === "group") {
+            setChatViewMode("community");
+            setIsCommunitiesExpanded(true);
+        }
+    }, [selectedConversation?.id, selectedConversation?.kind]);
 
 
 
@@ -137,11 +152,14 @@ export function Sidebar({
                 isSelected={selectedConversation?.id === conversation.id}
                 onSelect={selectConversation}
                 unreadCount={resolveConversationUnread(conversation)}
+                isOnline={conversation.kind === "dm" ? Boolean(isPeerOnline?.(conversation.pubkey as PublicKeyHex)) : undefined}
+                lastActiveAtMs={interactionByConversationId?.[conversation.id]?.lastActiveAtMs}
+                lastViewedAtMs={interactionByConversationId?.[conversation.id]?.lastViewedAtMs}
                 nowMs={resolvedNowMs}
                 isPinned={pinnedChatIds.includes(conversation.id)}
                 onTogglePin={() => togglePin(conversation.id)}
                 onDelete={() => deleteConversation(conversation.id)}
-                onHide={() => deleteConversation(conversation.id)}
+                onHide={() => hideConversation(conversation.id)}
             />
         ))
     );
@@ -183,7 +201,7 @@ export function Sidebar({
                         >
                             {t("nav.chats")}
                             {chatsUnreadTotal > 0 && (
-                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] text-white shadow-sm">
+                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] text-white shadow-sm">
                                     {chatsUnreadTotal}
                                 </span>
                             )}
@@ -200,7 +218,7 @@ export function Sidebar({
                         >
                             {t("nav.requests")}
                             {requestsUnreadTotal > 0 ? (
-                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] text-white shadow-sm">
+                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] text-white shadow-sm">
                                     {requestsUnreadTotal}
                                 </span>
                             ) : pendingRequestsCount > 0 && (
@@ -248,7 +266,7 @@ export function Sidebar({
                             >
                                 {t("messaging.chat")}
                                 {dmsUnread > 0 && (
-                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] text-white shadow-sm">
+                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[8px] text-white shadow-sm">
                                         {dmsUnread}
                                     </span>
                                 )}
@@ -264,7 +282,7 @@ export function Sidebar({
                             >
                                 {t("messaging.group")}
                                 {groupsUnread > 0 && (
-                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] text-white shadow-sm">
+                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[8px] text-white shadow-sm">
                                         {groupsUnread}
                                     </span>
                                 )}

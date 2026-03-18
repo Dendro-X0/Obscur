@@ -16,6 +16,11 @@ type PeerConversationSummary = Readonly<{
   conversationId: string;
 }>;
 
+const isLikelyGroupConversationId = (conversationId: string): boolean => {
+  const trimmed = conversationId.trim();
+  return trimmed.startsWith("community:") || trimmed.startsWith("group:") || trimmed.includes("@");
+};
+
 const inferPeerFromConversationId = (params: Readonly<{
   conversationId: string;
   myPublicKeyHex: PublicKeyHex;
@@ -68,6 +73,9 @@ const collectConversationTimelineEntries = (params: Readonly<{
   myPublicKeyHex: PublicKeyHex;
 }>): ReadonlyArray<AccountProjectionSnapshot["messagesByConversationId"][string][number]> => {
   const directTimeline = params.projection.messagesByConversationId[params.conversationId] ?? [];
+  if (isLikelyGroupConversationId(params.conversationId)) {
+    return directTimeline;
+  }
   const resolvedPeer = resolveConversationPeer(params);
   if (!resolvedPeer) {
     return directTimeline;
@@ -81,6 +89,9 @@ const collectConversationTimelineEntries = (params: Readonly<{
   Object.values(params.projection.messagesByConversationId).forEach((timeline) => {
     timeline.forEach((entry) => {
       if (entry.peerPublicKeyHex !== resolvedPeer) {
+        return;
+      }
+      if (isLikelyGroupConversationId(entry.conversationId)) {
         return;
       }
       const existing = byMessageId.get(entry.messageId);
@@ -179,8 +190,7 @@ export const selectProjectionDmConversations = (params: Readonly<{
   return contacts
     .map((contact): DmConversation => {
       const conversation = latestConversationByPeer[contact.peerPublicKeyHex];
-      const conversationId = conversation?.conversationId
-        ?? [params.myPublicKeyHex, contact.peerPublicKeyHex].sort().join(":");
+      const conversationId = [params.myPublicKeyHex, contact.peerPublicKeyHex].sort().join(":");
       return {
         kind: "dm",
         id: conversationId,
@@ -231,7 +241,8 @@ export const selectProjectionConversationMessages = (params: Readonly<{
         eventCreatedAt: new Date(entry.eventCreatedAtUnixSeconds * 1000),
         senderPubkey: isOutgoing ? params.myPublicKeyHex : entry.peerPublicKeyHex,
         recipientPubkey: isOutgoing ? entry.peerPublicKeyHex : params.myPublicKeyHex,
-        conversationId: entry.conversationId,
+        // Keep selector output aligned with requested conversation scope.
+        conversationId: params.conversationId,
       };
     });
 };

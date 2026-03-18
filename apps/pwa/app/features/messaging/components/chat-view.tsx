@@ -18,6 +18,8 @@ import Image from "next/image";
 
 export interface ChatViewProps {
     conversation: Conversation;
+    isPeerOnline?: boolean;
+    interactionStatus?: Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>;
     messages: ReadonlyArray<Message>;
     rawMessagesCount: number;
     hasHydrated: boolean;
@@ -196,6 +198,9 @@ export function ChatView(props: ChatViewProps) {
         >
             <ChatHeader
                 conversation={props.conversation}
+                isOnline={props.isPeerOnline}
+                interactionStatus={props.interactionStatus}
+                nowMs={props.nowMs}
                 onCopyPubkey={props.onCopyPubkey}
                 onOpenMedia={props.onOpenMedia}
                 onOpenInfo={props.onOpenInfo}

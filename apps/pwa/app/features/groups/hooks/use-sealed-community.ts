@@ -6,6 +6,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { UnsignedNostrEvent } from "../../crypto/crypto-interfaces";
 import { cryptoService } from "../../crypto/crypto-service";
+import { roomKeyStore } from "../../crypto/room-key-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { CommunityAccessGuard } from "@/app/features/groups/services/community-access-guard";
 import { GroupService } from "@/app/features/groups/services/group-service";
@@ -360,10 +361,16 @@ const createRandomId = (): string => Math.random().toString(36).slice(2);
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedCommunityResult => {
+  const initialHasLocalMembershipEvidence = Boolean(
+    params.myPublicKeyHex
+    && (params.initialMembers ?? []).includes(params.myPublicKeyHex)
+  );
+  const [localMembershipEvidence, setLocalMembershipEvidence] = useState<boolean>(initialHasLocalMembershipEvidence);
   const [state, setState] = useState<Nip29GroupState>(() => createInitialState());
   const [members, setMembers] = useState<ReadonlyArray<PublicKeyHex>>(() => params.initialMembers ?? []);
   const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
   const ledgerRef = useRef<CommunityLedgerState>(createCommunityLedgerState(params.initialMembers ?? []));
+  const localMembershipEvidenceRef = useRef<boolean>(initialHasLocalMembershipEvidence);
   const initialMembersKey = useMemo(() => (params.initialMembers ?? []).join(","), [params.initialMembers]);
   const membersRef = useRef<ReadonlyArray<PublicKeyHex>>(params.initialMembers ?? []);
   const leftMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(state.leftMembers);
@@ -395,6 +402,33 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       myPublicKeyHex: params.myPublicKeyHex
     });
   }, [params.groupId, params.myPublicKeyHex, params.relayUrl]);
+
+  useEffect(() => {
+    if (initialHasLocalMembershipEvidence) {
+      setLocalMembershipEvidence(true);
+    }
+  }, [initialHasLocalMembershipEvidence]);
+
+  useEffect(() => {
+    localMembershipEvidenceRef.current = localMembershipEvidence;
+  }, [localMembershipEvidence]);
+
+  useEffect(() => {
+    if (!params.groupId || !params.myPublicKeyHex) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const record = await roomKeyStore.getRoomKeyRecord(params.groupId);
+        if (cancelled || !record) return;
+        setLocalMembershipEvidence(true);
+      } catch {
+        // no-op
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.groupId, params.myPublicKeyHex]);
 
   useEffect(() => {
     const onPrivacySettingsChanged = () => {
@@ -628,7 +662,24 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   }, [state.disbandedAt, conversationId]);
 
   useEffect(() => {
-    const nextLedger = createCommunityLedgerState(params.initialMembers ?? []);
+    if (!params.myPublicKeyHex || !localMembershipEvidence) return;
+    if (disbandedAtRef.current !== undefined) return;
+    if (leftMembersRef.current.includes(params.myPublicKeyHex)) return;
+    if (expelledMembersRef.current.includes(params.myPublicKeyHex)) return;
+    if (membersRef.current.includes(params.myPublicKeyHex)) return;
+    applyLedgerEvent({ type: "MEMBER_JOINED", pubkey: params.myPublicKeyHex, timestamp: 0 });
+  }, [applyLedgerEvent, localMembershipEvidence, params.myPublicKeyHex]);
+
+  useEffect(() => {
+    const seededMembers = [...(params.initialMembers ?? [])];
+    if (
+      localMembershipEvidence
+      && params.myPublicKeyHex
+      && !seededMembers.includes(params.myPublicKeyHex)
+    ) {
+      seededMembers.push(params.myPublicKeyHex);
+    }
+    const nextLedger = createCommunityLedgerState(seededMembers);
     disbandHandledRef.current = false;
     deletedMessageTombstonesRef.current.clear();
     ledgerRef.current = nextLedger;
@@ -685,7 +736,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
       if (event.kind === GROUP_KIND_SEALED) {
         try {
-          const { roomKeyStore } = await import("../../crypto/room-key-store");
           const record = await roomKeyStore.getRoomKeyRecord(params.groupId);
           if (!record) return;
 
@@ -877,16 +927,22 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       }
 
       if (event.kind === GROUP_KIND_MEMBERS) {
-        // Only use the relay roster as a seed when we have no live member data yet.
-        // Sealed Communities are registry-independent; live join/leave events are
-        // the authoritative source. Overwriting with a stale 39002 roster would
-        // undo already-processed join/leave state.
-        setMembers(prev => {
-          if (prev.length > 0) return prev;
-          return event.tags
-            .filter(t => t[0] === 'p')
-            .map(t => t[1] as PublicKeyHex)
-            .filter(pk => !leftMembersRef.current.includes(pk) && !expelledMembersRef.current.includes(pk));
+        // Merge relay roster through the membership ledger as low-priority seeds.
+        // This preserves explicit leave/expel/disband lifecycle while still filling
+        // gaps across devices and refreshes.
+        const rosterMembers = event.tags
+          .filter(t => t[0] === 'p')
+          .map(t => t[1] as PublicKeyHex)
+          .filter(pk => !leftMembersRef.current.includes(pk) && !expelledMembersRef.current.includes(pk));
+        if (
+          localMembershipEvidenceRef.current
+          && params.myPublicKeyHex
+          && !rosterMembers.includes(params.myPublicKeyHex)
+        ) {
+          rosterMembers.push(params.myPublicKeyHex);
+        }
+        rosterMembers.forEach((pubkey) => {
+          applyLedgerEvent({ type: "MEMBER_JOINED", pubkey, timestamp: 0 });
         });
         return;
       }
@@ -1011,7 +1067,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const sendMessage = useCallback(async (msgParams: Readonly<{ content: string }>): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
     try {
-      const { roomKeyStore } = await import("../../crypto/room-key-store");
       const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
       if (!roomKeyHex) throw new Error("Missing Room Key");
 
@@ -1067,7 +1122,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const sendVoteKick = useCallback(async (targetPubkey: string, reason?: string): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
     try {
-      const { roomKeyStore } = await import("../../crypto/room-key-store");
       const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
       if (!roomKeyHex) throw new Error("Missing Room Key");
 
@@ -1094,7 +1148,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
     try {
       const newKey = await cryptoService.generateRoomKey();
-      const { roomKeyStore } = await import("../../crypto/room-key-store");
       await roomKeyStore.rotateRoomKey(params.groupId, newKey);
 
       // Distribute new key to all non-expelled members via NIP-17
@@ -1131,7 +1184,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const leaveGroup = useCallback(async (): Promise<void> => {
     if (params.myPublicKeyHex && params.myPrivateKeyHex) {
       try {
-        const { roomKeyStore } = await import("../../crypto/room-key-store");
         const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
         const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
 
@@ -1166,7 +1218,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         toast.error(e?.message || "Failed to leave via scoped relay. Try again or check relay status.");
       }
     }
-    const { roomKeyStore } = await import("../../crypto/room-key-store");
     await roomKeyStore.deleteRoomKey(params.groupId);
     toast.success("Disconnected from community");
   }, [params.groupId, params.myPublicKeyHex, params.myPrivateKeyHex, publishToCommunityScopeWithRetry]);

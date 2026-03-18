@@ -361,6 +361,34 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       }
     }
 
+    try {
+      const parsedPayload = JSON.parse(plaintext) as Readonly<{
+        type?: string;
+        status?: string;
+        groupId?: string;
+        relayUrl?: string;
+        communityId?: string;
+      }>;
+      if (
+        parsedPayload?.type === "community-invite-response"
+        && parsedPayload.status === "accepted"
+        && typeof parsedPayload.groupId === "string"
+        && parsedPayload.groupId.trim().length > 0
+        && typeof window !== "undefined"
+      ) {
+        window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
+          detail: {
+            groupId: parsedPayload.groupId.trim(),
+            relayUrl: typeof parsedPayload.relayUrl === "string" ? parsedPayload.relayUrl : undefined,
+            communityId: typeof parsedPayload.communityId === "string" ? parsedPayload.communityId : undefined,
+            memberPubkey: actualSenderPubkey,
+          }
+        }));
+      }
+    } catch {
+      // Non-JSON content is expected for normal chat messages.
+    }
+
     const isAcceptedByTrust = currentParams.peerTrust?.isAccepted({ publicKeyHex: actualSenderPubkey }) || false;
     const isAcceptedByProjection = currentParams.isProjectionAcceptedPeer?.({ publicKeyHex: actualSenderPubkey }) || false;
     const requestState = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });

@@ -4,6 +4,7 @@ import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useSealedCommunity } from "./use-sealed-community";
 import { cryptoService } from "../../crypto/crypto-service";
+import { roomKeyStore } from "../../crypto/room-key-store";
 
 vi.mock("../../crypto/crypto-service", () => ({
     cryptoService: {
@@ -28,6 +29,7 @@ describe("use-sealed-community integration", () => {
     const groupId = "group-alpha";
     const actor = "actor-pubkey" as PublicKeyHex;
     const peer = "peer-pubkey" as PublicKeyHex;
+    const another = "another-pubkey" as PublicKeyHex;
 
     const createEvent = (params: Readonly<{ id: string; createdAt: number; pubkey?: string; tags?: string[][]; content?: string }>): NostrEvent => ({
         id: params.id,
@@ -48,6 +50,18 @@ describe("use-sealed-community integration", () => {
         tags: [
             ["h", groupId],
             ...params.deleteIds.map((deleteId) => ["e", deleteId])
+        ]
+    });
+    const createMembersEvent = (params: Readonly<{ id: string; createdAt: number; members: ReadonlyArray<PublicKeyHex> }>): NostrEvent => ({
+        id: params.id,
+        pubkey: actor,
+        kind: 39002,
+        created_at: params.createdAt,
+        sig: "sig",
+        content: "",
+        tags: [
+            ["h", groupId],
+            ...params.members.map((pubkey) => ["p", pubkey])
         ]
     });
 
@@ -72,6 +86,15 @@ describe("use-sealed-community integration", () => {
         vi.clearAllMocks();
         onEventHandler = null;
         onEventHandlers.length = 0;
+        vi.mocked(roomKeyStore.getRoomKeyRecord).mockResolvedValue({
+            groupId: "group-alpha",
+            roomKeyHex: "room-key",
+            previousKeys: [],
+            createdAt: 0
+        });
+        vi.mocked(roomKeyStore.getRoomKey).mockResolvedValue("room-key");
+        vi.mocked(roomKeyStore.rotateRoomKey).mockResolvedValue(undefined);
+        vi.mocked(roomKeyStore.deleteRoomKey).mockResolvedValue(undefined);
     });
 
     it("emits group-remove once when disband is replayed repeatedly", async () => {
@@ -351,6 +374,52 @@ describe("use-sealed-community integration", () => {
 
         await waitFor(() => {
             expect(result.current.state.messages.some((message) => message.id === "msg-1")).toBe(false);
+        });
+    });
+
+    it("preserves local creator membership when roster replay omits self but local key evidence exists", async () => {
+        const pool = createPool();
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: []
+        }));
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createMembersEvent({ id: "members-omits-self", createdAt: 700, members: [peer] }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, peer].sort());
+        });
+    });
+
+    it("merges roster seeds even when members are already populated", async () => {
+        const pool = createPool();
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor]
+        }));
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createMembersEvent({ id: "members-additions", createdAt: 701, members: [peer, another] }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, another, peer].sort());
         });
     });
 });

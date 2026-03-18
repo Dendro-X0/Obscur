@@ -12,6 +12,8 @@ import { loadPersistedChatState, normalizePersistedGroupState, savePersistedChat
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 
+export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
+
 type SaveOptions = Readonly<{
     debounceMs?: number;
 }>;
@@ -150,6 +152,11 @@ class ChatStateStore {
     replace(publicKeyHex: PublicKeyHex, nextState: PersistedChatState, options?: ReplaceOptions): void {
         this.memoryCacheByPublicKey.set(publicKeyHex, normalizePersistedGroupState(nextState));
         this.save(publicKeyHex, normalizePersistedGroupState(nextState), { debounceMs: 0 });
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
+                detail: { publicKeyHex }
+            }));
+        }
         if (options?.emitMutationSignal !== false) {
             emitAccountSyncMutation("chat_state_changed");
         }

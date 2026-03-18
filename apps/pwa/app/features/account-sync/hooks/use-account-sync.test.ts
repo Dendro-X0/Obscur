@@ -33,8 +33,8 @@ const mocks = vi.hoisted(() => {
       return snapshot;
     },
     setSnapshot: (next: any) => emitSnapshot(next),
-    triggerMutation: () => mutationListener?.({
-      reason: "chat_state_changed",
+    triggerMutation: (reason: string = "chat_state_changed") => mutationListener?.({
+      reason,
       atUnixMs: Date.now(),
     }),
     subscribeMutationMock: vi.fn((listener: (detail: { reason: string; atUnixMs: number }) => void) => {
@@ -155,8 +155,21 @@ describe("useAccountSync convergence orchestration", () => {
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreReason).toBe("startup_fast_follow");
   });
 
-  it("triggers mutation fast-follow restore after a mutation-driven backup publish", async () => {
+  it("records mutation fast-follow restore attempt after mutation-driven backup publish", async () => {
     mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: true });
+    mocks.restoreBackupMock
+      .mockResolvedValueOnce({
+        event: null,
+        payload: null,
+        hasBackup: false,
+        degradedReason: undefined,
+      } as any)
+      .mockResolvedValue({
+        event: null,
+        payload: { version: 1 },
+        hasBackup: true,
+        degradedReason: undefined,
+      } as any);
 
     renderHook(() => useAccountSync({
       publicKeyHex: ACCOUNT_PUBKEY,
@@ -176,15 +189,41 @@ describe("useAccountSync convergence orchestration", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+      expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("mutation");
     });
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("mutation");
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("skipped_cooldown");
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreReason).toBe("mutation_fast_follow");
-    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreResult).toBe("applied");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreResult).toBe("skipped_cooldown");
   });
 
-  it("does not run startup fast-follow restore when convergence guard is disabled", async () => {
+  it("publishes immediately for community membership mutations (no mutation cooldown)", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.subscribeMutationMock).toHaveBeenCalledTimes(1);
+    });
+    mocks.publishBackupMock.mockClear();
+
+    act(() => {
+      mocks.triggerMutation("community_membership_changed");
+    });
+
+    await waitFor(() => {
+      expect(mocks.publishBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("community_membership_changed");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("ok");
+  });
+
+  it("runs startup restore before startup publish even when convergence guard is disabled", async () => {
     mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
     mocks.rehydrateAccountMock.mockResolvedValue({
       relayList: [],
@@ -199,9 +238,50 @@ describe("useAccountSync convergence orchestration", () => {
     }));
 
     await waitFor(() => {
-      expect(mocks.publishBackupMock).toHaveBeenCalled();
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.restoreBackupMock).not.toHaveBeenCalled();
+    expect(mocks.publishBackupMock).toHaveBeenCalled();
+  });
+
+  it("still runs startup restore on identity-only rehydrate results before startup publish", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+    mocks.rehydrateAccountMock.mockResolvedValue({
+      relayList: [],
+      restoreStatus: "identity_only",
+    } as any);
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.publishBackupMock).toHaveBeenCalled();
+  });
+
+  it("suppresses startup publish when startup restore fails", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+    mocks.rehydrateAccountMock.mockResolvedValue({
+      relayList: [],
+      restoreStatus: "private_restored",
+    } as any);
+    mocks.restoreBackupMock.mockRejectedValue(new Error("restore failed"));
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.publishBackupMock).not.toHaveBeenCalled();
   });
 
   it("suppresses mutation-driven backup publish while restore is in flight", async () => {

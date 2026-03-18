@@ -62,7 +62,34 @@ This document is the short module map for day-to-day implementation and triage.
   - `apps/pwa/app/features/groups/services/group-service.ts`
 
 Known active gap (v0.9.1 planning target):
-- Several moderation/admin handlers in `use-sealed-community.ts` are still placeholders (`noop`) and should be completed before claiming mature community operations.
+- Several governance handlers in `use-sealed-community.ts` are still placeholders (`noop`) and should be completed before claiming mature community operations.
+
+## Community Governance Contract (Decentralized)
+
+- There are no administrators in communities. Every participant is a member in the same governance domain.
+- Member-level local safety control is supported: each user can mute any other member in their own client.
+- Forced member removal is vote-driven: a member is removed only after quorum is reached.
+- Community avatar changes are vote-driven and should not be treated as single-user authority actions.
+- Durable governance state should come from signed community events reduced by `community-ledger-reducer.ts`, not from local optimistic UI state.
+
+## Community Technical Flow (Condensed)
+
+1. Community creation and metadata entry are initiated in UI surfaces (Network/Group management).
+2. `group-service.ts` constructs and signs community events (create, invite/key distribution, governance actions).
+3. Events are published through relay transport and ingested by sealed community runtime (`use-sealed-community.ts`).
+4. `community-ledger-reducer.ts` computes membership and governance truth from ingestable event history.
+5. Group provider persistence (`group-provider.tsx`) stores local projections for fast restore, while reducer truth remains canonical.
+
+## Community Navigation and Unread Guardrails (Phase A)
+
+- Group route resolution is canonicalized via:
+  - `apps/pwa/app/features/groups/utils/group-route-token.ts`
+  - `apps/pwa/app/features/messaging/utils/conversation-target.ts`
+- Explicit group tokens (`community:*`, `group:*`, encoded canonical ids) resolve group-only; unresolved group tokens do not fallback to DM.
+- Projection unread merging is scoped to avoid DM unread reassert churn while the active conversation is a group:
+  - `apps/pwa/app/features/messaging/providers/projection-unread.ts`
+- Sidebar chat surfaces should always expose both categories (`Direct Messages` and `Communities`) so group navigation does not depend on an additional mode toggle:
+  - `apps/pwa/app/features/messaging/components/sidebar.tsx`
 
 ## Search and Discovery
 

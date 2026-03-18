@@ -19,6 +19,7 @@ import { getLocalMediaStorageConfig } from "@/app/features/vault/services/local-
 import { ACCOUNT_BACKUP_D_TAG, ACCOUNT_BACKUP_EVENT_KIND } from "../account-sync-contracts";
 import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
 import { accountEventStore } from "./account-event-store";
+import { loadCommunityMembershipLedger, saveCommunityMembershipLedger } from "@/app/features/groups/services/community-membership-ledger";
 
 vi.mock("@/app/features/crypto/crypto-service", () => ({
   cryptoService: {
@@ -102,6 +103,79 @@ describe("encryptedAccountBackupService", () => {
       expect.objectContaining({ timelineKey: "dm:test", lastProcessedAtUnixSeconds: 777 }),
     ]);
     expect(payload.relayList).toEqual([{ url: "wss://relay.example", enabled: true }]);
+  });
+
+  it("includes community membership ledger in backup payload and merges it on restore", async () => {
+    saveCommunityMembershipLedger(publicKeyHex, [{
+      communityId: "alpha:wss://relay.example",
+      groupId: "alpha",
+      relayUrl: "wss://relay.example",
+      status: "left",
+      updatedAtUnixMs: 100,
+      displayName: "Alpha",
+    }]);
+    peerTrustInternals.saveToStorage(publicKeyHex, {
+      acceptedPeers: [acceptedPeerPublicKeyHex],
+      mutedPeers: [],
+    });
+
+    const builtPayload = encryptedAccountBackupService.buildBackupPayload(publicKeyHex);
+    expect(builtPayload.communityMembershipLedger).toEqual([
+      expect.objectContaining({
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        status: "left",
+      }),
+    ]);
+
+    await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: Date.now(),
+      profile: {
+        username: "Recovered",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: { acceptedPeers: [], mutedPeers: [] },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      communityMembershipLedger: [{
+        communityId: "alpha:wss://relay.example",
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        status: "joined",
+        updatedAtUnixMs: 200,
+        displayName: "Alpha",
+      }],
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {},
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+    });
+
+    const mergedLedger = loadCommunityMembershipLedger(publicKeyHex);
+    expect(mergedLedger).toEqual([
+      expect.objectContaining({
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        status: "joined",
+        updatedAtUnixMs: 200,
+      }),
+    ]);
   });
 
   it("includes local identity unlock snapshot in hydrated backup payload", async () => {

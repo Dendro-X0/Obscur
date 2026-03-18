@@ -514,6 +514,54 @@ async fn reset_app_storage(
 }
 
 #[tauri::command]
+async fn desktop_open_storage_path(path: String) -> Result<(), String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("Storage path is empty".to_string());
+    }
+
+    #[cfg(desktop)]
+    {
+        let target = std::path::PathBuf::from(trimmed);
+        if !target.exists() {
+            std::fs::create_dir_all(&target).map_err(|e| e.to_string())?;
+        }
+
+        #[cfg(target_os = "windows")]
+        let mut command = {
+            let mut cmd = std::process::Command::new("explorer");
+            cmd.arg(&target);
+            cmd
+        };
+
+        #[cfg(target_os = "macos")]
+        let mut command = {
+            let mut cmd = std::process::Command::new("open");
+            cmd.arg(&target);
+            cmd
+        };
+
+        #[cfg(target_os = "linux")]
+        let mut command = {
+            let mut cmd = std::process::Command::new("xdg-open");
+            cmd.arg(&target);
+            cmd
+        };
+
+        command
+            .spawn()
+            .map_err(|e| format!("Failed to open storage path: {e}"))?;
+        Ok(())
+    }
+
+    #[cfg(mobile)]
+    {
+        let _ = trimmed;
+        Err("Opening storage paths is not supported on mobile runtime".to_string())
+    }
+}
+
+#[tauri::command]
 async fn init_native_session(
     app: tauri::AppHandle,
     window: WebviewWindow,
@@ -935,6 +983,7 @@ pub fn run() {
             save_tor_settings,
             restart_app,
             init_native_session,
+            desktop_open_storage_path,
             clear_native_session,
             get_session_status,
             request_biometric_auth,

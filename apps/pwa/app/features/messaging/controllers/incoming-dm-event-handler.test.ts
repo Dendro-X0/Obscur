@@ -259,6 +259,57 @@ describe("incoming-dm-event-handler", () => {
         expect(onNewMessage.mock.calls[0]?.[0]?.content).toContain("\"community-invite\"");
     });
 
+    it("emits group invite accepted event when recipient confirms community invite", async () => {
+        const event = {
+            id: "event-invite-accepted",
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1250,
+            content: "encrypted",
+            tags: [["p", MY_PUBLIC_KEY]]
+        } as unknown as NostrEvent;
+
+        vi.mocked(cryptoService.decryptDM).mockResolvedValueOnce(JSON.stringify({
+            type: "community-invite-response",
+            status: "accepted",
+            groupId: "group-alpha",
+            relayUrl: "wss://relay.example"
+        }));
+
+        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                peerTrust: {
+                    isAccepted: () => true,
+                    acceptPeer: vi.fn(),
+                },
+            },
+            messageQueue: {
+                getMessage: vi.fn(async () => null),
+                persistMessage: vi.fn(async () => undefined),
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+        });
+
+        expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
+            type: "obscur:group-invite-response-accepted",
+        }));
+    });
+
     it("verifies v090_x3dr envelopes through protocol adapter before decrypting", async () => {
         const event = {
             id: "event-v090",

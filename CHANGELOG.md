@@ -4,7 +4,22 @@ Maintainer note:
 
 - This branch remains the unreleased `v0.9.0 beta` recovery line.
 - It is not yet release-ready for trustworthy two-user communication.
-- See [docs/40-v0.9.0-beta-status-and-recovery-handoff.md](./docs/40-v0.9.0-beta-status-and-recovery-handoff.md) for the current branch-state handoff and blocker summary.
+- See [docs/08-maintainer-playbook.md](./docs/08-maintainer-playbook.md) and [docs/10-community-and-groups-overhaul.md](./docs/10-community-and-groups-overhaul.md) for current handoff and roadmap status.
+
+### Changed (2026-03-18 - v0.9.1 release lane)
+
+- **Release pipeline unblocking for desktop/web publication**:
+  - Updated `.github/workflows/release.yml` so `verify-artifacts` and manual `publish-release` can proceed when Android lane fails, while still enforcing Android APK/AAB artifacts when Android lane succeeds.
+  - Added explicit release evidence fields in workflow summary:
+    - `android_job_result`,
+    - `android_signing_state`,
+    - `ios_lane_state`.
+  - Kept tag-triggered build/verify and manual-only publish model unchanged.
+
+- **Desktop storage settings reliability**:
+  - Hardened local vault storage-path operations so Settings `Open` first ensures the configured directory exists.
+  - Added native desktop fallback command `desktop_open_storage_path` for folder open operations when plugin-shell path open fails.
+  - Hardened `Change Folder` UX to validate selected paths immediately and rollback to previous config when path initialization fails.
 
 ### Added
 

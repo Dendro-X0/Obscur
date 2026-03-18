@@ -36,8 +36,15 @@ pnpm version:sync
 pnpm version:check
 pnpm release:integrity-check
 pnpm docs:check
+pnpm release:test-pack -- --skip-preflight
+pnpm ci:scan:pwa:head
 pnpm release:artifact-version-contract-check
 pnpm release:preflight -- --allow-dirty 1
 ```
 
 For strict preflight, run without `--allow-dirty` on a clean `main` working tree.
+
+Release workflow policy:
+- tag pushes run build and verification lanes,
+- GitHub Release publish is manual-only (`workflow_dispatch` on tag ref with `publish_release=true`),
+- Android lane result/signing state is surfaced explicitly and no longer blocks desktop/web release publication.

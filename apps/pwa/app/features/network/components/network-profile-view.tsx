@@ -31,6 +31,7 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
+import { cn } from "@dweb/ui-kit";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
@@ -56,7 +57,7 @@ export default function ConnectionProfileView() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { t } = useTranslation();
-    const { peerTrust, requestsInbox, blocklist } = useNetwork();
+    const { peerTrust, requestsInbox, blocklist, presence } = useNetwork();
     const { createdConnections, setSelectedConversation } = useMessaging();
     const { relayPool } = useRelay();
     const identity = useIdentity();
@@ -98,7 +99,7 @@ export default function ConnectionProfileView() {
         if (!isCurrentAccountProfile) {
             return;
         }
-        router.replace("/profile");
+        router.replace("/settings#profile");
     }, [isCurrentAccountProfile, router]);
 
     if (!pk) return null;
@@ -106,6 +107,7 @@ export default function ConnectionProfileView() {
 
     const isTrusted = peerTrust?.state?.acceptedPeers?.includes(pk as PublicKeyHex) ?? false;
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes(pk as PublicKeyHex) ?? false;
+    const isPeerOnline = presence.isPeerOnline(pk as PublicKeyHex);
     const requestStatus = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk as PublicKeyHex });
     const requestProjection = deriveRequestProjection({
         requestStatus,
@@ -162,7 +164,7 @@ export default function ConnectionProfileView() {
         : <UserPlus className="h-6 w-6" />;
 
     const connectionStatusTitle = isTrusted
-        ? "Trusted connection"
+        ? (isPeerOnline ? "Trusted connection - online" : "Trusted connection - offline")
         : requestProjection.state === "recipient_seen"
             ? "Recipient saw prior invitation"
             : requestProjection.state === "sent_waiting"
@@ -174,7 +176,9 @@ export default function ConnectionProfileView() {
                         : "Not connected yet";
 
     const connectionStatusBody = isTrusted
-        ? "You can message this person directly and invite them into groups."
+        ? (isPeerOnline
+            ? "This trusted contact is currently online."
+            : "This trusted contact is currently offline. You can still message and invite them.")
         : requestProjection.state === "recipient_seen"
             ? "A prior invitation reached the recipient side. You can send a fresh invitation if the connection did not continue."
             : requestProjection.state === "sent_waiting"
@@ -326,7 +330,11 @@ export default function ConnectionProfileView() {
                     type: "community-invite",
                     groupId: group.groupId,
                     roomKey: roomKeyHex,
-                    metadata
+                    metadata,
+                    relayUrl: group.relayUrl,
+                    communityId: group.communityId,
+                    genesisEventId: group.genesisEventId,
+                    creatorPubkey: group.creatorPubkey
                 }),
                 timestamp: new Date(),
                 isOutgoing: true,
@@ -364,7 +372,11 @@ export default function ConnectionProfileView() {
             recipientPubkey: recipient,
             groupId: group.groupId,
             roomKeyHex,
-            metadata
+            metadata,
+            relayUrl: group.relayUrl,
+            communityId: group.communityId,
+            genesisEventId: group.genesisEventId,
+            creatorPubkey: group.creatorPubkey
         });
     };
 
@@ -548,6 +560,12 @@ export default function ConnectionProfileView() {
 
                     <Card className="rounded-[32px] border border-zinc-200/70 bg-white/88 p-6 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
                         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Connection Status</p>
+                        <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-950/[0.03] px-3 py-1 dark:border-white/10 dark:bg-white/[0.04]">
+                            <span className={cn("h-2 w-2 rounded-full", isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
+                            <span className={cn("text-[10px] font-black uppercase tracking-widest", isPeerOnline ? "text-emerald-600 dark:text-emerald-300" : "text-zinc-500 dark:text-zinc-400")}>
+                                {isPeerOnline ? "Online now" : "Offline"}
+                            </span>
+                        </div>
                         <p className="mt-3 text-base font-semibold text-zinc-900 dark:text-white">
                             {connectionStatusTitle}
                         </p>

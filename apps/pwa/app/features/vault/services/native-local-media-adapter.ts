@@ -66,9 +66,15 @@ const getAppDataDirPath = async (): Promise<string | null> => {
 
 const openPath = async (path: string): Promise<boolean> => {
   if (!isSupported()) return false;
-  const { open } = await import("@tauri-apps/plugin-shell");
-  await open(path);
-  return true;
+  try {
+    const { open } = await import("@tauri-apps/plugin-shell");
+    await open(path);
+    return true;
+  } catch {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("desktop_open_storage_path", { path });
+    return true;
+  }
 };
 
 const convertAbsolutePathToFileSrc = async (absolutePath: string): Promise<string | null> => {

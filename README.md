@@ -85,7 +85,7 @@ These placeholders are for future GIF demos in README and the future official we
 5. `docs/assets/demo-desktop-updater.gif`  
    Placeholder: current vs latest version state and install prompt.
 
-## Release Preparation (v0.9.0-beta)
+## Release Preparation (v0.9.1)
 
 Before tagging:
 
@@ -106,6 +106,7 @@ Release execution model:
 
 - Step 1: push tag to run preflight/build/artifact verification.
 - Step 2: manually run `.github/workflows/release.yml` with `publish_release=true` on the tag ref to publish GitHub Release assets.
+- Android lane is reported explicitly in release evidence (`android_job_result`, `android_signing_state`) and does not block desktop/web artifact verification or publication when Android fails.
 
 Release references:
 
@@ -117,5 +118,5 @@ Current distribution channel:
 - GitHub Releases only (`.github/workflows/release.yml`), with required artifact lanes for:
   - Web/PWA static bundle (`.tar.gz`)
   - Desktop installers (Windows/macOS/Linux)
-  - Android (`.apk` + `.aab`)
+  - Android (`.apk` + `.aab`) when Android lane succeeds; lane status is surfaced in release summary
   - iOS (`.ipa`) when signing secrets are available

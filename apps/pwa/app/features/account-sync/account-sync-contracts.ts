@@ -6,6 +6,7 @@ import type { RequestFlowEvidence } from "@/app/features/messaging/services/requ
 import type { ContactRequestRecord } from "@/app/features/search/types/discovery";
 import type { UserProfile } from "@/app/features/profile/hooks/use-profile";
 import type { LocalMediaStorageConfig } from "@/app/features/vault/services/local-media-store";
+import type { CommunityMembershipLedgerEntry } from "@/app/features/groups/services/community-membership-ledger";
 
 export type CanonicalAccountId = PublicKeyHex;
 
@@ -17,7 +18,8 @@ export type AccountSyncBackupPublishReason =
   | "interval"
   | "visible"
   | "pagehide"
-  | "mutation";
+  | "mutation"
+  | "community_membership_changed";
 
 export type AccountSyncBackupRestoreReason =
   | "startup_fast_follow"
@@ -108,6 +110,7 @@ export type EncryptedAccountBackupPayload = Readonly<{
   requestFlowEvidence: RequestFlowEvidenceStateSnapshot;
   requestOutbox: ContactRequestOutboxSnapshot;
   syncCheckpoints: SyncCheckpointSnapshot;
+  communityMembershipLedger?: ReadonlyArray<CommunityMembershipLedgerEntry>;
   chatState: PersistedChatState | null;
   privacySettings: PrivacySettings;
   relayList: RelayListSnapshot;

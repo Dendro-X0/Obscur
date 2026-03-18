@@ -168,7 +168,6 @@ const normalizePersistedGroupConversations = (groups: ReadonlyArray<PersistedGro
             creatorPubkey: group.creatorPubkey
         });
         const canonicalId = toGroupConversationId({ groupId, relayUrl, communityId });
-        idMigration.set(group.id, canonicalId);
 
         const normalized: PersistedGroupConversation = {
             ...group,
@@ -184,6 +183,7 @@ const normalizePersistedGroupConversations = (groups: ReadonlyArray<PersistedGro
         const dedupeKey = `${groupId}@@${relayUrl}`;
         const existing = groupsByCanonicalKey.get(dedupeKey);
         if (!existing) {
+            idMigration.set(group.id, canonicalId);
             groupsByCanonicalKey.set(dedupeKey, {
                 ...normalized,
                 memberCount: Math.max(
@@ -204,10 +204,23 @@ const normalizePersistedGroupConversations = (groups: ReadonlyArray<PersistedGro
         ]);
         const shouldUseNormalizedAsPrimary = normalized.lastMessageTimeMs >= existing.lastMessageTimeMs;
         const primary = shouldUseNormalizedAsPrimary ? normalized : existing;
+        const existingHashedIdentity = isHashedCommunityId(existing.communityId);
+        const normalizedHashedIdentity = isHashedCommunityId(normalized.communityId);
+        const canonicalIdentity = normalizedHashedIdentity && !existingHashedIdentity
+            ? normalized
+            : existingHashedIdentity && !normalizedHashedIdentity
+                ? existing
+                : primary;
+        const mergedCanonicalId = canonicalIdentity.id;
+        const mergedCommunityId = canonicalIdentity.communityId;
+        idMigration.set(group.id, mergedCanonicalId);
+        idMigration.set(existing.id, mergedCanonicalId);
+        idMigration.set(normalized.id, mergedCanonicalId);
 
         groupsByCanonicalKey.set(dedupeKey, {
             ...primary,
-            id: canonicalId,
+            id: mergedCanonicalId,
+            communityId: mergedCommunityId,
             groupId,
             relayUrl,
             memberPubkeys: mergedMemberPubkeys,

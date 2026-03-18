@@ -444,7 +444,8 @@ jobs:
 
   verify-artifacts:
     name: Verify Artifacts
-    needs: [build-desktop, build-web-pwa, build-android, ios-precheck]
+    needs: [preflight-checks, build-desktop, build-web-pwa, build-android, ios-precheck]
+    if: ${{ always() && needs.preflight-checks.result == 'success' && needs.build-desktop.result == 'success' && needs.build-web-pwa.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -469,12 +470,14 @@ jobs:
           path: ./release-assets/linux
           
       - name: Download Android Artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android
           path: ./release-assets/android
 
       - name: Download Android Metadata
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android-metadata
@@ -501,12 +504,15 @@ jobs:
         run: |
           {
             echo "### Release Lane Summary";
-            echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state }}";
+            echo "- android_job_result: ${{ needs.build-android.result }}";
+            echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state != '' && needs.build-android.outputs.android_signing_state || 'unavailable' }}";
             echo "- ios_lane_state: ${{ needs.ios-precheck.outputs.ios_lane_state }}";
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify required artifact matrix
         shell: bash
+        env:
+          ANDROID_JOB_RESULT: ${{ needs.build-android.result }}
         run: |
           set -euo pipefail
 
@@ -551,6 +557,7 @@ jobs:
           echo "- android aab (.aab): ${has_android_aab}"
           echo "- web pwa bundle (.tar.gz): ${has_web_bundle}"
           echo "- ios ipa (.ipa, optional): $(find release-assets/ios -type f -iname \"*.ipa\" | wc -l || true)"
+          echo "- android build result: ${ANDROID_JOB_RESULT}"
 
           if [ "$has_windows_installer" -ne 1 ]; then
             echo "Missing required Windows installer (.exe or .msi)." >&2
@@ -564,13 +571,17 @@ jobs:
             echo "Missing required Linux installer (.AppImage or .deb)." >&2
             exit 1
           fi
-          if [ "$has_android_apk" -ne 1 ]; then
-            echo "Missing required Android APK (.apk)." >&2
-            exit 1
-          fi
-          if [ "$has_android_aab" -ne 1 ]; then
-            echo "Missing required Android AAB (.aab)." >&2
-            exit 1
+          if [ "${ANDROID_JOB_RESULT}" = "success" ]; then
+            if [ "$has_android_apk" -ne 1 ]; then
+              echo "Android build succeeded but APK artifact is missing (.apk)." >&2
+              exit 1
+            fi
+            if [ "$has_android_aab" -ne 1 ]; then
+              echo "Android build succeeded but AAB artifact is missing (.aab)." >&2
+              exit 1
+            fi
+          else
+            echo "Android lane is non-blocking in this run (${ANDROID_JOB_RESULT}); continuing with desktop/web release verification."
           fi
           if [ "$has_web_bundle" -ne 1 ]; then
             echo "Missing required Web/PWA static bundle (.tar.gz)." >&2
@@ -607,9 +618,17 @@ jobs:
           path: ./release-assets/linux
 
       - name: Download Android Artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android
+          path: ./release-assets/android
+
+      - name: Download Android Metadata
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android-metadata
           path: ./release-assets/android
 
       - name: Download Web/PWA Artifact

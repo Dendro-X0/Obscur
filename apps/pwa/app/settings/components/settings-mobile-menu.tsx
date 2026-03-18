@@ -14,7 +14,7 @@ const SETTINGS_NAV_ITEMS: ReadonlyArray<SettingsNavItem> = [
   { href: "/", labelKey: "nav.chats" },
   { href: "/search", labelKey: "nav.search" },
   { href: "/settings", labelKey: "nav.settings" },
-  { href: "/profile", labelKey: "profile.title" },
+  { href: "/settings#profile", labelKey: "profile.title" },
 ];
 
 const SettingsMobileMenu = (): React.JSX.Element => {

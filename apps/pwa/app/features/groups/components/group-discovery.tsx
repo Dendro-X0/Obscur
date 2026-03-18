@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
-import { Search, Globe, Users, Loader2, ArrowRight, Lock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Globe, Users, Loader2, ArrowRight, Lock, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import {
     Pagination,
@@ -16,12 +16,14 @@ import {
 import { Input } from "@dweb/ui-kit";
 import { Card } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "next/navigation";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { toast } from "@dweb/ui-kit";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { useGroups } from "../providers/group-provider";
 import { cn } from "@dweb/ui-kit";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
 
 interface DiscoveredGroup {
     groupId: string;
@@ -39,6 +41,7 @@ interface GroupDiscoveryProps {
 
 export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
     const { t } = useTranslation();
+    const router = useRouter();
     const { relayPool } = useRelay();
     const { addGroup, createdGroups } = useGroups();
     const [searchRelay, setSearchRelay] = useState("wss://relay.nostr.band");
@@ -148,6 +151,14 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
         toast.success(t("groups.notifications.joined", { name: group.name || group.groupId }));
     };
 
+    const handlePreview = (group: DiscoveredGroup): void => {
+        const groupToken = toGroupConversationId({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+        });
+        router.push(getPublicGroupHref(groupToken, group.relayUrl));
+    };
+
     return (
         <div className="flex flex-col h-full space-y-6 max-w-6xl mx-auto">
             {/* Header & Relay Control */}
@@ -239,6 +250,15 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
                                             <ArrowRight className="h-4 w-4" />
                                         </>
                                     )}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => handlePreview(group)}
+                                    className="h-10 w-full rounded-xl border border-border/70 bg-card/75 text-[11px] font-black uppercase tracking-widest text-foreground hover:bg-accent gap-2"
+                                >
+                                    <Eye className="h-3.5 w-3.5" />
+                                    {t("groups.actions.previewCommunity", "Preview Community")}
                                 </Button>
                                 {group.access && group.access !== "open" && (
                                     <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">

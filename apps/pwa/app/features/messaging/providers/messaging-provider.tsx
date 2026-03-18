@@ -29,7 +29,11 @@ import {
     toPersistedMessagesByConversationId,
     fromPersistedOverridesByConnectionId,
     toPersistedOverridesByConnectionId,
+    loadLastSeen,
+    updateLastSeen,
 } from "../utils/persistence";
+import { mergeProjectionUnreadByConversationId, unreadByConversationIdEqual } from "./projection-unread";
+import { removeGroupConversationIdsFromHidden } from "../utils/conversation-visibility";
 
 interface MessagingContextType {
     createdConnections: ReadonlyArray<DmConversation>;
@@ -37,6 +41,7 @@ interface MessagingContextType {
     selectedConversation: Conversation | null;
     setSelectedConversation: (conv: Conversation | null) => void;
     unreadByConversationId: UnreadByConversationId;
+    lastViewedByConversationId: Readonly<Record<string, number>>;
     setUnreadByConversationId: React.Dispatch<React.SetStateAction<UnreadByConversationId>>;
     connectionOverridesByConnectionId: ConnectionOverridesByConnectionId;
     setConnectionOverridesByConnectionId: React.Dispatch<React.SetStateAction<ConnectionOverridesByConnectionId>>;
@@ -113,6 +118,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [selectedConversationState, setSelectedConversationState] = useState<Conversation | null>(null);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
+    const [lastViewedByConversationId, setLastViewedByConversationId] = useState<Readonly<Record<string, number>>>({});
     const [connectionOverridesByConnectionId, setConnectionOverridesByConnectionId] = useState<ConnectionOverridesByConnectionId>({});
     // Removed: const [messagesByConversationId, setMessagesByConversationId] = useState<MessagesByConversationId>({});
     const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] = useState<Readonly<Record<string, number>>>({});
@@ -162,6 +168,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [hiddenChatIds, setHiddenChatIds] = useState<ReadonlyArray<string>>([]);
     const createdConnectionsRef = React.useRef(createdConnections);
     const unreadByConversationIdRef = React.useRef(unreadByConversationId);
+    const lastSeenByConversationIdRef = React.useRef<Readonly<Record<string, number>>>({});
     const connectionOverridesByConnectionIdRef = React.useRef(connectionOverridesByConnectionId);
     const pinnedChatIdsRef = React.useRef(pinnedChatIds);
     const hiddenChatIdsRef = React.useRef(hiddenChatIds);
@@ -170,6 +177,12 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     useEffect(() => {
         messagePersistenceService.init();
     }, []);
+
+    useEffect(() => {
+        if (publicKeyHex) return;
+        lastSeenByConversationIdRef.current = {};
+        setLastViewedByConversationId({});
+    }, [publicKeyHex]);
 
     const togglePin = (conversationId: string) => {
         const previous = pinnedChatIdsRef.current;
@@ -206,15 +219,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     const deleteConversation = (conversationId: string) => {
-        if (isGroupConversationId(conversationId) && publicKeyHex) {
-            const persisted = chatStateStoreService.load(publicKeyHex);
-            if (persisted?.createdGroups) {
-                const nextGroups = persisted.createdGroups.filter((g) => g.id !== conversationId);
-                chatStateStoreService.updateGroups(publicKeyHex, nextGroups);
-            }
-            if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent("obscur:group-remove", { detail: conversationId }));
-            }
+        if (isGroupConversationId(conversationId)) {
+            // Group membership is owned by explicit leave/purge flows, not sidebar chat deletion.
+            clearHistory(conversationId);
+            return;
         }
         hideConversation(conversationId);
         clearHistory(conversationId);
@@ -236,14 +244,41 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
 
             if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
-            if (persisted.hiddenChatIds) setHiddenChatIds(persisted.hiddenChatIds);
+            if (persisted.hiddenChatIds) {
+                const sanitizedHiddenChatIds = removeGroupConversationIdsFromHidden(persisted.hiddenChatIds);
+                setHiddenChatIds(sanitizedHiddenChatIds);
+                if (sanitizedHiddenChatIds.length !== persisted.hiddenChatIds.length) {
+                    chatStateStoreService.updateHiddenChats(publicKeyHex, sanitizedHiddenChatIds);
+                }
+            }
 
             // Trigger migration to new messages store
             messagePersistenceService.migrateFromLegacy(publicKeyHex);
         }
+        const loadedLastSeen = loadLastSeen(publicKeyHex as PublicKeyHex);
+        lastSeenByConversationIdRef.current = loadedLastSeen;
+        setLastViewedByConversationId(loadedLastSeen);
 
         setHasHydrated(true);
     }, [publicKeyHex, hasHydrated]);
+
+    useEffect(() => {
+        if (!publicKeyHex || typeof window === "undefined") {
+            return;
+        }
+        const onStorage = (event: StorageEvent): void => {
+            if (!event.key || !event.key.includes("dweb.nostr.pwa.last-seen")) {
+                return;
+            }
+            const latest = loadLastSeen(publicKeyHex as PublicKeyHex);
+            lastSeenByConversationIdRef.current = latest;
+            setLastViewedByConversationId(latest);
+        };
+        window.addEventListener("storage", onStorage);
+        return () => {
+            window.removeEventListener("storage", onStorage);
+        };
+    }, [publicKeyHex]);
 
     const projectionConnections = useMemo(() => {
         if (!publicKeyHex) {
@@ -261,13 +296,56 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         createdConnectionsRef.current = projectionConnections;
         setCreatedConnections(projectionConnections);
-        const unreadByConversation: Record<string, number> = {};
-        projectionConnections.forEach((conversation) => {
-            unreadByConversation[conversation.id] = conversation.unreadCount;
+        if (selectedConversation?.kind === "dm") {
+            const canonicalSelected = projectionConnections.find((connection) => (
+                connection.pubkey === selectedConversation.pubkey
+            ));
+            if (canonicalSelected && canonicalSelected.id !== selectedConversation.id) {
+                setSelectedConversationState(canonicalSelected);
+            }
+        }
+        setUnreadByConversationId((current) => {
+            const next = mergeProjectionUnreadByConversationId({
+                currentUnreadByConversationId: current,
+                projectionConnections,
+                selectedConversationId: selectedConversation?.id ?? null,
+                selectedConversationKind: selectedConversation?.kind ?? null,
+                lastSeenByConversationId: lastSeenByConversationIdRef.current,
+            });
+            if (unreadByConversationIdEqual(current, next)) {
+                unreadByConversationIdRef.current = current;
+                return current;
+            }
+            unreadByConversationIdRef.current = next;
+            return next;
         });
-        unreadByConversationIdRef.current = unreadByConversation;
-        setUnreadByConversationId(unreadByConversation);
-    }, [projectionConnections, projectionReadAuthority.useProjectionReads]);
+    }, [projectionConnections, projectionReadAuthority.useProjectionReads, selectedConversation]);
+
+    useEffect(() => {
+        if (!selectedConversation || !hasHydrated || !publicKeyHex) {
+            return;
+        }
+        if (selectedConversation.kind !== "dm") {
+            return;
+        }
+        const seenAtMs = Date.now();
+        const conversationId = selectedConversation.id;
+        const latestSeenByConversationId = lastSeenByConversationIdRef.current;
+        if ((latestSeenByConversationId[conversationId] ?? 0) >= seenAtMs) {
+            return;
+        }
+        const nextSeenByConversationId = {
+            ...latestSeenByConversationId,
+            [conversationId]: seenAtMs,
+        };
+        lastSeenByConversationIdRef.current = nextSeenByConversationId;
+        setLastViewedByConversationId(nextSeenByConversationId);
+        updateLastSeen({
+            publicKeyHex: publicKeyHex as PublicKeyHex,
+            conversationId,
+            seenAtMs,
+        });
+    }, [selectedConversation?.id, selectedConversation?.kind, hasHydrated, publicKeyHex]);
 
     useEffect(() => {
         if (!selectedConversation || !hasHydrated) {
@@ -357,6 +435,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         selectedConversation,
         setSelectedConversation,
         unreadByConversationId,
+        lastViewedByConversationId,
         setUnreadByConversationId: updateUnreadByConversationId,
         connectionOverridesByConnectionId,
         setConnectionOverridesByConnectionId: updateConnectionOverridesByConnectionId,
@@ -415,6 +494,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         createdConnections,
         selectedConversation,
         unreadByConversationId,
+        lastViewedByConversationId,
         connectionOverridesByConnectionId,
         visibleMessageCountByConversationId,
         replyTo,

@@ -285,6 +285,22 @@ const ensureStorageAbsoluteDir = async (): Promise<void> => {
     await ensureStorageDir(cfg.subdir);
 };
 
+export const ensureLocalMediaStoragePathReady = async (): Promise<boolean> => {
+    if (!isTauriRuntime()) return false;
+    try {
+        await ensureStorageAbsoluteDir();
+        return true;
+    } catch (error) {
+        logRuntimeEvent(
+            "local_media_store.ensure_storage_path_failed",
+            "degraded",
+            ["[LocalMediaStore] Failed to prepare local storage path.", { error: error instanceof Error ? error.message : String(error) }],
+            { windowMs: 30_000, maxPerWindow: 1, summaryEverySuppressed: 5 }
+        );
+        return false;
+    }
+};
+
 export const getLocalMediaStorageAbsolutePath = async (): Promise<string | null> => {
     if (!isTauriRuntime()) return null;
     return resolveStorageAbsolutePath();
@@ -292,7 +308,9 @@ export const getLocalMediaStorageAbsolutePath = async (): Promise<string | null>
 
 export const openLocalMediaStoragePath = async (): Promise<boolean> => {
     if (!isTauriRuntime()) return false;
-    const path = await getLocalMediaStorageAbsolutePath();
+    const isReady = await ensureLocalMediaStoragePathReady();
+    if (!isReady) return false;
+    const path = await resolveStorageAbsolutePath();
     if (!path) return false;
     try {
         return await nativeLocalMediaAdapter.openPath(path);

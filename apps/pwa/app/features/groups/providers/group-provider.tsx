@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import type { GroupConversation } from "@/app/features/messaging/types";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { fromPersistedGroupConversation, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
@@ -17,6 +17,15 @@ import {
 } from "@/app/features/groups/services/group-tombstone-store";
 import { auditCommunityMigrationState } from "@/app/features/groups/services/community-migration-audit";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import {
+    COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT,
+    loadCommunityMembershipLedger,
+    selectJoinedCommunityMembershipLedgerEntries,
+    setCommunityMembershipStatus,
+    toCommunityMembershipLedgerEntryFromGroup,
+    toGroupConversationFromMembershipLedgerEntry,
+    upsertCommunityMembershipLedgerEntry
+} from "@/app/features/groups/services/community-membership-ledger";
 
 interface GroupContextType {
     createdGroups: ReadonlyArray<GroupConversation>;
@@ -48,7 +57,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupMemberPubkeys, setNewGroupMemberPubkeys] = useState("");
 
-    const didHydrateRef = useRef(false);
+    const lastHydratedPublicKeyRef = useRef<string | null>(null);
 
     const sanitizeGroup = (group: GroupConversation): GroupConversation => {
         const relayUrl = typeof group.relayUrl === "string" && group.relayUrl.trim().length > 0
@@ -94,14 +103,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return Array.from(map.values());
     };
 
-    useEffect(() => {
-        if (didHydrateRef.current) return;
-        const pk = getPublicKeyHex();
-        if (!pk) return;
-
+    const hydrateGroupsForPublicKey = useCallback((pk: string) => {
         const persisted = chatStateStoreService.load(pk);
-        if (persisted && persisted.createdGroups) {
-            const tombstones = loadGroupTombstones(pk);
+        const tombstones = loadGroupTombstones(pk);
+        if (persisted?.createdGroups) {
             const audit = auditCommunityMigrationState({ state: persisted, tombstones });
             if (!audit.ok) {
                 logRuntimeEvent(
@@ -110,16 +115,63 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     ["[CommunityMigrationAudit] findings", audit],
                 );
             }
-            const groups = dedupeGroups(persisted.createdGroups.map(fromPersistedGroupConversation))
-                .filter((group) => !tombstones.has(toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })));
-            queueMicrotask(() => {
-                setCreatedGroups(groups);
-            });
-            // Self-heal legacy/non-canonical persisted group entries.
-            chatStateStoreService.updateGroups(pk, groups.map(g => toPersistedGroupConversation(g)));
         }
-        didHydrateRef.current = true;
-    }, [getPublicKeyHex]);
+        const persistedGroups = persisted?.createdGroups
+            ? dedupeGroups(persisted.createdGroups.map(fromPersistedGroupConversation))
+            : [];
+        const ledgerGroups = selectJoinedCommunityMembershipLedgerEntries(loadCommunityMembershipLedger(pk))
+            .filter((entry) => !tombstones.has(toGroupTombstoneKey({ groupId: entry.groupId, relayUrl: entry.relayUrl })))
+            .map((entry) => toGroupConversationFromMembershipLedgerEntry(entry, {
+                fallbackMemberPubkeys: [pk],
+            }));
+        const groups = dedupeGroups([...persistedGroups, ...ledgerGroups])
+            .filter((group) => !tombstones.has(toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })));
+        queueMicrotask(() => {
+            setCreatedGroups(groups);
+        });
+        // Self-heal legacy/non-canonical persisted group entries.
+        chatStateStoreService.updateGroups(pk, groups.map(g => toPersistedGroupConversation(g)));
+        groups.forEach((group) => {
+            upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(group, {
+                status: "joined",
+                updatedAtUnixMs: group.lastMessageTime.getTime(),
+            }));
+        });
+    }, []);
+
+    useEffect(() => {
+        const pk = getPublicKeyHex();
+        if (!pk) {
+            lastHydratedPublicKeyRef.current = null;
+            setCreatedGroups([]);
+            return;
+        }
+        if (lastHydratedPublicKeyRef.current === pk) {
+            return;
+        }
+        hydrateGroupsForPublicKey(pk);
+        lastHydratedPublicKeyRef.current = pk;
+    }, [getPublicKeyHex, hydrateGroupsForPublicKey]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const onScopedRefresh = (event: Event): void => {
+            const pk = getPublicKeyHex();
+            if (!pk) return;
+            const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+            if (detail?.publicKeyHex && detail.publicKeyHex !== pk) {
+                return;
+            }
+            hydrateGroupsForPublicKey(pk);
+            lastHydratedPublicKeyRef.current = pk;
+        };
+        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
+        window.addEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, onScopedRefresh);
+        return () => {
+            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
+            window.removeEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, onScopedRefresh);
+        };
+    }, [getPublicKeyHex, hydrateGroupsForPublicKey]);
 
     const addGroup = useCallback((group: GroupConversation, options?: Readonly<{ allowRevive?: boolean }>) => {
         setCreatedGroups(prev => {
@@ -133,6 +185,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 if (options?.allowRevive) {
                     removeGroupTombstone(pk, { groupId: normalized.groupId, relayUrl: normalized.relayUrl });
                 }
+                upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(normalized, {
+                    status: "joined",
+                }));
             }
             if (prev.find(g => g.groupId === normalized.groupId && g.relayUrl === normalized.relayUrl)) return prev;
             const next = dedupeGroups([...prev, normalized]);
@@ -155,6 +210,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             next[index] = { ...next[index], ...params.updates };
             const pk = getPublicKeyHex();
             if (pk) {
+                upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(next[index], {
+                    status: "joined",
+                }));
                 chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
             }
             return next;
@@ -163,8 +221,13 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const leaveGroup = useCallback((params: Readonly<{ groupId: string; relayUrl?: string; conversationId?: string }>) => {
         setCreatedGroups(prev => {
+            const removedGroups = prev.filter((g) => {
+                if (params.conversationId) return g.id === params.conversationId;
+                if (params.relayUrl) return g.groupId === params.groupId && g.relayUrl === params.relayUrl;
+                return g.groupId === params.groupId;
+            });
             const matched = params.conversationId
-                ? prev.find((g) => g.id === params.conversationId)
+                ? removedGroups[0]
                 : undefined;
             const next = prev.filter((g) => {
                 if (params.conversationId) return g.id !== params.conversationId;
@@ -173,6 +236,16 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
             const pk = getPublicKeyHex();
             if (pk) {
+                removedGroups.forEach((group) => {
+                    setCommunityMembershipStatus(pk, {
+                        groupId: group.groupId,
+                        relayUrl: group.relayUrl,
+                        communityId: group.communityId,
+                        status: "left",
+                        displayName: group.displayName,
+                        avatar: group.avatar,
+                    });
+                });
                 if (params.conversationId && matched) {
                     addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl });
                 } else if (params.relayUrl) {
@@ -194,6 +267,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (pk) {
                 if (matched) {
                     addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl });
+                    setCommunityMembershipStatus(pk, {
+                        groupId: matched.groupId,
+                        relayUrl: matched.relayUrl,
+                        communityId: matched.communityId,
+                        status: "left",
+                        displayName: matched.displayName,
+                        avatar: matched.avatar,
+                    });
                 } else {
                     addGroupTombstoneFromConversationId(pk, conversationId); // legacy fallback
                 }
@@ -217,14 +298,100 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 removeGroupConversation(conversationId);
             }
         };
+        const handleInviteAccepted = (e: Event) => {
+            const detail = (e as CustomEvent<{
+                groupId?: string;
+                relayUrl?: string;
+                communityId?: string;
+                memberPubkey?: string;
+            }>).detail;
+            const groupId = detail?.groupId?.trim();
+            const memberPubkey = detail?.memberPubkey?.trim();
+            if (!groupId || !memberPubkey) {
+                return;
+            }
+            const relayHint = detail?.relayUrl?.trim();
+            const communityHint = detail?.communityId?.trim();
+            setCreatedGroups((prev) => {
+                let changed = false;
+                const next = prev.map((group) => {
+                    const matchesGroup = group.groupId === groupId;
+                    const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
+                    const matchesCommunity = communityHint ? group.communityId === communityHint : true;
+                    if (!matchesGroup || !matchesRelay || !matchesCommunity) {
+                        return group;
+                    }
+                    if (group.memberPubkeys.includes(memberPubkey)) {
+                        return group;
+                    }
+                    changed = true;
+                    const memberPubkeys = [...group.memberPubkeys, memberPubkey];
+                    return {
+                        ...group,
+                        memberPubkeys,
+                        memberCount: Math.max(group.memberCount ?? 0, memberPubkeys.length),
+                    };
+                });
+                const hasMatchedGroup = next.some((group) => {
+                    const matchesGroup = group.groupId === groupId;
+                    const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
+                    const matchesCommunity = communityHint ? group.communityId === communityHint : true;
+                    return matchesGroup && matchesRelay && matchesCommunity;
+                });
+                const fallbackAdded = !hasMatchedGroup && Boolean(relayHint);
+                const withFallback = fallbackAdded
+                    ? dedupeGroups([...next, toGroupConversationFromMembershipLedgerEntry({
+                        communityId: communityHint ?? deriveCommunityId({
+                            groupId,
+                            relayUrl: relayHint!,
+                        }),
+                        groupId,
+                        relayUrl: relayHint!,
+                        status: "joined",
+                        updatedAtUnixMs: Date.now(),
+                        displayName: "Private Group",
+                    }, {
+                        fallbackMemberPubkeys: [memberPubkey],
+                    })])
+                    : next;
+                if (!changed && !fallbackAdded) {
+                    return prev;
+                }
+                const pk = getPublicKeyHex();
+                if (pk) {
+                    const matchedGroup = withFallback.find((group) => {
+                        const matchesGroup = group.groupId === groupId;
+                        const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
+                        const matchesCommunity = communityHint ? group.communityId === communityHint : true;
+                        return matchesGroup && matchesRelay && matchesCommunity;
+                    });
+                    if (matchedGroup) {
+                        upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(matchedGroup, {
+                            status: "joined",
+                        }));
+                    } else if (relayHint) {
+                        setCommunityMembershipStatus(pk, {
+                            groupId,
+                            relayUrl: relayHint,
+                            communityId: communityHint,
+                            status: "joined",
+                        });
+                    }
+                    chatStateStoreService.updateGroups(pk, withFallback.map((group) => toPersistedGroupConversation(group)));
+                }
+                return withFallback;
+            });
+        };
 
         window.addEventListener("obscur:group-invite", handleGroupInvite);
         window.addEventListener("obscur:group-remove", handleGroupRemove);
+        window.addEventListener("obscur:group-invite-response-accepted", handleInviteAccepted);
         return () => {
             window.removeEventListener("obscur:group-invite", handleGroupInvite);
             window.removeEventListener("obscur:group-remove", handleGroupRemove);
+            window.removeEventListener("obscur:group-invite-response-accepted", handleInviteAccepted);
         };
-    }, [addGroup, removeGroupConversation]);
+    }, [addGroup, getPublicKeyHex, removeGroupConversation]);
 
     const value = useMemo(() => ({
         createdGroups,

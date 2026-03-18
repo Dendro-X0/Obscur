@@ -141,6 +141,61 @@ export const CommunityInviteCard = ({
                 avatar: invite.metadata.picture
             };
 
+            const targetRelay = relayUrl.trim();
+            if (targetRelay.length > 0 && typeof relayPool.addTransientRelay === "function") {
+                relayPool.addTransientRelay(targetRelay);
+            }
+            if (targetRelay.length > 0 && typeof relayPool.waitForScopedConnection === "function") {
+                await relayPool.waitForScopedConnection([targetRelay], 3000);
+            } else if (typeof relayPool.waitForConnection === "function") {
+                await relayPool.waitForConnection(3000);
+            }
+
+            const publishScopedWithRetry = async (payload: string): Promise<boolean> => {
+                for (let attempt = 1; attempt <= 3; attempt += 1) {
+                    try {
+                        if (targetRelay.length > 0 && typeof relayPool.publishToUrls === "function") {
+                            const result = await relayPool.publishToUrls([targetRelay], payload);
+                            if (result.success) return true;
+                        } else if (targetRelay.length > 0 && typeof relayPool.publishToUrl === "function") {
+                            const result = await relayPool.publishToUrl(targetRelay, payload);
+                            if (result.success) return true;
+                        } else if (targetRelay.length > 0 && typeof relayPool.publishToRelay === "function") {
+                            const result = await relayPool.publishToRelay(targetRelay, payload);
+                            if (result.success) return true;
+                        } else {
+                            const result = await relayPool.publishToAll(payload);
+                            if (result.success) return true;
+                        }
+                    } catch {
+                        // Retry on transient relay failures.
+                    }
+                    if (attempt < 3) {
+                        await new Promise((resolve) => window.setTimeout(resolve, attempt * 250));
+                    }
+                }
+                return false;
+            };
+
+            const GroupServiceModule = await import("../services/group-service");
+            const groupService = new GroupServiceModule.GroupService(
+                identityState.publicKeyHex!,
+                identityState.privateKeyHex!
+            );
+            const nip29Join = await groupService.sendNip29Join({ groupId: invite.groupId });
+            const sealedJoin = await groupService.sendSealedJoin({
+                groupId: invite.groupId,
+                roomKeyHex: invite.roomKey
+            });
+
+            const [nip29JoinPublished, sealedJoinPublished] = await Promise.all([
+                publishScopedWithRetry(JSON.stringify(["EVENT", nip29Join])),
+                publishScopedWithRetry(JSON.stringify(["EVENT", sealedJoin]))
+            ]);
+            if (!nip29JoinPublished && !sealedJoinPublished) {
+                throw new Error("Could not publish community join to relay scope.");
+            }
+
             addGroup(newGroup, { allowRevive: true });
 
             await onSendDirectMessage({
@@ -148,34 +203,12 @@ export const CommunityInviteCard = ({
                 content: JSON.stringify({
                     type: "community-invite-response",
                     status: "accepted",
-                    groupId: invite.groupId
+                    groupId: invite.groupId,
+                    relayUrl,
+                    communityId
                 }),
                 replyTo: message.id
             });
-
-            try {
-                // Also broadcast a 'join' event to the sealed community to notify existing members
-                const GroupServiceModule = await import("../services/group-service");
-                const groupService = new GroupServiceModule.GroupService(
-                    identityState.publicKeyHex!,
-                    identityState.privateKeyHex!
-                );
-                const signedEvent = await groupService.sendSealedJoin({
-                    groupId: invite.groupId,
-                    roomKeyHex: invite.roomKey
-                });
-                const payload = JSON.stringify(["EVENT", signedEvent]);
-                const targetRelay = relayUrl.trim();
-                if (targetRelay.length > 0 && typeof relayPool.publishToUrls === "function") {
-                    await relayPool.publishToUrls([targetRelay], payload);
-                } else if (targetRelay.length > 0 && typeof relayPool.publishToUrl === "function") {
-                    await relayPool.publishToUrl(targetRelay, payload);
-                } else {
-                    await relayPool.publishToAll(payload);
-                }
-            } catch (e) {
-                console.error("Failed to broadcast join event to community:", e);
-            }
 
             toast.success(t("groups.inviteAccepted", "You have joined {{name}}", { name: invite.metadata.name }));
         } catch (error) {
@@ -195,7 +228,9 @@ export const CommunityInviteCard = ({
                 content: JSON.stringify({
                     type: "community-invite-response",
                     status: "declined",
-                    groupId: invite.groupId
+                    groupId: invite.groupId,
+                    relayUrl: invite.relayUrl,
+                    communityId: invite.communityId
                 }),
                 replyTo: message.id
             });
@@ -227,7 +262,9 @@ export const CommunityInviteCard = ({
                 content: JSON.stringify({
                     type: "community-invite-response",
                     status: "canceled",
-                    groupId: invite.groupId
+                    groupId: invite.groupId,
+                    relayUrl: invite.relayUrl,
+                    communityId: invite.communityId
                 }),
                 replyTo: message.id
             });

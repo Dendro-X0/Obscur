@@ -13,6 +13,25 @@ import { useUploadService } from "../../messaging/lib/upload-service";
 import { messageBus } from "../../messaging/services/message-bus";
 import { BEST_EFFORT_STORAGE_NOTE } from "../../messaging/lib/media-upload-policy";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
+
+type MultiRelayPublishResult = Readonly<{
+    success: boolean;
+    successCount: number;
+    totalRelays: number;
+    results: ReadonlyArray<Readonly<{ success: boolean; relayUrl: string; error?: string; latency?: number }>>;
+    overallError?: string;
+}>;
+
+const UNKNOWN_RELAY_SENTINELS = new Set(["unknown", "null", "undefined", "n/a", "none"]);
+
+const toScopedRelayUrl = (relayUrl: string): string | null => {
+    const normalized = normalizeRelayUrlBase(relayUrl);
+    const trimmed = /^[a-z]+:\/\/$/i.test(normalized) ? normalized : normalized.replace(/\/+$/g, "");
+    if (trimmed.length === 0 || UNKNOWN_RELAY_SENTINELS.has(trimmed)) return null;
+    return /^wss?:\/\/.+/.test(trimmed) ? trimmed : null;
+};
 
 /**
  * Hook to manage chat actions like sending, deleting, and reacting to messages.
@@ -32,6 +51,42 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
     const identity = useIdentity();
     const uploadService = useUploadService();
     const { peerTrust, requestsInbox } = useNetwork();
+    const { relayPool } = useRelay();
+
+    const publishGroupEvent = useCallback(async (params: Readonly<{ relayUrl: string; event: Readonly<{ id: string }> }>): Promise<void> => {
+        const payload = JSON.stringify(["EVENT", params.event]);
+        const scopedRelayUrl = toScopedRelayUrl(params.relayUrl);
+        let result: MultiRelayPublishResult;
+
+        if (scopedRelayUrl && typeof relayPool.publishToUrls === "function") {
+            result = await relayPool.publishToUrls([scopedRelayUrl], payload);
+        } else if (scopedRelayUrl && typeof relayPool.publishToUrl === "function") {
+            const single = await relayPool.publishToUrl(scopedRelayUrl, payload);
+            result = {
+                success: single.success,
+                successCount: single.success ? 1 : 0,
+                totalRelays: 1,
+                results: [single],
+                overallError: single.success ? undefined : (single.error ?? "Scoped publish failed"),
+            };
+        } else if (scopedRelayUrl && typeof relayPool.publishToRelay === "function") {
+            const single = await relayPool.publishToRelay(scopedRelayUrl, payload);
+            result = {
+                success: single.success,
+                successCount: single.success ? 1 : 0,
+                totalRelays: 1,
+                results: [single],
+                overallError: single.success ? undefined : (single.error ?? "Scoped publish failed"),
+            };
+        } else {
+            result = await relayPool.publishToAll(payload);
+        }
+
+        if (!result.success) {
+            throw new Error(result.overallError || "Failed to publish group event to relay scope");
+        }
+    }, [relayPool]);
+
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;
 
@@ -168,14 +223,19 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     replyTo: currentReplyTo?.messageId
                 });
 
-                // Optimistic UI for Groups
+                await publishGroupEvent({
+                    relayUrl: selectedConversation.relayUrl,
+                    event
+                });
+
+                // Emit local message after relay publish confirmation.
                 const optimisticMessage: Message = {
                     id: event.id,
                     kind: 'user',
                     content: currentInput,
                     timestamp: new Date(),
                     isOutgoing: true,
-                    status: 'sending',
+                    status: 'delivered',
                     eventId: event.id,
                     senderPubkey: identity.state.publicKeyHex,
                     reactions: createEmptyReactions(),
@@ -222,7 +282,9 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         setUploadStage,
         setAttachmentError,
         uploadService,
-        peerTrust
+        peerTrust,
+        requestsInbox,
+        publishGroupEvent
     ]);
 
     const deleteMessage = useCallback(async (params: { conversationId: string; messageId: string }) => {
@@ -233,16 +295,20 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
             try {
                 if (identity.state.publicKeyHex && identity.state.privateKeyHex) {
                     const groupService = new GroupService(identity.state.publicKeyHex, identity.state.privateKeyHex);
-                    await groupService.hideMessage({
+                    const deletionEvent = await groupService.hideMessage({
                         groupId: selectedConversation.groupId,
                         eventId: params.messageId
+                    });
+                    await publishGroupEvent({
+                        relayUrl: selectedConversation.relayUrl,
+                        event: deletionEvent
                     });
                 }
             } catch (error) {
                 console.error("Failed to delete group message:", error);
             }
         }
-    }, [selectedConversation, identity.state]);
+    }, [selectedConversation, identity.state, publishGroupEvent]);
 
     const toggleReaction = useCallback(async (params: { conversationId: string; message: Message; emoji: string }) => {
         const reactionEmoji = params.emoji as ReactionEmoji;
@@ -261,17 +327,21 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
             try {
                 if (identity.state.publicKeyHex && identity.state.privateKeyHex) {
                     const groupService = new GroupService(identity.state.publicKeyHex, identity.state.privateKeyHex);
-                    await groupService.sendSealedReaction({
+                    const reactionEvent = await groupService.sendSealedReaction({
                         groupId: selectedConversation.groupId,
                         eventId: msg.id,
                         emoji: params.emoji
+                    });
+                    await publishGroupEvent({
+                        relayUrl: selectedConversation.relayUrl,
+                        event: reactionEvent
                     });
                 }
             } catch (error) {
                 console.error("Failed to send group reaction:", error);
             }
         }
-    }, [selectedConversation, identity.state]);
+    }, [selectedConversation, identity.state, publishGroupEvent]);
 
     return { handleSendMessage, deleteMessage, toggleReaction };
 }

@@ -9,12 +9,23 @@ import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { resolveConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import {
     resolveDiscoveryQueryFromDeepLinkUrl,
     resolveDiscoveryQueryFromSearchParams,
 } from "@/app/features/search/services/discovery-deep-link";
+
+const decodeRouteValue = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    try {
+        return decodeURIComponent(trimmed);
+    } catch {
+        return trimmed;
+    }
+};
 
 export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void>) {
     const router = useRouter();
@@ -99,7 +110,7 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
         const pubkey = (searchParams.get("chat") || searchParams.get("pubkey") || "").trim();
         const relays = (searchParams.get("relays") || "").trim();
         const inviteToken = (searchParams.get("inviteToken") || "").trim();
-        const convId = (searchParams.get("convId") || "").trim();
+        const convId = decodeRouteValue(searchParams.get("convId") || "");
         const discoveryFlags = PrivacySettingsService.getDiscoveryFeatureFlags();
         const discoveryQuery = discoveryFlags.deepLinkV1
             ? resolveDiscoveryQueryFromSearchParams(searchParams)
@@ -110,12 +121,14 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
         const myPk = identity.state.publicKeyHex || "";
         const cacheKey = `${pubkey}:${relays}:${inviteToken}:${convId}:${myPk}:${discoveryQuery || ""}`;
         if (handledSearchParamRef.current === cacheKey) return;
-        handledSearchParamRef.current = cacheKey;
+        let handled = false;
 
         if (discoveryQuery) {
             queueMicrotask(() => {
                 router.replace(`/search?q=${encodeURIComponent(discoveryQuery)}`);
             });
+            handled = true;
+            handledSearchParamRef.current = cacheKey;
             return;
         }
 
@@ -146,21 +159,27 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                     }
                     router.replace("/");
                 });
+                handled = true;
             }
         }
 
         if (convId) {
-            const group = createdGroups.find(g => g.id === convId);
-            if (group) {
-                setSelectedConversation(group);
-                router.replace("/");
-            } else {
-                const connection = createdConnections.find(c => c.id === convId);
-                if (connection) {
-                    setSelectedConversation(connection);
-                    router.replace("/");
+            const resolved = resolveConversationByToken({
+                token: convId,
+                groups: createdGroups,
+                connections: createdConnections,
+            });
+            if (resolved) {
+                setSelectedConversation(resolved);
+                if (resolved.kind === "dm") {
+                    unhideConversation(resolved.id);
                 }
+                router.replace("/");
+                handled = true;
             }
+        }
+        if (handled) {
+            handledSearchParamRef.current = cacheKey;
         }
     }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdConnections, setSelectedConversation, unhideConversation]);
 }
