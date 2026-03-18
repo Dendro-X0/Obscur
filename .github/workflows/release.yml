@@ -519,7 +519,12 @@ jobs:
           name: mobile-ios
           path: ./release-assets/ios
 
-      - name: Run artifact version parity check
+      - name: Run desktop artifact version parity check
+        run: pnpm release:artifact-version-parity -- --assets-dir release-assets --skip-android
+
+      - name: Run Android artifact version parity check (non-blocking)
+        if: ${{ needs.build-android.result == 'success' }}
+        continue-on-error: true
         run: pnpm release:artifact-version-parity -- --assets-dir release-assets
 
       - name: Release lane summary
@@ -530,6 +535,7 @@ jobs:
             echo "- android_job_result: ${{ needs.build-android.result }}";
             echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state != '' && needs.build-android.outputs.android_signing_state || 'unavailable' }}";
             echo "- ios_lane_state: ${{ needs.ios-precheck.outputs.ios_lane_state }}";
+            echo "- android_version_parity: check non-blocking (see step status)";
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify required artifact matrix

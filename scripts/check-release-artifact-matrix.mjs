@@ -24,10 +24,13 @@ const requiredSnippets = [
   "*.aab",
   "*.tar.gz",
   "output-metadata.json",
-  "Run artifact version parity check",
+  "Run desktop artifact version parity check",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));
+if (!content.toLowerCase().includes("run android artifact version parity check (non-blocking)")) {
+  missing.push("Run Android artifact version parity check (non-blocking)");
+}
 if (missing.length > 0) {
   console.error("[release:artifact-matrix] Missing required workflow snippets:");
   for (const item of missing) {

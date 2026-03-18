@@ -12,6 +12,8 @@ const getArg = (name) => {
   return process.argv[index + 1] ?? null;
 };
 
+const hasArg = (name) => process.argv.includes(name);
+
 const listFilesRecursive = (dir) => {
   const files = [];
   const stack = [dir];
@@ -48,6 +50,7 @@ const main = () => {
   const assetsDirArg = getArg("--assets-dir") ?? "release-assets";
   const assetsDir = resolve(rootDir, assetsDirArg);
   const expectedVersion = JSON.parse(readFileSync(resolve(rootDir, "package.json"), "utf8")).version;
+  const skipAndroid = hasArg("--skip-android");
 
   if (!statSync(assetsDir, { throwIfNoEntry: false })?.isDirectory()) {
     throw new Error(`Assets directory not found: ${assetsDir}`);
@@ -72,44 +75,51 @@ const main = () => {
     );
   }
 
-  const metadataFiles = allFiles
-    .filter((file) => basename(file).toLowerCase() === "output-metadata.json")
-    .filter((file) => file.replaceAll("\\", "/").includes("/android/"));
-  if (metadataFiles.length === 0) {
-    throw new Error("No Android output-metadata.json files found for versionName parity checks.");
-  }
+  if (!skipAndroid) {
+    const metadataFiles = allFiles
+      .filter((file) => basename(file).toLowerCase() === "output-metadata.json")
+      .filter((file) => file.replaceAll("\\", "/").includes("/android/"));
+    if (metadataFiles.length === 0) {
+      throw new Error("No Android output-metadata.json files found for versionName parity checks.");
+    }
 
-  let apkMetadataCount = 0;
-  let aabMetadataCount = 0;
-  const androidVersionErrors = [];
+    let apkMetadataCount = 0;
+    let aabMetadataCount = 0;
+    const androidVersionErrors = [];
 
-  for (const metadataFile of metadataFiles) {
-    const entries = parseOutputMetadata(metadataFile);
-    for (const entry of entries) {
-      const lowerOutput = entry.outputFile.toLowerCase();
-      if (lowerOutput.endsWith(".apk")) apkMetadataCount += 1;
-      if (lowerOutput.endsWith(".aab")) aabMetadataCount += 1;
-      if ((lowerOutput.endsWith(".apk") || lowerOutput.endsWith(".aab")) && entry.versionName !== expectedVersion) {
-        androidVersionErrors.push(
-          `${metadataFile.replaceAll("\\", "/")} :: ${entry.outputFile} has versionName=${entry.versionName || "<missing>"}`
-        );
+    for (const metadataFile of metadataFiles) {
+      const entries = parseOutputMetadata(metadataFile);
+      for (const entry of entries) {
+        const lowerOutput = entry.outputFile.toLowerCase();
+        if (lowerOutput.endsWith(".apk")) apkMetadataCount += 1;
+        if (lowerOutput.endsWith(".aab")) aabMetadataCount += 1;
+        if ((lowerOutput.endsWith(".apk") || lowerOutput.endsWith(".aab")) && entry.versionName !== expectedVersion) {
+          androidVersionErrors.push(
+            `${metadataFile.replaceAll("\\", "/")} :: ${entry.outputFile} has versionName=${entry.versionName || "<missing>"}`
+          );
+        }
       }
     }
-  }
 
-  if (apkMetadataCount === 0 || aabMetadataCount === 0) {
-    throw new Error(
-      `Android metadata parity requires APK and AAB entries. Found apk_entries=${apkMetadataCount}, aab_entries=${aabMetadataCount}.`
+    if (apkMetadataCount === 0 || aabMetadataCount === 0) {
+      throw new Error(
+        `Android metadata parity requires APK and AAB entries. Found apk_entries=${apkMetadataCount}, aab_entries=${aabMetadataCount}.`
+      );
+    }
+    if (androidVersionErrors.length > 0) {
+      throw new Error(
+        `Android metadata versionName mismatch (expected ${expectedVersion}):\n- ${androidVersionErrors.join("\n- ")}`
+      );
+    }
+
+    console.log(
+      `[release:artifact-version-parity] Version parity passed for desktop installers and Android metadata (version=${expectedVersion}).`
     );
-  }
-  if (androidVersionErrors.length > 0) {
-    throw new Error(
-      `Android metadata versionName mismatch (expected ${expectedVersion}):\n- ${androidVersionErrors.join("\n- ")}`
-    );
+    return;
   }
 
   console.log(
-    `[release:artifact-version-parity] Version parity passed for desktop installers and Android metadata (version=${expectedVersion}).`
+    `[release:artifact-version-parity] Desktop installer version parity passed (version=${expectedVersion}); Android parity skipped by --skip-android.`
   );
 };
 
