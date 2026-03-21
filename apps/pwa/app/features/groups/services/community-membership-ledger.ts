@@ -1,12 +1,14 @@
 import type { GroupConversation } from "@/app/features/messaging/types";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { deriveCommunityId } from "../utils/community-identity";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 
 const MEMBERSHIP_LEDGER_STORAGE_PREFIX = "obscur.group.membership_ledger.v1";
 export const LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE = "Group key unavailable on this device";
 export const COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT = "obscur:community-membership-ledger-updated";
+const ledgerLoadSignatureByScope = new Map<string, string>();
 
 export type CommunityMembershipStatus = "joined" | "left" | "expelled";
 
@@ -41,6 +43,8 @@ const toLegacyStorageKey = (publicKeyHex: string): string => (
 const toStorageKey = (publicKeyHex: string): string => (
   getScopedStorageKey(toLegacyStorageKey(publicKeyHex))
 );
+
+const toPublicKeySuffix = (publicKeyHex: string): string => publicKeyHex.slice(-8);
 
 const normalizeCommunityMembershipLedgerEntry = (value: unknown): CommunityMembershipLedgerEntry | null => {
   if (!value || typeof value !== "object") {
@@ -126,13 +130,57 @@ const readCommunityMembershipLedger = (publicKeyHex: string): ReadonlyArray<Comm
   if (typeof window === "undefined") {
     return [];
   }
+  const profileId = getActiveProfileIdSafe();
   try {
-    const raw = window.localStorage.getItem(toStorageKey(publicKeyHex))
-      ?? window.localStorage.getItem(toLegacyStorageKey(publicKeyHex));
-    if (!raw) {
+    const scopedRaw = window.localStorage.getItem(toStorageKey(publicKeyHex));
+    const legacyRaw = window.localStorage.getItem(toLegacyStorageKey(publicKeyHex));
+
+    const scopedEntries = scopedRaw
+      ? parseCommunityMembershipLedgerSnapshot(JSON.parse(scopedRaw))
+      : [];
+    const legacyEntries = legacyRaw
+      ? parseCommunityMembershipLedgerSnapshot(JSON.parse(legacyRaw))
+      : [];
+
+    if (scopedEntries.length === 0 && legacyEntries.length === 0) {
+      const emptySignature = `profile:${profileId}|scoped:0|legacy:0|merged:0`;
+      const scopeKey = `${publicKeyHex}::${profileId}`;
+      if (ledgerLoadSignatureByScope.get(scopeKey) !== emptySignature) {
+        ledgerLoadSignatureByScope.set(scopeKey, emptySignature);
+        logAppEvent({
+          name: "groups.membership_ledger_load",
+          level: "info",
+          scope: { feature: "groups", action: "membership_ledger" },
+          context: {
+            publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+            profileId,
+            scopedEntryCount: 0,
+            legacyEntryCount: 0,
+            mergedEntryCount: 0,
+          },
+        });
+      }
       return [];
     }
-    return parseCommunityMembershipLedgerSnapshot(JSON.parse(raw));
+    const mergedEntries = mergeCommunityMembershipLedgerEntries(scopedEntries, legacyEntries);
+    const signature = `profile:${profileId}|scoped:${scopedEntries.length}|legacy:${legacyEntries.length}|merged:${mergedEntries.length}`;
+    const scopeKey = `${publicKeyHex}::${profileId}`;
+    if (ledgerLoadSignatureByScope.get(scopeKey) !== signature) {
+      ledgerLoadSignatureByScope.set(scopeKey, signature);
+      logAppEvent({
+        name: "groups.membership_ledger_load",
+        level: "info",
+        scope: { feature: "groups", action: "membership_ledger" },
+        context: {
+          publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+          profileId,
+          scopedEntryCount: scopedEntries.length,
+          legacyEntryCount: legacyEntries.length,
+          mergedEntryCount: mergedEntries.length,
+        },
+      });
+    }
+    return mergedEntries;
   } catch {
     return [];
   }
@@ -169,6 +217,16 @@ export const saveCommunityMembershipLedger = (
     if (isSnapshotUnchanged) {
       return;
     }
+    logAppEvent({
+      name: "groups.membership_ledger_save",
+      level: "info",
+      scope: { feature: "groups", action: "membership_ledger" },
+      context: {
+        publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+        profileId: getActiveProfileIdSafe(),
+        savedEntryCount: normalizedEntries.length,
+      },
+    });
     window.dispatchEvent(new CustomEvent(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, {
       detail: { publicKeyHex },
     }));

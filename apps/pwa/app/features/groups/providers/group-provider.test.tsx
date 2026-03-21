@@ -87,6 +87,51 @@ describe("group-provider membership ledger integration", () => {
     expect(chatStateStoreService.load(PUBLIC_KEY_A)?.createdGroups).toHaveLength(1);
   });
 
+  it("suppresses persisted group visibility when ledger membership is left", async () => {
+    chatStateStoreService.replace(PUBLIC_KEY_A, {
+      ...createEmptyState(),
+      createdGroups: [{
+        id: "community:alpha:wss://relay.alpha",
+        communityId: "alpha:wss://relay.alpha",
+        groupId: "alpha",
+        relayUrl: "wss://relay.alpha",
+        displayName: "Alpha",
+        memberPubkeys: [PUBLIC_KEY_A],
+        lastMessage: "legacy persisted",
+        unreadCount: 0,
+        lastMessageTimeMs: 1_000,
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }],
+    }, { emitMutationSignal: false });
+    setCommunityMembershipStatus(PUBLIC_KEY_A, {
+      groupId: "alpha",
+      relayUrl: "wss://relay.alpha",
+      communityId: "alpha:wss://relay.alpha",
+      status: "left",
+      updatedAtUnixMs: 2_000,
+      displayName: "Alpha",
+    });
+
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(0);
+    });
+    const ledger = loadCommunityMembershipLedger(PUBLIC_KEY_A);
+    expect(ledger).toEqual([
+      expect.objectContaining({
+        groupId: "alpha",
+        relayUrl: "wss://relay.alpha",
+        status: "left",
+      }),
+    ]);
+  });
+
   it("refreshes mounted provider from ledger updates and preserves leave status across remount", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
@@ -197,6 +242,73 @@ describe("group-provider membership ledger integration", () => {
       groupId: "gamma",
       relayUrl: "wss://relay.gamma",
       displayName: "Gamma",
+    }));
+  });
+
+  it("refreshes mounted provider when delayed backup reconstructs membership from chat-state evidence", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(0);
+    });
+
+    await act(async () => {
+      await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(PUBLIC_KEY_A, {
+        version: 1,
+        publicKeyHex: PUBLIC_KEY_A,
+        createdAtUnixMs: Date.now(),
+        profile: {
+          username: "restored-user",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: { acceptedPeers: [], mutedPeers: [] },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        // No explicit membership ledger in this delayed snapshot.
+        chatState: {
+          version: 2,
+          createdConnections: [],
+          createdGroups: [{
+            id: "community:theta:wss://relay.theta",
+            communityId: "theta:wss://relay.theta",
+            groupId: "theta",
+            relayUrl: "wss://relay.theta",
+            displayName: "Theta",
+            memberPubkeys: [PUBLIC_KEY_A],
+            lastMessage: "restored group evidence",
+            unreadCount: 0,
+            lastMessageTimeMs: 6_000,
+            access: "invite-only",
+            memberCount: 1,
+            adminPubkeys: [],
+          }],
+          unreadByConversationId: {},
+          connectionOverridesByConnectionId: {},
+          messagesByConversationId: {},
+          groupMessages: {},
+          connectionRequests: [],
+          pinnedChatIds: [],
+          hiddenChatIds: [],
+        },
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(1);
+    });
+    expect(result.current.createdGroups[0]).toEqual(expect.objectContaining({
+      groupId: "theta",
+      relayUrl: "wss://relay.theta",
+      communityId: "theta:wss://relay.theta",
     }));
   });
 
@@ -341,5 +453,53 @@ describe("group-provider membership ledger integration", () => {
       relayUrl: "wss://relay.scope",
       communityId: "scope-drill:wss://relay.scope",
     }));
+  });
+
+  it("hydrates missing groups from runtime membership-confirmed evidence", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-membership-confirmed", {
+        detail: {
+          groupId: "omega",
+          relayUrl: "wss://relay.omega",
+          displayName: "Omega",
+          access: "discoverable",
+          memberPubkeys: [PUBLIC_KEY_B],
+          adminPubkeys: [PUBLIC_KEY_A],
+          memberCount: 2,
+          lastMessageTimeUnixMs: 7_000,
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(1);
+    });
+    expect(result.current.createdGroups[0]).toEqual(expect.objectContaining({
+      groupId: "omega",
+      relayUrl: "wss://relay.omega",
+      displayName: "Omega",
+      access: "discoverable",
+    }));
+    expect(result.current.createdGroups[0]?.memberPubkeys).toEqual(expect.arrayContaining([
+      PUBLIC_KEY_A,
+      PUBLIC_KEY_B,
+    ]));
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        groupId: "omega",
+        relayUrl: "wss://relay.omega",
+        status: "joined",
+      }),
+    ]));
   });
 });

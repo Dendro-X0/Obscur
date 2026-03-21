@@ -1,6 +1,6 @@
 # 04 Feature Modules
 
-_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
+_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
 
 This document is the short module map for day-to-day implementation and triage.
 
@@ -61,8 +61,8 @@ This document is the short module map for day-to-day implementation and triage.
 - Event constructor/signing service:
   - `apps/pwa/app/features/groups/services/group-service.ts`
 
-Known active gap (v0.9.1 planning target):
-- Several governance handlers in `use-sealed-community.ts` are still placeholders (`noop`) and should be completed before claiming mature community operations.
+Known active risk area:
+- Community governance operations should be validated from signed event reduction and relay evidence, not from UI-local assumptions.
 
 ## Community Governance Contract (Decentralized)
 
@@ -98,6 +98,62 @@ Known active gap (v0.9.1 planning target):
   - `apps/pwa/app/features/search/services/discovery-engine.ts`
   - `apps/pwa/app/features/search/services/discovery-cache.ts`
 - Friend code logic: `apps/pwa/app/features/search/services/friend-code-v2.ts`
+
+## Invites and Coordination
+
+- Invite orchestration and relay hints:
+  - `apps/pwa/app/features/invites/utils/invite-manager.ts`
+  - `apps/pwa/app/features/invites/utils/invite-parser.ts`
+  - `apps/pwa/app/features/invites/utils/use-invite-relay-integration.ts`
+- Main-shell invite redemption integration:
+  - `apps/pwa/app/features/main-shell/hooks/use-invite-redemption.ts`
+- Coordination worker API surface:
+  - `apps/coordination/src/index.ts`
+
+## Desktop and Native Integration
+
+- Desktop runtime hooks/adapters:
+  - `apps/pwa/app/features/desktop/hooks/use-tauri.ts`
+  - `apps/pwa/app/features/desktop/utils/tauri-api.ts`
+  - `apps/pwa/app/features/desktop/utils/relay-persistence.ts`
+- Native error surface:
+  - `apps/pwa/app/features/native/lib/native-error-store.ts`
+  - `apps/pwa/app/features/native/components/error-panel.tsx`
+
+## Query Runtime and Projection Read Paths
+
+- TanStack runtime provider:
+  - `apps/pwa/app/features/query/providers/tanstack-query-runtime-provider.tsx`
+- Query diagnostics/scope:
+  - `apps/pwa/app/features/query/services/tanstack-query-diagnostics.ts`
+  - `apps/pwa/app/features/query/services/query-scope.ts`
+- Projection read authority (migration/drift gates):
+  - `apps/pwa/app/features/account-sync/services/account-projection-read-authority.ts`
+
+## Notifications
+
+- Notification preference and permission flow:
+  - `apps/pwa/app/features/notifications/hooks/use-notification-preference.ts`
+  - `apps/pwa/app/features/notifications/utils/request-notification-permission.ts`
+  - `apps/pwa/app/features/notifications/utils/show-desktop-notification.ts`
+
+## Onboarding, Navigation, and Shell
+
+- Onboarding bootstrap config parsing:
+  - `apps/pwa/app/features/onboarding/utils/fetch-bootstrap-config.ts`
+  - `apps/pwa/app/features/onboarding/utils/parse-bootstrap-config.ts`
+- Public route contracts:
+  - `apps/pwa/app/features/navigation/public-routes.ts`
+- Shell composition:
+  - `apps/pwa/app/features/main-shell/main-shell.tsx`
+
+## Dev-Tools and Auxiliary Graph Services
+
+- Dev-mode scenarios and mock pool:
+  - `apps/pwa/app/features/dev-tools/hooks/use-dev-mode.ts`
+  - `apps/pwa/app/features/dev-tools/mock-pool.ts`
+- Social graph utility service:
+  - `apps/pwa/app/features/social-graph/services/social-graph-service.ts`
 
 ## Settings, Vault, and UI Foundations
 

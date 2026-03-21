@@ -49,6 +49,7 @@ const createPool = (params?: Readonly<{
     writeBlockedRelayCount: 0,
     coolingDownRelayCount: 0,
     fallbackRelayUrls: [],
+    fallbackWritableRelayCount: 0,
   })),
   getActiveSubscriptionCount: vi.fn(() => params?.activeSubscriptionCount ?? 0),
   dispose: vi.fn(),
@@ -131,6 +132,45 @@ describe("relay-runtime-supervisor", () => {
     const disposedSnapshot = supervisor.getSnapshot();
     expect(disposedSnapshot.phase).toBe("booting");
     expect(disposedSnapshot.activeSubscriptionCount).toBe(0);
+  });
+
+  it("transitions to fatal when non-cyclic recovery attempts are exhausted", async () => {
+    vi.useFakeTimers();
+    try {
+      const supervisor = createRelayRuntimeSupervisor();
+      const pool = createPool({
+        writableRelayUrls: [],
+        subscribableRelayCount: 0,
+        activeSubscriptionCount: 1,
+      });
+      vi.mocked(pool.waitForConnection).mockImplementation(() => new Promise<boolean>(() => {}));
+
+      supervisor.configure({
+        pool,
+        enabledRelayUrls: [],
+        scope: {
+          windowLabel: "main",
+          profileId: "default",
+        },
+      });
+
+      vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
+      await supervisor.triggerRecovery("manual");
+      vi.setSystemTime(new Date("2026-01-01T00:00:18.000Z"));
+      await supervisor.triggerRecovery("manual");
+      vi.setSystemTime(new Date("2026-01-01T00:00:27.000Z"));
+      await supervisor.triggerRecovery("manual");
+      vi.setSystemTime(new Date("2026-01-01T00:00:36.000Z"));
+      await supervisor.triggerRecovery("manual");
+      vi.setSystemTime(new Date("2026-01-01T00:00:45.000Z"));
+      const snapshot = await supervisor.triggerRecovery("manual");
+
+      expect(snapshot.phase).toBe("fatal");
+      expect(snapshot.recoveryStage).toBe("subsystem_recycle");
+      expect(snapshot.recoveryReasonCode).toBe("recovery_exhausted");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("refreshes pending outbound from transport journal updates", () => {

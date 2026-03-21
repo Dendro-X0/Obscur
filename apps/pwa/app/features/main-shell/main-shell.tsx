@@ -102,7 +102,6 @@ function NostrMessengerContent() {
     isMediaGalleryOpen, setIsMediaGalleryOpen,
     lightboxIndex, setLightboxIndex,
     flashMessageId,
-    pendingScrollTarget, setPendingScrollTarget,
     messageMenu, setMessageMenu,
     reactionPicker, setReactionPicker,
     pinnedChatIds, togglePin,
@@ -360,7 +359,7 @@ function NostrMessengerContent() {
     dmController.state.status === "ready"
   );
   useCommandMessages(dmController.state.messages);
-  const { allConversations, filteredConversations, messageSearchResults } = useFilteredConversations(
+  const { allConversations, filteredConversations } = useFilteredConversations(
     createdConnections, createdGroups, connectionOverridesByConnectionId, searchQuery,
     (params) => {
       if (peerTrust.isAccepted(params)) return true;
@@ -535,9 +534,6 @@ function NostrMessengerContent() {
             selectedConversation={selectedConversation}
             unreadByConversationId={unreadByConversationId}
             nowMs={nowMs}
-            messageSearchResults={messageSearchResults}
-            allConversations={allConversations}
-            setPendingScrollTarget={setPendingScrollTarget}
             activeTab={sidebarTab}
             setActiveTab={updateSidebarTab}
             selectConversation={setSelectedConversation}

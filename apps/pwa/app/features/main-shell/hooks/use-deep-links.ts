@@ -168,6 +168,7 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                 token: convId,
                 groups: createdGroups,
                 connections: createdConnections,
+                dmFallbackPolicy: "canonical_id_only",
             });
             if (resolved) {
                 setSelectedConversation(resolved);

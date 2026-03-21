@@ -48,6 +48,9 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
+import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -59,12 +62,14 @@ export default function GroupHomePage() {
     });
     const router = useRouter();
     const { t } = useTranslation();
-    const { createdGroups, leaveGroup, updateGroup } = useGroups();
+    const { createdGroups, addGroup, leaveGroup, updateGroup } = useGroups();
     const { setSelectedConversation } = useMessaging();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
     const { blocklist, presence } = useNetwork();
+    const { preferences } = useAccessibilityPreferences();
     const discoveredRelay = searchParams.get("relay");
+    const forceSafeRenderMode = searchParams.get("renderMode") === "safe";
     const [isLeaving, setIsLeaving] = useState(false);
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
     const [isMemberListOpen, setIsMemberListOpen] = useState(false);
@@ -74,11 +79,69 @@ export default function GroupHomePage() {
     const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState(false);
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
+    const [runtimeCapability, setRuntimeCapability] = useState<Readonly<{
+        hardwareConcurrency: number | null;
+        deviceMemoryGb: number | null;
+        constrained: boolean;
+    }>>({
+        hardwareConcurrency: null,
+        deviceMemoryGb: null,
+        constrained: false,
+    });
+    const didLogSafeRenderModeRef = React.useRef<boolean>(false);
+    const safeVisualMode = forceSafeRenderMode || preferences.reducedMotion || runtimeCapability.constrained;
 
     const group = id ? (resolveGroupConversationByToken(createdGroups, id) ?? undefined) : undefined;
 
     const effectiveRelay = toScopedRelayUrl(group?.relayUrl || discoveredRelay || "") ?? "";
     const isGuest = !group;
+
+    React.useEffect(() => {
+        if (typeof navigator === "undefined") {
+            return;
+        }
+        const hardwareConcurrency = typeof navigator.hardwareConcurrency === "number"
+            ? navigator.hardwareConcurrency
+            : null;
+        const deviceMemoryGb = typeof (navigator as Navigator & { deviceMemory?: number }).deviceMemory === "number"
+            ? (navigator as Navigator & { deviceMemory: number }).deviceMemory
+            : null;
+        const constrained = (
+            (typeof hardwareConcurrency === "number" && hardwareConcurrency <= 4)
+            || (typeof deviceMemoryGb === "number" && deviceMemoryGb <= 4)
+        );
+        setRuntimeCapability({
+            hardwareConcurrency,
+            deviceMemoryGb,
+            constrained,
+        });
+    }, []);
+
+    React.useEffect(() => {
+        if (!safeVisualMode || didLogSafeRenderModeRef.current) {
+            return;
+        }
+        didLogSafeRenderModeRef.current = true;
+        logAppEvent({
+            name: "groups.page.safe_render_mode_enabled",
+            level: "info",
+            scope: { feature: "groups", action: "page_render_mode" },
+            context: {
+                forcedByQuery: forceSafeRenderMode,
+                reducedMotionEnabled: preferences.reducedMotion,
+                constrainedDevice: runtimeCapability.constrained,
+                hardwareConcurrency: runtimeCapability.hardwareConcurrency,
+                deviceMemoryGb: runtimeCapability.deviceMemoryGb,
+            },
+        });
+    }, [
+        forceSafeRenderMode,
+        preferences.reducedMotion,
+        runtimeCapability.constrained,
+        runtimeCapability.deviceMemoryGb,
+        runtimeCapability.hardwareConcurrency,
+        safeVisualMode,
+    ]);
 
     const {
         state: groupState,
@@ -111,6 +174,36 @@ export default function GroupHomePage() {
         ]);
         return Array.from(merged);
     }, [activeMembers, group?.memberPubkeys]);
+    const fallbackGroupIdFromRoute = React.useMemo(() => {
+        const routeToken = (id ?? "").trim();
+        if (!routeToken) {
+            return "";
+        }
+        if (routeToken.startsWith("community:") || routeToken.startsWith("group:") || routeToken.startsWith("v2_")) {
+            return "";
+        }
+        return routeToken;
+    }, [id]);
+    const fallbackCommunityIdFromRoute = React.useMemo(() => {
+        const routeToken = (id ?? "").trim();
+        if (!routeToken.startsWith("community:")) {
+            return "";
+        }
+        return routeToken.slice("community:".length).trim();
+    }, [id]);
+    const resolvedGroupId = React.useMemo(() => {
+        const metadataGroupId = groupState.metadata?.id?.trim() ?? "";
+        if (metadataGroupId.length > 0) {
+            return metadataGroupId;
+        }
+        return group?.groupId ?? fallbackGroupIdFromRoute;
+    }, [fallbackGroupIdFromRoute, group?.groupId, groupState.metadata?.id]);
+    const resolvedCommunityId = React.useMemo(() => {
+        if (group?.communityId) {
+            return group.communityId;
+        }
+        return fallbackCommunityIdFromRoute || undefined;
+    }, [fallbackCommunityIdFromRoute, group?.communityId]);
     const displayMemberCount = allKnownMembers.length;
     const onlineMembers = React.useMemo(
         () => allKnownMembers.filter((pk) => presence.isPeerOnline(pk as PublicKeyHex)),
@@ -197,6 +290,88 @@ export default function GroupHomePage() {
             });
         }
     }, [discoveredMembers, group?.groupId, group?.id, group?.relayUrl, group?.memberPubkeys, groupState.expelledMembers, groupState.leftMembers, updateGroup]);
+
+    React.useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        if (group) {
+            return;
+        }
+        if (!effectiveRelay || !resolvedGroupId) {
+            return;
+        }
+        const myPublicKeyHex = (identityState.publicKeyHex ?? identityState.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
+        if (!myPublicKeyHex) {
+            return;
+        }
+        const hasMembershipEvidence = groupState.membership.status === "member"
+            || allKnownMembers.includes(myPublicKeyHex);
+        if (!hasMembershipEvidence) {
+            return;
+        }
+        const memberPubkeys = Array.from(new Set([...allKnownMembers, myPublicKeyHex]));
+        const adminPubkeys = (groupState.admins ?? [])
+            .map((admin) => admin.pubkey)
+            .filter((pubkey): pubkey is PublicKeyHex => typeof pubkey === "string" && pubkey.trim().length > 0);
+        const displayName = groupState.metadata?.name || resolvedGroupId;
+        const avatar = groupState.metadata?.picture;
+        const access = groupState.metadata?.access === "discoverable"
+            ? "discoverable"
+            : groupState.metadata?.access === "invite-only"
+                ? "invite-only"
+                : "open";
+
+        addGroup({
+            kind: "group",
+            id: toGroupConversationId({
+                groupId: resolvedGroupId,
+                relayUrl: effectiveRelay,
+                communityId: resolvedCommunityId,
+            }),
+            communityId: resolvedCommunityId,
+            groupId: resolvedGroupId,
+            relayUrl: effectiveRelay,
+            displayName,
+            memberPubkeys,
+            adminPubkeys,
+            lastMessage: "Group membership confirmed",
+            unreadCount: 0,
+            lastMessageTime: new Date(),
+            access,
+            memberCount: Math.max(memberPubkeys.length, 1),
+            avatar,
+        }, { allowRevive: true });
+
+        window.dispatchEvent(new CustomEvent("obscur:group-membership-confirmed", {
+            detail: {
+                groupId: resolvedGroupId,
+                relayUrl: effectiveRelay,
+                communityId: resolvedCommunityId,
+                displayName,
+                avatar,
+                access,
+                memberPubkeys,
+                adminPubkeys,
+                memberCount: Math.max(memberPubkeys.length, 1),
+                lastMessageTimeUnixMs: Date.now(),
+            },
+        }));
+    }, [
+        addGroup,
+        allKnownMembers,
+        effectiveRelay,
+        group,
+        groupState.admins,
+        groupState.membership.status,
+        groupState.metadata?.access,
+        groupState.metadata?.name,
+        groupState.metadata?.picture,
+        identityState.publicKeyHex,
+        identityState.stored?.publicKeyHex,
+        resolvedCommunityId,
+        resolvedGroupId,
+    ]);
 
     const handleEnterCommunityChat = React.useCallback(() => {
         if (!group) return;
@@ -312,7 +487,12 @@ export default function GroupHomePage() {
 
     return (
         <PageShell title={displayName}>
-            <div className="max-w-5xl mx-auto w-full pt-20 pb-20 md:pb-0 px-4 sm:px-6 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div
+                className={cn(
+                    "max-w-5xl mx-auto w-full pt-20 pb-20 md:pb-0 px-4 sm:px-6 space-y-12",
+                    safeVisualMode ? "opacity-100" : "animate-in fade-in slide-in-from-bottom-4 duration-700",
+                )}
+            >
                 {/* Back Button */}
                 <div className="pt-6">
                     <button
@@ -327,65 +507,121 @@ export default function GroupHomePage() {
                 {/* Immersive Hero Section */}
                 <div className="relative group/hero">
                     {/* Background Ambient Glow */}
-                    <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
-                    <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none delay-700" />
+                    {!safeVisualMode && (
+                        <>
+                            <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
+                            <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none delay-700" />
+                        </>
+                    )}
 
-                    <Card className="relative overflow-hidden bg-[#0C0C0E]/80 backdrop-blur-xl border-white/[0.03] rounded-[48px] p-8 sm:p-12 shadow-2xl">
+                    <Card
+                        className={cn(
+                            "relative overflow-hidden rounded-[48px] p-8 sm:p-12 shadow-2xl",
+                            safeVisualMode
+                                ? "bg-[#0C0C0E]/95 border-white/[0.05]"
+                                : "bg-[#0C0C0E]/80 backdrop-blur-xl border-white/[0.03]",
+                        )}
+                    >
                         {/* Immersive Blurred Banner Background */}
                         <div className="absolute inset-0 z-0 opacity-10 pointer-events-none overflow-hidden">
                             {avatarUrl ? (
-                                <Image src={avatarUrl} alt="" fill className="object-cover blur-3xl scale-150" />
+                                <Image
+                                    src={avatarUrl}
+                                    alt=""
+                                    fill
+                                    className={cn(
+                                        "object-cover",
+                                        safeVisualMode ? "blur-sm scale-110" : "blur-3xl scale-150",
+                                    )}
+                                />
                             ) : (
-                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 blur-3xl" />
+                                <div
+                                    className={cn(
+                                        "absolute inset-0 bg-gradient-to-br from-purple-500/20 to-indigo-600/20",
+                                        safeVisualMode ? "blur-sm" : "blur-3xl",
+                                    )}
+                                />
                             )}
                         </div>
 
                         <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-10 md:gap-14">
                             {/* Avatar with Status Ring */}
                             <div className="relative shrink-0">
-                                <motion.div
-                                    initial={{ scale: 0.9, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ duration: 0.5, ease: "easeOut" }}
-                                    className="relative p-1.5 rounded-[48px] bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl"
-                                >
-                                    <Avatar
-                                        className="h-44 w-44 rounded-[42px] border-[6px] border-[#0C0C0E] shadow-xl"
-                                    >
-                                        <AvatarImage src={avatarUrl} className="object-cover" />
-                                        <AvatarFallback className="bg-[#1A1A1E] text-6xl font-black text-white">
-                                            {displayName.slice(0, 1).toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-green-500 border-[6px] border-[#0C0C0E] flex items-center justify-center shadow-lg group-hover/hero:scale-110 transition-transform">
-                                        <div className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
+                                {safeVisualMode ? (
+                                    <div className="relative p-1.5 rounded-[48px] bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl">
+                                        <Avatar
+                                            className="h-44 w-44 rounded-[42px] border-[6px] border-[#0C0C0E] shadow-xl"
+                                        >
+                                            <AvatarImage src={avatarUrl} className="object-cover" />
+                                            <AvatarFallback className="bg-[#1A1A1E] text-6xl font-black text-white">
+                                                {displayName.slice(0, 1).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-green-500 border-[6px] border-[#0C0C0E] flex items-center justify-center shadow-lg">
+                                            <div className="h-2.5 w-2.5 rounded-full bg-white" />
+                                        </div>
                                     </div>
-                                </motion.div>
+                                ) : (
+                                    <motion.div
+                                        initial={{ scale: 0.9, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{ duration: 0.5, ease: "easeOut" }}
+                                        className="relative p-1.5 rounded-[48px] bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl"
+                                    >
+                                        <Avatar
+                                            className="h-44 w-44 rounded-[42px] border-[6px] border-[#0C0C0E] shadow-xl"
+                                        >
+                                            <AvatarImage src={avatarUrl} className="object-cover" />
+                                            <AvatarFallback className="bg-[#1A1A1E] text-6xl font-black text-white">
+                                                {displayName.slice(0, 1).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-green-500 border-[6px] border-[#0C0C0E] flex items-center justify-center shadow-lg group-hover/hero:scale-110 transition-transform">
+                                            <div className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
+                                        </div>
+                                    </motion.div>
+                                )}
                             </div>
 
                             {/* Main Title & Description */}
                             <div className="flex-1 text-center md:text-left space-y-8">
                                 <div className="space-y-4">
                                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                                        <motion.h1
-                                            initial={{ y: 20, opacity: 0 }}
-                                            animate={{ y: 0, opacity: 1 }}
-                                            transition={{ delay: 0.2 }}
-                                            className="text-5xl sm:text-6xl font-black text-white tracking-tight"
-                                        >
-                                            {displayName}
-                                        </motion.h1>
-                                        <motion.div
-                                            initial={{ scale: 0.8, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            transition={{ delay: 0.4 }}
-                                            className="px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 flex items-center gap-2"
-                                        >
-                                            <Globe className="h-3.5 w-3.5 text-purple-400" />
-                                            <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
-                                                {effectiveRelay.replace("wss://", "")}
-                                            </span>
-                                        </motion.div>
+                                        {safeVisualMode ? (
+                                            <>
+                                                <h1 className="text-5xl sm:text-6xl font-black text-white tracking-tight">
+                                                    {displayName}
+                                                </h1>
+                                                <div className="px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 flex items-center gap-2">
+                                                    <Globe className="h-3.5 w-3.5 text-purple-400" />
+                                                    <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                                                        {effectiveRelay.replace("wss://", "")}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <motion.h1
+                                                    initial={{ y: 20, opacity: 0 }}
+                                                    animate={{ y: 0, opacity: 1 }}
+                                                    transition={{ delay: 0.2 }}
+                                                    className="text-5xl sm:text-6xl font-black text-white tracking-tight"
+                                                >
+                                                    {displayName}
+                                                </motion.h1>
+                                                <motion.div
+                                                    initial={{ scale: 0.8, opacity: 0 }}
+                                                    animate={{ scale: 1, opacity: 1 }}
+                                                    transition={{ delay: 0.4 }}
+                                                    className="px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 flex items-center gap-2"
+                                                >
+                                                    <Globe className="h-3.5 w-3.5 text-purple-400" />
+                                                    <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                                                        {effectiveRelay.replace("wss://", "")}
+                                                    </span>
+                                                </motion.div>
+                                            </>
+                                        )}
                                     </div>
                                     <p className="text-xl text-zinc-400 font-medium max-w-2xl leading-relaxed">
                                         {aboutText}
@@ -415,14 +651,22 @@ export default function GroupHomePage() {
                                     {!isGuest && (
                                         <Button
                                             onClick={() => setIsInviteConnectionsOpen(true)}
-                                            className="h-16 px-8 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-black border border-white/5 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                            className={cn(
+                                                "h-16 px-8 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-black border border-white/5 transition-all hover:scale-[1.02] active:scale-95 gap-3",
+                                                safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
+                                            )}
                                         >
                                             <UserPlus className="h-5 w-5" />
                                             Invite
                                         </Button>
                                     )}
 
-                                    <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl backdrop-blur-md">
+                                    <div
+                                        className={cn(
+                                            "flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl",
+                                            safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
+                                        )}
+                                    >
                                         {!isGuest && (
                                             <Button
                                                 variant="ghost"
@@ -481,7 +725,14 @@ export default function GroupHomePage() {
                         onClick={openMemberList}
                         className="md:col-span-2 lg:col-span-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 rounded-[40px]"
                     >
-                        <Card className="bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative cursor-pointer">
+                        <Card
+                            className={cn(
+                                "rounded-[40px] p-8 flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative cursor-pointer",
+                                safeVisualMode
+                                    ? "bg-[#0C0C0E]/90 border-white/[0.05]"
+                                    : "bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03]",
+                            )}
+                        >
                             <div className="absolute -right-8 -bottom-8 opacity-[0.03] group-hover/bento:opacity-[0.08] transition-opacity duration-1000">
                                 <Users size={240} className="text-white" />
                             </div>
@@ -505,8 +756,19 @@ export default function GroupHomePage() {
                             <div className="flex items-center gap-3 pt-8 relative z-10">
                                 <div className="flex -space-x-3">
                                     {activeMembers.slice(0, 5).map((pk, i) => (
-                                        <div key={pk} className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] bg-[#1A1A1E] flex items-center justify-center text-xs font-black text-white overflow-hidden shadow-lg group-hover/bento:-translate-y-1 transition-transform" style={{ transitionDelay: `${i * 50}ms` }}>
-                                            {pk.slice(0, 1).toUpperCase()}
+                                        <div
+                                            key={pk}
+                                            className="group-hover/bento:-translate-y-1 transition-transform"
+                                            style={{ transitionDelay: `${i * 50}ms` }}
+                                        >
+                                            <UserAvatar
+                                                pubkey={pk}
+                                                size="md"
+                                                metadataLive={false}
+                                                showProfileOnClick={false}
+                                                className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] shadow-lg bg-[#1A1A1E]"
+                                                fallbackClassName="bg-[#1A1A1E] text-white text-xs font-black"
+                                            />
                                         </div>
                                     ))}
                                     {activeMembers.length > 5 && (
@@ -522,7 +784,14 @@ export default function GroupHomePage() {
                     </button>
 
                     {/* Registry Visibility - Tall */}
-                    <Card className="md:col-span-2 lg:col-span-3 bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col justify-between hover:border-indigo-500/20 transition-all duration-500 group/bento overflow-hidden relative">
+                    <Card
+                        className={cn(
+                            "md:col-span-2 lg:col-span-3 rounded-[40px] p-8 flex flex-col justify-between hover:border-indigo-500/20 transition-all duration-500 group/bento overflow-hidden relative",
+                            safeVisualMode
+                                ? "bg-[#0C0C0E]/90 border-white/[0.05]"
+                                : "bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03]",
+                        )}
+                    >
                         <div className="absolute right-0 top-0 p-8">
                             <Shield className="h-10 w-10 text-indigo-500/20" />
                         </div>
@@ -547,7 +816,14 @@ export default function GroupHomePage() {
                     </Card>
 
                     {/* Infrastructure Card - Wide Bottom */}
-                    <Card className="md:col-span-4 lg:col-span-6 bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03] rounded-[40px] p-8 flex flex-col md:flex-row items-center justify-between gap-8 hover:border-zinc-500/20 transition-all duration-500 group/bento">
+                    <Card
+                        className={cn(
+                            "md:col-span-4 lg:col-span-6 rounded-[40px] p-8 flex flex-col md:flex-row items-center justify-between gap-8 hover:border-zinc-500/20 transition-all duration-500 group/bento",
+                            safeVisualMode
+                                ? "bg-[#0C0C0E]/90 border-white/[0.05]"
+                                : "bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03]",
+                        )}
+                    >
                         <div className="flex items-center gap-6">
                             <div className="h-16 w-16 rounded-3xl bg-zinc-500/10 flex items-center justify-center border border-zinc-500/20 shrink-0">
                                 <ExternalLink className="h-8 w-8 text-zinc-400" />
@@ -579,7 +855,14 @@ export default function GroupHomePage() {
                         </h3>
                     </div>
 
-                    <Card className="overflow-hidden border-white/[0.03] bg-[#0C0C0E]/40 backdrop-blur-xl rounded-[40px]">
+                    <Card
+                        className={cn(
+                            "overflow-hidden rounded-[40px]",
+                            safeVisualMode
+                                ? "bg-[#0C0C0E]/90 border-white/[0.05]"
+                                : "border-white/[0.03] bg-[#0C0C0E]/40 backdrop-blur-xl",
+                        )}
+                    >
                         <div className="flex flex-col">
                             <button
                                 onClick={handleBlockAction}

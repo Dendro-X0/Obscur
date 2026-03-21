@@ -1168,6 +1168,59 @@ describe("incoming-dm-event-handler", () => {
         expect(persistMessage).not.toHaveBeenCalled();
     });
 
+    it("hydrates self-authored relay sync events into outgoing history", async () => {
+        const persistMessage = vi.fn(async () => undefined);
+        const event = {
+            id: "event-self-authored-sync",
+            pubkey: MY_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1499,
+            content: "cipher-self-authored",
+            tags: [["p", SENDER_PUBLIC_KEY]],
+        } as unknown as NostrEvent;
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                peerTrust: {
+                    isAccepted: () => false,
+                    acceptPeer: vi.fn(),
+                },
+            },
+            messageQueue: {
+                getMessage: vi.fn(async () => null),
+                persistMessage,
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+        });
+
+        expect(cryptoService.decryptDM).toHaveBeenCalledWith(
+            "cipher-self-authored",
+            SENDER_PUBLIC_KEY,
+            "private-key",
+        );
+        expect(persistMessage).toHaveBeenCalledWith(expect.objectContaining({
+            id: "event-self-authored-sync",
+            conversationId: [MY_PUBLIC_KEY, SENDER_PUBLIC_KEY].sort().join(":"),
+            isOutgoing: true,
+            senderPubkey: MY_PUBLIC_KEY,
+            recipientPubkey: SENDER_PUBLIC_KEY,
+            status: "delivered",
+        }));
+    });
+
     it("marks incoming requests as canceled when a cancel event arrives", async () => {
         const setStatus = vi.fn();
         const persistMessage = vi.fn(async () => undefined);

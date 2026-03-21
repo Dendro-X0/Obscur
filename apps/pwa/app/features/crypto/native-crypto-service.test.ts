@@ -124,4 +124,35 @@ describe("native-crypto-service rumor id helpers", () => {
             { nsec: "3".repeat(64) }
         );
     });
+
+    it("uses bounded timeout for native session discovery probes", async () => {
+        const service = new NativeCryptoService();
+
+        vi.mocked(invokeNativeCommand).mockResolvedValueOnce({
+            ok: true,
+            value: "npub1probe",
+        } as any);
+        const hasNativeKey = await service.hasNativeKey();
+
+        expect(hasNativeKey).toBe(true);
+        expect(invokeNativeCommand).toHaveBeenCalledWith(
+            "get_native_npub",
+            undefined,
+            { timeoutMs: nativeCryptoServiceInternals.NATIVE_SESSION_DISCOVERY_TIMEOUT_MS }
+        );
+
+        vi.mocked(invokeNativeCommand).mockClear();
+        vi.mocked(invokeNativeCommand).mockResolvedValueOnce({
+            ok: true,
+            value: "npub1probe2",
+        } as any);
+        const npub = await service.getNativeNpub();
+
+        expect(npub).toBe("npub1probe2");
+        expect(invokeNativeCommand).toHaveBeenCalledWith(
+            "get_native_npub",
+            undefined,
+            { timeoutMs: nativeCryptoServiceInternals.NATIVE_SESSION_DISCOVERY_TIMEOUT_MS }
+        );
+    });
 });

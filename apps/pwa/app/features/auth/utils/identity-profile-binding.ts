@@ -11,6 +11,8 @@ export type IdentityProfileBinding = Readonly<{
 }>;
 
 const LEGACY_IDENTITY_DB_KEY = "primary";
+const REMEMBER_ME_BASE_KEY = "obscur_remember_me";
+const AUTH_TOKEN_BASE_KEY = "obscur_auth_token";
 
 const parseIdentityRecord = (value: unknown): IdentityRecord | null => {
   if (typeof value !== "object" || value === null) {
@@ -35,6 +37,92 @@ const profileIdFromIdentityDbKey = (dbKey: string): string => {
     return dbKey.slice("identity::".length);
   }
   return dbKey;
+};
+
+const unique = (values: ReadonlyArray<string>): ReadonlyArray<string> => Array.from(new Set(values));
+
+const collectRememberedProfileCandidates = (): ReadonlyArray<string> => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  const profileIds: string[] = [];
+  const pushProfileId = (profileId: string | null | undefined): void => {
+    const normalized = profileId?.trim();
+    if (!normalized) {
+      return;
+    }
+    profileIds.push(normalized);
+  };
+
+  const rememberPrefix = `${REMEMBER_ME_BASE_KEY}::`;
+  const tokenPrefix = `${AUTH_TOKEN_BASE_KEY}::`;
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!key) {
+      continue;
+    }
+    const value = window.localStorage.getItem(key);
+    if (key === REMEMBER_ME_BASE_KEY && value === "true") {
+      pushProfileId("default");
+      continue;
+    }
+    if (key.startsWith(rememberPrefix) && value === "true") {
+      pushProfileId(key.slice(rememberPrefix.length));
+      continue;
+    }
+    if (key === AUTH_TOKEN_BASE_KEY && typeof value === "string" && value.length > 0) {
+      pushProfileId("default");
+      continue;
+    }
+    if (key.startsWith(tokenPrefix) && typeof value === "string" && value.length > 0) {
+      pushProfileId(key.slice(tokenPrefix.length));
+    }
+  }
+
+  return unique(profileIds);
+};
+
+const selectPreferredStoredIdentityBinding = (
+  bindings: ReadonlyArray<IdentityProfileBinding>,
+): IdentityProfileBinding | null => {
+  if (bindings.length === 0) {
+    return null;
+  }
+  const byProfileId = new Map(bindings.map((binding) => [binding.profileId, binding]));
+  const candidates: string[] = [];
+  const pushCandidate = (profileId: string | null | undefined): void => {
+    const normalized = profileId?.trim();
+    if (!normalized) {
+      return;
+    }
+    candidates.push(normalized);
+  };
+
+  pushCandidate(getProfileScopeOverride());
+  pushCandidate(getActiveProfileIdSafe());
+  collectRememberedProfileCandidates().forEach((profileId) => {
+    pushCandidate(profileId);
+  });
+
+  try {
+    const registryState = ProfileRegistryService.getState();
+    pushCandidate(registryState.activeProfileId);
+    [...registryState.profiles]
+      .sort((left, right) => right.lastUsedAtUnixMs - left.lastUsedAtUnixMs)
+      .forEach((profile) => pushCandidate(profile.profileId));
+  } catch {
+    // Ignore registry lookup failures; fallback heuristics below remain deterministic.
+  }
+
+  const uniqueCandidates = unique(candidates);
+  for (const candidate of uniqueCandidates) {
+    const matched = byProfileId.get(candidate);
+    if (matched) {
+      return matched;
+    }
+  }
+
+  return bindings.length === 1 ? bindings[0]! : null;
 };
 
 export const canonicalProfileIdForPublicKey = (publicKeyHex: PublicKeyHex): string => {
@@ -164,9 +252,31 @@ export const recoverSingleStoredIdentityProfile = async (): Promise<IdentityProf
   return binding;
 };
 
+export const recoverStoredIdentityProfile = async (): Promise<IdentityProfileBinding | null> => {
+  const bindings = await listStoredIdentityBindings();
+  const binding = selectPreferredStoredIdentityBinding(bindings);
+  if (!binding) {
+    return null;
+  }
+  const ensure = ProfileRegistryService.ensureProfile(
+    binding.profileId,
+    defaultProfileLabelForPublicKey(binding.record.publicKeyHex as PublicKeyHex, binding.record.username)
+  );
+  if (!ensure.ok) {
+    throw new Error(ensure.message || "Failed to ensure recovered identity profile");
+  }
+  const switched = ProfileRegistryService.switchProfile(binding.profileId);
+  if (!switched.ok) {
+    throw new Error(switched.message || "Failed to switch recovered identity profile");
+  }
+  return binding;
+};
+
 export const identityProfileBindingInternals = {
   profileIdFromIdentityDbKey,
   migrateScopedStorage,
   defaultProfileLabelForPublicKey,
   getProfileIdentityDbKey,
+  collectRememberedProfileCandidates,
+  selectPreferredStoredIdentityBinding,
 };

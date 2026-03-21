@@ -1,4 +1,5 @@
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import type { Conversation, DmConversation, GroupConversation } from "../types";
 
 const decodeToken = (value: string): string => {
@@ -63,10 +64,32 @@ const matchesDmByToken = (connection: DmConversation, token: string): boolean =>
   return connection.id === decoded || encodeURIComponent(connection.id) === token;
 };
 
+const isCanonicalDmConversationIdToken = (token: string): boolean => {
+  const decoded = decodeToken(token);
+  if (!decoded) {
+    return false;
+  }
+  const parts = decoded.split(":");
+  if (parts.length !== 2) {
+    return false;
+  }
+  const left = normalizePublicKeyHex(parts[0]);
+  const right = normalizePublicKeyHex(parts[1]);
+  if (!left || !right) {
+    return false;
+  }
+  return left !== right;
+};
+
+export type ConversationTargetDmFallbackPolicy =
+  | "connection_match"
+  | "canonical_id_only";
+
 export const resolveConversationByToken = (params: Readonly<{
   token: string;
   groups: ReadonlyArray<GroupConversation>;
   connections: ReadonlyArray<DmConversation>;
+  dmFallbackPolicy?: ConversationTargetDmFallbackPolicy;
 }>): Conversation | null => {
   const group = resolveGroupConversationByToken(params.groups, params.token);
   if (group) {
@@ -75,6 +98,13 @@ export const resolveConversationByToken = (params: Readonly<{
   if (isExplicitGroupToken(params.token)) {
     return null;
   }
-  return params.connections.find((connection) => matchesDmByToken(connection, params.token)) ?? null;
+  const dm = params.connections.find((connection) => matchesDmByToken(connection, params.token)) ?? null;
+  if (!dm) {
+    return null;
+  }
+  const policy = params.dmFallbackPolicy ?? "connection_match";
+  if (policy === "canonical_id_only" && !isCanonicalDmConversationIdToken(params.token)) {
+    return null;
+  }
+  return dm;
 };
-

@@ -326,4 +326,30 @@ describe("useAccountSync convergence orchestration", () => {
       await Promise.resolve();
     });
   });
+
+  it("keeps startup recoverable when initial rehydrate fails and later restore applies", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: true });
+    mocks.rehydrateAccountMock.mockRejectedValueOnce(new Error("relay offline"));
+    mocks.restoreBackupMock.mockResolvedValue({
+      event: null,
+      payload: { version: 1 },
+      hasBackup: true,
+      degradedReason: undefined,
+    } as any);
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.restoreBackupMock).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(mocks.snapshot.phase).toBe("ready");
+      expect(mocks.snapshot.status).toBe("private_restored");
+    });
+  });
 });

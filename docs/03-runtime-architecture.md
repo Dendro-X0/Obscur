@@ -1,24 +1,35 @@
 # 03 Runtime Architecture
 
-_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
+_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
+
+Cross-reference:
+- Core contract and anti-drift checklist live in `docs/12-core-architecture-truth-map.md`.
+- Startup/relay failure classes and capture order live in `docs/13-relay-and-startup-failure-atlas.md`.
 
 ## Canonical Ownership Model
 
 Obscur runtime correctness depends on explicit owners:
 
-1. Window runtime owner
+1. Startup composition owner
+: `apps/pwa/app/components/providers.tsx`
+
+2. Window runtime owner
 : `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
 
-2. Account sync owner
+3. Account sync owner
 : `apps/pwa/app/features/account-sync/hooks/use-account-sync.ts`
 
-3. Relay transport owner
+4. Relay transport owner
 : `apps/pwa/app/features/relays/services/relay-runtime-supervisor.ts`
 
-4. Messaging transport owner
+5. Messaging transport owner
 : `apps/pwa/app/features/messaging/services/messaging-transport-runtime.ts`
 
 No feature should create a parallel owner for these lifecycles.
+
+Runtime composition roots:
+- `apps/pwa/app/components/providers.tsx`
+- `apps/pwa/app/features/runtime/components/unlocked-app-runtime-shell.tsx`
 
 ## Activation Sequence (PWA)
 
@@ -34,6 +45,26 @@ No feature should create a parallel owner for these lifecycles.
 4. Relay and messaging owners mount only when identity is available.
 
 5. Account sync and projection hydrate deterministic local state.
+
+## Degraded/Fatal Emission Truth
+
+Window runtime degraded reasons are defined in:
+- `apps/pwa/app/features/runtime/services/window-runtime-contracts.ts`
+
+Current runtime activation degraded emit paths are concentrated in:
+- `apps/pwa/app/features/runtime/components/runtime-activation-manager.tsx`
+- reconnect/sync performance gate diagnostics are concentrated in:
+  - `apps/pwa/app/features/relays/services/relay-runtime-supervisor.ts`
+  - `apps/pwa/app/features/relays/services/relay-resilience-observability.ts`
+
+Observed behavior in code:
+- `activation_timeout` is emitted by fail-open timer during activation.
+- `account_sync_degraded` is emitted when account sync/projection fails drift or readiness gates.
+- `relay_runtime_degraded` is emitted when account/projection gates converge but relay runtime remains degraded/offline/fatal.
+
+Implication:
+- runtime `ready` no longer masks relay-runtime degradation during activation convergence.
+- relay runtime now has an explicit performance gate (`pass` / `warn` / `fail`) for reconnect/sync budgets rather than relying on ad-hoc metric reading.
 
 ## Native/Desktop Boundary
 
@@ -64,9 +95,12 @@ Phase 3 owner contract (mobile native adapters):
 - Storage keys are scope-derived at access time, not module-load time.
 - Incoming transport routes include diagnostics (subscription owner, recipient match, decrypt outcome, routing outcome).
 - Sync/checkpoint progress is evidence-backed; timeout-only advancement is disallowed.
+- Startup must fail open into explicit runtime phase truth (`ready` / `degraded`) without a second overlay owner.
+- Relay runtime and window runtime are separate truth surfaces; do not collapse them into one inferred UI state.
 
 ## Failure Patterns to Avoid
 
 - Duplicated subscription/sync owners.
 - Implicit "current active profile" fallbacks in shared services.
 - Optimistic success states without relay/recipient evidence.
+- Declaring relay recovery healthy from banner state alone without relay runtime evidence.

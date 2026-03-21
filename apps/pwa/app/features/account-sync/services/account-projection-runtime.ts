@@ -27,6 +27,7 @@ type ReplayQueueEntry = {
   timer: ReturnType<typeof setTimeout> | null;
   inFlight: boolean;
   dirty: boolean;
+  deferredReplayCount: number;
   params: Readonly<{ profileId: string; accountPublicKeyHex: PublicKeyHex }>;
   promise: Promise<AccountProjectionRuntimeSnapshot>;
   resolve: (value: AccountProjectionRuntimeSnapshot) => void;
@@ -79,16 +80,39 @@ const runReplayQueueEntry = async (key: string): Promise<void> => {
   entry.inFlight = true;
   entry.timer = null;
   try {
-    let snapshot = await accountProjectionRuntime.replay(entry.params);
-    while (entry.dirty) {
+    const snapshot = await accountProjectionRuntime.replay(entry.params);
+    if (entry.dirty) {
       entry.dirty = false;
-      snapshot = await accountProjectionRuntime.replay(entry.params);
+      entry.inFlight = false;
+      entry.deferredReplayCount += 1;
+      entry.timer = setTimeout(() => {
+        void runReplayQueueEntry(key);
+      }, REPLAY_COALESCE_DELAY_MS);
+      if (entry.deferredReplayCount === 1 || entry.deferredReplayCount % 10 === 0) {
+        logAppEvent({
+          name: "account_projection.replay_backpressure_yield",
+          level: "warn",
+          scope: { feature: "account_sync", action: "projection_replay" },
+          context: {
+            profileId: entry.params.profileId,
+            accountPublicKeyHex: entry.params.accountPublicKeyHex.slice(0, 16),
+            deferredReplayCount: entry.deferredReplayCount,
+            coalesceDelayMs: REPLAY_COALESCE_DELAY_MS,
+          },
+        });
+      }
+      return;
     }
     entry.resolve(snapshot);
+    replayQueue.delete(key);
   } catch (error) {
     entry.reject(error);
-  } finally {
     replayQueue.delete(key);
+  } finally {
+    const latest = replayQueue.get(key);
+    if (latest === entry) {
+      entry.inFlight = false;
+    }
   }
 };
 
@@ -123,6 +147,7 @@ const queueReplay = (params: Readonly<{ profileId: string; accountPublicKeyHex: 
     }, REPLAY_COALESCE_DELAY_MS),
     inFlight: false,
     dirty: false,
+    deferredReplayCount: 0,
     params,
     promise,
     resolve: resolvePromise,

@@ -4,6 +4,7 @@ import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { UnsignedNostrEvent } from "../../crypto/crypto-interfaces";
 import { cryptoService } from "../../crypto/crypto-service";
 import type { GroupMetadata } from "../types";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 import { roomKeyStore } from "../../crypto/room-key-store";
 
@@ -28,7 +29,17 @@ export class GroupService {
     }): Promise<NostrEvent> {
         const roomKeyHex = params.roomKeyHex || await roomKeyStore.getRoomKey(params.groupId);
         if (!roomKeyHex) {
-            throw new Error("No room key found for this community. You may have been kicked or the key was lost.");
+            logAppEvent({
+                name: "groups.room_key_missing_send_blocked",
+                level: "warn",
+                scope: { feature: "groups", action: "send_message" },
+                context: {
+                    groupIdHint: params.groupId.length > 24
+                        ? `${params.groupId.slice(0, 12)}...${params.groupId.slice(-8)}`
+                        : params.groupId,
+                },
+            });
+            throw new Error("No room key found for this community on this device. Restore may be incomplete or key distribution has not arrived yet.");
         }
 
         const nowUnixSeconds = Math.floor(Date.now() / 1000);

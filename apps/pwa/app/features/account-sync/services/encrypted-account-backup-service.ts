@@ -5,10 +5,11 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { IdentityRecord } from "@dweb/core/identity-record";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import type { PersistedChatState, PersistedGroupMessage, PersistedMessage } from "@/app/features/messaging/types";
+import type { Attachment, PersistedChatState, PersistedGroupMessage, PersistedMessage } from "@/app/features/messaging/types";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
 import { PrivacySettingsService, defaultPrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
@@ -22,13 +23,22 @@ import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/prof
 import { publishViaRelayCore, type RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
+import { extractAttachmentsFromContent } from "@/app/features/messaging/utils/logic";
 import {
   loadCommunityMembershipLedger,
   mergeCommunityMembershipLedgerEntries,
   parseCommunityMembershipLedgerSnapshot,
   saveCommunityMembershipLedger,
   selectJoinedCommunityMembershipLedgerEntries,
+  toCommunityMembershipLedgerKey,
+  type CommunityMembershipLedgerEntry,
 } from "@/app/features/groups/services/community-membership-ledger";
+import {
+  reconstructCommunityMembershipFromChatState,
+  reconstructRoomKeysFromChatState,
+  supplementMembershipLedgerEntries,
+} from "@/app/features/groups/services/community-membership-reconstruction";
 import {
   DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG,
   getLocalMediaStorageConfig,
@@ -46,8 +56,10 @@ import type {
   EncryptedAccountBackupEnvelope,
   EncryptedAccountBackupPayload,
   IdentityUnlockSnapshot,
+  PortableAccountBundle,
   RelayListSnapshot,
   RequestFlowEvidenceStateSnapshot,
+  RoomKeySnapshot,
   StoredPeerTrustSnapshot,
   SyncCheckpointSnapshot,
   UiSettingsSnapshot,
@@ -59,6 +71,9 @@ import { replayAccountEvents } from "./account-event-reducer";
 const BACKUP_FETCH_TIMEOUT_MS = 4_000;
 const RECOVERY_SNAPSHOT_STORAGE_PREFIX = "obscur.account_sync.recovery_snapshot.v1";
 const CANONICAL_BACKUP_IMPORT_IDEMPOTENCY_PREFIX = "backup_restore_v1";
+const PORTABLE_ACCOUNT_BUNDLE_FORMAT: PortableAccountBundle["format"] = "obscur.portable_account_bundle.v1";
+const PORTABLE_BUNDLE_IMPORT_IDEMPOTENCY_PREFIX = "portable_bundle_import_v1";
+const ACCOUNT_BACKUP_CREATED_AT_MS_TAG = "obscur_backup_created_at_ms";
 const INDEXED_MESSAGE_BACKUP_SCAN_LIMIT = 2_000;
 const MESSAGE_QUEUE_BACKUP_SCAN_LIMIT = 2_000;
 const INDEXED_DB_READ_TIMEOUT_MS = 750;
@@ -71,6 +86,7 @@ const DEFAULT_ACCESSIBILITY_PREFERENCES: UiSettingsSnapshot["accessibilityPrefer
   contrastAssist: false,
 };
 const PASSWORDLESS_NATIVE_ONLY_SENTINEL = "__obscur_native_only__";
+const lastBackupEventCreatedAtByPublicKey = new Map<PublicKeyHex, number>();
 
 const getBackupRestoreErrorMessage = (error: unknown): string => {
   const raw = error instanceof Error ? error.message : String(error);
@@ -129,10 +145,20 @@ const mergeIdentityUnlock = (
     return current;
   }
   if (current.encryptedPrivateKey !== incoming.encryptedPrivateKey) {
-    // For cross-device convergence, prefer relay-restored password material.
+    // Preserve local unlock material on already-provisioned devices so
+    // restore cannot silently invalidate a known-good local credential.
+    logAppEvent({
+      name: "account_sync.identity_unlock_conflict_preserved_local",
+      level: "warn",
+      scope: { feature: "account_sync", action: "backup_restore" },
+      context: {
+        localUsernamePresent: typeof current.username === "string" && current.username.trim().length > 0,
+        incomingUsernamePresent: typeof incoming.username === "string" && incoming.username.trim().length > 0,
+      },
+    });
     return {
-      encryptedPrivateKey: incoming.encryptedPrivateKey,
-      username: incoming.username ?? current.username,
+      encryptedPrivateKey: current.encryptedPrivateKey,
+      username: current.username ?? incoming.username,
     };
   }
   return {
@@ -152,7 +178,223 @@ const getCandidateRelayUrls = (pool: RelayPoolWithSubscribe): ReadonlyArray<stri
   ]));
 };
 
+const parseBackupCreatedAtMsTag = (event: NostrEvent): number | null => {
+  for (const tag of event.tags) {
+    if (tag[0] !== ACCOUNT_BACKUP_CREATED_AT_MS_TAG) {
+      continue;
+    }
+    const parsed = Number(tag[1]);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const compareBackupEvents = (left: NostrEvent, right: NostrEvent): number => {
+  const leftCreatedAtMs = parseBackupCreatedAtMsTag(left) ?? (left.created_at * 1000);
+  const rightCreatedAtMs = parseBackupCreatedAtMsTag(right) ?? (right.created_at * 1000);
+  if (leftCreatedAtMs !== rightCreatedAtMs) {
+    return leftCreatedAtMs - rightCreatedAtMs;
+  }
+  if (left.created_at !== right.created_at) {
+    return left.created_at - right.created_at;
+  }
+  return left.id.localeCompare(right.id);
+};
+
+type BackupEventCreatedAtReservation = Readonly<{
+  candidateUnixSeconds: number;
+  lastUsedUnixSeconds: number;
+  createdAtUnixSeconds: number;
+  monotonicBumpApplied: boolean;
+}>;
+
+const reserveBackupEventCreatedAtUnixSeconds = (
+  publicKeyHex: PublicKeyHex,
+  backupPayloadCreatedAtUnixMs: number,
+): BackupEventCreatedAtReservation => {
+  const candidate = Math.floor(backupPayloadCreatedAtUnixMs / 1000);
+  const lastUsed = lastBackupEventCreatedAtByPublicKey.get(publicKeyHex) ?? 0;
+  const next = candidate <= lastUsed ? (lastUsed + 1) : candidate;
+  lastBackupEventCreatedAtByPublicKey.set(publicKeyHex, next);
+  return {
+    candidateUnixSeconds: candidate,
+    lastUsedUnixSeconds: lastUsed,
+    createdAtUnixSeconds: next,
+    monotonicBumpApplied: candidate <= lastUsed,
+  };
+};
+
+const nextBackupEventCreatedAtUnixSeconds = (
+  publicKeyHex: PublicKeyHex,
+  backupPayloadCreatedAtUnixMs: number,
+): number => {
+  return reserveBackupEventCreatedAtUnixSeconds(
+    publicKeyHex,
+    backupPayloadCreatedAtUnixMs,
+  ).createdAtUnixSeconds;
+};
+
+type BackupSelectionSource = "pool" | "direct" | "none";
+
+type BackupSelectionDiagnostics = Readonly<{
+  source: BackupSelectionSource;
+  publicKeyHex: PublicKeyHex;
+  selectedEvent: NostrEvent | null;
+  poolOpenRelayCount: number;
+  poolExpectedEoseRelayCount: number;
+  poolReceivedEoseRelayCount: number;
+  poolCandidateCount: number;
+  poolTimedOut: boolean;
+  fallbackRelayCount: number;
+}>;
+
+const emitBackupRestoreSelectionDiagnostics = (params: BackupSelectionDiagnostics): void => {
+  const selectedPayloadCreatedAtUnixMs = params.selectedEvent
+    ? parseBackupCreatedAtMsTag(params.selectedEvent)
+    : null;
+  logAppEvent({
+    name: "account_sync.backup_restore_selection",
+    level: "info",
+    scope: { feature: "account_sync", action: "backup_restore" },
+    context: {
+      source: params.source,
+      selectionComparator: "payload_ms_then_created_at_then_event_id",
+      publicKeySuffix: params.publicKeyHex.slice(-8),
+      poolOpenRelayCount: params.poolOpenRelayCount,
+      poolExpectedEoseRelayCount: params.poolExpectedEoseRelayCount,
+      poolReceivedEoseRelayCount: params.poolReceivedEoseRelayCount,
+      poolCandidateCount: params.poolCandidateCount,
+      poolTimedOut: params.poolTimedOut,
+      fallbackRelayCount: params.fallbackRelayCount,
+      selectedEventId: params.selectedEvent?.id ?? null,
+      selectedEventCreatedAtUnixSeconds: params.selectedEvent?.created_at ?? null,
+      selectedPayloadCreatedAtUnixMs,
+    },
+  });
+};
+
 const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => Array.from(new Set(values.filter((value) => value.length > 0)));
+
+const normalizeRoomKeySnapshot = (value: unknown): RoomKeySnapshot | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const candidate = value as Partial<RoomKeySnapshot>;
+  const groupId = typeof candidate.groupId === "string" ? candidate.groupId.trim() : "";
+  const roomKeyHex = typeof candidate.roomKeyHex === "string" ? candidate.roomKeyHex.trim() : "";
+  if (!groupId || !roomKeyHex) {
+    return null;
+  }
+  const previousKeys = Array.isArray(candidate.previousKeys)
+    ? uniqueStrings(
+      candidate.previousKeys
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0 && entry !== roomKeyHex),
+    )
+    : [];
+  return {
+    groupId,
+    roomKeyHex,
+    createdAt: Number.isFinite(candidate.createdAt) && (candidate.createdAt as number) > 0
+      ? (candidate.createdAt as number)
+      : Date.now(),
+    ...(previousKeys.length > 0 ? { previousKeys } : {}),
+  };
+};
+
+const parseRoomKeySnapshots = (value: unknown): ReadonlyArray<RoomKeySnapshot> => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const byGroupId = new Map<string, RoomKeySnapshot>();
+  value.forEach((entry) => {
+    const normalized = normalizeRoomKeySnapshot(entry);
+    if (!normalized) {
+      return;
+    }
+    const existing = byGroupId.get(normalized.groupId);
+    if (!existing) {
+      byGroupId.set(normalized.groupId, normalized);
+      return;
+    }
+    const incomingWins = normalized.createdAt >= existing.createdAt;
+    const latest = incomingWins ? normalized : existing;
+    const older = incomingWins ? existing : normalized;
+    const mergedPrevious = uniqueStrings([
+      ...(latest.previousKeys ?? []),
+      ...(older.previousKeys ?? []),
+      older.roomKeyHex,
+    ]).filter((key) => key !== latest.roomKeyHex);
+    byGroupId.set(normalized.groupId, {
+      groupId: latest.groupId,
+      roomKeyHex: latest.roomKeyHex,
+      createdAt: latest.createdAt,
+      ...(mergedPrevious.length > 0 ? { previousKeys: mergedPrevious } : {}),
+    });
+  });
+  return Array.from(byGroupId.values()).sort((left, right) => left.groupId.localeCompare(right.groupId));
+};
+
+const mergeRoomKeySnapshots = (
+  localRoomKeys: ReadonlyArray<RoomKeySnapshot>,
+  incomingRoomKeys: ReadonlyArray<RoomKeySnapshot>,
+): ReadonlyArray<RoomKeySnapshot> => {
+  return parseRoomKeySnapshots([
+    ...localRoomKeys,
+    ...incomingRoomKeys,
+  ]);
+};
+
+const loadLocalRoomKeySnapshots = async (): Promise<ReadonlyArray<RoomKeySnapshot>> => {
+  try {
+    return parseRoomKeySnapshots(await roomKeyStore.listRoomKeyRecords());
+  } catch {
+    return [];
+  }
+};
+
+const applyRoomKeySnapshots = async (roomKeys: ReadonlyArray<RoomKeySnapshot>): Promise<void> => {
+  for (const roomKey of roomKeys) {
+    await roomKeyStore.upsertRoomKeyRecord({
+      groupId: roomKey.groupId,
+      roomKeyHex: roomKey.roomKeyHex,
+      previousKeys: roomKey.previousKeys ? [...roomKey.previousKeys] : undefined,
+      createdAt: roomKey.createdAt,
+    });
+  }
+};
+
+const selectJoinedGroupIds = (
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+): ReadonlySet<string> => {
+  const joinedGroupIds = new Set<string>();
+  entries.forEach((entry) => {
+    if (entry.status === "joined" && entry.groupId.trim().length > 0) {
+      joinedGroupIds.add(entry.groupId.trim());
+    }
+  });
+  return joinedGroupIds;
+};
+
+const reconstructRoomKeySnapshotsFromChatState = (
+  chatState: PersistedChatState | null | undefined,
+  options?: Readonly<{
+    restrictToJoinedGroupIds?: ReadonlySet<string>;
+  }>,
+): ReadonlyArray<RoomKeySnapshot> => {
+  const reconstructed = reconstructRoomKeysFromChatState(chatState);
+  if (reconstructed.length === 0) {
+    return [];
+  }
+  const joinedGroupIds = options?.restrictToJoinedGroupIds;
+  const filtered = (joinedGroupIds && joinedGroupIds.size > 0)
+    ? reconstructed.filter((entry) => joinedGroupIds.has(entry.groupId))
+    : reconstructed;
+  return parseRoomKeySnapshots(filtered);
+};
 
 const isThemePreference = (value: unknown): value is UiSettingsSnapshot["themePreference"] => (
   value === "system" || value === "light" || value === "dark"
@@ -317,12 +559,14 @@ const hasAcceptedConnectionRequest = (value: EncryptedAccountBackupPayload["chat
 
 const hasPortablePrivateStateEvidence = (payload: EncryptedAccountBackupPayload): boolean => {
   const joinedCommunityCount = selectJoinedCommunityMembershipLedgerEntries(payload.communityMembershipLedger ?? []).length;
+  const roomKeyCount = parseRoomKeySnapshots(payload.roomKeys).length;
   const hasDurableAcceptanceState = payload.peerTrust.acceptedPeers.length > 0
     || hasAcceptedRequestFlowEvidence(payload.requestFlowEvidence)
     || (payload.chatState?.createdConnections.length ?? 0) > 0
     || (payload.chatState?.createdGroups.length ?? 0) > 0
     || joinedCommunityCount > 0
-    || hasAcceptedConnectionRequest(payload.chatState);
+    || hasAcceptedConnectionRequest(payload.chatState)
+    || roomKeyCount > 0;
   return payload.peerTrust.mutedPeers.length > 0
     || hasDurableAcceptanceState
     || hasReplayableChatHistory(payload.chatState);
@@ -511,6 +755,44 @@ const mergeRelayList = (
   return Array.from(byUrl.values());
 };
 
+const mergePersistedAttachments = (
+  current: ReadonlyArray<Attachment> | undefined,
+  incoming: ReadonlyArray<Attachment> | undefined,
+): ReadonlyArray<Attachment> | undefined => {
+  const currentList = current ?? [];
+  const incomingList = incoming ?? [];
+  if (currentList.length === 0 && incomingList.length === 0) {
+    return undefined;
+  }
+  const byUrl = new Map<string, Attachment>();
+  [...currentList, ...incomingList].forEach((attachment) => {
+    const url = attachment.url?.trim();
+    if (!url) {
+      return;
+    }
+    byUrl.set(url, {
+      ...attachment,
+      url,
+    });
+  });
+  return Array.from(byUrl.values());
+};
+
+const mergePersistedMessageEntry = (
+  left: PersistedMessage,
+  right: PersistedMessage,
+): PersistedMessage => {
+  const rightIsNewer = Number(right.timestampMs ?? 0) >= Number(left.timestampMs ?? 0);
+  const primary = rightIsNewer ? right : left;
+  const secondary = rightIsNewer ? left : right;
+  const mergedAttachments = mergePersistedAttachments(secondary.attachments, primary.attachments);
+  return {
+    ...secondary,
+    ...primary,
+    ...(mergedAttachments && mergedAttachments.length > 0 ? { attachments: mergedAttachments } : {}),
+  };
+};
+
 const mergePersistedMessages = (
   current: ReadonlyArray<PersistedMessage>,
   incoming: ReadonlyArray<PersistedMessage>,
@@ -522,9 +804,11 @@ const mergePersistedMessages = (
       continue;
     }
     const existing = byId.get(key);
-    if (!existing || Number(message.timestampMs ?? 0) >= Number(existing.timestampMs ?? 0)) {
+    if (!existing) {
       byId.set(key, message);
+      continue;
     }
+    byId.set(key, mergePersistedMessageEntry(existing, message));
   }
   return Array.from(byId.values()).sort((a, b) => Number(a.timestampMs ?? 0) - Number(b.timestampMs ?? 0));
 };
@@ -681,6 +965,135 @@ const inferPeerFromConversationId = (params: Readonly<{
   return null;
 };
 
+const isLikelyGroupConversationId = (conversationId: string): boolean => {
+  const trimmed = conversationId.trim();
+  return trimmed.startsWith("community:") || trimmed.startsWith("group:") || trimmed.includes("@");
+};
+
+const toPersistedGroupMessageFromIndexedRecord = (params: Readonly<{
+  record: Readonly<Record<string, unknown>>;
+  myPublicKeyHex: PublicKeyHex;
+}>): Readonly<{
+  conversationId: string;
+  persistedMessage: PersistedGroupMessage;
+}> | null => {
+  const conversationIdRaw = params.record.conversationId;
+  if (typeof conversationIdRaw !== "string") {
+    return null;
+  }
+  const conversationId = conversationIdRaw.trim();
+  if (!conversationId || !isLikelyGroupConversationId(conversationId)) {
+    return null;
+  }
+
+  const idRaw = params.record.id;
+  const eventIdRaw = params.record.eventId;
+  const messageId = typeof idRaw === "string" && idRaw.trim().length > 0
+    ? idRaw.trim()
+    : typeof eventIdRaw === "string" && eventIdRaw.trim().length > 0
+      ? eventIdRaw.trim()
+      : null;
+  if (!messageId) {
+    return null;
+  }
+
+  const timestampMs = toTimestampMs(params.record.timestampMs)
+    ?? toTimestampMs(params.record.timestamp)
+    ?? toTimestampMs(params.record.eventCreatedAt)
+    ?? Date.now();
+  const createdAtUnixSeconds = Math.max(0, Math.floor(timestampMs / 1000));
+
+  const senderPubkey = normalizePublicKeyHex(
+    typeof params.record.senderPubkey === "string" ? params.record.senderPubkey : undefined
+  ) ?? normalizePublicKeyHex(
+    typeof params.record.pubkey === "string" ? params.record.pubkey : undefined
+  ) ?? (
+    params.record.isOutgoing === true ? params.myPublicKeyHex : null
+  );
+  if (!senderPubkey) {
+    return null;
+  }
+
+  const content = typeof params.record.content === "string"
+    ? params.record.content
+    : "";
+
+  return {
+    conversationId,
+    persistedMessage: {
+      id: messageId,
+      pubkey: senderPubkey,
+      content,
+      created_at: createdAtUnixSeconds,
+    },
+  };
+};
+
+const toAttachmentKind = (value: unknown): Attachment["kind"] | null => {
+  if (value === "image" || value === "video" || value === "audio" || value === "file") {
+    return value;
+  }
+  return null;
+};
+
+const parseAttachmentCandidate = (value: unknown): Attachment | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const candidate = value as Partial<Attachment>;
+  const kind = toAttachmentKind(candidate.kind);
+  const url = typeof candidate.url === "string" ? candidate.url.trim() : "";
+  const contentType = typeof candidate.contentType === "string" ? candidate.contentType.trim() : "";
+  const fileName = typeof candidate.fileName === "string" ? candidate.fileName.trim() : "";
+  if (!kind || !url || !contentType || !fileName) {
+    return null;
+  }
+  return {
+    kind,
+    url,
+    contentType,
+    fileName,
+  };
+};
+
+const dedupeAttachments = (attachments: ReadonlyArray<Attachment>): ReadonlyArray<Attachment> => {
+  if (attachments.length <= 1) {
+    return attachments;
+  }
+  const byUrl = new Map<string, Attachment>();
+  attachments.forEach((attachment) => {
+    const url = attachment.url.trim();
+    if (!url || byUrl.has(url)) {
+      return;
+    }
+    byUrl.set(url, {
+      ...attachment,
+      url,
+    });
+  });
+  return Array.from(byUrl.values());
+};
+
+const extractPersistedAttachmentsFromRecord = (
+  record: Readonly<Record<string, unknown>>,
+  content: string,
+): ReadonlyArray<Attachment> => {
+  const fromArray = Array.isArray(record.attachments)
+    ? record.attachments
+      .map((value) => parseAttachmentCandidate(value))
+      .filter((value): value is Attachment => value !== null)
+    : [];
+  const fromLegacySingle = parseAttachmentCandidate(record.attachment);
+  const fromRecord = dedupeAttachments([
+    ...fromArray,
+    ...(fromLegacySingle ? [fromLegacySingle] : []),
+  ]);
+  if (fromRecord.length > 0) {
+    return fromRecord;
+  }
+  return dedupeAttachments(extractAttachmentsFromContent(content));
+};
+
 const toPersistedMessageFromIndexedRecord = (params: Readonly<{
   record: Readonly<Record<string, unknown>>;
   myPublicKeyHex: PublicKeyHex;
@@ -750,6 +1163,7 @@ const toPersistedMessageFromIndexedRecord = (params: Readonly<{
   const content = typeof params.record.content === "string"
     ? params.record.content
     : "";
+  const attachments = extractPersistedAttachmentsFromRecord(params.record, content);
 
   const kind = params.record.kind === "command" ? "command" : undefined;
 
@@ -763,6 +1177,7 @@ const toPersistedMessageFromIndexedRecord = (params: Readonly<{
       timestampMs,
       isOutgoing,
       status: normalizeMessageStatus(params.record.status),
+      ...(attachments.length > 0 ? { attachments } : {}),
     },
     peerPublicKeyHex,
   };
@@ -827,6 +1242,324 @@ const hasOutgoingMessageEvidence = (
   return messagePubkey === myPublicKeyHex;
 };
 
+type ChatStateMessageDiagnostics = Readonly<{
+  dmConversationCount: number;
+  dmCanonicalConversationCount: number;
+  dmMessageCount: number;
+  dmOutgoingCount: number;
+  dmIncomingCount: number;
+  dmIncomingOnlyConversationCount: number;
+  dmOutgoingOnlyConversationCount: number;
+  dmCanonicalConversationIdMismatchCount: number;
+  dmCanonicalCollisionCount: number;
+  dmCanonicalCollisionSample: string | null;
+  groupConversationCount: number;
+  groupMessageCount: number;
+  groupSelfAuthoredCount: number;
+}>;
+
+type MessageRecordDiagnostics = Readonly<{
+  recordCount: number;
+  rawConversationCount: number;
+  canonicalConversationCount: number;
+  canonicalConversationIdMismatchCount: number;
+  canonicalCollisionCount: number;
+  canonicalCollisionSample: string | null;
+  outgoingRecordCount: number;
+  incomingRecordCount: number;
+  incomingOnlyRawConversationCount: number;
+}>;
+
+const EMPTY_CHAT_STATE_MESSAGE_DIAGNOSTICS: ChatStateMessageDiagnostics = {
+  dmConversationCount: 0,
+  dmCanonicalConversationCount: 0,
+  dmMessageCount: 0,
+  dmOutgoingCount: 0,
+  dmIncomingCount: 0,
+  dmIncomingOnlyConversationCount: 0,
+  dmOutgoingOnlyConversationCount: 0,
+  dmCanonicalConversationIdMismatchCount: 0,
+  dmCanonicalCollisionCount: 0,
+  dmCanonicalCollisionSample: null,
+  groupConversationCount: 0,
+  groupMessageCount: 0,
+  groupSelfAuthoredCount: 0,
+};
+
+const EMPTY_MESSAGE_RECORD_DIAGNOSTICS: MessageRecordDiagnostics = {
+  recordCount: 0,
+  rawConversationCount: 0,
+  canonicalConversationCount: 0,
+  canonicalConversationIdMismatchCount: 0,
+  canonicalCollisionCount: 0,
+  canonicalCollisionSample: null,
+  outgoingRecordCount: 0,
+  incomingRecordCount: 0,
+  incomingOnlyRawConversationCount: 0,
+};
+
+const toConversationIdDiagnosticLabel = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "unknown";
+  }
+  if (trimmed.length <= 20) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
+};
+
+const toCanonicalDmConversationId = (params: Readonly<{
+  conversationId: string;
+  myPublicKeyHex: PublicKeyHex;
+}>): string => {
+  const inferredPeer = inferPeerFromConversationId(params);
+  if (!inferredPeer) {
+    return params.conversationId;
+  }
+  return toDmConversationId({
+    myPublicKeyHex: params.myPublicKeyHex,
+    peerPublicKeyHex: inferredPeer,
+  }) ?? params.conversationId;
+};
+
+const summarizePersistedChatStateMessages = (
+  chatState: PersistedChatState | null | undefined,
+  myPublicKeyHex: PublicKeyHex,
+): ChatStateMessageDiagnostics => {
+  if (!chatState) {
+    return EMPTY_CHAT_STATE_MESSAGE_DIAGNOSTICS;
+  }
+  const conversationStatsById = new Map<string, Readonly<{ outgoing: number; incoming: number }>>();
+  const canonicalSourceIds = new Map<string, Set<string>>();
+  let dmCanonicalConversationIdMismatchCount = 0;
+  let dmMessageCount = 0;
+  let dmOutgoingCount = 0;
+  let dmIncomingCount = 0;
+
+  Object.entries(chatState.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
+    const canonicalConversationId = toCanonicalDmConversationId({
+      conversationId,
+      myPublicKeyHex,
+    });
+    if (canonicalConversationId !== conversationId) {
+      dmCanonicalConversationIdMismatchCount += 1;
+    }
+    const canonicalSources = canonicalSourceIds.get(canonicalConversationId) ?? new Set<string>();
+    canonicalSources.add(conversationId);
+    canonicalSourceIds.set(canonicalConversationId, canonicalSources);
+
+    let outgoing = 0;
+    let incoming = 0;
+    messages.forEach((message) => {
+      const senderPubkey = normalizePublicKeyHex(message.pubkey);
+      const isOutgoing = message.isOutgoing === true || senderPubkey === myPublicKeyHex;
+      if (isOutgoing) {
+        outgoing += 1;
+      } else {
+        incoming += 1;
+      }
+    });
+
+    dmMessageCount += messages.length;
+    dmOutgoingCount += outgoing;
+    dmIncomingCount += incoming;
+    conversationStatsById.set(conversationId, { outgoing, incoming });
+  });
+
+  const collisionEntries = Array.from(canonicalSourceIds.entries())
+    .filter(([, sourceIds]) => sourceIds.size > 1);
+  const dmCanonicalCollisionSample = collisionEntries.length === 0
+    ? null
+    : collisionEntries.slice(0, 3).map(([canonicalId, sourceIds]) => (
+      `${toConversationIdDiagnosticLabel(canonicalId)}<=${Array.from(sourceIds).slice(0, 3).map(toConversationIdDiagnosticLabel).join("|")}`
+    )).join(",");
+
+  const dmIncomingOnlyConversationCount = Array.from(conversationStatsById.values())
+    .filter((entry) => entry.incoming > 0 && entry.outgoing === 0).length;
+  const dmOutgoingOnlyConversationCount = Array.from(conversationStatsById.values())
+    .filter((entry) => entry.outgoing > 0 && entry.incoming === 0).length;
+
+  const groupMessages = chatState.groupMessages ?? {};
+  let groupMessageCount = 0;
+  let groupSelfAuthoredCount = 0;
+  Object.values(groupMessages).forEach((messages) => {
+    groupMessageCount += messages.length;
+    messages.forEach((message) => {
+      if (normalizePublicKeyHex(message.pubkey) === myPublicKeyHex) {
+        groupSelfAuthoredCount += 1;
+      }
+    });
+  });
+
+  return {
+    dmConversationCount: conversationStatsById.size,
+    dmCanonicalConversationCount: canonicalSourceIds.size,
+    dmMessageCount,
+    dmOutgoingCount,
+    dmIncomingCount,
+    dmIncomingOnlyConversationCount,
+    dmOutgoingOnlyConversationCount,
+    dmCanonicalConversationIdMismatchCount,
+    dmCanonicalCollisionCount: collisionEntries.length,
+    dmCanonicalCollisionSample,
+    groupConversationCount: Object.keys(groupMessages).length,
+    groupMessageCount,
+    groupSelfAuthoredCount,
+  };
+};
+
+const summarizeMessageRecords = (
+  records: ReadonlyArray<Readonly<Record<string, unknown>>>,
+  myPublicKeyHex: PublicKeyHex,
+): MessageRecordDiagnostics => {
+  if (records.length === 0) {
+    return EMPTY_MESSAGE_RECORD_DIAGNOSTICS;
+  }
+
+  const canonicalSourceIds = new Map<string, Set<string>>();
+  const rawConversationStats = new Map<string, Readonly<{ outgoing: number; incoming: number }>>();
+  let canonicalConversationIdMismatchCount = 0;
+  let outgoingRecordCount = 0;
+
+  records.forEach((record) => {
+    const rawConversationId = typeof record.conversationId === "string" ? record.conversationId.trim() : "";
+    if (!rawConversationId) {
+      return;
+    }
+
+    const canonicalConversationId = toCanonicalDmConversationId({
+      conversationId: rawConversationId,
+      myPublicKeyHex,
+    });
+    if (canonicalConversationId !== rawConversationId) {
+      canonicalConversationIdMismatchCount += 1;
+    }
+    const canonicalSources = canonicalSourceIds.get(canonicalConversationId) ?? new Set<string>();
+    canonicalSources.add(rawConversationId);
+    canonicalSourceIds.set(canonicalConversationId, canonicalSources);
+
+    const hasOutgoingEvidence = hasOutgoingMessageEvidence(record, myPublicKeyHex);
+    if (hasOutgoingEvidence) {
+      outgoingRecordCount += 1;
+    }
+    const existingStats = rawConversationStats.get(rawConversationId) ?? { outgoing: 0, incoming: 0 };
+    rawConversationStats.set(rawConversationId, hasOutgoingEvidence
+      ? { outgoing: existingStats.outgoing + 1, incoming: existingStats.incoming }
+      : { outgoing: existingStats.outgoing, incoming: existingStats.incoming + 1 });
+  });
+
+  const collisionEntries = Array.from(canonicalSourceIds.entries())
+    .filter(([, sourceIds]) => sourceIds.size > 1);
+  const canonicalCollisionSample = collisionEntries.length === 0
+    ? null
+    : collisionEntries.slice(0, 3).map(([canonicalId, sourceIds]) => (
+      `${toConversationIdDiagnosticLabel(canonicalId)}<=${Array.from(sourceIds).slice(0, 3).map(toConversationIdDiagnosticLabel).join("|")}`
+    )).join(",");
+
+  const incomingOnlyRawConversationCount = Array.from(rawConversationStats.values())
+    .filter((stats) => stats.incoming > 0 && stats.outgoing === 0).length;
+
+  return {
+    recordCount: records.length,
+    rawConversationCount: rawConversationStats.size,
+    canonicalConversationCount: canonicalSourceIds.size,
+    canonicalConversationIdMismatchCount,
+    canonicalCollisionCount: collisionEntries.length,
+    canonicalCollisionSample,
+    outgoingRecordCount,
+    incomingRecordCount: Math.max(0, records.length - outgoingRecordCount),
+    incomingOnlyRawConversationCount,
+  };
+};
+
+const toPrefixedChatStateDiagnosticsContext = (
+  prefix: string,
+  diagnostics: ChatStateMessageDiagnostics,
+): Readonly<Record<string, string | number | boolean | null>> => ({
+  [`${prefix}DmConversationCount`]: diagnostics.dmConversationCount,
+  [`${prefix}DmCanonicalConversationCount`]: diagnostics.dmCanonicalConversationCount,
+  [`${prefix}DmMessageCount`]: diagnostics.dmMessageCount,
+  [`${prefix}DmOutgoingCount`]: diagnostics.dmOutgoingCount,
+  [`${prefix}DmIncomingCount`]: diagnostics.dmIncomingCount,
+  [`${prefix}DmIncomingOnlyConversationCount`]: diagnostics.dmIncomingOnlyConversationCount,
+  [`${prefix}DmOutgoingOnlyConversationCount`]: diagnostics.dmOutgoingOnlyConversationCount,
+  [`${prefix}DmCanonicalConversationIdMismatchCount`]: diagnostics.dmCanonicalConversationIdMismatchCount,
+  [`${prefix}DmCanonicalCollisionCount`]: diagnostics.dmCanonicalCollisionCount,
+  [`${prefix}DmCanonicalCollisionSample`]: diagnostics.dmCanonicalCollisionSample,
+  [`${prefix}GroupConversationCount`]: diagnostics.groupConversationCount,
+  [`${prefix}GroupMessageCount`]: diagnostics.groupMessageCount,
+  [`${prefix}GroupSelfAuthoredCount`]: diagnostics.groupSelfAuthoredCount,
+});
+
+const toPrefixedRecordDiagnosticsContext = (
+  prefix: string,
+  diagnostics: MessageRecordDiagnostics,
+): Readonly<Record<string, string | number | boolean | null>> => ({
+  [`${prefix}RecordCount`]: diagnostics.recordCount,
+  [`${prefix}RawConversationCount`]: diagnostics.rawConversationCount,
+  [`${prefix}CanonicalConversationCount`]: diagnostics.canonicalConversationCount,
+  [`${prefix}CanonicalConversationIdMismatchCount`]: diagnostics.canonicalConversationIdMismatchCount,
+  [`${prefix}CanonicalCollisionCount`]: diagnostics.canonicalCollisionCount,
+  [`${prefix}CanonicalCollisionSample`]: diagnostics.canonicalCollisionSample,
+  [`${prefix}OutgoingRecordCount`]: diagnostics.outgoingRecordCount,
+  [`${prefix}IncomingRecordCount`]: diagnostics.incomingRecordCount,
+  [`${prefix}IncomingOnlyRawConversationCount`]: diagnostics.incomingOnlyRawConversationCount,
+});
+
+type BackupRestoreHistoryRegressionStage =
+  | "incoming_to_merged"
+  | "merged_to_applied_store"
+  | "post_apply_to_post_canonical_append";
+
+const maybeEmitBackupRestoreHistoryRegression = (params: Readonly<{
+  publicKeyHex: PublicKeyHex;
+  stage: BackupRestoreHistoryRegressionStage;
+  from: ChatStateMessageDiagnostics;
+  to: ChatStateMessageDiagnostics;
+  restorePath?: "full_v1" | "non_v1_domains" | "relay_sync_append";
+  restoreChatStateDomains?: boolean;
+  canonicalEventCount?: number;
+}>): void => {
+  const dmOutgoingDelta = params.to.dmOutgoingCount - params.from.dmOutgoingCount;
+  const groupSelfAuthoredDelta = params.to.groupSelfAuthoredCount - params.from.groupSelfAuthoredCount;
+  if (dmOutgoingDelta >= 0 && groupSelfAuthoredDelta >= 0) {
+    return;
+  }
+  logAppEvent({
+    name: "account_sync.backup_restore_history_regression",
+    level: "warn",
+    scope: { feature: "account_sync", action: "backup_restore" },
+    context: {
+      publicKeySuffix: params.publicKeyHex.slice(-8),
+      stage: params.stage,
+      restorePath: params.restorePath ?? null,
+      restoreChatStateDomains: typeof params.restoreChatStateDomains === "boolean"
+        ? params.restoreChatStateDomains
+        : null,
+      canonicalEventCount: typeof params.canonicalEventCount === "number"
+        ? params.canonicalEventCount
+        : null,
+      dmOutgoingDropped: dmOutgoingDelta < 0,
+      groupSelfAuthoredDropped: groupSelfAuthoredDelta < 0,
+      dmOutgoingDelta,
+      groupSelfAuthoredDelta,
+      fromDmOutgoingCount: params.from.dmOutgoingCount,
+      toDmOutgoingCount: params.to.dmOutgoingCount,
+      fromDmMessageCount: params.from.dmMessageCount,
+      toDmMessageCount: params.to.dmMessageCount,
+      fromGroupSelfAuthoredCount: params.from.groupSelfAuthoredCount,
+      toGroupSelfAuthoredCount: params.to.groupSelfAuthoredCount,
+      fromGroupMessageCount: params.from.groupMessageCount,
+      toGroupMessageCount: params.to.groupMessageCount,
+      fromDmCanonicalCollisionCount: params.from.dmCanonicalCollisionCount,
+      toDmCanonicalCollisionCount: params.to.dmCanonicalCollisionCount,
+      fromDmCanonicalCollisionSample: params.from.dmCanonicalCollisionSample,
+      toDmCanonicalCollisionSample: params.to.dmCanonicalCollisionSample,
+    },
+  });
+};
+
 const hydrateChatStateFromIndexedMessages = async (
   publicKeyHex: PublicKeyHex,
   chatState: PersistedChatState | null
@@ -868,12 +1601,16 @@ const hydrateChatStateFromIndexedMessages = async (
     ? await loadMessageQueueRecords(publicKeyHex)
     : [];
   const records = [...indexedRecords, ...queueRecords];
+  const recordDiagnostics = summarizeMessageRecords(records, publicKeyHex);
   if (records.length === 0) {
     return baseState;
   }
 
   const messagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {
     ...baseState.messagesByConversationId,
+  };
+  const groupMessagesByConversationId: Record<string, ReadonlyArray<PersistedGroupMessage>> = {
+    ...(baseState.groupMessages ?? {}),
   };
   const conversationById = new Map<string, PersistedChatState["createdConnections"][number]>(
     baseState.createdConnections.map((entry) => [entry.id, entry] as const)
@@ -884,6 +1621,18 @@ const hydrateChatStateFromIndexedMessages = async (
       typeof record.ownerPubkey === "string" ? record.ownerPubkey : undefined
     );
     if (ownerPubkey && ownerPubkey !== publicKeyHex) {
+      return;
+    }
+    const parsedGroup = toPersistedGroupMessageFromIndexedRecord({
+      record,
+      myPublicKeyHex: publicKeyHex,
+    });
+    if (parsedGroup) {
+      const existingGroupMessages = groupMessagesByConversationId[parsedGroup.conversationId] ?? [];
+      groupMessagesByConversationId[parsedGroup.conversationId] = mergePersistedGroupMessages(
+        existingGroupMessages,
+        [parsedGroup.persistedMessage],
+      );
       return;
     }
     const parsed = toPersistedMessageFromIndexedRecord({
@@ -920,10 +1669,19 @@ const hydrateChatStateFromIndexedMessages = async (
     ...baseState,
     createdConnections: Array.from(conversationById.values()),
     messagesByConversationId,
+    groupMessages: groupMessagesByConversationId,
   };
 
-  const hasOutgoingHistory = getPersistedOutgoingMessageCount(nextState, publicKeyHex) > 0;
-  if (!hasOutgoingHistory) {
+  const outgoingCountBeforeProjectionFallback = getPersistedOutgoingMessageCount(nextState, publicKeyHex);
+  const hasOutgoingHistory = outgoingCountBeforeProjectionFallback > 0;
+  const sparseOutgoingEvidenceThreshold = Math.max(1, Math.floor(recordDiagnostics.recordCount * 0.03));
+  const hasSparseOutgoingEvidence = (
+    recordDiagnostics.recordCount >= 12
+    && recordDiagnostics.incomingRecordCount >= 8
+    && recordDiagnostics.outgoingRecordCount <= sparseOutgoingEvidenceThreshold
+  );
+  const shouldRunProjectionFallback = !hasOutgoingHistory || hasSparseOutgoingEvidence;
+  if (shouldRunProjectionFallback) {
     try {
       const profileId = getActiveProfileIdSafe();
       const eventLogEntries = await accountEventStore.loadEvents({
@@ -944,6 +1702,7 @@ const hydrateChatStateFromIndexedMessages = async (
           }
           const mappedMessages: ReadonlyArray<PersistedMessage> = timeline.map((entry) => {
             const isOutgoing = entry.direction === "outgoing";
+            const fallbackAttachments = extractAttachmentsFromContent(entry.plaintextPreview);
             return {
               id: entry.messageId,
               content: entry.plaintextPreview,
@@ -951,6 +1710,7 @@ const hydrateChatStateFromIndexedMessages = async (
               isOutgoing,
               status: "delivered",
               pubkey: isOutgoing ? publicKeyHex : entry.peerPublicKeyHex,
+              ...(fallbackAttachments.length > 0 ? { attachments: fallbackAttachments } : {}),
             };
           });
           const existingMessages = mergedMessagesByConversationId[conversationId] ?? [];
@@ -986,8 +1746,16 @@ const hydrateChatStateFromIndexedMessages = async (
           scope: { feature: "account_sync", action: "backup_publish" },
           context: {
             profileId,
+            reasonNoOutgoingHistory: !hasOutgoingHistory,
+            reasonSparseOutgoingEvidence: hasSparseOutgoingEvidence,
+            sparseOutgoingEvidenceThreshold,
             eventLogCount: eventLogEntries.length,
+            outgoingCountBeforeFallback: outgoingCountBeforeProjectionFallback,
             outgoingCountAfterFallback: getPersistedOutgoingMessageCount(nextState, publicKeyHex),
+            sourceRecordCount: recordDiagnostics.recordCount,
+            sourceOutgoingRecordCount: recordDiagnostics.outgoingRecordCount,
+            sourceIncomingRecordCount: recordDiagnostics.incomingRecordCount,
+            sourceIncomingOnlyRawConversationCount: recordDiagnostics.incomingOnlyRawConversationCount,
             indexedRecordCount: indexedRecords.length,
             queueRecordCount: queueRecords.length,
           },
@@ -1007,6 +1775,23 @@ const hydrateChatStateFromIndexedMessages = async (
     }
   }
 
+  const hydratedChatStateDiagnostics = summarizePersistedChatStateMessages(nextState, publicKeyHex);
+  logAppEvent({
+    name: "account_sync.backup_payload_hydration_diagnostics",
+    level: "info",
+    scope: { feature: "account_sync", action: "backup_publish" },
+    context: {
+      publicKeySuffix: publicKeyHex.slice(-8),
+      indexedRecordCount: indexedRecords.length,
+      queueRecordCount: queueRecords.length,
+      shouldScanQueueRecords,
+      convergenceGuardEnabled,
+      hasIndexedConversationWithoutOutgoingEvidence,
+      ...toPrefixedRecordDiagnosticsContext("source", recordDiagnostics),
+      ...toPrefixedChatStateDiagnosticsContext("hydrated", hydratedChatStateDiagnostics),
+    },
+  });
+
   return nextState;
 };
 
@@ -1024,9 +1809,11 @@ const saveRecoverySnapshot = (publicKeyHex: PublicKeyHex, payload: EncryptedAcco
 const buildBackupPayload = (
   publicKeyHex: PublicKeyHex,
   chatStateOverride?: EncryptedAccountBackupPayload["chatState"],
+  roomKeyOverride?: ReadonlyArray<RoomKeySnapshot>,
 ): EncryptedAccountBackupPayload => {
   const profileId = getActiveProfileIdSafe();
   const communityMembershipLedger = loadCommunityMembershipLedger(publicKeyHex);
+  const roomKeys = parseRoomKeySnapshots(roomKeyOverride ?? []);
   const payload: EncryptedAccountBackupPayload = {
     version: 1,
     publicKeyHex,
@@ -1041,12 +1828,13 @@ const buildBackupPayload = (
     relayList: relayListInternals.loadRelayListFromStorage(publicKeyHex),
     uiSettings: buildUiSettingsSnapshot(profileId),
   };
-  if (communityMembershipLedger.length === 0) {
+  if (communityMembershipLedger.length === 0 && roomKeys.length === 0) {
     return payload;
   }
   return {
     ...payload,
-    communityMembershipLedger,
+    ...(communityMembershipLedger.length > 0 ? { communityMembershipLedger } : {}),
+    ...(roomKeys.length > 0 ? { roomKeys } : {}),
   };
 };
 
@@ -1056,7 +1844,10 @@ const buildBackupPayloadWithHydratedChatState = async (publicKeyHex: PublicKeyHe
     publicKeyHex,
     chatStateStoreService.load(publicKeyHex)
   );
-  const basePayload = buildBackupPayload(publicKeyHex, hydratedChatState);
+  const localRoomKeys = await loadLocalRoomKeySnapshots();
+  const reconstructedRoomKeys = reconstructRoomKeySnapshotsFromChatState(hydratedChatState);
+  const roomKeys = mergeRoomKeySnapshots(localRoomKeys, reconstructedRoomKeys);
+  const basePayload = buildBackupPayload(publicKeyHex, hydratedChatState, roomKeys);
   const identityUnlock = await readLocalIdentityUnlockSnapshot(publicKeyHex);
   if (!identityUnlock) {
     return basePayload;
@@ -1090,6 +1881,7 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
       : fallbackUiSettings.localMediaStorageConfig
   );
   const communityMembershipLedger = parseCommunityMembershipLedgerSnapshot(parsed.communityMembershipLedger);
+  const roomKeys = parseRoomKeySnapshots(parsed.roomKeys);
   const payload: EncryptedAccountBackupPayload = {
     version: 1,
     publicKeyHex: parsed.publicKeyHex as PublicKeyHex,
@@ -1111,12 +1903,40 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
       localMediaStorageConfig,
     },
   };
-  if (communityMembershipLedger.length === 0) {
+  if (communityMembershipLedger.length === 0 && roomKeys.length === 0) {
     return payload;
   }
   return {
     ...payload,
-    communityMembershipLedger,
+    ...(communityMembershipLedger.length > 0 ? { communityMembershipLedger } : {}),
+    ...(roomKeys.length > 0 ? { roomKeys } : {}),
+  };
+};
+
+const parsePortableAccountBundle = (value: unknown): PortableAccountBundle | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const parsed = value as Partial<PortableAccountBundle>;
+  if (parsed.version !== 1 || parsed.format !== PORTABLE_ACCOUNT_BUNDLE_FORMAT || parsed.payloadVersion !== 1) {
+    return null;
+  }
+  if (typeof parsed.publicKeyHex !== "string" || parsed.publicKeyHex.trim().length === 0) {
+    return null;
+  }
+  if (typeof parsed.ciphertext !== "string" || parsed.ciphertext.trim().length === 0) {
+    return null;
+  }
+  if (typeof parsed.exportedAtUnixMs !== "number" || !Number.isFinite(parsed.exportedAtUnixMs) || parsed.exportedAtUnixMs <= 0) {
+    return null;
+  }
+  return {
+    version: 1,
+    format: PORTABLE_ACCOUNT_BUNDLE_FORMAT,
+    payloadVersion: 1,
+    exportedAtUnixMs: parsed.exportedAtUnixMs,
+    publicKeyHex: parsed.publicKeyHex as PublicKeyHex,
+    ciphertext: parsed.ciphertext,
   };
 };
 
@@ -1125,19 +1945,44 @@ const fetchLatestBackupEvent = async (
   publicKeyHex: PublicKeyHex
 ): Promise<NostrEvent | null> => {
   await pool.waitForConnection(2_000);
-  const poolEvent = await new Promise<NostrEvent | null>((resolve) => {
+  const normalizeRelayUrl = (value: string): string => value.trim();
+  const openRelayUrls = new Set(
+    pool.connections
+      .filter((connection) => connection.status === "open")
+      .map((connection) => normalizeRelayUrl(connection.url))
+      .filter((relayUrl) => relayUrl.length > 0)
+  );
+  const poolFetchResult = await new Promise<Readonly<{
+    event: NostrEvent | null;
+    candidateCount: number;
+    receivedEoseRelayCount: number;
+    timedOut: boolean;
+  }>>((resolve) => {
     const subId = `account-backup-${Math.random().toString(36).slice(2, 10)}`;
+    const expectedEoseRelayUrls = openRelayUrls;
+    const receivedEoseRelayUrls = new Set<string>();
     let latestEvent: NostrEvent | null = null;
+    let candidateCount = 0;
+    let timedOut = false;
+    let timeoutId: number | null = null;
     let settled = false;
-    const finish = (value: NostrEvent | null): void => {
+    const finish = (): void => {
       if (settled) {
         return;
       }
       settled = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
       cleanup();
-      resolve(value);
+      resolve({
+        event: latestEvent,
+        candidateCount,
+        receivedEoseRelayCount: receivedEoseRelayUrls.size,
+        timedOut,
+      });
     };
-    const cleanup = pool.subscribeToMessages(({ message }) => {
+    const cleanup = pool.subscribeToMessages(({ message, url }) => {
       try {
         const parsed = JSON.parse(message);
         if (parsed[1] !== subId) {
@@ -1149,13 +1994,25 @@ const fetchLatestBackupEvent = async (
             event.kind === ACCOUNT_BACKUP_EVENT_KIND
             && event.pubkey === publicKeyHex
             && event.tags.some((tag) => tag[0] === "d" && tag[1] === ACCOUNT_BACKUP_D_TAG)
-            && (!latestEvent || event.created_at >= latestEvent.created_at)
           ) {
-            latestEvent = event;
+            candidateCount += 1;
+            if (!latestEvent || compareBackupEvents(event, latestEvent) > 0) {
+              latestEvent = event;
+            }
           }
         }
         if (parsed[0] === "EOSE") {
-          finish(latestEvent);
+          if (expectedEoseRelayUrls.size === 0) {
+            finish();
+            return;
+          }
+          const relayUrl = normalizeRelayUrl(url);
+          if (expectedEoseRelayUrls.has(relayUrl)) {
+            receivedEoseRelayUrls.add(relayUrl);
+          }
+          if (receivedEoseRelayUrls.size >= expectedEoseRelayUrls.size) {
+            finish();
+          }
         }
       } catch {
         // Ignore malformed relay frames.
@@ -1171,13 +2028,29 @@ const fetchLatestBackupEvent = async (
         limit: 5,
       },
     ]));
-    window.setTimeout(() => finish(latestEvent), BACKUP_FETCH_TIMEOUT_MS);
+    timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      finish();
+    }, BACKUP_FETCH_TIMEOUT_MS);
   });
-  if (poolEvent) {
-    return poolEvent;
+  const poolExpectedEoseRelayCount = openRelayUrls.size;
+  if (poolFetchResult.event) {
+    emitBackupRestoreSelectionDiagnostics({
+      source: "pool",
+      publicKeyHex,
+      selectedEvent: poolFetchResult.event,
+      poolOpenRelayCount: openRelayUrls.size,
+      poolExpectedEoseRelayCount,
+      poolReceivedEoseRelayCount: poolFetchResult.receivedEoseRelayCount,
+      poolCandidateCount: poolFetchResult.candidateCount,
+      poolTimedOut: poolFetchResult.timedOut,
+      fallbackRelayCount: 0,
+    });
+    return poolFetchResult.event;
   }
-  return fetchLatestEventFromRelayUrls({
-    relayUrls: getCandidateRelayUrls(pool),
+  const fallbackRelayUrls = getCandidateRelayUrls(pool);
+  const fallbackEvent = await fetchLatestEventFromRelayUrls({
+    relayUrls: fallbackRelayUrls,
     filters: [{
       authors: [publicKeyHex],
       kinds: [ACCOUNT_BACKUP_EVENT_KIND],
@@ -1191,6 +2064,18 @@ const fetchLatestBackupEvent = async (
     ),
     timeoutMs: BACKUP_FETCH_TIMEOUT_MS,
   });
+  emitBackupRestoreSelectionDiagnostics({
+    source: fallbackEvent ? "direct" : "none",
+    publicKeyHex,
+    selectedEvent: fallbackEvent,
+    poolOpenRelayCount: openRelayUrls.size,
+    poolExpectedEoseRelayCount,
+    poolReceivedEoseRelayCount: poolFetchResult.receivedEoseRelayCount,
+    poolCandidateCount: poolFetchResult.candidateCount,
+    poolTimedOut: poolFetchResult.timedOut,
+    fallbackRelayCount: fallbackRelayUrls.length,
+  });
+  return fallbackEvent;
 };
 
 const toEnvelope = (params: Readonly<{
@@ -1205,6 +2090,43 @@ const toEnvelope = (params: Readonly<{
   dTag: ACCOUNT_BACKUP_D_TAG,
 });
 
+const reconcileIncomingLedgerWithReconstructedJoinedEvidence = (params: Readonly<{
+  incomingExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
+  reconstructedEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
+}>): ReadonlyArray<CommunityMembershipLedgerEntry> => {
+  const reconstructedJoinedByKey = new Map<string, CommunityMembershipLedgerEntry>();
+  for (const entry of params.reconstructedEntries) {
+    if (entry.status !== "joined") {
+      continue;
+    }
+    reconstructedJoinedByKey.set(toCommunityMembershipLedgerKey(entry), entry);
+  }
+
+  return params.incomingExplicitEntries.map((entry) => {
+    if (entry.status !== "left") {
+      return entry;
+    }
+    const reconstructedJoinedEntry = reconstructedJoinedByKey.get(
+      toCommunityMembershipLedgerKey(entry),
+    );
+    if (!reconstructedJoinedEntry) {
+      return entry;
+    }
+    if (reconstructedJoinedEntry.updatedAtUnixMs < entry.updatedAtUnixMs) {
+      return entry;
+    }
+    return {
+      ...entry,
+      status: "joined",
+      updatedAtUnixMs: reconstructedJoinedEntry.updatedAtUnixMs,
+      communityId: reconstructedJoinedEntry.communityId || entry.communityId,
+      displayName: reconstructedJoinedEntry.displayName ?? entry.displayName,
+      avatar: reconstructedJoinedEntry.avatar ?? entry.avatar,
+      lastEvidenceEventId: reconstructedJoinedEntry.lastEvidenceEventId ?? entry.lastEvidenceEventId,
+    };
+  });
+};
+
 const mergeIncomingRestorePayload = async (
   publicKeyHex: PublicKeyHex,
   payload: EncryptedAccountBackupPayload,
@@ -1218,23 +2140,71 @@ const mergeIncomingRestorePayload = async (
       ...payload,
       syncCheckpoints: [],
     };
-  const freshDevice = !isExistingLocalPrivateState(publicKeyHex);
+  const existingLocalPrivateState = isExistingLocalPrivateState(publicKeyHex);
+  const freshDevice = !existingLocalPrivateState;
+  const existingLedgerEntries = loadCommunityMembershipLedger(publicKeyHex);
+  const existingRoomKeySnapshots = await loadLocalRoomKeySnapshots();
   const includeHydratedLocalMessages = options?.includeHydratedLocalMessages !== false;
-  const currentPayload = freshDevice
-    ? null
-    : includeHydratedLocalMessages
-      ? await buildBackupPayloadWithHydratedChatState(publicKeyHex)
-      : buildBackupPayload(publicKeyHex);
+  const currentPayloadCandidate = includeHydratedLocalMessages
+    ? await buildBackupPayloadWithHydratedChatState(publicKeyHex)
+    : buildBackupPayload(publicKeyHex);
+  const hasHydratedLocalReplayableHistory = hasReplayableChatHistory(currentPayloadCandidate.chatState);
+  const hasExplicitLocalLedgerEvidence = (
+    parseCommunityMembershipLedgerSnapshot(currentPayloadCandidate.communityMembershipLedger).length > 0
+    || existingLedgerEntries.length > 0
+  );
+  const hasExplicitLocalRoomKeyEvidence = (
+    parseRoomKeySnapshots(currentPayloadCandidate.roomKeys).length > 0
+    || existingRoomKeySnapshots.length > 0
+  );
+  const currentPayload = (
+    existingLocalPrivateState
+    || hasHydratedLocalReplayableHistory
+    || hasExplicitLocalLedgerEvidence
+    || hasExplicitLocalRoomKeyEvidence
+  )
+    ? currentPayloadCandidate
+    : null;
   if (currentPayload) {
     saveRecoverySnapshot(publicKeyHex, currentPayload);
   }
-  const mergedCommunityMembershipLedger = (!freshDevice && currentPayload)
-    ? mergeCommunityMembershipLedgerEntries(
-      currentPayload.communityMembershipLedger ?? [],
-      sanitizedIncomingPayload.communityMembershipLedger ?? [],
-    )
-    : parseCommunityMembershipLedgerSnapshot(sanitizedIncomingPayload.communityMembershipLedger);
-  const mergedPayload: EncryptedAccountBackupPayload = (!freshDevice && currentPayload)
+  const incomingLedgerEntries = parseCommunityMembershipLedgerSnapshot(sanitizedIncomingPayload.communityMembershipLedger);
+  const currentLedgerEntries = parseCommunityMembershipLedgerSnapshot(currentPayload?.communityMembershipLedger);
+  const localExplicitLedgerEntries = currentLedgerEntries.length > 0
+    ? currentLedgerEntries
+    : existingLedgerEntries;
+  const incomingRoomKeySnapshots = parseRoomKeySnapshots(sanitizedIncomingPayload.roomKeys);
+  const currentRoomKeySnapshots = parseRoomKeySnapshots(currentPayload?.roomKeys);
+  const localExplicitRoomKeySnapshots = currentRoomKeySnapshots.length > 0
+    ? currentRoomKeySnapshots
+    : existingRoomKeySnapshots;
+  const mergedExplicitRoomKeys = mergeRoomKeySnapshots(localExplicitRoomKeySnapshots, incomingRoomKeySnapshots);
+  const mergedChatState = currentPayload
+    ? mergeChatState(currentPayload.chatState, sanitizedIncomingPayload.chatState)
+    : sanitizedIncomingPayload.chatState;
+  const reconstructedIncomingLedgerEntries = reconstructCommunityMembershipFromChatState(sanitizedIncomingPayload.chatState);
+  const reconstructedMergedLedgerEntries = reconstructCommunityMembershipFromChatState(mergedChatState);
+  const reconciledIncomingLedgerEntries = reconcileIncomingLedgerWithReconstructedJoinedEvidence({
+    incomingExplicitEntries: incomingLedgerEntries,
+    reconstructedEntries: reconstructedIncomingLedgerEntries,
+  });
+  const incomingSupplementedLedgerEntries = supplementMembershipLedgerEntries({
+    explicitEntries: [
+      ...reconciledIncomingLedgerEntries,
+      ...localExplicitLedgerEntries,
+    ],
+    supplementalEntries: reconstructedMergedLedgerEntries,
+  });
+  const mergedCommunityMembershipLedger = mergeCommunityMembershipLedgerEntries(
+    localExplicitLedgerEntries,
+    incomingSupplementedLedgerEntries,
+  );
+  const mergedJoinedGroupIds = selectJoinedGroupIds(mergedCommunityMembershipLedger);
+  const reconstructedMergedRoomKeySnapshots = reconstructRoomKeySnapshotsFromChatState(mergedChatState, {
+    restrictToJoinedGroupIds: mergedJoinedGroupIds,
+  });
+  const mergedRoomKeys = mergeRoomKeySnapshots(mergedExplicitRoomKeys, reconstructedMergedRoomKeySnapshots);
+  const mergedPayload: EncryptedAccountBackupPayload = currentPayload
     ? {
       ...sanitizedIncomingPayload,
       identityUnlock: mergeIdentityUnlock(
@@ -1249,7 +2219,7 @@ const mergeIncomingRestorePayload = async (
       requestFlowEvidence: mergeRequestFlowEvidence(currentPayload.requestFlowEvidence, sanitizedIncomingPayload.requestFlowEvidence),
       requestOutbox: mergeOutbox(currentPayload.requestOutbox, sanitizedIncomingPayload.requestOutbox),
       syncCheckpoints: mergeCheckpoints(currentPayload.syncCheckpoints, sanitizedIncomingPayload.syncCheckpoints),
-      chatState: mergeChatState(currentPayload.chatState, sanitizedIncomingPayload.chatState),
+      chatState: mergedChatState,
       privacySettings: {
         ...sanitizedIncomingPayload.privacySettings,
         ...currentPayload.privacySettings,
@@ -1271,15 +2241,81 @@ const mergeIncomingRestorePayload = async (
       ...(mergedCommunityMembershipLedger.length > 0
         ? { communityMembershipLedger: mergedCommunityMembershipLedger }
         : {}),
+      ...(mergedRoomKeys.length > 0
+        ? { roomKeys: mergedRoomKeys }
+        : {}),
     }
     : (
-      mergedCommunityMembershipLedger.length > 0
+      mergedCommunityMembershipLedger.length > 0 || mergedRoomKeys.length > 0
         ? {
           ...sanitizedIncomingPayload,
-          communityMembershipLedger: mergedCommunityMembershipLedger,
+          chatState: mergedChatState,
+          ...(mergedCommunityMembershipLedger.length > 0
+            ? { communityMembershipLedger: mergedCommunityMembershipLedger }
+            : {}),
+          ...(mergedRoomKeys.length > 0
+            ? { roomKeys: mergedRoomKeys }
+            : {}),
         }
-        : sanitizedIncomingPayload
+        : {
+          ...sanitizedIncomingPayload,
+          chatState: mergedChatState,
+        }
     );
+  const incomingChatDiagnostics = summarizePersistedChatStateMessages(
+    sanitizedIncomingPayload.chatState,
+    publicKeyHex,
+  );
+  const localChatDiagnostics = summarizePersistedChatStateMessages(
+    currentPayload?.chatState,
+    publicKeyHex,
+  );
+  const mergedChatDiagnostics = summarizePersistedChatStateMessages(
+    mergedPayload.chatState,
+    publicKeyHex,
+  );
+  maybeEmitBackupRestoreHistoryRegression({
+    publicKeyHex,
+    stage: "incoming_to_merged",
+    from: incomingChatDiagnostics,
+    to: mergedChatDiagnostics,
+  });
+  logAppEvent({
+    name: "account_sync.backup_restore_merge_diagnostics",
+    level: "info",
+    scope: { feature: "account_sync", action: "backup_restore" },
+    context: {
+      publicKeySuffix: publicKeyHex.slice(-8),
+      freshDevice,
+      includeHydratedLocalMessages,
+      localPayloadMerged: currentPayload !== null,
+      hasHydratedLocalReplayableHistory,
+      hasExplicitLocalLedgerEvidence,
+      hasExplicitLocalRoomKeyEvidence,
+      incomingLedgerEntryCount: incomingLedgerEntries.length,
+      incomingLedgerReconciledEntryCount: reconciledIncomingLedgerEntries.length,
+      mergedChatReconstructedLedgerEntryCount: reconstructedMergedLedgerEntries.length,
+      incomingLedgerJoinPromotionCount: reconciledIncomingLedgerEntries.reduce((count, entry, index) => {
+        const incomingEntry = incomingLedgerEntries[index];
+        if (!incomingEntry) {
+          return count;
+        }
+        return incomingEntry.status !== "joined" && entry.status === "joined"
+          ? count + 1
+          : count;
+      }, 0),
+      localLedgerEntryCount: localExplicitLedgerEntries.length,
+      mergedLedgerEntryCount: mergedCommunityMembershipLedger.length,
+      incomingRoomKeyCount: incomingRoomKeySnapshots.length,
+      localRoomKeyCount: localExplicitRoomKeySnapshots.length,
+      mergedExplicitRoomKeyCount: mergedExplicitRoomKeys.length,
+      mergedReconstructedRoomKeyCount: reconstructedMergedRoomKeySnapshots.length,
+      mergedRoomKeyCount: mergedRoomKeys.length,
+      ...toPrefixedChatStateDiagnosticsContext("incoming", incomingChatDiagnostics),
+      ...toPrefixedChatStateDiagnosticsContext("local", localChatDiagnostics),
+      ...toPrefixedChatStateDiagnosticsContext("merged", mergedChatDiagnostics),
+    },
+  });
   return mergedPayload;
 };
 
@@ -1307,11 +2343,39 @@ const applyBackupPayload = async (
   syncCheckpointInternals.persistCheckpointState(new Map(
     mergedPayload.syncCheckpoints.map((checkpoint) => [checkpoint.timelineKey, checkpoint])
   ));
+  const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
   if (mergedPayload.chatState) {
     // Backup restore should not immediately trigger mutation-driven backup publish.
     chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, { emitMutationSignal: false });
+    const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
+      chatStateStoreService.load(publicKeyHex),
+      publicKeyHex,
+    );
+    maybeEmitBackupRestoreHistoryRegression({
+      publicKeyHex,
+      stage: "merged_to_applied_store",
+      from: mergedPayloadChatDiagnostics,
+      to: restoredChatStateDiagnostics,
+      restorePath: "full_v1",
+      restoreChatStateDomains: true,
+    });
   }
+  logAppEvent({
+    name: "account_sync.backup_restore_apply_diagnostics",
+    level: "info",
+    scope: { feature: "account_sync", action: "backup_restore" },
+    context: {
+      publicKeySuffix: publicKeyHex.slice(-8),
+      restorePath: "full_v1",
+      appliedRoomKeyCount: parseRoomKeySnapshots(mergedPayload.roomKeys).length,
+      ...toPrefixedChatStateDiagnosticsContext(
+        "applied",
+        mergedPayloadChatDiagnostics,
+      ),
+    },
+  });
   saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
+  await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
   PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
   relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList);
   persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);
@@ -1321,9 +2385,12 @@ const applyBackupPayloadNonV1Domains = async (
   publicKeyHex: PublicKeyHex,
   payload: EncryptedAccountBackupPayload,
   profileId = getActiveProfileIdSafe(),
+  options?: Readonly<{
+    restoreChatStateDomains?: boolean;
+  }>,
 ): Promise<void> => {
   const mergedPayload = await mergeIncomingRestorePayload(publicKeyHex, payload, {
-    includeHydratedLocalMessages: false,
+    includeHydratedLocalMessages: options?.restoreChatStateDomains === true,
   });
   await persistIdentityUnlockSnapshot({
     publicKeyHex,
@@ -1334,20 +2401,377 @@ const applyBackupPayloadNonV1Domains = async (
   useProfileInternals.setState({ profile: mergedPayload.profile });
   useProfileInternals.notify();
   saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
+  await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
   PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
   relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList);
   persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);
+  const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
+  if (options?.restoreChatStateDomains && mergedPayload.chatState) {
+    // Canonical account-event append does not yet materialize all chat-state domains
+    // (group timelines/membership views and legacy message surfaces). Restore chat
+    // state domains directly so new-device rehydrate cannot drop self-authored history.
+    chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, { emitMutationSignal: false });
+    const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
+      chatStateStoreService.load(publicKeyHex),
+      publicKeyHex,
+    );
+    maybeEmitBackupRestoreHistoryRegression({
+      publicKeyHex,
+      stage: "merged_to_applied_store",
+      from: mergedPayloadChatDiagnostics,
+      to: restoredChatStateDiagnostics,
+      restorePath: "non_v1_domains",
+      restoreChatStateDomains: true,
+    });
+  }
+  logAppEvent({
+    name: "account_sync.backup_restore_apply_diagnostics",
+    level: "info",
+    scope: { feature: "account_sync", action: "backup_restore" },
+    context: {
+      publicKeySuffix: publicKeyHex.slice(-8),
+      restorePath: "non_v1_domains",
+      restoreChatStateDomains: options?.restoreChatStateDomains === true,
+      appliedRoomKeyCount: parseRoomKeySnapshots(mergedPayload.roomKeys).length,
+      ...toPrefixedChatStateDiagnosticsContext(
+        "applied",
+        mergedPayloadChatDiagnostics,
+      ),
+    },
+  });
+};
+
+const isRelayPoolWithSubscribe = (pool: RelayPoolLike): pool is RelayPoolWithSubscribe => {
+  const candidate = pool as Partial<RelayPoolWithSubscribe>;
+  return typeof candidate.sendToOpen === "function"
+    && typeof candidate.subscribeToMessages === "function";
+};
+
+type BackupPayloadConvergenceDiagnostics = Readonly<{
+  dmOutgoingCount: number;
+  dmIncomingCount: number;
+  groupConversationCount: number;
+  groupMessageCount: number;
+  groupSelfAuthoredCount: number;
+  joinedLedgerCount: number;
+  roomKeyCount: number;
+  groupEvidenceCount: number;
+}>;
+
+const summarizeBackupPayloadConvergenceDiagnostics = (
+  payload: EncryptedAccountBackupPayload,
+  publicKeyHex: PublicKeyHex,
+): BackupPayloadConvergenceDiagnostics => {
+  const chatDiagnostics = summarizePersistedChatStateMessages(payload.chatState, publicKeyHex);
+  const joinedLedgerCount = selectJoinedCommunityMembershipLedgerEntries(
+    parseCommunityMembershipLedgerSnapshot(payload.communityMembershipLedger),
+  ).length;
+  const roomKeyCount = parseRoomKeySnapshots(payload.roomKeys).length;
+  const groupEvidenceCount = chatDiagnostics.groupConversationCount
+    + chatDiagnostics.groupMessageCount
+    + chatDiagnostics.groupSelfAuthoredCount
+    + joinedLedgerCount
+    + roomKeyCount;
+  return {
+    dmOutgoingCount: chatDiagnostics.dmOutgoingCount,
+    dmIncomingCount: chatDiagnostics.dmIncomingCount,
+    groupConversationCount: chatDiagnostics.groupConversationCount,
+    groupMessageCount: chatDiagnostics.groupMessageCount,
+    groupSelfAuthoredCount: chatDiagnostics.groupSelfAuthoredCount,
+    joinedLedgerCount,
+    roomKeyCount,
+    groupEvidenceCount,
+  };
+};
+
+const hasSparseDmOutgoingEvidenceForConvergenceFloor = (
+  diagnostics: BackupPayloadConvergenceDiagnostics,
+): boolean => {
+  const dmMessageCount = diagnostics.dmOutgoingCount + diagnostics.dmIncomingCount;
+  if (dmMessageCount < 12 || diagnostics.dmIncomingCount < 8) {
+    return false;
+  }
+  const sparseOutgoingEvidenceThreshold = Math.max(1, Math.floor(dmMessageCount * 0.03));
+  return diagnostics.dmOutgoingCount <= sparseOutgoingEvidenceThreshold;
+};
+
+const mergeBackupPayloadForPublishConvergence = (
+  localPayload: EncryptedAccountBackupPayload,
+  remotePayload: EncryptedAccountBackupPayload,
+): EncryptedAccountBackupPayload => {
+  const mergedChatState = mergeChatState(localPayload.chatState, remotePayload.chatState);
+  const remoteLedgerEntries = parseCommunityMembershipLedgerSnapshot(remotePayload.communityMembershipLedger);
+  const localLedgerEntries = parseCommunityMembershipLedgerSnapshot(localPayload.communityMembershipLedger);
+  const reconstructedRemoteLedgerEntries = reconstructCommunityMembershipFromChatState(remotePayload.chatState);
+  const reconciledRemoteLedgerEntries = reconcileIncomingLedgerWithReconstructedJoinedEvidence({
+    incomingExplicitEntries: remoteLedgerEntries,
+    reconstructedEntries: reconstructedRemoteLedgerEntries,
+  });
+  const mergedExplicitLedgerEntries = mergeCommunityMembershipLedgerEntries(
+    localLedgerEntries,
+    reconciledRemoteLedgerEntries,
+  );
+  const mergedSupplementedLedgerEntries = supplementMembershipLedgerEntries({
+    explicitEntries: mergedExplicitLedgerEntries,
+    supplementalEntries: reconstructCommunityMembershipFromChatState(mergedChatState),
+  });
+  const mergedCommunityMembershipLedger = mergeCommunityMembershipLedgerEntries(
+    mergedExplicitLedgerEntries,
+    mergedSupplementedLedgerEntries,
+  );
+  const mergedExplicitRoomKeys = mergeRoomKeySnapshots(
+    parseRoomKeySnapshots(localPayload.roomKeys),
+    parseRoomKeySnapshots(remotePayload.roomKeys),
+  );
+  const mergedJoinedGroupIds = selectJoinedGroupIds(mergedCommunityMembershipLedger);
+  const reconstructedMergedRoomKeys = reconstructRoomKeySnapshotsFromChatState(mergedChatState, {
+    restrictToJoinedGroupIds: mergedJoinedGroupIds,
+  });
+  const mergedRoomKeys = mergeRoomKeySnapshots(
+    mergedExplicitRoomKeys,
+    reconstructedMergedRoomKeys,
+  );
+
+  return {
+    ...localPayload,
+    identityUnlock: mergeIdentityUnlock(localPayload.identityUnlock, remotePayload.identityUnlock),
+    peerTrust: mergePeerTrust(localPayload.peerTrust, remotePayload.peerTrust),
+    requestFlowEvidence: mergeRequestFlowEvidence(localPayload.requestFlowEvidence, remotePayload.requestFlowEvidence),
+    requestOutbox: mergeOutbox(localPayload.requestOutbox, remotePayload.requestOutbox),
+    syncCheckpoints: mergeCheckpoints(localPayload.syncCheckpoints, remotePayload.syncCheckpoints),
+    chatState: mergedChatState,
+    relayList: mergeRelayList(localPayload.relayList, remotePayload.relayList),
+    ...(mergedCommunityMembershipLedger.length > 0
+      ? { communityMembershipLedger: mergedCommunityMembershipLedger }
+      : {}),
+    ...(mergedRoomKeys.length > 0
+      ? { roomKeys: mergedRoomKeys }
+      : {}),
+  };
+};
+
+const maybeConvergeBackupPayloadBeforePublish = async (params: Readonly<{
+  localPayload: EncryptedAccountBackupPayload;
+  publicKeyHex: PublicKeyHex;
+  privateKeyHex: PrivateKeyHex;
+  pool: RelayPoolLike;
+}>): Promise<EncryptedAccountBackupPayload> => {
+  const localDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(params.localPayload, params.publicKeyHex);
+  const applyGroupEvidenceFloor = localDiagnostics.groupEvidenceCount === 0;
+  const applySparseDmOutgoingFloor = hasSparseDmOutgoingEvidenceForConvergenceFloor(localDiagnostics);
+  if (!applyGroupEvidenceFloor && !applySparseDmOutgoingFloor) {
+    return params.localPayload;
+  }
+  if (!isRelayPoolWithSubscribe(params.pool)) {
+    return params.localPayload;
+  }
+
+  try {
+    const fetched = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({
+      publicKeyHex: params.publicKeyHex,
+      privateKeyHex: params.privateKeyHex,
+      pool: params.pool,
+    });
+    if (!fetched.hasBackup || !fetched.payload || fetched.degradedReason) {
+      return params.localPayload;
+    }
+
+    const remoteDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(
+      fetched.payload,
+      params.publicKeyHex,
+    );
+    const shouldConverge = remoteDiagnostics.groupEvidenceCount > localDiagnostics.groupEvidenceCount
+      || remoteDiagnostics.dmOutgoingCount > localDiagnostics.dmOutgoingCount;
+    if (!shouldConverge) {
+      return params.localPayload;
+    }
+
+    const convergedPayload = mergeBackupPayloadForPublishConvergence(params.localPayload, fetched.payload);
+    const convergedDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(
+      convergedPayload,
+      params.publicKeyHex,
+    );
+    logAppEvent({
+      name: "account_sync.backup_publish_convergence_floor_applied",
+      level: "warn",
+      scope: { feature: "account_sync", action: "backup_publish" },
+      context: {
+        publicKeySuffix: params.publicKeyHex.slice(-8),
+        applyGroupEvidenceFloor,
+        applySparseDmOutgoingFloor,
+        localGroupEvidenceCount: localDiagnostics.groupEvidenceCount,
+        remoteGroupEvidenceCount: remoteDiagnostics.groupEvidenceCount,
+        convergedGroupEvidenceCount: convergedDiagnostics.groupEvidenceCount,
+        localJoinedLedgerCount: localDiagnostics.joinedLedgerCount,
+        remoteJoinedLedgerCount: remoteDiagnostics.joinedLedgerCount,
+        convergedJoinedLedgerCount: convergedDiagnostics.joinedLedgerCount,
+        localRoomKeyCount: localDiagnostics.roomKeyCount,
+        remoteRoomKeyCount: remoteDiagnostics.roomKeyCount,
+        convergedRoomKeyCount: convergedDiagnostics.roomKeyCount,
+        localDmOutgoingCount: localDiagnostics.dmOutgoingCount,
+        remoteDmOutgoingCount: remoteDiagnostics.dmOutgoingCount,
+        convergedDmOutgoingCount: convergedDiagnostics.dmOutgoingCount,
+      },
+    });
+    return convergedPayload;
+  } catch (error) {
+    logAppEvent({
+      name: "account_sync.backup_publish_convergence_floor_skipped",
+      level: "warn",
+      scope: { feature: "account_sync", action: "backup_publish" },
+      context: {
+        publicKeySuffix: params.publicKeyHex.slice(-8),
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    });
+    return params.localPayload;
+  }
 };
 
 export const encryptedAccountBackupService = {
   buildBackupPayload,
+  async exportPortableAccountBundle(params: Readonly<{
+    publicKeyHex: PublicKeyHex;
+    privateKeyHex: PrivateKeyHex;
+  }>): Promise<Readonly<{
+    bundle: PortableAccountBundle;
+    backupPayload: EncryptedAccountBackupPayload;
+  }>> {
+    const backupPayload = await buildBackupPayloadWithHydratedChatState(params.publicKeyHex);
+    if (!hasPortablePrivateStateEvidence(backupPayload)) {
+      throw new Error("Portable bundle export skipped because private account state is empty.");
+    }
+    const plaintext = JSON.stringify(backupPayload);
+    const ciphertext = await cryptoService.encryptDM(plaintext, params.publicKeyHex, params.privateKeyHex);
+    const bundle: PortableAccountBundle = {
+      version: 1,
+      format: PORTABLE_ACCOUNT_BUNDLE_FORMAT,
+      payloadVersion: 1,
+      exportedAtUnixMs: Date.now(),
+      publicKeyHex: params.publicKeyHex,
+      ciphertext,
+    };
+    logAppEvent({
+      name: "account_sync.portable_bundle_export",
+      level: "info",
+      scope: { feature: "account_sync", action: "portable_bundle_export" },
+      context: {
+        publicKeySuffix: params.publicKeyHex.slice(-8),
+        payloadCreatedAtUnixMs: backupPayload.createdAtUnixMs,
+        exportedAtUnixMs: bundle.exportedAtUnixMs,
+        ...toPrefixedChatStateDiagnosticsContext(
+          "bundle",
+          summarizePersistedChatStateMessages(backupPayload.chatState, params.publicKeyHex),
+        ),
+      },
+    });
+    return {
+      bundle,
+      backupPayload,
+    };
+  },
+  async importPortableAccountBundle(params: Readonly<{
+    bundle: unknown;
+    publicKeyHex: PublicKeyHex;
+    privateKeyHex: PrivateKeyHex;
+    profileId?: string;
+    appendCanonicalEvents?: CanonicalBackupEventAppender;
+  }>): Promise<Readonly<{
+    bundle: PortableAccountBundle;
+    payload: EncryptedAccountBackupPayload;
+  }>> {
+    const bundle = parsePortableAccountBundle(params.bundle);
+    if (!bundle) {
+      throw new Error("Portable bundle format is invalid.");
+    }
+    if (bundle.publicKeyHex !== params.publicKeyHex) {
+      throw new Error("Portable bundle belongs to a different account.");
+    }
+
+    let plaintext: string;
+    try {
+      plaintext = await cryptoService.decryptDM(bundle.ciphertext, params.publicKeyHex, params.privateKeyHex);
+    } catch {
+      throw new Error("Portable bundle could not be decrypted with the active account key.");
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(plaintext);
+    } catch {
+      throw new Error("Portable bundle payload is not valid JSON.");
+    }
+    const payload = parseBackupPayload(parsedJson);
+    if (!payload) {
+      throw new Error("Portable bundle payload is invalid.");
+    }
+    if (payload.publicKeyHex !== params.publicKeyHex) {
+      throw new Error("Portable bundle payload public key does not match the active account.");
+    }
+
+    const profileId = params.profileId ?? getActiveProfileIdSafe();
+    if (params.appendCanonicalEvents) {
+      const canonicalEvents = buildCanonicalBackupImportEvents({
+        profileId,
+        accountPublicKeyHex: params.publicKeyHex,
+        payload,
+        source: "legacy_bridge",
+        idempotencyPrefix: PORTABLE_BUNDLE_IMPORT_IDEMPOTENCY_PREFIX,
+      });
+      await applyBackupPayloadNonV1Domains(params.publicKeyHex, payload, profileId, {
+        restoreChatStateDomains: true,
+      });
+      if (canonicalEvents.length > 0) {
+        await params.appendCanonicalEvents({
+          profileId,
+          accountPublicKeyHex: params.publicKeyHex,
+          events: canonicalEvents,
+        });
+      }
+    } else {
+      await applyBackupPayload(params.publicKeyHex, payload, profileId);
+    }
+
+    accountSyncStatusStore.updateSnapshot({
+      publicKeyHex: params.publicKeyHex,
+      lastEncryptedBackupRestoreAtUnixMs: Date.now(),
+      lastRestoreSource: "portable_bundle",
+      message: "Portable account bundle imported",
+      lastRelayFailureReason: undefined,
+    });
+    logAppEvent({
+      name: "account_sync.portable_bundle_import",
+      level: "info",
+      scope: { feature: "account_sync", action: "portable_bundle_import" },
+      context: {
+        publicKeySuffix: params.publicKeyHex.slice(-8),
+        exportedAtUnixMs: bundle.exportedAtUnixMs,
+        payloadCreatedAtUnixMs: payload.createdAtUnixMs,
+        ...toPrefixedChatStateDiagnosticsContext(
+          "bundle",
+          summarizePersistedChatStateMessages(payload.chatState, params.publicKeyHex),
+        ),
+      },
+    });
+
+    return {
+      bundle,
+      payload,
+    };
+  },
   async publishEncryptedAccountBackup(params: Readonly<{
     publicKeyHex: PublicKeyHex;
     privateKeyHex: PrivateKeyHex;
     pool: RelayPoolLike;
     scopedRelayUrls?: ReadonlyArray<string>;
   }>) {
-    const backupPayload = await buildBackupPayloadWithHydratedChatState(params.publicKeyHex);
+    const localBackupPayload = await buildBackupPayloadWithHydratedChatState(params.publicKeyHex);
+    const backupPayload = await maybeConvergeBackupPayloadBeforePublish({
+      localPayload: localBackupPayload,
+      publicKeyHex: params.publicKeyHex,
+      privateKeyHex: params.privateKeyHex,
+      pool: params.pool,
+    });
     if (!hasPortablePrivateStateEvidence(backupPayload)) {
       accountSyncStatusStore.updateSnapshot({
         publicKeyHex: params.publicKeyHex,
@@ -1370,13 +2794,43 @@ export const encryptedAccountBackupService = {
       publicKeyHex: params.publicKeyHex,
       ciphertext,
     });
+    const createdAtReservation = reserveBackupEventCreatedAtUnixSeconds(
+      params.publicKeyHex,
+      backupPayload.createdAtUnixMs,
+    );
     const unsignedEvent: UnsignedNostrEvent = {
       kind: ACCOUNT_BACKUP_EVENT_KIND,
       pubkey: params.publicKeyHex,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [["d", ACCOUNT_BACKUP_D_TAG]],
+      created_at: createdAtReservation.createdAtUnixSeconds,
+      tags: [
+        ["d", ACCOUNT_BACKUP_D_TAG],
+        [ACCOUNT_BACKUP_CREATED_AT_MS_TAG, String(backupPayload.createdAtUnixMs)],
+      ],
       content: envelope.ciphertext,
     };
+    const openRelayCount = params.pool.connections.filter((connection) => connection.status === "open").length;
+    const configuredRelayCount = (params.scopedRelayUrls && params.scopedRelayUrls.length > 0)
+      ? params.scopedRelayUrls.length
+      : params.pool.connections.length;
+    logAppEvent({
+      name: "account_sync.backup_publish_ordering",
+      level: "info",
+      scope: { feature: "account_sync", action: "backup_publish" },
+      context: {
+        publicKeySuffix: params.publicKeyHex.slice(-8),
+        selectionComparator: "payload_ms_then_created_at_then_event_id",
+        payloadCreatedAtUnixMs: backupPayload.createdAtUnixMs,
+        payloadCreatedAtUnixSeconds: createdAtReservation.candidateUnixSeconds,
+        eventCreatedAtUnixSeconds: createdAtReservation.createdAtUnixSeconds,
+        previousEventCreatedAtUnixSeconds: createdAtReservation.lastUsedUnixSeconds || null,
+        createdAtAdjustmentSeconds: (
+          createdAtReservation.createdAtUnixSeconds - createdAtReservation.candidateUnixSeconds
+        ),
+        monotonicBumpApplied: createdAtReservation.monotonicBumpApplied,
+        configuredRelayCount,
+        openRelayCount,
+      },
+    });
     const signedEvent = await cryptoService.signEvent(unsignedEvent, params.privateKeyHex);
     const publishResult = await publishViaRelayCore({
       pool: params.pool,
@@ -1434,12 +2888,31 @@ export const encryptedAccountBackupService = {
         // unchanged backup payloads cannot endlessly append duplicate events.
         idempotencyPrefix: CANONICAL_BACKUP_IMPORT_IDEMPOTENCY_PREFIX,
       });
-      await applyBackupPayloadNonV1Domains(params.publicKeyHex, fetched.payload, profileId);
+      await applyBackupPayloadNonV1Domains(params.publicKeyHex, fetched.payload, profileId, {
+        restoreChatStateDomains: true,
+      });
+      const postApplyDiagnostics = summarizePersistedChatStateMessages(
+        chatStateStoreService.load(params.publicKeyHex),
+        params.publicKeyHex,
+      );
       if (canonicalEvents.length > 0) {
         await params.appendCanonicalEvents({
           profileId,
           accountPublicKeyHex: params.publicKeyHex,
           events: canonicalEvents,
+        });
+        const postCanonicalAppendDiagnostics = summarizePersistedChatStateMessages(
+          chatStateStoreService.load(params.publicKeyHex),
+          params.publicKeyHex,
+        );
+        maybeEmitBackupRestoreHistoryRegression({
+          publicKeyHex: params.publicKeyHex,
+          stage: "post_apply_to_post_canonical_append",
+          from: postApplyDiagnostics,
+          to: postCanonicalAppendDiagnostics,
+          restorePath: "relay_sync_append",
+          restoreChatStateDomains: true,
+          canonicalEventCount: canonicalEvents.length,
         });
       }
     } else {
@@ -1540,6 +3013,12 @@ export const encryptedAccountBackupServiceInternals = {
   parseBackupPayload,
   buildBackupPayloadWithHydratedChatState,
   hasPortablePrivateStateEvidence,
+  compareBackupEvents,
+  parseBackupCreatedAtMsTag,
+  nextBackupEventCreatedAtUnixSeconds,
+  resetBackupEventOrderingState: (): void => {
+    lastBackupEventCreatedAtByPublicKey.clear();
+  },
   fetchLatestEncryptedAccountBackupPayload: encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload,
   toEnvelope,
 };

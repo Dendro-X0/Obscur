@@ -9,6 +9,7 @@ import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime
 import { canPromoteToReadCutover, resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { getAccountSyncMigrationPolicy, setAccountSyncMigrationPolicy } from "@/app/features/account-sync/services/account-sync-migration-policy";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import type { RelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
 
 const ACTIVATION_FAIL_OPEN_TIMEOUT_MS = 12_000;
 
@@ -27,6 +28,54 @@ const resolveMigrationScope = (params: Readonly<{
   profileId: params.projectionSnapshot.profileId ?? undefined,
   accountPublicKeyHex: params.projectionSnapshot.accountPublicKeyHex ?? params.publicKeyHex ?? undefined,
 });
+
+const resolveRelayRuntimeGate = (relayRuntime: RelayRuntimeSnapshot): Readonly<{
+  status: "pass" | "degraded";
+  reasonCode?: string;
+  message?: string;
+}> => {
+  if (relayRuntime.enabledRelayUrls.length === 0) {
+    return { status: "pass" };
+  }
+
+  if (relayRuntime.phase === "fatal") {
+    return {
+      status: "degraded",
+      reasonCode: relayRuntime.recoveryReasonCode ?? "fatal",
+      message: relayRuntime.lastFailureReason
+        || "Relay runtime entered fatal state while activation was converging.",
+    };
+  }
+
+  if (relayRuntime.phase === "offline") {
+    return {
+      status: "degraded",
+      reasonCode: relayRuntime.recoveryReasonCode ?? "offline",
+      message: relayRuntime.lastFailureReason
+        || "Relay runtime is offline with configured relays.",
+    };
+  }
+
+  if (relayRuntime.phase === "degraded") {
+    return {
+      status: "degraded",
+      reasonCode: relayRuntime.recoveryReasonCode ?? "degraded",
+      message: relayRuntime.lastFailureReason
+        || "Relay runtime is degraded and cannot provide stable writable relay coverage.",
+    };
+  }
+
+  if (relayRuntime.phase === "recovering" && relayRuntime.writableRelayCount === 0) {
+    return {
+      status: "degraded",
+      reasonCode: relayRuntime.recoveryReasonCode ?? "recovering",
+      message: relayRuntime.lastFailureReason
+        || "Relay runtime is recovering with zero writable relays.",
+    };
+  }
+
+  return { status: "pass" };
+};
 
 export function RuntimeActivationManager(): null {
   const runtime = useWindowRuntime();
@@ -65,6 +114,7 @@ export function RuntimeActivationManager(): null {
   );
   const latestRelayCountsRef = useRef(getRelayCounts(relayPool.connections));
   const lastTransportInvariantSignatureRef = useRef<string | null>(null);
+  const lastRelayRuntimeGateSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     latestAccountSyncSnapshotRef.current = accountSync.snapshot;
@@ -383,13 +433,19 @@ export function RuntimeActivationManager(): null {
   }, [markRuntimeDegraded, publicKeyHex, runtimePhase]);
 
   useEffect(() => {
-    if (!publicKeyHex || runtimePhase !== "activating_runtime") {
+    const runtimeAwaitingActivationResolution = (
+      runtimePhase === "activating_runtime"
+      || runtimePhase === "degraded"
+    );
+    if (!publicKeyHex || !runtimeAwaitingActivationResolution) {
+      lastRelayRuntimeGateSignatureRef.current = null;
       return;
     }
     const readAuthority = resolveProjectionReadAuthority({
       projectionSnapshot: accountProjection.snapshot,
     });
     const relayCounts = getRelayCounts(relayPool.connections);
+    const relayRuntimeSnapshot = runtime.snapshot.relayRuntime;
     if (
       accountSync.snapshot.phase === "ready"
       && accountSync.snapshot.status !== "degraded"
@@ -397,28 +453,88 @@ export function RuntimeActivationManager(): null {
       && accountProjection.snapshot.status === "ready"
       && accountProjection.snapshot.accountProjectionReady
     ) {
+      const relayRuntimeGate = relayRuntimeSnapshot
+        ? resolveRelayRuntimeGate(relayRuntimeSnapshot)
+        : { status: "pass" as const };
+      if (relayRuntimeGate.status === "degraded") {
+        const degradedMessage = relayRuntimeGate.message ?? "Relay runtime degraded";
+        const relayGateSignature = [
+          relayRuntimeSnapshot?.phase ?? "booting",
+          relayRuntimeSnapshot?.recovery.readiness ?? "offline",
+          relayRuntimeGate.reasonCode ?? "none",
+          relayRuntimeSnapshot?.recoveryReasonCode ?? "none",
+          runtimePhase,
+        ].join(":");
+        if (lastRelayRuntimeGateSignatureRef.current !== relayGateSignature) {
+          lastRelayRuntimeGateSignatureRef.current = relayGateSignature;
+          logAppEvent({
+            name: "runtime.activation.relay_runtime_gate",
+            level: "warn",
+            scope: { feature: "runtime", action: "activation" },
+            context: {
+              relayRuntimePhase: relayRuntimeSnapshot?.phase ?? "booting",
+              relayReadiness: relayRuntimeSnapshot?.recovery.readiness ?? "offline",
+              relayReasonCode: relayRuntimeGate.reasonCode ?? "none",
+              relayRecoveryReasonCode: relayRuntimeSnapshot?.recoveryReasonCode ?? "none",
+              relayWritableCount: relayRuntimeSnapshot?.writableRelayCount ?? 0,
+              relayFallbackWritableCount: relayRuntimeSnapshot?.recovery.fallbackWritableRelayCount ?? 0,
+              relaySubscribableCount: relayRuntimeSnapshot?.subscribableRelayCount ?? 0,
+              relayFallbackCount: relayRuntimeSnapshot?.fallbackRelayUrls?.length ?? 0,
+              enabledRelayCount: relayRuntimeSnapshot?.enabledRelayUrls.length ?? 0,
+              accountSyncPhase: accountSync.snapshot.phase,
+              accountSyncStatus: accountSync.snapshot.status,
+              accountProjectionPhase: accountProjection.snapshot.phase,
+              accountProjectionStatus: accountProjection.snapshot.status,
+              runtimePhase,
+            },
+          });
+        }
+        if (runtimePhase === "activating_runtime" || runtime.snapshot.degradedReason !== "relay_runtime_degraded") {
+          markRuntimeDegraded("relay_runtime_degraded", {
+            completedAtUnixMs: Date.now(),
+            relayOpenCount: relayCounts.openRelayCount,
+            relayTotalCount: relayCounts.relayTotalCount,
+            accountSyncPhase: accountSync.snapshot.phase,
+            accountSyncStatus: accountSync.snapshot.status,
+            accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
+            accountProjectionPhase: accountProjection.snapshot.phase,
+            accountProjectionStatus: accountProjection.snapshot.status,
+            projectionPhase: accountProjection.snapshot.phase,
+            projectionStatus: accountProjection.snapshot.status,
+            migrationPhase: readAuthority.policy.phase,
+            driftStatus: accountProjection.snapshot.driftStatus,
+            message: degradedMessage,
+            degradedReason: "relay_runtime_degraded",
+          });
+        }
+        return;
+      }
+      lastRelayRuntimeGateSignatureRef.current = null;
+
       const migrationPolicy = readAuthority.policy;
       const driftGateFailed = (
         (migrationPolicy.phase === "read_cutover" || migrationPolicy.phase === "legacy_writes_disabled")
         && readAuthority.reason === "rollback_on_critical_drift"
       );
       if (driftGateFailed) {
-        markRuntimeDegraded("account_sync_degraded", {
-          completedAtUnixMs: Date.now(),
-          relayOpenCount: relayCounts.openRelayCount,
-          relayTotalCount: relayCounts.relayTotalCount,
-          accountSyncPhase: accountSync.snapshot.phase,
-          accountSyncStatus: accountSync.snapshot.status,
-          accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
-          accountProjectionPhase: accountProjection.snapshot.phase,
-          accountProjectionStatus: accountProjection.snapshot.status,
-          projectionPhase: accountProjection.snapshot.phase,
-          projectionStatus: accountProjection.snapshot.status,
-          migrationPhase: migrationPolicy.phase,
-          driftStatus: accountProjection.snapshot.driftStatus,
-          message: `Critical projection drift detected (${readAuthority.criticalDriftCount}). Reads rolled back to legacy.`,
-          degradedReason: "account_sync_degraded",
-        });
+        if (runtimePhase === "activating_runtime") {
+          markRuntimeDegraded("account_sync_degraded", {
+            completedAtUnixMs: Date.now(),
+            relayOpenCount: relayCounts.openRelayCount,
+            relayTotalCount: relayCounts.relayTotalCount,
+            accountSyncPhase: accountSync.snapshot.phase,
+            accountSyncStatus: accountSync.snapshot.status,
+            accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
+            accountProjectionPhase: accountProjection.snapshot.phase,
+            accountProjectionStatus: accountProjection.snapshot.status,
+            projectionPhase: accountProjection.snapshot.phase,
+            projectionStatus: accountProjection.snapshot.status,
+            migrationPhase: migrationPolicy.phase,
+            driftStatus: accountProjection.snapshot.driftStatus,
+            message: `Critical projection drift detected (${readAuthority.criticalDriftCount}). Reads rolled back to legacy.`,
+            degradedReason: "account_sync_degraded",
+          });
+        }
         return;
       }
       markRuntimeReady({
@@ -439,41 +555,45 @@ export function RuntimeActivationManager(): null {
       return;
     }
     if (accountProjection.snapshot.phase === "degraded" || accountProjection.snapshot.status === "degraded") {
-      markRuntimeDegraded("account_sync_degraded", {
-        completedAtUnixMs: Date.now(),
-        relayOpenCount: relayCounts.openRelayCount,
-        relayTotalCount: relayCounts.relayTotalCount,
-        accountSyncPhase: accountSync.snapshot.phase,
-        accountSyncStatus: accountSync.snapshot.status,
-        accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
-        accountProjectionPhase: accountProjection.snapshot.phase,
-        accountProjectionStatus: accountProjection.snapshot.status,
-        projectionPhase: accountProjection.snapshot.phase,
-        projectionStatus: accountProjection.snapshot.status,
-        migrationPhase: readAuthority.policy.phase,
-        driftStatus: accountProjection.snapshot.driftStatus,
-        message: accountProjection.snapshot.lastError || "Account projection bootstrap degraded",
-        degradedReason: "account_sync_degraded",
-      });
+      if (runtimePhase === "activating_runtime") {
+        markRuntimeDegraded("account_sync_degraded", {
+          completedAtUnixMs: Date.now(),
+          relayOpenCount: relayCounts.openRelayCount,
+          relayTotalCount: relayCounts.relayTotalCount,
+          accountSyncPhase: accountSync.snapshot.phase,
+          accountSyncStatus: accountSync.snapshot.status,
+          accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
+          accountProjectionPhase: accountProjection.snapshot.phase,
+          accountProjectionStatus: accountProjection.snapshot.status,
+          projectionPhase: accountProjection.snapshot.phase,
+          projectionStatus: accountProjection.snapshot.status,
+          migrationPhase: readAuthority.policy.phase,
+          driftStatus: accountProjection.snapshot.driftStatus,
+          message: accountProjection.snapshot.lastError || "Account projection bootstrap degraded",
+          degradedReason: "account_sync_degraded",
+        });
+      }
       return;
     }
     if (accountSync.snapshot.phase === "error" || accountSync.snapshot.status === "degraded") {
-      markRuntimeDegraded("account_sync_degraded", {
-        completedAtUnixMs: Date.now(),
-        relayOpenCount: relayCounts.openRelayCount,
-        relayTotalCount: relayCounts.relayTotalCount,
-        accountSyncPhase: accountSync.snapshot.phase,
-        accountSyncStatus: accountSync.snapshot.status,
-        accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
-        accountProjectionPhase: accountProjection.snapshot.phase,
-        accountProjectionStatus: accountProjection.snapshot.status,
-        projectionPhase: accountProjection.snapshot.phase,
-        projectionStatus: accountProjection.snapshot.status,
-        migrationPhase: readAuthority.policy.phase,
-        driftStatus: accountProjection.snapshot.driftStatus,
-        message: accountSync.snapshot.lastRelayFailureReason || accountSync.snapshot.message || "Account sync degraded",
-        degradedReason: "account_sync_degraded",
-      });
+      if (runtimePhase === "activating_runtime") {
+        markRuntimeDegraded("account_sync_degraded", {
+          completedAtUnixMs: Date.now(),
+          relayOpenCount: relayCounts.openRelayCount,
+          relayTotalCount: relayCounts.relayTotalCount,
+          accountSyncPhase: accountSync.snapshot.phase,
+          accountSyncStatus: accountSync.snapshot.status,
+          accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
+          accountProjectionPhase: accountProjection.snapshot.phase,
+          accountProjectionStatus: accountProjection.snapshot.status,
+          projectionPhase: accountProjection.snapshot.phase,
+          projectionStatus: accountProjection.snapshot.status,
+          migrationPhase: readAuthority.policy.phase,
+          driftStatus: accountProjection.snapshot.driftStatus,
+          message: accountSync.snapshot.lastRelayFailureReason || accountSync.snapshot.message || "Account sync degraded",
+          degradedReason: "account_sync_degraded",
+        });
+      }
     }
   }, [
     accountSync.snapshot.lastRelayFailureReason,
@@ -490,6 +610,15 @@ export function RuntimeActivationManager(): null {
     publicKeyHex,
     relayPool.connections,
     runtimePhase,
+    runtime.snapshot.degradedReason,
+    runtime.snapshot.lastError,
+    runtime.snapshot.relayRuntime?.enabledRelayUrls,
+    runtime.snapshot.relayRuntime?.lastFailureReason,
+    runtime.snapshot.relayRuntime?.phase,
+    runtime.snapshot.relayRuntime?.recovery?.readiness,
+    runtime.snapshot.relayRuntime?.recoveryReasonCode,
+    runtime.snapshot.relayRuntime?.subscribableRelayCount,
+    runtime.snapshot.relayRuntime?.writableRelayCount,
   ]);
 
   return null;

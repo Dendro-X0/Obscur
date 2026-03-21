@@ -89,20 +89,37 @@ describe("NativeRelay", () => {
     expect(relay.readyState).toBe(NativeRelay.OPEN);
   });
 
-  it("prefers native adapter path on desktop even when tor is disabled", async () => {
+  it("prefers browser websocket path on desktop when tor is disabled", async () => {
     adapterMocks.getTorStatus.mockResolvedValue("disabled");
-    adapterMocks.listenRelayStatus.mockResolvedValue(() => undefined);
-    adapterMocks.listenRelayEvent.mockResolvedValue(() => undefined);
-    adapterMocks.connectRelay.mockResolvedValue("Already connected");
 
     const relay = new NativeRelay("wss://relay.example");
     await flushRelayInit();
 
-    expect(adapterMocks.listenRelayStatus).toHaveBeenCalledTimes(1);
-    expect(adapterMocks.listenRelayEvent).toHaveBeenCalledTimes(1);
-    expect(adapterMocks.connectRelay).toHaveBeenCalledWith("wss://relay.example");
-    expect(MockWebSocket.instances).toHaveLength(0);
+    expect(adapterMocks.listenRelayStatus).not.toHaveBeenCalled();
+    expect(adapterMocks.listenRelayEvent).not.toHaveBeenCalled();
+    expect(adapterMocks.connectRelay).not.toHaveBeenCalled();
+    expect(MockWebSocket.instances).toHaveLength(1);
+    const browserSocket = MockWebSocket.instances[0];
+    browserSocket?.onopen?.(new Event("open"));
+
     expect(relay.readyState).toBe(NativeRelay.OPEN);
+  });
+
+  it("does not call native connect when tor is disabled", async () => {
+    adapterMocks.getTorStatus.mockResolvedValue("disabled");
+
+    const relay = new NativeRelay("wss://relay.example");
+    await flushRelayInit();
+
+    expect(adapterMocks.connectRelay).not.toHaveBeenCalled();
+    expect(MockWebSocket.instances).toHaveLength(1);
+    const browserSocket = MockWebSocket.instances[0];
+    browserSocket?.onopen?.(new Event("open"));
+
+    expect(relay.readyState).toBe(NativeRelay.OPEN);
+    expect(errorStoreMocks.addError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ code: "RELAY_CONNECT_FAILED" }),
+    );
   });
 
   it("routes subscription messages through relay adapter", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { useRelayList } from "../hooks/use-relay-list";
 import { useRelayPool } from "../hooks/use-relay-pool";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -40,12 +40,18 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const enabledRelayUrlsKey = useMemo(() => enabledRelayUrls.join("|"), [enabledRelayUrls]);
 
   const relayPool = useRelayPool(enabledRelayUrls);
+  const relayPoolRef = useRef(relayPool);
   const relayRuntimeSupervisor = useMemo(() => createRelayRuntimeSupervisor(), []);
   const relayRuntime = useRelayRuntimeSnapshot(relayRuntimeSupervisor);
+  const relayRuntimeRefreshRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    relayPoolRef.current = relayPool;
+  }, [relayPool]);
 
   useEffect(() => {
     relayRuntimeSupervisor.configure({
-      pool: relayPool,
+      pool: relayPoolRef.current,
       enabledRelayUrls,
       scope: {
         windowLabel: desktopSnapshot.currentWindow.windowLabel,
@@ -58,12 +64,32 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     desktopSnapshot.currentWindow.windowLabel,
     enabledRelayUrlsKey,
     publicKeyHex,
-    relayPool,
+    relayPool.getWritableRelaySnapshot,
+    relayPool.getTransportActivitySnapshot,
+    relayPool.reconnectAll,
+    relayPool.resubscribeAll,
+    relayPool.recycle,
     relayRuntimeSupervisor,
   ]);
 
   useEffect(() => {
-    relayRuntimeSupervisor.refresh();
+    if (typeof window === "undefined") {
+      relayRuntimeSupervisor.refresh();
+      return;
+    }
+    if (relayRuntimeRefreshRafRef.current !== null) {
+      window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
+    }
+    relayRuntimeRefreshRafRef.current = window.requestAnimationFrame(() => {
+      relayRuntimeRefreshRafRef.current = null;
+      relayRuntimeSupervisor.refresh();
+    });
+    return () => {
+      if (relayRuntimeRefreshRafRef.current !== null) {
+        window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
+        relayRuntimeRefreshRafRef.current = null;
+      }
+    };
   }, [relayPool.connections, relayPool.healthMetrics, relayRuntimeSupervisor]);
 
   useEffect(() => {
@@ -72,6 +98,10 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     return () => {
+      if (relayRuntimeRefreshRafRef.current !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
+        relayRuntimeRefreshRafRef.current = null;
+      }
       relayRuntimeSupervisor.dispose();
     };
   }, [relayRuntimeSupervisor]);

@@ -299,4 +299,42 @@ describe("account-projection-selectors", () => {
 
     expect(messages.map((message) => message.id)).toEqual(["dm-1"]);
   });
+
+  it("bounds projection conversation messages to the latest limit when requested", () => {
+    const my = "a".repeat(64);
+    const peer = "b".repeat(64);
+    const conversationId = [my, peer].sort().join(":");
+    const projection: AccountProjectionSnapshot = {
+      ...PROJECTION,
+      conversationsById: {
+        [conversationId]: {
+          conversationId,
+          peerPublicKeyHex: peer as any,
+          lastMessagePreview: "latest",
+          lastMessageAtUnixMs: 6_000,
+          unreadCount: 0,
+        },
+      },
+      messagesByConversationId: {
+        [conversationId]: Array.from({ length: 6 }, (_, index) => ({
+          messageId: `m-${index + 1}`,
+          conversationId,
+          peerPublicKeyHex: peer as any,
+          direction: index % 2 === 0 ? "incoming" : "outgoing",
+          eventCreatedAtUnixSeconds: index + 1,
+          plaintextPreview: `message-${index + 1}`,
+          observedAtUnixMs: (index + 1) * 1_000,
+        })),
+      },
+    };
+
+    const messages = selectProjectionConversationMessages({
+      projection,
+      conversationId,
+      myPublicKeyHex: my as any,
+      limit: 3,
+    });
+
+    expect(messages.map((message) => message.id)).toEqual(["m-4", "m-5", "m-6"]);
+  });
 });

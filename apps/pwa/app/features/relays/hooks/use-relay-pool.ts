@@ -77,6 +77,7 @@ export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResu
                 writeBlockedRelayCount: 0,
                 coolingDownRelayCount: 0,
                 fallbackRelayUrls: [],
+                fallbackWritableRelayCount: 0,
             }),
             getActiveSubscriptionCount: () => 0,
             dispose: () => { },

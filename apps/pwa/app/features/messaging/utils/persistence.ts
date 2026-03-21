@@ -1,4 +1,5 @@
 import { parsePublicKeyInput } from "../../profile/utils/parse-public-key-input";
+import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import type {
     PersistedChatState,
     PersistedDmConversation,
@@ -24,6 +25,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { toDmConversationId } from "./dm-conversation-id";
 
 const MAX_PERSISTED_MESSAGES_PER_CONVERSATION: number = 5000;
 const PERSISTED_CHAT_STATE_VERSION: number = 2;
@@ -813,9 +815,51 @@ export const toPersistedMessagesByConversationId = (messagesByConversationId: Me
     return result;
 };
 
-export const fromPersistedMessagesByConversationId = (messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>): MessagesByConversationId => {
+const inferPeerFromConversationId = (params: Readonly<{
+    conversationId: string;
+    myPublicKeyHex: PublicKeyHex;
+}>): PublicKeyHex | null => {
+    const directPeer = normalizePublicKeyHex(params.conversationId.trim());
+    if (directPeer && directPeer !== params.myPublicKeyHex) {
+        return directPeer;
+    }
+
+    const parts = params.conversationId.split(":");
+    if (parts.length !== 2) {
+        return null;
+    }
+    const left = normalizePublicKeyHex(parts[0]);
+    const right = normalizePublicKeyHex(parts[1]);
+    if (!left || !right) {
+        return null;
+    }
+    if (left === params.myPublicKeyHex && right !== params.myPublicKeyHex) {
+        return right;
+    }
+    if (right === params.myPublicKeyHex && left !== params.myPublicKeyHex) {
+        return left;
+    }
+    return null;
+};
+
+export const fromPersistedMessagesByConversationId = (
+    messagesByConversationId: Readonly<Record<string, ReadonlyArray<PersistedMessage>>>,
+    options?: Readonly<{
+        myPublicKeyHex?: PublicKeyHex | null;
+    }>
+): MessagesByConversationId => {
     const result: Record<string, ReadonlyArray<Message>> = {};
+    const myPublicKeyHex = normalizePublicKeyHex(options?.myPublicKeyHex);
     Object.entries(messagesByConversationId).forEach(([conversationId, messages]) => {
+        const inferredConversationPeer = myPublicKeyHex
+            ? inferPeerFromConversationId({ conversationId, myPublicKeyHex })
+            : null;
+        const canonicalConversationId = (myPublicKeyHex && inferredConversationPeer)
+            ? toDmConversationId({
+                myPublicKeyHex,
+                peerPublicKeyHex: inferredConversationPeer,
+            }) ?? conversationId
+            : conversationId;
         const parsed = messages.map((m): Message => {
             // Handle legacy data where 'attachment' might exist instead of 'attachments'
             const legacyMessage = m as unknown as { attachment?: Attachment };
@@ -823,21 +867,49 @@ export const fromPersistedMessagesByConversationId = (messagesByConversationId: 
                 ? m.attachments
                 : (legacyMessage.attachment ? [legacyMessage.attachment] : undefined);
 
+            const normalizedPersistedPubkey = normalizePublicKeyHex(m.pubkey);
+            let senderPubkey = normalizedPersistedPubkey;
+            if (!senderPubkey) {
+                if (m.isOutgoing && myPublicKeyHex) {
+                    senderPubkey = myPublicKeyHex;
+                } else if (!m.isOutgoing && inferredConversationPeer) {
+                    senderPubkey = inferredConversationPeer;
+                }
+            }
+            const recipientPubkey = m.isOutgoing
+                ? inferredConversationPeer ?? undefined
+                : myPublicKeyHex ?? undefined;
+            const effectiveIsOutgoing = senderPubkey === myPublicKeyHex
+                ? true
+                : senderPubkey
+                    ? false
+                    : m.isOutgoing;
+
             return {
                 id: m.id,
                 kind: m.kind ?? "user",
-                senderPubkey: m.pubkey as PublicKeyHex,
+                ...(senderPubkey ? { senderPubkey } : {}),
                 content: m.content,
                 timestamp: new Date(m.timestampMs),
-                isOutgoing: m.isOutgoing,
+                isOutgoing: effectiveIsOutgoing,
                 status: m.status,
                 ...(attachments ? { attachments } : {}),
                 ...(m.replyTo ? { replyTo: m.replyTo } : {}),
                 ...(m.reactions ? { reactions: m.reactions } : {}),
                 ...(m.deletedAtMs ? { deletedAt: new Date(m.deletedAtMs) } : {}),
+                ...(recipientPubkey ? { recipientPubkey } : {}),
+                conversationId: canonicalConversationId,
             };
         });
-        result[conversationId] = [...parsed]
+        const existing = result[canonicalConversationId] ?? [];
+        const byMessageId = new Map<string, Message>();
+        [...existing, ...parsed].forEach((message) => {
+            const prior = byMessageId.get(message.id);
+            if (!prior || message.timestamp.getTime() >= prior.timestamp.getTime()) {
+                byMessageId.set(message.id, message);
+            }
+        });
+        result[canonicalConversationId] = Array.from(byMessageId.values())
             .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
             .slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
     });

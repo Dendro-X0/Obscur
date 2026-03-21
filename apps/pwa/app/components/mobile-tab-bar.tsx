@@ -27,7 +27,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     const pathname = usePathname();
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 block border-t border-black/10 bg-white/80 pb-[calc(env(safe-area-inset-bottom)+1.75rem)] pt-2 backdrop-blur-xl dark:border-white/10 dark:bg-black/80 md:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 block border-t border-black/10 bg-white/80 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl dark:border-white/10 dark:bg-black/80 md:hidden">
             <div className="flex items-center justify-around px-2">
                 {NAV_ITEMS.map((item) => {
                     const Icon = ICON_BY_HREF[item.href];

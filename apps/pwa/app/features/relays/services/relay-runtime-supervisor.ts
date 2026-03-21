@@ -21,6 +21,10 @@ import {
 } from "./sticky-relay-recovery";
 import { relayTransportJournal } from "./relay-transport-journal";
 import { relayResilienceObservability } from "./relay-resilience-observability";
+import { logAppEvent } from "@/app/shared/log-app-event";
+import { incrementReliabilityMetric } from "@/app/shared/reliability-observability";
+
+const isCalibrationReasonCode = (reasonCode: string): boolean => reasonCode.startsWith("insufficient_");
 
 type Listener = () => void;
 
@@ -88,6 +92,7 @@ class RelayRuntimeSupervisor {
   private unsubscribeTransportJournal: (() => void) | null = null;
   private autoRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private browserSignalsAttached = false;
+  private lastPerformanceGateSignature: string | null = null;
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
@@ -150,6 +155,7 @@ class RelayRuntimeSupervisor {
     this.detachBrowserSignals();
     this.recoveryController.dispose();
     this.config = null;
+    this.lastPerformanceGateSignature = null;
     this.snapshot = createDefaultRelayRuntimeSnapshot({
       instanceId: this.instanceId,
     });
@@ -237,11 +243,52 @@ class RelayRuntimeSupervisor {
     }
 
     this.snapshot = next;
+    this.emitPerformanceGate(next);
     this.installTools();
     this.scheduleAutoRecovery();
     if (changed) {
       this.emit();
     }
+  }
+
+  private emitPerformanceGate(snapshot: RelayRuntimeSnapshot): void {
+    const resilienceSnapshot = relayResilienceObservability.getSnapshot(snapshot.updatedAtUnixMs);
+    const gate = relayResilienceObservability.evaluateRuntimePerformanceGate({
+      snapshot: resilienceSnapshot,
+    });
+    const signature = `${gate.status}:${gate.reasons.join("|")}`;
+    if (this.lastPerformanceGateSignature === signature) {
+      return;
+    }
+    this.lastPerformanceGateSignature = signature;
+    const isCalibrationOnly = gate.reasons.every((reason) => isCalibrationReasonCode(reason));
+    if (gate.status === "warn" && !isCalibrationOnly) {
+      incrementReliabilityMetric("relay_runtime_performance_warn");
+    } else if (gate.status === "fail") {
+      incrementReliabilityMetric("relay_runtime_performance_fail");
+    }
+    logAppEvent({
+      name: "relay.runtime_performance_gate",
+      level: gate.status === "fail"
+        ? "error"
+        : (gate.status === "warn" && !isCalibrationOnly ? "warn" : "info"),
+      scope: { feature: "relays", action: "runtime_performance_gate" },
+      context: {
+        runtimePhase: snapshot.phase,
+        recoveryStage: snapshot.recoveryStage ?? "none",
+        performanceGateStatus: gate.status,
+        performancePrimaryReasonCode: gate.primaryReasonCode,
+        performanceReasonCodes: gate.reasons.join(","),
+        observedWindowMs: gate.observedWindowMs,
+        recoveryP95LatencyMs: gate.recoveryP95LatencyMs,
+        replaySuccessRatio: gate.replaySuccessRatio,
+        scopedBlockedRatio: gate.scopedBlockedRatio,
+        maxFlapRatePerMinute: gate.maxFlapRatePerMinute,
+        sampleRecoveryCount: gate.sampleCounts.recovery,
+        sampleReplayCount: gate.sampleCounts.replay,
+        sampleScopedCount: gate.sampleCounts.scopedPublish,
+      },
+    });
   }
 
   private scheduleAutoRecovery(): void {
@@ -255,6 +302,7 @@ class RelayRuntimeSupervisor {
     if (!shouldAutoRecoverRelays({
       enabledRelayCount: this.config.enabledRelayUrls.length,
       writableRelayCount: this.snapshot.writableRelayCount,
+      fallbackWritableRelayCount: this.snapshot.recovery.fallbackWritableRelayCount,
     })) {
       return;
     }
@@ -263,6 +311,7 @@ class RelayRuntimeSupervisor {
     }, getAutoRecoveryDelayMs({
       readiness: this.snapshot.recovery.readiness,
       recoveryAttemptCount: this.snapshot.recoveryAttemptCount,
+      fallbackWritableRelayCount: this.snapshot.recovery.fallbackWritableRelayCount,
     }));
   }
 

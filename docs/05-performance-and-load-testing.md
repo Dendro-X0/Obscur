@@ -1,6 +1,6 @@
 # 05 Data, State, and Sync Flows
 
-_Last reviewed: 2026-03-18 (baseline commit 11f5602)._
+_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
 
 ## Core Principle
 
@@ -73,9 +73,46 @@ Key files:
 - Do not mark delivery successful from optimistic UI state.
 - Keep profile/account scope explicit in every storage access.
 
+## Startup Fail-Open Model (v0.9.2)
+
+Warm-up supervisor ownership is removed in the active runtime path.
+Startup now uses bounded fail-open gates:
+
+1. Profile bootstrap gate:
+: `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.tsx`
+: native profile refresh is deadline-bounded and retries in background.
+2. Identity storage gate:
+: `apps/pwa/app/features/auth/utils/open-identity-db.ts`
+: IndexedDB open is timeout/blocked guarded.
+3. Profile boot stall gate:
+: `apps/pwa/app/features/runtime/components/profile-bound-auth-shell.tsx`
+: stall path shows deterministic recovery actions instead of infinite loading.
+4. Runtime activation gate:
+: `apps/pwa/app/features/runtime/components/runtime-activation-manager.tsx`
+: activation can degrade fail-open instead of blocking forever.
+
 ## v0.9.2 Sync Priorities
 
 1. Preserve joined-community state across logout/login and new-device restore for both inviter and invitee identities.
 2. Ensure account projection replay restores canonical DM and community views without identity-target navigation drift.
 3. Keep unread state scoped by canonical conversation target so group unread and DM unread cannot cross-trigger.
 4. Keep backup publish, mutation signals, and projection replay convergent under startup relay churn.
+
+## Relay Foundation Phase 1 Baseline
+
+Reference:
+- `docs/15-relay-foundation-hardening-spec.md`
+
+Baseline scenarios to run before and after relay-runtime changes:
+
+1. startup with healthy relays,
+2. startup with mixed healthy/dead relays,
+3. startup with zero writable relays (degraded expected),
+4. disconnect after `ready`,
+5. reconnect + subscription replay.
+
+Capture payload (compact):
+- `window.obscurWindowRuntime.getSnapshot()`
+- `window.obscurRelayRuntime.getSnapshot()`
+- `window.obscurRelayTransportJournal.getSnapshot()`
+- `window.obscurAppEvents.getDigest(300)`

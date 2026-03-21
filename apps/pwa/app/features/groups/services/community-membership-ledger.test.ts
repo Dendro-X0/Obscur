@@ -65,6 +65,21 @@ describe("community-membership-ledger", () => {
     }));
   });
 
+  it("merges scoped and legacy snapshots instead of letting empty scoped data hide legacy membership", () => {
+    const scopedEmpty = getScopedStorageKey(LEGACY_STORAGE_KEY, "profile-b");
+    setProfileScopeOverride("profile-b");
+    window.localStorage.setItem(scopedEmpty, JSON.stringify([]));
+    window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify([BASE_ENTRY]));
+
+    const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]).toEqual(expect.objectContaining({
+      groupId: BASE_ENTRY.groupId,
+      relayUrl: BASE_ENTRY.relayUrl,
+      status: "joined",
+    }));
+  });
+
   it("merges by newest entry timestamp per community key", () => {
     const older: CommunityMembershipLedgerEntry = { ...BASE_ENTRY, status: "joined", updatedAtUnixMs: 100 };
     const newer: CommunityMembershipLedgerEntry = { ...BASE_ENTRY, status: "left", updatedAtUnixMs: 200 };

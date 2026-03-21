@@ -312,13 +312,23 @@ export const syncMissedMessages = async (
       passCount += 1;
       const passStartedAtUnixMs = Date.now();
 
-      const syncFilter: NostrFilter = {
-        kinds: [4, 1059],
-        "#p": [myPublicKeyHex],
-        since: targetSince,
-        limit: syncLimit,
-        ...(typeof untilUnixSeconds === "number" ? { until: untilUnixSeconds } : {}),
-      };
+      const syncFilters: ReadonlyArray<NostrFilter> = [
+        {
+          kinds: [4, 1059],
+          "#p": [myPublicKeyHex],
+          since: targetSince,
+          limit: syncLimit,
+          ...(typeof untilUnixSeconds === "number" ? { until: untilUnixSeconds } : {}),
+        },
+        {
+          // Backfill self-authored kind-4 messages for cross-device sent history.
+          kinds: [4],
+          authors: [myPublicKeyHex],
+          since: targetSince,
+          limit: syncLimit,
+          ...(typeof untilUnixSeconds === "number" ? { until: untilUnixSeconds } : {}),
+        },
+      ];
 
       let passSyncedCount = 0;
       let passErrorCount = 0;
@@ -442,7 +452,7 @@ export const syncMissedMessages = async (
         openRelayUrls,
       });
 
-      pool.sendToOpen(JSON.stringify(["REQ", syncSubId, syncFilter]));
+      pool.sendToOpen(JSON.stringify(["REQ", syncSubId, ...syncFilters]));
 
       unsubscribe = pool.subscribeToMessages(({ url, message }) => {
         try {

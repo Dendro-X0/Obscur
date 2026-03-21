@@ -40,7 +40,7 @@ describe("applyBufferedEvents", () => {
     });
 
     it("applies soft live-window limit only when performance mode is enabled and history is not expanded", () => {
-        const previous = Array.from({ length: 130 }, (_, index) =>
+        const previous = Array.from({ length: 230 }, (_, index) =>
             createMessage({
                 id: `m-${index + 1}`,
                 timestampMs: 1000 + index
@@ -48,14 +48,14 @@ describe("applyBufferedEvents", () => {
         );
 
         const trimmed = applyBufferedEvents(previous, [], true, false);
-        expect(trimmed).toHaveLength(120);
-        expect(trimmed[0].id).toBe("m-11");
+        expect(trimmed).toHaveLength(200);
+        expect(trimmed[0].id).toBe("m-31");
 
         const expanded = applyBufferedEvents(previous, [], true, true);
-        expect(expanded).toHaveLength(130);
+        expect(expanded).toHaveLength(230);
 
         const legacy = applyBufferedEvents(previous, [], false, false);
-        expect(legacy).toHaveLength(130);
+        expect(legacy).toHaveLength(230);
     });
 
     it("prevents stale upsert from resurrecting a recently deleted message id", () => {

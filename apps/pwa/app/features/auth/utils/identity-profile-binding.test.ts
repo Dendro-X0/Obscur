@@ -56,6 +56,18 @@ const mocks = vi.hoisted(() => {
     openIdentityDb,
     getActiveProfileIdSafe: vi.fn(() => "default"),
     getProfileScopeOverride: vi.fn<() => string | null>(() => null),
+    getRegistryState: vi.fn(() => ({
+      activeProfileId: "default",
+      profiles: [
+        {
+          profileId: "default",
+          label: "Default",
+          createdAtUnixMs: 1,
+          lastUsedAtUnixMs: 1,
+          status: "active",
+        },
+      ],
+    })),
     ensureProfile: vi.fn(() => ({ ok: true, value: null })),
     switchProfile: vi.fn(() => ({ ok: true, value: null })),
   };
@@ -73,6 +85,7 @@ vi.mock("@/app/features/profiles/services/profile-scope", () => ({
 
 vi.mock("@/app/features/profiles/services/profile-registry-service", () => ({
   ProfileRegistryService: {
+    getState: mocks.getRegistryState,
     ensureProfile: mocks.ensureProfile,
     switchProfile: mocks.switchProfile,
   },
@@ -87,6 +100,18 @@ describe("identity-profile-binding", () => {
     mocks.setEntries([]);
     mocks.getActiveProfileIdSafe.mockReturnValue("default");
     mocks.getProfileScopeOverride.mockReturnValue(null);
+    mocks.getRegistryState.mockReturnValue({
+      activeProfileId: "default",
+      profiles: [
+        {
+          profileId: "default",
+          label: "Default",
+          createdAtUnixMs: 1,
+          lastUsedAtUnixMs: 1,
+          status: "active",
+        },
+      ],
+    });
     mocks.ensureProfile.mockReturnValue({ ok: true, value: null });
     mocks.switchProfile.mockReturnValue({ ok: true, value: null });
   });
@@ -161,5 +186,31 @@ describe("identity-profile-binding", () => {
     expect(binding?.record.publicKeyHex).toBe(record.publicKeyHex);
     expect(mocks.ensureProfile).toHaveBeenCalledWith("pk-ccc", "Carol");
     expect(mocks.switchProfile).toHaveBeenCalledWith("pk-ccc");
+  });
+
+  it("recovers remembered profile identity when multiple bindings exist", async () => {
+    const primaryRecord: IdentityRecord = {
+      encryptedPrivateKey: "cipher-primary",
+      publicKeyHex: "e".repeat(64),
+      username: "Erin",
+    };
+    const secondaryRecord: IdentityRecord = {
+      encryptedPrivateKey: "cipher-secondary",
+      publicKeyHex: "f".repeat(64),
+      username: "Frank",
+    };
+    mocks.setEntries([
+      { key: "identity::profile-a", value: primaryRecord },
+      { key: "identity::profile-b", value: secondaryRecord },
+    ]);
+    localStorage.setItem("obscur_remember_me::profile-b", "true");
+    localStorage.setItem("obscur_auth_token::profile-b", "passphrase");
+
+    const { recoverStoredIdentityProfile } = await import("./identity-profile-binding");
+    const binding = await recoverStoredIdentityProfile();
+
+    expect(binding?.profileId).toBe("profile-b");
+    expect(binding?.record.publicKeyHex).toBe(secondaryRecord.publicKeyHex);
+    expect(mocks.switchProfile).toHaveBeenCalledWith("profile-b");
   });
 });

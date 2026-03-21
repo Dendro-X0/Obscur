@@ -13,6 +13,7 @@ import { toArrayBuffer } from "@dweb/crypto/to-array-buffer";
 
 export const NATIVE_KEY_SENTINEL = "native" as PrivateKeyHex;
 const DEFAULT_NATIVE_COMMAND_TIMEOUT_MS = 15_000;
+const NATIVE_SESSION_DISCOVERY_TIMEOUT_MS = 3_000;
 
 const toHex = (bytes: Uint8Array): string => {
     return Array.from(bytes)
@@ -122,7 +123,11 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
     async hasNativeKey(): Promise<boolean> {
         if (this.hasNativeKeyCached !== null) return this.hasNativeKeyCached;
         try {
-            const npub = await this.invokeWithTimeout<string | null>("get_native_npub");
+            const npub = await this.invokeWithTimeout<string | null>(
+                "get_native_npub",
+                undefined,
+                NATIVE_SESSION_DISCOVERY_TIMEOUT_MS,
+            );
             this.hasNativeKeyCached = npub !== null;
             return this.hasNativeKeyCached;
         } catch (e) {
@@ -153,7 +158,11 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
 
     async getNativeNpub(): Promise<string | null> {
         try {
-            return await this.invokeWithTimeout<string | null>("get_native_npub");
+            return await this.invokeWithTimeout<string | null>(
+                "get_native_npub",
+                undefined,
+                NATIVE_SESSION_DISCOVERY_TIMEOUT_MS,
+            );
         } catch (e) {
             const errorMsg = String(e);
             if (errorMsg.includes("not supported")) {
@@ -357,4 +366,5 @@ export const nativeCryptoServiceInternals = {
     deriveRumorEventId,
     resolveRumorEventId,
     fallbackDigestHex,
+    NATIVE_SESSION_DISCOVERY_TIMEOUT_MS,
 };

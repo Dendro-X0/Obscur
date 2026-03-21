@@ -257,7 +257,6 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                     playsInline
                     preload="metadata"
                     autoPlay={autoPlay}
-                    crossOrigin="anonymous"
                 />
             )}
 

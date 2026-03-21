@@ -47,6 +47,7 @@ const createPool = (): EnhancedRelayPoolResult => ({
     writeBlockedRelayCount: 0,
     coolingDownRelayCount: 0,
     fallbackRelayUrls: [],
+    fallbackWritableRelayCount: 0,
   })),
   getActiveSubscriptionCount: vi.fn(() => 0),
   dispose: vi.fn(),
@@ -64,9 +65,19 @@ describe("relay recovery policy", () => {
   it("classifies healthy when writable and subscribable relays exist", () => {
     expect(classifyRelayRecoveryState({
       writableRelayCount: 2,
+      fallbackWritableRelayCount: 0,
       subscribableRelayCount: 2,
       recoveryAttemptCount: 0,
     })).toBe("healthy");
+  });
+
+  it("classifies fallback-only writable coverage as degraded", () => {
+    expect(classifyRelayRecoveryState({
+      writableRelayCount: 0,
+      fallbackWritableRelayCount: 1,
+      subscribableRelayCount: 1,
+      recoveryAttemptCount: 3,
+    })).toBe("degraded");
   });
 
   it("triggers reconnect on the first recovery attempt", async () => {
@@ -76,6 +87,7 @@ describe("relay recovery policy", () => {
 
     await controller.triggerRecovery("no_writable_relays");
     expect(pool.reconnectAll).toHaveBeenCalledTimes(1);
+    expect(pool.reconnectAll).toHaveBeenLastCalledWith({ force: true });
   });
 
   it("cycles no_writable_relays recovery without escalating to reload_required", async () => {
@@ -104,6 +116,8 @@ describe("relay recovery policy", () => {
     expect(fourth.recoveryReasonCode).toBe("no_writable_relays");
 
     expect(pool.reconnectAll).toHaveBeenCalledTimes(2);
+    expect(pool.reconnectAll).toHaveBeenNthCalledWith(1, { force: true });
+    expect(pool.reconnectAll).toHaveBeenNthCalledWith(2, { force: true });
     expect(pool.resubscribeAll).toHaveBeenCalledTimes(1);
     expect(pool.recycle).toHaveBeenCalledTimes(1);
   });
@@ -111,7 +125,7 @@ describe("relay recovery policy", () => {
   it("escalates non-no_writable relays recoveries to reload_required when exhausted", async () => {
     const controller = createRelayRecoveryController();
     const pool = createPool();
-    controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
+    controller.configure({ pool, enabledRelayUrls: [] });
 
     vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
     await controller.triggerRecovery("manual");
@@ -126,6 +140,36 @@ describe("relay recovery policy", () => {
 
     expect(exhausted.currentAction).toBe("reload_required");
     expect(exhausted.recoveryReasonCode).toBe("recovery_exhausted");
+  });
+
+  it("maps manual recovery to cyclic no_writable_relays when runtime is disconnected", async () => {
+    const controller = createRelayRecoveryController();
+    const pool = createPool();
+    controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
+
+    vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
+    const first = await controller.triggerRecovery("manual");
+    expect(first.currentAction).toBe("reconnect");
+    expect(first.recoveryReasonCode).toBe("no_writable_relays");
+
+    vi.setSystemTime(new Date("2026-01-01T00:00:18.000Z"));
+    const second = await controller.triggerRecovery("manual");
+    expect(second.currentAction).toBe("resubscribe");
+    expect(second.recoveryReasonCode).toBe("no_writable_relays");
+
+    vi.setSystemTime(new Date("2026-01-01T00:00:27.000Z"));
+    const third = await controller.triggerRecovery("manual");
+    expect(third.currentAction).toBe("subsystem_reset");
+    expect(third.recoveryReasonCode).toBe("no_writable_relays");
+
+    vi.setSystemTime(new Date("2026-01-01T00:00:36.000Z"));
+    const fourth = await controller.triggerRecovery("manual");
+    expect(fourth.currentAction).toBe("reconnect");
+    expect(fourth.recoveryReasonCode).toBe("no_writable_relays");
+
+    expect(pool.reconnectAll).toHaveBeenCalledTimes(2);
+    expect(pool.resubscribeAll).toHaveBeenCalledTimes(1);
+    expect(pool.recycle).toHaveBeenCalledTimes(1);
   });
 
   it("treats control chatter without event freshness as stale subscription risk", async () => {
@@ -148,17 +192,20 @@ describe("relay recovery policy", () => {
       writeBlockedRelayCount: 0,
       coolingDownRelayCount: 0,
       fallbackRelayUrls: [],
+      fallbackWritableRelayCount: 0,
     });
 
     controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
     controller.startWarmup();
     await controller.triggerRecovery("manual");
     expect(pool.reconnectAll).toHaveBeenCalledTimes(1);
+    expect(pool.reconnectAll).toHaveBeenLastCalledWith({ force: true });
 
     vi.setSystemTime(Date.now() + 46_000);
     await vi.advanceTimersByTimeAsync(12_000);
 
     expect(pool.reconnectAll).toHaveBeenCalledTimes(2);
+    expect(pool.reconnectAll).toHaveBeenNthCalledWith(2, { force: true });
   });
 
   it("exposes deterministic recovery-step selectors", () => {
@@ -177,6 +224,7 @@ describe("relay recovery policy", () => {
     expect(relayRecoveryInternals.resolveWatchdogRecoveryReason({
       enabledRelayCount: 1,
       writableRelayCount: 0,
+      fallbackWritableRelayCount: 0,
       subscribableRelayCount: 1,
       writeBlockedRelayCount: 1,
       coolingDownRelayCount: 0,
@@ -186,6 +234,7 @@ describe("relay recovery policy", () => {
     expect(relayRecoveryInternals.resolveWatchdogRecoveryReason({
       enabledRelayCount: 1,
       writableRelayCount: 0,
+      fallbackWritableRelayCount: 0,
       subscribableRelayCount: 0,
       writeBlockedRelayCount: 0,
       coolingDownRelayCount: 1,
@@ -195,11 +244,56 @@ describe("relay recovery policy", () => {
     expect(relayRecoveryInternals.resolveWatchdogRecoveryReason({
       enabledRelayCount: 1,
       writableRelayCount: 1,
+      fallbackWritableRelayCount: 0,
       subscribableRelayCount: 1,
       writeBlockedRelayCount: 0,
       coolingDownRelayCount: 0,
       eventFreshnessReferenceUnixMs: 100_000 - 60_000,
       nowUnixMs: 100_000,
     })).toBe("stale_event_flow");
+    expect(relayRecoveryInternals.resolveManualRecoveryReason({
+      requestedReason: "manual",
+      enabledRelayCount: 1,
+      snapshot: {
+        ...relayRecoveryInternals.createDefaultSnapshot(),
+        readiness: "offline",
+        writableRelayCount: 0,
+        fallbackWritableRelayCount: 0,
+        subscribableRelayCount: 0,
+        writeBlockedRelayCount: 0,
+        coolingDownRelayCount: 0,
+      },
+    })).toBe("no_writable_relays");
+    expect(relayRecoveryInternals.resolveWatchdogRecoveryReason({
+      enabledRelayCount: 1,
+      writableRelayCount: 0,
+      fallbackWritableRelayCount: 1,
+      subscribableRelayCount: 1,
+      writeBlockedRelayCount: 0,
+      coolingDownRelayCount: 1,
+      eventFreshnessReferenceUnixMs: undefined,
+      nowUnixMs: 100_000,
+    })).toBeUndefined();
+    expect(relayRecoveryInternals.resolveManualRecoveryReason({
+      requestedReason: "manual",
+      enabledRelayCount: 1,
+      snapshot: {
+        ...relayRecoveryInternals.createDefaultSnapshot(),
+        readiness: "degraded",
+        writableRelayCount: 0,
+        fallbackWritableRelayCount: 1,
+        subscribableRelayCount: 1,
+      },
+    })).toBe("manual");
+    expect(relayRecoveryInternals.resolveAttemptBaseline({
+      reason: "no_writable_relays",
+      previousReason: "manual",
+      previousAttemptCount: 2,
+    })).toBe(0);
+    expect(relayRecoveryInternals.resolveAttemptBaseline({
+      reason: "write_queue_blocked",
+      previousReason: "cooldown_active",
+      previousAttemptCount: 2,
+    })).toBe(2);
   });
 });

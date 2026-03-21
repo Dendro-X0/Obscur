@@ -144,12 +144,20 @@ describe("dm-subscription-manager", () => {
 
     const expectedSinceUnixSeconds = Math.floor(new Date("2026-03-14T00:00:00Z").getTime() / 1000);
     expect(pool.subscribe).toHaveBeenCalledWith(
-      [expect.objectContaining({
-        kinds: [4, 1059],
-        "#p": ["a".repeat(64)],
-        limit: 50,
-        since: expectedSinceUnixSeconds,
-      })],
+      [
+        expect.objectContaining({
+          kinds: [4, 1059],
+          "#p": ["a".repeat(64)],
+          limit: 50,
+          since: expectedSinceUnixSeconds,
+        }),
+        expect.objectContaining({
+          kinds: [4],
+          authors: ["a".repeat(64)],
+          limit: 50,
+          since: expectedSinceUnixSeconds,
+        }),
+      ],
       expect.any(Function)
     );
   });

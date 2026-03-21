@@ -8,13 +8,22 @@ import { MediaGallery } from "./media-gallery";
 import { Lightbox } from "./lightbox";
 import { MessageMenu } from "./message-menu";
 import { ReactionPicker } from "./reaction-picker";
-import { Lock, UploadCloud } from "lucide-react";
+import { Loader2, Lock, Search, UploadCloud, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
     Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary,
     SendDirectMessageParams, SendDirectMessageResult
 } from "../types";
+import { chatStateStoreService } from "../services/chat-state-store";
+import { formatTime, highlightText } from "../utils/formatting";
 import Image from "next/image";
+import { cn } from "@/app/lib/utils";
+
+type ChatHistorySearchResult = Readonly<{
+    messageId: string;
+    timestamp: Date;
+    preview: string;
+}>;
 
 export interface ChatViewProps {
     conversation: Conversation;
@@ -92,14 +101,81 @@ export interface ChatViewProps {
 export function ChatView(props: ChatViewProps) {
     const { t } = useTranslation();
     const [isDragging, setIsDragging] = useState(false);
+    const [isHistorySearchOpen, setIsHistorySearchOpen] = useState(false);
+    const [historySearchQuery, setHistorySearchQuery] = useState("");
+    const [isHistorySearching, setIsHistorySearching] = useState(false);
+    const [historySearchResults, setHistorySearchResults] = useState<ReadonlyArray<ChatHistorySearchResult>>([]);
+    const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
+    const [searchFlashMessageId, setSearchFlashMessageId] = useState<string | null>(null);
     const [messageMenuAnchorHoverId, setMessageMenuAnchorHoverId] = useState<string | null>(null);
     const [isMessageMenuHovered, setIsMessageMenuHovered] = useState(false);
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
     const resolvedName = metadata?.displayName || props.conversation.displayName;
+    const resolvedNowMs = props.nowMs ?? Date.now();
+    const normalizedHistorySearchQuery = historySearchQuery.trim().toLowerCase();
+    const canSearchHistory = normalizedHistorySearchQuery.length >= 2;
+    const effectiveFlashMessageId = searchFlashMessageId ?? props.flashMessageId;
 
     const getMessageById = (messageId: string): Message | undefined => {
         return props.messages.find(m => m.id === messageId);
     };
+
+    const handleJumpToMessage = React.useCallback((messageId: string): void => {
+        setJumpToMessageId(messageId);
+        setSearchFlashMessageId(messageId);
+        window.setTimeout(() => {
+            setSearchFlashMessageId((current) => (current === messageId ? null : current));
+        }, 2200);
+    }, []);
+
+    React.useEffect(() => {
+        setHistorySearchQuery("");
+        setHistorySearchResults([]);
+        setIsHistorySearching(false);
+        setJumpToMessageId(null);
+        setSearchFlashMessageId(null);
+        setIsHistorySearchOpen(false);
+    }, [props.conversation.id]);
+
+    React.useEffect(() => {
+        if (!canSearchHistory) {
+            setHistorySearchResults([]);
+            setIsHistorySearching(false);
+            return;
+        }
+
+        let cancelled = false;
+        setIsHistorySearching(true);
+
+        const debounceId = window.setTimeout(async () => {
+            try {
+                const searchResults = await chatStateStoreService.searchMessages(normalizedHistorySearchQuery, 120);
+                if (cancelled) {
+                    return;
+                }
+
+                const conversationResults = searchResults
+                    .filter((result) => result.conversationId === props.conversation.id)
+                    .map((result) => ({
+                        messageId: result.message.id,
+                        timestamp: new Date(result.message.timestampMs),
+                        preview: result.message.content,
+                    }))
+                    .slice(0, 50);
+
+                setHistorySearchResults(conversationResults);
+            } finally {
+                if (!cancelled) {
+                    setIsHistorySearching(false);
+                }
+            }
+        }, 250);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(debounceId);
+        };
+    }, [canSearchHistory, normalizedHistorySearchQuery, props.conversation.id]);
 
     const handleMessageMenuAnchorHoverChange = React.useCallback((params: { messageId: string; isHovered: boolean }): void => {
         setMessageMenuAnchorHoverId((current) => {
@@ -188,10 +264,11 @@ export function ChatView(props: ChatViewProps) {
 
 
     const activeMessage = messageMenu && getMessageById(messageMenu.messageId);
+    const activeReactionMessage = reactionPicker && getMessageById(reactionPicker.messageId);
 
     return (
         <div
-            className="flex flex-col flex-1 min-h-0 relative overflow-hidden"
+            className="group/chat-root flex flex-col flex-1 min-h-0 relative overflow-hidden"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -220,6 +297,81 @@ export function ChatView(props: ChatViewProps) {
                     onBlock={() => props.onBlockPeer?.()}
                 />
             )}
+
+            <div className="pointer-events-none absolute bottom-[108px] right-4 z-40 flex w-[min(24rem,calc(100%-2rem))] flex-col items-end gap-2">
+                <button
+                    type="button"
+                    onClick={() => setIsHistorySearchOpen((current) => !current)}
+                    className={cn(
+                        "inline-flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-white/80 px-3 text-[11px] font-bold text-zinc-700 shadow-sm backdrop-blur transition-all dark:border-white/10 dark:bg-zinc-900/80 dark:text-zinc-200",
+                        isHistorySearchOpen
+                            ? "pointer-events-auto opacity-100 translate-y-0 hover:bg-white dark:hover:bg-zinc-900"
+                            : "pointer-events-none translate-y-2 opacity-0 group-hover/chat-root:pointer-events-auto group-hover/chat-root:translate-y-0 group-hover/chat-root:opacity-100 group-focus-within/chat-root:pointer-events-auto group-focus-within/chat-root:translate-y-0 group-focus-within/chat-root:opacity-100 hover:bg-white dark:hover:bg-zinc-900",
+                    )}
+                >
+                    <Search className="h-3.5 w-3.5" />
+                    {t("messaging.searchMessagesInChat", "Search Messages")}
+                </button>
+
+                {isHistorySearchOpen ? (
+                    <div className="pointer-events-auto w-full rounded-2xl border border-black/10 bg-white/85 p-2 shadow-lg backdrop-blur dark:border-white/10 dark:bg-zinc-950/85">
+                        <div className="mb-2 flex items-center justify-end">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setHistorySearchQuery("");
+                                    setHistorySearchResults([]);
+                                    setIsHistorySearchOpen(false);
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white/70 text-zinc-500 transition-colors hover:text-zinc-800 dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-400 dark:hover:text-zinc-100"
+                                aria-label={t("common.close", "Close")}
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
+                                <input
+                                    value={historySearchQuery}
+                                    onChange={(event) => setHistorySearchQuery(event.target.value)}
+                                    placeholder={t("messaging.searchMessagesInChatPlaceholder", "Search message history in this chat...")}
+                                    className="h-10 w-full rounded-xl border border-black/10 bg-white/70 pl-9 pr-9 text-sm text-zinc-800 placeholder:text-zinc-400 outline-none ring-purple-500/20 transition focus:border-purple-400/50 focus:ring-2 dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                                    suppressHydrationWarning
+                                />
+                                {isHistorySearching ? (
+                                    <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-purple-500/70" />
+                                ) : null}
+                            </div>
+
+                            {canSearchHistory ? (
+                                <div className="max-h-44 overflow-y-auto rounded-xl border border-black/5 bg-white/70 p-1 dark:border-white/5 dark:bg-zinc-900/70">
+                                    {historySearchResults.length === 0 && !isHistorySearching ? (
+                                        <p className="px-3 py-4 text-xs text-zinc-500">{t("messaging.noMatchingMessages")}</p>
+                                    ) : (
+                                        historySearchResults.map((result) => (
+                                            <button
+                                                key={result.messageId}
+                                                type="button"
+                                                onClick={() => handleJumpToMessage(result.messageId)}
+                                                className="flex w-full flex-col items-start gap-1 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                                            >
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                                                    {formatTime(result.timestamp, resolvedNowMs)}
+                                                </span>
+                                                <span className="line-clamp-2 text-xs text-zinc-800 dark:text-zinc-100">
+                                                    {highlightText({ text: result.preview, query: historySearchQuery })}
+                                                </span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : null}
+            </div>
 
             {props.messages.length === 0 && props.hasHydrated ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6 text-center opacity-0 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-forwards delay-200">
@@ -261,9 +413,14 @@ export function ChatView(props: ChatViewProps) {
                     hasEarlierMessages={props.hasEarlierMessages}
                     onLoadEarlier={props.onLoadEarlier}
                     nowMs={props.nowMs}
-                    flashMessageId={props.flashMessageId}
+                    flashMessageId={effectiveFlashMessageId}
+                    jumpToMessageId={jumpToMessageId}
+                    onJumpToMessageHandled={(messageId) => {
+                        setJumpToMessageId((current) => (current === messageId ? null : current));
+                    }}
                     onOpenMessageMenu={(params) => props.setMessageMenu(params)}
                     openMessageMenuMessageId={props.messageMenu?.messageId ?? null}
+                    openReactionPickerMessageId={props.reactionPicker?.messageId ?? null}
                     onMessageMenuAnchorHoverChange={handleMessageMenuAnchorHoverChange}
                     onOpenReactionPicker={(params) => props.setReactionPicker(params)}
                     onToggleReaction={props.onToggleReaction}
@@ -337,11 +494,18 @@ export function ChatView(props: ChatViewProps) {
                     }}
                     menuRef={props.messageMenuRef}
                     onHoverChange={setIsMessageMenuHovered}
+                    onRequestClose={() => {
+                        props.setMessageMenu(null);
+                        setMessageMenuAnchorHoverId(null);
+                        setIsMessageMenuHovered(false);
+                    }}
                 />
             )}
 
             {props.reactionPicker && (
                 <ReactionPicker
+                    messageId={props.reactionPicker.messageId}
+                    isOutgoing={activeReactionMessage?.isOutgoing ?? false}
                     x={props.reactionPicker.x}
                     y={props.reactionPicker.y}
                     onSelect={(emoji) => {
@@ -352,6 +516,7 @@ export function ChatView(props: ChatViewProps) {
                         props.setReactionPicker(null);
                     }}
                     pickerRef={props.reactionPickerRef}
+                    onRequestClose={() => props.setReactionPicker(null)}
                 />
             )}
 

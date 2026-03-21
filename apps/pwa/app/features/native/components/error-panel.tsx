@@ -43,6 +43,11 @@ export function ErrorPanel() {
                         <div className="flex items-center gap-2 font-semibold">
                             <SearchX className="w-4 h-4" />
                             <span>Error: {error.code}</span>
+                            {error.occurrenceCount > 1 && (
+                                <span className="rounded bg-destructive-foreground/20 px-1.5 py-0.5 text-[10px] font-bold">
+                                    x{error.occurrenceCount}
+                                </span>
+                            )}
                         </div>
                         <button
                             onClick={() => removeError(error.id)}

@@ -44,21 +44,39 @@ const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.opu
 const DOCUMENT_EXTENSIONS = ['.pdf', '.txt', '.csv', '.rtf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp'];
 const IMAGE_HOSTS = ['image.nostr.build', 'nostr.build', 'blossom.', 'imgprxy.', 'void.cat'];
 
+const hasKnownExtension = (value: string, extensions: ReadonlyArray<string>): boolean => (
+    extensions.some(ext => value.endsWith(ext) || value.includes(ext + "?"))
+);
+
 export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] => {
     const lowerUrl = attachment.url.toLowerCase();
     const lowerContentType = attachment.contentType.toLowerCase();
+    const lowerFileName = attachment.fileName.toLowerCase();
 
-    if (AUDIO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) || lowerContentType.startsWith("audio/")) {
+    if (hasKnownExtension(lowerFileName, AUDIO_EXTENSIONS)) {
         return "audio";
     }
-    if (VIDEO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) || lowerContentType.startsWith("video/")) {
+    if (hasKnownExtension(lowerFileName, VIDEO_EXTENSIONS)) {
         return "video";
     }
-    if (IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) || lowerContentType.startsWith("image/")) {
+    if (hasKnownExtension(lowerFileName, IMAGE_EXTENSIONS)) {
+        return "image";
+    }
+    if (hasKnownExtension(lowerFileName, DOCUMENT_EXTENSIONS)) {
+        return "file";
+    }
+
+    if (hasKnownExtension(lowerUrl, AUDIO_EXTENSIONS) || lowerContentType.startsWith("audio/")) {
+        return "audio";
+    }
+    if (hasKnownExtension(lowerUrl, VIDEO_EXTENSIONS) || lowerContentType.startsWith("video/")) {
+        return "video";
+    }
+    if (hasKnownExtension(lowerUrl, IMAGE_EXTENSIONS) || lowerContentType.startsWith("image/")) {
         return "image";
     }
     if (
-        DOCUMENT_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?")) ||
+        hasKnownExtension(lowerUrl, DOCUMENT_EXTENSIONS) ||
         lowerContentType.startsWith("application/") ||
         lowerContentType.startsWith("text/")
     ) {
@@ -86,12 +104,12 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
         // Clean trailing punctuation that might be captured in plain URLs
         const cleanUrl = match[3] ? rawUrl.replace(/[.,;:!?)]+$/, '') : rawUrl;
         const lowerUrl = cleanUrl.toLowerCase();
-
         const fallbackName = cleanUrl.split('/').pop()?.split('?')[0] || 'file';
         const finalName = providedName || fallbackName;
+        const lowerFileName = finalName.toLowerCase();
 
-        // 1. Audio check
-        const isAudio = AUDIO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
+        // 1. Audio check (filename first, then url)
+        const isAudio = hasKnownExtension(lowerFileName, AUDIO_EXTENSIONS) || hasKnownExtension(lowerUrl, AUDIO_EXTENSIONS);
         if (isAudio) {
             attachments.push({
                 kind: 'audio',
@@ -102,8 +120,8 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
             continue;
         }
 
-        // 2. Video check
-        const isVideo = VIDEO_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
+        // 2. Video check (filename first, then url)
+        const isVideo = hasKnownExtension(lowerFileName, VIDEO_EXTENSIONS) || hasKnownExtension(lowerUrl, VIDEO_EXTENSIONS);
         if (isVideo) {
             attachments.push({
                 kind: 'video',
@@ -115,7 +133,7 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
         }
 
         // 3. Image check (Extension or Host)
-        const isImageExt = IMAGE_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
+        const isImageExt = hasKnownExtension(lowerFileName, IMAGE_EXTENSIONS) || hasKnownExtension(lowerUrl, IMAGE_EXTENSIONS);
         const isKnownImageHost = IMAGE_HOSTS.some(host => lowerUrl.includes(host));
 
         if (isImageExt || isKnownImageHost) {
@@ -129,7 +147,7 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
         }
 
         // 4. Document or generic uploaded file check
-        const isDocument = DOCUMENT_EXTENSIONS.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + "?"));
+        const isDocument = hasKnownExtension(lowerFileName, DOCUMENT_EXTENSIONS) || hasKnownExtension(lowerUrl, DOCUMENT_EXTENSIONS);
         const looksLikeUploadPath = lowerUrl.includes("/uploads/");
         if (isDocument || looksLikeUploadPath) {
             attachments.push({

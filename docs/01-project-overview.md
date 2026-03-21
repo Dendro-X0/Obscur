@@ -1,6 +1,6 @@
 # 01 Project Overview
 
-_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
+_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
 
 Obscur is a privacy-first, local-first messenger built on Nostr relays. The project ships as Web/PWA and Tauri Desktop, with mobile builds produced from the desktop/Tauri stack.
 
@@ -15,9 +15,9 @@ Obscur is a privacy-first, local-first messenger built on Nostr relays. The proj
 
 - `apps/pwa`: primary product surface and most feature logic.
 - `apps/desktop`: Tauri shell, native runtime bridge, updater, mobile build path.
-- `apps/website`: marketing/docs site surface.
-- `apps/relay-gateway`: relay-facing service surface.
-- `apps/coordination`: auxiliary app surface.
+- `apps/website`: web-facing product/landing surface.
+- `apps/relay-gateway`: optional relay edge proxy (PoW gate + upstream forwarder) used in some local/dev topologies.
+- `apps/coordination`: Cloudflare Worker for invite coordination (`/invites/create`, `/invites/redeem`) and NIP-98/96 upload endpoints.
 
 ## Current Engineering Priorities
 
@@ -25,6 +25,7 @@ Obscur is a privacy-first, local-first messenger built on Nostr relays. The proj
 - Account sync convergence and profile-scoped persistence.
 - Relay resilience and scoped publish/subscribe correctness.
 - Cross-device identity/session consistency.
+- Docs as architecture contract: one canonical owner per lifecycle and explicit diagnostics for every degraded boundary.
 
 ## Non-Goals
 
@@ -47,7 +48,9 @@ pnpm dev:desktop
 
 ## Entry Points
 
-- Web app shell: `apps/pwa/app/components/app-shell.tsx`
+- Web app shell: `apps/pwa/app/layout.tsx`, `apps/pwa/app/components/providers.tsx`
 - Runtime supervisor: `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
 - Auth gateway: `apps/pwa/app/features/auth/components/auth-gateway.tsx`
 - Desktop runtime bridge: `apps/desktop/src-tauri/src/lib.rs`
+- Relay gateway runtime: `apps/relay-gateway/src/index.ts`
+- Coordination worker runtime: `apps/coordination/src/index.ts`

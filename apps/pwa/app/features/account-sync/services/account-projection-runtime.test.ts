@@ -120,4 +120,54 @@ describe("accountProjectionRuntime.appendCanonicalEvents", () => {
 
     expect(replaySpy).toHaveBeenCalledTimes(1);
   });
+
+  it("yields replay passes when new events arrive during an in-flight replay", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.appendAccountEvents.mockResolvedValue({
+        appendedCount: 1,
+        dedupeCount: 0,
+        lastSequence: 8,
+      });
+      type ProjectionSnapshot = ReturnType<typeof accountProjectionRuntime.getSnapshot>;
+      const currentSnapshot: ProjectionSnapshot = accountProjectionRuntime.getSnapshot();
+      let resolveFirstReplay: (value: ProjectionSnapshot) => void = () => {};
+      const firstReplayPromise = new Promise<ProjectionSnapshot>((resolve) => {
+        resolveFirstReplay = resolve;
+      });
+      const replaySpy = vi.spyOn(accountProjectionRuntime, "replay")
+        .mockImplementationOnce(async () => firstReplayPromise)
+        .mockResolvedValue(currentSnapshot);
+
+      const firstAppend = accountProjectionRuntime.appendCanonicalEvents({
+        profileId: PROFILE_ID,
+        accountPublicKeyHex: ACCOUNT_PUBKEY,
+        events: [makeEvent()],
+      });
+
+      await vi.advanceTimersByTimeAsync(35);
+      expect(replaySpy).toHaveBeenCalledTimes(1);
+
+      const secondAppend = accountProjectionRuntime.appendCanonicalEvents({
+        profileId: PROFILE_ID,
+        accountPublicKeyHex: ACCOUNT_PUBKEY,
+        events: [makeEvent()],
+      });
+      await Promise.resolve();
+
+      resolveFirstReplay(currentSnapshot);
+      await Promise.resolve();
+      expect(replaySpy).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(35);
+      await Promise.all([firstAppend, secondAppend]);
+
+      expect(replaySpy).toHaveBeenCalledTimes(2);
+      expect(mocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
+        name: "account_projection.replay_backpressure_yield",
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -194,6 +194,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
 
     const recipientTag = event.tags?.find(tag => tag[0] === "p");
     const normalizedRecipient = normalizePublicKeyHex(recipientTag?.[1]);
+    const isSelfAuthoredRelayEvent = senderPubkey === currentParams.myPublicKeyHex;
     deliveryDiagnosticsStore.markIncoming({
       eventId: event.id,
       kind: event.kind,
@@ -202,7 +203,18 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       relayUrl,
       action: "seen",
     });
-    if (!normalizedRecipient || normalizedRecipient !== currentParams.myPublicKeyHex) {
+    const recipientTagMissingOrInvalid = !normalizedRecipient;
+    const recipientMismatch = (
+      !recipientTagMissingOrInvalid
+      && !isSelfAuthoredRelayEvent
+      && normalizedRecipient !== currentParams.myPublicKeyHex
+    );
+    const selfAuthoredRecipientInvalid = (
+      !recipientTagMissingOrInvalid
+      && isSelfAuthoredRelayEvent
+      && normalizedRecipient === currentParams.myPublicKeyHex
+    );
+    if (recipientTagMissingOrInvalid || recipientMismatch || selfAuthoredRecipientInvalid) {
       if (!normalizedRecipient) {
         incrementAbuseMetric("quarantined_malformed_event");
         recordMalformedEventQuarantinedRisk();
@@ -214,7 +226,11 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         recipientPubkey: normalizedRecipient ?? undefined,
         relayUrl,
         action: "ignored",
-        reason: !normalizedRecipient ? "missing_or_invalid_recipient_tag" : "recipient_mismatch",
+        reason: recipientTagMissingOrInvalid
+          ? "missing_or_invalid_recipient_tag"
+          : selfAuthoredRecipientInvalid
+            ? "self_authored_recipient_invalid"
+            : "recipient_mismatch",
       });
       return;
     }
@@ -267,6 +283,11 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     let actualSenderPubkey: PublicKeyHex | null = senderPubkey;
     let usedEventId = event.id;
     let usedCreatedAt = event.created_at;
+    const decryptionPeerPublicKeyHex = (
+      isSelfAuthoredRelayEvent && normalizedRecipient
+        ? normalizedRecipient
+        : senderPubkey
+    );
     const observedAtUnixSeconds = Math.floor(Date.now() / 1000);
 
     try {
@@ -280,13 +301,19 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         usedEventId = rumor.id;
         usedCreatedAt = rumor.created_at;
       } else {
-        plaintext = await cryptoService.decryptDM(event.content, senderPubkey, currentParams.myPrivateKeyHex);
+        plaintext = await cryptoService.decryptDM(
+          event.content,
+          decryptionPeerPublicKeyHex,
+          currentParams.myPrivateKeyHex,
+        );
       }
     } catch (decryptError) {
       const decryptionClass = classifyDecryptFailure(decryptError);
-      const requestStatusAtDecrypt = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: senderPubkey });
+      const requestStatusAtDecrypt = currentParams.requestsInbox?.getRequestStatus({
+        peerPublicKeyHex: decryptionPeerPublicKeyHex,
+      });
       const isAcceptedSenderAtDecrypt = !!(
-        currentParams.peerTrust?.isAccepted({ publicKeyHex: senderPubkey })
+        currentParams.peerTrust?.isAccepted({ publicKeyHex: decryptionPeerPublicKeyHex })
         || requestStatusAtDecrypt?.status === "accepted"
       );
       const effectiveDecryptionClass = (
@@ -323,7 +350,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         failedIncomingEventStore.suppress(event.id);
         void appendCanonicalDecryptFailedEvent({
           accountPublicKeyHex: currentParams.myPublicKeyHex,
-          peerPublicKeyHex: senderPubkey,
+          peerPublicKeyHex: decryptionPeerPublicKeyHex,
           messageId: event.id,
           reason: effectiveDecryptionClass.reason,
           idempotencySuffix: event.id,
@@ -359,6 +386,79 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         params.handledIncomingEventIds.add(event.id);
         params.handledIncomingEventIds.add(usedEventId);
       }
+    }
+
+    if (isSelfAuthoredRelayEvent) {
+      const peerPublicKeyHex = normalizedRecipient as PublicKeyHex;
+      const conversationId = [currentParams.myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+      const message: Message = {
+        id: usedEventId,
+        conversationId,
+        content: plaintext,
+        kind: "user",
+        timestamp: new Date(usedCreatedAt * 1000),
+        isOutgoing: true,
+        status: "delivered",
+        eventId: usedEventId,
+        eventCreatedAt: new Date(usedCreatedAt * 1000),
+        senderPubkey: currentParams.myPublicKeyHex,
+        recipientPubkey: peerPublicKeyHex,
+        encryptedContent: event.content,
+        attachments: extractAttachmentsFromContent(plaintext),
+      };
+
+      if (params.messageQueue) {
+        const existingMessage = await params.messageQueue.getMessage(usedEventId);
+        if (existingMessage) {
+          return;
+        }
+      }
+
+      if (params.messageQueue) {
+        try {
+          await params.messageQueue.persistMessage(message);
+        } catch (storageError) {
+          errorHandler.handleStorageError(
+            storageError instanceof Error ? storageError : new Error("Failed to persist outgoing sync message"),
+            { eventId: event.id, sender: senderPubkey },
+          );
+          console.warn("Failed to persist outgoing sync message:", storageError);
+        }
+      }
+
+      params.syncConversationTimestamps.set(conversationId, message.timestamp);
+      void appendCanonicalDmEvent({
+        accountPublicKeyHex: currentParams.myPublicKeyHex,
+        peerPublicKeyHex,
+        type: "DM_SENT_CONFIRMED",
+        conversationId,
+        messageId: usedEventId,
+        eventCreatedAtUnixSeconds: usedCreatedAt,
+        plaintextPreview: plaintext,
+        idempotencySuffix: usedEventId,
+        source: canonicalIngestSource,
+      });
+
+      params.scheduleUiUpdate(() => {
+        params.setState((prev: TState) => {
+          const p = prev;
+          const alreadyExists = p.messages.some((m: Message) => m.eventId === usedEventId);
+          if (alreadyExists) {
+            return prev;
+          }
+          const updatedMessages: Message[] = [message, ...p.messages];
+          const sortedMessages: Message[] = updatedMessages.sort((a: Message, b: Message) => b.timestamp.getTime() - a.timestamp.getTime());
+          const limitedMessages: ReadonlyArray<Message> = sortedMessages.slice(0, params.maxMessagesInMemory);
+          params.messageMemoryManager.addMessages(conversationId, [...limitedMessages]);
+          return {
+            ...params.createReadyState(limitedMessages),
+            subscriptions: Array.from(params.activeSubscriptions.values()),
+          } as TState;
+        });
+      });
+
+      currentParams.onNewMessage?.(message);
+      return;
     }
 
     try {

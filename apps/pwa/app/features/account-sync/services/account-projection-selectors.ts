@@ -208,6 +208,7 @@ export const selectProjectionConversationMessages = (params: Readonly<{
   projection: AccountProjectionSnapshot | null;
   conversationId: string;
   myPublicKeyHex: PublicKeyHex;
+  limit?: number;
 }>): ReadonlyArray<Message> => {
   if (!params.projection) {
     return EMPTY_MESSAGES;
@@ -221,13 +222,23 @@ export const selectProjectionConversationMessages = (params: Readonly<{
     return EMPTY_MESSAGES;
   }
 
-  return [...timeline]
+  const sortedTimeline = [...timeline]
     .sort((left, right) => {
       if (left.eventCreatedAtUnixSeconds !== right.eventCreatedAtUnixSeconds) {
         return left.eventCreatedAtUnixSeconds - right.eventCreatedAtUnixSeconds;
       }
       return left.messageId.localeCompare(right.messageId);
-    })
+    });
+  const boundedTimeline = (
+    typeof params.limit === "number"
+    && Number.isFinite(params.limit)
+    && params.limit > 0
+    && sortedTimeline.length > Math.floor(params.limit)
+  )
+    ? sortedTimeline.slice(-Math.floor(params.limit))
+    : sortedTimeline;
+
+  return boundedTimeline
     .map((entry): Message => {
       const isOutgoing = entry.direction === "outgoing";
       return {

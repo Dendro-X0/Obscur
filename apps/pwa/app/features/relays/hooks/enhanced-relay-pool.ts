@@ -50,8 +50,8 @@ export type EnhancedRelayPoolResult = Readonly<{
   canConnectToRelay: (url: string) => boolean;
   addTransientRelay: (url: string) => void;
   removeTransientRelay: (url: string) => void;
-  reconnectRelay: (url: string) => void;
-  reconnectAll: () => void;
+  reconnectRelay: (url: string, options?: RelayReconnectOptions) => void;
+  reconnectAll: (options?: RelayReconnectOptions) => void;
   resubscribeAll: () => void;
   recycle: () => Promise<void>;
   isConnected: () => boolean;
@@ -68,6 +68,9 @@ type SocketByUrl = Readonly<Record<string, WebSocket>>;
 type MessageListener = (params: Readonly<{ url: string; message: string }>) => void;
 type Unsubscribe = () => void;
 type StaleDisposableSocket = WebSocket & Readonly<{ disposeStaleHandle?: () => void }>;
+type RelayReconnectOptions = Readonly<{
+  force?: boolean;
+}>;
 type EnhancedRelayPoolRuntime = Readonly<{
   subscribe: (listener: () => void) => Unsubscribe;
   getStateSnapshot: () => RelayPoolState;
@@ -87,8 +90,8 @@ type EnhancedRelayPoolRuntime = Readonly<{
   canConnectToRelay: (url: string) => boolean;
   addTransientRelay: (url: string) => void;
   removeTransientRelay: (url: string) => void;
-  reconnectRelay: (url: string) => void;
-  reconnectAll: () => void;
+  reconnectRelay: (url: string, options?: RelayReconnectOptions) => void;
+  reconnectAll: (options?: RelayReconnectOptions) => void;
   resubscribeAll: () => void;
   recycle: () => Promise<void>;
   isConnected: () => boolean;
@@ -149,6 +152,7 @@ export type RelayTransportActivitySnapshot = Readonly<{
   writeBlockedRelayCount: number;
   coolingDownRelayCount: number;
   fallbackRelayUrls: ReadonlyArray<string>;
+  fallbackWritableRelayCount: number;
 }>;
 
 export type RelaySelectionDecision = Readonly<{
@@ -966,16 +970,22 @@ const subscribe = (listener: () => void): Unsubscribe => {
 /**
  * Attempt to connect to a relay with health monitoring
  */
-const connectToRelay = (url: string): WebSocket | null => {
+const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket | null => {
+  const forceReconnect = options?.force === true;
   const nowUnixMs = Date.now();
-  const manualCooldownUntilUnixMs = resolveManualCooldownUntilUnixMs(url, nowUnixMs);
-  if (typeof manualCooldownUntilUnixMs === "number") {
-    scheduleReconnect(url);
-    return null;
+  if (forceReconnect) {
+    relayManualCooldownUntilByUrl.delete(url);
+    relayWriteBlockedUntilByUrl.delete(url);
+  } else {
+    const manualCooldownUntilUnixMs = resolveManualCooldownUntilUnixMs(url, nowUnixMs);
+    if (typeof manualCooldownUntilUnixMs === "number") {
+      scheduleReconnect(url);
+      return null;
+    }
   }
 
   // Check circuit breaker before attempting connection
-  if (!healthMonitor.canConnect(url)) {
+  if (!forceReconnect && !healthMonitor.canConnect(url)) {
     logWithRateLimit("debug", "relay.connect_blocked_by_circuit_breaker", [`Circuit breaker preventing connection to ${url}`], {
       windowMs: 10_000,
       maxPerWindow: 2,
@@ -1302,7 +1312,8 @@ const scheduleReconnect = (url: string): void => {
 /**
  * Attempt to reconnect to a relay
  */
-const attemptReconnect = (url: string): void => {
+const attemptReconnect = (url: string, options?: RelayReconnectOptions): void => {
+  const forceReconnect = options?.force === true;
   if (reconnectAttemptInProgress.has(url)) {
     logWithRateLimit("debug", "relay.reconnect_skip_in_progress", [`Relay ${url} reconnect already in progress, skipping.`], {
       windowMs: 10_000,
@@ -1314,7 +1325,8 @@ const attemptReconnect = (url: string): void => {
   const nowUnixMs = Date.now();
   const lastAttemptAtUnixMs = lastReconnectAttemptAtUnixMs.get(url);
   if (
-    isReliabilityCoreEnabled()
+    !forceReconnect
+    && isReliabilityCoreEnabled()
     && typeof lastAttemptAtUnixMs === "number"
     && (nowUnixMs - lastAttemptAtUnixMs) < MIN_RECONNECT_INTERVAL_MS
   ) {
@@ -1341,7 +1353,13 @@ const attemptReconnect = (url: string): void => {
 
     // Check if already connected
     const existingSocket = socketsByUrl[url];
-    if (existingSocket && (existingSocket.readyState === WebSocket.OPEN || existingSocket.readyState === WebSocket.CONNECTING)) {
+    if (
+      existingSocket
+      && (
+        existingSocket.readyState === WebSocket.OPEN
+        || (!forceReconnect && existingSocket.readyState === WebSocket.CONNECTING)
+      )
+    ) {
       logWithRateLimit("debug", "relay.reconnect_skip_already_connected", [`Relay ${url} already connected, skipping reconnect`], {
         windowMs: 10_000,
         maxPerWindow: 2,
@@ -1376,7 +1394,7 @@ const attemptReconnect = (url: string): void => {
     notifyListeners();
 
     // Attempt new connection
-    const newSocket = connectToRelay(url);
+    const newSocket = connectToRelay(url, options);
     if (newSocket) {
       socketsByUrl = { ...socketsByUrl, [url]: newSocket };
     }
@@ -1508,16 +1526,16 @@ const removeTransientRelay = (url: string): void => {
   notifyListeners();
 };
 
-const reconnectRelay = (url: string): void => {
-  attemptReconnect(url);
+const reconnectRelay = (url: string, options?: RelayReconnectOptions): void => {
+  attemptReconnect(url, options);
 };
 
-const reconnectAll = (): void => {
+const reconnectAll = (options?: RelayReconnectOptions): void => {
   const urls = Array.from(new Set([
     ...(relayUrlsKey ? relayUrlsKey.split("|") : []),
     ...Array.from(transientRelayUrls),
   ]));
-  urls.forEach((url) => attemptReconnect(url));
+  urls.forEach((url) => attemptReconnect(url, options));
 };
 
 const resubscribeAll = (): void => {
@@ -1574,7 +1592,7 @@ const recycle = async (): Promise<void> => {
   notifyListeners();
 
   urls.forEach((url) => {
-    const socket = connectToRelay(url);
+    const socket = connectToRelay(url, { force: true });
     if (socket) {
       socketsByUrl = { ...socketsByUrl, [url]: socket };
     }
@@ -2043,6 +2061,10 @@ const getWritableRelaySnapshot = (scopedRelayUrls?: ReadonlyArray<string>): Rela
 
 const getTransportActivitySnapshot = (): RelayTransportActivitySnapshot => {
   const writableSnapshot = getWritableRelaySnapshot();
+  const fallbackWritableRelayCount = Array.from(fallbackRelayUrls).filter((url) => {
+    const connection = statusByUrl[url];
+    return connection?.status === "open" && canAttemptRelayWrite(url);
+  }).length;
   return {
     lastInboundMessageAtUnixMs,
     lastInboundEventAtUnixMs,
@@ -2052,6 +2074,7 @@ const getTransportActivitySnapshot = (): RelayTransportActivitySnapshot => {
     writeBlockedRelayCount: getWriteBlockedRelayCount(),
     coolingDownRelayCount: getCoolingDownRelayCount(),
     fallbackRelayUrls: Array.from(fallbackRelayUrls),
+    fallbackWritableRelayCount,
   };
 };
 

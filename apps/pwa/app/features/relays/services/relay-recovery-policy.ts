@@ -16,6 +16,7 @@ export type RelayRecoveryReasonCode =
 export type RelayRecoverySnapshot = Readonly<{
   readiness: RelayReadinessState;
   writableRelayCount: number;
+  fallbackWritableRelayCount: number;
   subscribableRelayCount: number;
   writeBlockedRelayCount: number;
   coolingDownRelayCount: number;
@@ -45,9 +46,16 @@ const CYCLIC_RECOVERY_REASONS: ReadonlyArray<RelayRecoveryReasonCode> = [
   "cooldown_active",
 ];
 
+const isCyclicRecoveryReason = (
+  reason?: RelayRecoveryReasonCode,
+): reason is RelayRecoveryReasonCode => (
+  typeof reason === "string" && CYCLIC_RECOVERY_REASONS.includes(reason)
+);
+
 const createDefaultSnapshot = (): RelayRecoverySnapshot => ({
   readiness: "offline",
   writableRelayCount: 0,
+  fallbackWritableRelayCount: 0,
   subscribableRelayCount: 0,
   writeBlockedRelayCount: 0,
   coolingDownRelayCount: 0,
@@ -66,16 +74,18 @@ const findLastFailureReason = (pool: EnhancedRelayPoolResult): string | undefine
 
 export const classifyRelayRecoveryState = (params: Readonly<{
   writableRelayCount: number;
+  fallbackWritableRelayCount: number;
   subscribableRelayCount: number;
   recoveryAttemptCount: number;
 }>): RelayReadinessState => {
+  const effectiveWritableRelayCount = params.writableRelayCount + params.fallbackWritableRelayCount;
   if (params.writableRelayCount > 0 && params.subscribableRelayCount > 0) {
     return "healthy";
   }
-  if (params.recoveryAttemptCount > 0) {
+  if (params.recoveryAttemptCount > 0 && effectiveWritableRelayCount === 0) {
     return "recovering";
   }
-  if (params.writableRelayCount > 0 || params.subscribableRelayCount > 0) {
+  if (effectiveWritableRelayCount > 0 || params.subscribableRelayCount > 0) {
     return "degraded";
   }
   return "offline";
@@ -120,6 +130,7 @@ const selectRecoveryAction = (params: Readonly<{
 const resolveWatchdogRecoveryReason = (params: Readonly<{
   enabledRelayCount: number;
   writableRelayCount: number;
+  fallbackWritableRelayCount: number;
   subscribableRelayCount: number;
   writeBlockedRelayCount: number;
   coolingDownRelayCount: number;
@@ -131,6 +142,12 @@ const resolveWatchdogRecoveryReason = (params: Readonly<{
   }
 
   if (params.writableRelayCount === 0) {
+    if (params.fallbackWritableRelayCount > 0) {
+      if (params.writeBlockedRelayCount > 0) {
+        return "write_queue_blocked";
+      }
+      return undefined;
+    }
     if (params.coolingDownRelayCount > 0) {
       return "cooldown_active";
     }
@@ -149,6 +166,45 @@ const resolveWatchdogRecoveryReason = (params: Readonly<{
   }
 
   return undefined;
+};
+
+const resolveManualRecoveryReason = (params: Readonly<{
+  requestedReason: RelayRecoveryReasonCode;
+  snapshot: RelayRecoverySnapshot;
+  enabledRelayCount: number;
+}>): RelayRecoveryReasonCode => {
+  if (params.requestedReason !== "manual" || params.enabledRelayCount <= 0) {
+    return params.requestedReason;
+  }
+  if (params.snapshot.writableRelayCount > 0) {
+    return params.requestedReason;
+  }
+  if (params.snapshot.fallbackWritableRelayCount > 0) {
+    return params.requestedReason;
+  }
+  if (params.snapshot.coolingDownRelayCount > 0) {
+    return "cooldown_active";
+  }
+  if (params.snapshot.writeBlockedRelayCount > 0 || params.snapshot.subscribableRelayCount > 0) {
+    return "write_queue_blocked";
+  }
+  return "no_writable_relays";
+};
+
+const resolveAttemptBaseline = (params: Readonly<{
+  reason: RelayRecoveryReasonCode;
+  previousReason?: RelayRecoveryReasonCode;
+  previousAttemptCount: number;
+}>): number => {
+  const nextIsCyclic = isCyclicRecoveryReason(params.reason);
+  const previousIsCyclic = isCyclicRecoveryReason(params.previousReason);
+  if (nextIsCyclic && previousIsCyclic) {
+    return params.previousAttemptCount;
+  }
+  if (!nextIsCyclic && !previousIsCyclic && params.reason === params.previousReason) {
+    return params.previousAttemptCount;
+  }
+  return 0;
 };
 
 class RelayRecoveryController {
@@ -197,16 +253,23 @@ class RelayRecoveryController {
 
     const writableSnapshot = this.config.pool.getWritableRelaySnapshot(this.config.enabledRelayUrls);
     const activity = this.config.pool.getTransportActivitySnapshot();
-    const recoveryAttemptCount = writableSnapshot.writableRelayUrls.length > 0 ? 0 : this.snapshot.recoveryAttemptCount;
+    const fallbackWritableRelayCount = activity.fallbackWritableRelayCount ?? 0;
+    const recoveryAttemptCount = (
+      writableSnapshot.writableRelayUrls.length > 0 || fallbackWritableRelayCount > 0
+    )
+      ? 0
+      : this.snapshot.recoveryAttemptCount;
 
     this.snapshot = {
       ...this.snapshot,
       readiness: classifyRelayRecoveryState({
         writableRelayCount: writableSnapshot.writableRelayUrls.length,
+        fallbackWritableRelayCount,
         subscribableRelayCount: activity.subscribableRelayCount,
         recoveryAttemptCount,
       }),
       writableRelayCount: writableSnapshot.writableRelayUrls.length,
+      fallbackWritableRelayCount,
       subscribableRelayCount: activity.subscribableRelayCount,
       writeBlockedRelayCount: activity.writeBlockedRelayCount,
       coolingDownRelayCount: activity.coolingDownRelayCount,
@@ -228,6 +291,13 @@ class RelayRecoveryController {
       return this.snapshot;
     }
 
+    const refreshed = this.refreshSnapshot();
+    const resolvedReason = resolveManualRecoveryReason({
+      requestedReason: reason,
+      snapshot: refreshed,
+      enabledRelayCount: this.config.enabledRelayUrls.length,
+    });
+
     const nowUnixMs = Date.now();
     if (this.snapshot.lastRecoveryAtUnixMs && nowUnixMs - this.snapshot.lastRecoveryAtUnixMs < RECOVERY_COOLDOWN_MS) {
       this.snapshot = {
@@ -239,25 +309,33 @@ class RelayRecoveryController {
       return this.snapshot;
     }
 
-    const nextAttempt = getNextRecoveryAttemptCount({
-      reason,
+    const previousAttemptCount = resolveAttemptBaseline({
+      reason: resolvedReason,
+      previousReason: this.snapshot.recoveryReasonCode,
       previousAttemptCount: this.snapshot.recoveryAttemptCount,
     });
-    const action = selectRecoveryAction({ reason, nextAttempt });
-    const isRecoveryExhausted = !CYCLIC_RECOVERY_REASONS.includes(reason) && nextAttempt > MAX_RECOVERY_ATTEMPTS;
+
+    const nextAttempt = getNextRecoveryAttemptCount({
+      reason: resolvedReason,
+      previousAttemptCount,
+    });
+    const action = selectRecoveryAction({ reason: resolvedReason, nextAttempt });
+    const isRecoveryExhausted = !CYCLIC_RECOVERY_REASONS.includes(resolvedReason) && nextAttempt > MAX_RECOVERY_ATTEMPTS;
 
     this.snapshot = {
       ...this.snapshot,
       readiness: "recovering",
       recoveryAttemptCount: nextAttempt,
       lastRecoveryAtUnixMs: nowUnixMs,
-      recoveryReasonCode: isRecoveryExhausted ? "recovery_exhausted" : reason,
+      recoveryReasonCode: isRecoveryExhausted ? "recovery_exhausted" : resolvedReason,
       currentAction: action,
     };
     this.emit();
 
     if (action === "reconnect") {
-      this.config.pool.reconnectAll();
+      // Recovery controller owns transport revival and must bypass passive
+      // cooldown/backoff gates when no writable relays remain.
+      this.config.pool.reconnectAll({ force: true });
     } else if (action === "resubscribe") {
       this.config.pool.resubscribeAll();
     } else if (action === "subsystem_reset") {
@@ -299,6 +377,7 @@ class RelayRecoveryController {
     const watchdogReason = resolveWatchdogRecoveryReason({
       enabledRelayCount: this.config.enabledRelayUrls.length,
       writableRelayCount: snapshot.writableRelayCount,
+      fallbackWritableRelayCount: snapshot.fallbackWritableRelayCount,
       subscribableRelayCount: snapshot.subscribableRelayCount,
       writeBlockedRelayCount: snapshot.writeBlockedRelayCount ?? 0,
       coolingDownRelayCount: snapshot.coolingDownRelayCount ?? 0,
@@ -321,7 +400,10 @@ export const createRelayRecoveryController = (): RelayRecoveryController => new 
 export const relayRecoveryInternals = {
   createDefaultSnapshot,
   classifyRelayRecoveryState,
+  isCyclicRecoveryReason,
   getNextRecoveryAttemptCount,
   selectRecoveryAction,
   resolveWatchdogRecoveryReason,
+  resolveManualRecoveryReason,
+  resolveAttemptBaseline,
 };

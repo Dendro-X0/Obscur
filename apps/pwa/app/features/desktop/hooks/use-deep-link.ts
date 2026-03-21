@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useIsDesktop } from "./use-tauri";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
@@ -13,6 +14,7 @@ import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
 export function useDeepLink() {
   const isDesktop = useIsDesktop();
   const router = useRouter();
+  const lastHandledRef = useRef<Readonly<{ url: string; atUnixMs: number }> | null>(null);
 
   useEffect(() => {
     if (!isDesktop) return;
@@ -20,6 +22,12 @@ export function useDeepLink() {
     // Listen for deep link events from Tauri
     const handleDeepLink = (event: CustomEvent<{ url: string }>) => {
       const url = event.detail.url;
+      const nowUnixMs = Date.now();
+      const previous = lastHandledRef.current;
+      if (previous && previous.url === url && (nowUnixMs - previous.atUnixMs) < 2_000) {
+        return;
+      }
+      lastHandledRef.current = { url, atUnixMs: nowUnixMs };
       console.log("Deep link received:", url);
 
       try {
@@ -58,8 +66,8 @@ export function useDeepLink() {
             return;
           }
 
-          // Default: navigate to home
-          router.push("/");
+          // Ignore unknown obscur:// paths; avoid forcing navigation that can
+          // race with user-initiated sidebar route changes.
         }
       } catch (error) {
         console.error("Failed to parse deep link:", error);

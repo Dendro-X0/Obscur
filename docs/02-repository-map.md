@@ -1,6 +1,6 @@
 # 02 Repository Map
 
-_Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
+_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
 
 ## Top-Level Layout
 
@@ -13,29 +13,43 @@ _Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 ## Apps
 
 - `apps/pwa`
-: Main feature implementation surface (auth, runtime, messaging, account sync, relays, search, settings, vault).
+: Main feature implementation surface and primary runtime composition.
+: Startup composition roots:
+  - `apps/pwa/app/layout.tsx`
+  - `apps/pwa/app/components/providers.tsx`
+  - `apps/pwa/app/features/runtime/components/unlocked-app-runtime-shell.tsx`
 
 - `apps/desktop`
 : Tauri host and native command boundary.
-  - Native command registration: `apps/desktop/src-tauri/src/lib.rs`
-  - Network and relay commands: `apps/desktop/src-tauri/src/net.rs`, `apps/desktop/src-tauri/src/relay.rs`
-  - Session/auth commands: `apps/desktop/src-tauri/src/session.rs`
-  - Upload bridge: `apps/desktop/src-tauri/src/upload.rs`
-  - Protocol/profile commands: `apps/desktop/src-tauri/src/protocol.rs`, `apps/desktop/src-tauri/src/profiles.rs`
-
-- `apps/website`
-: Website/docs-facing app.
-
-- `apps/relay-gateway`
-: Relay integration service layer.
+: Native command registration and owners:
+  - `apps/desktop/src-tauri/src/lib.rs`
+  - `apps/desktop/src-tauri/src/net.rs`
+  - `apps/desktop/src-tauri/src/relay.rs`
+  - `apps/desktop/src-tauri/src/session.rs`
+  - `apps/desktop/src-tauri/src/protocol.rs`
+  - `apps/desktop/src-tauri/src/profiles.rs`
+  - `apps/desktop/src-tauri/src/upload.rs`
 
 - `apps/coordination`
-: Auxiliary coordination surface.
+: Cloudflare Worker for invite coordination and upload/auth utility endpoints.
+: Runtime entry:
+  - `apps/coordination/src/index.ts`
+
+- `apps/relay-gateway`
+: Optional relay edge proxy used in some local/dev topologies.
+: Current implementation:
+  - `apps/relay-gateway/src/index.ts`
+
+- `apps/website`
+: Website surface.
+: Current runtime entry:
+  - `apps/website/src/app/page.tsx`
 
 ## Shared Packages
 
 - `packages/dweb-core`
-: shared product contracts and base types (`packages/dweb-core/src/security-foundation-contracts.ts`).
+: shared product contracts and base types.
+: `packages/dweb-core/src/security-foundation-contracts.ts`
 
 - `packages/dweb-crypto`
 : key derivation, encryption wrappers, PoW helpers.
@@ -51,17 +65,49 @@ _Last reviewed: 2026-03-17 (baseline commit 1f075aa)._
 
 - `packages/libobscur`
 : Rust native core and protocol implementation.
+: protocol/runtime boundary:
+  - `packages/libobscur/src/protocol/mod.rs`
+  - `packages/libobscur/src/protocol/types.rs`
+  - `packages/libobscur/src/protocol/store.rs`
 
-## High-Value PWA Feature Roots
+## PWA Feature Index
 
-- Runtime: `apps/pwa/app/features/runtime`
-- Auth: `apps/pwa/app/features/auth`
-- Account sync: `apps/pwa/app/features/account-sync`
-- Messaging: `apps/pwa/app/features/messaging`
-- Relays: `apps/pwa/app/features/relays`
+- Runtime/bootstrap: `apps/pwa/app/features/runtime`
+- Auth/identity: `apps/pwa/app/features/auth`
+- Account sync/projection: `apps/pwa/app/features/account-sync`
+- Relay/transport: `apps/pwa/app/features/relays`
+- Messaging/requests: `apps/pwa/app/features/messaging`
+- Groups/communities: `apps/pwa/app/features/groups`
+- Network/trust graph: `apps/pwa/app/features/network`
+- Profiles/profile scope: `apps/pwa/app/features/profile`, `apps/pwa/app/features/profiles`
 - Search/discovery: `apps/pwa/app/features/search`
-- Profile/settings: `apps/pwa/app/features/profile`, `apps/pwa/app/features/settings`
+- Invites and deep links: `apps/pwa/app/features/invites`
+- Main shell orchestration: `apps/pwa/app/features/main-shell`
+- Desktop integration hooks: `apps/pwa/app/features/desktop`
+- Native error surface: `apps/pwa/app/features/native`
+- Query runtime integration: `apps/pwa/app/features/query`
+- Notifications: `apps/pwa/app/features/notifications`
 - Vault/media: `apps/pwa/app/features/vault`
+- Settings/privacy flags: `apps/pwa/app/features/settings`
+- Onboarding/bootstrap config: `apps/pwa/app/features/onboarding`
+- Navigation/public route contracts: `apps/pwa/app/features/navigation`
+- Social graph auxiliary services: `apps/pwa/app/features/social-graph`
+- Crypto service/runtime adapters: `apps/pwa/app/features/crypto`
+- Dev tooling/mocks: `apps/pwa/app/features/dev-tools`
+
+## Runtime Owner Anchors
+
+- Window runtime owner: `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
+- Startup profile binding owner: `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.tsx`
+- Startup auth-shell recovery owner: `apps/pwa/app/features/runtime/components/profile-bound-auth-shell.tsx`
+- Relay runtime owner: `apps/pwa/app/features/relays/services/relay-runtime-supervisor.ts`
+- Messaging transport owner runtime: `apps/pwa/app/features/messaging/services/messaging-transport-runtime.ts`
+- Account backup owner: `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
+- Group membership durability owner: `apps/pwa/app/features/groups/providers/group-provider.tsx`
+
+For full canonical table and invariants, use:
+- `docs/12-core-architecture-truth-map.md`
+- `docs/14-module-owner-index.md`
 
 ## Tooling and Gates
 

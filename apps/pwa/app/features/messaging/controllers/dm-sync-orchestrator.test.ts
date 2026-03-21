@@ -67,6 +67,39 @@ describe("dm-sync-orchestrator", () => {
       .map((call) => JSON.parse(call[0] as string))
       .filter((payload) => payload[0] === "REQ");
 
+  it("requests inbound and self-authored DM filters during sync", async () => {
+    const { pool } = createPool();
+    const syncStateRef = {
+      current: {
+        isSyncing: false,
+        lastSyncAt: undefined as Date | undefined,
+        conversationTimestamps: new Map<string, Date>(),
+      },
+    };
+
+    await syncMissedMessages({
+      myPublicKeyHex: "receiver-pubkey" as never,
+      messageQueue: {} as never,
+      pool,
+      syncStateRef,
+      setState: vi.fn(),
+    });
+
+    const reqPayload = vi.mocked(pool.sendToOpen).mock.calls[0]?.[0] as string;
+    const parsedReq = JSON.parse(reqPayload);
+    const filters = parsedReq.slice(2) as ReadonlyArray<Record<string, unknown>>;
+    expect(filters).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kinds: [4, 1059],
+        "#p": ["receiver-pubkey"],
+      }),
+      expect.objectContaining({
+        kinds: [4],
+        authors: ["receiver-pubkey"],
+      }),
+    ]));
+  });
+
   it("updates the checkpoint only after sync reaches EOSE", async () => {
     const { pool, emit } = createPool();
     const syncStateRef = {

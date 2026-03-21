@@ -185,6 +185,29 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         : undefined;
       if (mappedResult === "applied") {
         suppressMutationPublishUntilUnixMsRef.current = finishedAtUnixMs + POST_RESTORE_MUTATION_SUPPRESS_MS;
+        accountSyncStatusStore.updateSnapshot({
+          publicKeyHex: params.publicKeyHex,
+          phase: "ready",
+          status: "private_restored",
+          message: "Account sync ready",
+          lastRelayFailureReason: undefined,
+        });
+      } else if (mappedResult === "no_backup") {
+        accountSyncStatusStore.updateSnapshot({
+          publicKeyHex: params.publicKeyHex,
+          phase: "ready",
+          status: "identity_only",
+          message: "Identity restored, but shared account data was not found on relays",
+          lastRelayFailureReason: undefined,
+        });
+      } else if (mappedResult === "degraded") {
+        accountSyncStatusStore.updateSnapshot({
+          publicKeyHex: params.publicKeyHex,
+          phase: "ready",
+          status: "degraded",
+          message: "Account restore degraded",
+          lastRelayFailureReason: result.degradedReason,
+        });
       }
       updateConvergenceDiagnostics({
         lastBackupRestoreReason: reason,
@@ -396,11 +419,13 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         }
         accountSyncStatusStore.updateSnapshot({
           publicKeyHex: params.publicKeyHex!,
-          phase: "error",
+          phase: "ready",
           status: "degraded",
-          message: "Account restore degraded",
+          message: "Account restore degraded; retrying in background",
           lastRelayFailureReason: error instanceof Error ? error.message : String(error),
         });
+        // Keep startup recoverable after transient relay/runtime failures.
+        void maybeRestoreBackup("follow_up");
       }
     };
 

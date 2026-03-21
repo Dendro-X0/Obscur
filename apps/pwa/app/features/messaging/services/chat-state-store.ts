@@ -11,6 +11,8 @@ import type {
 import { loadPersistedChatState, normalizePersistedGroupState, savePersistedChatState, toPersistedOverridesByConnectionId } from "../utils/persistence";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
+import { logAppEvent } from "@/app/shared/log-app-event";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 
 export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
 
@@ -28,6 +30,7 @@ type PendingSave = {
 };
 
 const DEFAULT_DEBOUNCE_MS = 250;
+const toPublicKeySuffix = (publicKeyHex: PublicKeyHex): string => publicKeyHex.slice(-8);
 
 /**
  * ChatStateStore Service
@@ -112,6 +115,16 @@ class ChatStateStore {
     }
 
     updateGroups(publicKeyHex: PublicKeyHex, groups: ReadonlyArray<PersistedGroupConversation>): void {
+        logAppEvent({
+            name: "messaging.chat_state_groups_update",
+            level: "info",
+            scope: { feature: "messaging", action: "chat_state_store" },
+            context: {
+                publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+                profileId: getActiveProfileIdSafe(),
+                groupCount: groups.length,
+            },
+        });
         this.update(publicKeyHex, prev => ({ ...prev, createdGroups: groups }));
     }
 
@@ -150,8 +163,22 @@ class ChatStateStore {
     }
 
     replace(publicKeyHex: PublicKeyHex, nextState: PersistedChatState, options?: ReplaceOptions): void {
-        this.memoryCacheByPublicKey.set(publicKeyHex, normalizePersistedGroupState(nextState));
-        this.save(publicKeyHex, normalizePersistedGroupState(nextState), { debounceMs: 0 });
+        const normalizedState = normalizePersistedGroupState(nextState);
+        this.memoryCacheByPublicKey.set(publicKeyHex, normalizedState);
+        this.save(publicKeyHex, normalizedState, { debounceMs: 0 });
+        logAppEvent({
+            name: "messaging.chat_state_replaced",
+            level: "info",
+            scope: { feature: "messaging", action: "chat_state_store" },
+            context: {
+                publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+                profileId: getActiveProfileIdSafe(),
+                createdConnectionCount: normalizedState.createdConnections.length,
+                createdGroupCount: normalizedState.createdGroups.length,
+                dmConversationCount: Object.keys(normalizedState.messagesByConversationId ?? {}).length,
+                groupConversationCount: Object.keys(normalizedState.groupMessages ?? {}).length,
+            },
+        });
         if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
                 detail: { publicKeyHex }

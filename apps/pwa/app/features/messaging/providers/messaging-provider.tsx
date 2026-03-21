@@ -33,6 +33,7 @@ import {
     updateLastSeen,
 } from "../utils/persistence";
 import { mergeProjectionUnreadByConversationId, unreadByConversationIdEqual } from "./projection-unread";
+import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
 import { removeGroupConversationIdsFromHidden } from "../utils/conversation-visibility";
 
 interface MessagingContextType {
@@ -351,21 +352,27 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!selectedConversation || !hasHydrated) {
             return;
         }
-        const conversationId = selectedConversation.id;
-        if ((unreadByConversationId[conversationId] ?? 0) === 0) {
+        const precomputed = applySelectedConversationUnreadIsolation({
+            currentUnreadByConversationId: unreadByConversationId,
+            selectedConversation,
+        });
+        if (!precomputed) {
             return;
         }
         queueMicrotask(() => {
             const latestUnread = unreadByConversationIdRef.current;
-            if ((latestUnread[conversationId] ?? 0) === 0) {
+            const isolated = applySelectedConversationUnreadIsolation({
+                currentUnreadByConversationId: latestUnread,
+                selectedConversation,
+            });
+            if (!isolated) {
                 return;
             }
-            const next = { ...latestUnread, [conversationId]: 0 };
-            unreadByConversationIdRef.current = next;
-            setUnreadByConversationId(next);
-            if (publicKeyHex) chatStateStoreService.updateUnreadCounts(publicKeyHex, next);
+            unreadByConversationIdRef.current = isolated;
+            setUnreadByConversationId(isolated);
+            if (publicKeyHex) chatStateStoreService.updateUnreadCounts(publicKeyHex, isolated);
         });
-    }, [selectedConversation?.id, unreadByConversationId, hasHydrated, publicKeyHex]);
+    }, [selectedConversation, unreadByConversationId, hasHydrated, publicKeyHex]);
 
     const updateCreatedConnections: React.Dispatch<React.SetStateAction<ReadonlyArray<DmConversation>>> = useCallback((updater) => {
         const current = createdConnectionsRef.current;

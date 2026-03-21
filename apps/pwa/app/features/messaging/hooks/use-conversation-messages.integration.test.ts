@@ -4,6 +4,7 @@ import { messageBus } from "../services/message-bus";
 import { useConversationMessages } from "./use-conversation-messages";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
+import { messagingDB } from "@dweb/storage/indexed-db";
 
 const accountProjectionSnapshot = {
     profileId: "default",
@@ -109,7 +110,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         unmount();
     });
 
-    it("enforces 120 live-window cap during heavy incoming flow", async () => {
+    it("enforces 200 live-window cap during heavy incoming flow", async () => {
         const { result, unmount } = renderHook(() => useConversationMessages("c-window", null));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -119,9 +120,9 @@ describe("useConversationMessages integration (perf mode)", () => {
             }
         });
 
-        await waitFor(() => expect(result.current.messages.length).toBe(120));
-        expect(result.current.messages[0]?.id).toBe("w-80");
-        expect(result.current.messages[119]?.id).toBe("w-199");
+        await waitFor(() => expect(result.current.messages.length).toBe(200));
+        expect(result.current.messages[0]?.id).toBe("w-0");
+        expect(result.current.messages[199]?.id).toBe("w-199");
         unmount();
     });
 
@@ -183,6 +184,204 @@ describe("useConversationMessages integration (perf mode)", () => {
         expect(result.current.messages[0]?.id).toBe("p1");
         expect(result.current.messages[0]?.content).toBe("hello from projection");
         expect(result.current.hasEarlier).toBe(false);
+        unmount();
+    });
+
+    it("derives media attachments from projection plaintext when attachment metadata is missing", async () => {
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: "a".repeat(64),
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                "c-projection-media": [
+                    {
+                        messageId: "p-media-1",
+                        conversationId: "c-projection-media",
+                        peerPublicKeyHex: "b".repeat(64),
+                        direction: "incoming",
+                        eventCreatedAtUnixSeconds: 10,
+                        plaintextPreview: "photo [avatar.jpg](https://image.nostr.build/avatar.jpg)",
+                        observedAtUnixMs: 10_000,
+                    },
+                ],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 1,
+            updatedAtUnixMs: 10_000,
+        };
+
+        const { result, unmount } = renderHook(() => useConversationMessages("c-projection-media", "a".repeat(64)));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0]?.attachments).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                kind: "image",
+                url: "https://image.nostr.build/avatar.jpg",
+            }),
+        ]));
+        unmount();
+    });
+
+    it("normalizes legacy indexed records that only persisted pubkey metadata", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce([
+            {
+                id: "legacy-in",
+                conversationId,
+                pubkey: peerPublicKeyHex,
+                content: "incoming legacy",
+                timestampMs: 1_000,
+                isOutgoing: false,
+                status: "delivered",
+            },
+            {
+                id: "legacy-out",
+                conversationId,
+                content: "outgoing legacy",
+                timestampMs: 2_000,
+                isOutgoing: true,
+                status: "delivered",
+            },
+        ] as any);
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        const inbound = result.current.messages.find((message) => message.id === "legacy-in");
+        const outbound = result.current.messages.find((message) => message.id === "legacy-out");
+        expect(inbound?.senderPubkey).toBe(peerPublicKeyHex);
+        expect(outbound?.senderPubkey).toBe(myPublicKeyHex);
+        expect(outbound?.recipientPubkey).toBe(peerPublicKeyHex);
+        unmount();
+    });
+
+    it("derives media attachments from indexed message content when attachment metadata is missing", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce([
+            {
+                id: "legacy-media-1",
+                conversationId,
+                pubkey: peerPublicKeyHex,
+                content: "clip [test.mp4](https://video.nostr.build/test.mp4)",
+                timestampMs: 1_000,
+                isOutgoing: false,
+                status: "delivered",
+            },
+        ] as any);
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0]?.attachments).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                kind: "video",
+                url: "https://video.nostr.build/test.mp4",
+            }),
+        ]));
+        unmount();
+    });
+
+    it("keeps hasEarlier enabled when indexed history exists and projection only supplements results", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        const indexedMessages = Array.from({ length: 200 }, (_, index) => ({
+            id: `idx-${index}`,
+            conversationId,
+            senderPubkey: myPublicKeyHex,
+            recipientPubkey: peerPublicKeyHex,
+            content: `indexed-${index}`,
+            timestampMs: 10_000 + index,
+            isOutgoing: true,
+            status: "delivered",
+        }));
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce(indexedMessages as any);
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                [conversationId]: [
+                    {
+                        messageId: "projection-extra-1",
+                        conversationId,
+                        peerPublicKeyHex,
+                        direction: "incoming",
+                        eventCreatedAtUnixSeconds: 30,
+                        plaintextPreview: "projection-extra",
+                        observedAtUnixMs: 30_000,
+                    },
+                ],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 2,
+            updatedAtUnixMs: 30_000,
+        };
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBeGreaterThanOrEqual(200));
+        expect(result.current.hasEarlier).toBe(true);
+        unmount();
+    });
+
+    it("keeps the live conversation window capped at 200 when projection supplements include large history", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        const indexedMessages = Array.from({ length: 200 }, (_, index) => ({
+            id: `idx-${index}`,
+            conversationId,
+            senderPubkey: myPublicKeyHex,
+            recipientPubkey: peerPublicKeyHex,
+            content: `indexed-${index}`,
+            timestampMs: 20_000 + index,
+            isOutgoing: true,
+            status: "delivered",
+        }));
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce(indexedMessages as any);
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                [conversationId]: Array.from({ length: 900 }, (_, index) => ({
+                    messageId: `projection-${index + 1}`,
+                    conversationId,
+                    peerPublicKeyHex,
+                    direction: index % 2 === 0 ? "incoming" : "outgoing",
+                    eventCreatedAtUnixSeconds: index + 1,
+                    plaintextPreview: `projection-${index + 1}`,
+                    observedAtUnixMs: (index + 1) * 1_000,
+                })),
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 3,
+            updatedAtUnixMs: 900_000,
+        };
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(200));
+        expect(result.current.hasEarlier).toBe(true);
         unmount();
     });
 });

@@ -9,6 +9,10 @@ export interface RoomKeyRecord {
     createdAt: number;
 }
 
+const uniqueNonEmptyKeys = (values: ReadonlyArray<string>): string[] => (
+    Array.from(new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0)))
+);
+
 const openDb = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -141,6 +145,81 @@ export class RoomKeyStore {
                 }
             };
             request.onerror = () => reject(request.error);
+        });
+    }
+
+    async listRoomKeyRecords(): Promise<ReadonlyArray<RoomKeyRecord>> {
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                const records = (Array.isArray(request.result) ? request.result : []) as RoomKeyRecord[];
+                records.forEach((record) => {
+                    if (record?.groupId && record?.roomKeyHex) {
+                        this.cache.set(record.groupId, record.roomKeyHex);
+                    }
+                });
+                resolve(records);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async upsertRoomKeyRecord(incoming: RoomKeyRecord): Promise<void> {
+        if (!incoming.groupId || !incoming.roomKeyHex) {
+            return;
+        }
+        const normalizedIncoming: RoomKeyRecord = {
+            groupId: incoming.groupId,
+            roomKeyHex: incoming.roomKeyHex,
+            previousKeys: uniqueNonEmptyKeys(incoming.previousKeys ?? []).filter((key) => key !== incoming.roomKeyHex),
+            createdAt: Number.isFinite(incoming.createdAt) && incoming.createdAt > 0
+                ? incoming.createdAt
+                : Date.now(),
+        };
+        this.cache.set(normalizedIncoming.groupId, normalizedIncoming.roomKeyHex);
+
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+
+            const getReq = store.get(normalizedIncoming.groupId);
+            getReq.onsuccess = () => {
+                const existing = getReq.result as RoomKeyRecord | undefined;
+                if (!existing) {
+                    const putReq = store.put(normalizedIncoming);
+                    putReq.onsuccess = () => resolve();
+                    putReq.onerror = () => reject(putReq.error);
+                    return;
+                }
+
+                const incomingWins = normalizedIncoming.createdAt >= (existing.createdAt || 0);
+                const latest = incomingWins ? normalizedIncoming : existing;
+                const older = incomingWins ? existing : normalizedIncoming;
+                const mergedPrevious = uniqueNonEmptyKeys([
+                    ...(latest.previousKeys ?? []),
+                    ...(older.previousKeys ?? []),
+                    older.roomKeyHex,
+                ]).filter((key) => key !== latest.roomKeyHex);
+
+                const mergedRecord: RoomKeyRecord = {
+                    groupId: latest.groupId,
+                    roomKeyHex: latest.roomKeyHex,
+                    createdAt: Number.isFinite(latest.createdAt) && latest.createdAt > 0
+                        ? latest.createdAt
+                        : Date.now(),
+                    ...(mergedPrevious.length > 0 ? { previousKeys: mergedPrevious } : {}),
+                };
+
+                const putReq = store.put(mergedRecord);
+                putReq.onsuccess = () => resolve();
+                putReq.onerror = () => reject(putReq.error);
+            };
+            getReq.onerror = () => reject(getReq.error);
         });
     }
 

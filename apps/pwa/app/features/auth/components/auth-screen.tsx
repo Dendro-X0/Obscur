@@ -35,11 +35,13 @@ import { Checkbox } from "@dweb/ui-kit";
 import { FlashMessage } from "@/app/components/ui/flash-message";
 import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
 import {
+    getRememberMeStorageKey,
     getAuthTokenStorageKeyCandidates,
     getRememberMeStorageKeyCandidates,
 } from "../utils/auth-storage-keys";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 const generateSecurePassword = (): string => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
@@ -93,8 +95,17 @@ export function AuthScreen() {
             profileId: rememberProfileId,
             includeLegacy: true,
         });
+        const currentRememberKey = getRememberMeStorageKey(rememberProfileId);
         rememberKeys.forEach((key) => {
-            localStorage.setItem(key, params.remember ? "true" : "false");
+            if (params.remember) {
+                localStorage.setItem(key, "true");
+                return;
+            }
+            if (key === currentRememberKey) {
+                localStorage.setItem(key, "false");
+                return;
+            }
+            localStorage.removeItem(key);
         });
         tokenKeys.forEach((key) => {
             if (params.remember && params.token !== undefined && params.token.length > 0) {
@@ -103,27 +114,57 @@ export function AuthScreen() {
             }
             localStorage.removeItem(key);
         });
+        const tokenPersisted = params.remember && typeof params.token === "string" && params.token.length > 0;
+        logAppEvent({
+            name: "auth.remember_me_persisted",
+            level: "info",
+            scope: { feature: "auth", action: "remember_me" },
+            context: {
+                profileId: rememberProfileId,
+                remember: params.remember,
+                tokenPersisted,
+                rememberKeyCount: rememberKeys.length,
+                tokenKeyCount: tokenKeys.length,
+            },
+        });
     }, [rememberProfileId]);
 
     React.useEffect(() => {
-        const remembered = getRememberMeStorageKeyCandidates({
+        const rememberedValues = getRememberMeStorageKeyCandidates({
             profileId: rememberProfileId,
             includeLegacy: true,
         })
             .map((key) => localStorage.getItem(key))
-            .find((value): value is string => value !== null);
-        if (remembered === "true") {
+            .filter((value): value is string => value !== null);
+        const tokenValues = getAuthTokenStorageKeyCandidates({
+            profileId: rememberProfileId,
+            includeLegacy: true,
+        })
+            .map((key) => localStorage.getItem(key))
+            .filter((value): value is string => value !== null && value.length > 0);
+        const currentProfileRememberValue = localStorage.getItem(getRememberMeStorageKey(rememberProfileId));
+
+        if (rememberedValues.includes("true") || tokenValues.length > 0) {
             setRememberMe(true);
-        } else if (remembered === "false") {
+        } else if (identity.state.stored) {
+            // Existing local identities should default to recoverable login persistence
+            // unless a token/remember true value is already present.
+            setRememberMe(true);
+            logAppEvent({
+                name: "auth.remember_me_bootstrap_defaulted_true",
+                level: "info",
+                scope: { feature: "auth", action: "remember_me" },
+                context: {
+                    profileId: rememberProfileId,
+                    hasStoredIdentity: true,
+                    tokenCandidateCount: tokenValues.length,
+                    scopedRememberFalse: currentProfileRememberValue === "false",
+                },
+            });
+        } else if (currentProfileRememberValue === "false") {
             setRememberMe(false);
         }
-    }, [rememberProfileId]);
-
-    React.useEffect(() => {
-        if (!rememberMe) {
-            persistRememberMe({ remember: false });
-        }
-    }, [persistRememberMe, rememberMe]);
+    }, [identity.state.stored, rememberProfileId]);
 
     React.useEffect(() => {
         if (hasAppliedInitialEntryRouteRef.current) {
@@ -201,22 +242,18 @@ export function AuthScreen() {
                 passphrase: password as Passphrase,
                 username
             });
+            // Generate local profile defaults immediately. Relay publish happens after auth.
+            const inviteCode = generateRandomInviteCode();
 
-            const state = identity.getIdentitySnapshot();
-            if (state.publicKeyHex && state.privateKeyHex) {
-                // Generate local profile defaults immediately. Relay publish happens after auth.
-                const inviteCode = generateRandomInviteCode();
+            // Handle Remember Me logic
+            persistRememberMe({ remember: rememberMe, token: password });
 
-                // Handle Remember Me logic
-                persistRememberMe({ remember: rememberMe, token: password });
+            // Persist profile locally
+            profile.setUsername({ username });
+            profile.setInviteCode({ inviteCode });
+            profile.save();
 
-                // Persist profile locally
-                profile.setUsername({ username });
-                profile.setInviteCode({ inviteCode });
-                profile.save();
-
-                toast.success("Identity Secured!");
-            }
+            toast.success("Identity Secured!");
         } catch (error) {
             setAuthError(error instanceof Error ? error.message : "Failed to create account");
         } finally {
@@ -257,12 +294,8 @@ export function AuthScreen() {
                 setIsLoading(false);
                 return;
             }
-
-            const state = identity.getIdentitySnapshot();
-            if (state.publicKeyHex && state.privateKeyHex) {
-                persistRememberMe({ remember: rememberMe, token: password });
-                toast.success("Welcome Back!");
-            }
+            persistRememberMe({ remember: rememberMe, token: password });
+            toast.success("Welcome Back!");
         } catch (error) {
             setAuthError(error instanceof Error ? error.message : "Invalid password or account error");
         } finally {
@@ -273,7 +306,9 @@ export function AuthScreen() {
     const handleLoginFinal = async (e?: React.FormEvent, skipPassword = false) => {
         e?.preventDefault();
 
-        const finalPassword = skipPassword ? "" : password;
+        const providedPassword = skipPassword ? "" : password;
+        const shouldGenerateDevicePassphrase = skipPassword && rememberMe;
+        const importPassphrase = shouldGenerateDevicePassphrase ? generateSecurePassword() : providedPassword;
 
         if (!privateKey) {
             setAuthError("Private key is required");
@@ -296,13 +331,26 @@ export function AuthScreen() {
 
             await runtime.importIdentityForBoundProfile({
                 privateKeyHex: keyToUse,
-                passphrase: (finalPassword || "") as Passphrase,
+                passphrase: (importPassphrase || "") as Passphrase,
                 username: username || undefined
             });
-
-            const state = identity.getIdentitySnapshot();
-            if (state.publicKeyHex && state.privateKeyHex) {
-                persistRememberMe({ remember: rememberMe, token: skipPassword ? undefined : (finalPassword || "") as string });
+            const canPersistPasswordToken = rememberMe && (importPassphrase || "").trim().length > 0;
+            persistRememberMe({
+                remember: canPersistPasswordToken,
+                token: canPersistPasswordToken ? (importPassphrase || "") as string : undefined,
+            });
+            if (shouldGenerateDevicePassphrase) {
+                logAppEvent({
+                    name: "auth.import_generated_device_passphrase",
+                    level: "info",
+                    scope: { feature: "auth", action: "import_identity" },
+                    context: {
+                        profileId: rememberProfileId,
+                        rememberRequested: rememberMe,
+                    },
+                });
+                toast.info("Key accepted. Device-only unlock was created for this profile.");
+            } else {
                 toast.info("Key accepted. Restoring account data...");
             }
         } catch (error) {
@@ -832,7 +880,7 @@ export function AuthScreen() {
                                                 </button>
                                             </div>
                                             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest ml-1 mt-2">
-                                                You can leave this blank to use your key directly every time.
+                                                Leave blank to use key-only login. If Remember Me is enabled, a device-only unlock will be created.
                                             </p>
                                         </div>
 

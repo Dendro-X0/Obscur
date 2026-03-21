@@ -1,7 +1,8 @@
 "use client";
 
 import type React from "react";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { nip19 } from "nostr-tools";
 import {
@@ -82,6 +83,8 @@ import {
   normalizeInviteCodeSuffixInput,
 } from "@/app/features/invites/utils/invite-code-format";
 import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
+import { encryptedAccountBackupService } from "@/app/features/account-sync/services/encrypted-account-backup-service";
+import { accountProjectionRuntime } from "@/app/features/account-sync/services/account-projection-runtime";
 import type { ProfilePublishPhase } from "@/app/features/profile/hooks/use-profile-publisher";
 import { SettingsActionStatus, type SettingsActionPhase } from "@/app/features/settings/components/settings-action-status";
 import {
@@ -106,6 +109,8 @@ import { getReliabilityMetricsSnapshot, getReliabilityRuntimeSnapshot } from "@/
 import { useSearchParams } from "next/navigation";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
@@ -623,6 +628,9 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const [inviteCodeAvailabilityMessage, setInviteCodeAvailabilityMessage] = useState<string>("");
   const [isClearDataDialogOpen, setIsClearDataDialogOpen] = useState(false);
   const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
+  const [isPortableBundleExporting, setIsPortableBundleExporting] = useState(false);
+  const [isPortableBundleImporting, setIsPortableBundleImporting] = useState(false);
+  const portableBundleFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const npubValue = useMemo(() => {
     try {
@@ -991,6 +999,95 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     anchor.click();
     URL.revokeObjectURL(url);
     toast.success("Private key exported.");
+  };
+
+  const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => {
+    if (identity.state.privateKeyHex && identity.state.privateKeyHex !== NATIVE_KEY_SENTINEL) {
+      return identity.state.privateKeyHex;
+    }
+    if (identity.state.privateKeyHex !== NATIVE_KEY_SENTINEL) {
+      return null;
+    }
+    const nsecResult = await invokeNativeCommand<string>("get_session_nsec");
+    if (!nsecResult.ok || !nsecResult.value) {
+      return null;
+    }
+    return decodePrivateKey(nsecResult.value);
+  };
+
+  const handleExportPortableBundle = async (): Promise<void> => {
+    if (!publicKeyHex) {
+      toast.error("No active account found.");
+      return;
+    }
+    if (isPortableBundleExporting) {
+      return;
+    }
+    setIsPortableBundleExporting(true);
+    try {
+      const privateKeyHex = await resolveActivePrivateKeyHex();
+      if (!privateKeyHex) {
+        throw new Error("Unlock this account first so private state can be exported.");
+      }
+      const { bundle, backupPayload } = await encryptedAccountBackupService.exportPortableAccountBundle({
+        publicKeyHex,
+        privateKeyHex,
+      });
+      const exportedAtIso = new Date(bundle.exportedAtUnixMs).toISOString().replace(/[:.]/g, "-");
+      const filename = `obscur-portable-account-${publicKeyHex.slice(0, 8)}-${exportedAtIso}.json`;
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Portable account bundle exported (${backupPayload.createdAtUnixMs}).`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Portable bundle export failed.");
+    } finally {
+      setIsPortableBundleExporting(false);
+    }
+  };
+
+  const handlePortableBundleFileSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    if (!publicKeyHex) {
+      toast.error("No active account found.");
+      event.currentTarget.value = "";
+      return;
+    }
+    if (isPortableBundleImporting) {
+      event.currentTarget.value = "";
+      return;
+    }
+    setIsPortableBundleImporting(true);
+    try {
+      const privateKeyHex = await resolveActivePrivateKeyHex();
+      if (!privateKeyHex) {
+        throw new Error("Unlock this account first so portable data can be imported.");
+      }
+      const fileText = await file.text();
+      const rawBundle = JSON.parse(fileText);
+      await encryptedAccountBackupService.importPortableAccountBundle({
+        bundle: rawBundle,
+        publicKeyHex,
+        privateKeyHex,
+        profileId: getActiveProfileIdSafe(),
+        appendCanonicalEvents: accountProjectionRuntime.appendCanonicalEvents.bind(accountProjectionRuntime),
+      });
+      toast.success("Portable account bundle imported.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Portable bundle import failed.");
+    } finally {
+      event.currentTarget.value = "";
+      setIsPortableBundleImporting(false);
+    }
   };
 
   const handleArmDeleteAccount = (): void => {
@@ -1485,6 +1582,10 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const relayResilienceSnapshot = useMemo(() => relayResilienceObservability.getSnapshot(), [reliabilityTick]);
   const relayResilienceBetaGate = useMemo(
     () => relayResilienceObservability.evaluateBetaReadiness({ snapshot: relayResilienceSnapshot }),
+    [relayResilienceSnapshot]
+  );
+  const relayResiliencePerformanceGate = useMemo(
+    () => relayResilienceObservability.evaluateRuntimePerformanceGate({ snapshot: relayResilienceSnapshot }),
     [relayResilienceSnapshot]
   );
   const lastSyncLabel = reliabilityRuntime.lastSyncCompletedAtUnixMs > 0
@@ -1987,6 +2088,52 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 ) : null}
                 <div className="mt-3 rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-400">
                   Last restore source: {accountSyncSnapshot.lastRestoreSource?.replace("_", " ") || "none"}
+                </div>
+                <div className="mt-3 rounded-xl border border-black/10 bg-zinc-50 px-3 py-3 dark:border-white/10 dark:bg-zinc-950/60">
+                  <div className="text-xs font-bold uppercase tracking-wider text-zinc-500">Manual portability</div>
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                    Automatic relay restore is best-effort. Portable bundles are deterministic fallback imports between devices.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!publicKeyHex || isPortableBundleExporting || isPortableBundleImporting}
+                      className="h-9 text-xs font-bold"
+                      onClick={() => void handleExportPortableBundle()}
+                    >
+                      {isPortableBundleExporting ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Exporting...
+                        </span>
+                      ) : "Export Portable Bundle"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!publicKeyHex || isPortableBundleImporting || isPortableBundleExporting}
+                      className="h-9 text-xs font-bold"
+                      onClick={() => portableBundleFileInputRef.current?.click()}
+                    >
+                      {isPortableBundleImporting ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Importing...
+                        </span>
+                      ) : "Import Portable Bundle"}
+                    </Button>
+                  </div>
+                  <input
+                    ref={portableBundleFileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={(event) => { void handlePortableBundleFileSelected(event); }}
+                  />
+                  <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Keep the bundle file private. It is encrypted, but still contains your account backup envelope.
+                  </p>
                 </div>
               </div>
             </div>
@@ -3368,6 +3515,12 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
                     Storage retries: <span className="font-semibold">{reliabilityMetrics.storage_write_retry}</span>
                   </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Relay perf warns: <span className="font-semibold">{reliabilityMetrics.relay_runtime_performance_warn}</span>
+                  </div>
+                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Relay perf fails: <span className="font-semibold">{reliabilityMetrics.relay_runtime_performance_fail}</span>
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
@@ -3404,6 +3557,25 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     {!relayResilienceBetaGate.ready ? (
                       <div className="mt-1 text-[11px] text-zinc-500">
                         Reasons: {relayResilienceBetaGate.reasons.join(", ")}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                    Runtime performance gate: <span
+                      className={cn(
+                        "font-semibold",
+                        relayResiliencePerformanceGate.status === "pass"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : relayResiliencePerformanceGate.status === "warn"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-rose-600 dark:text-rose-400"
+                      )}
+                    >
+                      {relayResiliencePerformanceGate.status}
+                    </span>
+                    {relayResiliencePerformanceGate.status !== "pass" ? (
+                      <div className="mt-1 text-[11px] text-zinc-500">
+                        Reasons: {relayResiliencePerformanceGate.reasons.join(", ")}
                       </div>
                     ) : null}
                   </div>

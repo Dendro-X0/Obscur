@@ -18,6 +18,12 @@ describe("sticky relay recovery", () => {
       enabledRelayCount: 3,
       writableRelayCount: 1,
     })).toBe(false);
+
+    expect(shouldAutoRecoverRelays({
+      enabledRelayCount: 3,
+      writableRelayCount: 0,
+      fallbackWritableRelayCount: 1,
+    })).toBe(true);
   });
 
   it("uses shorter recovery delays when relays are fully offline", () => {
@@ -37,5 +43,13 @@ describe("sticky relay recovery", () => {
       readiness: "recovering",
       recoveryAttemptCount: 3,
     })).toBe(3500);
+  });
+
+  it("slows auto-recovery cadence when fallback writable coverage is active", () => {
+    expect(getAutoRecoveryDelayMs({
+      readiness: "degraded",
+      recoveryAttemptCount: 0,
+      fallbackWritableRelayCount: 1,
+    })).toBe(12_000);
   });
 });

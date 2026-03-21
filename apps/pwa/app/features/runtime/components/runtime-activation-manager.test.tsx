@@ -6,6 +6,17 @@ const runtimeActivationMocks = vi.hoisted(() => ({
   runtime: {
     snapshot: {
       phase: "activating_runtime",
+      degradedReason: "none",
+      lastError: undefined as string | undefined,
+      relayRuntime: {
+        phase: "healthy",
+        recovery: { readiness: "healthy" },
+        recoveryReasonCode: undefined as string | undefined,
+        writableRelayCount: 1,
+        subscribableRelayCount: 1,
+        enabledRelayUrls: ["wss://relay.one"],
+        lastFailureReason: undefined as string | undefined,
+      },
       messagingTransportRuntime: {
         activeIncomingOwnerCount: 0,
         activeQueueProcessorCount: 0,
@@ -105,6 +116,15 @@ describe("RuntimeActivationManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     runtimeActivationMocks.runtime.snapshot.phase = "activating_runtime";
+    runtimeActivationMocks.runtime.snapshot.degradedReason = "none";
+    runtimeActivationMocks.runtime.snapshot.lastError = undefined;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.phase = "healthy";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.recovery.readiness = "healthy";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.recoveryReasonCode = undefined;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.writableRelayCount = 1;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.subscribableRelayCount = 1;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.enabledRelayUrls = ["wss://relay.one"];
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.lastFailureReason = undefined;
     runtimeActivationMocks.runtime.snapshot.messagingTransportRuntime = {
       activeIncomingOwnerCount: 0,
       activeQueueProcessorCount: 0,
@@ -135,6 +155,25 @@ describe("RuntimeActivationManager", () => {
       projectionPhase: "ready",
       projectionStatus: "ready",
       driftStatus: "clean",
+    }));
+  });
+
+  it("promotes degraded runtime back to ready when activation gates converge", () => {
+    runtimeActivationMocks.runtime.snapshot.phase = "degraded";
+    runtimeActivationMocks.runtime.snapshot.degradedReason = "activation_timeout";
+    runtimeActivationMocks.accountSyncSnapshot.phase = "ready";
+    runtimeActivationMocks.accountSyncSnapshot.status = "public_restored";
+    runtimeActivationMocks.projectionSnapshot.phase = "ready";
+    runtimeActivationMocks.projectionSnapshot.status = "ready";
+    runtimeActivationMocks.projectionSnapshot.accountProjectionReady = true;
+
+    render(<RuntimeActivationManager />);
+
+    expect(runtimeActivationMocks.runtime.markRuntimeReady).toHaveBeenCalledTimes(1);
+    expect(runtimeActivationMocks.runtime.markRuntimeReady).toHaveBeenCalledWith(expect.objectContaining({
+      accountSyncPhase: "ready",
+      accountProjectionPhase: "ready",
+      accountProjectionStatus: "ready",
     }));
   });
 
@@ -331,5 +370,32 @@ describe("RuntimeActivationManager", () => {
     );
 
     vi.useRealTimers();
+  });
+
+  it("degrades activation when relay runtime gate is degraded even after projection/account-sync convergence", () => {
+    runtimeActivationMocks.runtime.snapshot.phase = "activating_runtime";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.phase = "degraded";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.recovery.readiness = "degraded";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.recoveryReasonCode = "no_writable_relays";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.writableRelayCount = 0;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.subscribableRelayCount = 0;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.enabledRelayUrls = ["wss://relay.one"];
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.lastFailureReason = "No writable relay connection";
+    runtimeActivationMocks.accountSyncSnapshot.phase = "ready";
+    runtimeActivationMocks.accountSyncSnapshot.status = "public_restored";
+    runtimeActivationMocks.projectionSnapshot.phase = "ready";
+    runtimeActivationMocks.projectionSnapshot.status = "ready";
+    runtimeActivationMocks.projectionSnapshot.accountProjectionReady = true;
+
+    render(<RuntimeActivationManager />);
+
+    expect(runtimeActivationMocks.runtime.markRuntimeReady).not.toHaveBeenCalled();
+    expect(runtimeActivationMocks.runtime.markRuntimeDegraded).toHaveBeenCalledWith(
+      "relay_runtime_degraded",
+      expect.objectContaining({
+        degradedReason: "relay_runtime_degraded",
+        message: "No writable relay connection",
+      }),
+    );
   });
 });

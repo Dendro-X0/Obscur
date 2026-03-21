@@ -4,7 +4,52 @@ Maintainer note:
 
 - This branch remains the unreleased `v0.9.0 beta` recovery line.
 - It is not yet release-ready for trustworthy two-user communication.
-- See [docs/08-maintainer-playbook.md](./docs/08-maintainer-playbook.md) and [docs/10-community-and-groups-overhaul.md](./docs/10-community-and-groups-overhaul.md) for current handoff and roadmap status.
+- See [docs/08-maintainer-playbook.md](./docs/08-maintainer-playbook.md), [docs/10-community-and-groups-overhaul.md](./docs/10-community-and-groups-overhaul.md), and [docs/17-v0.9.2-expansion-context.md](./docs/17-v0.9.2-expansion-context.md) for current handoff/status truth.
+
+### Known Issues (2026-03-20 - v0.9.2 constrained release)
+
+- v0.9.2 is being released with unresolved critical regressions due schedule constraints.
+- Confirmed unresolved runtime risks:
+  - login-state persistence remains unreliable in some restart flows,
+  - page-transition freeze/sidebar lock can still occur,
+  - infinite loading loops remain reproducible in some startup/profile-disruption paths,
+  - cross-device self-authored DM history loss can recur,
+  - historical media hydration may diverge between desktop and web.
+- Canonical problem record:
+  - `ISSUES.md` (active incident truth),
+  - `docs/17-v0.9.2-expansion-context.md` (next-iteration handoff baseline).
+
+### Changed (2026-03-20 - CI reliability gate and planning artifact retirement)
+
+- **CI/workflow blocker fixes (release test pack)**:
+  - fixed startup watchdog telemetry typing in `app/components/providers.tsx` to avoid `undefined` context payloads during strict typecheck.
+  - fixed deferred replay resolver typing in `account-projection-runtime.test.ts` to remove `never` call regression under `tsc --noEmit`.
+  - fixed IndexedDB blocked-event typing in `open-identity-db.test.ts` for strict `IDBVersionChangeEvent` contract.
+  - hardened chat-state replacement diagnostics in `chat-state-store.ts` for optional group-message maps.
+  - made runtime activation relay-runtime gate fail-open when mocked/test snapshots omit `relayRuntime`, removing render-time crashes in `runtime-activation-transport-gate.integration.test.tsx`.
+  - aligned `use-conversation-messages.test.ts` with the current `200`-message live-window cap contract.
+  - verification: `pnpm release:test-pack -- --skip-preflight` passes.
+- **Planning artifact retirement (completed lane cleanup)**:
+  - removed root planning files:
+    - `PHASE0_SPECS.md` .. `PHASE4_SPECS.md`
+    - `ROADMAP_v0.9.0-beta.md`
+    - `ROADMAP_v0.9.2.md`
+  - `/docs` + `ISSUES.md` remain the canonical planning/handoff source for this lane.
+- **Documentation sync**:
+  - updated `README.md`, `docs/README.md`, and `docs/17-v0.9.2-expansion-context.md` to reflect current CI gate status and retired root planning artifacts.
+
+### Changed (2026-03-19 - v0.9.2 context and reliability documentation pass)
+
+- **Version alignment moved to `v0.9.2`**:
+  - updated release-tracked manifests to `0.9.2` (root workspace, apps, packages, tauri config, `version.json`).
+- **Documentation truth-map correction**:
+  - removed stale warm-up-owner guidance from active architecture docs and replaced it with current startup owner chain:
+    - `DesktopProfileBootstrap` -> `AuthGateway` -> `ProfileBoundAuthShell` -> `UnlockedAppRuntimeShell` -> `RuntimeActivationManager`.
+  - refreshed runtime failure atlas and owner index to match live code paths.
+- **Future-iteration handoff context**:
+  - added `docs/17-v0.9.2-expansion-context.md` with stable foundations, known fragile areas, required runtime capture, and next-iteration order.
+- **Incident status updates**:
+  - updated cross-device group visibility incident doc from unresolved to mitigated/monitoring with explicit residual-risk boundaries.
 
 ### Changed (2026-03-18 - v0.9.1 release lane)
 
@@ -20,6 +65,129 @@ Maintainer note:
   - Hardened local vault storage-path operations so Settings `Open` first ensures the configured directory exists.
   - Added native desktop fallback command `desktop_open_storage_path` for folder open operations when plugin-shell path open fails.
   - Hardened `Change Folder` UX to validate selected paths immediately and rollback to previous config when path initialization fails.
+
+### Changed (2026-03-18 - v0.9.2 sync lane start)
+
+- **Emergency desktop startup rollback (2026-03-19)**:
+  - Removed warm-up ownership from the live provider chain (`AppProviders` no longer mounts `WarmUpGate`).
+  - Removed warm-up runtime implementation files from this workspace state pending redesign.
+  - Startup/runtime activation now converges through the pre-warm-up owner path (`DesktopProfileBootstrap` -> `AuthGateway` -> `UnlockedAppRuntimeShell`), preventing warm-up overlay/banner ownership from blocking navigation while relay recovery continues.
+
+- **Encrypted backup ordering hardening for cross-device account sync**:
+  - Added deterministic monotonic backup event `created_at` generation per account pubkey to prevent equal-second replaceable backup collisions.
+  - Added backup payload timestamp tag (`obscur_backup_created_at_ms`) on encrypted account backup events.
+  - Updated backup event selection comparator to prefer payload timestamp tag, then `created_at`, then event id for deterministic newest-wins behavior.
+  - Added focused regression coverage in `encrypted-account-backup-service.test.ts` for rapid consecutive backup publishes.
+  - Hardened backup restore selection to wait for `EOSE` across all open relay candidates in the active pool before settling latest-event choice, reducing stale-first-relay restore picks.
+  - Added regression coverage for mixed-speed relay responses to ensure newest backup snapshots still win when older candidates finish first.
+  - Added account-sync ordering diagnostics at canonical backup boundaries:
+    - `account_sync.backup_publish_ordering` now reports payload/event timestamps, monotonic bump metadata, and relay-scope counts for each encrypted backup publish.
+    - `account_sync.backup_restore_selection` now reports pool/direct selection source, EOSE/candidate counts, timeout state, and chosen backup event metadata for restore triage.
+  - Added focused diagnostics assertions in `encrypted-account-backup-service.test.ts` for publish-ordering and restore-selection instrumentation.
+  - Finalized community membership recovery source precedence contract (`tombstone -> membership ledger -> persisted chat state`) in a dedicated recovery resolver.
+  - Updated `GroupProvider` hydration to use the canonical precedence resolver and to backfill joined ledger entries only when ledger coverage is missing, preventing stale persisted groups from re-promoting `left` membership state.
+  - Added focused regression coverage for precedence behavior:
+    - `community-membership-recovery.test.ts` (contract-level precedence and diagnostics),
+    - `group-provider.test.tsx` (persisted group suppressed when ledger status is `left`).
+  - Added cross-device membership reconstruction path for backup restores:
+    - `community-membership-reconstruction` now derives supplemental joined membership evidence from backup chat-state groups and accepted community invite response payloads in DM history.
+    - encrypted backup merge now applies reconstruction as a missing-coverage supplement only and never uses it to override explicit membership ledger status (for example `left` / `expelled`).
+  - Hardened cross-device community list restore when membership ledger drifts from chat evidence:
+    - membership reconstruction now also derives joined evidence from persisted `groupMessages` timelines (not only `createdGroups` / accepted invite responses), so joined communities can be recovered even when group metadata rows are missing.
+    - backup restore merge now promotes stale incoming `left` ledger status to `joined` only when newer joined evidence exists in the same incoming backup payload; local explicit ledger status is still preserved.
+    - added focused regression coverage in:
+      - `community-membership-reconstruction.test.ts`,
+      - `encrypted-account-backup-service.test.ts`.
+  - Added focused reconstruction coverage:
+    - `community-membership-reconstruction.test.ts` (reconstruction + non-override supplement contract),
+    - `encrypted-account-backup-service.test.ts` (missing-ledger reconstruction and local explicit-status preservation),
+    - `group-provider.test.tsx` (delayed backup reconstruction path refresh).
+  - Added two-account cross-device integration coverage for membership recovery:
+    - `group-provider.cross-device-membership.integration.test.tsx` validates sender/receiver convergence for:
+      - missing-ledger restore reconstruction from accepted invite-response evidence,
+      - delayed restore reconstruction from backup chat-state group evidence after receiver mount.
+  - Finalized canonical conversation-target guardrails for C1:
+    - `conversation-target` now supports explicit DM fallback policy modes (`connection_match` vs `canonical_id_only`).
+    - URL `convId` routing now applies `canonical_id_only` fallback in deep-link handling so non-canonical unresolved tokens cannot silently downgrade into DM selection.
+    - Added resolver regression coverage in `conversation-target.test.ts`.
+  - Landed C2 unread isolation hardening for mixed DM/community sessions:
+    - Added `unread-isolation` helper to derive selected-target unread key set and apply deterministic zeroing on active selection.
+    - Updated `messaging-provider` clear-on-select path to anchor selected conversation unread keys explicitly and clear legacy group alias keys (`community:*`, `group:*`, `group@relay-host`).
+    - Added focused regression coverage in `unread-isolation.test.ts`.
+  - Landed C3 mixed-history navigation/unread regression integration coverage:
+    - Added `conversation-unread-convergence.integration.test.ts` to validate canonical ordering across conversation token resolution, selected-target unread isolation, and projection unread merge.
+    - Added strict-boundary regression assertions proving non-canonical DM tokens cannot trigger selection/unread mutation under `canonical_id_only`.
+    - Added mixed DM/group history assertions proving group-focused sessions retain isolated group unread zeroing while DM projection refreshes cannot reassert stale unread traps.
+  - Hardened encrypted-backup restore integrity for new-device canonical-append path:
+    - canonical-append restores now also apply merged chat-state domains (`messagesByConversationId`, `createdGroups`, `groupMessages`) with mutation-signal suppression to prevent self-authored DM and group history loss during restore/publish convergence.
+    - added regression assertions in `encrypted-account-backup-service.test.ts` proving append-mode restore retains outgoing DM entries and group timeline/state domains.
+  - Hardened post-restore message hydration convergence for cross-device sessions:
+    - `message-persistence-service` now re-runs legacy chat-state message migration when chat-state replace events fire, so restored backup state is materialized into IndexedDB message history without requiring a restart.
+    - legacy migration now normalizes sender attribution and canonical DM conversation ids through persisted-message contracts, preventing self-authored history from being stranded under legacy conversation keys.
+    - `use-conversation-messages` now normalizes legacy IndexedDB message rows (`pubkey`-only sender metadata) to explicit `senderPubkey`/`recipientPubkey` evidence, preventing sender render degradation (`???`) in mixed restore/live timelines.
+    - added focused regression coverage in:
+      - `message-persistence-service.test.ts`,
+      - `use-conversation-messages.integration.test.ts`.
+  - Hardened web/desktop startup gate for profile binding:
+    - `DesktopProfileBootstrap` now enforces a startup deadline for native profile refresh and always continues app initialization when that deadline is exceeded.
+    - native profile refresh retries continue in the background after timeout so desktop profile binding can still converge without blocking first paint.
+    - added focused regression coverage in `desktop-profile-bootstrap.test.tsx` for non-native web startup and hung native refresh fallback.
+  - Hardened startup first-paint ownership to prevent indefinite gray-page hangs:
+    - `Preloader` no longer sets `document.body.style.visibility = "hidden"` and now runs as a bounded warm-up hint only.
+    - root `layout.tsx` now includes a preloader fail-safe script that force-releases stale `preloading`/hidden body state on bounded startup deadlines.
+    - added focused regression coverage in `preloader.test.tsx` for fail-open visibility and bounded preloading release.
+  - Landed Phase D2 warm-up owner cutover for startup orchestration:
+    - added canonical runtime `warm-up-supervisor` state/task model and diagnostics surface for startup phases (`ready` / `degraded` / `fatal`) with hard/soft gate timeouts.
+    - introduced `WarmUpGate` + `WarmUpScreen` as the single startup loading overlay owner across auth/runtime activation boundaries.
+    - converted `DesktopProfileBootstrap` to background profile-binding refresh (non-blocking), removing it as a visual startup gate owner.
+    - removed duplicate runtime-activation overlay ownership from `UnlockedAppRuntimeShell` so startup gating converges on the warm-up owner path.
+    - added focused warm-up supervisor contract tests in `warm-up-supervisor.test.ts`.
+  - Landed Phase D3 warm-up rollout gates for cross-runtime validation:
+    - added runtime-specific warm-up budget evaluator (`web`, `desktop-native`, `mobile-native`) covering first paint, hard-gate completion target, blocking overlay max, and forced degraded-entry bounds.
+    - wired terminal warm-up gate logging (`warmup.rollout_gate_result`) with structured reason codes and budget evidence payloads.
+    - added reliability observability counters for warm-up terminal states and rollout gate warn/fail outcomes.
+    - added focused rollout gate tests in `warm-up-rollout-gates.test.ts`.
+    - added warm-up phase transition probe diagnostics (`warmup.phase_transition`) and exposed warm-up trace history via `window.obscurWarmup.getTrace()` for startup stall triage.
+    - adjusted runtime rollout logging to avoid dev-overlay false alarms: only `fatal` warm-up terminals emit `error`; degraded/non-fatal rollout gate outcomes emit `warn`.
+    - scoped first-paint rollout-budget enforcement to explicit policy (`production` default), keeping dev startup diagnostics high-signal without non-actionable first-paint gate failures.
+  - Landed relay/warm-up Phase 3 reconnect convergence hardening:
+    - relay recovery now normalizes `manual` recovery intent to cyclic disconnect reasons (`no_writable_relays` / `write_queue_blocked` / `cooldown_active`) when writable relays are absent, preventing accidental non-cyclic exhaustion during disconnect churn.
+    - recovery attempt baseline now resets across recovery reason-family changes so post-disconnect recovery re-enters deterministic reconnect-first sequencing.
+    - warm-up activation now enters non-blocking degraded mode immediately on relay-runtime degraded evidence and no longer oscillates degraded back into blocking `starting_transport` while runtime remains `activating_runtime`.
+    - warm-up runtime sync now short-circuits no-op snapshot emissions to reduce startup churn.
+    - added focused regression coverage in `relay-recovery-policy.test.ts` and `warm-up-supervisor.test.ts`.
+  - Landed relay/runtime Phase 4 performance guardrails:
+    - added runtime reconnect/sync performance gate evaluation (`pass` / `warn` / `fail`) with explicit target-vs-budget thresholds in `relay-resilience-observability`.
+    - performance gate now tracks recovery latency p95, replay success ratio, scoped publish blocked ratio, and relay flap-rate budget pressure with reason-coded outcomes.
+    - `relay-runtime-supervisor` now emits structured `relay.runtime_performance_gate` diagnostics on gate transitions.
+    - calibration-only low-sample states are emitted as informational diagnostics to avoid startup false-alert churn.
+    - added reliability counters `relay_runtime_performance_warn` and `relay_runtime_performance_fail`, surfaced in Settings Reliability.
+    - added focused relay-churn performance-gate coverage in `relay-resilience-observability.test.ts`.
+  - Hardened desktop native relay connect fallback under non-Tor runtimes:
+    - `NativeRelay` now falls back to browser WebSocket when native `connect_relay` fails and Tor is disabled, instead of remaining closed and feeding infinite reconnect loops.
+    - added focused regression coverage in `native-relay.test.ts` for native connect timeout -> browser fallback -> open transition.
+  - Desktop relay transport ownership hotfix for startup stability:
+    - `NativeRelay` now prefers browser WebSocket transport immediately when Tor is disabled (native connect is skipped in that mode), removing repeated 18s native TCP timeout churn from startup/reconnect loops.
+    - native relay path remains active only when Tor is enabled.
+    - updated `native-relay.test.ts` to lock this runtime contract.
+  - Hardened fallback relay recovery convergence when configured relays are down:
+    - relay transport activity now surfaces `fallbackWritableRelayCount` evidence from open/write-capable fallback sockets.
+    - relay recovery policy now treats fallback writable evidence as degraded usable coverage (not healthy), resets cyclic recovery attempt state, and suppresses `no_writable_relays`/`cooldown_active` watchdog churn while fallback coverage is active.
+    - sticky auto-recovery now keeps repairing configured relays during fallback coverage at a slower cadence, preserving automatic reconnect behavior without reconnect storms.
+    - runtime activation relay-runtime gate diagnostics now include fallback relay counts for degraded triage.
+    - runtime activation no longer re-emits degraded state mutations on every relay failure-message churn while already in `relay_runtime_degraded`, reducing UI rerender pressure under prolonged outage windows.
+    - added focused regression coverage in:
+      - `relay-recovery-policy.test.ts`,
+      - `sticky-relay-recovery.test.ts`.
+  - Hardened desktop deep-link navigation listener against route hijack churn:
+    - dedupes repeated native deep-link payloads in a short window,
+    - removes default forced `router.push("/")` for unknown `obscur://` paths so sidebar navigation is not overridden by noisy/unknown deep-link events.
+  - Added deterministic manual account portability fallback for cross-device recovery when relay-backed restore is degraded:
+    - added typed portable bundle contract (`obscur.portable_account_bundle.v1`) in account-sync contracts.
+    - added `exportPortableAccountBundle` / `importPortableAccountBundle` in encrypted backup service with strict account ownership validation (`bundle.publicKeyHex` must match active identity).
+    - manual import path now reuses canonical backup apply + canonical append boundaries instead of adding a parallel state owner.
+    - wired Settings `Profile -> Account Sync` controls for portable bundle export/import with locked-identity guards.
+    - added focused regression tests for portable bundle roundtrip and mismatch rejection in `encrypted-account-backup-service.test.ts`.
 
 ### Added
 

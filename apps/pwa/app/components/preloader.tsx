@@ -3,10 +3,16 @@
 import { useEffect } from "react";
 
 const PRELOADER_TIMEOUT_MS = 1500;
+const PRELOADER_SETTLE_DELAY_MS = 100;
+
+export const preloaderInternals = {
+    PRELOADER_TIMEOUT_MS,
+    PRELOADER_SETTLE_DELAY_MS,
+} as const;
 
 /**
- * Preloader - Forces CSS and critical resources to load before showing the UI
- * Prevents flash of unstyled content (FOUC) in both PWA and Desktop builds
+ * Preloader - best-effort warm-up for fonts/styles without owning first paint.
+ * Startup visibility must remain fail-open so stalled hydration cannot blank the app.
  */
 export const Preloader = () => {
     useEffect(() => {
@@ -18,7 +24,7 @@ export const Preloader = () => {
             }
             released = true;
             document.body.classList.remove("preloading");
-            document.body.style.visibility = "visible";
+            document.body.style.removeProperty("visibility");
         };
 
         const warmUp = async (): Promise<void> => {
@@ -44,12 +50,13 @@ export const Preloader = () => {
                 new Promise((resolve) => window.setTimeout(resolve, PRELOADER_TIMEOUT_MS)),
             ]);
 
-            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            await new Promise((resolve) => window.setTimeout(resolve, PRELOADER_SETTLE_DELAY_MS));
             releaseBody();
         };
 
         document.body.classList.add("preloading");
-        document.body.style.visibility = "hidden";
+        // Keep first-paint visible even if boot work hangs after hydration.
+        document.body.style.removeProperty("visibility");
 
         void warmUp();
 

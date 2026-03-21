@@ -77,6 +77,15 @@ export class NativeRelay implements EventTarget {
                 return;
             }
 
+            if (torStatus !== "enabled") {
+                this.transportMode = "browser";
+                logRuntimeEvent("native_relay.browser_preferred", "expected", [
+                    `[NativeRelay] Tor disabled for ${this.url}; using browser WebSocket transport`,
+                ]);
+                this.connectBrowser();
+                return;
+            }
+
             try {
                 this.transportMode = "native";
                 await this.initListeners();
@@ -88,15 +97,7 @@ export class NativeRelay implements EventTarget {
                 return;
             } catch (nativeError) {
                 this.cleanup();
-                if (torStatus === "enabled") {
-                    throw nativeError;
-                }
-                this.transportMode = "browser";
-                logRuntimeEvent("native_relay.fallback_to_browser", "degraded", [
-                    `[NativeRelay] Native relay path failed for ${this.url}; falling back to browser WebSocket`,
-                    nativeError,
-                ]);
-                this.connectBrowser();
+                throw nativeError;
             }
         } catch (e) {
             if (this.closeRequested) {
@@ -309,6 +310,25 @@ export class NativeRelay implements EventTarget {
                 probeMessage = formatRelayProbeReport(report);
             } catch (probeError) {
                 probeMessage = `Relay probe failed: ${probeError instanceof Error ? probeError.message : String(probeError)}`;
+            }
+
+            const torStatus = await relayNativeAdapter.getTorStatus();
+            const shouldFallbackToBrowser = (
+                torStatus !== "enabled"
+                && !this.closeRequested
+                && this.transportMode === "native"
+            );
+            if (shouldFallbackToBrowser) {
+                logRuntimeEvent("native_relay.connect_fallback_to_browser", "degraded", [
+                    `[NativeRelay] Native connect failed for ${this.url}; falling back to browser WebSocket`,
+                    errorMessage,
+                    probeMessage ?? "",
+                ]);
+                this.cleanup();
+                this.transportMode = "browser";
+                this.readyState = NativeRelay.CONNECTING;
+                this.connectBrowser();
+                return;
             }
 
             nativeErrorStore.addError({

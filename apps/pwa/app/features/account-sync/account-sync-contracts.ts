@@ -100,6 +100,13 @@ export type IdentityUnlockSnapshot = Readonly<{
   username?: string;
 }>;
 
+export type RoomKeySnapshot = Readonly<{
+  groupId: string;
+  roomKeyHex: string;
+  previousKeys?: ReadonlyArray<string>;
+  createdAt: number;
+}>;
+
 export type EncryptedAccountBackupPayload = Readonly<{
   version: 1;
   publicKeyHex: PublicKeyHex;
@@ -111,6 +118,7 @@ export type EncryptedAccountBackupPayload = Readonly<{
   requestOutbox: ContactRequestOutboxSnapshot;
   syncCheckpoints: SyncCheckpointSnapshot;
   communityMembershipLedger?: ReadonlyArray<CommunityMembershipLedgerEntry>;
+  roomKeys?: ReadonlyArray<RoomKeySnapshot>;
   chatState: PersistedChatState | null;
   privacySettings: PrivacySettings;
   relayList: RelayListSnapshot;
@@ -124,6 +132,15 @@ export type EncryptedAccountBackupEnvelope = Readonly<{
   ciphertext: string;
   backupEventKind: number;
   dTag: string;
+}>;
+
+export type PortableAccountBundle = Readonly<{
+  version: 1;
+  format: "obscur.portable_account_bundle.v1";
+  payloadVersion: 1;
+  exportedAtUnixMs: number;
+  publicKeyHex: PublicKeyHex;
+  ciphertext: string;
 }>;
 
 export type RelayRehydrateProfile = Readonly<{
@@ -161,7 +178,7 @@ export type AccountSyncSnapshot = Readonly<{
   lastRelayFailureReason?: string;
   latestProfileEventId?: string;
   latestBackupEventId?: string;
-  lastRestoreSource?: "relay_profile" | "encrypted_backup" | "local_draft_only";
+  lastRestoreSource?: "relay_profile" | "encrypted_backup" | "local_draft_only" | "portable_bundle";
   lastImportEvidence?: Readonly<{
     localBinding: boolean;
     relayProfileEventSeen: boolean;

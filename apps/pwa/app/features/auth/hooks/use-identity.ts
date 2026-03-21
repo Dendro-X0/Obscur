@@ -12,6 +12,7 @@ import { getStoredIdentity } from "../utils/get-stored-identity";
 import { saveStoredIdentity } from "../utils/save-stored-identity";
 import {
   ensureIdentityProfileBinding,
+  recoverStoredIdentityProfile,
   recoverSingleStoredIdentityProfile,
 } from "../utils/identity-profile-binding";
 import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
@@ -78,6 +79,12 @@ const createNewIdentityRecord = async (params: Readonly<{ passphrase: Passphrase
 };
 
 const PRIVATE_KEY_HEX_PATTERN = /^[0-9a-f]{64}$/;
+
+const isRecoverableIdentityBootstrapError = (message: string): boolean => {
+  const normalized = message.toLowerCase();
+  return normalized.includes("timed out opening identity database")
+    || normalized.includes("identity database open blocked");
+};
 
 const normalizePrivateKeyHex = (value: string): PrivateKeyHex | null => {
   const normalized = value.trim().toLowerCase();
@@ -258,7 +265,15 @@ export const getIdentityDiagnosticsSnapshot = (): IdentityDiagnostics => identit
 const rehydrateIdentityForActiveProfile = async (): Promise<void> => {
   const current = getIdentitySnapshot();
   try {
-    const { record: stored } = await getStoredIdentity();
+    let { record: stored } = await getStoredIdentity();
+    if (!stored) {
+      const recoveredBinding = await recoverStoredIdentityProfile();
+      stored = recoveredBinding?.record;
+      if (!stored) {
+        const recoveredSingle = await recoverSingleStoredIdentityProfile();
+        stored = recoveredSingle?.record;
+      }
+    }
     if (
       stored
       && current.status === "unlocked"
@@ -285,6 +300,10 @@ const ensureInitialized = async (): Promise<void> => {
   let stored: IdentityRecord | undefined;
   try {
     stored = (await getStoredIdentity()).record;
+    if (!stored) {
+      const recovered = await recoverStoredIdentityProfile();
+      stored = recovered?.record;
+    }
     if (!stored) {
       const recovered = await recoverSingleStoredIdentityProfile();
       stored = recovered?.record;
@@ -341,6 +360,17 @@ const ensureInitialized = async (): Promise<void> => {
     setIdentityState(createLockedState(stored));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
+    if (isRecoverableIdentityBootstrapError(message)) {
+      setIdentityDiagnostics({
+        status: "locked",
+        storedPublicKeyHex: stored?.publicKeyHex,
+        mismatchReason: undefined,
+        nativeSessionPublicKeyHex: null,
+        message: "Local identity storage is temporarily unavailable. Continue with manual login/import.",
+      });
+      setIdentityState(createLockedState(stored));
+      return;
+    }
     setIdentityState(createErrorState(message, stored));
   }
 };

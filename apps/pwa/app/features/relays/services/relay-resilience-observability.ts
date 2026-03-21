@@ -59,6 +59,55 @@ export type RelayBetaGateResult = Readonly<{
   reasons: ReadonlyArray<string>;
 }>;
 
+export type RelayRuntimePerformanceBudget = Readonly<{
+  minObservationWindowMs: number;
+  minRecoverySamples: number;
+  minReplaySamples: number;
+  minScopedPublishSamples: number;
+  maxRecoveryP95MsTarget: number;
+  maxRecoveryP95MsBudget: number;
+  minReplaySuccessRatioTarget: number;
+  minReplaySuccessRatioBudget: number;
+  maxScopedBlockedRatioTarget: number;
+  maxScopedBlockedRatioBudget: number;
+  maxFlapRatePerMinuteTarget: number;
+  maxFlapRatePerMinuteBudget: number;
+}>;
+
+export type RelayRuntimePerformanceGateStatus = "pass" | "warn" | "fail";
+
+export type RelayRuntimePerformanceReasonCode =
+  | "ok"
+  | "insufficient_observation_window"
+  | "insufficient_recovery_samples"
+  | "insufficient_replay_samples"
+  | "insufficient_scoped_samples"
+  | "recovery_p95_over_target"
+  | "recovery_p95_over_budget"
+  | "replay_success_ratio_below_target"
+  | "replay_success_ratio_below_budget"
+  | "scoped_block_ratio_over_target"
+  | "scoped_block_ratio_over_budget"
+  | "relay_flap_rate_over_target"
+  | "relay_flap_rate_over_budget";
+
+export type RelayRuntimePerformanceGateResult = Readonly<{
+  status: RelayRuntimePerformanceGateStatus;
+  reasons: ReadonlyArray<RelayRuntimePerformanceReasonCode>;
+  primaryReasonCode: RelayRuntimePerformanceReasonCode;
+  budget: RelayRuntimePerformanceBudget;
+  maxFlapRatePerMinute: number;
+  recoveryP95LatencyMs: number;
+  replaySuccessRatio: number;
+  scopedBlockedRatio: number;
+  observedWindowMs: number;
+  sampleCounts: Readonly<{
+    recovery: number;
+    replay: number;
+    scopedPublish: number;
+  }>;
+}>;
+
 export type RelayResilienceSnapshot = Readonly<{
   sessionStartedAtUnixMs: number;
   updatedAtUnixMs: number;
@@ -196,6 +245,7 @@ const installWindowTool = (): void => {
   (window as Window & { obscurRelayResilience?: unknown }).obscurRelayResilience = {
     getSnapshot: relayResilienceObservability.getSnapshot,
     evaluateBetaReadiness: relayResilienceObservability.evaluateBetaReadiness,
+    evaluateRuntimePerformanceGate: relayResilienceObservability.evaluateRuntimePerformanceGate,
   };
 };
 
@@ -207,6 +257,21 @@ const DEFAULT_BETA_GATE_THRESHOLDS: RelayBetaGateThresholds = {
   minReplaySamples: 10,
   minScopedPublishSamples: 10,
   maxOperatorInterventionCount: 0,
+};
+
+const DEFAULT_RUNTIME_PERFORMANCE_BUDGET: RelayRuntimePerformanceBudget = {
+  minObservationWindowMs: 2 * 60_000,
+  minRecoverySamples: 3,
+  minReplaySamples: 5,
+  minScopedPublishSamples: 5,
+  maxRecoveryP95MsTarget: 10_000,
+  maxRecoveryP95MsBudget: 15_000,
+  minReplaySuccessRatioTarget: 0.9,
+  minReplaySuccessRatioBudget: 0.8,
+  maxScopedBlockedRatioTarget: 0.35,
+  maxScopedBlockedRatioBudget: 0.5,
+  maxFlapRatePerMinuteTarget: 0.8,
+  maxFlapRatePerMinuteBudget: 1.5,
 };
 
 const evaluateBetaReadiness = (
@@ -246,6 +311,78 @@ const evaluateBetaReadiness = (
     thresholds,
     checks,
     reasons,
+  };
+};
+
+const evaluateRuntimePerformanceGate = (
+  snapshot: RelayResilienceSnapshot,
+  budget: RelayRuntimePerformanceBudget,
+): RelayRuntimePerformanceGateResult => {
+  const warnings = new Set<RelayRuntimePerformanceReasonCode>();
+  const failures = new Set<RelayRuntimePerformanceReasonCode>();
+
+  const maxFlapRatePerMinute = Object.values(snapshot.relayFlapByUrl).reduce((maxValue, metric) => (
+    Math.max(maxValue, metric.flapRatePerMinute)
+  ), 0);
+
+  if (snapshot.observedWindowMs < budget.minObservationWindowMs) {
+    warnings.add("insufficient_observation_window");
+  }
+
+  if (snapshot.recoveryLatency.sampleCount < budget.minRecoverySamples) {
+    warnings.add("insufficient_recovery_samples");
+  } else if (snapshot.recoveryLatency.p95LatencyMs > budget.maxRecoveryP95MsBudget) {
+    failures.add("recovery_p95_over_budget");
+  } else if (snapshot.recoveryLatency.p95LatencyMs > budget.maxRecoveryP95MsTarget) {
+    warnings.add("recovery_p95_over_target");
+  }
+
+  if (snapshot.replay.attemptedReplayCount < budget.minReplaySamples) {
+    warnings.add("insufficient_replay_samples");
+  } else if (snapshot.replay.successRatio < budget.minReplaySuccessRatioBudget) {
+    failures.add("replay_success_ratio_below_budget");
+  } else if (snapshot.replay.successRatio < budget.minReplaySuccessRatioTarget) {
+    warnings.add("replay_success_ratio_below_target");
+  }
+
+  if (snapshot.scopedReadiness.scopedPublishAttemptCount < budget.minScopedPublishSamples) {
+    warnings.add("insufficient_scoped_samples");
+  } else if (snapshot.scopedReadiness.blockedByReadinessRatio > budget.maxScopedBlockedRatioBudget) {
+    failures.add("scoped_block_ratio_over_budget");
+  } else if (snapshot.scopedReadiness.blockedByReadinessRatio > budget.maxScopedBlockedRatioTarget) {
+    warnings.add("scoped_block_ratio_over_target");
+  }
+
+  if (maxFlapRatePerMinute > budget.maxFlapRatePerMinuteBudget) {
+    failures.add("relay_flap_rate_over_budget");
+  } else if (maxFlapRatePerMinute > budget.maxFlapRatePerMinuteTarget) {
+    warnings.add("relay_flap_rate_over_target");
+  }
+
+  const orderedReasons: RelayRuntimePerformanceReasonCode[] = [
+    ...Array.from(failures),
+    ...Array.from(warnings),
+  ];
+  const reasonCodes: ReadonlyArray<RelayRuntimePerformanceReasonCode> = orderedReasons.length > 0 ? orderedReasons : ["ok"];
+  const status: RelayRuntimePerformanceGateStatus = failures.size > 0
+    ? "fail"
+    : (warnings.size > 0 ? "warn" : "pass");
+
+  return {
+    status,
+    reasons: reasonCodes,
+    primaryReasonCode: reasonCodes[0] ?? "ok",
+    budget,
+    maxFlapRatePerMinute: Number(maxFlapRatePerMinute.toFixed(4)),
+    recoveryP95LatencyMs: snapshot.recoveryLatency.p95LatencyMs,
+    replaySuccessRatio: snapshot.replay.successRatio,
+    scopedBlockedRatio: snapshot.scopedReadiness.blockedByReadinessRatio,
+    observedWindowMs: snapshot.observedWindowMs,
+    sampleCounts: {
+      recovery: snapshot.recoveryLatency.sampleCount,
+      replay: snapshot.replay.attemptedReplayCount,
+      scopedPublish: snapshot.scopedReadiness.scopedPublishAttemptCount,
+    },
   };
 };
 
@@ -347,6 +484,18 @@ export const relayResilienceObservability = {
     return evaluateBetaReadiness(snapshot, thresholds);
   },
 
+  evaluateRuntimePerformanceGate(params?: Readonly<{
+    snapshot?: RelayResilienceSnapshot;
+    budget?: Partial<RelayRuntimePerformanceBudget>;
+  }>): RelayRuntimePerformanceGateResult {
+    const snapshot = params?.snapshot ?? this.getSnapshot();
+    const budget: RelayRuntimePerformanceBudget = {
+      ...DEFAULT_RUNTIME_PERFORMANCE_BUDGET,
+      ...(params?.budget ?? {}),
+    };
+    return evaluateRuntimePerformanceGate(snapshot, budget);
+  },
+
   resetForTests(atUnixMs = Date.now()): void {
     const root = globalThis as Record<string, unknown>;
     root[GLOBAL_STATE_KEY] = createDefaultState(atUnixMs);
@@ -357,6 +506,8 @@ export const relayResilienceObservabilityInternals = {
   createDefaultState,
   buildSnapshot,
   evaluateBetaReadiness,
+  evaluateRuntimePerformanceGate,
   DEFAULT_BETA_GATE_THRESHOLDS,
+  DEFAULT_RUNTIME_PERFORMANCE_BUDGET,
   FLAP_RATE_WINDOW_MS,
 };

@@ -270,6 +270,18 @@
     opacity: 0.1;
   }
 
+  /* Sidebar controls must stay click-oriented, not text-selection-oriented. */
+  .sidebar-interactive,
+  .sidebar-interactive * {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .sidebar-interactive img,
+  .sidebar-interactive svg {
+    -webkit-user-drag: none;
+  }
+
   /* Theme transition */
   .theme-transition {
     transition: background 0.2s ease-out, color 0.2s ease-out;

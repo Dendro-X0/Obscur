@@ -6,10 +6,12 @@ vi.mock("../utils/get-stored-identity", () => ({
 
 vi.mock("../utils/identity-profile-binding", () => ({
   ensureIdentityProfileBinding: vi.fn(),
+  recoverStoredIdentityProfile: vi.fn(),
   recoverSingleStoredIdentityProfile: vi.fn(),
 }));
 
 import { getStoredIdentity } from "../utils/get-stored-identity";
+import { recoverStoredIdentityProfile } from "../utils/identity-profile-binding";
 import { recoverSingleStoredIdentityProfile } from "../utils/identity-profile-binding";
 import { useIdentityInternals } from "./use-identity";
 
@@ -17,6 +19,8 @@ describe("useIdentity rehydrate", () => {
   beforeEach(() => {
     useIdentityInternals.resetForTests();
     vi.clearAllMocks();
+    vi.mocked(recoverStoredIdentityProfile).mockResolvedValue(null);
+    vi.mocked(recoverSingleStoredIdentityProfile).mockResolvedValue(null);
   });
 
   it("preserves unlocked identity when profile change keeps the same pubkey", async () => {
@@ -34,8 +38,6 @@ describe("useIdentity rehydrate", () => {
     );
 
     vi.mocked(getStoredIdentity).mockResolvedValue({ record: stored });
-    vi.mocked(recoverSingleStoredIdentityProfile).mockResolvedValue(null);
-
     await useIdentityInternals.rehydrateIdentityForActiveProfile();
 
     const snapshot = useIdentityInternals.getIdentitySnapshot();

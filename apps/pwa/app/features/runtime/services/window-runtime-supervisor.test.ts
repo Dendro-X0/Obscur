@@ -47,4 +47,70 @@ describe("windowRuntimeSupervisor", () => {
     expect(snapshot.phase).toBe("ready");
     expect(snapshot.lastActivationReport?.message).toBe("ready");
   });
+
+  it("re-converges to auth_required after late profile bind when identity is already locked", () => {
+    windowRuntimeSupervisor.syncIdentity({
+      identityStatus: "locked",
+      storedPublicKeyHex: "abc",
+    });
+    expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("auth_required");
+
+    windowRuntimeSupervisor.bindProfile({
+      currentWindow: {
+        windowLabel: "main",
+        profileId: "profile-b",
+        profileLabel: "Profile B",
+        launchMode: "existing",
+      },
+      profiles: [],
+      windowBindings: [],
+    });
+    expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("binding_profile");
+
+    windowRuntimeSupervisor.syncIdentity({
+      identityStatus: "locked",
+      storedPublicKeyHex: "abc",
+    });
+
+    const snapshot = windowRuntimeSupervisor.getSnapshot();
+    expect(snapshot.phase).toBe("auth_required");
+    expect(snapshot.session.profileId).toBe("profile-b");
+    expect(snapshot.session.identityStatus).toBe("locked");
+  });
+
+  it("re-converges to activating_runtime after late profile bind when identity is already unlocked", () => {
+    windowRuntimeSupervisor.syncIdentity({
+      identityStatus: "unlocked",
+      storedPublicKeyHex: "abc",
+      unlockedPublicKeyHex: "abc",
+    });
+    windowRuntimeSupervisor.markRuntimeReady({
+      completedAtUnixMs: Date.now(),
+      message: "ready",
+    });
+    expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("ready");
+
+    windowRuntimeSupervisor.bindProfile({
+      currentWindow: {
+        windowLabel: "main",
+        profileId: "profile-c",
+        profileLabel: "Profile C",
+        launchMode: "existing",
+      },
+      profiles: [],
+      windowBindings: [],
+    });
+    expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("binding_profile");
+
+    windowRuntimeSupervisor.syncIdentity({
+      identityStatus: "unlocked",
+      storedPublicKeyHex: "abc",
+      unlockedPublicKeyHex: "abc",
+    });
+
+    const snapshot = windowRuntimeSupervisor.getSnapshot();
+    expect(snapshot.phase).toBe("activating_runtime");
+    expect(snapshot.session.profileId).toBe("profile-c");
+    expect(snapshot.session.identityStatus).toBe("unlocked");
+  });
 });

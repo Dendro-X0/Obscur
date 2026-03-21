@@ -46,16 +46,26 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
         0,
         Math.floor(Date.now() / 1000) - LIVE_SUBSCRIPTION_SINCE_SKEW_SECONDS,
     );
-    const filter: NostrFilter = {
-        kinds: [4, 1059],
-        '#p': [myPublicKeyHex],
-        limit: 50,
-        since: sinceUnixSeconds,
-    };
+    const filters: ReadonlyArray<NostrFilter> = [
+        {
+            kinds: [4, 1059],
+            "#p": [myPublicKeyHex],
+            limit: 50,
+            since: sinceUnixSeconds,
+        },
+        {
+            // Include self-authored kind-4 events so cross-device outgoing history
+            // can converge without waiting for backup replay.
+            kinds: [4],
+            authors: [myPublicKeyHex],
+            limit: 50,
+            since: sinceUnixSeconds,
+        },
+    ];
 
     let subId: string;
     if (typeof pool.subscribe === "function") {
-        subId = pool.subscribe([filter], onEvent);
+        subId = pool.subscribe(filters, onEvent);
     } else if (typeof pool.subscribeToMessages === "function" && typeof pool.sendToOpen === "function") {
         subId = generateSubscriptionId();
         const legacyUnsubscribe = pool.subscribeToMessages(({ message, url }) => {
@@ -66,7 +76,7 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
             onEvent(parsedEvent, url);
         });
         legacyUnsubscribeBySubscriptionId.set(subId, legacyUnsubscribe);
-        pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
+        pool.sendToOpen(JSON.stringify(["REQ", subId, ...filters]));
         logRuntimeEvent(
             "dm_subscription.legacy_adapter_enabled",
             "expected",
@@ -83,7 +93,7 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
 
     const subscription: Subscription = {
         id: subId,
-        filter,
+        filter: filters[0],
         isActive: true,
         createdAt: new Date(),
         eventCount: 0
@@ -96,7 +106,7 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
     logRuntimeEvent(
         "dm_subscription.subscribe",
         "expected",
-        [`[DMController] Subscribing via central manager for incoming DMs on ${pool.connections.length} relays:`, filter],
+        [`[DMController] Subscribing via central manager for incoming DMs on ${pool.connections.length} relays:`, filters],
         { maxPerWindow: 1, windowMs: 5_000 }
     );
 

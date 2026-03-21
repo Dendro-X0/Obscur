@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ExternalLink, Play, Pause, RefreshCw, Volume2 } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { openNativeExternal } from "@/app/features/runtime/native-host-adapter";
 
 interface AudioPlayerProps {
     src: string;
@@ -25,7 +26,14 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
     const [isMuted, setIsMuted] = useState(false);
     const [errorState, setErrorState] = useState<MediaErrorState | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
+    const [runtimeSrc, setRuntimeSrc] = useState(src);
+    const [hasRetriedWithBypass, setHasRetriedWithBypass] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
+
+    useEffect(() => {
+        setRuntimeSrc(src);
+        setHasRetriedWithBypass(false);
+    }, [src]);
 
     const togglePlay = () => {
         if (audioRef.current) {
@@ -57,7 +65,16 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
         setCurrentTime(0);
     };
 
-    const openExternally = () => {
+    const openExternally = async () => {
+        try {
+            const openedNatively = await openNativeExternal(src);
+            if (openedNatively) {
+                return;
+            }
+        } catch {
+            // ignore
+        }
+
         if (typeof window === "undefined") return;
         window.open(src, "_blank", "noopener,noreferrer");
     };
@@ -101,19 +118,32 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
             <div className="absolute -bottom-8 -left-8 h-16 w-16 rounded-full bg-blue-600/10 blur-[30px] pointer-events-none" />
 
             <audio
-                key={`${src}:${reloadKey}`}
+                key={`${runtimeSrc}:${reloadKey}`}
                 ref={audioRef}
-                src={src}
+                src={runtimeSrc}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onEnded={handleEnded}
                 onError={() => {
-                    const nextError = classifyMediaError(new Error("audio_load_failed"));
+                    const details = {
+                        code: audioRef.current?.error?.code,
+                        currentSrc: audioRef.current?.currentSrc,
+                        readyState: audioRef.current?.readyState,
+                        networkState: audioRef.current?.networkState,
+                    };
+                    if (!hasRetriedWithBypass) {
+                        const separator = src.includes("?") ? "&" : "?";
+                        setRuntimeSrc(`${src}${separator}obscur_nocache=${Date.now()}`);
+                        setHasRetriedWithBypass(true);
+                        return;
+                    }
+
+                    const nextError = classifyMediaError(new Error(`audio_media_error_code_${details.code ?? "unknown"}`));
                     setErrorState(nextError);
                     logRuntimeEvent(
                         `audio_player.media_error.${nextError.reasonCode}`,
                         nextError.recoverable ? "degraded" : "actionable",
-                        ["[AudioPlayer] media load failed", { src }]
+                        ["[AudioPlayer] media load failed", { src, ...details }]
                     );
                 }}
                 onVolumeChange={() => {
@@ -134,6 +164,8 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
                             onClick={() => {
                                 setErrorState(null);
                                 setReloadKey((prev) => prev + 1);
+                                setRuntimeSrc(src);
+                                setHasRetriedWithBypass(false);
                             }}
                             disabled={!errorState.canRetry}
                         >

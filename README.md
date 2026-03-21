@@ -34,6 +34,22 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - Desktop updater and release-tag awareness.
 - Performance mode improvements for large timelines and burst traffic.
 
+## Current Status (v0.9.2)
+
+- v0.9.2 is a constrained release with unresolved runtime regressions.
+- Reliability improvements landed in this lane, but some critical failures remain recurring under iteration pressure.
+- Confirmed unresolved high-priority risks include:
+  - login-state persistence instability after restart in some flows,
+  - page-transition freeze and sidebar interaction lock,
+  - infinite loading loops in some startup/profile-disruption paths,
+  - recurring cross-device self-authored DM history loss,
+  - desktop/web historical media hydration mismatch.
+- CI release gate status for this workspace snapshot:
+  - `pnpm release:test-pack -- --skip-preflight` passes (typecheck + focused reliability matrix).
+- Canonical incident baseline:
+  - [`ISSUES.md`](ISSUES.md)
+  - [`docs/17-v0.9.2-expansion-context.md`](docs/17-v0.9.2-expansion-context.md)
+
 ## Quick Start
 
 Prerequisites:
@@ -60,6 +76,8 @@ pnpm dev:desktop
 
 Use `/docs` as the source of truth for maintainers and contributors.
 
+Root `PHASE0-4` and `ROADMAP_*` planning files were retired in `v0.9.2`; keep planning and handoff context in `/docs` + `ISSUES.md`.
+
 - Docs index: [`docs/README.md`](docs/README.md)
 - Project overview: [`docs/01-project-overview.md`](docs/01-project-overview.md)
 - Repository map: [`docs/02-repository-map.md`](docs/02-repository-map.md)
@@ -85,7 +103,7 @@ These placeholders are for future GIF demos in README and the future official we
 5. `docs/assets/demo-desktop-updater.gif`  
    Placeholder: current vs latest version state and install prompt.
 
-## Release Preparation (v0.9.1)
+## Release Preparation (v0.9.2)
 
 Before tagging:
 
@@ -112,6 +130,7 @@ Release references:
 
 - [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
 - [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
+- [`docs/17-v0.9.2-expansion-context.md`](docs/17-v0.9.2-expansion-context.md)
 
 Current distribution channel:
 

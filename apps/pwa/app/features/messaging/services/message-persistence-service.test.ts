@@ -5,6 +5,7 @@ import { MessagePersistenceService } from "./message-persistence-service";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
 import { messagingDB } from "@dweb/storage/indexed-db";
+import { CHAT_STATE_REPLACED_EVENT } from "./chat-state-store";
 
 vi.mock("@dweb/storage/indexed-db", () => ({
     messagingDB: {
@@ -162,6 +163,120 @@ describe("MessagePersistenceService batching", () => {
         expect(messagingDB.delete).toHaveBeenCalledTimes(1);
         expect(messagingDB.put).not.toHaveBeenCalled();
 
+        service.dispose();
+    });
+
+    it("normalizes sender attribution and canonical DM conversation ids during legacy migration", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const canonicalConversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        vi.mocked(messagingDB.get).mockResolvedValue({
+            messagesByConversationId: {
+                [peerPublicKeyHex]: [
+                    {
+                        id: "m-out",
+                        content: "my legacy outgoing",
+                        timestampMs: 1_000,
+                        isOutgoing: true,
+                        status: "delivered",
+                    },
+                    {
+                        id: "m-in",
+                        content: "peer legacy incoming",
+                        timestampMs: 2_000,
+                        isOutgoing: true,
+                        pubkey: peerPublicKeyHex,
+                        status: "delivered",
+                    },
+                ],
+            },
+            groupMessages: {},
+        });
+
+        const service = new MessagePersistenceService();
+        await service.migrateFromLegacy(myPublicKeyHex);
+
+        expect(messagingDB.bulkPut).toHaveBeenCalledTimes(1);
+        const upserted = vi.mocked(messagingDB.bulkPut).mock.calls[0]?.[1] as Array<Record<string, unknown>>;
+        const outgoing = upserted.find((message) => message.id === "m-out");
+        const incoming = upserted.find((message) => message.id === "m-in");
+
+        expect(outgoing).toEqual(expect.objectContaining({
+            conversationId: canonicalConversationId,
+            senderPubkey: myPublicKeyHex,
+            isOutgoing: true,
+        }));
+        expect(incoming).toEqual(expect.objectContaining({
+            conversationId: canonicalConversationId,
+            senderPubkey: peerPublicKeyHex,
+            isOutgoing: false,
+        }));
+    });
+
+    it("keeps messages from both legacy and canonical dm keys when they normalize to one conversation id", async () => {
+        const myPublicKeyHex = "c".repeat(64);
+        const peerPublicKeyHex = "d".repeat(64);
+        const canonicalConversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        vi.mocked(messagingDB.get).mockResolvedValue({
+            messagesByConversationId: {
+                [peerPublicKeyHex]: [{
+                    id: "legacy-key-msg",
+                    content: "legacy",
+                    timestampMs: 3_000,
+                    isOutgoing: true,
+                    status: "delivered",
+                }],
+                [canonicalConversationId]: [{
+                    id: "canonical-key-msg",
+                    content: "canonical",
+                    timestampMs: 4_000,
+                    isOutgoing: false,
+                    pubkey: peerPublicKeyHex,
+                    status: "delivered",
+                }],
+            },
+            groupMessages: {},
+        });
+
+        const service = new MessagePersistenceService();
+        await service.migrateFromLegacy(myPublicKeyHex);
+
+        const upserted = vi.mocked(messagingDB.bulkPut).mock.calls[0]?.[1] as Array<Record<string, unknown>>;
+        expect(upserted.some((message) => message.id === "legacy-key-msg")).toBe(true);
+        expect(upserted.some((message) => message.id === "canonical-key-msg")).toBe(true);
+        expect(upserted.every((message) => message.conversationId === canonicalConversationId)).toBe(true);
+    });
+
+    it("re-migrates legacy chat-state messages when chat state is replaced", async () => {
+        vi.spyOn(PrivacySettingsService, "getSettings").mockReturnValue({
+            ...defaultPrivacySettings,
+            chatPerformanceV2: true
+        });
+        const myPublicKeyHex = "f".repeat(64);
+        const peerPublicKeyHex = "e".repeat(64);
+        vi.mocked(messagingDB.get).mockResolvedValue({
+            messagesByConversationId: {
+                [peerPublicKeyHex]: [{
+                    id: "restore-msg-1",
+                    content: "restored",
+                    timestampMs: 5_000,
+                    isOutgoing: true,
+                    status: "delivered",
+                }],
+            },
+            groupMessages: {},
+        });
+
+        const service = new MessagePersistenceService();
+        service.init();
+
+        window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
+            detail: { publicKeyHex: myPublicKeyHex },
+        }));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(messagingDB.bulkPut).toHaveBeenCalled();
         service.dispose();
     });
 });

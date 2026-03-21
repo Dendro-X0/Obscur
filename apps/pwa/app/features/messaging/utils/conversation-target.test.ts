@@ -28,6 +28,14 @@ const DM: DmConversation = {
   lastMessageTime: new Date(1_000),
 };
 
+const DM_CANONICAL: DmConversation = {
+  ...DM,
+  id: [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  ].sort().join(":"),
+};
+
 describe("conversation-target", () => {
   it("resolves groups by canonical id and encoded canonical id", () => {
     expect(resolveGroupConversationByToken([GROUP], GROUP.id)?.id).toBe(GROUP.id);
@@ -56,5 +64,28 @@ describe("conversation-target", () => {
     });
     expect(resolved).toEqual(DM);
   });
-});
 
+  it("allows DM fallback in canonical-only mode for canonical dm ids", () => {
+    const resolved = resolveConversationByToken({
+      token: encodeURIComponent(DM_CANONICAL.id),
+      groups: [GROUP],
+      connections: [DM_CANONICAL],
+      dmFallbackPolicy: "canonical_id_only",
+    });
+    expect(resolved).toEqual(DM_CANONICAL);
+  });
+
+  it("blocks DM downgrade in canonical-only mode for non-canonical tokens", () => {
+    const legacyDm: DmConversation = {
+      ...DM,
+      id: "legacy-dm-token",
+    };
+    const resolved = resolveConversationByToken({
+      token: "legacy-dm-token",
+      groups: [],
+      connections: [legacyDm],
+      dmFallbackPolicy: "canonical_id_only",
+    });
+    expect(resolved).toBeNull();
+  });
+});

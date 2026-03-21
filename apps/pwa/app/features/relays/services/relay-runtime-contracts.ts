@@ -62,6 +62,7 @@ export type RelayRuntimeSnapshot = Readonly<{
 const createDefaultRecoverySnapshot = (): RelayRecoverySnapshot => ({
   readiness: "offline",
   writableRelayCount: 0,
+  fallbackWritableRelayCount: 0,
   subscribableRelayCount: 0,
   writeBlockedRelayCount: 0,
   coolingDownRelayCount: 0,

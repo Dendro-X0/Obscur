@@ -102,4 +102,89 @@ describe("relay-resilience-observability", () => {
     expect(blockedResult.ready).toBe(false);
     expect(blockedResult.reasons).toContain("operator_intervention_required");
   });
+
+  it("passes runtime performance gate when reconnect and sync metrics stay within target", () => {
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 1_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "recovering", atUnixMs: 2_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 6_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "recovering", atUnixMs: 8_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 13_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "degraded", atUnixMs: 15_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 20_000 });
+
+    for (let i = 0; i < 8; i += 1) {
+      relayResilienceObservability.recordSubscriptionReplayResult({ result: "ok", atUnixMs: 30_000 + i });
+      relayResilienceObservability.recordScopedPublishReadiness({ blockedByReadiness: i < 2, atUnixMs: 31_000 + i });
+    }
+
+    const snapshot = relayResilienceObservability.getSnapshot(200_000);
+    const gate = relayResilienceObservability.evaluateRuntimePerformanceGate({ snapshot });
+    expect(gate.status).toBe("pass");
+    expect(gate.primaryReasonCode).toBe("ok");
+  });
+
+  it("warns runtime performance gate when metrics exceed target but stay under hard budget", () => {
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 1_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "recovering", atUnixMs: 2_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 14_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "degraded", atUnixMs: 16_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 28_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "recovering", atUnixMs: 30_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 41_000 });
+
+    for (let i = 0; i < 8; i += 1) {
+      relayResilienceObservability.recordSubscriptionReplayResult({
+        result: i < 7 ? "ok" : "partial",
+        atUnixMs: 50_000 + i,
+      });
+      relayResilienceObservability.recordScopedPublishReadiness({
+        blockedByReadiness: i < 3,
+        atUnixMs: 51_000 + i,
+      });
+    }
+
+    const snapshot = relayResilienceObservability.getSnapshot(220_000);
+    const gate = relayResilienceObservability.evaluateRuntimePerformanceGate({ snapshot });
+    expect(gate.status).toBe("warn");
+    expect(gate.reasons).toContain("recovery_p95_over_target");
+    expect(gate.reasons).toContain("scoped_block_ratio_over_target");
+  });
+
+  it("fails runtime performance gate under relay-churn and sync degradation", () => {
+    const relayUrl = "wss://relay.one";
+    for (let i = 0; i < 12; i += 1) {
+      relayResilienceObservability.recordRelayConnectionStatus({
+        url: relayUrl,
+        status: i % 2 === 0 ? "open" : "closed",
+        atUnixMs: 1_000 + (i * 400),
+      });
+    }
+
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 1_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "recovering", atUnixMs: 2_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 22_500 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "recovering", atUnixMs: 23_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 43_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "degraded", atUnixMs: 44_000 });
+    relayResilienceObservability.recordRelayRuntimePhase({ phase: "healthy", atUnixMs: 64_500 });
+
+    for (let i = 0; i < 8; i += 1) {
+      relayResilienceObservability.recordSubscriptionReplayResult({
+        result: i < 2 ? "ok" : "failed",
+        atUnixMs: 70_000 + i,
+      });
+      relayResilienceObservability.recordScopedPublishReadiness({
+        blockedByReadiness: i < 5,
+        atUnixMs: 71_000 + i,
+      });
+    }
+
+    const snapshot = relayResilienceObservability.getSnapshot(250_000);
+    const gate = relayResilienceObservability.evaluateRuntimePerformanceGate({ snapshot });
+    expect(gate.status).toBe("fail");
+    expect(gate.reasons).toContain("recovery_p95_over_budget");
+    expect(gate.reasons).toContain("replay_success_ratio_below_budget");
+    expect(gate.reasons).toContain("scoped_block_ratio_over_budget");
+    expect(gate.reasons).toContain("relay_flap_rate_over_budget");
+  });
 });

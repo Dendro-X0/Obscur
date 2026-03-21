@@ -23,9 +23,6 @@ export function DesktopModeProvider({ children }: { children: React.ReactNode })
         .desktop-mode .pwa-install-prompt {
           display: none !important;
         }
-        .desktop-mode {
-          user-select: text;
-        }
       `;
       document.head.appendChild(style);
 

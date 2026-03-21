@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { Conversation, DmConversation, GroupConversation, Message, MessagesByConversationId, ConnectionOverridesByConnectionId } from "@/app/features/messaging/types";
-import { applyConnectionOverrides, isVisibleUserMessage } from "@/app/features/messaging/utils/logic";
-import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import type { DmConversation, GroupConversation, ConnectionOverridesByConnectionId } from "@/app/features/messaging/types";
+import { applyConnectionOverrides } from "@/app/features/messaging/utils/logic";
 
 export function useFilteredConversations(
     createdConnections: ReadonlyArray<DmConversation>,
@@ -37,27 +35,6 @@ export function useFilteredConversations(
         return unique.map(c => applyConnectionOverrides(c, connectionOverridesByConnectionId));
     }, [createdConnections, createdGroups, connectionOverridesByConnectionId, isPeerAccepted, myPublicKeyHex]);
 
-    const [messageSearchResults, setMessageSearchResults] = useState<ReadonlyArray<{ conversationId: string; messageId: string; timestamp: Date; preview: string }>>([]);
-
-    useEffect(() => {
-        if (!normalizedSearchQuery || normalizedSearchQuery.length < 2) {
-            setMessageSearchResults([]);
-            return;
-        }
-
-        const debounceId = setTimeout(async () => {
-            const results = await chatStateStoreService.searchMessages(normalizedSearchQuery);
-            setMessageSearchResults(results.map((r: { conversationId: string; message: any }) => ({
-                conversationId: r.conversationId,
-                messageId: r.message.id,
-                timestamp: new Date(r.message.timestampMs || r.message.created_at * 1000),
-                preview: r.message.content
-            })));
-        }, 300);
-
-        return () => clearTimeout(debounceId);
-    }, [normalizedSearchQuery]);
-
     const filteredConversations = useMemo(() => {
         if (!normalizedSearchQuery) return allConversations;
 
@@ -67,5 +44,5 @@ export function useFilteredConversations(
         );
     }, [allConversations, normalizedSearchQuery]);
 
-    return { allConversations, filteredConversations, messageSearchResults };
+    return { allConversations, filteredConversations };
 }

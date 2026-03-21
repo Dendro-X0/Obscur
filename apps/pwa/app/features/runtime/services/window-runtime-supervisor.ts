@@ -241,12 +241,19 @@ export const windowRuntimeSupervisor = {
     unlockedPublicKeyHex?: string;
     error?: string;
   }>): void {
-    if (
+    const identitySnapshotUnchanged = (
       snapshot.session.identityStatus === params.identityStatus
       && snapshot.session.storedPublicKeyHex === params.storedPublicKeyHex
       && snapshot.session.unlockedPublicKeyHex === params.unlockedPublicKeyHex
       && snapshot.lastError === params.error
-    ) {
+    );
+    const phaseAlreadyAligned = (
+      (params.identityStatus === "loading" && snapshot.phase === "binding_profile")
+      || (params.identityStatus === "locked" && snapshot.phase === "auth_required")
+      || (params.identityStatus === "unlocked" && ["activating_runtime", "ready", "degraded"].includes(snapshot.phase))
+      || (params.identityStatus === "error" && snapshot.phase === "fatal")
+    );
+    if (identitySnapshotUnchanged && phaseAlreadyAligned) {
       return;
     }
     const nextSession: ProfileBoundSessionSnapshot = {
@@ -255,11 +262,13 @@ export const windowRuntimeSupervisor = {
       storedPublicKeyHex: params.storedPublicKeyHex,
       unlockedPublicKeyHex: params.unlockedPublicKeyHex,
     };
-    setSnapshot({
-      ...snapshot,
-      session: nextSession,
-      lastError: params.error ?? snapshot.lastError,
-    });
+    if (!identitySnapshotUnchanged) {
+      setSnapshot({
+        ...snapshot,
+        session: nextSession,
+        lastError: params.error ?? snapshot.lastError,
+      });
+    }
     if (params.identityStatus === "error") {
       transitionTo("fatal", {
         degradedReason: "identity_error",

@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import type { Attachment } from "../types";
+import { extractAttachmentsFromContent, inferAttachmentKind } from "./logic";
+
+describe("messaging logic attachment inference", () => {
+  it("prefers fileName extension when url is extensionless", () => {
+    const attachment: Attachment = {
+      kind: "video",
+      url: "https://nostr.build/i/abcdef1234567890",
+      contentType: "video/mp4",
+      fileName: "beat-track.mp3",
+    };
+
+    expect(inferAttachmentKind(attachment)).toBe("audio");
+  });
+
+  it("extracts markdown attachment type from fileName extension when url is extensionless", () => {
+    const extracted = extractAttachmentsFromContent(
+      "Test [kontraa-no-sleep-hiphop-music-473847.mp3](https://nostr.build/i/abcdef1234567890)"
+    );
+
+    expect(extracted).toEqual([
+      expect.objectContaining({
+        kind: "audio",
+        fileName: "kontraa-no-sleep-hiphop-music-473847.mp3",
+        url: "https://nostr.build/i/abcdef1234567890",
+      }),
+    ]);
+  });
+
+  it("falls back to image host inference when filename has no known extension", () => {
+    const extracted = extractAttachmentsFromContent(
+      "photo [cover](https://image.nostr.build/abc123)"
+    );
+
+    expect(extracted).toEqual([
+      expect.objectContaining({
+        kind: "image",
+        fileName: "cover",
+        url: "https://image.nostr.build/abc123",
+      }),
+    ]);
+  });
+});

@@ -48,7 +48,7 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
             "identity.session_conflict.detected",
             "actionable",
             [
-                "A different active session is already online for this identity. Locking current session.",
+                "A different active session is already online for this identity. Keeping current session active and recording diagnostics.",
                 {
                     publicKeyHex,
                     incomingSessionId: record.sessionId,
@@ -56,7 +56,21 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 },
             ],
         );
-        identity.lockIdentity();
+        // Cross-device account usage is a valid product path.
+        // Presence conflict is telemetry, not proof that local identity must be revoked.
+        logRuntimeEvent(
+            "identity.session_conflict.fail_open",
+            "degraded",
+            [
+                "Duplicate-session signal observed; skipped automatic lock to preserve session continuity.",
+                {
+                    publicKeyHex,
+                    incomingSessionId: record.sessionId,
+                    incomingStartedAtMs: record.startedAtMs,
+                },
+            ],
+            { maxPerWindow: 1, windowMs: 60_000 }
+        );
     }, [identity, publicKeyHex]);
 
     const presence = useRealtimePresence({

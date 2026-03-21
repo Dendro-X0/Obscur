@@ -32,8 +32,11 @@ interface MessageListProps {
     onLoadEarlier: () => void;
     nowMs: number | null;
     flashMessageId: string | null;
+    jumpToMessageId?: string | null;
+    onJumpToMessageHandled?: (messageId: string) => void;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
     openMessageMenuMessageId?: string | null;
+    openReactionPickerMessageId?: string | null;
     onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
@@ -69,8 +72,11 @@ export function MessageList({
     onLoadEarlier,
     nowMs,
     flashMessageId,
+    jumpToMessageId,
+    onJumpToMessageHandled,
     onOpenMessageMenu,
     openMessageMenuMessageId,
+    openReactionPickerMessageId,
     onMessageMenuAnchorHoverChange,
     onOpenReactionPicker,
     onToggleReaction,
@@ -266,6 +272,68 @@ export function MessageList({
     }, [hasHydrated, isNearBottom, messages, showScrollBottom, scrollToBottom]);
 
     const prevFirstId = React.useRef<string | null>(null);
+    const jumpResolveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const jumpInFlightMessageIdRef = React.useRef<string | null>(null);
+
+    React.useEffect(() => {
+        return () => {
+            if (jumpResolveTimerRef.current) {
+                clearTimeout(jumpResolveTimerRef.current);
+                jumpResolveTimerRef.current = null;
+            }
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (!jumpToMessageId) {
+            jumpInFlightMessageIdRef.current = null;
+            return;
+        }
+
+        if (jumpInFlightMessageIdRef.current === jumpToMessageId) {
+            return;
+        }
+
+        jumpInFlightMessageIdRef.current = jumpToMessageId;
+        let attempts = 0;
+        let cancelled = false;
+
+        const settleJump = (): void => {
+            if (cancelled) {
+                return;
+            }
+
+            const target = document.getElementById(`msg-${jumpToMessageId}`);
+            if (target) {
+                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                onJumpToMessageHandled?.(jumpToMessageId);
+                jumpInFlightMessageIdRef.current = null;
+                return;
+            }
+
+            if (hasEarlierMessages && attempts < 12) {
+                attempts += 1;
+                onLoadEarlier();
+                jumpResolveTimerRef.current = setTimeout(() => {
+                    settleJump();
+                }, 140);
+                return;
+            }
+
+            onJumpToMessageHandled?.(jumpToMessageId);
+            jumpInFlightMessageIdRef.current = null;
+        };
+
+        settleJump();
+
+        return () => {
+            cancelled = true;
+            if (jumpResolveTimerRef.current) {
+                clearTimeout(jumpResolveTimerRef.current);
+                jumpResolveTimerRef.current = null;
+            }
+        };
+    }, [hasEarlierMessages, jumpToMessageId, onJumpToMessageHandled, onLoadEarlier]);
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -472,8 +540,9 @@ export function MessageList({
                                     type="button"
                                     variant="secondary"
                                     onClick={onLoadEarlier}
+                                    data-testid="message-list-load-more"
                                 >
-                                    {t("messaging.loadEarlier")}
+                                    {t("messaging.loadMore", "Load More")}
                                 </Button>
                             </div>
                         ) : null}
@@ -525,6 +594,7 @@ export function MessageList({
                                         onOpenReactionPicker={onOpenReactionPicker}
                                         onOpenMessageMenu={onOpenMessageMenu}
                                         openMessageMenuMessageId={openMessageMenuMessageId}
+                                        openReactionPickerMessageId={openReactionPickerMessageId}
                                         onMessageMenuAnchorHoverChange={onMessageMenuAnchorHoverChange}
                                         onToggleReaction={onToggleReaction}
                                         onRetryMessage={onRetryMessage}
@@ -587,6 +657,7 @@ type MessageRowProps = Readonly<{
     inviteResponseStatus?: InviteResponseStatus;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
     openMessageMenuMessageId?: string | null;
+    openReactionPickerMessageId?: string | null;
     onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
@@ -622,6 +693,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         inviteResponseStatus,
         onOpenMessageMenu,
         openMessageMenuMessageId,
+        openReactionPickerMessageId,
         onMessageMenuAnchorHoverChange,
         onOpenReactionPicker,
         onToggleReaction,
@@ -634,6 +706,8 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
 
     const timeLabel = formatTime(message.timestamp, nowMs);
     const menuAnchoredToThisMessage = openMessageMenuMessageId === message.id;
+    const reactionAnchoredToThisMessage = openReactionPickerMessageId === message.id;
+    const actionDockPinned = menuAnchoredToThisMessage || reactionAnchoredToThisMessage;
 
     const markMenuAnchorHover = React.useCallback((isHovered: boolean): void => {
         onMessageMenuAnchorHoverChange?.({ messageId: message.id, isHovered });
@@ -731,11 +805,22 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             flashMessageId === message.id && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse"
                         )}
                     >
-                        <div className={cn("absolute opacity-0 group-hover:opacity-100 transition-opacity z-20 top-1 flex flex-col gap-1.5", message.isOutgoing ? "-left-12" : "-right-12")}>
+                        <div
+                            className={cn(
+                                "absolute z-20 top-1 flex flex-col gap-1.5 transition-all duration-150",
+                                actionDockPinned
+                                    ? "opacity-100 translate-y-0"
+                                    : "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0",
+                                message.isOutgoing ? "-left-12" : "-right-12",
+                            )}
+                        >
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
+                                className={cn(
+                                    "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
+                                    reactionAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
+                                )}
                                 onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
                             >
                                 <Smile className="h-4 w-4" />
@@ -743,7 +828,10 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform"
+                                className={cn(
+                                    "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
+                                    menuAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
+                                )}
                                 onClick={(e) => handleOpenMessageMenu(e.clientX, e.clientY)}
                             >
                                 <MoreHorizontal className="h-4 w-4" />
@@ -916,6 +1004,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.localAttachmentUrlSet === next.localAttachmentUrlSet &&
         prev.localAttachmentFileNameByUrl === next.localAttachmentFileNameByUrl &&
         prev.openMessageMenuMessageId === next.openMessageMenuMessageId &&
+        prev.openReactionPickerMessageId === next.openReactionPickerMessageId &&
         prev.admins === next.admins
     );
 });

@@ -5,6 +5,7 @@ import type { RelayRecoverySnapshot } from "./relay-recovery-policy";
 const createSnapshot = (overrides: Partial<RelayRecoverySnapshot>): RelayRecoverySnapshot => ({
   readiness: "offline",
   writableRelayCount: 0,
+  fallbackWritableRelayCount: 0,
   subscribableRelayCount: 0,
   writeBlockedRelayCount: 0,
   coolingDownRelayCount: 0,

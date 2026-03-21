@@ -2,17 +2,13 @@
 
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
 import { cn } from "@/app/lib/utils";
-import { formatTime, highlightText } from "../utils/formatting";
 import type { Conversation, RequestsInboxItem } from "../types";
 import { RequestsInboxPanel } from "./requests-inbox-panel";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { SidebarUserSearch } from "./sidebar-user-search";
 import { ConversationRow } from "./conversation-row";
-import { SearchMessageResult } from "./search-message-result";
-import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import {
     MoreVertical, Pin, Trash2, Users, User,
     ChevronDown, ChevronRight, Plus
@@ -25,6 +21,10 @@ import {
 } from "../../../components/ui/dropdown-menu";
 import { RelayStatusIndicator } from "../../relays/components/relay-status-indicator";
 import { getIncomingPendingRequestCount, getIncomingUnreadRequestTotal } from "../services/request-inbox-view";
+
+const INITIAL_SIDEBAR_PAGE_SIZE = 25;
+const SIDEBAR_PAGE_STEP = 25;
+const SIDEBAR_MAX_ITEMS = 50;
 
 export interface SidebarProps {
     isNewChatOpen: boolean;
@@ -41,9 +41,6 @@ export interface SidebarProps {
     unreadByConversationId: Record<string, number>;
     interactionByConversationId?: Readonly<Record<string, Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>>>;
     nowMs: number | null;
-    messageSearchResults: ReadonlyArray<{ conversationId: string; messageId: string; timestamp: Date; preview: string }>;
-    allConversations: ReadonlyArray<Conversation>;
-    setPendingScrollTarget: (target: { conversationId: string; messageId: string } | null) => void;
 
     // Requests Inbox Props
     activeTab: "chats" | "requests";
@@ -78,9 +75,6 @@ export function Sidebar({
     unreadByConversationId,
     interactionByConversationId,
     nowMs,
-    messageSearchResults,
-    allConversations,
-    setPendingScrollTarget,
     activeTab,
     setActiveTab,
     requests,
@@ -125,6 +119,9 @@ export function Sidebar({
     const [isDmsExpanded, setIsDmsExpanded] = useState(true);
     const [isCommunitiesExpanded, setIsCommunitiesExpanded] = useState(true);
     const [chatViewMode, setChatViewMode] = useState<"direct" | "community">("direct");
+    const [visibleDmCount, setVisibleDmCount] = useState<number>(INITIAL_SIDEBAR_PAGE_SIZE);
+    const [visibleCommunityCount, setVisibleCommunityCount] = useState<number>(INITIAL_SIDEBAR_PAGE_SIZE);
+    const searchDismissSignal = `${activeTab}:${chatViewMode}:${selectedConversation?.id ?? ""}`;
 
     React.useEffect(() => {
         if (selectedConversation?.kind === "group") {
@@ -133,6 +130,11 @@ export function Sidebar({
         }
     }, [selectedConversation?.id, selectedConversation?.kind]);
 
+    React.useEffect(() => {
+        setVisibleDmCount(INITIAL_SIDEBAR_PAGE_SIZE);
+        setVisibleCommunityCount(INITIAL_SIDEBAR_PAGE_SIZE);
+    }, [activeTab, chatViewMode, searchQuery]);
+
 
 
     const pinnedConversations = visibleConversations.filter(c => pinnedChatIds.includes(c.id));
@@ -140,6 +142,12 @@ export function Sidebar({
 
     const dms = unpinnedConversations.filter(c => c.kind === 'dm');
     const communities = unpinnedConversations.filter(c => c.kind === 'group');
+    const cappedDms = dms.slice(0, SIDEBAR_MAX_ITEMS);
+    const cappedCommunities = communities.slice(0, SIDEBAR_MAX_ITEMS);
+    const visibleDms = cappedDms.slice(0, visibleDmCount);
+    const visibleCommunities = cappedCommunities.slice(0, visibleCommunityCount);
+    const canLoadMoreDms = visibleDms.length < cappedDms.length;
+    const canLoadMoreCommunities = visibleCommunities.length < cappedCommunities.length;
 
     const dmsUnread = visibleConversations.filter(c => c.kind === 'dm').reduce((acc, c) => acc + resolveConversationUnread(c), 0);
     const groupsUnread = visibleConversations.filter(c => c.kind === 'group').reduce((acc, c) => acc + resolveConversationUnread(c), 0);
@@ -231,25 +239,17 @@ export function Sidebar({
                 </div>
 
                 <div className="space-y-3">
-                    <SidebarUserSearch onUserSelect={(user) => {
+                    <SidebarUserSearch
+                        query={searchQuery}
+                        onQueryChange={setSearchQuery}
+                        inputRef={searchInputRef}
+                        dismissSignal={searchDismissSignal}
+                        onUserSelect={(user) => {
                         // Trigger new chat with selected global user
                         setIsNewChatOpen(true);
                         // We might want to pre-fill the new chat dialog or directly call it
-                    }} />
-
-                    <div className="relative group">
-                        <Input
-                            ref={searchInputRef}
-                            placeholder={t("messaging.searchChats")}
-                            className="pl-9 h-11 bg-black/[0.02] dark:bg-white/[0.02] border-transparent focus-visible:bg-white dark:focus-visible:bg-zinc-900 transition-all rounded-2xl"
-                            value={searchQuery}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                            suppressHydrationWarning
-                        />
-                        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 transition-colors group-focus-within:text-purple-500">
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        </div>
-                    </div>
+                    }}
+                    />
                 </div>
 
                 {activeTab === "chats" && (
@@ -339,7 +339,7 @@ export function Sidebar({
                                 )}
 
                                 {chatViewMode === "direct" && (
-                                    <div>
+                                    <div className="animate-in fade-in slide-in-from-right-1 duration-200">
                                         <button
                                             onClick={() => setIsDmsExpanded(!isDmsExpanded)}
                                             className="w-full px-4 py-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
@@ -350,12 +350,28 @@ export function Sidebar({
                                             </div>
                                             {isDmsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                                         </button>
-                                        {isDmsExpanded && renderConversationList(dms)}
+                                        {isDmsExpanded && (
+                                            <>
+                                                {renderConversationList(visibleDms)}
+                                                {canLoadMoreDms ? (
+                                                    <div className="px-4 py-3">
+                                                        <Button
+                                                            variant="ghost"
+                                                            className="h-9 w-full rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]"
+                                                            onClick={() => setVisibleDmCount((count) => Math.min(count + SIDEBAR_PAGE_STEP, SIDEBAR_MAX_ITEMS))}
+                                                            data-testid="sidebar-load-more-dms"
+                                                        >
+                                                            {t("common.loadMore", "Load More")}
+                                                        </Button>
+                                                    </div>
+                                                ) : null}
+                                            </>
+                                        )}
                                     </div>
                                 )}
 
                                 {chatViewMode === "community" && (
-                                    <div className="mt-4">
+                                    <div className="mt-4 animate-in fade-in slide-in-from-right-1 duration-200">
                                         <button
                                             onClick={() => setIsCommunitiesExpanded(!isCommunitiesExpanded)}
                                             className="w-full px-4 py-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
@@ -366,38 +382,26 @@ export function Sidebar({
                                             </div>
                                             {isCommunitiesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                                         </button>
-                                        {isCommunitiesExpanded && renderConversationList(communities)}
-                                    </div>
-                                )}
-
-                                {searchQuery.trim().length > 0 && (
-                                    <div className="p-3">
-                                        <div className="mb-3 px-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">{t("messaging.messageResults")}</div>
-                                        {messageSearchResults.length === 0 ? (
-                                            <div className="py-4">
-                                                <p className="text-center text-xs text-zinc-500">{t("messaging.noMatchingMessages")}</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                {messageSearchResults.map((result) => {
-                                                    const conversation = allConversations.find((c) => c.id === result.conversationId);
-                                                    if (!conversation) return null;
-                                                    return (
-                                                        <SearchMessageResult
-                                                            key={`${result.conversationId}-${result.messageId}`}
-                                                            result={result}
-                                                            conversation={conversation}
-                                                            selectConversation={selectConversation}
-                                                            setPendingScrollTarget={setPendingScrollTarget}
-                                                            searchQuery={searchQuery}
-                                                            resolvedNowMs={resolvedNowMs}
-                                                        />
-                                                    );
-                                                })}
-                                            </div>
+                                        {isCommunitiesExpanded && (
+                                            <>
+                                                {renderConversationList(visibleCommunities)}
+                                                {canLoadMoreCommunities ? (
+                                                    <div className="px-4 py-3">
+                                                        <Button
+                                                            variant="ghost"
+                                                            className="h-9 w-full rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]"
+                                                            onClick={() => setVisibleCommunityCount((count) => Math.min(count + SIDEBAR_PAGE_STEP, SIDEBAR_MAX_ITEMS))}
+                                                            data-testid="sidebar-load-more-communities"
+                                                        >
+                                                            {t("common.loadMore", "Load More")}
+                                                        </Button>
+                                                    </div>
+                                                ) : null}
+                                            </>
                                         )}
                                     </div>
                                 )}
+
                             </>
                         )}
                     </>
