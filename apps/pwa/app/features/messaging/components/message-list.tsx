@@ -19,10 +19,17 @@ import { UserAvatar } from "../../profile/components/user-avatar";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { CommunityInviteCard } from "../../groups/components/community-invite-card";
 import { CommunityInviteResponseCard } from "../../groups/components/community-invite-response-card";
-import { inferAttachmentKind } from "../utils/logic";
-import { getLocalMediaIndexSnapshot, normalizeLocalMediaDisplayFileName } from "@/app/features/vault/services/local-media-store";
+import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
+import { isMessageListAwayFromBottom, isMessageListFastScroll } from "./message-list-scroll";
+import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
+import {
+    buildMessageRenderCaches,
+    type ParsedMessagePayload,
+    type MessageRenderMeta,
+    type InviteResponseStatus,
+} from "./message-list-render-meta";
 
 interface MessageListProps {
     hasHydrated: boolean;
@@ -51,17 +58,6 @@ interface MessageListProps {
     onRefresh?: () => Promise<void>;
 }
 
-type ParsedMessagePayload = Readonly<Record<string, unknown> & { type?: string }>;
-
-type MessageRenderMeta = Readonly<{
-    attachmentUrlsExpanded: boolean;
-    hasVisualAttachments: boolean;
-    hasAttachmentRelayUrlsInContent: boolean;
-    textContentResult: Readonly<{ content: string; hasHiddenAttachmentRelayUrls: boolean }>;
-    parsedPayload: ParsedMessagePayload | null;
-}>;
-
-type InviteResponseStatus = "pending" | "accepted" | "declined" | "canceled";
 type MessageListScrollBehavior = "auto" | "smooth";
 
 export function MessageList({
@@ -101,9 +97,13 @@ export function MessageList({
     const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
     const [chatUxV083Enabled, setChatUxV083Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatUxV083);
     const [fastScrollMode, setFastScrollMode] = React.useState(false);
+    const fastScrollModeRef = React.useRef(false);
     const lastScrollTopRef = React.useRef(0);
     const lastScrollTsRef = React.useRef(0);
     const fastScrollTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const scrollFrameRef = React.useRef<number | null>(null);
+    const pendingScrollMetricsRef = React.useRef<Readonly<{ scrollTop: number; scrollHeight: number; clientHeight: number }> | null>(null);
+    const showScrollBottomRef = React.useRef(false);
 
     React.useEffect(() => {
         const onPrivacySettingsChanged = () => {
@@ -117,6 +117,10 @@ export function MessageList({
         }
         return;
     }, []);
+
+    React.useEffect(() => {
+        fastScrollModeRef.current = fastScrollMode;
+    }, [fastScrollMode]);
 
     const highLoadMode = chatPerformanceV2Enabled && (messages.length >= 100 || pendingEventCount >= 20 || fastScrollMode);
     const virtualizerOverscan = highLoadMode ? 4 : 8;
@@ -335,37 +339,58 @@ export function MessageList({
         };
     }, [hasEarlierMessages, jumpToMessageId, onJumpToMessageHandled, onLoadEarlier]);
 
-    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-        // Show button if we are more than 300px away from the bottom
-        const isAwayFromBottom = scrollHeight - scrollTop - clientHeight > 300;
-        setShowScrollBottom(isAwayFromBottom);
-        if (isAwayFromBottom) {
-            // User intentionally moved away from newest messages; stop auto-stick.
-            autoStickBottomUntilUnixMsRef.current = 0;
+        pendingScrollMetricsRef.current = { scrollTop, scrollHeight, clientHeight };
+        if (scrollFrameRef.current !== null) {
+            return;
         }
+        scrollFrameRef.current = requestAnimationFrame(() => {
+            scrollFrameRef.current = null;
+            const nextMetrics = pendingScrollMetricsRef.current;
+            if (!nextMetrics) {
+                return;
+            }
+            pendingScrollMetricsRef.current = null;
 
-        if (chatPerformanceV2Enabled) {
-            const now = performance.now();
-            const deltaY = Math.abs(scrollTop - lastScrollTopRef.current);
-            const deltaT = Math.max(1, now - lastScrollTsRef.current);
-            const velocityPxPerMs = deltaY / deltaT;
-
-            if (velocityPxPerMs > 1.5) {
-                setFastScrollMode(true);
-                if (fastScrollTimeoutRef.current) {
-                    clearTimeout(fastScrollTimeoutRef.current);
-                }
-                fastScrollTimeoutRef.current = setTimeout(() => {
-                    setFastScrollMode(false);
-                    fastScrollTimeoutRef.current = null;
-                }, 200);
+            const isAwayFromBottom = isMessageListAwayFromBottom(nextMetrics);
+            if (isAwayFromBottom !== showScrollBottomRef.current) {
+                showScrollBottomRef.current = isAwayFromBottom;
+                setShowScrollBottom(isAwayFromBottom);
+            }
+            if (isAwayFromBottom) {
+                // User intentionally moved away from newest messages; stop auto-stick.
+                autoStickBottomUntilUnixMsRef.current = 0;
             }
 
-            lastScrollTopRef.current = scrollTop;
-            lastScrollTsRef.current = now;
-        }
-    };
+            if (chatPerformanceV2Enabled) {
+                const now = performance.now();
+                const isFastScroll = isMessageListFastScroll({
+                    previousScrollTop: lastScrollTopRef.current,
+                    previousScrollTimestampMs: lastScrollTsRef.current,
+                    nextScrollTop: nextMetrics.scrollTop,
+                    nextScrollTimestampMs: now,
+                });
+                if (isFastScroll) {
+                    if (!fastScrollModeRef.current) {
+                        fastScrollModeRef.current = true;
+                        setFastScrollMode(true);
+                    }
+                    if (fastScrollTimeoutRef.current) {
+                        clearTimeout(fastScrollTimeoutRef.current);
+                    }
+                    fastScrollTimeoutRef.current = setTimeout(() => {
+                        fastScrollModeRef.current = false;
+                        setFastScrollMode(false);
+                        fastScrollTimeoutRef.current = null;
+                    }, 200);
+                }
+
+                lastScrollTopRef.current = nextMetrics.scrollTop;
+                lastScrollTsRef.current = now;
+            }
+        });
+    }, [chatPerformanceV2Enabled]);
 
     const y = useMotionValue(0);
     const refreshOpacity = useTransform(y, [0, 80], [0, 1]);
@@ -400,6 +425,11 @@ export function MessageList({
             if (fastScrollTimeoutRef.current) {
                 clearTimeout(fastScrollTimeoutRef.current);
             }
+            if (scrollFrameRef.current !== null) {
+                cancelAnimationFrame(scrollFrameRef.current);
+                scrollFrameRef.current = null;
+            }
+            pendingScrollMetricsRef.current = null;
         };
     }, []);
 
@@ -426,63 +456,13 @@ export function MessageList({
         });
     }, []);
 
-    const inviteResponseStatusByMessageId = React.useMemo(() => {
-        const map = new Map<string, InviteResponseStatus>();
-        messages.forEach((message) => {
-            if (!message.replyTo?.messageId) return;
-            try {
-                const parsed = JSON.parse(message.content) as Readonly<{ type?: string; status?: string }>;
-                if (parsed?.type !== "community-invite-response") return;
-                if (parsed.status === "accepted" || parsed.status === "declined" || parsed.status === "canceled") {
-                    map.set(message.replyTo.messageId, parsed.status);
-                }
-            } catch {
-                // ignore non-JSON / non-invite-response rows
-            }
-        });
-        return map;
-    }, [messages]);
-
-    const renderMetaByMessageId = React.useMemo(() => {
-        const map = new Map<string, MessageRenderMeta>();
-
-        messages.forEach((message) => {
-            const attachmentUrlsExpanded = expandedRelayUrlsByMessageId.has(message.id);
-            const hasVisualAttachments = (message.attachments ?? []).some((attachment) => {
-                const kind = inferAttachmentKind(attachment);
-                return kind === "image" || kind === "video";
-            });
-            const hasAttachmentRelayUrlsInContent = messageHasAttachmentRelayUrls({
-                content: message.content,
-                attachments: message.attachments
-            });
-            const textContentResult = getMessageContentForDisplay({
-                content: message.content,
-                attachments: message.attachments,
-                showAttachmentRelayUrls: attachmentUrlsExpanded
-            });
-
-            let parsedPayload: ParsedMessagePayload | null = null;
-            try {
-                const parsed = JSON.parse(message.content);
-                if (parsed && typeof parsed === "object") {
-                    parsedPayload = parsed as ParsedMessagePayload;
-                }
-            } catch {
-                parsedPayload = null;
-            }
-
-            map.set(message.id, {
-                attachmentUrlsExpanded,
-                hasVisualAttachments,
-                hasAttachmentRelayUrlsInContent,
-                textContentResult,
-                parsedPayload
-            });
-        });
-
-        return map;
-    }, [messages, expandedRelayUrlsByMessageId]);
+    const {
+        inviteResponseStatusByMessageId,
+        renderMetaByMessageId,
+    } = React.useMemo(() => buildMessageRenderCaches({
+        messages,
+        expandedRelayUrlsByMessageId,
+    }), [expandedRelayUrlsByMessageId, messages]);
 
     return (
         <div className="flex-1 min-h-0 relative flex flex-col pt-1">
@@ -567,6 +547,7 @@ export function MessageList({
                                 const hasAttachmentRelayUrlsInContent = renderMeta?.hasAttachmentRelayUrlsInContent ?? false;
                                 const textContentResult = renderMeta?.textContentResult ?? { content: message.content, hasHiddenAttachmentRelayUrls: false };
                                 const parsedPayload = renderMeta?.parsedPayload ?? null;
+                                const timeLabel = formatTime(message.timestamp, nowMs);
 
                                 return (
                                     <MemoizedMessageRow
@@ -576,13 +557,13 @@ export function MessageList({
                                         measureElement={virtualizer.measureElement}
                                         message={message}
                                         admins={admins}
-                                        nowMs={nowMs}
+                                        timeLabel={timeLabel}
                                         isGroupStart={isGroupStart}
                                         isGroupEnd={isGroupEnd}
                                         isMiddle={isMiddle}
                                         highLoadMode={highLoadMode}
                                         chatUxV083Enabled={chatUxV083Enabled}
-                                        flashMessageId={flashMessageId}
+                                        isFlashing={flashMessageId === message.id}
                                         attachmentUrlsExpanded={attachmentUrlsExpanded}
                                         hasVisualAttachments={hasVisualAttachments}
                                         hasAttachmentRelayUrlsInContent={hasAttachmentRelayUrlsInContent}
@@ -593,8 +574,8 @@ export function MessageList({
                                         inviteResponseStatus={inviteResponseStatusByMessageId.get(message.id)}
                                         onOpenReactionPicker={onOpenReactionPicker}
                                         onOpenMessageMenu={onOpenMessageMenu}
-                                        openMessageMenuMessageId={openMessageMenuMessageId}
-                                        openReactionPickerMessageId={openReactionPickerMessageId}
+                                        isMessageMenuAnchored={openMessageMenuMessageId === message.id}
+                                        isReactionPickerAnchored={openReactionPickerMessageId === message.id}
                                         onMessageMenuAnchorHoverChange={onMessageMenuAnchorHoverChange}
                                         onToggleReaction={onToggleReaction}
                                         onRetryMessage={onRetryMessage}
@@ -640,13 +621,13 @@ type MessageRowProps = Readonly<{
     measureElement: (node: Element | null) => void;
     message: Message;
     admins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
-    nowMs: number | null;
+    timeLabel: string;
     isGroupStart: boolean;
     isGroupEnd: boolean;
     isMiddle: boolean;
     highLoadMode: boolean;
     chatUxV083Enabled: boolean;
-    flashMessageId: string | null;
+    isFlashing: boolean;
     attachmentUrlsExpanded: boolean;
     hasVisualAttachments: boolean;
     hasAttachmentRelayUrlsInContent: boolean;
@@ -656,8 +637,8 @@ type MessageRowProps = Readonly<{
     localAttachmentFileNameByUrl: Readonly<Record<string, string>>;
     inviteResponseStatus?: InviteResponseStatus;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
-    openMessageMenuMessageId?: string | null;
-    openReactionPickerMessageId?: string | null;
+    isMessageMenuAnchored: boolean;
+    isReactionPickerAnchored: boolean;
     onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
@@ -676,13 +657,13 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         measureElement,
         message,
         admins,
-        nowMs,
+        timeLabel,
         isGroupStart,
         isGroupEnd,
         isMiddle,
         highLoadMode,
         chatUxV083Enabled,
-        flashMessageId,
+        isFlashing,
         attachmentUrlsExpanded,
         hasVisualAttachments,
         hasAttachmentRelayUrlsInContent,
@@ -692,8 +673,8 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         localAttachmentFileNameByUrl,
         inviteResponseStatus,
         onOpenMessageMenu,
-        openMessageMenuMessageId,
-        openReactionPickerMessageId,
+        isMessageMenuAnchored,
+        isReactionPickerAnchored,
         onMessageMenuAnchorHoverChange,
         onOpenReactionPicker,
         onToggleReaction,
@@ -703,10 +684,8 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         onToggleAttachmentRelayUrls,
         onSendDirectMessage,
     } = props;
-
-    const timeLabel = formatTime(message.timestamp, nowMs);
-    const menuAnchoredToThisMessage = openMessageMenuMessageId === message.id;
-    const reactionAnchoredToThisMessage = openReactionPickerMessageId === message.id;
+    const menuAnchoredToThisMessage = isMessageMenuAnchored;
+    const reactionAnchoredToThisMessage = isReactionPickerAnchored;
     const actionDockPinned = menuAnchoredToThisMessage || reactionAnchoredToThisMessage;
 
     const markMenuAnchorHover = React.useCallback((isHovered: boolean): void => {
@@ -802,7 +781,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                     !isGroupStart && isGroupEnd ? "rounded-tl-md rounded-bl-md" : "",
                                     isMiddle ? "rounded-tl-md rounded-bl-md" : ""
                                 ),
-                            flashMessageId === message.id && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse"
+                            isFlashing && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse"
                         )}
                     >
                         <div
@@ -988,13 +967,13 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
     return (
         prev.virtualStart === next.virtualStart &&
         prev.message === next.message &&
-        prev.nowMs === next.nowMs &&
+        prev.timeLabel === next.timeLabel &&
         prev.isGroupStart === next.isGroupStart &&
         prev.isGroupEnd === next.isGroupEnd &&
         prev.isMiddle === next.isMiddle &&
         prev.highLoadMode === next.highLoadMode &&
         prev.chatUxV083Enabled === next.chatUxV083Enabled &&
-        prev.flashMessageId === next.flashMessageId &&
+        prev.isFlashing === next.isFlashing &&
         prev.attachmentUrlsExpanded === next.attachmentUrlsExpanded &&
         prev.hasVisualAttachments === next.hasVisualAttachments &&
         prev.hasAttachmentRelayUrlsInContent === next.hasAttachmentRelayUrlsInContent &&
@@ -1003,84 +982,11 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.inviteResponseStatus === next.inviteResponseStatus &&
         prev.localAttachmentUrlSet === next.localAttachmentUrlSet &&
         prev.localAttachmentFileNameByUrl === next.localAttachmentFileNameByUrl &&
-        prev.openMessageMenuMessageId === next.openMessageMenuMessageId &&
-        prev.openReactionPickerMessageId === next.openReactionPickerMessageId &&
+        prev.isMessageMenuAnchored === next.isMessageMenuAnchored &&
+        prev.isReactionPickerAnchored === next.isReactionPickerAnchored &&
         prev.admins === next.admins
     );
 });
-
-const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const messageHasAttachmentRelayUrls = (params: Readonly<{
-    content: string;
-    attachments?: ReadonlyArray<Attachment>;
-}>): boolean => {
-    const { content, attachments } = params;
-    if (!attachments || attachments.length === 0 || !content) {
-        return false;
-    }
-    return attachments.some((attachment) => {
-        const url = attachment.url?.trim();
-        return !!url && content.includes(url);
-    });
-};
-
-const removeAttachmentRelayUrlsFromContent = (params: Readonly<{
-    content: string;
-    attachments?: ReadonlyArray<Attachment>;
-}>): Readonly<{ content: string; hasHiddenAttachmentRelayUrls: boolean }> => {
-    const { content, attachments } = params;
-    if (!attachments || attachments.length === 0 || !content) {
-        return { content, hasHiddenAttachmentRelayUrls: false };
-    }
-
-    let next = content;
-    let hasHiddenAttachmentRelayUrls = false;
-
-    attachments.forEach((attachment) => {
-        const url = attachment.url?.trim();
-        if (!url) return;
-
-        // Strip Markdown [filename](url) FIRST to avoid gutting it with literal-match splits
-        const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const markdownRegex = new RegExp(`\\[[\\s\\S]*?\\]\\(${escapedUrl}\\)`, "g");
-        if (next.match(markdownRegex)) {
-            hasHiddenAttachmentRelayUrls = true;
-            next = next.replace(markdownRegex, "");
-        }
-
-        // Strip literal URL as fallback
-        if (next.includes(url)) {
-            hasHiddenAttachmentRelayUrls = true;
-            next = next.split(url).join("");
-        }
-    });
-
-    if (!hasHiddenAttachmentRelayUrls) {
-        return { content, hasHiddenAttachmentRelayUrls: false };
-    }
-
-    next = next
-        .replace(/[ \t]+$/gm, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-
-    return { content: next, hasHiddenAttachmentRelayUrls: true };
-};
-
-const getMessageContentForDisplay = (params: Readonly<{
-    content: string;
-    attachments?: ReadonlyArray<Attachment>;
-    showAttachmentRelayUrls: boolean;
-}>): Readonly<{ content: string; hasHiddenAttachmentRelayUrls: boolean }> => {
-    if (params.showAttachmentRelayUrls) {
-        return { content: params.content, hasHiddenAttachmentRelayUrls: false };
-    }
-    return removeAttachmentRelayUrlsFromContent({
-        content: params.content,
-        attachments: params.attachments
-    });
-};
 
 function MessageAttachmentLayout({
     attachments,
@@ -1098,26 +1004,22 @@ function MessageAttachmentLayout({
     readonly chatUxV083Enabled: boolean;
 }): React.JSX.Element {
     const { t } = useTranslation();
-    const visualMedia: Array<Readonly<{ attachment: Attachment; kind: "image" | "video" }>> = [];
-    const audios: Attachment[] = [];
-    const others: Attachment[] = [];
-
-    attachments.forEach((attachment) => {
-        const kind = inferAttachmentKind(attachment);
-        if (kind === "image") {
-            visualMedia.push({ attachment, kind });
-            return;
-        }
-        if (kind === "video") {
-            visualMedia.push({ attachment, kind });
-            return;
-        }
-        if (kind === "audio") {
-            audios.push(attachment);
-            return;
-        }
-        others.push(attachment);
-    });
+    const fileLabel = t("common.file", "File");
+    const {
+        visualMedia,
+        imageMedia,
+        videoMedia,
+        audios,
+        others,
+    } = React.useMemo(() => buildAttachmentBuckets(attachments), [attachments]);
+    const {
+        displayNameByUrl,
+        hostByUrl,
+    } = React.useMemo(() => buildAttachmentPresentation({
+        attachments,
+        localAttachmentFileNameByUrl,
+        fallbackFileLabel: fileLabel,
+    }), [attachments, fileLabel, localAttachmentFileNameByUrl]);
 
     const [activeVisualIndex, setActiveVisualIndex] = React.useState(0);
     const touchStartXRef = React.useRef<number | null>(null);
@@ -1156,8 +1058,6 @@ function MessageAttachmentLayout({
     }, [goNextVisual, goPrevVisual, visualMedia.length]);
 
     const activeVisual = visualMedia[activeVisualIndex];
-    const imageMedia = visualMedia.filter((item) => item.kind === "image").map((item) => item.attachment);
-    const videoMedia = visualMedia.filter((item) => item.kind === "video").map((item) => item.attachment);
 
     const imageGridClass = imageMedia.length <= 1
         ? "grid-cols-1"
@@ -1165,21 +1065,7 @@ function MessageAttachmentLayout({
             ? "grid-cols-2"
             : "grid-cols-2 sm:grid-cols-3";
 
-    const deriveDisplayFileName = (attachment: Attachment): string => {
-        const localName = localAttachmentFileNameByUrl[attachment.url];
-        if (localName && localName.trim().length > 0) {
-            return normalizeLocalMediaDisplayFileName(localName);
-        }
-        if (attachment.fileName && attachment.fileName.trim().length > 0) {
-            return normalizeLocalMediaDisplayFileName(attachment.fileName);
-        }
-        try {
-            const host = new URL(attachment.url).host;
-            return host || t("common.file", "File");
-        } catch {
-            return t("common.file", "File");
-        }
-    };
+    const deriveDisplayFileName = (attachment: Attachment): string => displayNameByUrl[attachment.url] ?? fileLabel;
 
     return (
         <div className="mb-3 space-y-3">
@@ -1362,13 +1248,7 @@ function MessageAttachmentLayout({
                                         {deriveDisplayFileName(attachment)}
                                     </div>
                                     <div className="mt-0.5 truncate text-[10px] opacity-60">
-                                        {(() => {
-                                            try {
-                                                return new URL(attachment.url).host;
-                                            } catch {
-                                                return attachment.url;
-                                            }
-                                        })()}
+                                        {hostByUrl[attachment.url] ?? attachment.url}
                                     </div>
                                 </div>
                                 <a

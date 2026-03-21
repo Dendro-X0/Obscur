@@ -1805,6 +1805,73 @@ describe("encryptedAccountBackupService", () => {
     getAllByIndexSpy.mockRestore();
   });
 
+  it("hydrates legacy DM indexed records with missing sender metadata from recipient plus conversation evidence", async () => {
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const conversationId = `${publicKeyHex}:${acceptedPeerPublicKeyHex}`;
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([
+      {
+        id: "legacy-infer-out-1",
+        conversationId,
+        recipientPubkey: acceptedPeerPublicKeyHex,
+        content: "outgoing without sender metadata",
+        status: "accepted",
+        timestampMs: 8_000,
+        ownerPubkey: publicKeyHex,
+      },
+      {
+        id: "legacy-infer-in-1",
+        conversationId,
+        recipientPubkey: publicKeyHex,
+        content: "incoming without sender metadata",
+        status: "delivered",
+        timestampMs: 8_100,
+        ownerPubkey: publicKeyHex,
+      },
+    ]);
+    const accountEventsSpy = vi.spyOn(accountEventStore, "loadEvents").mockResolvedValue([]);
+
+    const payload = await encryptedAccountBackupServiceInternals.buildBackupPayloadWithHydratedChatState(publicKeyHex);
+
+    expect(hydrateSpy).toHaveBeenCalledWith(publicKeyHex);
+    expect(getAllByIndexSpy).toHaveBeenCalled();
+    expect(payload.chatState?.messagesByConversationId[conversationId]).toEqual([
+      expect.objectContaining({
+        id: "legacy-infer-out-1",
+        isOutgoing: true,
+        pubkey: publicKeyHex,
+      }),
+      expect.objectContaining({
+        id: "legacy-infer-in-1",
+        isOutgoing: false,
+        pubkey: acceptedPeerPublicKeyHex,
+      }),
+    ]);
+    expect(payload.chatState?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: conversationId,
+        pubkey: acceptedPeerPublicKeyHex,
+      }),
+    ]));
+    expect(accountEventsSpy).not.toHaveBeenCalled();
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    accountEventsSpy.mockRestore();
+  });
+
   it("hydrates backup payload from message queue records when indexed message store is empty", async () => {
     const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
     const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({

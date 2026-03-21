@@ -8,6 +8,8 @@ import { motion } from "framer-motion";
 import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { useTranslation } from "react-i18next";
+import { logAppEvent } from "@/app/shared/log-app-event";
+import { hardNavigate, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS } from "./page-transition-recovery";
 
 const ICON_BY_HREF: Record<string, any> = {
     "/": MessageSquare,
@@ -25,6 +27,90 @@ interface MobileTabBarProps {
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} }) => {
     const { t } = useTranslation();
     const pathname = usePathname();
+    const routeFallbackTimeoutIdRef = React.useRef<number | null>(null);
+    const routePendingTargetRef = React.useRef<string | null>(null);
+    const routePendingStartedAtUnixMsRef = React.useRef<number>(0);
+
+    const clearRouteFallback = React.useCallback((): void => {
+        const timeoutId = routeFallbackTimeoutIdRef.current;
+        if (typeof timeoutId === "number") {
+            window.clearTimeout(timeoutId);
+            routeFallbackTimeoutIdRef.current = null;
+        }
+        routePendingTargetRef.current = null;
+        routePendingStartedAtUnixMsRef.current = 0;
+    }, []);
+
+    const armRouteHardFallback = React.useCallback((targetHref: string): void => {
+        if (!targetHref || targetHref === pathname) {
+            clearRouteFallback();
+            return;
+        }
+        clearRouteFallback();
+        routePendingTargetRef.current = targetHref;
+        routePendingStartedAtUnixMsRef.current = Date.now();
+        logAppEvent({
+            name: "navigation.route_request",
+            level: "info",
+            scope: { feature: "navigation", action: "route_guard" },
+            context: {
+                guardSource: "mobile_tab_bar",
+                fromPathname: pathname,
+                targetHref,
+                hardFallbackAfterMs: ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
+            },
+        });
+
+        routeFallbackTimeoutIdRef.current = window.setTimeout((): void => {
+            if (routePendingTargetRef.current !== targetHref) {
+                return;
+            }
+            const currentPathname = window.location.pathname;
+            if (currentPathname === targetHref) {
+                clearRouteFallback();
+                return;
+            }
+            logAppEvent({
+                name: "navigation.route_stall_hard_fallback",
+                level: "warn",
+                scope: { feature: "navigation", action: "route_guard" },
+                context: {
+                    guardSource: "mobile_tab_bar",
+                    fromPathname: pathname,
+                    currentPathname,
+                    targetHref,
+                    elapsedMs: Math.max(0, Date.now() - routePendingStartedAtUnixMsRef.current),
+                    hardFallbackAfterMs: ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
+                },
+            });
+            clearRouteFallback();
+            hardNavigate(targetHref);
+        }, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS);
+    }, [clearRouteFallback, pathname]);
+
+    React.useEffect((): void => {
+        const pendingTarget = routePendingTargetRef.current;
+        if (!pendingTarget || pathname !== pendingTarget) {
+            return;
+        }
+        logAppEvent({
+            name: "navigation.route_settled",
+            level: "info",
+            scope: { feature: "navigation", action: "route_guard" },
+            context: {
+                guardSource: "mobile_tab_bar",
+                pathname,
+                elapsedMs: Math.max(0, Date.now() - routePendingStartedAtUnixMsRef.current),
+            },
+        });
+        clearRouteFallback();
+    }, [clearRouteFallback, pathname]);
+
+    React.useEffect((): (() => void) => {
+        return (): void => {
+            clearRouteFallback();
+        };
+    }, [clearRouteFallback]);
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50 block border-t border-black/10 bg-white/80 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl dark:border-white/10 dark:bg-black/80 md:hidden">
@@ -39,6 +125,15 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                         <Link
                             key={item.href}
                             href={item.href}
+                            onClick={(event): void => {
+                                if (event.defaultPrevented) {
+                                    return;
+                                }
+                                if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
+                                    return;
+                                }
+                                armRouteHardFallback(item.href);
+                            }}
                             className={cn(
                                 "relative flex flex-col items-center justify-center gap-1 px-3 py-1 transition-colors",
                                 isActive ? "text-purple-600 dark:text-purple-400" : "text-zinc-500 dark:text-zinc-400"

@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppShell from "./app-shell";
 import * as pageTransitionRecovery from "./page-transition-recovery";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 const appShellMocks = vi.hoisted(() => ({
   pathname: "/",
@@ -24,7 +25,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/link", () => ({
-  default: (props: any) => {
+  default: (props: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href?: string }) => {
     const { href, onClick, children, ...rest } = props;
     return (
       <a
@@ -140,6 +141,43 @@ describe("AppShell navigation", () => {
       expect(hardNavigateSpy).toHaveBeenCalledWith("/network");
     } finally {
       hardNavigateSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("logs app-shell route guard source when requesting navigation", async () => {
+    await renderShell();
+    const networkLink = screen.getByRole("link", { name: "nav.network" });
+    act(() => {
+      fireEvent.click(networkLink);
+    });
+    const routeRequestLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
+      event.name === "navigation.route_request"
+      && event.context?.guardSource === "app_shell"
+      && event.context?.fromRouteSurface === "chats"
+      && event.context?.targetRouteSurface === "network"
+      && event.context?.targetHref === "/network"
+    ));
+    expect(routeRequestLogged).toBe(true);
+  });
+
+  it("emits a slow route-mount probe event when settle threshold is exceeded", async () => {
+    vi.useFakeTimers();
+    const requestAnimationFrameSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
+    const cancelAnimationFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    try {
+      await renderShell();
+      act(() => {
+        vi.advanceTimersByTime(pageTransitionRecovery.ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 20);
+      });
+      const slowProbeLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
+        event.name === "navigation.route_mount_probe_slow"
+        && event.context?.routeSurface === "chats"
+      ));
+      expect(slowProbeLogged).toBe(true);
+    } finally {
+      requestAnimationFrameSpy.mockRestore();
+      cancelAnimationFrameSpy.mockRestore();
       vi.useRealTimers();
     }
   });

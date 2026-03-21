@@ -589,7 +589,12 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 initial={{ scale: 0.95, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                                className="flex-1 w-full max-w-7xl mx-auto flex items-center justify-center relative rounded-[40px] overflow-hidden bg-white/[0.02] border border-white/5 shadow-2xl group/stage"
+                                className={cn(
+                                    "group/stage relative mx-auto flex w-full max-w-7xl flex-1 items-center justify-center overflow-hidden rounded-[40px] border shadow-2xl",
+                                    selectedItem.attachment.kind === "video"
+                                        ? "border-white/10 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.2),_rgba(8,10,16,0.95)_52%,_rgba(0,0,0,0.98)_100%)] p-2 sm:p-3 md:p-4"
+                                        : "border-white/5 bg-white/[0.02]",
+                                )}
                             >
                                 <MediaStage item={selectedItem} />
                             </motion.div>
@@ -600,22 +605,22 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 transition={{ delay: 0.2 }}
                                 className="flex justify-center pt-8 w-full z-10"
                             >
-                                <div className="flex items-center gap-2 bg-white/5 backdrop-blur-3xl p-2 rounded-[32px] border border-white/10 shadow-2xl">
+                                <div className="flex items-center gap-2 rounded-[32px] border border-white/20 bg-black/55 p-2 backdrop-blur-3xl shadow-2xl">
                                     <Button
                                         variant="ghost"
                                         onClick={() => window.open(selectedItem.remoteUrl, "_blank")}
-                                        className="rounded-2xl h-12 px-6 font-black text-[11px] uppercase tracking-widest text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                                        className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-100 transition-all hover:bg-white/10 hover:text-white"
                                     >
                                         <ExternalLink className="h-4 w-4 mr-3" />
                                         Source URL
                                     </Button>
-                                    <div className="h-6 w-px bg-white/10 mx-1" />
+                                    <div className="mx-1 h-6 w-px bg-white/20" />
                                     <Button
                                         variant="ghost"
                                         onClick={() => toggleFavorite(selectedItem.remoteUrl)}
                                         className={cn(
-                                            "rounded-2xl h-12 px-6 font-black text-[11px] uppercase tracking-widest transition-all",
-                                            favorites.has(selectedItem.remoteUrl) ? "text-amber-400 bg-amber-400/10 hover:bg-amber-400/20" : "text-white/70 hover:text-white hover:bg-white/5"
+                                            "h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest transition-all",
+                                            favorites.has(selectedItem.remoteUrl) ? "bg-amber-400/12 text-amber-300 hover:bg-amber-400/20" : "text-zinc-100 hover:bg-white/10 hover:text-white"
                                         )}
                                     >
                                         <Star className={cn("h-4 w-4 mr-3", favorites.has(selectedItem.remoteUrl) && "fill-current")} />
@@ -623,7 +628,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     </Button>
                                     {selectedItem.isLocalCached && (
                                         <>
-                                            <div className="h-6 w-px bg-white/10 mx-1" />
+                                            <div className="mx-1 h-6 w-px bg-white/20" />
                                             <Button
                                                 variant="ghost"
                                                 onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); setSelectedItem(null); }}
@@ -992,15 +997,18 @@ function VideoStage({
     }
 
     return (
-        <video
-            src={currentUrl}
-            controls
-            autoPlay
-            playsInline
-            preload="metadata"
-            onError={handleVideoError}
-            className="max-h-full max-w-full rounded-2xl shadow-[0_0_100px_rgba(0,0,0,0.5)] z-0"
-        />
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-black">
+            <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
+            <video
+                src={currentUrl}
+                controls
+                autoPlay
+                playsInline
+                preload="metadata"
+                onError={handleVideoError}
+                className="z-0 h-full w-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.55)]"
+            />
+        </div>
     );
 }
 

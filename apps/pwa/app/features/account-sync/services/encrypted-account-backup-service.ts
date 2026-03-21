@@ -1094,6 +1094,80 @@ const extractPersistedAttachmentsFromRecord = (
   return dedupeAttachments(extractAttachmentsFromContent(content));
 };
 
+const resolveDmRecordDirection = (params: Readonly<{
+  record: Readonly<Record<string, unknown>>;
+  conversationId: string;
+  myPublicKeyHex: PublicKeyHex;
+}>): Readonly<{
+  isOutgoing: boolean;
+  senderPubkey: PublicKeyHex | null;
+  recipientPubkey: PublicKeyHex | null;
+  peerPublicKeyHex: PublicKeyHex | null;
+}> => {
+  const senderPubkeyFromRecord = normalizePublicKeyHex(
+    typeof params.record.senderPubkey === "string" ? params.record.senderPubkey : undefined
+  ) ?? normalizePublicKeyHex(
+    typeof params.record.pubkey === "string" ? params.record.pubkey : undefined
+  );
+  const recipientPubkey = normalizePublicKeyHex(
+    typeof params.record.recipientPubkey === "string" ? params.record.recipientPubkey : undefined
+  );
+  const inferredPeerPublicKeyHex = inferPeerFromConversationId({
+    conversationId: params.conversationId,
+    myPublicKeyHex: params.myPublicKeyHex,
+  });
+
+  let isOutgoing = typeof params.record.isOutgoing === "boolean"
+    ? params.record.isOutgoing
+    : false;
+  let peerPublicKeyHex: PublicKeyHex | null = null;
+
+  if (
+    senderPubkeyFromRecord === params.myPublicKeyHex
+    && recipientPubkey
+    && recipientPubkey !== params.myPublicKeyHex
+  ) {
+    isOutgoing = true;
+    peerPublicKeyHex = recipientPubkey;
+  } else if (senderPubkeyFromRecord === params.myPublicKeyHex) {
+    isOutgoing = true;
+    peerPublicKeyHex = inferredPeerPublicKeyHex;
+  } else if (
+    recipientPubkey === params.myPublicKeyHex
+    && senderPubkeyFromRecord
+    && senderPubkeyFromRecord !== params.myPublicKeyHex
+  ) {
+    isOutgoing = false;
+    peerPublicKeyHex = senderPubkeyFromRecord;
+  } else if (
+    !senderPubkeyFromRecord
+    && recipientPubkey
+    && recipientPubkey !== params.myPublicKeyHex
+    && inferredPeerPublicKeyHex
+    && recipientPubkey === inferredPeerPublicKeyHex
+  ) {
+    // Legacy records can omit senderPubkey/isOutgoing while still carrying
+    // recipient and canonical conversation context.
+    isOutgoing = true;
+    peerPublicKeyHex = recipientPubkey;
+  } else {
+    peerPublicKeyHex = inferredPeerPublicKeyHex;
+  }
+
+  const senderPubkey = senderPubkeyFromRecord ?? (
+    isOutgoing
+      ? params.myPublicKeyHex
+      : peerPublicKeyHex
+  );
+
+  return {
+    isOutgoing,
+    senderPubkey,
+    recipientPubkey,
+    peerPublicKeyHex,
+  };
+};
+
 const toPersistedMessageFromIndexedRecord = (params: Readonly<{
   record: Readonly<Record<string, unknown>>;
   myPublicKeyHex: PublicKeyHex;
@@ -1126,39 +1200,11 @@ const toPersistedMessageFromIndexedRecord = (params: Readonly<{
     ?? toTimestampMs(params.record.timestamp)
     ?? toTimestampMs(params.record.eventCreatedAt)
     ?? Date.now();
-
-  const senderPubkey = normalizePublicKeyHex(
-    typeof params.record.senderPubkey === "string" ? params.record.senderPubkey : undefined
-  ) ?? normalizePublicKeyHex(
-    typeof params.record.pubkey === "string" ? params.record.pubkey : undefined
-  );
-  const recipientPubkey = normalizePublicKeyHex(
-    typeof params.record.recipientPubkey === "string" ? params.record.recipientPubkey : undefined
-  );
-
-  let isOutgoing = typeof params.record.isOutgoing === "boolean"
-    ? params.record.isOutgoing
-    : false;
-  let peerPublicKeyHex: PublicKeyHex | null = null;
-
-  if (senderPubkey === params.myPublicKeyHex && recipientPubkey && recipientPubkey !== params.myPublicKeyHex) {
-    isOutgoing = true;
-    peerPublicKeyHex = recipientPubkey;
-  } else if (senderPubkey === params.myPublicKeyHex) {
-    isOutgoing = true;
-    peerPublicKeyHex = inferPeerFromConversationId({
-      conversationId,
-      myPublicKeyHex: params.myPublicKeyHex,
-    });
-  } else if (recipientPubkey === params.myPublicKeyHex && senderPubkey && senderPubkey !== params.myPublicKeyHex) {
-    isOutgoing = false;
-    peerPublicKeyHex = senderPubkey;
-  } else {
-    peerPublicKeyHex = inferPeerFromConversationId({
-      conversationId,
-      myPublicKeyHex: params.myPublicKeyHex,
-    });
-  }
+  const { isOutgoing, senderPubkey, peerPublicKeyHex } = resolveDmRecordDirection({
+    record: params.record,
+    conversationId,
+    myPublicKeyHex: params.myPublicKeyHex,
+  });
 
   const content = typeof params.record.content === "string"
     ? params.record.content
@@ -1227,19 +1273,14 @@ const hasOutgoingMessageEvidence = (
   record: Readonly<Record<string, unknown>>,
   myPublicKeyHex: PublicKeyHex
 ): boolean => {
-  if (record.isOutgoing === true) {
-    return true;
-  }
-  const senderPubkey = normalizePublicKeyHex(
-    typeof record.senderPubkey === "string" ? record.senderPubkey : undefined
-  );
-  if (senderPubkey === myPublicKeyHex) {
-    return true;
-  }
-  const messagePubkey = normalizePublicKeyHex(
-    typeof record.pubkey === "string" ? record.pubkey : undefined
-  );
-  return messagePubkey === myPublicKeyHex;
+  const conversationId = typeof record.conversationId === "string"
+    ? record.conversationId.trim()
+    : "";
+  return resolveDmRecordDirection({
+    record,
+    conversationId,
+    myPublicKeyHex,
+  }).isOutgoing;
 };
 
 type ChatStateMessageDiagnostics = Readonly<{

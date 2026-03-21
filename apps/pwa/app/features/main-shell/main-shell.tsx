@@ -505,15 +505,20 @@ function NostrMessengerContent() {
     snapshot: accountSyncSnapshot,
   });
 
-  const visibleChatsList = filteredConversations.filter((conversation) => (
-    conversation.kind === "group" || !hiddenChatIds.includes(conversation.id)
-  ));
-  const accurateChatsUnreadCount = visibleChatsList.reduce((acc, c) => {
-    if (selectedConversation?.id === c.id) {
-      return acc;
-    }
-    return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
-  }, 0);
+  const hiddenChatIdSet = useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
+  const visibleChatsList = useMemo(() => (
+    filteredConversations.filter((conversation) => (
+      conversation.kind === "group" || !hiddenChatIdSet.has(conversation.id)
+    ))
+  ), [filteredConversations, hiddenChatIdSet]);
+  const accurateChatsUnreadCount = useMemo(() => (
+    visibleChatsList.reduce((acc, c) => {
+      if (selectedConversation?.id === c.id) {
+        return acc;
+      }
+      return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
+    }, 0)
+  ), [selectedConversation?.id, unreadByConversationId, visibleChatsList]);
 
   return (
     <AppShell

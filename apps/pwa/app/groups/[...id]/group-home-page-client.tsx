@@ -472,11 +472,11 @@ export default function GroupHomePage() {
         return (
             <PageShell title="Group Not Found">
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-                    <div className="h-20 w-20 rounded-[24px] bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6">
-                        <Users className="h-10 w-10 text-zinc-600" />
+                    <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/10 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
+                        <Users className="h-10 w-10 text-zinc-500 dark:text-zinc-600" />
                     </div>
-                    <h1 className="text-3xl font-black text-white mb-2">Community Not Found</h1>
-                    <p className="text-zinc-500 max-w-sm mb-8">This group may have been deleted or you don&apos;t have access to it.</p>
+                    <h1 className="mb-2 text-3xl font-black text-zinc-900 dark:text-white">Community Not Found</h1>
+                    <p className="mb-8 max-w-sm text-zinc-600 dark:text-zinc-500">This group may have been deleted or you don&apos;t have access to it.</p>
                     <Button onClick={() => router.push("/network")} variant="secondary" className="rounded-xl px-8 font-black">
                         Back to Network
                     </Button>
@@ -497,7 +497,7 @@ export default function GroupHomePage() {
                 <div className="pt-6">
                     <button
                         onClick={() => router.push("/network")}
-                        className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors group"
+                        className="group flex items-center gap-2 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white"
                     >
                         <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
                         <span className="text-xs font-black uppercase tracking-widest">Back to Network</span>
@@ -518,8 +518,8 @@ export default function GroupHomePage() {
                         className={cn(
                             "relative overflow-hidden rounded-[48px] p-8 sm:p-12 shadow-2xl",
                             safeVisualMode
-                                ? "bg-[#0C0C0E]/95 border-white/[0.05]"
-                                : "bg-[#0C0C0E]/80 backdrop-blur-xl border-white/[0.03]",
+                                ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/95"
+                                : "border-black/10 bg-white/75 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/80",
                         )}
                     >
                         {/* Immersive Blurred Banner Background */}
@@ -550,14 +550,14 @@ export default function GroupHomePage() {
                                 {safeVisualMode ? (
                                     <div className="relative p-1.5 rounded-[48px] bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl">
                                         <Avatar
-                                            className="h-44 w-44 rounded-[42px] border-[6px] border-[#0C0C0E] shadow-xl"
+                                            className="h-44 w-44 rounded-[42px] border-[6px] border-black/20 shadow-xl dark:border-[#0C0C0E]"
                                         >
                                             <AvatarImage src={avatarUrl} className="object-cover" />
-                                            <AvatarFallback className="bg-[#1A1A1E] text-6xl font-black text-white">
+                                            <AvatarFallback className="bg-zinc-100 text-6xl font-black text-zinc-900 dark:bg-[#1A1A1E] dark:text-white">
                                                 {displayName.slice(0, 1).toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-green-500 border-[6px] border-[#0C0C0E] flex items-center justify-center shadow-lg">
+                                        <div className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-2xl border-[6px] border-black/20 bg-green-500 shadow-lg dark:border-[#0C0C0E]">
                                             <div className="h-2.5 w-2.5 rounded-full bg-white" />
                                         </div>
                                     </div>
@@ -569,14 +569,14 @@ export default function GroupHomePage() {
                                         className="relative p-1.5 rounded-[48px] bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl"
                                     >
                                         <Avatar
-                                            className="h-44 w-44 rounded-[42px] border-[6px] border-[#0C0C0E] shadow-xl"
+                                            className="h-44 w-44 rounded-[42px] border-[6px] border-black/20 shadow-xl dark:border-[#0C0C0E]"
                                         >
                                             <AvatarImage src={avatarUrl} className="object-cover" />
-                                            <AvatarFallback className="bg-[#1A1A1E] text-6xl font-black text-white">
+                                            <AvatarFallback className="bg-zinc-100 text-6xl font-black text-zinc-900 dark:bg-[#1A1A1E] dark:text-white">
                                                 {displayName.slice(0, 1).toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-green-500 border-[6px] border-[#0C0C0E] flex items-center justify-center shadow-lg group-hover/hero:scale-110 transition-transform">
+                                        <div className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-2xl border-[6px] border-black/20 bg-green-500 shadow-lg transition-transform group-hover/hero:scale-110 dark:border-[#0C0C0E]">
                                             <div className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
                                         </div>
                                     </motion.div>
@@ -589,12 +589,12 @@ export default function GroupHomePage() {
                                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                                         {safeVisualMode ? (
                                             <>
-                                                <h1 className="text-5xl sm:text-6xl font-black text-white tracking-tight">
+                                                <h1 className="text-5xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-6xl">
                                                     {displayName}
                                                 </h1>
-                                                <div className="px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 flex items-center gap-2">
+                                                <div className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-4 py-1.5 dark:border-white/10 dark:bg-white/[0.05]">
                                                     <Globe className="h-3.5 w-3.5 text-purple-400" />
-                                                    <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                                                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">
                                                         {effectiveRelay.replace("wss://", "")}
                                                     </span>
                                                 </div>
@@ -605,7 +605,7 @@ export default function GroupHomePage() {
                                                     initial={{ y: 20, opacity: 0 }}
                                                     animate={{ y: 0, opacity: 1 }}
                                                     transition={{ delay: 0.2 }}
-                                                    className="text-5xl sm:text-6xl font-black text-white tracking-tight"
+                                                    className="text-5xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-6xl"
                                                 >
                                                     {displayName}
                                                 </motion.h1>
@@ -613,17 +613,17 @@ export default function GroupHomePage() {
                                                     initial={{ scale: 0.8, opacity: 0 }}
                                                     animate={{ scale: 1, opacity: 1 }}
                                                     transition={{ delay: 0.4 }}
-                                                    className="px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10 flex items-center gap-2"
+                                                    className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-4 py-1.5 dark:border-white/10 dark:bg-white/[0.05]"
                                                 >
                                                     <Globe className="h-3.5 w-3.5 text-purple-400" />
-                                                    <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                                                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">
                                                         {effectiveRelay.replace("wss://", "")}
                                                     </span>
                                                 </motion.div>
                                             </>
                                         )}
                                     </div>
-                                    <p className="text-xl text-zinc-400 font-medium max-w-2xl leading-relaxed">
+                                    <p className="max-w-2xl text-xl font-medium leading-relaxed text-zinc-700 dark:text-zinc-400">
                                         {aboutText}
                                     </p>
                                 </div>
@@ -652,7 +652,7 @@ export default function GroupHomePage() {
                                         <Button
                                             onClick={() => setIsInviteConnectionsOpen(true)}
                                             className={cn(
-                                                "h-16 px-8 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-black border border-white/5 transition-all hover:scale-[1.02] active:scale-95 gap-3",
+                                                "h-16 gap-3 rounded-2xl border border-black/10 bg-zinc-900/90 px-8 text-white transition-all hover:scale-[1.02] hover:bg-zinc-800/90 active:scale-95 dark:border-white/5 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80",
                                                 safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
                                             )}
                                         >
@@ -663,7 +663,7 @@ export default function GroupHomePage() {
 
                                     <div
                                         className={cn(
-                                            "flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl",
+                                            "flex items-center gap-2 rounded-2xl border border-black/10 bg-black/[0.04] p-1 dark:border-white/5 dark:bg-white/[0.03]",
                                             safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
                                         )}
                                     >
@@ -672,8 +672,8 @@ export default function GroupHomePage() {
                                                 variant="ghost"
                                                 onClick={toggleNotifications}
                                                 className={cn(
-                                                    "h-14 w-14 rounded-xl transition-all hover:bg-white/5",
-                                                    notificationsEnabled ? "text-purple-400" : "text-zinc-500"
+                                                    "h-14 w-14 rounded-xl transition-all hover:bg-black/[0.06] dark:hover:bg-white/5",
+                                                    notificationsEnabled ? "text-purple-600 dark:text-purple-400" : "text-zinc-600 dark:text-zinc-500"
                                                 )}
                                             >
                                                 {notificationsEnabled ? <Bell className="h-6 w-6" /> : <BellOff className="h-6 w-6" />}
@@ -683,7 +683,7 @@ export default function GroupHomePage() {
                                         {!isGuest && (
                                             <Button
                                                 variant="ghost"
-                                                className="h-14 w-14 rounded-xl text-zinc-400 hover:text-white transition-all hover:bg-white/5"
+                                                className="h-14 w-14 rounded-xl text-zinc-600 transition-all hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                                                 onClick={() => {
                                                     const url = toAbsoluteAppUrl(
                                                         getPublicGroupHref(group?.id || id || "", effectiveRelay || undefined)
@@ -698,7 +698,7 @@ export default function GroupHomePage() {
 
                                         {!isGuest && (
                                             <>
-                                                <div className="w-[1px] h-8 bg-white/10 mx-1" />
+                                                <div className="mx-1 h-8 w-[1px] bg-black/10 dark:bg-white/10" />
 
                                                 <Button
                                                     variant="ghost"
@@ -729,12 +729,12 @@ export default function GroupHomePage() {
                             className={cn(
                                 "rounded-[40px] p-8 flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative cursor-pointer",
                                 safeVisualMode
-                                    ? "bg-[#0C0C0E]/90 border-white/[0.05]"
-                                    : "bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03]",
+                                    ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
+                                    : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                             )}
                         >
                             <div className="absolute -right-8 -bottom-8 opacity-[0.03] group-hover/bento:opacity-[0.08] transition-opacity duration-1000">
-                                <Users size={240} className="text-white" />
+                                <Users size={240} className="text-zinc-900 dark:text-white" />
                             </div>
                             <div className="space-y-6 relative z-10">
                                 <div className="flex items-center justify-between">
@@ -746,9 +746,9 @@ export default function GroupHomePage() {
                                     </span>
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-3xl font-black text-white">Community</h3>
-                                    <p className="text-zinc-500 font-medium">Connect with {displayMemberCount} active members in this space.</p>
-                                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                                    <h3 className="text-3xl font-black text-zinc-900 dark:text-white">Community</h3>
+                                    <p className="font-medium text-zinc-700 dark:text-zinc-500">Connect with {displayMemberCount} active members in this space.</p>
+                                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
                                         Click to view online and offline members
                                     </p>
                                 </div>
@@ -766,19 +766,19 @@ export default function GroupHomePage() {
                                                 size="md"
                                                 metadataLive={false}
                                                 showProfileOnClick={false}
-                                                className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] shadow-lg bg-[#1A1A1E]"
-                                                fallbackClassName="bg-[#1A1A1E] text-white text-xs font-black"
+                                                className="h-12 w-12 rounded-2xl border-[3px] border-white bg-zinc-100 shadow-lg dark:border-[#0C0C0E] dark:bg-[#1A1A1E]"
+                                                fallbackClassName="bg-zinc-200 text-xs font-black text-zinc-900 dark:bg-[#1A1A1E] dark:text-white"
                                             />
                                         </div>
                                     ))}
                                     {activeMembers.length > 5 && (
-                                        <div className="h-12 w-12 rounded-2xl border-[3px] border-[#0C0C0E] bg-zinc-900 flex items-center justify-center text-xs font-black text-zinc-500 shadow-xl">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-[3px] border-white bg-zinc-100 text-xs font-black text-zinc-600 shadow-xl dark:border-[#0C0C0E] dark:bg-zinc-900 dark:text-zinc-500">
                                             +{activeMembers.length - 5}
                                         </div>
                                     )}
                                 </div>
                                 <div className="h-1.5 w-1.5 rounded-full bg-zinc-700 mx-2" />
-                                <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t("connections.status.active", "Online Now")}</span>
+                                <span className="text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">{t("connections.status.active", "Online Now")}</span>
                             </div>
                         </Card>
                     </button>
@@ -788,8 +788,8 @@ export default function GroupHomePage() {
                         className={cn(
                             "md:col-span-2 lg:col-span-3 rounded-[40px] p-8 flex flex-col justify-between hover:border-indigo-500/20 transition-all duration-500 group/bento overflow-hidden relative",
                             safeVisualMode
-                                ? "bg-[#0C0C0E]/90 border-white/[0.05]"
-                                : "bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03]",
+                                ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
+                                : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                         )}
                     >
                         <div className="absolute right-0 top-0 p-8">
@@ -799,9 +799,9 @@ export default function GroupHomePage() {
                             <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
                                 <Shield className="h-7 w-7 text-indigo-400" />
                             </div>
-                            <h3 className="text-2xl font-black text-white">Registry & Privacy</h3>
-                            <p className="text-sm text-zinc-500 leading-relaxed font-medium">
-                                Visibility is <span className="text-indigo-400 font-black">{groupState.metadata?.access || "open"}</span>.
+                            <h3 className="text-2xl font-black text-zinc-900 dark:text-white">Registry & Privacy</h3>
+                            <p className="text-sm font-medium leading-relaxed text-zinc-700 dark:text-zinc-500">
+                                Visibility is <span className="font-black text-indigo-600 dark:text-indigo-400">{groupState.metadata?.access || "open"}</span>.
                                 {groupState.metadata?.access === 'invite-only'
                                     ? " Access to this registry is strictly governed by invite-only protocols."
                                     : " This community is public and listed in the decentralized registry."}
@@ -810,7 +810,7 @@ export default function GroupHomePage() {
                         <div className="pt-6">
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
                                 <div className="h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
-                                <span className="text-[10px] font-black text-indigo-400/80 uppercase tracking-[0.1em]">Encrypted Storage</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-indigo-700 dark:text-indigo-300">Encrypted Storage</span>
                             </div>
                         </div>
                     </Card>
@@ -820,24 +820,24 @@ export default function GroupHomePage() {
                         className={cn(
                             "md:col-span-4 lg:col-span-6 rounded-[40px] p-8 flex flex-col md:flex-row items-center justify-between gap-8 hover:border-zinc-500/20 transition-all duration-500 group/bento",
                             safeVisualMode
-                                ? "bg-[#0C0C0E]/90 border-white/[0.05]"
-                                : "bg-[#0C0C0E]/40 backdrop-blur-xl border-white/[0.03]",
+                                ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
+                                : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                         )}
                     >
                         <div className="flex items-center gap-6">
                             <div className="h-16 w-16 rounded-3xl bg-zinc-500/10 flex items-center justify-center border border-zinc-500/20 shrink-0">
-                                <ExternalLink className="h-8 w-8 text-zinc-400" />
+                                <ExternalLink className="h-8 w-8 text-zinc-500 dark:text-zinc-400" />
                             </div>
                             <div className="space-y-1">
-                                <h3 className="text-2xl font-black text-white">Relay Infrastructure</h3>
-                                <p className="text-sm text-zinc-500 font-medium font-mono opacity-80">{effectiveRelay}</p>
+                                <h3 className="text-2xl font-black text-zinc-900 dark:text-white">Relay Infrastructure</h3>
+                                <p className="text-sm font-medium font-mono text-zinc-700 opacity-80 dark:text-zinc-500">{effectiveRelay}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-8">
                             <div className="text-right hidden sm:block">
                                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status</p>
-                                <p className={cn("text-xs font-black", isRelayDegraded ? "text-amber-400" : "text-green-500")}>{relayStatusLabel}</p>
-                                <p className="text-[10px] text-zinc-500 mt-1 max-w-[220px] leading-snug">{relayStatusDetail}</p>
+                                <p className={cn("text-xs font-black", isRelayDegraded ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-green-500")}>{relayStatusLabel}</p>
+                                <p className="mt-1 max-w-[220px] text-[10px] leading-snug text-zinc-600 dark:text-zinc-500">{relayStatusDetail}</p>
                             </div>
                             <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", isRelayDegraded ? "bg-amber-500/10 border border-amber-500/20" : "bg-green-500/10 border border-green-500/20")}>
                                 <div className={cn("h-3 w-3 rounded-full", isRelayDegraded ? "bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.6)]" : "bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]")} />
@@ -859,8 +859,8 @@ export default function GroupHomePage() {
                         className={cn(
                             "overflow-hidden rounded-[40px]",
                             safeVisualMode
-                                ? "bg-[#0C0C0E]/90 border-white/[0.05]"
-                                : "border-white/[0.03] bg-[#0C0C0E]/40 backdrop-blur-xl",
+                                ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
+                                : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                         )}
                     >
                         <div className="flex flex-col">
@@ -873,10 +873,10 @@ export default function GroupHomePage() {
                                         <Ban className="h-6 w-6 text-rose-500" />
                                     </div>
                                     <div className="text-left space-y-1">
-                                        <p className="text-xl font-black text-white group-hover/item:text-rose-500 transition-colors">
+                                        <p className="text-xl font-black text-zinc-900 transition-colors group-hover/item:text-rose-500 dark:text-white">
                                             {isBlocked ? "Unblock community" : "Block community"}
                                         </p>
-                                        <p className="text-sm text-zinc-500 font-medium">
+                                        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-500">
                                             {isBlocked ? "Allow this community to appear in your network" : "Hide this community and ignore its events"}
                                         </p>
                                     </div>
@@ -913,13 +913,13 @@ export default function GroupHomePage() {
                         onClick={closeMemberList}
                     >
                         <div
-                            className="w-full max-w-2xl bg-[#0C0C0E] border border-white/10 rounded-[28px] overflow-hidden shadow-2xl"
+                            className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-black/10 bg-white/95 shadow-2xl dark:border-white/10 dark:bg-[#0C0C0E]"
                             onClick={(event) => event.stopPropagation()}
                         >
-                            <div className="flex items-start justify-between gap-4 p-6 border-b border-white/10">
+                            <div className="flex items-start justify-between gap-4 border-b border-black/10 p-6 dark:border-white/10">
                                 <div>
-                                    <h3 className="text-white text-xl font-black">Community Members</h3>
-                                    <p className="text-xs uppercase tracking-widest text-zinc-500 font-bold mt-1">
+                                    <h3 className="text-xl font-black text-zinc-900 dark:text-white">Community Members</h3>
+                                    <p className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
                                         {filteredOnlineMembers.length} online / {filteredOfflineMembers.length} offline
                                     </p>
                                 </div>
@@ -927,20 +927,20 @@ export default function GroupHomePage() {
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9 text-zinc-400 hover:text-white hover:bg-white/5"
+                                    className="h-9 w-9 text-zinc-600 hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                                     onClick={closeMemberList}
                                 >
                                     <X className="h-4 w-4" />
                                 </Button>
                             </div>
-                            <div className="border-b border-white/10 p-6">
+                            <div className="border-b border-black/10 p-6 dark:border-white/10">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                                     <Input
                                         value={memberSearchQuery}
                                         onChange={(event) => setMemberSearchQuery(event.target.value)}
                                         placeholder="Search members by name, pubkey, or profile info..."
-                                        className="h-11 rounded-xl border-white/10 bg-white/[0.03] pl-10 text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-400/40 focus:ring-emerald-400/25"
+                                        className="h-11 rounded-xl border-black/10 bg-black/[0.04] pl-10 text-zinc-900 placeholder:text-zinc-500 focus:border-emerald-400/40 focus:ring-emerald-400/25 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100 dark:placeholder:text-zinc-500"
                                     />
                                 </div>
                             </div>
@@ -948,7 +948,7 @@ export default function GroupHomePage() {
                                 <div className="space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3">
                                     <h4 className="px-1 text-xs font-black uppercase tracking-widest text-emerald-400">Online</h4>
                                     {filteredOnlineMembers.length === 0 ? (
-                                        <p className="px-1 py-2 text-xs text-zinc-500">No online members detected.</p>
+                                        <p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">No online members detected.</p>
                                     ) : (
                                         pagedOnlineMembers.map((pk) => (
                                             <MemberProfileRow
@@ -970,12 +970,12 @@ export default function GroupHomePage() {
                                                 size="sm"
                                                 onClick={() => setOnlinePage((page) => Math.max(1, page - 1))}
                                                 disabled={onlinePage <= 1}
-                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                                className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white"
                                             >
                                                 <ChevronLeft className="mr-1 h-3.5 w-3.5" />
                                                 Prev
                                             </Button>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
                                                 Page {onlinePage} / {onlineTotalPages}
                                             </p>
                                             <Button
@@ -984,7 +984,7 @@ export default function GroupHomePage() {
                                                 size="sm"
                                                 onClick={() => setOnlinePage((page) => Math.min(onlineTotalPages, page + 1))}
                                                 disabled={onlinePage >= onlineTotalPages}
-                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                                className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white"
                                             >
                                                 Next
                                                 <ChevronRight className="ml-1 h-3.5 w-3.5" />
@@ -993,9 +993,9 @@ export default function GroupHomePage() {
                                     )}
                                 </div>
                                 <div className="space-y-3 rounded-2xl border border-violet-400/20 bg-gradient-to-b from-violet-500/[0.08] via-indigo-500/[0.03] to-transparent p-3">
-                                    <h4 className="px-1 text-xs font-black uppercase tracking-widest text-violet-300">Offline</h4>
+                                    <h4 className="px-1 text-xs font-black uppercase tracking-widest text-violet-700 dark:text-violet-300">Offline</h4>
                                     {filteredOfflineMembers.length === 0 ? (
-                                        <p className="px-1 py-2 text-xs text-zinc-500">No offline members detected.</p>
+                                        <p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">No offline members detected.</p>
                                     ) : (
                                         pagedOfflineMembers.map((pk) => (
                                             <MemberProfileRow
@@ -1017,12 +1017,12 @@ export default function GroupHomePage() {
                                                 size="sm"
                                                 onClick={() => setOfflinePage((page) => Math.max(1, page - 1))}
                                                 disabled={offlinePage <= 1}
-                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                                className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white"
                                             >
                                                 <ChevronLeft className="mr-1 h-3.5 w-3.5" />
                                                 Prev
                                             </Button>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
                                                 Page {offlinePage} / {offlineTotalPages}
                                             </p>
                                             <Button
@@ -1031,7 +1031,7 @@ export default function GroupHomePage() {
                                                 size="sm"
                                                 onClick={() => setOfflinePage((page) => Math.min(offlineTotalPages, page + 1))}
                                                 disabled={offlinePage >= offlineTotalPages}
-                                                className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-zinc-300 hover:text-white disabled:opacity-40"
+                                                className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white"
                                             >
                                                 Next
                                                 <ChevronRight className="ml-1 h-3.5 w-3.5" />
@@ -1103,7 +1103,7 @@ function MemberProfileRow({
                     pubkey={pubkey}
                     size="sm"
                     showProfileOnClick={false}
-                    className="rounded-xl border border-white/20 dark:border-white/10"
+                    className="rounded-xl border border-black/10 dark:border-white/10"
                 />
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

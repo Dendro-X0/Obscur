@@ -528,6 +528,12 @@ export const publishOutgoingDm = async (params: Readonly<{
       successCount: publishResult.successCount,
       totalRelays: publishResult.totalRelays,
       resultCount: publishResult.results.length,
+      status: publishResult.status ?? null,
+      reasonCode: publishResult.reasonCode ?? null,
+      metQuorum: publishResult.metQuorum ?? null,
+      quorumRequired: publishResult.quorumRequired ?? null,
+      targetRelayCount: relayScopeUrls.length,
+      hasOverallError: typeof publishResult.overallError === "string" && publishResult.overallError.length > 0,
     },
   });
 
@@ -831,6 +837,7 @@ export const publishQueuedOutgoingMessage = async (params: Readonly<{
       );
       return evaluateAttempt(result);
     }
+    await params.messageQueue.updateMessageStatus(params.message.id, "failed");
     return {
       status: "terminal_failed",
       reasonCode: "unsupported_runtime",

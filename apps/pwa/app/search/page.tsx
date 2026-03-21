@@ -832,17 +832,17 @@ export default function SearchPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div className="flex-1">
-                <div className="rounded-[36px] border border-border/60 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_48%),linear-gradient(180deg,rgba(10,16,34,0.76),rgba(6,10,22,0.92))] px-5 py-6 shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
+                <div className="rounded-[36px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.24),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,247,255,0.9))] px-5 py-6 shadow-[0_28px_80px_rgba(15,23,42,0.16)] dark:border-border/60 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_48%),linear-gradient(180deg,rgba(10,16,34,0.76),rgba(6,10,22,0.92))] dark:shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
                   <div className="mx-auto max-w-3xl text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-muted-foreground">Discovery</p>
-                    <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">One search box for your network</h1>
-                    <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600 dark:text-zinc-400">Discovery</p>
+                    <h1 className="mt-3 text-3xl font-black tracking-tight text-zinc-950 dark:text-zinc-100 sm:text-4xl">One search box for your network</h1>
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 sm:text-base">
                       Find people and communities, then open their public profile or switch to direct add when you already have a private contact token.
                     </p>
                   </div>
 
-                  <form onSubmit={handleSearch} className="mx-auto mt-6 flex w-full max-w-3xl items-center gap-3 rounded-[28px] border border-border/60 bg-background/80 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
-                    <SearchIcon className="h-4 w-4 text-muted-foreground" />
+                  <form onSubmit={handleSearch} className="mx-auto mt-6 flex w-full max-w-3xl items-center gap-3 rounded-[28px] border border-black/10 bg-white/85 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.14)] dark:border-border/60 dark:bg-background/80 dark:shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+                    <SearchIcon className="h-4 w-4 text-zinc-500 dark:text-muted-foreground" />
                     <Input
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
@@ -927,7 +927,7 @@ export default function SearchPage() {
             ))}
                   </div>
 
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600 dark:text-muted-foreground">
                     <span className="rounded-full border border-border/60 px-3 py-1">
                       {surface === "add_friend"
                         ? (stabilityModeEnabled ? "Safe mode" : (deterministicDiscoveryEnabled ? "Deterministic add" : "Direct resolve"))

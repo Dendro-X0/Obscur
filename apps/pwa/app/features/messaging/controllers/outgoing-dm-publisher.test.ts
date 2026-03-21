@@ -7,6 +7,7 @@ import {
   publishOutgoingDm,
   publishQueuedOutgoingMessage,
 } from "./outgoing-dm-publisher";
+import * as appEventLogger from "@/app/shared/log-app-event";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
@@ -352,6 +353,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
   });
 
   it("does not claim success when only non-deterministic sendToOpen exists", async () => {
+    const logSpy = vi.spyOn(appEventLogger, "logAppEvent");
     const updateMessageStatus = vi.fn(async () => undefined);
     const queueOutgoingMessage = vi.fn(async () => undefined);
     const result = await publishOutgoingDm({
@@ -379,6 +381,18 @@ describe("outgoing-dm-publisher protocol routing", () => {
     expect(result.finalMessage.status).toBe("failed");
     expect(updateMessageStatus).toHaveBeenCalledWith("msg-1", "failed");
     expect(queueOutgoingMessage).not.toHaveBeenCalled();
+    const publishResultEvent = logSpy.mock.calls
+      .map((call) => call[0])
+      .find((event) => event.name === "messaging.transport.publish_result");
+    expect(publishResultEvent?.context).toEqual(expect.objectContaining({
+      status: "failed",
+      reasonCode: "unsupported_runtime",
+      metQuorum: false,
+      quorumRequired: 1,
+      targetRelayCount: 1,
+      hasOverallError: true,
+    }));
+    logSpy.mockRestore();
   });
 
   it("uses protocol publish for queued retry path", async () => {
@@ -707,7 +721,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
 
     expect(outcome.status).toBe("terminal_failed");
     expect(outcome.reasonCode).toBe("unsupported_runtime");
-    expect(updateMessageStatus).not.toHaveBeenCalled();
+    expect(updateMessageStatus).toHaveBeenCalledWith("queued-unsupported", "failed");
     expect(queueOutgoingMessage).not.toHaveBeenCalled();
   });
 

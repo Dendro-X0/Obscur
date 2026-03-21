@@ -1,6 +1,6 @@
 # 08 Maintainer Playbook and Continuation Handoff
 
-_Last reviewed: 2026-03-20 (baseline commit 0a799f5)._
+_Last reviewed: 2026-03-21 (baseline commit 68cb62f)._
 
 This file is the minimal context needed to resume the project after a pause.
 
@@ -10,11 +10,11 @@ This file is the minimal context needed to resume the project after a pause.
 - Release workflow now supports dynamic publication: desktop/web release verification and manual publish are not blocked by Android lane failures, with explicit Android status evidence in workflow summary.
 - Runtime architecture has moved toward explicit ownership and contract-first behavior.
 - Docs were intentionally compacted to reduce maintenance overhead and token cost.
-- v0.9.2 release is constrained by unresolved runtime regressions; use `ISSUES.md` as source-of-truth before planning new feature work.
+- The v0.9.2 constrained-release blocker set was revalidated in v0.9.3 manual acceptance and moved to monitoring in `ISSUES.md`.
 
-## Confirmed Ongoing Problem Areas
+## Monitored Risk Areas
 
-See `ISSUES.md` for user-facing language. Engineering focus remains:
+See `ISSUES.md` for user-facing status. Engineering focus remains:
 
 1. Cross-device account/session consistency (password/session restore behavior).
 2. Direct-message history consistency after device/account synchronization.

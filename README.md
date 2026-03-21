@@ -34,21 +34,19 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - Desktop updater and release-tag awareness.
 - Performance mode improvements for large timelines and burst traffic.
 
-## Current Status (v0.9.2)
+## Current Status (v0.9.4 Release Candidate Prep)
 
-- v0.9.2 is a constrained release with unresolved runtime regressions.
-- Reliability improvements landed in this lane, but some critical failures remain recurring under iteration pressure.
-- Confirmed unresolved high-priority risks include:
-  - login-state persistence instability after restart in some flows,
-  - page-transition freeze and sidebar interaction lock,
-  - infinite loading loops in some startup/profile-disruption paths,
-  - recurring cross-device self-authored DM history loss,
-  - desktop/web historical media hydration mismatch.
-- CI release gate status for this workspace snapshot:
-  - `pnpm release:test-pack -- --skip-preflight` passes (typecheck + focused reliability matrix).
-- Canonical incident baseline:
+- The v0.9.2 constrained-release blocker set has been replayed and moved to monitoring status in current dev-server verification.
+- Manual acceptance closure is recorded for the v0.9.3 execution plan baseline (M1/M2/M4 verification complete).
+- Current workspace release-readiness snapshot:
+  - `pnpm docs:check` passes,
+  - `pnpm release:test-pack -- --skip-preflight` passes,
+  - `pnpm -C apps/pwa exec vitest run` passes,
+  - `pnpm -C apps/pwa build` passes.
+- Remaining release-prep work is operational (clean tree + tag flow), not an active blocker list in `ISSUES.md`.
+- Canonical runtime monitoring baseline:
   - [`ISSUES.md`](ISSUES.md)
-  - [`docs/17-v0.9.2-expansion-context.md`](docs/17-v0.9.2-expansion-context.md)
+  - [`docs/18-v0.9.3-execution-plan.md`](docs/18-v0.9.3-execution-plan.md)
 
 ## Quick Start
 

@@ -13,6 +13,7 @@ describe("m0-triage-capture", () => {
     delete root.obscurRelayRuntime;
     delete root.obscurRelayTransportJournal;
     delete root.obscurUiResponsiveness;
+    delete root.obscurRouteMountDiagnostics;
     delete root.obscurAppEvents;
     vi.restoreAllMocks();
   });
@@ -30,6 +31,9 @@ describe("m0-triage-capture", () => {
     };
     root.obscurUiResponsiveness = {
       getSnapshot: () => ({ droppedFrameCount: 1 }),
+    };
+    root.obscurRouteMountDiagnostics = {
+      getSnapshot: () => ({ recentSamples: [{ pathname: "/", elapsedMs: 40 }] }),
     };
     root.obscurAppEvents = {
       getDigest: () => ({ total: 12 }),
@@ -57,6 +61,7 @@ describe("m0-triage-capture", () => {
     expect(bundle.snapshots.windowRuntime).toEqual({ phase: "ready" });
     expect(bundle.snapshots.relayRuntime).toEqual({ phase: "healthy", writableRelayCount: 2 });
     expect(bundle.snapshots.relayTransportJournal).toEqual({ pendingOutboundBySource: { dm_queue: 0 } });
+    expect(bundle.snapshots.routeMountDiagnostics).toEqual({ recentSamples: [{ pathname: "/", elapsedMs: 40 }] });
     expect(bundle.events.digest).toEqual({ total: 12 });
     expect(bundle.events.crossDeviceDigest).toEqual({ totalBufferedEvents: 16 });
     expect(() => JSON.parse(api.captureJson(200))).not.toThrow();
@@ -68,7 +73,7 @@ describe("m0-triage-capture", () => {
       if (name === "runtime.profile_boot_stall_timeout") {
         return [{ name, atUnixMs: 1, level: "warn" }];
       }
-      if (name === "navigation.route_stall_hard_fallback") {
+      if (name === "navigation.route_stall_hard_fallback" || name === "navigation.route_mount_probe_slow") {
         return [{ name, atUnixMs: 2, level: "warn" }];
       }
       if (name === "account_sync.backup_restore_merge_diagnostics") {
@@ -94,7 +99,7 @@ describe("m0-triage-capture", () => {
     };
 
     expect(bundle.events.focusedByCategory.startup.some((entry) => entry.name === "runtime.profile_boot_stall_timeout")).toBe(true);
-    expect(bundle.events.focusedByCategory.navigation.some((entry) => entry.name === "navigation.route_stall_hard_fallback")).toBe(true);
+    expect(bundle.events.focusedByCategory.navigation.some((entry) => entry.name === "navigation.route_stall_hard_fallback" || entry.name === "navigation.route_mount_probe_slow")).toBe(true);
     expect(bundle.events.focusedByCategory.sync_restore.some((entry) => entry.name === "account_sync.backup_restore_merge_diagnostics")).toBe(true);
     expect(bundle.events.focusedByCategory.media_hydration.some((entry) => entry.name === "messaging.conversation_hydration_diagnostics")).toBe(true);
     expect(findByName).toHaveBeenCalled();

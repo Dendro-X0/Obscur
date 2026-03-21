@@ -18,10 +18,16 @@ import { MobileTabBar } from "./mobile-tab-bar";
 import { AppLoadingScreen } from "./app-loading-screen";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
+  createRouteMountDiagnosticsState,
   createPageTransitionRecoveryState,
+  getRouteSurfaceFromPathname,
   hardNavigate,
   PAGE_TRANSITION_WATCHDOG_MS,
+  ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
+  ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
+  recordRouteMountProbeSample,
   recordPageTransitionWatchdogTimeout,
+  type RouteMountDiagnosticsState,
 } from "./page-transition-recovery";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
@@ -36,8 +42,6 @@ type AppShellProps = Readonly<{
 
 const FOOTER_RELEASE_LABEL: string = process.env.NEXT_PUBLIC_RELEASE_LABEL?.trim() || "Preview";
 const APP_FOOTER_TEXT: string = `Obscur ${FOOTER_RELEASE_LABEL}`;
-const ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS = 4_500;
-
 const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
   "/": MessageSquare,
   "/network": Users,
@@ -47,9 +51,19 @@ const ICON_BY_HREF: Readonly<Record<string, NavIcon>> = {
   "/settings": Settings,
 };
 
+type RouteMountDiagnosticsApi = Readonly<{
+  getSnapshot: () => RouteMountDiagnosticsState;
+  reset: () => void;
+}>;
+
+type AppShellWindow = Window & {
+  obscurRouteMountDiagnostics?: RouteMountDiagnosticsApi;
+};
+
 const AppShell = (props: AppShellProps): React.JSX.Element => {
   const { t } = useTranslation();
   const pathname: string = usePathname();
+  const activeRouteSurface = useMemo(() => getRouteSurfaceFromPathname(pathname), [pathname]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [hasMounted, setHasMounted] = useState<boolean>(false);
   const [isPageTransitionActive, setIsPageTransitionActive] = useState<boolean>(false);
@@ -62,6 +76,13 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const routeFallbackTimeoutIdRef = useRef<number | null>(null);
   const routePendingTargetRef = useRef<string | null>(null);
   const routePendingStartedAtUnixMsRef = useRef<number>(0);
+  const routeMountDiagnosticsRef = useRef<RouteMountDiagnosticsState>(createRouteMountDiagnosticsState());
+  const routeMountProbeSequenceRef = useRef<number>(0);
+  const routeMountProbeSlowTimeoutIdRef = useRef<number | null>(null);
+  const routeMountProbeAnimationFrameOneIdRef = useRef<number | null>(null);
+  const routeMountProbeAnimationFrameTwoIdRef = useRef<number | null>(null);
+  const routeMountProbeStartedAtUnixMsRef = useRef<number>(0);
+  const arePageTransitionsEnabledRef = useRef<boolean>(true);
   const isDesktop = useIsDesktop();
   useDesktopLayout();
 
@@ -73,6 +94,10 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       setHasMounted(true);
     });
   }, []);
+
+  useEffect((): void => {
+    arePageTransitionsEnabledRef.current = arePageTransitionsEnabled;
+  }, [arePageTransitionsEnabled]);
 
   const clearPageTransitionTimers = useCallback((): void => {
     const watchdogId = pageTransitionWatchdogIdRef.current;
@@ -87,6 +112,24 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     }
   }, []);
 
+  const clearRouteMountProbeTimers = useCallback((): void => {
+    const slowTimeoutId = routeMountProbeSlowTimeoutIdRef.current;
+    if (typeof slowTimeoutId === "number") {
+      window.clearTimeout(slowTimeoutId);
+      routeMountProbeSlowTimeoutIdRef.current = null;
+    }
+    const animationFrameOneId = routeMountProbeAnimationFrameOneIdRef.current;
+    if (typeof animationFrameOneId === "number") {
+      window.cancelAnimationFrame(animationFrameOneId);
+      routeMountProbeAnimationFrameOneIdRef.current = null;
+    }
+    const animationFrameTwoId = routeMountProbeAnimationFrameTwoIdRef.current;
+    if (typeof animationFrameTwoId === "number") {
+      window.cancelAnimationFrame(animationFrameTwoId);
+      routeMountProbeAnimationFrameTwoIdRef.current = null;
+    }
+  }, []);
+
   const clearRouteFallback = useCallback((): void => {
     const timeoutId = routeFallbackTimeoutIdRef.current;
     if (typeof timeoutId === "number") {
@@ -95,6 +138,22 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     }
     routePendingTargetRef.current = null;
     routePendingStartedAtUnixMsRef.current = 0;
+  }, []);
+
+  useEffect((): (() => void) => {
+    const root = window as AppShellWindow;
+    const diagnosticsApi: RouteMountDiagnosticsApi = {
+      getSnapshot: (): RouteMountDiagnosticsState => routeMountDiagnosticsRef.current,
+      reset: (): void => {
+        routeMountDiagnosticsRef.current = createRouteMountDiagnosticsState();
+      },
+    };
+    root.obscurRouteMountDiagnostics = diagnosticsApi;
+    return (): void => {
+      if (root.obscurRouteMountDiagnostics === diagnosticsApi) {
+        delete root.obscurRouteMountDiagnostics;
+      }
+    };
   }, []);
 
   const armRouteHardFallback = useCallback((targetHref: string): void => {
@@ -110,8 +169,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       level: "info",
       scope: { feature: "navigation", action: "route_guard" },
       context: {
+        guardSource: "app_shell",
         fromPathname: pathname,
+        fromRouteSurface: activeRouteSurface,
         targetHref,
+        targetRouteSurface: getRouteSurfaceFromPathname(targetHref),
         hardFallbackAfterMs: ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
       },
     });
@@ -130,9 +192,13 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         level: "warn",
         scope: { feature: "navigation", action: "route_guard" },
         context: {
+          guardSource: "app_shell",
           fromPathname: pathname,
+          fromRouteSurface: activeRouteSurface,
           currentPathname,
+          currentRouteSurface: getRouteSurfaceFromPathname(currentPathname),
           targetHref,
+          targetRouteSurface: getRouteSurfaceFromPathname(targetHref),
           elapsedMs: Math.max(0, Date.now() - routePendingStartedAtUnixMsRef.current),
           hardFallbackAfterMs: ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
         },
@@ -140,7 +206,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       clearRouteFallback();
       hardNavigate(targetHref);
     }, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS);
-  }, [clearRouteFallback, pathname]);
+  }, [activeRouteSurface, clearRouteFallback, pathname]);
 
   useEffect((): (() => void) => {
     pageTransitionSequenceRef.current += 1;
@@ -160,6 +226,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       scope: { feature: "navigation", action: "page_transition" },
       context: {
         pathname,
+        routeSurface: activeRouteSurface,
       },
     });
 
@@ -180,6 +247,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         scope: { feature: "navigation", action: "page_transition" },
         context: {
           pathname,
+          routeSurface: activeRouteSurface,
           elapsedMs: Math.max(0, Date.now() - pageTransitionStartedAtUnixMsRef.current),
           transitionsEnabled: true,
         },
@@ -208,6 +276,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         scope: { feature: "navigation", action: "page_transition" },
         context: {
           pathname,
+          routeSurface: activeRouteSurface,
           elapsedMs,
           timeoutCount: nextRecoveryState.timeoutCount,
           transitionsDisabled: nextRecoveryState.transitionsDisabled,
@@ -223,6 +292,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           scope: { feature: "navigation", action: "page_transition" },
           context: {
             pathname,
+            routeSurface: activeRouteSurface,
             timeoutCount: nextRecoveryState.timeoutCount,
           },
         });
@@ -230,13 +300,112 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     }, PAGE_TRANSITION_WATCHDOG_MS);
 
     return clearPageTransitionTimers;
-  }, [arePageTransitionsEnabled, clearPageTransitionTimers, pathname]);
+  }, [activeRouteSurface, arePageTransitionsEnabled, clearPageTransitionTimers, pathname]);
 
   useEffect((): (() => void) => {
     return (): void => {
       clearPageTransitionTimers();
     };
   }, [clearPageTransitionTimers]);
+
+  useEffect((): (() => void) => {
+    routeMountProbeSequenceRef.current += 1;
+    const probeSequence = routeMountProbeSequenceRef.current;
+    const startedAtUnixMs = Date.now();
+    routeMountProbeStartedAtUnixMsRef.current = startedAtUnixMs;
+    clearRouteMountProbeTimers();
+
+    logAppEvent({
+      name: "navigation.route_mount_probe_start",
+      level: "debug",
+      scope: { feature: "navigation", action: "route_guard" },
+      context: {
+        pathname,
+        routeSurface: activeRouteSurface,
+        warnThresholdMs: ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
+      },
+    });
+
+    routeMountProbeSlowTimeoutIdRef.current = window.setTimeout((): void => {
+      if (routeMountProbeSequenceRef.current !== probeSequence) {
+        return;
+      }
+      logAppEvent({
+        name: "navigation.route_mount_probe_slow",
+        level: "warn",
+        scope: { feature: "navigation", action: "route_guard" },
+        context: {
+          pathname,
+          routeSurface: activeRouteSurface,
+          elapsedMs: Math.max(0, Date.now() - routeMountProbeStartedAtUnixMsRef.current),
+          warnThresholdMs: ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
+          pendingTargetHref: routePendingTargetRef.current,
+        },
+      });
+    }, ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS);
+
+    routeMountProbeAnimationFrameOneIdRef.current = window.requestAnimationFrame((): void => {
+      if (routeMountProbeSequenceRef.current !== probeSequence) {
+        return;
+      }
+      routeMountProbeAnimationFrameOneIdRef.current = null;
+      const firstFrameAtUnixMs = Date.now();
+      routeMountProbeAnimationFrameTwoIdRef.current = window.requestAnimationFrame((): void => {
+        if (routeMountProbeSequenceRef.current !== probeSequence) {
+          return;
+        }
+        routeMountProbeAnimationFrameTwoIdRef.current = null;
+        const settledAtUnixMs = Date.now();
+        const firstFrameDelayMs = Math.max(0, firstFrameAtUnixMs - startedAtUnixMs);
+        const secondFrameDelayMs = Math.max(0, settledAtUnixMs - firstFrameAtUnixMs);
+        const elapsedMs = Math.max(0, settledAtUnixMs - startedAtUnixMs);
+        const routeRequestElapsedMs = routePendingStartedAtUnixMsRef.current > 0
+          ? Math.max(0, settledAtUnixMs - routePendingStartedAtUnixMsRef.current)
+          : null;
+
+        routeMountDiagnosticsRef.current = recordRouteMountProbeSample(
+          routeMountDiagnosticsRef.current,
+          {
+            pathname,
+            routeSurface: activeRouteSurface,
+            startedAtUnixMs,
+            settledAtUnixMs,
+            elapsedMs,
+            firstFrameDelayMs,
+            secondFrameDelayMs,
+            routeRequestElapsedMs,
+            pageTransitionsEnabled: arePageTransitionsEnabledRef.current,
+            transitionWatchdogTimeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
+          },
+        );
+
+        const slowTimeoutId = routeMountProbeSlowTimeoutIdRef.current;
+        if (typeof slowTimeoutId === "number") {
+          window.clearTimeout(slowTimeoutId);
+          routeMountProbeSlowTimeoutIdRef.current = null;
+        }
+
+        logAppEvent({
+          name: "navigation.route_mount_probe_settled",
+          level: elapsedMs >= ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS ? "warn" : "info",
+          scope: { feature: "navigation", action: "route_guard" },
+          context: {
+            pathname,
+            routeSurface: activeRouteSurface,
+            elapsedMs,
+            firstFrameDelayMs,
+            secondFrameDelayMs,
+            routeRequestElapsedMs,
+            warnThresholdMs: ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
+            pageTransitionsEnabled: arePageTransitionsEnabledRef.current,
+            transitionWatchdogTimeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
+          },
+        });
+      });
+    });
+
+    return clearRouteMountProbeTimers;
+  }, [activeRouteSurface, clearRouteMountProbeTimers, pathname]);
 
   useEffect((): void => {
     const pendingTarget = routePendingTargetRef.current;
@@ -248,12 +417,14 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       level: "info",
       scope: { feature: "navigation", action: "route_guard" },
       context: {
+        guardSource: "app_shell",
         pathname,
+        routeSurface: activeRouteSurface,
         elapsedMs: Math.max(0, Date.now() - routePendingStartedAtUnixMsRef.current),
       },
     });
     clearRouteFallback();
-  }, [clearRouteFallback, pathname]);
+  }, [activeRouteSurface, clearRouteFallback, pathname]);
 
   useEffect((): (() => void) => {
     return (): void => {

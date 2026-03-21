@@ -544,12 +544,14 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     if (message.includes("does not match stored identity")) {
+      setIdentityState(createLockedState(storedIdentity));
       setIdentityDiagnostics({
-        status: "error",
-        storedPublicKeyHex: identityState.stored?.publicKeyHex,
+        status: "locked",
+        storedPublicKeyHex: storedIdentity.publicKeyHex,
         mismatchReason: "private_key_mismatch",
         message
       });
+      throw error;
     }
     // Failed unlock attempts should keep auth flow recoverable instead of escalating runtime to fatal.
     setIdentityState(createLockedState(storedIdentity));
@@ -561,30 +563,34 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
   if (!identityState.stored) {
     return;
   }
+  const storedIdentity = identityState.stored;
   try {
     const { privateKeyHex } = assertIdentityKeyPair({
       privateKeyHex: params.privateKeyHex,
-      expectedPublicKeyHex: identityState.stored.publicKeyHex
+      expectedPublicKeyHex: storedIdentity.publicKeyHex
     });
-    setIdentityState(createUnlockedState({ stored: identityState.stored, privateKeyHex }));
-    recordIdentityActivationRisk(identityState.stored.publicKeyHex);
+    setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
+    recordIdentityActivationRisk(storedIdentity.publicKeyHex);
     void syncNativeSessionInBackground({
-      publicKeyHex: identityState.stored.publicKeyHex,
+      publicKeyHex: storedIdentity.publicKeyHex,
       privateKeyHex,
-      stored: identityState.stored,
+      stored: storedIdentity,
       context: "raw_unlock",
     });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     if (message.includes("does not match stored identity")) {
+      setIdentityState(createLockedState(storedIdentity));
       setIdentityDiagnostics({
-        status: "error",
-        storedPublicKeyHex: identityState.stored?.publicKeyHex,
+        status: "locked",
+        storedPublicKeyHex: storedIdentity.publicKeyHex,
         mismatchReason: "private_key_mismatch",
         message
       });
+      // Keep raw private-key unlock failures recoverable for lock-screen retry flows.
+      throw error;
     }
-    setIdentityState(createErrorState(message, identityState.stored));
+    setIdentityState(createErrorState(message, storedIdentity));
     throw error;
   }
 };
@@ -721,10 +727,13 @@ const retryNativeSessionUnlockAction = async (): Promise<boolean> => {
 export const useIdentityInternals = {
   rehydrateIdentityForActiveProfile,
   getIdentitySnapshot,
+  getIdentityDiagnosticsSnapshot,
   setIdentityState,
   createUnlockedState,
   createLockedState,
   resolveImportedIdentityUsername,
+  retryNativeSessionUnlockAction,
+  unlockWithPrivateKeyHexAction,
   PASSWORDLESS_NATIVE_ONLY_SENTINEL,
   resetForTests: (): void => {
     identityState = createLoadingState();

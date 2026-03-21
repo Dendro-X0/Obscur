@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../../components/ui/button";
 import { cn } from "@/app/lib/utils";
 import type { Conversation, RequestsInboxItem } from "../types";
+import { formatTime } from "../utils/formatting";
 import { RequestsInboxPanel } from "./requests-inbox-panel";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { SidebarUserSearch } from "./sidebar-user-search";
@@ -101,18 +102,57 @@ export function Sidebar({
 
     const resolvedNowMs: number = nowMs ?? localNowMs;
 
-    const visibleConversations = filteredConversations.filter((conversation) => (
-        conversation.kind === "group" || !hiddenChatIds.includes(conversation.id)
-    ));
+    const hiddenChatIdSet = React.useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
+    const pinnedChatIdSet = React.useMemo(() => new Set(pinnedChatIds), [pinnedChatIds]);
+
+    const conversationBuckets = React.useMemo(() => {
+        const unreadByConversationIdResolved: Record<string, number> = {};
+        const pinnedConversationsResult: Conversation[] = [];
+        const directConversationsResult: Conversation[] = [];
+        const communityConversationsResult: Conversation[] = [];
+        let chatsUnreadTotalResult = 0;
+        let dmsUnreadResult = 0;
+        let groupsUnreadResult = 0;
+        for (const conversation of filteredConversations) {
+            if (conversation.kind === "dm" && hiddenChatIdSet.has(conversation.id)) {
+                continue;
+            }
+            const unread = selectedConversation?.id === conversation.id
+                ? 0
+                : (unreadByConversationId[conversation.id] ?? conversation.unreadCount);
+            unreadByConversationIdResolved[conversation.id] = unread;
+            chatsUnreadTotalResult += unread;
+            if (conversation.kind === "dm") {
+                dmsUnreadResult += unread;
+            } else {
+                groupsUnreadResult += unread;
+            }
+            if (pinnedChatIdSet.has(conversation.id)) {
+                pinnedConversationsResult.push(conversation);
+                continue;
+            }
+            if (conversation.kind === "dm") {
+                directConversationsResult.push(conversation);
+            } else {
+                communityConversationsResult.push(conversation);
+            }
+        }
+        return {
+            unreadByConversationIdResolved,
+            chatsUnreadTotal: chatsUnreadTotalResult,
+            dmsUnread: dmsUnreadResult,
+            groupsUnread: groupsUnreadResult,
+            pinnedConversations: pinnedConversationsResult,
+            cappedDms: directConversationsResult.slice(0, SIDEBAR_MAX_ITEMS),
+            cappedCommunities: communityConversationsResult.slice(0, SIDEBAR_MAX_ITEMS),
+        };
+    }, [filteredConversations, hiddenChatIdSet, pinnedChatIdSet, selectedConversation?.id, unreadByConversationId]);
 
     const resolveConversationUnread = React.useCallback((conversation: Conversation): number => {
-        if (selectedConversation?.id === conversation.id) {
-            return 0;
-        }
-        return unreadByConversationId[conversation.id] ?? conversation.unreadCount;
-    }, [selectedConversation?.id, unreadByConversationId]);
+        return conversationBuckets.unreadByConversationIdResolved[conversation.id] ?? 0;
+    }, [conversationBuckets.unreadByConversationIdResolved]);
 
-    const chatsUnreadTotal = visibleConversations.reduce((acc, c) => acc + resolveConversationUnread(c), 0);
+    const chatsUnreadTotal = conversationBuckets.chatsUnreadTotal;
     const requestsUnreadTotal = getIncomingUnreadRequestTotal(requests);
     const pendingRequestsCount = getIncomingPendingRequestCount(requests);
 
@@ -136,40 +176,41 @@ export function Sidebar({
     }, [activeTab, chatViewMode, searchQuery]);
 
 
-
-    const pinnedConversations = visibleConversations.filter(c => pinnedChatIds.includes(c.id));
-    const unpinnedConversations = visibleConversations.filter(c => !pinnedChatIds.includes(c.id));
-
-    const dms = unpinnedConversations.filter(c => c.kind === 'dm');
-    const communities = unpinnedConversations.filter(c => c.kind === 'group');
-    const cappedDms = dms.slice(0, SIDEBAR_MAX_ITEMS);
-    const cappedCommunities = communities.slice(0, SIDEBAR_MAX_ITEMS);
+    const pinnedConversations = conversationBuckets.pinnedConversations;
+    const cappedDms = conversationBuckets.cappedDms;
+    const cappedCommunities = conversationBuckets.cappedCommunities;
     const visibleDms = cappedDms.slice(0, visibleDmCount);
     const visibleCommunities = cappedCommunities.slice(0, visibleCommunityCount);
     const canLoadMoreDms = visibleDms.length < cappedDms.length;
     const canLoadMoreCommunities = visibleCommunities.length < cappedCommunities.length;
 
-    const dmsUnread = visibleConversations.filter(c => c.kind === 'dm').reduce((acc, c) => acc + resolveConversationUnread(c), 0);
-    const groupsUnread = visibleConversations.filter(c => c.kind === 'group').reduce((acc, c) => acc + resolveConversationUnread(c), 0);
+    const dmsUnread = conversationBuckets.dmsUnread;
+    const groupsUnread = conversationBuckets.groupsUnread;
 
     const renderConversationList = (list: ReadonlyArray<Conversation>) => (
-        list.map((conversation) => (
-            <ConversationRow
-                key={conversation.id}
-                conversation={conversation}
-                isSelected={selectedConversation?.id === conversation.id}
-                onSelect={selectConversation}
-                unreadCount={resolveConversationUnread(conversation)}
-                isOnline={conversation.kind === "dm" ? Boolean(isPeerOnline?.(conversation.pubkey as PublicKeyHex)) : undefined}
-                lastActiveAtMs={interactionByConversationId?.[conversation.id]?.lastActiveAtMs}
-                lastViewedAtMs={interactionByConversationId?.[conversation.id]?.lastViewedAtMs}
-                nowMs={resolvedNowMs}
-                isPinned={pinnedChatIds.includes(conversation.id)}
-                onTogglePin={() => togglePin(conversation.id)}
-                onDelete={() => deleteConversation(conversation.id)}
-                onHide={() => hideConversation(conversation.id)}
-            />
-        ))
+        list.map((conversation) => {
+            const interaction = interactionByConversationId?.[conversation.id];
+            return (
+                <ConversationRow
+                    key={conversation.id}
+                    conversation={conversation}
+                    isSelected={selectedConversation?.id === conversation.id}
+                    onSelect={selectConversation}
+                    unreadCount={resolveConversationUnread(conversation)}
+                    isOnline={conversation.kind === "dm" ? Boolean(isPeerOnline?.(conversation.pubkey as PublicKeyHex)) : undefined}
+                    lastMessageLabel={formatTime(conversation.lastMessageTime, resolvedNowMs)}
+                    lastActiveLabel={conversation.kind === "dm" && interaction?.lastActiveAtMs
+                        ? formatTime(new Date(interaction.lastActiveAtMs), resolvedNowMs)
+                        : ""}
+                    lastViewedLabel={conversation.kind === "dm" && interaction?.lastViewedAtMs
+                        ? formatTime(new Date(interaction.lastViewedAtMs), resolvedNowMs)
+                        : ""}
+                    isPinned={pinnedChatIdSet.has(conversation.id)}
+                    onTogglePin={togglePin}
+                    onDelete={deleteConversation}
+                />
+            );
+        })
     );
     return (
         <div className="flex h-full flex-col">

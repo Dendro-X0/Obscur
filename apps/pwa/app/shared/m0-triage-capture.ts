@@ -2,6 +2,10 @@ type MinimalWindowSnapshotApi = Readonly<{
   getSnapshot?: () => unknown;
 }>;
 
+type MinimalRouteMountDiagnosticsApi = Readonly<{
+  getSnapshot?: () => unknown;
+}>;
+
 type MinimalAppEvent = Readonly<{
   name: string;
   level?: string;
@@ -42,6 +46,7 @@ export type M0TriageBundle = Readonly<{
     relayRuntime: unknown | null;
     relayTransportJournal: unknown | null;
     uiResponsiveness: unknown | null;
+    routeMountDiagnostics: unknown | null;
   }>;
   events: Readonly<{
     digest: unknown | null;
@@ -55,7 +60,6 @@ type M0TriageApi = Readonly<{
   captureJson: (eventWindowSize?: number) => string;
 }>;
 
-const M0_TRIAGE_API_KEY = "obscurM0Triage";
 const DEFAULT_EVENT_WINDOW_SIZE = 300;
 const FOCUS_EVENT_LIMIT_PER_NAME = 6;
 
@@ -70,6 +74,8 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
   navigation: [
     "navigation.route_request",
     "navigation.route_stall_hard_fallback",
+    "navigation.route_mount_probe_slow",
+    "navigation.route_mount_probe_settled",
     "navigation.page_transition_watchdog_timeout",
     "navigation.page_transition_effects_disabled",
   ],
@@ -90,6 +96,7 @@ type M0TriageWindow = Window & {
   obscurRelayRuntime?: MinimalWindowSnapshotApi;
   obscurRelayTransportJournal?: MinimalWindowSnapshotApi;
   obscurUiResponsiveness?: MinimalWindowSnapshotApi;
+  obscurRouteMountDiagnostics?: MinimalRouteMountDiagnosticsApi;
   obscurAppEvents?: MinimalAppEventsApi;
   obscurM0Triage?: M0TriageApi;
 };
@@ -177,6 +184,7 @@ const createBundle = (
       relayRuntime: readSnapshotSafe(root.obscurRelayRuntime),
       relayTransportJournal: readSnapshotSafe(root.obscurRelayTransportJournal),
       uiResponsiveness: readSnapshotSafe(root.obscurUiResponsiveness),
+      routeMountDiagnostics: readSnapshotSafe(root.obscurRouteMountDiagnostics),
     },
     events: {
       digest: readDigestSafe(appEventsApi, "getDigest", eventWindowSize),

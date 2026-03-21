@@ -74,6 +74,9 @@ export function AuthScreen() {
     const [rememberMe, setRememberMe] = useState(true);
     const [loginTab, setLoginTab] = useState<"username" | "key">("username");
     const [authError, setAuthError] = useState<string | null>(null);
+    const hasPrivateKeyMismatch = identityDiagnostics?.mismatchReason === "private_key_mismatch"
+        || identityDiagnostics?.message?.toLowerCase().includes("does not match stored identity") === true
+        || authError?.toLowerCase().includes("does not match stored identity") === true;
     const [acknowledged, setAcknowledged] = useState(false);
     const keyOwnershipReminder = "You own your private key. Obscur cannot recover accounts for lost keys or forgotten passwords.";
     const keyRecoveryReminder = "Back up your private key now and verify export in Settings > Identity after login.";
@@ -435,6 +438,26 @@ export function AuthScreen() {
                                             You can also continue with your password or private key below.
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {mode === "login" && hasPrivateKeyMismatch && (
+                        <div className="mb-6 rounded-[28px] border border-orange-500/20 bg-orange-500/10 p-5">
+                            <div className="flex items-start gap-4">
+                                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" />
+                                <div className="min-w-0 flex-1 space-y-3">
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-600 dark:text-orange-400">
+                                            Private Key Mismatch
+                                        </p>
+                                        <p className="mt-2 text-sm font-medium leading-relaxed text-orange-700 dark:text-orange-200">
+                                            {identityDiagnostics?.message ?? authError ?? "The entered private key does not match the account stored on this profile."}
+                                        </p>
+                                    </div>
+                                    <p className="text-xs font-semibold text-orange-700/80 dark:text-orange-300/80">
+                                        Import the correct key for this profile, or switch to the intended account before continuing.
+                                    </p>
                                 </div>
                             </div>
                         </div>

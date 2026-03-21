@@ -4,7 +4,6 @@ import React from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
-import { formatTime } from "../utils/formatting";
 import type { Conversation } from "../types";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { MoreVertical, Pin, PinOff, Trash2 } from "lucide-react";
@@ -21,42 +20,30 @@ export interface ConversationRowProps {
     onSelect: (conversation: Conversation) => void;
     unreadCount: number;
     isOnline?: boolean;
-    lastActiveAtMs?: number;
-    lastViewedAtMs?: number;
-    nowMs: number;
+    lastMessageLabel: string;
+    lastActiveLabel: string;
+    lastViewedLabel: string;
     isPinned?: boolean;
-    onTogglePin?: () => void;
-    onHide?: () => void;
-    onDelete?: () => void;
+    onTogglePin?: (conversationId: string) => void;
+    onDelete?: (conversationId: string) => void;
 }
 
-export function ConversationRow({
+export const ConversationRow = React.memo(function ConversationRow({
     conversation,
     isSelected,
     onSelect,
     unreadCount,
     isOnline,
-    lastActiveAtMs,
-    lastViewedAtMs,
-    nowMs,
+    lastMessageLabel,
+    lastActiveLabel,
+    lastViewedLabel,
     isPinned,
     onTogglePin,
-    onHide,
     onDelete
 }: ConversationRowProps) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null, { live: false });
     const resolvedName = metadata?.displayName || conversation.displayName;
-    const lastActiveLabel = (
-        conversation.kind === "dm" && lastActiveAtMs
-            ? formatTime(new Date(lastActiveAtMs), nowMs)
-            : ""
-    );
-    const lastViewedLabel = (
-        conversation.kind === "dm" && lastViewedAtMs
-            ? formatTime(new Date(lastViewedAtMs), nowMs)
-            : ""
-    );
 
     return (
         <div
@@ -95,9 +82,9 @@ export function ConversationRow({
                     <span className="font-bold text-sm tracking-tight text-zinc-900 dark:text-zinc-100 truncate pr-2">
                         {resolvedName}
                     </span>
-                    {formatTime(conversation.lastMessageTime, nowMs) ? (
+                    {lastMessageLabel ? (
                         <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
-                            {formatTime(conversation.lastMessageTime, nowMs)}
+                            {lastMessageLabel}
                         </span>
                     ) : null}
                 </div>
@@ -121,13 +108,13 @@ export function ConversationRow({
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="z-[10040]">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin?.(); }}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin?.(conversation.id); }}>
                                 {isPinned ? <PinOff className="h-4 w-4 mr-2" /> : <Pin className="h-4 w-4 mr-2" />}
                                 {isPinned ? t("messaging.unpin_chat") : t("messaging.pin_chat")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 className="text-red-600 focus:text-red-600"
-                                onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
+                                onClick={(e) => { e.stopPropagation(); onDelete?.(conversation.id); }}
                             >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 {t("messaging.delete_chat")}
@@ -154,4 +141,20 @@ export function ConversationRow({
             </div>
         </div>
     );
-}
+}, (prev, next) => {
+    return (
+        prev.conversation.id === next.conversation.id
+        && prev.conversation.displayName === next.conversation.displayName
+        && prev.conversation.lastMessage === next.conversation.lastMessage
+        && prev.conversation.lastMessageTime.getTime() === next.conversation.lastMessageTime.getTime()
+        && prev.conversation.kind === next.conversation.kind
+        && (prev.conversation.kind !== "dm" || next.conversation.kind !== "dm" || prev.conversation.pubkey === next.conversation.pubkey)
+        && prev.isSelected === next.isSelected
+        && prev.unreadCount === next.unreadCount
+        && prev.isOnline === next.isOnline
+        && prev.lastMessageLabel === next.lastMessageLabel
+        && prev.lastActiveLabel === next.lastActiveLabel
+        && prev.lastViewedLabel === next.lastViewedLabel
+        && prev.isPinned === next.isPinned
+    );
+});

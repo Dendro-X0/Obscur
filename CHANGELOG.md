@@ -2,13 +2,29 @@
 
 Maintainer note:
 
-- This branch remains the unreleased `v0.9.0 beta` recovery line.
-- It is not yet release-ready for trustworthy two-user communication.
-- See [docs/08-maintainer-playbook.md](./docs/08-maintainer-playbook.md), [docs/10-community-and-groups-overhaul.md](./docs/10-community-and-groups-overhaul.md), and [docs/17-v0.9.2-expansion-context.md](./docs/17-v0.9.2-expansion-context.md) for current handoff/status truth.
+- This branch is in pre-release recovery/stabilization mode for the `v0.9.x` lane.
+- The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
+- Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
-### Known Issues (2026-03-20 - v0.9.2 constrained release)
+### Changed (2026-03-21 - v0.9.4 release-candidate prep baseline)
 
-- v0.9.2 is being released with unresolved critical regressions due schedule constraints.
+- Bumped release-tracked manifests from `0.9.2` to `0.9.4` and synchronized:
+  - root workspace + `version.json`,
+  - `apps/pwa`, `apps/desktop` (+ Tauri config), `apps/website`, `apps/relay-gateway`,
+  - `packages/dweb-*` and `packages/ui-kit`.
+- Updated top-level status docs to remove stale "active unresolved v0.9.2 blocker" framing and align with current monitoring/verification state.
+- Verified release readiness gates in this workspace snapshot:
+  - `pnpm docs:check`,
+  - `pnpm release:integrity-check`,
+  - `pnpm release:artifact-version-contract-check`,
+  - `pnpm release:ci-signal-check`,
+  - `pnpm release:test-pack -- --skip-preflight`,
+  - `pnpm -C apps/pwa exec vitest run`,
+  - `pnpm -C apps/pwa build`.
+
+### Historical Known Issues (2026-03-20 - v0.9.2 constrained release)
+
+- v0.9.2 was released with unresolved critical regressions due schedule constraints.
 - Confirmed unresolved runtime risks:
   - login-state persistence remains unreliable in some restart flows,
   - page-transition freeze/sidebar lock can still occur,
@@ -18,6 +34,17 @@ Maintainer note:
 - Canonical problem record:
   - `ISSUES.md` (active incident truth),
   - `docs/17-v0.9.2-expansion-context.md` (next-iteration handoff baseline).
+
+### Changed (2026-03-21 - v0.9.3 manual acceptance closure snapshot)
+
+- Manual acceptance replay for the v0.9.3 plan was completed on the dev server:
+  - M1 restart/login continuity and route-transition stress replay completed,
+  - M2 two-device DM/community/media parity replay completed,
+  - M4 responsiveness replay completed for route transitions and heavy-thread interaction windows.
+- Plan documentation now records manual-gate closure explicitly in `docs/18-v0.9.3-execution-plan.md`.
+- `ISSUES.md` was moved from "active unresolved blocker baseline" to a resolved/monitoring snapshot for future iterations.
+- Release note caveat:
+  - this closure reflects dev-server/manual verification status and does not replace normal release-candidate soak and production telemetry monitoring.
 
 ### Changed (2026-03-20 - v0.9.3 M0 baseline triage kickoff)
 
@@ -54,6 +81,86 @@ Maintainer note:
   - `pnpm docs:check` passes.
   - `pnpm release:test-pack -- --skip-preflight` passes.
   - `pnpm -C apps/pwa build` passes.
+
+### Changed (2026-03-20 - v0.9.3 M2 self-authored DM continuity hardening slice)
+
+- Hardened encrypted-backup DM hydration for legacy sparse metadata records:
+  - added a canonical DM direction resolver in `encrypted-account-backup-service.ts` for indexed/queue records,
+  - outgoing classification now accepts recipient + conversation evidence when `senderPubkey`/`pubkey` and `isOutgoing` are missing,
+  - hydrated persisted DM messages now backfill sender pubkey for inferred direction so downstream replay and merge diagnostics do not collapse into incoming-only histories.
+- Added focused M2 regression coverage:
+  - `encrypted-account-backup-service.test.ts` now includes a deterministic legacy record scenario with missing sender metadata that must restore one outgoing and one incoming message using recipient + conversation inference.
+- Verification:
+  - `pnpm -C apps/pwa exec vitest run app/features/account-sync/services/encrypted-account-backup-service.test.ts` passes.
+  - `pnpm docs:check` passes.
+  - `pnpm release:test-pack -- --skip-preflight` passes.
+
+### Changed (2026-03-20 - v0.9.3 M3 delivery-truth hardening slice)
+
+- Hardened queued DM terminal-failure semantics in `outgoing-dm-publisher.ts`:
+  - when deterministic evidence-backed publish APIs are unavailable (`unsupported_runtime`), queued send now persists message status as `failed` before returning terminal failure.
+- Added focused regression coverage:
+  - `outgoing-dm-publisher.test.ts` now asserts unsupported queued publish path writes `failed` status and does not requeue.
+- Added focused native-session mismatch diagnostics coverage:
+  - `use-identity.test.ts` now verifies native-session account mismatch remains explicit (`native_mismatch`) and keeps identity locked.
+- Added explicit mismatch recovery UX in auth login:
+  - `AuthScreen` now renders a dedicated `Private Key Mismatch` recovery card when identity diagnostics surface `private_key_mismatch` (or equivalent mismatch message evidence), without conflating it with native secure-storage mismatch recovery.
+  - Added focused component regression coverage in `app/features/auth/components/auth-screen.test.tsx` for both mismatch banners.
+- Hardened lock-screen private-key unlock recoverability:
+  - `unlockWithPrivateKeyHex` mismatch now keeps identity in recoverable `locked` state while preserving `private_key_mismatch` diagnostics, instead of escalating to runtime `error`.
+  - Aligned passphrase mismatch handling to preserve locked-state diagnostics ordering on mismatch transitions.
+  - Added deterministic `use-identity.test.ts` coverage for raw private-key mismatch and successful raw-key unlock paths.
+- Enriched DM send transport diagnostics:
+  - `messaging.transport.publish_result` now includes explicit evidence context (`status`, `reasonCode`, `metQuorum`, `quorumRequired`, `targetRelayCount`, `hasOverallError`) to improve degraded-send triage.
+- Verification:
+  - `pnpm -C apps/pwa exec vitest run app/features/messaging/controllers/outgoing-dm-publisher.test.ts` passes.
+  - `pnpm -C apps/pwa exec vitest run app/features/auth/hooks/use-identity.test.ts` passes.
+  - `pnpm -C apps/pwa exec vitest run app/features/auth/components/auth-screen.test.tsx` passes.
+
+### Changed (2026-03-20 - v0.9.3 M4 sidebar/chat-list performance polish slice)
+
+- Reduced sidebar/chat-list render pressure without changing product behavior:
+  - `Sidebar` now derives hidden/pinned/direct/community buckets and unread totals in one memoized pass using Set-backed lookups instead of repeated filter/reduce + `includes` scans.
+  - `main-shell` chat unread badge aggregation now uses memoized hidden-ID filtering and memoized unread reduction.
+- Reduced message-list row churn during interaction-heavy chat usage:
+  - `MessageList` now passes row-local state flags (`isFlashing`, `isMessageMenuAnchored`, `isReactionPickerAnchored`) into memoized rows instead of global id selectors, avoiding unnecessary re-renders across unrelated visible rows when menus/reaction pickers open.
+- Reduced message-list scroll event pressure under fast scrolling:
+  - `MessageList` now batches scroll metrics with `requestAnimationFrame` and evaluates scroll-bottom/fast-scroll state at most once per frame.
+  - Added typed helper contract in `app/features/messaging/components/message-list-scroll.ts` and focused unit coverage in `message-list-scroll.test.ts`.
+- Reduced duplicate payload parsing in message timelines:
+  - `MessageList` now caches parsed JSON payloads once per message list update and reuses them for invite-response status and row render metadata, removing redundant parse work on heavy threads.
+- Reduced attachment/media derivation overhead in message rows:
+  - Added typed helper contracts in `app/features/messaging/components/message-attachment-layout.ts` to classify media buckets and derive attachment display metadata in one pass.
+  - `MessageAttachmentLayout` now memoizes those derived buckets/maps, avoiding repeated filter passes and repeated URL host parsing during row re-renders.
+  - Added focused coverage in `app/features/messaging/components/message-attachment-layout.test.ts`.
+- Reduced message-list full-pass churn in render metadata derivation:
+  - Added typed helper contract in `app/features/messaging/components/message-list-render-meta.ts` to build parsed payload cache, invite-response mapping, and per-message render metadata in a single traversal.
+  - `MessageList` now uses the unified cache instead of separate full-list loops for payload parse, invite status derivation, and row render metadata.
+  - Added focused coverage in `app/features/messaging/components/message-list-render-meta.test.ts`.
+- Reduced periodic visible-row rerenders in chat timelines:
+  - `MessageList` now computes per-row `timeLabel` before row rendering and memoized rows compare on `timeLabel` instead of raw `nowMs`.
+  - This keeps timestamp UX unchanged while avoiding row rerenders on clock ticks when the displayed label remains the same.
+- Reduced sidebar conversation-list churn on periodic clock updates:
+  - `ConversationRow` is now memoized with field-level equality for rendered props.
+  - `Sidebar` now passes precomputed timestamp labels and stable action handlers (`togglePin`, `deleteConversation`) instead of per-row closures.
+  - This avoids unnecessary row rerenders when 30-second clock updates do not change displayed labels.
+- Added route-stall hard-fallback parity for mobile navigation:
+  - `MobileTabBar` now arms the same deterministic hard-navigation fallback contract used by desktop sidebar navigation and clears the fallback once pathname settles.
+  - Route-guard diagnostics now include mobile source attribution (`guardSource: "mobile_tab_bar"`).
+  - Added focused tests in `app/components/mobile-tab-bar.test.tsx` for hard fallback timeout and settle cancellation.
+- Added route-mount settle diagnostics for freeze triage in canonical app-shell navigation:
+  - `AppShell` now emits route mount probe events (`navigation.route_mount_probe_start`, `navigation.route_mount_probe_slow`, `navigation.route_mount_probe_settled`) with frame-delay and route-request elapsed metadata.
+  - Route diagnostics now include deterministic surface tagging (`routeSurface`: `chats`/`network`/`groups`/...) plus source tags for route-guard events (`fromRouteSurface`, `targetRouteSurface`) to speed freeze triage by page family.
+  - Route-guard events emitted from desktop/sidebar navigation now include source attribution (`guardSource: "app_shell"`), matching mobile diagnostics parity.
+  - Added lightweight runtime snapshot surface at `window.obscurRouteMountDiagnostics?.getSnapshot?.()` and wired M0 triage capture to include this snapshot and route-mount probe events in navigation-focused diagnostics.
+- Regression and safety verification:
+  - `pnpm -C apps/pwa exec vitest run app/features/messaging/components/sidebar.test.tsx` passes.
+  - `pnpm -C apps/pwa exec vitest run app/features/messaging/components/message-attachment-layout.test.ts` passes.
+  - `pnpm -C apps/pwa exec vitest run app/features/messaging/components/message-list-render-meta.test.ts` passes.
+  - `pnpm -C apps/pwa exec vitest run app/components/page-transition-recovery.test.ts app/components/app-shell.test.tsx app/shared/m0-triage-capture.test.ts` passes.
+  - `pnpm -C apps/pwa exec vitest run app/components/app-shell.test.tsx app/components/mobile-tab-bar.test.tsx` passes.
+  - `pnpm -C apps/pwa exec vitest run app/features/messaging/components/message-list-scroll.test.ts app/features/messaging/components/chat-view.test.tsx app/features/messaging/components/sidebar.test.tsx` passes.
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false` passes.
 
 ### Changed (2026-03-20 - CI reliability gate and planning artifact retirement)
 
