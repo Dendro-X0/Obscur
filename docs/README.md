@@ -55,5 +55,5 @@ For strict preflight, run without `--allow-dirty` on a clean `main` working tree
 
 Release workflow policy:
 - tag pushes run build and verification lanes,
-- GitHub Release publish is manual-only (`workflow_dispatch` on tag ref with `publish_release=true`),
+- GitHub Release publish now runs automatically on `v*` tag pushes (manual `workflow_dispatch` with `publish_release=true` remains available as fallback),
 - Android lane result/signing state is surfaced explicitly and no longer blocks desktop/web release publication.

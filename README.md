@@ -122,8 +122,8 @@ pnpm release:verify-tag --tag vX.Y.Z
 
 Release execution model:
 
-- Step 1: push tag to run preflight/build/artifact verification.
-- Step 2: manually run `.github/workflows/release.yml` with `publish_release=true` on the tag ref to publish GitHub Release assets.
+- Step 1: push tag to run preflight/build/artifact verification and auto-publish GitHub Release assets.
+- Step 2 (fallback only): manual `.github/workflows/release.yml` dispatch with `publish_release=true` on the tag ref if a rerun/publish repair is needed.
 - Android lane is reported explicitly in release evidence (`android_job_result`, `android_signing_state`) and does not block desktop/web artifact verification or publication when Android fails.
 
 Release references:

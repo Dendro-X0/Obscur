@@ -35,8 +35,8 @@ pnpm release:preflight
 ## Tagging Model
 
 - Release workflow triggers on `v*` tags.
-- Tag pushes run preflight + build + artifact verification.
-- GitHub Release publication is manual-only (`workflow_dispatch` with `publish_release=true`) and must be run on a tag ref.
+- Tag pushes run preflight + build + artifact verification + release publication.
+- Manual publication remains available through `workflow_dispatch` with `publish_release=true` on a tag ref for repair/rerun cases.
 - Do not tag until `main` contains exactly the intended release tree.
 - If tag rerun is required, fix root cause on `main`, then use a new version tag (do not rely on retagging).
 

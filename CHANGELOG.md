@@ -29,6 +29,9 @@ Maintainer note:
   - made runtime activation relay-runtime gate fail-open when mocked/test snapshots omit `relayRuntime`, removing render-time crashes in `runtime-activation-transport-gate.integration.test.tsx`.
   - aligned `use-conversation-messages.test.ts` with the current `200`-message live-window cap contract.
   - verification: `pnpm release:test-pack -- --skip-preflight` passes.
+- **Release publication policy update**:
+  - `.github/workflows/release.yml` now auto-publishes on `v*` tag push after artifact verification succeeds.
+  - manual `workflow_dispatch` with `publish_release=true` remains as fallback for publish repair/rerun.
 - **Planning artifact retirement (completed lane cleanup)**:
   - removed root planning files:
     - `PHASE0_SPECS.md` .. `PHASE4_SPECS.md`
