@@ -14,7 +14,6 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
   const runtimeActions = useWindowRuntime();
   const runtime = runtimeActions.snapshot;
   const [profileBootStalled, setProfileBootStalled] = useState(false);
-  const identityStillLoading = runtime.session.identityStatus === "loading";
 
   useEffect(() => {
     const isPendingProfileBoot = runtime.phase === "booting" || runtime.phase === "binding_profile";
@@ -72,14 +71,10 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
               type="button"
               variant="outline"
               onClick={() => {
-                if (identityStillLoading) {
-                  void runtimeActions.refreshWindowBinding();
-                  return;
-                }
                 runtimeActions.lockBoundProfile();
               }}
             >
-              {identityStillLoading ? "Keep Waiting" : "Continue to Login"}
+              Continue to Login
             </Button>
           </div>
         </div>

@@ -19,6 +19,42 @@ Maintainer note:
   - `ISSUES.md` (active incident truth),
   - `docs/17-v0.9.2-expansion-context.md` (next-iteration handoff baseline).
 
+### Changed (2026-03-20 - v0.9.3 M0 baseline triage kickoff)
+
+- Added a one-shot runtime triage capture helper at `window.obscurM0Triage`:
+  - `capture(eventWindowSize?)` returns structured startup/relay/sync/media diagnostics.
+  - `captureJson(eventWindowSize?)` returns copy-ready JSON for incident handoff.
+- Added canonical focused-event grouping for M0 triage:
+  - startup,
+  - navigation,
+  - sync_restore,
+  - media_hydration.
+- Boot-time install is now wired in `AppProviders` so capture is available immediately after app startup.
+- Added focused unit coverage in `app/shared/m0-triage-capture.test.ts`.
+- Verification:
+  - `pnpm docs:check` passes.
+  - `pnpm release:test-pack -- --skip-preflight` passes.
+
+### Changed (2026-03-20 - v0.9.3 M1 session continuity hardening slice)
+
+- Added native-session auto-unlock retry path in `AuthGateway` for startup windows where remember-me is set but passphrase token candidates are absent:
+  - new evidence event: `auth.auto_unlock_recovered_native_session`.
+- Hardened desktop `Lock` semantics in title-bar profile switcher:
+  - lock now preserves remembered auth token when remember-me is enabled for the bound profile,
+  - lock still clears auth token when remember-me is disabled.
+- Hardened profile-boot stall recovery:
+  - startup stall fallback now always provides deterministic `Continue to Login` recovery instead of forcing a keep-waiting path while identity remains loading.
+- Added focused regression coverage:
+  - `app/features/auth/components/auth-gateway.test.tsx`,
+  - `app/components/desktop/title-bar-profile-switcher.test.ts`,
+  - `app/features/auth/utils/remember-me-state.ts` (new helper module).
+- Verification:
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false` passes.
+  - `pnpm -C apps/pwa exec vitest run app/features/auth/components/auth-gateway.test.tsx app/components/desktop/title-bar-profile-switcher.test.ts app/features/auth/hooks/use-identity.test.ts app/shared/m0-triage-capture.test.ts` passes.
+  - `pnpm docs:check` passes.
+  - `pnpm release:test-pack -- --skip-preflight` passes.
+  - `pnpm -C apps/pwa build` passes.
+
 ### Changed (2026-03-20 - CI reliability gate and planning artifact retirement)
 
 - **CI/workflow blocker fixes (release test pack)**:

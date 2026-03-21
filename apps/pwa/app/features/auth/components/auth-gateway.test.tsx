@@ -12,6 +12,7 @@ const authGatewayMocks = vi.hoisted(() => ({
     status: "loading" | "locked" | "unlocked" | "error";
     stored?: Readonly<{ publicKeyHex: string }>;
   },
+  retryNativeSessionUnlock: vi.fn(async () => false),
   runtime: {
     snapshot: {
       phase: "auth_required",
@@ -32,6 +33,7 @@ const authGatewayMocks = vi.hoisted(() => ({
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: authGatewayMocks.identityState,
+    retryNativeSessionUnlock: authGatewayMocks.retryNativeSessionUnlock,
   }),
 }));
 
@@ -62,6 +64,7 @@ describe("AuthGateway", () => {
     authGatewayMocks.identityState.stored = {
       publicKeyHex: "a".repeat(64),
     };
+    authGatewayMocks.retryNativeSessionUnlock.mockResolvedValue(false);
     authGatewayMocks.runtime.snapshot.phase = "auth_required";
     authGatewayMocks.runtime.snapshot.session.profileId = "default";
     authGatewayMocks.runtime.unlockBoundProfile.mockResolvedValue(undefined);
@@ -168,5 +171,21 @@ describe("AuthGateway", () => {
     });
     expect(localStorage.getItem("remember::default")).toBe("true");
     expect(localStorage.getItem("token::default")).toBe("candidate-token");
+  });
+
+  it("recovers auto-unlock from native session when remember flag exists but token is missing", async () => {
+    localStorage.setItem("remember::default", "true");
+    authGatewayMocks.retryNativeSessionUnlock.mockResolvedValue(true);
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    await waitFor(() => {
+      expect(authGatewayMocks.retryNativeSessionUnlock).toHaveBeenCalledTimes(1);
+    });
+    expect(authGatewayMocks.runtime.unlockBoundProfile).not.toHaveBeenCalled();
   });
 });

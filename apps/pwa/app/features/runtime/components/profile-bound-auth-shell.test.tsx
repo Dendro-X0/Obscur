@@ -66,8 +66,7 @@ describe("ProfileBoundAuthShell", () => {
     });
 
     expect(screen.getByText("Profile startup is taking longer than expected.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Keep Waiting" }));
-    expect(profileBoundAuthShellMocks.runtime.refreshWindowBinding).toHaveBeenCalledTimes(1);
-    expect(profileBoundAuthShellMocks.runtime.lockBoundProfile).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Continue to Login" }));
+    expect(profileBoundAuthShellMocks.runtime.lockBoundProfile).toHaveBeenCalledTimes(1);
   });
 });

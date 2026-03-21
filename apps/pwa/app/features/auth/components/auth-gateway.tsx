@@ -220,24 +220,62 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
           });
         }
       } else {
-        logAppEvent({
-          name: "auth.auto_unlock_skipped_missing_credentials",
-          level: "info",
-          scope: { feature: "auth", action: "auto_unlock" },
-          context: {
-            profileId,
-            rememberedTrue: isRemembered,
-            tokenCandidateCount: uniqueTokenCandidates.length,
-            autoUnlockEligible,
-            rememberSource,
-            tokenSource,
-            scopedRememberCandidateCount: rememberedValues.length,
-            fallbackRememberCandidateCount: fallbackRememberedValues.length,
-            scopedTokenCandidateCount: tokenCandidates.length,
-            fallbackTokenCandidateCount: fallbackTokenCandidates.length,
-            runtimePhase: runtime.snapshot.phase,
-          },
-        });
+        let nativeSessionRecovered = false;
+        if (
+          isRemembered
+          && uniqueTokenCandidates.length === 0
+          && typeof identity.retryNativeSessionUnlock === "function"
+        ) {
+          try {
+            nativeSessionRecovered = await identity.retryNativeSessionUnlock();
+          } catch {
+            nativeSessionRecovered = false;
+          }
+          if (nativeSessionRecovered) {
+            logAppEvent({
+              name: "auth.auto_unlock_recovered_native_session",
+              level: "info",
+              scope: { feature: "auth", action: "auto_unlock" },
+              context: {
+                profileId,
+                rememberSource,
+                tokenSource,
+                scopedRememberCandidateCount: rememberedValues.length,
+                fallbackRememberCandidateCount: fallbackRememberedValues.length,
+                runtimePhase: runtime.snapshot.phase,
+              },
+            });
+          }
+        }
+        if (nativeSessionRecovered) {
+          setTransientRetryStateByProfileId((previous) => {
+            if (!previous[profileId]) {
+              return previous;
+            }
+            const next = { ...previous };
+            delete next[profileId];
+            return next;
+          });
+        } else {
+          logAppEvent({
+            name: "auth.auto_unlock_skipped_missing_credentials",
+            level: "info",
+            scope: { feature: "auth", action: "auto_unlock" },
+            context: {
+              profileId,
+              rememberedTrue: isRemembered,
+              tokenCandidateCount: uniqueTokenCandidates.length,
+              autoUnlockEligible,
+              rememberSource,
+              tokenSource,
+              scopedRememberCandidateCount: rememberedValues.length,
+              fallbackRememberCandidateCount: fallbackRememberedValues.length,
+              scopedTokenCandidateCount: tokenCandidates.length,
+              fallbackTokenCandidateCount: fallbackTokenCandidates.length,
+              runtimePhase: runtime.snapshot.phase,
+            },
+          });
+        }
       }
       if (!cancelled) {
         setAttemptedAutoUnlockProfileIds((previous) => (
@@ -254,7 +292,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         window.clearTimeout(retryTimerId);
       }
     };
-  }, [identity.state.status, retryWakeNonce, runtime, shouldResolveStoredSession, transientRetryStateByProfileId]);
+  }, [identity, identity.state.status, retryWakeNonce, runtime, shouldResolveStoredSession, transientRetryStateByProfileId]);
 
   if (runtime.snapshot.phase === "activating_runtime" || runtime.snapshot.phase === "ready" || runtime.snapshot.phase === "degraded") {
     return <>{children}</>;

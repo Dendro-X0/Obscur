@@ -8,7 +8,11 @@ import { AlertTriangle, ChevronDown, Lock, LogOut, RefreshCw, Settings2, UserPlu
 import { UserAvatar } from "@/app/components/user-avatar";
 import { cn } from "@/app/lib/utils";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { getAuthTokenStorageKey, getRememberMeStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
+import {
+  getAuthTokenStorageKey,
+  getRememberMeStorageKey,
+} from "@/app/features/auth/utils/auth-storage-keys";
+import { isRememberMeEnabledForProfile } from "@/app/features/auth/utils/remember-me-state";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import {
@@ -103,7 +107,9 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
   const shouldRenderProfileChip = isUnlocked && Boolean(currentPublicKeyHex);
 
   const handleLock = (): void => {
-    localStorage.removeItem(getAuthTokenStorageKey());
+    if (!isRememberMeEnabledForProfile(snapshot.currentWindow.profileId)) {
+      localStorage.removeItem(getAuthTokenStorageKey(snapshot.currentWindow.profileId));
+    }
     identity.lockIdentity();
     setOpen(false);
     toast.success("Session locked.");

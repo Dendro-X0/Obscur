@@ -71,6 +71,7 @@ When a core flow breaks:
 : `window.obscurAppEvents.getRecent(200)`
 : `window.obscurAppEvents.findByName("messaging.conversation_hydration_id_split_detected", 20)`
 : `window.obscurAppEvents.getDigest(300)` (compact summary when raw logs are too large)
+: `window.obscurAppEvents.findByName("auth.auto_unlock_recovered_native_session", 20)` (M1 native-session retry evidence)
 
 ### Relay Foundation Baseline Capture
 
@@ -80,6 +81,13 @@ For relay/startup regressions, always capture this compact bundle first:
 2. `window.obscurRelayRuntime.getSnapshot()`
 3. `window.obscurRelayTransportJournal.getSnapshot()`
 4. `window.obscurAppEvents.getDigest(300)`
+
+Unified capture helper (preferred):
+- `window.obscurM0Triage?.capture(300)`
+- `copy(window.obscurM0Triage?.captureJson(300))`
+
+Helper location:
+- `apps/pwa/app/shared/m0-triage-capture.ts` (installed at app boot in `app/components/providers.tsx`)
 
 Then map symptoms with:
 - `docs/13-relay-and-startup-failure-atlas.md`

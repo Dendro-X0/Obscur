@@ -22,6 +22,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 14. [15 Relay Foundation Hardening Spec](./15-relay-foundation-hardening-spec.md)
 15. [16 Cross-Device Group Visibility Incident](./16-cross-device-group-visibility-incident.md)
 16. [17 v0.9.2 Expansion Context](./17-v0.9.2-expansion-context.md)
+17. [18 v0.9.3 Execution Plan](./18-v0.9.3-execution-plan.md)
 
 ## Scope Rules
 
@@ -29,7 +30,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 - Historical roadmaps and superseded plans are intentionally removed.
 - Root planning artifacts (`PHASE0_SPECS.md` .. `PHASE4_SPECS.md`, `ROADMAP_v0.9.0-beta.md`, `ROADMAP_v0.9.2.md`) were retired on 2026-03-20.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
-- For runtime or relay regressions, consult `12 -> 13 -> 17 -> 08` in that order before implementation work.
+- For runtime or relay regressions, consult `12 -> 13 -> 17 -> 18 -> 08` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).
 
 ## Mandatory Checks

@@ -23,6 +23,7 @@ import { resolveAccountImportEvidence } from "../services/account-import-evidenc
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
+import { SessionApi } from "@/app/features/auth/services/session-api";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -43,6 +44,7 @@ type UseIdentityResult = Readonly<{
   lockIdentity: () => void;
   forgetIdentity: () => Promise<void>;
   resetNativeSecureStorage?: () => Promise<void>;
+  retryNativeSessionUnlock?: () => Promise<boolean>;
   getIdentitySnapshot: () => IdentityState;
   getIdentityDiagnostics?: () => IdentityDiagnostics;
 }>;
@@ -171,6 +173,7 @@ export const useIdentity = (): UseIdentityResult => {
     lockIdentity: lockIdentityAction,
     forgetIdentity: forgetIdentityAction,
     resetNativeSecureStorage: resetNativeSecureStorageAction,
+    retryNativeSessionUnlock: retryNativeSessionUnlockAction,
     getIdentitySnapshot,
     getIdentityDiagnostics: getIdentityDiagnosticsSnapshot
   }), [state]);
@@ -262,6 +265,44 @@ const setIdentityDiagnostics = (next: IdentityDiagnostics): void => {
 
 export const getIdentityDiagnosticsSnapshot = (): IdentityDiagnostics => identityDiagnostics;
 
+const tryNativeSessionUnlock = async (params: Readonly<{
+  stored: IdentityRecord;
+  context: "bootstrap" | "retry";
+}>): Promise<"unlocked" | "mismatch" | "inactive" | "unavailable"> => {
+  if (!canUseNativeSession()) {
+    return "unavailable";
+  }
+  try {
+    const status = await SessionApi.getSessionStatus();
+    const normalizedNativeNpub = normalizePublicKeyHex(status.npub ?? undefined);
+    if (!status.isActive || !normalizedNativeNpub) {
+      return "inactive";
+    }
+    if (normalizedNativeNpub !== params.stored.publicKeyHex) {
+      setIdentityState(createLockedState(params.stored));
+      setIdentityDiagnostics({
+        status: "locked",
+        storedPublicKeyHex: params.stored.publicKeyHex,
+        nativeSessionPublicKeyHex: normalizedNativeNpub,
+        mismatchReason: "native_mismatch",
+        message: "Secure storage belonged to another account. Native auto-unlock was skipped. Unlock with your password/private key or reset secure storage."
+      });
+      return "mismatch";
+    }
+    setIdentityDiagnostics({
+      status: "unlocked",
+      storedPublicKeyHex: params.stored.publicKeyHex,
+      nativeSessionPublicKeyHex: normalizedNativeNpub,
+    });
+    recordIdentityActivationRisk(params.stored.publicKeyHex);
+    setIdentityState(createUnlockedState({ stored: params.stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
+    return "unlocked";
+  } catch (error) {
+    console.warn(`[Identity] Native auto-unlock status check failed during ${params.context}:`, error);
+    return "unavailable";
+  }
+};
+
 const rehydrateIdentityForActiveProfile = async (): Promise<void> => {
   const current = getIdentitySnapshot();
   try {
@@ -324,8 +365,17 @@ const ensureInitialized = async (): Promise<void> => {
       });
     }
 
-    // Auto-unlock with native keychain if possible
+    // Auto-unlock with native keychain/session if possible.
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
+    if (stored && canUseNativeSession()) {
+      const nativeSessionStatusResult = await tryNativeSessionUnlock({
+        stored,
+        context: "bootstrap",
+      });
+      if (nativeSessionStatusResult === "unlocked" || nativeSessionStatusResult === "mismatch") {
+        return;
+      }
+    }
     if (stored && canUseNativeSession() && hasFn(cs.hasNativeKey) && await cs.hasNativeKey()) {
       try {
         const nativeNpub = hasFn(cs.getNativeNpub) ? await cs.getNativeNpub() : null;
@@ -654,6 +704,18 @@ const resetNativeSecureStorageAction = async (): Promise<void> => {
     setIdentityState(createErrorState(message, identityState.stored));
     throw new Error(message);
   }
+};
+
+const retryNativeSessionUnlockAction = async (): Promise<boolean> => {
+  const stored = identityState.stored;
+  if (!stored) {
+    return false;
+  }
+  const result = await tryNativeSessionUnlock({
+    stored,
+    context: "retry",
+  });
+  return result === "unlocked";
 };
 
 export const useIdentityInternals = {
