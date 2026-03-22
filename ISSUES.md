@@ -1,8 +1,8 @@
-# Issue Status Snapshot (v0.9.6 to v1 Readiness Monitoring)
+# Issue Status Snapshot (v1.0.0 Launch Readiness Monitoring)
 
 Last updated: 2026-03-22
 
-This file tracks runtime issue status during late v0.9.6 stabilization and pre-v1 readiness hardening.
+This file tracks runtime issue status during final `v1.0.0` launch staging and immediate post-launch monitoring preparation.
 
 ## Current State
 

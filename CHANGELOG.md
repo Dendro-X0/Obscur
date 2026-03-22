@@ -6,6 +6,13 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+### Changed (2026-03-22 - v1.0.0 launch staging execution)
+
+- Entered official `v1.0.0` launch staging with deterministic execution docs wired as canonical release path:
+  - readiness hardening plan: `docs/19-v1-readiness-stability-plan.md`,
+  - launch runbook: `docs/20-v1-official-release-execution.md`.
+- Updated top-level status framing to v1 launch readiness and release commands.
+
 ### Changed (2026-03-22 - official v1 release execution kickoff)
 
 - Added an explicit official-release runbook for `v1.0.0`:
