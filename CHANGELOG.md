@@ -6,6 +6,14 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+## [v1.0.0] - 2026-03-22
+
+### Changed
+
+- Promoted the workspace to the official `v1.0.0` release line with synchronized app/package manifests and release contracts.
+- Executed strict release preflight and published the `v1.0.0` tag through the full release workflow.
+- Published cross-platform release artifacts for desktop, Android, and web package distribution.
+
 ### Changed (2026-03-22 - v1.0.0 launch staging execution)
 
 - Entered official `v1.0.0` launch staging with deterministic execution docs wired as canonical release path:
