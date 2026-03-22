@@ -6,6 +6,18 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+### Changed (2026-03-22 - official v1 release execution kickoff)
+
+- Added an explicit official-release runbook for `v1.0.0`:
+  - `docs/20-v1-official-release-execution.md`.
+- Aligned docs navigation and operator references for v1 launch prep:
+  - `docs/README.md`,
+  - `docs/07-operations-and-release-flow.md`,
+  - `docs/08-maintainer-playbook.md`,
+  - `README.md`,
+  - `ISSUES.md`.
+- This locks the release path to deterministic R0-R4 execution (freeze, automated gates, manual matrix, tag/publish, post-release stabilization window).
+
 ### Changed (2026-03-22 - v1 readiness M2 manual soak closure)
 
 - Completed and confirmed the M2 manual two-device soak acceptance bundle:

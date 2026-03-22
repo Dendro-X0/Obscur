@@ -4,6 +4,22 @@ _Last reviewed: 2026-03-21 (baseline commit 399ef6a)._
 
 This file is the minimal context needed to resume the project after a pause.
 
+## v1 Official Launch Matrix
+
+For `v1.0.0`, run these manual checks and attach concise evidence snapshots:
+
+1. Session and route continuity:
+: desktop + web restart/login continuity and route stress (`chats -> network -> groups -> settings -> chats`).
+2. Two-device sync continuity:
+: DM self-authored history, group membership/sendability, and media parity.
+3. Deletion convergence:
+: `Delete for everyone` in DM and group, then reopen/scroll/new-message churn verification.
+4. Incident capture on first anomaly:
+: `copy(window.obscurM0Triage?.captureJson(300))` or digest fallback.
+
+Canonical release execution sequencing:
+- `docs/20-v1-official-release-execution.md`.
+
 ## Current State Snapshot
 
 - Cross-platform beta release pipeline is wired through GitHub Releases.

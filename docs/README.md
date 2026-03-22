@@ -24,6 +24,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 16. [17 v0.9.2 Expansion Context](./17-v0.9.2-expansion-context.md)
 17. [18 v0.9.3 Execution Plan](./18-v0.9.3-execution-plan.md)
 19. [19 v1 Readiness Stability Plan](./19-v1-readiness-stability-plan.md)
+20. [20 v1 Official Release Execution](./20-v1-official-release-execution.md)
 
 ## Scope Rules
 
@@ -36,6 +37,8 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `ISSUES.md` and `CHANGELOG.md`.
 - v1 pre-release hardening milestones are tracked in:
   - `docs/19-v1-readiness-stability-plan.md`.
+- v1 launch execution steps are tracked in:
+  - `docs/20-v1-official-release-execution.md`.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
 - For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 17 -> 18` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).

@@ -4,6 +4,9 @@ _Last reviewed: 2026-03-22 (baseline commit 3de7252)._
 
 This is the final pre-v1 hardening plan.
 
+Launch execution companion:
+- `docs/20-v1-official-release-execution.md`.
+
 Goal:
 - ship `v1.0.0` with stability, sync-confidence, and deterministic release evidence,
 - avoid disruptive architecture changes,

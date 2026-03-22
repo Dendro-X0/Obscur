@@ -49,6 +49,24 @@ Before pushing a release tag:
 : `pnpm release:preflight -- --tag v0.9.6 --allow-dirty 1`
 : and do not tag until strict clean-tree preflight passes.
 
+## Official v1.0.0 Lane
+
+When promoting from `v0.9.6` staging to official `v1.0.0`:
+
+1. Complete launch matrix replay from:
+: `docs/08-maintainer-playbook.md`
+: `docs/20-v1-official-release-execution.md`
+2. Bump and sync:
+: `pnpm version --no-git-tag-version 1.0.0`
+: `pnpm version:sync`
+: `pnpm version:check`
+3. Run strict preflight:
+: `pnpm release:preflight -- --tag v1.0.0`
+4. Push and tag:
+: `git push origin main`
+: `git tag v1.0.0`
+: `git push origin v1.0.0`
+
 ## Tagging Model
 
 - Release workflow triggers on `v*` tags.

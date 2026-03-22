@@ -16,6 +16,8 @@ This file tracks runtime issue status during late v0.9.6 stabilization and pre-v
 
 - Pre-v1 hardening plan is tracked at:
   - `docs/19-v1-readiness-stability-plan.md`.
+- Official `v1.0.0` launch sequencing is tracked at:
+  - `docs/20-v1-official-release-execution.md`.
 - Current execution focus:
   - preserve stability and sync confidence while avoiding architectural churn,
   - close only reproducible high-risk regressions before `v1.0.0`.
@@ -41,7 +43,7 @@ This file tracks runtime issue status during late v0.9.6 stabilization and pre-v
 - M3 strict preflight replay is green on clean `main`:
   - `pnpm release:preflight -- --tag v1.0.0`.
 - Remaining pre-v1 gate:
-  - keep manual replay matrix evidence synchronized in maintainer docs while final tag planning converges.
+  - complete R1-R3 launch execution in `docs/20-v1-official-release-execution.md` on the final clean-tree release commit.
 
 ## v0.9.5 M0 Status
 
