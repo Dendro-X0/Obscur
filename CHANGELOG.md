@@ -6,6 +6,31 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+### Changed (2026-03-22 - v1 readiness M2 manual soak closure)
+
+- Completed and confirmed the M2 manual two-device soak acceptance bundle:
+  - DM continuity,
+  - group membership/sendability,
+  - media parity,
+  - delete-for-everyone no-resurrection.
+- Updated readiness tracking to move M2 from pending to complete in active docs.
+
+### Changed (2026-03-22 - chat timeline scroll smoothness hardening)
+
+- Improved chat scrolling responsiveness for large message timelines without introducing new lifecycle/sync owners:
+  - stabilized `MessageList` props from `ChatView` with callback memoization to reduce avoidable list rerenders,
+  - memoized `MessageList` with an explicit prop comparator,
+  - added stable virtualizer item keys (`message.id`) for better prepend/load-more stability,
+  - tuned fast-scroll behavior:
+    - reduced overscan under fast-scroll mode,
+    - suspended dynamic row measurement during fast-scroll bursts to reduce layout thrash,
+  - replaced attachment-local-index effect/setState pass with memoized derivation to avoid an extra render cycle per message refresh,
+  - disabled expensive bubble transition animations while high-load mode is active.
+- Validation:
+  - `pnpm -C apps/pwa exec vitest run app/features/messaging/components/chat-view.test.tsx app/features/messaging/components/message-list-scroll.test.ts`
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`
+  - `pnpm release:test-pack -- --skip-preflight`
+
 ### Changed (2026-03-21 - v1 readiness M3 strict preflight replay)
 
 - Advanced pre-v1 hardening into M3 with a clean-tree strict preflight replay:

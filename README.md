@@ -34,10 +34,10 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - Desktop updater and release-tag awareness.
 - Performance mode improvements for large timelines and burst traffic.
 
-## Current Status (v0.9.5 Release Staging)
+## Current Status (v0.9.6 Release Staging)
 
 - The v0.9.2 constrained-release blocker set remains in monitoring mode after replay verification.
-- v0.9.5 reliability and UX hardening content has been consolidated into standard docs and runbooks (`docs/07`, `docs/08`).
+- v0.9.6 reliability and UX hardening content has been consolidated into standard docs and runbooks (`docs/07`, `docs/08`).
 - Pre-v1 stability milestones are now tracked in:
   - [`docs/19-v1-readiness-stability-plan.md`](docs/19-v1-readiness-stability-plan.md).
 - Current workspace release-readiness snapshot:
@@ -47,7 +47,7 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
   - `pnpm release:artifact-version-contract-check` passes,
   - `pnpm release:ci-signal-check` passes,
   - `pnpm release:test-pack -- --skip-preflight` passes,
-  - `pnpm release:preflight -- --tag v0.9.5 --allow-dirty 1` passes.
+  - `pnpm release:preflight -- --tag v0.9.6 --allow-dirty 1` passes.
 - Remaining release-prep work is operational:
   - clean-tree strict preflight and tag flow.
 - Canonical runtime monitoring baseline:
@@ -107,7 +107,7 @@ These placeholders are for future GIF demos in README and the future official we
 5. `docs/assets/demo-desktop-updater.gif`  
    Placeholder: current vs latest version state and install prompt.
 
-## Release Preparation (v0.9.5)
+## Release Preparation (v0.9.6)
 
 Before tagging:
 
@@ -120,7 +120,7 @@ pnpm release:ci-signal-check
 pnpm release:artifact-matrix-check
 pnpm release:artifact-version-contract-check
 pnpm release:test-pack
-pnpm release:preflight -- --tag v0.9.5
+pnpm release:preflight -- --tag v0.9.6
 pnpm release:verify-tag --tag vX.Y.Z
 ```
 

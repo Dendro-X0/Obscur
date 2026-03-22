@@ -32,7 +32,7 @@ pnpm release:test-pack -- --skip-preflight
 pnpm release:preflight
 ```
 
-## Current Release Lane (v0.9.5)
+## Current Release Lane (v0.9.6)
 
 Before pushing a release tag:
 
@@ -44,9 +44,9 @@ Before pushing a release tag:
 : `pnpm release:ci-signal-check`
 : `pnpm release:test-pack -- --skip-preflight`
 2. Run strict preflight only on a clean tree:
-: `pnpm release:preflight -- --tag v0.9.5`
+: `pnpm release:preflight -- --tag v0.9.6`
 3. If working tree is intentionally dirty during staging diagnostics, use:
-: `pnpm release:preflight -- --tag v0.9.5 --allow-dirty 1`
+: `pnpm release:preflight -- --tag v0.9.6 --allow-dirty 1`
 : and do not tag until strict clean-tree preflight passes.
 
 ## Tagging Model

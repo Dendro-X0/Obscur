@@ -116,6 +116,15 @@ export function ChatView(props: ChatViewProps) {
     const normalizedHistorySearchQuery = historySearchQuery.trim().toLowerCase();
     const canSearchHistory = normalizedHistorySearchQuery.length >= 2;
     const effectiveFlashMessageId = searchFlashMessageId ?? props.flashMessageId;
+    const {
+        isMediaGalleryOpen,
+        lightboxIndex,
+        selectedConversationMediaItems,
+        setIsMediaGalleryOpen,
+        setLightboxIndex,
+        setMessageMenu,
+        setReactionPicker,
+    } = props;
 
     const getMessageById = (messageId: string): Message | undefined => {
         return props.messages.find(m => m.id === messageId);
@@ -186,6 +195,21 @@ export function ChatView(props: ChatViewProps) {
             return current === params.messageId ? null : current;
         });
     }, []);
+    const handleJumpToMessageHandled = React.useCallback((messageId: string): void => {
+        setJumpToMessageId((current) => (current === messageId ? null : current));
+    }, []);
+    const handleOpenMessageMenu = React.useCallback((params: { messageId: string; x: number; y: number }): void => {
+        setMessageMenu(params);
+    }, [setMessageMenu]);
+    const handleOpenReactionPicker = React.useCallback((params: { messageId: string; x: number; y: number }): void => {
+        setReactionPicker(params);
+    }, [setReactionPicker]);
+    const handleImageClick = React.useCallback((url: string): void => {
+        const index = selectedConversationMediaItems.findIndex(item => item.attachment.url === url);
+        if (index !== -1) {
+            setLightboxIndex(index);
+        }
+    }, [selectedConversationMediaItems, setLightboxIndex]);
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -214,8 +238,6 @@ export function ChatView(props: ChatViewProps) {
     const {
         messageMenu,
         reactionPicker,
-        setMessageMenu,
-        setReactionPicker,
         messageMenuRef,
         reactionPickerRef,
     } = props;
@@ -271,11 +293,11 @@ export function ChatView(props: ChatViewProps) {
 
             let handled = false;
 
-            if (props.lightboxIndex !== null) {
-                props.setLightboxIndex(null);
+            if (lightboxIndex !== null) {
+                setLightboxIndex(null);
                 handled = true;
-            } else if (props.isMediaGalleryOpen) {
-                props.setIsMediaGalleryOpen(false);
+            } else if (isMediaGalleryOpen) {
+                setIsMediaGalleryOpen(false);
                 handled = true;
             } else if (messageMenu) {
                 setMessageMenu(null);
@@ -304,12 +326,12 @@ export function ChatView(props: ChatViewProps) {
         };
     }, [
         isHistorySearchOpen,
+        isMediaGalleryOpen,
+        lightboxIndex,
         messageMenu,
-        props.isMediaGalleryOpen,
-        props.lightboxIndex,
-        props.setIsMediaGalleryOpen,
-        props.setLightboxIndex,
         reactionPicker,
+        setIsMediaGalleryOpen,
+        setLightboxIndex,
         setMessageMenu,
         setReactionPicker,
     ]);
@@ -470,27 +492,17 @@ export function ChatView(props: ChatViewProps) {
                     nowMs={props.nowMs}
                     flashMessageId={effectiveFlashMessageId}
                     jumpToMessageId={jumpToMessageId}
-                    onJumpToMessageHandled={(messageId) => {
-                        setJumpToMessageId((current) => (current === messageId ? null : current));
-                    }}
-                    onOpenMessageMenu={(params) => props.setMessageMenu(params)}
+                    onJumpToMessageHandled={handleJumpToMessageHandled}
+                    onOpenMessageMenu={handleOpenMessageMenu}
                     openMessageMenuMessageId={props.messageMenu?.messageId ?? null}
                     openReactionPickerMessageId={props.reactionPicker?.messageId ?? null}
                     onMessageMenuAnchorHoverChange={handleMessageMenuAnchorHoverChange}
-                    onOpenReactionPicker={(params) => props.setReactionPicker(params)}
+                    onOpenReactionPicker={handleOpenReactionPicker}
                     onToggleReaction={props.onToggleReaction}
                     onRetryMessage={props.onRetryMessage}
                     onComposerFocus={() => props.composerTextareaRef.current?.focus()}
                     onReply={props.onReferenceMessage}
-                    onImageClick={(url) => {
-                        const index = props.selectedConversationMediaItems.findIndex(item => item.attachment.url === url);
-                        if (index !== -1) {
-                            props.setLightboxIndex(index);
-                        } else {
-                            // If for some reason it's not in the media items, we can handle it or just do nothing
-                            // For now, index -1 means it's not found.
-                        }
-                    }}
+                    onImageClick={handleImageClick}
                     isGroup={props.conversation.kind === "group"}
                     admins={props.groupAdmins}
                     onSendDirectMessage={props.onSendDirectMessage}

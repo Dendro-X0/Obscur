@@ -27,7 +27,6 @@ import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-a
 import {
     buildMessageRenderCaches,
     type ParsedMessagePayload,
-    type MessageRenderMeta,
     type InviteResponseStatus,
 } from "./message-list-render-meta";
 
@@ -60,7 +59,7 @@ interface MessageListProps {
 
 type MessageListScrollBehavior = "auto" | "smooth";
 
-export function MessageList({
+function MessageListImpl({
     hasHydrated,
     messages,
     rawMessagesCount,
@@ -80,18 +79,12 @@ export function MessageList({
     onComposerFocus,
     onReply,
     onImageClick,
-    isGroup,
     admins,
     pendingEventCount = 0,
     onSendDirectMessage,
     onRefresh
 }: MessageListProps) {
     const { t } = useTranslation();
-
-    const isReactableMessageId = (messageId: string): boolean => {
-        void messageId;
-        return true;
-    };
 
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
@@ -123,10 +116,12 @@ export function MessageList({
     }, [fastScrollMode]);
 
     const highLoadMode = chatPerformanceV2Enabled && (messages.length >= 100 || pendingEventCount >= 20 || fastScrollMode);
-    const virtualizerOverscan = highLoadMode ? 4 : 8;
+    const suspendDynamicMeasurement = chatPerformanceV2Enabled && fastScrollMode;
+    const virtualizerOverscan = suspendDynamicMeasurement ? 2 : highLoadMode ? 4 : 8;
 
     const virtualizer = useVirtualizer({
         count: messages.length,
+        getItemKey: (index) => messages[index]?.id ?? index,
         getScrollElement: () => parentRef.current,
         estimateSize: () => 156,
         overscan: virtualizerOverscan,
@@ -397,28 +392,31 @@ export function MessageList({
     const refreshRotate = useTransform(y, [0, 80], [0, 180]);
     const refreshScale = useTransform(y, [0, 80], [0.5, 1]);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const [localAttachmentUrlSet, setLocalAttachmentUrlSet] = React.useState<ReadonlySet<string>>(new Set());
-    const [localAttachmentFileNameByUrl, setLocalAttachmentFileNameByUrl] = React.useState<Readonly<Record<string, string>>>({});
-    const [expandedRelayUrlsByMessageId, setExpandedRelayUrlsByMessageId] = React.useState<ReadonlySet<string>>(new Set());
-
-    React.useEffect(() => {
+    const {
+        localAttachmentUrlSet,
+        localAttachmentFileNameByUrl,
+    } = React.useMemo(() => {
         const localIndex = getLocalMediaIndexSnapshot();
         const urls = new Set<string>();
         const fileNames: Record<string, string> = {};
         messages.forEach((message) => {
             message.attachments?.forEach((attachment) => {
                 const entry = localIndex[attachment.url];
-                if (entry) {
-                    urls.add(attachment.url);
-                    if (entry.fileName) {
-                        fileNames[attachment.url] = entry.fileName;
-                    }
+                if (!entry) {
+                    return;
+                }
+                urls.add(attachment.url);
+                if (entry.fileName) {
+                    fileNames[attachment.url] = entry.fileName;
                 }
             });
         });
-        setLocalAttachmentUrlSet(urls);
-        setLocalAttachmentFileNameByUrl(fileNames);
+        return {
+            localAttachmentUrlSet: urls as ReadonlySet<string>,
+            localAttachmentFileNameByUrl: fileNames as Readonly<Record<string, string>>,
+        };
     }, [messages]);
+    const [expandedRelayUrlsByMessageId, setExpandedRelayUrlsByMessageId] = React.useState<ReadonlySet<string>>(new Set());
 
     React.useEffect(() => {
         return () => {
@@ -554,7 +552,7 @@ export function MessageList({
                                         key={virtualItem.key}
                                         virtualIndex={virtualItem.index}
                                         virtualStart={virtualItem.start}
-                                        measureElement={virtualizer.measureElement}
+                                        measureElement={suspendDynamicMeasurement ? undefined : virtualizer.measureElement}
                                         message={message}
                                         admins={admins}
                                         timeLabel={timeLabel}
@@ -615,10 +613,42 @@ export function MessageList({
     );
 }
 
+const messageListPropsAreEqual = (prev: MessageListProps, next: MessageListProps): boolean => {
+    return (
+        prev.hasHydrated === next.hasHydrated &&
+        prev.messages === next.messages &&
+        prev.rawMessagesCount === next.rawMessagesCount &&
+        prev.hasEarlierMessages === next.hasEarlierMessages &&
+        prev.onLoadEarlier === next.onLoadEarlier &&
+        prev.nowMs === next.nowMs &&
+        prev.flashMessageId === next.flashMessageId &&
+        prev.jumpToMessageId === next.jumpToMessageId &&
+        prev.onJumpToMessageHandled === next.onJumpToMessageHandled &&
+        prev.onOpenMessageMenu === next.onOpenMessageMenu &&
+        prev.openMessageMenuMessageId === next.openMessageMenuMessageId &&
+        prev.openReactionPickerMessageId === next.openReactionPickerMessageId &&
+        prev.onMessageMenuAnchorHoverChange === next.onMessageMenuAnchorHoverChange &&
+        prev.onOpenReactionPicker === next.onOpenReactionPicker &&
+        prev.onToggleReaction === next.onToggleReaction &&
+        prev.onRetryMessage === next.onRetryMessage &&
+        prev.onComposerFocus === next.onComposerFocus &&
+        prev.onReply === next.onReply &&
+        prev.onImageClick === next.onImageClick &&
+        prev.isGroup === next.isGroup &&
+        prev.admins === next.admins &&
+        prev.pendingEventCount === next.pendingEventCount &&
+        prev.onSendDirectMessage === next.onSendDirectMessage &&
+        prev.onRefresh === next.onRefresh
+    );
+};
+
+export const MessageList = React.memo(MessageListImpl, messageListPropsAreEqual);
+MessageList.displayName = "MessageList";
+
 type MessageRowProps = Readonly<{
     virtualIndex: number;
     virtualStart: number;
-    measureElement: (node: Element | null) => void;
+    measureElement?: (node: Element | null) => void;
     message: Message;
     admins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
     timeLabel: string;
@@ -761,7 +791,8 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             }
                         }}
                         className={cn(
-                            "relative max-w-[90%] sm:max-w-[80%] group transition-all duration-200",
+                            "relative max-w-[90%] sm:max-w-[80%] group",
+                            highLoadMode ? "transition-none" : "transition-all duration-200",
                             hasVisualAttachments && "min-w-[300px] sm:min-w-[420px] max-w-[95%] sm:max-w-[88%]",
                             message.isOutgoing
                                 ? "bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-md shadow-purple-500/20 dark:from-zinc-100 dark:to-zinc-200 dark:text-zinc-900 dark:shadow-none"
@@ -966,6 +997,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
 }, (prev, next) => {
     return (
         prev.virtualStart === next.virtualStart &&
+        prev.measureElement === next.measureElement &&
         prev.message === next.message &&
         prev.timeLabel === next.timeLabel &&
         prev.isGroupStart === next.isGroupStart &&

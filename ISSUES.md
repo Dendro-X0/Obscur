@@ -1,8 +1,8 @@
-# Issue Status Snapshot (v0.9.5 to v1 Readiness Monitoring)
+# Issue Status Snapshot (v0.9.6 to v1 Readiness Monitoring)
 
-Last updated: 2026-03-21
+Last updated: 2026-03-22
 
-This file tracks runtime issue status during late v0.9.5 stabilization and pre-v1 readiness hardening.
+This file tracks runtime issue status during late v0.9.6 stabilization and pre-v1 readiness hardening.
 
 ## Current State
 
@@ -36,12 +36,12 @@ This file tracks runtime issue status during late v0.9.5 stabilization and pre-v
   - `7 files / 111 tests passed`.
 - M2 group-chat delete-for-everyone convergence hardening landed:
   - incoming and local group delete paths now emit MessageBus delete events to canonical chat state, preventing receiver-side stale visibility.
-- M2 manual two-device soak is pending:
-  - DM continuity + group membership/sendability + media parity + delete-for-everyone no-resurrection.
+- M2 manual two-device soak replay is complete:
+  - DM continuity + group membership/sendability + media parity + delete-for-everyone no-resurrection were manually validated in dev-server replay.
 - M3 strict preflight replay is green on clean `main`:
   - `pnpm release:preflight -- --tag v1.0.0`.
 - Remaining pre-v1 gate:
-  - complete and record the M2 manual two-device soak evidence in the maintainer replay matrix.
+  - keep manual replay matrix evidence synchronized in maintainer docs while final tag planning converges.
 
 ## v0.9.5 M0 Status
 

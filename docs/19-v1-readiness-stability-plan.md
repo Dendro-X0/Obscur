@@ -1,6 +1,6 @@
 # 19 v1 Readiness Stability Plan
 
-_Last reviewed: 2026-03-21 (baseline commit 4ddb98f)._
+_Last reviewed: 2026-03-22 (baseline commit 3de7252)._
 
 This is the final pre-v1 hardening plan.
 
@@ -79,7 +79,7 @@ Current execution status (started 2026-03-21):
 : `7 files / 111 tests passed`.
 2. Group delete-for-everyone convergence hardening landed:
 : group `kind:5` delete events now emit canonical MessageBus delete events so chat views on all devices apply removals through the same message owner path.
-3. Manual two-device soak remains next:
+3. Manual two-device soak replay completed:
 : DM continuity replay,
 : group membership/sendability replay,
 : media parity replay,
@@ -101,7 +101,7 @@ Current execution status (started 2026-03-21):
 1. Strict preflight replay is green on clean `main`:
 : `pnpm release:preflight -- --tag v1.0.0`.
 2. Remaining M3 gate:
-: record manual replay matrix evidence for M1/M2 acceptance slices before tag planning.
+: keep manual replay matrix evidence synchronized while final v1 tag timing is decided.
 
 ## Execution Rules
 
