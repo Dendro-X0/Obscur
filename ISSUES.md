@@ -38,6 +38,10 @@ This file tracks runtime issue status during late v0.9.5 stabilization and pre-v
   - incoming and local group delete paths now emit MessageBus delete events to canonical chat state, preventing receiver-side stale visibility.
 - M2 manual two-device soak is pending:
   - DM continuity + group membership/sendability + media parity + delete-for-everyone no-resurrection.
+- M3 strict preflight replay is green on clean `main`:
+  - `pnpm release:preflight -- --tag v1.0.0`.
+- Remaining pre-v1 gate:
+  - complete and record the M2 manual two-device soak evidence in the maintainer replay matrix.
 
 ## v0.9.5 M0 Status
 

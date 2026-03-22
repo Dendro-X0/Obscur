@@ -1,6 +1,6 @@
 # 19 v1 Readiness Stability Plan
 
-_Last reviewed: 2026-03-21 (baseline commit deb2882)._
+_Last reviewed: 2026-03-21 (baseline commit 4ddb98f)._
 
 This is the final pre-v1 hardening plan.
 
@@ -96,6 +96,12 @@ Acceptance:
 1. `pnpm release:preflight -- --tag v1.0.0` passes on clean `main`.
 2. Manual replay matrix recorded (session, route, two-device sync, deletion).
 3. Release note claims map to runtime evidence and tests.
+
+Current execution status (started 2026-03-21):
+1. Strict preflight replay is green on clean `main`:
+: `pnpm release:preflight -- --tag v1.0.0`.
+2. Remaining M3 gate:
+: record manual replay matrix evidence for M1/M2 acceptance slices before tag planning.
 
 ## Execution Rules
 

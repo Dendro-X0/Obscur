@@ -6,6 +6,15 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+### Changed (2026-03-21 - v1 readiness M3 strict preflight replay)
+
+- Advanced pre-v1 hardening into M3 with a clean-tree strict preflight replay:
+  - `pnpm release:preflight -- --tag v1.0.0`.
+- Result:
+  - preflight checks passed for release integrity, artifact contracts, version alignment, docs checks, and CI signal contracts.
+- Remaining gate:
+  - manual replay matrix evidence for M2 two-device acceptance before v1 tag planning.
+
 ### Changed (2026-03-21 - v1 readiness stability kickoff)
 
 - Added the pre-v1 hardening roadmap:
