@@ -161,6 +161,40 @@ describe("AppShell navigation", () => {
     expect(routeRequestLogged).toBe(true);
   });
 
+  it("uses escape key to navigate back when no dismissable layer is open", async () => {
+    appShellMocks.pathname = "/network";
+    window.history.pushState({}, "", "/");
+    window.history.pushState({}, "", "/network");
+    const backSpy = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
+    try {
+      await renderShell();
+      act(() => {
+        fireEvent.keyDown(window, { key: "Escape" });
+      });
+      expect(backSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      backSpy.mockRestore();
+    }
+  });
+
+  it("does not trigger shell escape-back while a dismissable layer is open", async () => {
+    appShellMocks.pathname = "/network";
+    const layer = document.createElement("div");
+    layer.setAttribute("data-escape-layer", "open");
+    document.body.appendChild(layer);
+    const backSpy = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
+    try {
+      await renderShell();
+      act(() => {
+        fireEvent.keyDown(window, { key: "Escape" });
+      });
+      expect(backSpy).not.toHaveBeenCalled();
+    } finally {
+      backSpy.mockRestore();
+      document.body.removeChild(layer);
+    }
+  });
+
   it("emits a slow route-mount probe event when settle threshold is exceeded", async () => {
     vi.useFakeTimers();
     const requestAnimationFrameSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);

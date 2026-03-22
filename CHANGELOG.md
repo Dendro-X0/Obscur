@@ -6,6 +6,182 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+### Fixed (2026-03-21 - v0.9.5 M2 deletion convergence hardening)
+
+- Landed dual deletion modes in chat UX with explicit ownership boundaries:
+  - `Delete for me` (local visibility removal),
+  - `Delete for everyone` (sender-only authority + remote sync intent).
+- Hardened cross-device deletion convergence so recipient-side removal can resolve multiple identifiers per message:
+  - direct payload id,
+  - `e`-tag references,
+  - derived fallback rumor/event ids for NIP-17 sparse cases.
+- Fixed deletion resurrection drift during projection/hydration replay:
+  - added persistent, profile-scoped deletion tombstones and enforced filtering at canonical conversation hydration/merge surfaces.
+- Added focused regression coverage for:
+  - incoming delete-command id matching,
+  - persistent tombstone storage semantics,
+  - conversation hydration integration,
+  - persistence replay behavior.
+- Validation snapshot:
+  - targeted messaging regression suites are green (`7 files / 50 tests`),
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false` is green.
+
+### Changed (2026-03-21 - v0.9.5 M0 execution started)
+
+- Started `M0` execution with a docs-first scope lock to avoid disruptive architectural drift.
+- Added the explicit `v0.9.5` release-candidate manual replay checklist to:
+  - `docs/08-maintainer-playbook.md`.
+- Reinforced first-response triage contract for runtime incidents:
+  - `copy(window.obscurM0Triage?.captureJson(300))`.
+
+### Changed (2026-03-21 - v0.9.5 M1 guardrails started)
+
+- Started `M1` execution for session continuity + route-liveness guardrails without adding lifecycle owners.
+- Added focused regression coverage for private-key remember-me continuity in key-import + skip-password flow:
+  - `apps/pwa/app/features/auth/components/auth-screen.test.tsx`.
+- Revalidated focused M1 suites:
+  - `auth-gateway`,
+  - `auth-screen`,
+  - `app-shell`,
+  - `mobile-tab-bar`,
+  - desktop `title-bar-profile-switcher`.
+
+### Changed (2026-03-21 - v0.9.5 M2 diagnostics-first sync-confidence kickoff)
+
+- Started `M2` execution without adding new sync owners or parallel restore mutation paths.
+- Expanded cross-device digest event coverage in `log-app-event` for:
+  - DM continuity drift (`messaging.conversation_hydration_diagnostics`, `messaging.conversation_hydration_id_split_detected`, `messaging.legacy_migration_diagnostics`),
+  - membership/sendability drift (`groups.room_key_missing_send_blocked`, `messaging.chat_state_groups_update`),
+  - existing restore/hydration/account-sync signals.
+- Added compact summary risk signals in `window.obscurAppEvents.getCrossDeviceSyncDigest(...)`:
+  - `summary.selfAuthoredDmContinuity`,
+  - `summary.membershipSendability`,
+  - `summary.mediaHydrationParity`.
+- Added account-sync media-parity evidence fields at canonical restore boundaries:
+  - hydrate/merge/apply diagnostics now include DM/group attachment counts,
+  - `account_sync.backup_restore_history_regression` now includes attachment-drop deltas.
+- Added focused regression coverage:
+  - `apps/pwa/app/shared/log-app-event.test.ts`,
+  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`.
+
+### Changed (2026-03-21 - v0.9.5 M2 risk-level matrix + M3 vault contrast kickoff)
+
+- Extended M2 digest verification with deterministic media-parity risk-level coverage:
+  - `mediaHydrationParity` now has focused `watch` and `none` scenario tests in:
+    - `apps/pwa/app/shared/log-app-event.test.ts`.
+- Started M3 with a low-risk Vault UI polish slice (class-level only, no lifecycle/owner changes):
+  - improved Light-mode readability for Vault filter/pagination controls,
+  - improved at-rest visibility of close/action/zoom/reset controls in Vault media detail overlay,
+  - preserved existing media interaction behavior (open, zoom, favorite, flush cache).
+- Validation:
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`,
+  - `pnpm release:test-pack -- --skip-preflight`.
+
+### Changed (2026-03-21 - v0.9.5 M3 shared media-control visibility follow-up)
+
+- Improved shared media viewer control visibility for Light mode without changing runtime ownership:
+  - updated Light-theme media control tokens in `apps/pwa/app/globals.css` (`--media-control-*`) for stronger at-rest contrast,
+  - added explicit themed control-cluster container styling in chat lightbox:
+    - `apps/pwa/app/features/messaging/components/lightbox.tsx`.
+- Added an additional high-traffic light-mode contrast fix:
+  - `apps/pwa/app/features/messaging/components/new-chat-dialog.tsx` now uses theme-safe card border tokens.
+- Kept dark-mode behavior intact via existing dark token overrides.
+- Minor Vault UI text cleanup:
+  - normalized overlay metadata separator in `apps/pwa/app/features/vault/components/vault-media-grid.tsx`.
+- Validation:
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`,
+  - `pnpm release:test-pack -- --skip-preflight`.
+
+### Changed (2026-03-21 - v0.9.5 M3 inline media player contrast follow-up)
+
+- Extended M3 light-mode readability polish to inline chat media playback surfaces without changing playback behavior owners:
+  - `apps/pwa/app/features/messaging/components/audio-player.tsx` now uses theme-safe light/dark control surfaces with stronger non-hover readability for timeline, volume, and external-open controls.
+  - `apps/pwa/app/features/messaging/components/video-player.tsx` now uses theme-safe light/dark control-dock and error-panel contrast for play/seek/volume/fullscreen interactions.
+- Minor cleanup:
+  - removed unused `Button` imports from `audio-player` and `video-player`.
+- Validation:
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`,
+  - `pnpm release:test-pack -- --skip-preflight`.
+
+### Changed (2026-03-21 - v0.9.5 M4 stabilization gate replay started)
+
+- Started `M4` release-stabilization execution with automated gate replay (no architecture changes).
+- Current automated gate snapshot is green:
+  - `pnpm version:check`,
+  - `pnpm docs:check`,
+  - `pnpm release:integrity-check`,
+  - `pnpm release:artifact-version-contract-check`,
+  - `pnpm release:ci-signal-check`,
+  - `pnpm release:test-pack -- --skip-preflight`,
+  - `pnpm -C apps/pwa exec vitest run`,
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`.
+- Preflight status:
+  - `pnpm release:preflight -- --tag v0.9.5` currently fails fast until the working tree is clean.
+- Remaining before tag-preflight:
+  - manual M1/M2/M3 replay matrix,
+  - clean-tree `pnpm release:preflight -- --tag v0.9.5`.
+
+### Fixed (2026-03-21 - v0.9.5 M4 hook-order crash regression)
+
+- Fixed a runtime crash in `NostrMessengerContent` (`Rendered fewer hooks than expected`) caused by hook declarations placed after conditional early returns:
+  - moved chat-list memo hooks in `apps/pwa/app/features/main-shell/main-shell.tsx` above `loading`/`lock-screen` early-return branches to keep hook order stable across identity state transitions.
+- Added focused regression coverage:
+  - `apps/pwa/app/features/main-shell/main-shell.test.tsx` validates rerender transitions `unlocked -> loading -> unlocked` without hook-order failure.
+- Validation:
+  - `pnpm -C apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`,
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`.
+
+### Changed (2026-03-21 - v0.9.5 keyboard dismissal and preview navigation polish)
+
+- Added deterministic `Escape` dismissal behavior for active overlays/menus before shell-level navigation:
+  - chat history-search panel, message menu, reaction picker, media gallery, and lightbox now close via `Escape`,
+  - vault item context menu and vault media preview overlay now close via `Escape`.
+- Added shell-level `Escape` back-navigation guard in `app-shell`:
+  - when no dismissable layer is open and current route is not root, `Escape` navigates back to previous history entry (fallback to `/` when needed),
+  - avoids triggering back-navigation from editable text targets and while dismissable layers are active.
+- Added keyboard media switching in Vault preview:
+  - `ArrowLeft` / `ArrowRight` now switch to previous/next selected media item in the active Vault list.
+- Added focused regression coverage:
+  - `app/components/app-shell.test.tsx` (`Escape` back behavior + dismissable-layer guard),
+  - `app/features/messaging/components/chat-view.test.tsx` (`Escape` closes history search panel).
+- Validation:
+  - `pnpm -C apps/pwa exec vitest run app/components/app-shell.test.tsx app/features/messaging/components/chat-view.test.tsx`,
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`.
+
+### Changed (2026-03-21 - v0.9.5 immersive media-preview theming polish)
+
+- Refined media preview ambience to align with app theme and improve depth/focus:
+  - added theme-aware preview backdrop tokens in `apps/pwa/app/globals.css`:
+    - `--media-preview-backdrop`,
+    - `--media-preview-depth-layer`,
+    - with reusable utility classes `media-preview-backdrop` and `media-preview-depth-layer`.
+- Applied immersive light/dark backdrop treatment to chat media lightbox:
+  - `apps/pwa/app/features/messaging/components/lightbox.tsx`,
+  - light mode now uses a bright gradient ambience; dark mode retains cinematic dark depth.
+- Applied the same theme-aware backdrop and stage-surface polish to Vault preview overlay:
+  - `apps/pwa/app/features/vault/components/vault-media-grid.tsx`.
+- Validation:
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`.
+
+### Changed (2026-03-21 - v0.9.5 roadmap kickoff)
+
+- Added and executed the concrete non-disruptive execution roadmap for `v0.9.5`.
+- Documented explicit pre-v1 constraints in the roadmap:
+  - no major overhauls,
+  - no new lifecycle/sync owners,
+  - no parallel mutation pipelines.
+- Consolidated the roadmap's operational content into standard docs:
+  - `docs/07-operations-and-release-flow.md`,
+  - `docs/08-maintainer-playbook.md`,
+  - `docs/README.md`.
+
 ### Changed (2026-03-21 - v0.9.4 release-candidate prep baseline)
 
 - Bumped release-tracked manifests from `0.9.2` to `0.9.4` and synchronized:

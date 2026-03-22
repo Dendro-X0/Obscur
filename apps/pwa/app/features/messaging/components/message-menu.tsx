@@ -18,7 +18,8 @@ interface MessageMenuProps {
     onCopyText: () => void;
     onCopyAttachmentUrl: () => void;
     onReply: () => void;
-    onDelete: () => void;
+    onDeleteForMe: () => void;
+    onDeleteForEveryone: () => void;
     menuRef: React.RefObject<HTMLDivElement | null>;
     onHoverChange?: (isHovered: boolean) => void;
     onRequestClose?: () => void;
@@ -36,13 +37,14 @@ export function MessageMenu({
     onCopyText,
     onCopyAttachmentUrl,
     onReply,
-    onDelete,
+    onDeleteForMe,
+    onDeleteForEveryone,
     menuRef,
     onHoverChange,
     onRequestClose,
 }: MessageMenuProps) {
     const { t } = useTranslation();
-    const canDelete: boolean = isDeletableMessageId(activeMessage.id);
+    const canDeleteForEveryone: boolean = activeMessage.isOutgoing && isDeletableMessageId(activeMessage.id);
     const hasText: boolean = Boolean(activeMessage.content.trim());
     const hasAttachment: boolean = Boolean(activeMessage.attachments && activeMessage.attachments.length > 0);
     const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
@@ -138,6 +140,7 @@ export function MessageMenu({
     return createPortal(
         <div
             ref={menuRef}
+            data-escape-layer="open"
             className="fixed z-[1200]"
             style={{ left: position.left, top: position.top }}
             onPointerDown={(e) => e.stopPropagation()}
@@ -170,14 +173,21 @@ export function MessageMenu({
                 </button>
                 <button
                     type="button"
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
+                    onClick={onDeleteForMe}
+                >
+                    {t("messaging.deleteForMe", "Delete for me")}
+                </button>
+                <button
+                    type="button"
                     className={cn(
                         "w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
-                        !canDelete ? "opacity-50" : "text-red-600 dark:text-red-400"
+                        !canDeleteForEveryone ? "opacity-50" : "text-red-600 dark:text-red-400"
                     )}
-                    disabled={!canDelete}
-                    onClick={onDelete}
+                    disabled={!canDeleteForEveryone}
+                    onClick={onDeleteForEveryone}
                 >
-                    {t("common.delete")}
+                    {t("messaging.deleteForEveryone", "Delete for everyone")}
                 </button>
             </div>
         </div>,

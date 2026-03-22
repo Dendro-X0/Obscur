@@ -12,6 +12,76 @@ This file tracks runtime issue status after v0.9.3 plan closure while preparing 
   - manual two-device replay + navigation stress replay on dev server,
   - automated reliability/type/docs/release-pack gates passing in this workspace.
 
+## v0.9.5 M0 Status
+
+- M0 started on 2026-03-21 with a docs-first scope lock and no runtime-owner changes.
+- No new active blockers opened during M0 kickoff.
+- First-response incident capture remains:
+  - `copy(window.obscurM0Triage?.captureJson(300))`.
+
+## v0.9.5 M1 Status
+
+- M1 started on 2026-03-21 with session + navigation guardrails only (no owner-model expansion).
+- Added private-key remember-me continuity regression coverage in `auth-screen` focused tests.
+- Focused M1 route/session guardrail suites are currently green in local verification.
+
+## v0.9.5 M2 Status
+
+- M2 started on 2026-03-21 with diagnostics-first sync-confidence hardening (no new sync owner paths).
+- Cross-device digest coverage now includes DM hydration split signals and membership sendability drift signals.
+- `getCrossDeviceSyncDigest` now exposes compact summary risk signals for:
+  - `selfAuthoredDmContinuity`,
+  - `membershipSendability`.
+- M2 media-parity diagnostics slice added:
+  - account-sync hydrate/merge/apply diagnostics now include attachment evidence counts,
+  - restore history regression diagnostics now include attachment-drop deltas,
+  - digest summary now exposes `mediaHydrationParity`.
+- Added deterministic digest risk-level matrix coverage for media parity (`high`, `watch`, `none`) in focused `log-app-event` tests.
+- Message deletion convergence hardening landed:
+  - dual deletion UX (`Delete for me`, `Delete for everyone`) is implemented with sender-authority constraints,
+  - recipient-side deletion matching now supports multi-id fallback paths (payload id + tag ids + derived fallback ids),
+  - persistent profile-scoped delete tombstones now prevent deleted messages from reappearing after restore/hydration replay.
+
+## v0.9.5 M3 Status
+
+- M3 started on 2026-03-21 with low-risk UI contrast/visibility polish.
+- Vault light-mode readability and control visibility slice landed:
+  - filter chips + pagination controls improved for non-hover readability in Light mode,
+  - detail overlay control surfaces (close/action/zoom/reset) now use stronger theme-safe contrast.
+- Shared media-control visibility slice landed:
+  - global media-viewer control tokens now provide stronger at-rest contrast in Light mode,
+  - chat lightbox top-right control cluster now has explicit contrast-safe container styling.
+- Additional chat discovery surface contrast fix landed:
+  - new-chat dialog card border now uses theme-safe light/dark border tokens.
+- Additional inline media playback contrast fix landed:
+  - chat `audio-player` and `video-player` control docks now use theme-safe Light/Dark surfaces with improved at-rest readability.
+- Validation for this slice is green:
+  - `pnpm -C apps/pwa build`,
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm release:test-pack -- --skip-preflight`.
+
+## v0.9.5 M4 Status
+
+- M4 stabilization started on 2026-03-21 with automated release-gate replay first.
+- Automated gates currently green in this workspace:
+  - `pnpm version:check`,
+  - `pnpm docs:check`,
+  - `pnpm release:integrity-check`,
+  - `pnpm release:artifact-version-contract-check`,
+  - `pnpm release:ci-signal-check`,
+  - `pnpm release:test-pack -- --skip-preflight`,
+  - `pnpm -C apps/pwa exec vitest run`,
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`,
+  - `pnpm -C apps/pwa build`.
+- Preflight status:
+  - `pnpm release:preflight -- --tag v0.9.5` fails fast while working tree is dirty (expected until release staging).
+- Remaining before tag preparation:
+  - manual replay matrix for M1/M2/M3 acceptance in `docs/08-maintainer-playbook.md`,
+  - clean-tree `pnpm release:preflight -- --tag v0.9.5`.
+- Stabilization regression resolved in M4:
+  - fixed `NostrMessengerContent` hook-order crash (`Rendered fewer hooks than expected`) by moving memo hooks above identity-gate early-return branches in `main-shell`,
+  - added focused regression test `app/features/main-shell/main-shell.test.tsx`.
+
 ## Resolved in Verification (Monitoring)
 
 ## 1) Login state persistence regression ("Remember Me" unreliable)
@@ -56,6 +126,13 @@ This file tracks runtime issue status after v0.9.3 plan closure while preparing 
 - Resolution snapshot:
   - membership visibility and sendability remained converged in verified cross-device flows,
   - prior room-key/membership drift symptoms were not reproduced in acceptance runs.
+
+## 7) Message deletion reappearance and incomplete recipient removal
+
+- Status: Resolved in focused regression verification; Monitoring.
+- Resolution snapshot:
+  - sender-issued `Delete for everyone` now resolves on recipient side across multiple id forms,
+  - deleted messages no longer reappear after projection/hydration replay due to persistent tombstone filtering.
 
 ## Monitoring Guardrails
 

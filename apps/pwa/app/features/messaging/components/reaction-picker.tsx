@@ -115,6 +115,7 @@ export function ReactionPicker({ messageId, isOutgoing, x, y, onSelect, pickerRe
     return createPortal(
         <div
             ref={pickerRef}
+            data-escape-layer="open"
             className="fixed z-[1200]"
             style={{ left: position.left, top: position.top }}
             onPointerDown={(e) => e.stopPropagation()}

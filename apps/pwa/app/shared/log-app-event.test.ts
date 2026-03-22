@@ -212,7 +212,36 @@ describe("logAppEvent", () => {
         hydratedDmOutgoingCount: 1,
         hydratedDmIncomingCount: 86,
         hydratedDmIncomingOnlyConversationCount: 1,
+        hydratedDmAttachmentCount: 12,
+        hydratedGroupAttachmentCount: 4,
         extraFieldShouldBeDropped: 42,
+      },
+    });
+    logAppEvent({
+      name: "account_sync.backup_restore_merge_diagnostics",
+      level: "info",
+      context: {
+        publicKeySuffix: "abc12345",
+        mergedDmOutgoingCount: 0,
+        mergedDmIncomingCount: 86,
+        mergedDmAttachmentCount: 5,
+        mergedGroupAttachmentCount: 1,
+      },
+    });
+    logAppEvent({
+      name: "account_sync.backup_restore_history_regression",
+      level: "warn",
+      context: {
+        publicKeySuffix: "abc12345",
+        stage: "incoming_to_merged",
+        dmAttachmentDropped: true,
+        groupAttachmentDropped: false,
+        dmAttachmentDelta: -7,
+        groupAttachmentDelta: 0,
+        fromDmAttachmentCount: 12,
+        toDmAttachmentCount: 5,
+        fromGroupAttachmentCount: 4,
+        toGroupAttachmentCount: 1,
       },
     });
     logAppEvent({
@@ -224,6 +253,30 @@ describe("logAppEvent", () => {
         persistedGroupCount: 0,
         ledgerEntryCount: 0,
         visibleGroupCount: 0,
+      },
+    });
+    logAppEvent({
+      name: "messaging.chat_state_groups_update",
+      level: "info",
+      context: {
+        publicKeySuffix: "abc12345",
+        profileId: "default",
+        groupCount: 0,
+      },
+    });
+    logAppEvent({
+      name: "messaging.conversation_hydration_id_split_detected",
+      level: "warn",
+      context: {
+        conversationIdHint: "conversation:abc",
+        siblingOutgoingCount: 3,
+      },
+    });
+    logAppEvent({
+      name: "groups.room_key_missing_send_blocked",
+      level: "warn",
+      context: {
+        groupIdHint: "group:abc",
       },
     });
     logAppEvent({
@@ -243,6 +296,32 @@ describe("logAppEvent", () => {
         windowSize: number;
         generatedAtUnixMs: number;
         events: Record<string, Array<{ context: Record<string, unknown> }>>;
+        summary: {
+          selfAuthoredDmContinuity: {
+            riskLevel: "none" | "watch" | "high";
+            latestHydratedOutgoingCount: number | null;
+            latestMergedOutgoingCount: number | null;
+            sparseOutgoingEvidence: boolean | null;
+            idSplitDetectedCount: number;
+          };
+          membershipSendability: {
+            riskLevel: "none" | "watch" | "high";
+            latestVisibleGroupCount: number | null;
+            latestChatStateGroupCount: number | null;
+            roomKeyMissingSendBlockedCount: number;
+          };
+          mediaHydrationParity: {
+            riskLevel: "none" | "watch" | "high";
+            latestHydratedDmAttachmentCount: number | null;
+            latestMergedDmAttachmentCount: number | null;
+            latestAppliedDmAttachmentCount: number | null;
+            latestHydratedGroupAttachmentCount: number | null;
+            latestMergedGroupAttachmentCount: number | null;
+            latestAppliedGroupAttachmentCount: number | null;
+            attachmentDropRegressionCount: number;
+            criticalHydrationDriftCount: number;
+          };
+        };
         recentWarnOrError: Array<{ name: string; level: string; reasonCode: string | null }>;
       };
     };
@@ -279,17 +358,180 @@ describe("logAppEvent", () => {
       hydratedDmOutgoingCount: 1,
       hydratedDmIncomingCount: 86,
       hydratedDmIncomingOnlyConversationCount: 1,
+      hydratedDmAttachmentCount: 12,
+      hydratedGroupAttachmentCount: 4,
     }));
     expect(digest.events["account_sync.backup_payload_hydration_diagnostics"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.events["account_sync.backup_restore_history_regression"]?.[0]?.context).toEqual(expect.objectContaining({
+      stage: "incoming_to_merged",
+      dmAttachmentDropped: true,
+      dmAttachmentDelta: -7,
+      fromDmAttachmentCount: 12,
+      toDmAttachmentCount: 5,
+    }));
     expect(digest.events["groups.membership_recovery_hydrate"]?.[0]?.context).toEqual(expect.objectContaining({
       persistedGroupCount: 0,
       ledgerEntryCount: 0,
       visibleGroupCount: 0,
+    }));
+    expect(digest.events["messaging.chat_state_groups_update"]?.[0]?.context).toEqual(expect.objectContaining({
+      profileId: "default",
+      groupCount: 0,
+    }));
+    expect(digest.events["groups.room_key_missing_send_blocked"]?.[0]?.context).toEqual(expect.objectContaining({
+      groupIdHint: "group:abc",
+    }));
+    expect(digest.summary.selfAuthoredDmContinuity).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      latestHydratedOutgoingCount: 1,
+      latestMergedOutgoingCount: 0,
+      sparseOutgoingEvidence: true,
+      idSplitDetectedCount: 1,
+    }));
+    expect(digest.summary.membershipSendability).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      latestVisibleGroupCount: 0,
+      latestChatStateGroupCount: 0,
+      roomKeyMissingSendBlockedCount: 1,
+    }));
+    expect(digest.summary.mediaHydrationParity).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      latestHydratedDmAttachmentCount: 12,
+      latestMergedDmAttachmentCount: 5,
+      latestAppliedDmAttachmentCount: null,
+      latestHydratedGroupAttachmentCount: 4,
+      latestMergedGroupAttachmentCount: 1,
+      latestAppliedGroupAttachmentCount: null,
+      attachmentDropRegressionCount: 1,
     }));
     expect(digest.recentWarnOrError.some((entry) => (
       entry.name === "runtime.activation.timeout"
       && entry.level === "warn"
       && entry.reasonCode === "relay_timeout"
     ))).toBe(true);
+  });
+
+  it("marks media hydration parity as watch when attachment counts drop across hydrate->merge/apply without explicit regression event", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "account_sync.backup_payload_hydration_diagnostics",
+      level: "info",
+      context: {
+        hydratedDmAttachmentCount: 10,
+        hydratedGroupAttachmentCount: 3,
+      },
+    });
+    logAppEvent({
+      name: "account_sync.backup_restore_merge_diagnostics",
+      level: "info",
+      context: {
+        mergedDmAttachmentCount: 7,
+        mergedGroupAttachmentCount: 3,
+      },
+    });
+    logAppEvent({
+      name: "account_sync.backup_restore_apply_diagnostics",
+      level: "info",
+      context: {
+        appliedDmAttachmentCount: 7,
+        appliedGroupAttachmentCount: 2,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          mediaHydrationParity: {
+            riskLevel: "none" | "watch" | "high";
+            latestHydratedDmAttachmentCount: number | null;
+            latestMergedDmAttachmentCount: number | null;
+            latestAppliedDmAttachmentCount: number | null;
+            latestHydratedGroupAttachmentCount: number | null;
+            latestMergedGroupAttachmentCount: number | null;
+            latestAppliedGroupAttachmentCount: number | null;
+            attachmentDropRegressionCount: number;
+            criticalHydrationDriftCount: number;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.mediaHydrationParity).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      latestHydratedDmAttachmentCount: 10,
+      latestMergedDmAttachmentCount: 7,
+      latestAppliedDmAttachmentCount: 7,
+      latestHydratedGroupAttachmentCount: 3,
+      latestMergedGroupAttachmentCount: 3,
+      latestAppliedGroupAttachmentCount: 2,
+      attachmentDropRegressionCount: 0,
+    }));
+  });
+
+  it("marks media hydration parity as none when attachment counts are stable and no critical drift is observed", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "account_sync.backup_payload_hydration_diagnostics",
+      level: "info",
+      context: {
+        hydratedDmAttachmentCount: 6,
+        hydratedGroupAttachmentCount: 2,
+      },
+    });
+    logAppEvent({
+      name: "account_sync.backup_restore_merge_diagnostics",
+      level: "info",
+      context: {
+        mergedDmAttachmentCount: 6,
+        mergedGroupAttachmentCount: 2,
+      },
+    });
+    logAppEvent({
+      name: "account_sync.backup_restore_apply_diagnostics",
+      level: "info",
+      context: {
+        appliedDmAttachmentCount: 6,
+        appliedGroupAttachmentCount: 2,
+      },
+    });
+    logAppEvent({
+      name: "messaging.conversation_hydration_diagnostics",
+      level: "info",
+      context: {
+        criticalDriftCount: 0,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          mediaHydrationParity: {
+            riskLevel: "none" | "watch" | "high";
+            latestHydratedDmAttachmentCount: number | null;
+            latestMergedDmAttachmentCount: number | null;
+            latestAppliedDmAttachmentCount: number | null;
+            latestHydratedGroupAttachmentCount: number | null;
+            latestMergedGroupAttachmentCount: number | null;
+            latestAppliedGroupAttachmentCount: number | null;
+            attachmentDropRegressionCount: number;
+            criticalHydrationDriftCount: number;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.mediaHydrationParity).toEqual(expect.objectContaining({
+      riskLevel: "none",
+      latestHydratedDmAttachmentCount: 6,
+      latestMergedDmAttachmentCount: 6,
+      latestAppliedDmAttachmentCount: 6,
+      latestHydratedGroupAttachmentCount: 2,
+      latestMergedGroupAttachmentCount: 2,
+      latestAppliedGroupAttachmentCount: 2,
+      attachmentDropRegressionCount: 0,
+      criticalHydrationDriftCount: 0,
+    }));
   });
 });

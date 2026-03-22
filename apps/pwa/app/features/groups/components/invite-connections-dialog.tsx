@@ -210,36 +210,42 @@ export function InviteConnectionsDialog({
 
     return (
         <div
-            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm dark:bg-black/72"
             onClick={handleClose}
         >
             <div
-                className="w-full max-w-md bg-[#0A0A0B] border border-white/10 p-0 overflow-hidden rounded-[32px] shadow-2xl"
+                className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-black/10 bg-gradient-card p-0 shadow-[0_24px_80px_rgba(79,70,229,0.22)] dark:border-white/10 dark:shadow-[0_24px_90px_rgba(70,40,190,0.45)]"
                 onClick={(event) => event.stopPropagation()}
             >
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.18),transparent_54%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.14),transparent_48%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.28),transparent_54%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.2),transparent_48%)]" />
                 <div className="p-8 pb-0">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <h2 className="text-white font-black text-2xl flex items-center gap-3">
-                                <Users className="h-6 w-6 text-indigo-400" />
-                                Invite Connections
+                            <h2 className="flex items-center gap-3 text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-300/70 bg-indigo-100/80 text-indigo-700 shadow-[0_0_20px_rgba(99,102,241,0.22)] dark:border-indigo-300/45 dark:bg-indigo-500/20 dark:text-indigo-100 dark:shadow-[0_0_28px_rgba(99,102,241,0.45)]">
+                                    <Users className="h-5 w-5" />
+                                </span>
+                                <span>Invite Connections</span>
                             </h2>
-                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2 hover:text-zinc-400 transition-colors">Distribute Group Room Key</p>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-widest text-indigo-700 dark:text-indigo-200">
+                                Distribute Group Room Key
+                            </p>
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-zinc-400 hover:text-white hover:bg-white/5" onClick={handleClose}>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl border border-black/10 bg-white/70 text-zinc-600 hover:border-indigo-300/50 hover:bg-indigo-50 hover:text-indigo-700 dark:border-indigo-300/25 dark:bg-indigo-500/5 dark:text-zinc-300 dark:hover:border-indigo-200/40 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-100" onClick={handleClose}>
                             <X className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
 
                 <div className="p-8 space-y-6">
-                    <div className="relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-600 group-focus-within:text-indigo-400 transition-colors" />
+                    <div className="group relative">
+                        <div className="absolute -inset-[1px] rounded-[24px] bg-gradient-to-r from-indigo-400/35 via-violet-400/25 to-fuchsia-400/30 opacity-80 blur-[1px] transition-opacity group-focus-within:opacity-100 dark:from-indigo-400/60 dark:via-violet-400/45 dark:to-fuchsia-400/50" />
+                        <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-indigo-600/60 transition-colors group-focus-within:text-indigo-700 dark:text-indigo-200/55 dark:group-focus-within:text-indigo-100" />
                         <Input
                             placeholder="Search your connections..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-12 h-14 bg-[#0E0E10] border-[#1A1A1E] text-white rounded-[24px] font-bold focus:border-indigo-500/50 transition-all shadow-inner"
+                            className="relative z-10 h-14 rounded-[24px] !border-black/10 !bg-white/90 pl-12 font-bold !text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(99,102,241,0.14)] !placeholder:text-zinc-500 focus-visible:!border-indigo-400 focus-visible:!ring-2 focus-visible:!ring-indigo-400/30 focus-visible:!ring-offset-0 dark:!border-indigo-300/25 dark:!bg-zinc-950/90 dark:!text-indigo-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(99,102,241,0.18)] dark:!placeholder:text-indigo-200/45 dark:focus-visible:!border-indigo-300 dark:focus-visible:!ring-indigo-300/35"
                         />
                     </div>
 
@@ -269,14 +275,14 @@ export function InviteConnectionsDialog({
                 </div>
 
                 {selectedPubkeys.size > 0 && (
-                    <div className="p-6 bg-[#0E0E10] border-t border-[#1A1A1E] flex items-center justify-between animate-in slide-in-from-bottom-2">
-                        <span className="text-xs font-black uppercase tracking-widest text-indigo-400 px-2">
+                    <div className="animate-in slide-in-from-bottom-2 flex items-center justify-between border-t border-black/10 bg-white/70 p-6 dark:border-indigo-300/20 dark:bg-[linear-gradient(180deg,#12121A,#101015)]">
+                        <span className="rounded-full border border-indigo-300/60 bg-indigo-100 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-indigo-700 dark:border-indigo-300/35 dark:bg-indigo-500/10 dark:text-indigo-200">
                             {selectedPubkeys.size} Selected
                         </span>
                         <Button
                             onClick={handleSendInvites}
                             disabled={isSending}
-                            className="h-12 px-6 rounded-[20px] bg-indigo-600 hover:bg-indigo-700 text-white font-black shadow-lg shadow-indigo-600/20 transition-all"
+                            className="h-12 rounded-[20px] bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-6 font-black text-white shadow-[0_10px_24px_rgba(129,140,248,0.3)] transition-all hover:brightness-110 dark:shadow-[0_12px_30px_rgba(129,140,248,0.4)]"
                         >
                             {isSending ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -320,34 +326,42 @@ function ConnectionRow({
         <div
             onClick={isAlreadyMember ? undefined : onToggle}
             className={cn(
-                "flex items-center justify-between p-4 bg-[#0E0E10] border rounded-[24px] transition-all group backdrop-blur-sm",
+                "group relative flex items-center justify-between overflow-hidden rounded-[24px] border bg-white/75 p-4 backdrop-blur-sm transition-all dark:bg-[#0E0E10]",
                 isAlreadyMember
-                    ? "border-emerald-500/30 bg-emerald-500/5 cursor-not-allowed opacity-80"
+                    ? "cursor-not-allowed border-emerald-500/30 bg-emerald-500/8 opacity-80"
                     : isSelected
-                    ? "border-indigo-400/70 bg-indigo-500/10 shadow-lg shadow-indigo-500/20"
-                    : "border-[#1A1A1E] hover:border-indigo-500/30 hover:bg-[#111115] cursor-pointer"
+                    ? "border-indigo-400/55 bg-gradient-to-r from-indigo-100/85 via-violet-100/70 to-fuchsia-100/80 shadow-[0_8px_22px_rgba(99,102,241,0.18)] dark:border-indigo-300/70 dark:from-indigo-500/15 dark:via-violet-500/10 dark:to-fuchsia-500/15 dark:shadow-[0_10px_26px_rgba(99,102,241,0.22)]"
+                    : "cursor-pointer border-black/10 hover:border-indigo-300/60 hover:bg-indigo-50/70 hover:shadow-[0_6px_16px_rgba(99,102,241,0.14)] dark:border-[#1A1A1E] dark:hover:border-indigo-300/35 dark:hover:bg-[#111115] dark:hover:shadow-[0_6px_20px_rgba(99,102,241,0.16)]"
             )}
         >
+            {!isAlreadyMember && (
+                <span
+                    className={cn(
+                        "pointer-events-none absolute inset-y-0 left-0 w-1.5 rounded-r-full bg-gradient-to-b from-indigo-500/80 via-violet-500/75 to-fuchsia-500/80 transition-opacity dark:from-indigo-400/80 dark:via-violet-400/75 dark:to-fuchsia-400/80",
+                        isSelected ? "opacity-100" : "opacity-40 group-hover:opacity-80"
+                    )}
+                />
+            )}
             <div className="flex items-center gap-4">
-                <UserAvatar pubkey={pubkey} size="md" className="rounded-2xl border border-white/5" />
+                <UserAvatar pubkey={pubkey} size="md" className="rounded-2xl border border-indigo-200/20 shadow-[0_0_16px_rgba(129,140,248,0.16)]" />
                 <div>
-                    <p className="text-white font-black text-sm">{displayName}</p>
-                    <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-0.5">
+                    <p className="text-sm font-black text-zinc-900 dark:text-white">{displayName}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
                         {hasResolvedName ? "Trusted connection" : "Unnamed connection"}
                     </p>
-                    <p className="text-zinc-600 text-[10px] font-mono mt-1">{keyPreview}</p>
+                    <p className="mt-1 font-mono text-[10px] text-zinc-500 dark:text-zinc-600">{keyPreview}</p>
                 </div>
             </div>
             {isAlreadyMember ? (
-                <span className="text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 px-3 py-1.5">
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-100 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-700 shadow-[0_0_10px_rgba(16,185,129,0.16)] dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300 dark:shadow-[0_0_14px_rgba(52,211,153,0.2)]">
                     Already in this community.
                 </span>
             ) : (
                 <div className={cn(
-                    "h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all",
+                    "flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all",
                     isSelected
-                        ? "bg-indigo-500 border-indigo-500"
-                        : "border-zinc-700 group-hover:border-zinc-500"
+                        ? "border-indigo-500 bg-gradient-to-br from-indigo-500 to-violet-500 shadow-[0_0_18px_rgba(99,102,241,0.45)]"
+                        : "border-zinc-400 group-hover:border-indigo-400 dark:border-zinc-700 dark:group-hover:border-indigo-300/70"
                 )}>
                     {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
                 </div>

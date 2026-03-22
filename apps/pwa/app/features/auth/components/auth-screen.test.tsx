@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthScreen } from "./auth-screen";
 
@@ -10,6 +10,17 @@ const authScreenMocks = vi.hoisted(() => ({
     message: undefined as string | undefined,
   },
   resetNativeSecureStorage: vi.fn(async () => undefined),
+  runtime: {
+    snapshot: {
+      phase: "auth_required",
+      session: {
+        profileId: "default",
+      },
+    },
+    createIdentityForBoundProfile: vi.fn(async () => undefined),
+    unlockBoundProfile: vi.fn(async () => undefined),
+    importIdentityForBoundProfile: vi.fn(async () => undefined),
+  },
 }));
 
 vi.mock("react-i18next", () => ({
@@ -75,14 +86,7 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
 }));
 
 vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
-  useWindowRuntime: () => ({
-    snapshot: {
-      phase: "auth_required",
-      session: {
-        profileId: "default",
-      },
-    },
-  }),
+  useWindowRuntime: () => authScreenMocks.runtime,
 }));
 
 vi.mock("@/app/features/profile/hooks/use-profile", () => ({
@@ -115,6 +119,11 @@ describe("AuthScreen mismatch recovery UX", () => {
     authScreenMocks.identityDiagnostics.mismatchReason = undefined;
     authScreenMocks.identityDiagnostics.message = undefined;
     authScreenMocks.resetNativeSecureStorage.mockClear();
+    authScreenMocks.runtime.snapshot.phase = "auth_required";
+    authScreenMocks.runtime.snapshot.session.profileId = "default";
+    authScreenMocks.runtime.createIdentityForBoundProfile.mockClear();
+    authScreenMocks.runtime.unlockBoundProfile.mockClear();
+    authScreenMocks.runtime.importIdentityForBoundProfile.mockClear();
   });
 
   it("renders native secure storage mismatch recovery card", async () => {
@@ -138,4 +147,25 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(screen.getByText("Private key does not match stored identity.")).toBeInTheDocument();
     expect(screen.queryByText("Secure Storage Needs Recovery")).not.toBeInTheDocument();
   });
+
+  it("persists remember-me credentials when importing with private key and skip-password", async () => {
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
+      target: { value: "a".repeat(64) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Skip Password" }));
+
+    await waitFor(() => {
+      expect(authScreenMocks.runtime.importIdentityForBoundProfile).toHaveBeenCalledTimes(1);
+    });
+
+    expect(localStorage.getItem("obscur_remember_me::default")).toBe("true");
+    const token = localStorage.getItem("obscur_auth_token::default");
+    expect(typeof token).toBe("string");
+    expect((token ?? "").length).toBeGreaterThan(0);
+  });
+
 });

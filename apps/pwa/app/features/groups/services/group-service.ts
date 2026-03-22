@@ -155,6 +155,35 @@ export class GroupService {
     }
 
     /**
+     * Broadcasts that the community is disbanded.
+     * This is emitted when the last known member leaves.
+     */
+    async sendSealedDisband(params: {
+        groupId: string;
+        roomKeyHex: string;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+
+        const innerPayload = JSON.stringify({
+            type: "disband",
+            pubkey: this.myPublicKeyHex,
+            created_at: nowUnixSeconds
+        });
+
+        const encrypted = await cryptoService.encryptGroupMessage(innerPayload, params.roomKeyHex);
+
+        const unsigned: UnsignedNostrEvent = {
+            kind: 10105,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId], ["t", "disband"]],
+            content: JSON.stringify(encrypted),
+            pubkey: this.myPublicKeyHex
+        };
+
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
      * Emits a sealed community genesis event. This signed event id is used as Community V2 genesis identity seed.
      */
     async sendSealedCommunityCreated(params: {

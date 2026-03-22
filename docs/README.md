@@ -29,8 +29,12 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 - `/docs` should describe current architecture, canonical owners, key workflows, and known risks.
 - Historical roadmaps and superseded plans are intentionally removed.
 - Root planning artifacts (`PHASE0_SPECS.md` .. `PHASE4_SPECS.md`, `ROADMAP_v0.9.0-beta.md`, `ROADMAP_v0.9.2.md`) were retired on 2026-03-20.
+- v0.9.5 execution details are consolidated into:
+  - `docs/07-operations-and-release-flow.md`,
+  - `docs/08-maintainer-playbook.md`,
+  - `ISSUES.md` and `CHANGELOG.md`.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
-- For runtime or relay regressions, consult `12 -> 13 -> 17 -> 18 -> 08` in that order before implementation work.
+- For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 17 -> 18` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).
 
 ## Mandatory Checks

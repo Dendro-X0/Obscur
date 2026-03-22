@@ -260,6 +260,12 @@ type UseEnhancedDMControllerParams = Readonly<{
     setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>) => void;
   };
   onNewMessage?: (message: Message) => void;
+  onMessageDeleted?: (params: Readonly<{
+    conversationId: string;
+    messageId: string;
+    deletedByPubkey: PublicKeyHex;
+    deletionEventId: string;
+  }>) => void;
   onConnectionCreated?: (pubkey: PublicKeyHex) => void;
   autoSubscribeIncoming?: boolean;
   /**
@@ -867,6 +873,7 @@ export const useEnhancedDMController = (
         isProjectionAcceptedPeer,
         requestsInbox: p.requestsInbox,
         onNewMessage: p.onNewMessage,
+        onMessageDeleted: p.onMessageDeleted,
         onConnectionCreated: p.onConnectionCreated,
         sendConnectionReceiptAck,
         ingestSource,

@@ -38,6 +38,32 @@ type AppEventDiagnosticsApi = Readonly<{
       level: AppEventLevel;
       context: Readonly<Record<string, string | number | boolean | null>>;
     }>>>>;
+    summary: Readonly<{
+      selfAuthoredDmContinuity: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestHydratedOutgoingCount: number | null;
+        latestMergedOutgoingCount: number | null;
+        sparseOutgoingEvidence: boolean | null;
+        idSplitDetectedCount: number;
+      }>;
+      membershipSendability: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestVisibleGroupCount: number | null;
+        latestChatStateGroupCount: number | null;
+        roomKeyMissingSendBlockedCount: number;
+      }>;
+      mediaHydrationParity: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestHydratedDmAttachmentCount: number | null;
+        latestMergedDmAttachmentCount: number | null;
+        latestAppliedDmAttachmentCount: number | null;
+        latestHydratedGroupAttachmentCount: number | null;
+        latestMergedGroupAttachmentCount: number | null;
+        latestAppliedGroupAttachmentCount: number | null;
+        attachmentDropRegressionCount: number;
+        criticalHydrationDriftCount: number;
+      }>;
+    }>;
     recentWarnOrError: ReadonlyArray<Readonly<{
       name: string;
       atUnixMs: number;
@@ -74,9 +100,15 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "incomingDmOutgoingCount",
     "localDmOutgoingCount",
     "mergedDmOutgoingCount",
+    "incomingDmAttachmentCount",
+    "localDmAttachmentCount",
+    "mergedDmAttachmentCount",
     "incomingGroupConversationCount",
     "localGroupConversationCount",
     "mergedGroupConversationCount",
+    "incomingGroupAttachmentCount",
+    "localGroupAttachmentCount",
+    "mergedGroupAttachmentCount",
   ],
   "account_sync.backup_restore_apply_diagnostics": [
     "publicKeySuffix",
@@ -85,9 +117,11 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "appliedDmOutgoingCount",
     "appliedDmIncomingCount",
     "appliedDmMessageCount",
+    "appliedDmAttachmentCount",
     "appliedGroupConversationCount",
     "appliedGroupMessageCount",
     "appliedGroupSelfAuthoredCount",
+    "appliedGroupAttachmentCount",
   ],
   "account_sync.backup_payload_projection_fallback": [
     "profileId",
@@ -109,6 +143,40 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "hydratedDmOutgoingCount",
     "hydratedDmIncomingCount",
     "hydratedDmIncomingOnlyConversationCount",
+    "hydratedDmAttachmentCount",
+    "hydratedGroupAttachmentCount",
+  ],
+  "messaging.conversation_hydration_diagnostics": [
+    "conversationIdHint",
+    "indexedMessageCount",
+    "indexedOutgoingCount",
+    "indexedIncomingCount",
+    "projectionMessageCount",
+    "projectionOutgoingCount",
+    "projectionIncomingCount",
+    "shouldUseProjectionFallback",
+    "projectionReadAuthorityReason",
+    "criticalDriftCount",
+  ],
+  "messaging.conversation_hydration_id_split_detected": [
+    "conversationIdHint",
+    "indexedIncomingOnlyCount",
+    "siblingConversationCount",
+    "siblingWithOutgoingCount",
+    "siblingOutgoingCount",
+    "siblingIncomingCount",
+    "projectionReadAuthorityReason",
+    "criticalDriftCount",
+  ],
+  "messaging.legacy_migration_diagnostics": [
+    "publicKeySuffix",
+    "sourceConversationCount",
+    "migratedConversationCount",
+    "migratedMessageCount",
+    "migratedOutgoingCount",
+    "migratedIncomingCount",
+    "incomingOnlyConversationCount",
+    "potentialConversationSplitDetected",
   ],
   "groups.membership_recovery_hydrate": [
     "publicKeySuffix",
@@ -126,6 +194,9 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "legacyEntryCount",
     "mergedEntryCount",
   ],
+  "groups.room_key_missing_send_blocked": [
+    "groupIdHint",
+  ],
   "messaging.chat_state_replaced": [
     "publicKeySuffix",
     "profileId",
@@ -133,6 +204,11 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "createdGroupCount",
     "dmConversationCount",
     "groupConversationCount",
+  ],
+  "messaging.chat_state_groups_update": [
+    "publicKeySuffix",
+    "profileId",
+    "groupCount",
   ],
   "account_sync.backup_restore_result": [
     "reason",
@@ -144,6 +220,23 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "reason",
     "result",
     "guardEnabled",
+  ],
+  "account_sync.backup_restore_history_regression": [
+    "publicKeySuffix",
+    "stage",
+    "restorePath",
+    "dmOutgoingDropped",
+    "groupSelfAuthoredDropped",
+    "dmAttachmentDropped",
+    "groupAttachmentDropped",
+    "dmOutgoingDelta",
+    "groupSelfAuthoredDelta",
+    "dmAttachmentDelta",
+    "groupAttachmentDelta",
+    "fromDmAttachmentCount",
+    "toDmAttachmentCount",
+    "fromGroupAttachmentCount",
+    "toGroupAttachmentCount",
   ],
   "runtime.activation.timeout": [
     "timeouts",
@@ -165,6 +258,14 @@ const toStringOrNull = (value: unknown): string | null => (
   typeof value === "string" && value.trim().length > 0 ? value : null
 );
 
+const toNumberOrNull = (value: unknown): number | null => (
+  typeof value === "number" && Number.isFinite(value) ? value : null
+);
+
+const toBooleanOrNull = (value: unknown): boolean | null => (
+  typeof value === "boolean" ? value : null
+);
+
 const toCompactContext = (
   context: AppEvent["context"] | undefined,
   keys: ReadonlyArray<string>,
@@ -180,6 +281,31 @@ const toCompactContext = (
     }
   });
   return compact;
+};
+
+const getLatestContext = (
+  events: Readonly<Record<string, ReadonlyArray<Readonly<{
+    atUnixMs: number;
+    level: AppEventLevel;
+    context: Readonly<Record<string, string | number | boolean | null>>;
+  }>>>>,
+  name: string,
+): Readonly<Record<string, string | number | boolean | null>> | null => {
+  const list = events[name];
+  if (!Array.isArray(list) || list.length === 0) {
+    return null;
+  }
+  return list[list.length - 1]?.context ?? null;
+};
+
+const getRiskLevel = (params: Readonly<{ watch: boolean; high: boolean }>): "none" | "watch" | "high" => {
+  if (params.high) {
+    return "high";
+  }
+  if (params.watch) {
+    return "watch";
+  }
+  return "none";
 };
 
 const getEventBuffer = (): AppEvent[] => {
@@ -293,6 +419,112 @@ const installDiagnosticsApi = (): void => {
           return [name, compactEvents] as const;
         })
       );
+      const latestHydration = getLatestContext(events, "account_sync.backup_payload_hydration_diagnostics");
+      const latestMerge = getLatestContext(events, "account_sync.backup_restore_merge_diagnostics");
+      const latestApply = getLatestContext(events, "account_sync.backup_restore_apply_diagnostics");
+      const latestFallback = getLatestContext(events, "account_sync.backup_payload_projection_fallback");
+      const latestMembershipHydrate = getLatestContext(events, "groups.membership_recovery_hydrate");
+      const latestChatStateGroups = getLatestContext(events, "messaging.chat_state_groups_update");
+      const idSplitDetectedCount = recent.filter((event) => (
+        event.name === "messaging.conversation_hydration_id_split_detected"
+      )).length;
+      const roomKeyMissingSendBlockedCount = recent.filter((event) => (
+        event.name === "groups.room_key_missing_send_blocked"
+      )).length;
+      const latestHydratedOutgoingCount = toNumberOrNull(
+        latestHydration?.hydratedDmOutgoingCount,
+      );
+      const latestMergedOutgoingCount = toNumberOrNull(
+        latestMerge?.mergedDmOutgoingCount,
+      );
+      const latestMergedIncomingCount = toNumberOrNull(
+        latestMerge?.mergedDmIncomingCount,
+      );
+      const sparseOutgoingEvidence = toBooleanOrNull(
+        latestFallback?.reasonSparseOutgoingEvidence,
+      );
+      const latestVisibleGroupCount = toNumberOrNull(
+        latestMembershipHydrate?.visibleGroupCount,
+      );
+      const latestChatStateGroupCount = toNumberOrNull(
+        latestChatStateGroups?.groupCount,
+      );
+      const latestHydratedDmAttachmentCount = toNumberOrNull(
+        latestHydration?.hydratedDmAttachmentCount,
+      );
+      const latestMergedDmAttachmentCount = toNumberOrNull(
+        latestMerge?.mergedDmAttachmentCount,
+      );
+      const latestAppliedDmAttachmentCount = toNumberOrNull(
+        latestApply?.appliedDmAttachmentCount,
+      );
+      const latestHydratedGroupAttachmentCount = toNumberOrNull(
+        latestHydration?.hydratedGroupAttachmentCount,
+      );
+      const latestMergedGroupAttachmentCount = toNumberOrNull(
+        latestMerge?.mergedGroupAttachmentCount,
+      );
+      const latestAppliedGroupAttachmentCount = toNumberOrNull(
+        latestApply?.appliedGroupAttachmentCount,
+      );
+      const attachmentDropRegressionCount = recent.filter((event) => (
+        event.name === "account_sync.backup_restore_history_regression"
+        && (
+          event.context?.dmAttachmentDropped === true
+          || event.context?.groupAttachmentDropped === true
+        )
+      )).length;
+      const criticalHydrationDriftCount = recent.filter((event) => (
+        event.name === "messaging.conversation_hydration_diagnostics"
+        && typeof event.context?.criticalDriftCount === "number"
+        && event.context.criticalDriftCount > 0
+      )).length;
+      const dmAttachmentDropAcrossStages = (
+        typeof latestHydratedDmAttachmentCount === "number"
+        && typeof latestMergedDmAttachmentCount === "number"
+        && latestMergedDmAttachmentCount < latestHydratedDmAttachmentCount
+      ) || (
+        typeof latestMergedDmAttachmentCount === "number"
+        && typeof latestAppliedDmAttachmentCount === "number"
+        && latestAppliedDmAttachmentCount < latestMergedDmAttachmentCount
+      );
+      const groupAttachmentDropAcrossStages = (
+        typeof latestHydratedGroupAttachmentCount === "number"
+        && typeof latestMergedGroupAttachmentCount === "number"
+        && latestMergedGroupAttachmentCount < latestHydratedGroupAttachmentCount
+      ) || (
+        typeof latestMergedGroupAttachmentCount === "number"
+        && typeof latestAppliedGroupAttachmentCount === "number"
+        && latestAppliedGroupAttachmentCount < latestMergedGroupAttachmentCount
+      );
+      const selfAuthoredDmContinuityRiskLevel = getRiskLevel({
+        watch: (
+          sparseOutgoingEvidence === true
+          || (
+            latestHydratedOutgoingCount === 0
+            && latestMergedOutgoingCount === 0
+            && typeof latestMergedIncomingCount === "number"
+            && latestMergedIncomingCount > 0
+          )
+        ),
+        high: idSplitDetectedCount > 0,
+      });
+      const membershipSendabilityRiskLevel = getRiskLevel({
+        watch: (
+          typeof latestVisibleGroupCount === "number"
+          && typeof latestChatStateGroupCount === "number"
+          && latestChatStateGroupCount < latestVisibleGroupCount
+        ),
+        high: roomKeyMissingSendBlockedCount > 0,
+      });
+      const mediaHydrationParityRiskLevel = getRiskLevel({
+        watch: (
+          dmAttachmentDropAcrossStages
+          || groupAttachmentDropAcrossStages
+          || criticalHydrationDriftCount > 0
+        ),
+        high: attachmentDropRegressionCount > 0,
+      });
       const recentWarnOrError = recent
         .filter((event) => event.level === "warn" || event.level === "error")
         .slice(-12)
@@ -318,6 +550,32 @@ const installDiagnosticsApi = (): void => {
         windowSize: recent.length,
         generatedAtUnixMs: Date.now(),
         events,
+        summary: {
+          selfAuthoredDmContinuity: {
+            riskLevel: selfAuthoredDmContinuityRiskLevel,
+            latestHydratedOutgoingCount,
+            latestMergedOutgoingCount,
+            sparseOutgoingEvidence,
+            idSplitDetectedCount,
+          },
+          membershipSendability: {
+            riskLevel: membershipSendabilityRiskLevel,
+            latestVisibleGroupCount,
+            latestChatStateGroupCount,
+            roomKeyMissingSendBlockedCount,
+          },
+          mediaHydrationParity: {
+            riskLevel: mediaHydrationParityRiskLevel,
+            latestHydratedDmAttachmentCount,
+            latestMergedDmAttachmentCount,
+            latestAppliedDmAttachmentCount,
+            latestHydratedGroupAttachmentCount,
+            latestMergedGroupAttachmentCount,
+            latestAppliedGroupAttachmentCount,
+            attachmentDropRegressionCount,
+            criticalHydrationDriftCount,
+          },
+        },
         recentWarnOrError,
       };
     },

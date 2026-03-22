@@ -60,6 +60,21 @@ type AppShellWindow = Window & {
   obscurRouteMountDiagnostics?: RouteMountDiagnosticsApi;
 };
 
+const isKeyboardEditableTarget = (target: EventTarget | null): boolean => {
+  const element = target as Partial<HTMLElement> | null;
+  if (!element) {
+    return false;
+  }
+  if (Boolean(element.isContentEditable)) {
+    return true;
+  }
+  const tagName = typeof element.tagName === "string" ? element.tagName.toLowerCase() : "";
+  if (!tagName) {
+    return false;
+  }
+  return tagName === "input" || tagName === "textarea" || tagName === "select";
+};
+
 const AppShell = (props: AppShellProps): React.JSX.Element => {
   const { t } = useTranslation();
   const pathname: string = usePathname();
@@ -431,6 +446,60 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       clearRouteFallback();
     };
   }, [clearRouteFallback]);
+
+  useEffect((): (() => void) => {
+    const handleEscapeKey = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape" || event.defaultPrevented) {
+        return;
+      }
+
+      if (mobileSidebarOpen) {
+        event.preventDefault();
+        event.stopPropagation();
+        setMobileSidebarOpen(false);
+        return;
+      }
+
+      if (isKeyboardEditableTarget(event.target)) {
+        return;
+      }
+
+      const hasDismissableLayer = Boolean(document.querySelector('[data-escape-layer="open"]'));
+      if (hasDismissableLayer) {
+        return;
+      }
+
+      if (pathname === "/") {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      logAppEvent({
+        name: "navigation.escape_back",
+        level: "info",
+        scope: { feature: "navigation", action: "keyboard_back" },
+        context: {
+          pathname,
+          routeSurface: activeRouteSurface,
+          historyLength: window.history.length,
+        },
+      });
+
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+
+      hardNavigate("/");
+    };
+
+    window.addEventListener("keydown", handleEscapeKey);
+    return (): void => {
+      window.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, [activeRouteSurface, mobileSidebarOpen, pathname]);
 
 
   const activeHref: string = useMemo((): string => {

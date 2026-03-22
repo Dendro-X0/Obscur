@@ -18,10 +18,30 @@ interface MediaGalleryProps {
 export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaItems, onSelect }: MediaGalleryProps) {
     const { t } = useTranslation();
 
+    React.useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+
+        const handleEscapeDismiss = (event: KeyboardEvent): void => {
+            if (event.key !== "Escape") {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+        };
+
+        window.addEventListener("keydown", handleEscapeDismiss);
+        return () => {
+            window.removeEventListener("keydown", handleEscapeDismiss);
+        };
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onPointerDown={onClose}>
+        <div data-escape-layer="open" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onPointerDown={onClose}>
             <div
                 className="w-full max-w-4xl rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-950"
                 onPointerDown={(e) => e.stopPropagation()}

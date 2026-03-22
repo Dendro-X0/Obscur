@@ -23,7 +23,6 @@ import {
     loadCommunityMembershipLedger,
     setCommunityMembershipStatus,
     toCommunityMembershipLedgerEntryFromGroup,
-    toGroupConversationFromMembershipLedgerEntry,
     upsertCommunityMembershipLedgerEntry
 } from "@/app/features/groups/services/community-membership-ledger";
 import { resolveCommunityMembershipRecovery } from "@/app/features/groups/services/community-membership-recovery";
@@ -135,6 +134,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const groups = dedupeGroups(recovery.groups)
             .filter((group) => !tombstones.has(toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })));
         queueMicrotask(() => {
+            const activePublicKey = getPublicKeyHex();
+            if (activePublicKey !== pk) {
+                return;
+            }
             setCreatedGroups(groups);
         });
         logAppEvent({
@@ -159,7 +162,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         recovery.missingLedgerCoverageEntries.forEach((entry) => {
             upsertCommunityMembershipLedgerEntry(pk, entry);
         });
-    }, []);
+    }, [getPublicKeyHex]);
 
     useEffect(() => {
         const pk = getPublicKeyHex();
@@ -364,6 +367,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
             const relayHint = detail?.relayUrl?.trim();
             const communityHint = detail?.communityId?.trim();
+            const localPublicKey = getPublicKeyHex();
             setCreatedGroups((prev) => {
                 let changed = false;
                 const next = prev.map((group) => {
@@ -373,46 +377,28 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     if (!matchesGroup || !matchesRelay || !matchesCommunity) {
                         return group;
                     }
-                    if (group.memberPubkeys.includes(memberPubkey)) {
+                    const nextMembers = dedupePubkeys([
+                        ...group.memberPubkeys,
+                        memberPubkey,
+                        ...(localPublicKey ? [localPublicKey] : []),
+                    ]);
+                    if (nextMembers.join(",") === group.memberPubkeys.join(",")) {
                         return group;
                     }
                     changed = true;
-                    const memberPubkeys = [...group.memberPubkeys, memberPubkey];
                     return {
                         ...group,
-                        memberPubkeys,
-                        memberCount: Math.max(group.memberCount ?? 0, memberPubkeys.length),
+                        memberPubkeys: nextMembers,
+                        memberCount: Math.max(group.memberCount ?? 0, nextMembers.length),
                     };
                 });
-                const hasMatchedGroup = next.some((group) => {
-                    const matchesGroup = group.groupId === groupId;
-                    const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
-                    const matchesCommunity = communityHint ? group.communityId === communityHint : true;
-                    return matchesGroup && matchesRelay && matchesCommunity;
-                });
-                const fallbackAdded = !hasMatchedGroup && Boolean(relayHint);
-                const withFallback = fallbackAdded
-                    ? dedupeGroups([...next, toGroupConversationFromMembershipLedgerEntry({
-                        communityId: communityHint ?? deriveCommunityId({
-                            groupId,
-                            relayUrl: relayHint!,
-                        }),
-                        groupId,
-                        relayUrl: relayHint!,
-                        status: "joined",
-                        updatedAtUnixMs: Date.now(),
-                        displayName: "Private Group",
-                    }, {
-                        fallbackMemberPubkeys: [memberPubkey],
-                    })])
-                    : next;
-                if (!changed && !fallbackAdded) {
+                if (!changed) {
                     return prev;
                 }
                 const pk = getPublicKeyHex();
                 if (pk) {
-                    chatStateStoreService.updateGroups(pk, withFallback.map((group) => toPersistedGroupConversation(group)));
-                    const matchedGroup = withFallback.find((group) => {
+                    chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
+                    const matchedGroup = next.find((group) => {
                         const matchesGroup = group.groupId === groupId;
                         const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
                         const matchesCommunity = communityHint ? group.communityId === communityHint : true;
@@ -422,16 +408,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(matchedGroup, {
                             status: "joined",
                         }));
-                    } else if (relayHint) {
-                        setCommunityMembershipStatus(pk, {
-                            groupId,
-                            relayUrl: relayHint,
-                            communityId: communityHint,
-                            status: "joined",
-                        });
                     }
                 }
-                return withFallback;
+                return next;
             });
         };
         const handleMembershipConfirmed = (e: Event) => {

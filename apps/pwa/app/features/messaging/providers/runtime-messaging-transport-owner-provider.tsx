@@ -56,6 +56,13 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
     messageBus.emitNewMessage(message.conversationId, message);
   }, [activePublicKeyHex]);
 
+  const handleMessageDeleted = useCallback((params: Readonly<{
+    conversationId: string;
+    messageId: string;
+  }>) => {
+    messageBus.emitMessageDeleted(params.conversationId, params.messageId);
+  }, []);
+
   const controller = useEnhancedDmController({
     myPublicKeyHex,
     myPrivateKeyHex,
@@ -64,6 +71,7 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
     peerTrust,
     requestsInbox,
     onNewMessage: handleNewMessage,
+    onMessageDeleted: handleMessageDeleted,
     autoSubscribeIncoming: ownerEnabled,
     enableIncomingTransport: ownerEnabled,
     enableAutoQueueProcessing: ownerEnabled,

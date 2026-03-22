@@ -34,19 +34,23 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - Desktop updater and release-tag awareness.
 - Performance mode improvements for large timelines and burst traffic.
 
-## Current Status (v0.9.4 Release Candidate Prep)
+## Current Status (v0.9.5 Release Staging)
 
-- The v0.9.2 constrained-release blocker set has been replayed and moved to monitoring status in current dev-server verification.
-- Manual acceptance closure is recorded for the v0.9.3 execution plan baseline (M1/M2/M4 verification complete).
+- The v0.9.2 constrained-release blocker set remains in monitoring mode after replay verification.
+- v0.9.5 reliability and UX hardening content has been consolidated into standard docs and runbooks (`docs/07`, `docs/08`).
 - Current workspace release-readiness snapshot:
+  - `pnpm version:check` passes,
   - `pnpm docs:check` passes,
+  - `pnpm release:integrity-check` passes,
+  - `pnpm release:artifact-version-contract-check` passes,
+  - `pnpm release:ci-signal-check` passes,
   - `pnpm release:test-pack -- --skip-preflight` passes,
-  - `pnpm -C apps/pwa exec vitest run` passes,
-  - `pnpm -C apps/pwa build` passes.
-- Remaining release-prep work is operational (clean tree + tag flow), not an active blocker list in `ISSUES.md`.
+  - `pnpm release:preflight -- --tag v0.9.5 --allow-dirty 1` passes.
+- Remaining release-prep work is operational:
+  - clean-tree strict preflight and tag flow.
 - Canonical runtime monitoring baseline:
   - [`ISSUES.md`](ISSUES.md)
-  - [`docs/18-v0.9.3-execution-plan.md`](docs/18-v0.9.3-execution-plan.md)
+  - [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
 
 ## Quick Start
 
@@ -101,7 +105,7 @@ These placeholders are for future GIF demos in README and the future official we
 5. `docs/assets/demo-desktop-updater.gif`  
    Placeholder: current vs latest version state and install prompt.
 
-## Release Preparation (v0.9.2)
+## Release Preparation (v0.9.5)
 
 Before tagging:
 
@@ -114,7 +118,7 @@ pnpm release:ci-signal-check
 pnpm release:artifact-matrix-check
 pnpm release:artifact-version-contract-check
 pnpm release:test-pack
-pnpm release:preflight
+pnpm release:preflight -- --tag v0.9.5
 pnpm release:verify-tag --tag vX.Y.Z
 ```
 
@@ -128,7 +132,7 @@ Release references:
 
 - [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
 - [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
-- [`docs/17-v0.9.2-expansion-context.md`](docs/17-v0.9.2-expansion-context.md)
+- [`ISSUES.md`](ISSUES.md)
 
 Current distribution channel:
 

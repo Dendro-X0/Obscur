@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { Suspense, startTransition, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import AppShell from "@/app/components/app-shell";
 import { useRuntimeMessagingTransportOwnerController } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
@@ -34,7 +35,6 @@ import {
 
 import { Sidebar } from "@/app/features/messaging/components/sidebar";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
-import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { useSealedCommunity, type GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community";
 import { LockScreen } from "@/app/components/lock-screen";
@@ -67,6 +67,7 @@ import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-ac
 import { resolveAccountSyncUiPolicy } from "@/app/features/account-sync/services/account-sync-ui-policy";
 import { AppLoadingScreen } from "@/app/components/app-loading-screen";
 import { usePeerLastActiveByPeer } from "@/app/features/messaging/hooks/use-peer-last-active-by-peer";
+import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
@@ -75,6 +76,7 @@ const LOAD_EARLIER_STEP = 50;
 
 function NostrMessengerContent() {
   const { t } = useTranslation();
+  const router = useRouter();
   const identity = useIdentity();
   const { blocklist, peerTrust, requestsInbox, presence } = useNetwork();
 
@@ -114,7 +116,7 @@ function NostrMessengerContent() {
   const accountSyncSnapshot = useAccountSyncSnapshot();
   const {
     createdGroups, isNewGroupOpen, setIsNewGroupOpen,
-    isGroupInfoOpen, setIsGroupInfoOpen, updateGroup,
+    updateGroup,
   } = useGroups();
 
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -232,7 +234,7 @@ function NostrMessengerContent() {
   const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
 
   // Feature hooks
-  const { handleSendMessage, deleteMessage, toggleReaction } = useChatActions(dmController);
+  const { handleSendMessage, deleteMessageForMe, deleteMessageForEveryone, toggleReaction } = useChatActions(dmController);
   const requestTransport = useRequestTransport({
     dmController,
     peerTrust,
@@ -481,6 +483,24 @@ function NostrMessengerContent() {
 
   const isIdentityUnlocked = identity.state.status === "unlocked";
   const shouldShowLockScreen = (isLocked || identity.state.status === "locked") && !!identity.state.stored;
+  const accountSyncUiPolicy = resolveAccountSyncUiPolicy({
+    isIdentityUnlocked,
+    snapshot: accountSyncSnapshot,
+  });
+  const hiddenChatIdSet = useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
+  const visibleChatsList = useMemo(() => (
+    filteredConversations.filter((conversation) => (
+      conversation.kind === "group" || !hiddenChatIdSet.has(conversation.id)
+    ))
+  ), [filteredConversations, hiddenChatIdSet]);
+  const accurateChatsUnreadCount = useMemo(() => (
+    visibleChatsList.reduce((acc, c) => {
+      if (selectedConversation?.id === c.id) {
+        return acc;
+      }
+      return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
+    }, 0)
+  ), [selectedConversation?.id, unreadByConversationId, visibleChatsList]);
 
   if (identity.state.status === "loading") {
     return <AppLoadingScreen title="Restoring identity" detail="Unlocking profile context..." />;
@@ -499,26 +519,6 @@ function NostrMessengerContent() {
       />
     );
   }
-
-  const accountSyncUiPolicy = resolveAccountSyncUiPolicy({
-    isIdentityUnlocked,
-    snapshot: accountSyncSnapshot,
-  });
-
-  const hiddenChatIdSet = useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
-  const visibleChatsList = useMemo(() => (
-    filteredConversations.filter((conversation) => (
-      conversation.kind === "group" || !hiddenChatIdSet.has(conversation.id)
-    ))
-  ), [filteredConversations, hiddenChatIdSet]);
-  const accurateChatsUnreadCount = useMemo(() => (
-    visibleChatsList.reduce((acc, c) => {
-      if (selectedConversation?.id === c.id) {
-        return acc;
-      }
-      return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
-    }, 0)
-  ), [selectedConversation?.id, unreadByConversationId, visibleChatsList]);
 
   return (
     <AppShell
@@ -644,7 +644,16 @@ function NostrMessengerContent() {
               toast.success(t("messaging.pubkeyCopied"));
             }}
             onOpenMedia={() => setIsMediaGalleryOpen(true)}
-            onOpenInfo={selectedConversationView.kind === 'group' ? () => setIsGroupInfoOpen(true) : undefined}
+            onOpenInfo={selectedConversationView.kind === "group"
+              ? () => {
+                router.push(
+                  getPublicGroupHref(
+                    selectedConversationView.groupId,
+                    selectedConversationView.relayUrl
+                  )
+                );
+              }
+              : undefined}
             groupAdmins={groupState.admins}
             messageMenu={messageMenu}
             setMessageMenu={setMessageMenu}
@@ -658,7 +667,8 @@ function NostrMessengerContent() {
               toast.success(t("messaging.urlCopied"));
             }}
             onReferenceMessage={(m) => setReplyTo({ messageId: m.id, previewText: m.content })}
-            onDeleteMessage={(id) => deleteMessage({ conversationId: selectedConversationView.id, messageId: id })}
+            onDeleteMessageForMe={(message) => deleteMessageForMe({ conversationId: selectedConversationView.id, message })}
+            onDeleteMessageForEveryone={(message) => deleteMessageForEveryone({ conversationId: selectedConversationView.id, message })}
             reactionPicker={reactionPicker}
             setReactionPicker={setReactionPicker}
             reactionPickerRef={reactionPickerRef}
@@ -760,17 +770,6 @@ function NostrMessengerContent() {
         )}
       </main>
       <DevPanel dmController={dmController} />
-
-      {selectedConversation?.kind === 'group' && (
-        <GroupManagementDialog
-          isOpen={isGroupInfoOpen}
-          onClose={() => setIsGroupInfoOpen(false)}
-          group={selectedConversation as GroupConversation}
-          pool={relayPool}
-          myPublicKeyHex={myPublicKeyHex}
-          myPrivateKeyHex={myPrivateKeyHex}
-        />
-      )}
     </AppShell>
   );
 }

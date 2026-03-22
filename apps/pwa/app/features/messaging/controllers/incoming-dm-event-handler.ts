@@ -24,6 +24,7 @@ import { peerRelayEvidenceStore } from "../services/peer-relay-evidence-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { resolveUiPerformancePolicy } from "../lib/ui-performance";
+import { parseCommandMessage } from "../utils/commands";
 import {
   appendCanonicalContactEvent,
   appendCanonicalDecryptFailedEvent,
@@ -105,6 +106,12 @@ export type IncomingDmParams = Readonly<{
   };
   sendConnectionReceiptAck?: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; requestEventId: string }>) => Promise<void>;
   onNewMessage?: (message: Message) => void;
+  onMessageDeleted?: (params: Readonly<{
+    conversationId: string;
+    messageId: string;
+    deletedByPubkey: PublicKeyHex;
+    deletionEventId: string;
+  }>) => void;
   onConnectionCreated?: (pubkey: PublicKeyHex) => void;
   ingestSource?: "relay_live" | "relay_sync";
   transportOwnerId?: string | null;
@@ -388,9 +395,104 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       }
     }
 
+    const parsedCommand = parseCommandMessage(plaintext);
+    const deleteCommandTargetIds = parsedCommand?.type === "delete"
+      ? Array.from(new Set([
+          parsedCommand.targetMessageId,
+          ...(effectiveTags || [])
+            .filter((tag) => tag[0] === "e")
+            .map((tag) => tag[1] || ""),
+        ].map((value) => value.trim()).filter((value) => value.length > 0)))
+      : [];
+
+    const applyDeleteCommand = async (commandParams: Readonly<{
+      targetMessageIds: ReadonlyArray<string>;
+      deletedByPubkey: PublicKeyHex;
+      conversationId: string;
+      deleteCommandEventId: string;
+    }>): Promise<void> => {
+      const normalizedTargetIds = Array.from(new Set(
+        commandParams.targetMessageIds.map((value) => value.trim()).filter((value) => value.length > 0)
+      ));
+      if (normalizedTargetIds.length === 0) {
+        return;
+      }
+
+      let matchedMessageId: string | null = null;
+      let matchedSenderPubkey: PublicKeyHex | null = null;
+      const inMemoryTarget = params.existingMessages.find((entry) => (
+        normalizedTargetIds.includes(entry.id)
+        || (!!entry.eventId && normalizedTargetIds.includes(entry.eventId))
+      ));
+      if (inMemoryTarget) {
+        matchedMessageId = inMemoryTarget.id;
+        matchedSenderPubkey = inMemoryTarget.senderPubkey ?? null;
+      }
+
+      let canApplyDelete = true;
+      if (!matchedMessageId && params.messageQueue) {
+        for (const targetId of normalizedTargetIds) {
+          const targetMessage = await params.messageQueue.getMessage(targetId);
+          if (targetMessage) {
+            matchedMessageId = targetMessage.id;
+            matchedSenderPubkey = targetMessage.senderPubkey;
+            break;
+          }
+        }
+      }
+      if (matchedSenderPubkey && matchedSenderPubkey !== commandParams.deletedByPubkey) {
+        canApplyDelete = false;
+      }
+      const resolvedMessageId = matchedMessageId ?? normalizedTargetIds[0];
+
+      if (!canApplyDelete) {
+        logRuntimeEvent(
+          "incoming_dm.delete_command.rejected_sender_mismatch",
+          "degraded",
+          ["Ignoring delete command with sender mismatch:", usedEventId, resolvedMessageId],
+        );
+        return;
+      }
+
+      params.scheduleUiUpdate(() => {
+        params.setState((prev: TState) => {
+          const p = prev;
+          const filteredMessages = p.messages.filter((entry: Message) => (
+            entry.id !== commandParams.deleteCommandEventId
+            && entry.id !== resolvedMessageId
+            && !normalizedTargetIds.includes(entry.id)
+            && !(entry.eventId && normalizedTargetIds.includes(entry.eventId))
+          ));
+          params.messageMemoryManager.addMessages(commandParams.conversationId, [...filteredMessages]);
+          return {
+            ...params.createReadyState(filteredMessages),
+            subscriptions: Array.from(params.activeSubscriptions.values()),
+          } as TState;
+        });
+      });
+
+      currentParams.onMessageDeleted?.({
+        conversationId: commandParams.conversationId,
+        messageId: resolvedMessageId,
+        deletedByPubkey: commandParams.deletedByPubkey,
+        deletionEventId: commandParams.deleteCommandEventId,
+      });
+    };
+
     if (isSelfAuthoredRelayEvent) {
       const peerPublicKeyHex = normalizedRecipient as PublicKeyHex;
       const conversationId = [currentParams.myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+      if (deleteCommandTargetIds.length > 0) {
+        await applyDeleteCommand({
+          targetMessageIds: deleteCommandTargetIds,
+          deletedByPubkey: currentParams.myPublicKeyHex,
+          conversationId,
+          deleteCommandEventId: usedEventId,
+        });
+        return;
+      }
+
       const message: Message = {
         id: usedEventId,
         conversationId,
@@ -840,6 +942,16 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     }
 
     const conversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(":");
+
+    if (deleteCommandTargetIds.length > 0) {
+      await applyDeleteCommand({
+        targetMessageIds: deleteCommandTargetIds,
+        deletedByPubkey: actualSenderPubkey,
+        conversationId,
+        deleteCommandEventId: usedEventId,
+      });
+      return;
+    }
 
     const message: Message = {
       id: usedEventId,

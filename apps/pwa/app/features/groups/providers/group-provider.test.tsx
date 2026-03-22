@@ -405,6 +405,87 @@ describe("group-provider membership ledger integration", () => {
     expect(bGroup?.id).not.toBe(PUBLIC_KEY_B);
   });
 
+  it("does not create fallback groups from invite-accept events when no matching group is loaded", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
+        detail: {
+          groupId: "orphan-group",
+          relayUrl: "wss://relay.orphan",
+          communityId: "orphan-group:wss://relay.orphan",
+          memberPubkey: PUBLIC_KEY_B,
+        },
+      }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(hook.result.current.createdGroups).toHaveLength(0);
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toHaveLength(0);
+  });
+
+  it("self-heals missing local member entry when invite-accept updates an existing group", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:self-heal:wss://relay.self",
+        communityId: "self-heal:wss://relay.self",
+        groupId: "self-heal",
+        relayUrl: "wss://relay.self",
+        displayName: "Self Heal",
+        memberPubkeys: [PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+    expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_B]);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
+        detail: {
+          groupId: "self-heal",
+          relayUrl: "wss://relay.self",
+          communityId: "self-heal:wss://relay.self",
+          memberPubkey: PUBLIC_KEY_B,
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      const members = hook.result.current.createdGroups[0]?.memberPubkeys ?? [];
+      expect(members).toEqual(expect.arrayContaining([PUBLIC_KEY_A, PUBLIC_KEY_B]));
+    });
+  });
+
   it("keeps restored groups visible after profile scope rebinding on a fresh device", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>

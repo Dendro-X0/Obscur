@@ -9,6 +9,15 @@ import { roomKeyStore } from "../../crypto/room-key-store";
 vi.mock("../../crypto/crypto-service", () => ({
     cryptoService: {
         decryptGroupMessage: vi.fn(),
+        encryptGroupMessage: vi.fn(async (payload: string) => ({
+            ciphertext: `encrypted:${payload}`,
+            nonce: "nonce"
+        })),
+        signEvent: vi.fn(async (event: Record<string, unknown>) => ({
+            ...event,
+            id: `signed-${Math.random().toString(36).slice(2, 10)}`,
+            sig: "sig"
+        })),
         generateRoomKey: vi.fn(async () => "new-room-key")
     }
 }));
@@ -128,6 +137,40 @@ describe("use-sealed-community integration", () => {
             expect(removeCalls).toHaveLength(1);
             expect(removeCalls[0]?.detail).toBe(`community:${groupId}:${scopedRelay}`);
         });
+    });
+
+    it("publishes disband when the last known member leaves", async () => {
+        const pool = createPool();
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor]
+        }));
+
+        await act(async () => {
+            await result.current.leaveGroup();
+        });
+
+        const publishCalls = vi.mocked(pool.publishToAll).mock.calls as unknown as Array<[string]>;
+        const publishedEvents = publishCalls
+            .map(([payload]) => JSON.parse(payload)[1] as Record<string, unknown>);
+
+        expect(publishedEvents.some((event) => event.kind === 9022)).toBe(true);
+        expect(publishedEvents.some((event) => (
+            event.kind === 10105
+            && Array.isArray(event.tags)
+            && (event.tags as ReadonlyArray<ReadonlyArray<string>>).some((tag) => tag[0] === "t" && tag[1] === "leave")
+        ))).toBe(true);
+        expect(publishedEvents.some((event) => (
+            event.kind === 10105
+            && Array.isArray(event.tags)
+            && (event.tags as ReadonlyArray<ReadonlyArray<string>>).some((tag) => tag[0] === "t" && tag[1] === "disband")
+        ))).toBe(true);
+        expect(roomKeyStore.deleteRoomKey).toHaveBeenCalledWith(groupId);
     });
 
     it("does not implicitly disband on leave-only replay", async () => {

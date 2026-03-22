@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { ExternalLink, Play, Pause, RefreshCw, Volume2 } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
@@ -110,12 +109,13 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
     return (
         <div className={cn(
             "relative group flex flex-col gap-3 p-4 rounded-[24px] w-full min-w-0 overflow-hidden",
-            "bg-zinc-900 border border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.4)]",
+            "bg-zinc-50 border border-zinc-200/80 text-zinc-900 shadow-[0_12px_36px_rgba(15,23,42,0.12)]",
+            "dark:bg-zinc-900 dark:border-white/5 dark:text-zinc-100 dark:shadow-[0_15px_40px_rgba(0,0,0,0.4)]",
             className
         )}>
             {/* Background Ambient Glow */}
-            <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-purple-600/20 blur-[40px] pointer-events-none" />
-            <div className="absolute -bottom-8 -left-8 h-16 w-16 rounded-full bg-blue-600/10 blur-[30px] pointer-events-none" />
+            <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-purple-500/18 dark:bg-purple-600/20 blur-[40px] pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 h-16 w-16 rounded-full bg-blue-500/14 dark:bg-blue-600/10 blur-[30px] pointer-events-none" />
 
             <audio
                 key={`${runtimeSrc}:${reloadKey}`}
@@ -155,12 +155,12 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
             />
 
             {errorState ? (
-                <div className="flex w-full items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest text-white/40">
+                <div className="flex w-full items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest text-zinc-600 dark:text-white/40">
                     <span className="truncate">{errorState.hint}</span>
                     <div className="flex items-center gap-2 shrink-0">
                         <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 bg-white/5 hover:bg-white/10"
+                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-300/80 bg-white px-2 py-1 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
                             onClick={() => {
                                 setErrorState(null);
                                 setReloadKey((prev) => prev + 1);
@@ -190,7 +190,7 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1.5 px-0.5">
-                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-white/90">
                             {formatTime(currentTime)}
                         </span>
                         <div className="flex items-center h-4 gap-0.5">
@@ -199,20 +199,20 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
                                 <div
                                     key={i}
                                     className={cn(
-                                        "w-0.5 rounded-full bg-white/20 transition-all duration-[800ms]",
+                                        "w-0.5 rounded-full bg-zinc-400/45 dark:bg-white/20 transition-all duration-[800ms]",
                                         isPlaying ? "animate-pulse" : ""
                                     )}
                                     style={{ height: `${h * 100}%`, animationDelay: `${i * 100}ms` }}
                                 />
                             ))}
                         </div>
-                        <span className="text-[11px] font-bold text-white/40">
+                        <span className="text-[11px] font-bold text-zinc-600 dark:text-white/40">
                             {formatTime(duration)}
                         </span>
                     </div>
 
                     {/* Premium Progress Bar */}
-                    <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="relative h-2 w-full bg-zinc-200/90 dark:bg-white/5 rounded-full overflow-hidden">
                         <div
                             className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-300"
                             style={{ width: `${progress}%` }}
@@ -222,9 +222,9 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
             </div>
 
             {/* Bottom Row Controls */}
-            <div className="flex items-center justify-between mt-1 px-1 border-t border-white/5 pt-3">
-                <div className="flex items-center gap-2 group-hover:opacity-100 opacity-60 transition-opacity">
-                    <Volume2 className="h-3 w-3 text-white/50" />
+            <div className="flex items-center justify-between mt-1 px-1 border-t border-zinc-200/90 dark:border-white/5 pt-3">
+                <div className="flex items-center gap-2 group-hover:opacity-100 opacity-80 dark:opacity-65 transition-opacity">
+                    <Volume2 className="h-3 w-3 text-zinc-600 dark:text-white/50" />
                     <input
                         type="range"
                         min={0}
@@ -235,14 +235,14 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
                         className="w-16 accent-purple-500 cursor-pointer h-1"
                         aria-label="Audio volume"
                     />
-                    <span className="text-[9px] font-black tracking-widest text-white/30 lowercase">
+                    <span className="text-[9px] font-black tracking-widest text-zinc-500 dark:text-white/30 lowercase">
                         vol {volumePercent}%
                     </span>
                 </div>
 
                 <button
                     onClick={openExternally}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all shadow-sm active:scale-95"
+                    className="p-1.5 rounded-lg border border-zinc-300/70 bg-white hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 transition-all shadow-sm active:scale-95 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 dark:text-white/50 dark:hover:text-white"
                     title="Open Externally"
                 >
                     <ExternalLink className="h-3.5 w-3.5" />

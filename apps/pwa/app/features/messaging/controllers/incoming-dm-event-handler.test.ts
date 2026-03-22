@@ -7,6 +7,7 @@ import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-roll
 import { failedIncomingEventStore } from "../services/failed-incoming-event-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { createDeleteCommandMessage, encodeCommandMessage } from "../utils/commands";
 
 const MY_PUBLIC_KEY = "a".repeat(64) as PublicKeyHex;
 const SENDER_PUBLIC_KEY = "b".repeat(64);
@@ -257,6 +258,134 @@ describe("incoming-dm-event-handler", () => {
         expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "obscur:group-invite" }));
         expect(onNewMessage).toHaveBeenCalledTimes(1);
         expect(onNewMessage.mock.calls[0]?.[0]?.content).toContain("\"community-invite\"");
+    });
+
+    it("applies incoming delete commands for sender-owned messages and suppresses command rendering", async () => {
+        const targetMessageId = "target-msg-1";
+        const deleteCommandEventId = "delete-cmd-1";
+        const deleteCommandPayload = encodeCommandMessage(
+            createDeleteCommandMessage(targetMessageId)
+        );
+        const event = {
+            id: deleteCommandEventId,
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1260,
+            content: "encrypted",
+            tags: [["p", MY_PUBLIC_KEY], ["t", "message-delete"], ["e", targetMessageId]]
+        } as unknown as NostrEvent;
+
+        vi.mocked(cryptoService.decryptDM).mockResolvedValueOnce(deleteCommandPayload);
+
+        const onMessageDeleted = vi.fn();
+        const onNewMessage = vi.fn();
+        const setState = vi.fn();
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                peerTrust: {
+                    isAccepted: () => true,
+                    acceptPeer: vi.fn(),
+                },
+                onMessageDeleted,
+                onNewMessage,
+            },
+            messageQueue: {
+                getMessage: vi.fn(async (id: string) => (
+                    id === targetMessageId
+                        ? {
+                            id: targetMessageId,
+                            senderPubkey: SENDER_PUBLIC_KEY,
+                            conversationId: `${MY_PUBLIC_KEY}:${SENDER_PUBLIC_KEY}`,
+                        }
+                        : null
+                )),
+                persistMessage: vi.fn(async () => undefined),
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState,
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) }
+        });
+
+        expect(onMessageDeleted).toHaveBeenCalledWith(expect.objectContaining({
+            messageId: targetMessageId,
+            deletionEventId: deleteCommandEventId,
+        }));
+        expect(onNewMessage).not.toHaveBeenCalled();
+        expect(setState).toHaveBeenCalled();
+    });
+
+    it("applies delete commands using fallback e-tag target ids when payload id does not match local id", async () => {
+        const wrapperTargetId = "wrapper-msg-legacy";
+        const canonicalTargetId = "rumor-msg-canonical";
+        const deleteCommandEventId = "delete-cmd-fallback";
+        const deleteCommandPayload = encodeCommandMessage(
+            createDeleteCommandMessage(wrapperTargetId)
+        );
+        const event = {
+            id: deleteCommandEventId,
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1261,
+            content: "encrypted",
+            tags: [["p", MY_PUBLIC_KEY], ["t", "message-delete"], ["e", wrapperTargetId], ["e", canonicalTargetId]]
+        } as unknown as NostrEvent;
+
+        vi.mocked(cryptoService.decryptDM).mockResolvedValueOnce(deleteCommandPayload);
+
+        const onMessageDeleted = vi.fn();
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                peerTrust: {
+                    isAccepted: () => true,
+                    acceptPeer: vi.fn(),
+                },
+                onMessageDeleted,
+            },
+            messageQueue: {
+                getMessage: vi.fn(async (id: string) => (
+                    id === canonicalTargetId
+                        ? {
+                            id: canonicalTargetId,
+                            senderPubkey: SENDER_PUBLIC_KEY,
+                            conversationId: `${MY_PUBLIC_KEY}:${SENDER_PUBLIC_KEY}`,
+                        }
+                        : null
+                )),
+                persistMessage: vi.fn(async () => undefined),
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) }
+        });
+
+        expect(onMessageDeleted).toHaveBeenCalledWith(expect.objectContaining({
+            messageId: canonicalTargetId,
+            deletionEventId: deleteCommandEventId,
+        }));
     });
 
     it("emits group invite accepted event when recipient confirms community invite", async () => {

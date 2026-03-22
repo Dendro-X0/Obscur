@@ -107,7 +107,8 @@ const createBaseProps = (): ChatViewProps => ({
     onCopyText: vi.fn(),
     onCopyAttachmentUrl: vi.fn(),
     onReferenceMessage: vi.fn(),
-    onDeleteMessage: vi.fn(),
+    onDeleteMessageForMe: vi.fn(),
+    onDeleteMessageForEveryone: vi.fn(),
     reactionPicker: null,
     setReactionPicker: vi.fn(),
     reactionPickerRef: React.createRef<HTMLDivElement>(),
@@ -178,6 +179,19 @@ describe("ChatView history search", () => {
 
         await waitFor(() => {
             expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-hit-a");
+        });
+    });
+
+    it("closes the history search panel with Escape", async () => {
+        render(<ChatView {...createBaseProps()} />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Search Messages" }));
+        expect(screen.getByPlaceholderText("Search message history in this chat...")).toBeInTheDocument();
+
+        fireEvent.keyDown(window, { key: "Escape" });
+
+        await waitFor(() => {
+            expect(screen.queryByPlaceholderText("Search message history in this chat...")).not.toBeInTheDocument();
         });
     });
 });

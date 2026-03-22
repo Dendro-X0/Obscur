@@ -58,6 +58,7 @@ vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () 
 
 describe("StartupExperienceOverlay", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     startupOverlayMocks.runtimeSnapshot.phase = "activating_runtime";
     startupOverlayMocks.runtimeSnapshot.session.identityStatus = "unlocked";
     startupOverlayMocks.runtimeSnapshot.relayRuntime.phase = "connecting";
@@ -94,6 +95,14 @@ describe("StartupExperienceOverlay", () => {
     startupOverlayMocks.runtimeSnapshot.session.identityStatus = "unlocked";
     startupOverlayMocks.accountSyncSnapshot.phase = "restoring_account_data";
     startupOverlayMocks.projectionSnapshot.phase = "bootstrapping";
+
+    render(<StartupExperienceOverlay />);
+
+    expect(screen.queryByText("Preparing your workspace")).not.toBeInTheDocument();
+  });
+
+  it("does not render when startup overlay has already been shown in this session", () => {
+    window.sessionStorage.setItem("obscur.runtime.startup_overlay_seen.v1", "1");
 
     render(<StartupExperienceOverlay />);
 

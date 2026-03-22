@@ -66,7 +66,8 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
   const kind = inferAttachmentKind(item.attachment);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" onPointerDown={onClose}>
+    <div data-escape-layer="open" className="media-preview-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-xl" onPointerDown={onClose}>
+      <div aria-hidden className="media-preview-depth-layer absolute inset-0" />
       <div className="relative w-full max-w-5xl" onPointerDown={(event) => event.stopPropagation()}>
         <button
           type="button"
@@ -77,7 +78,7 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
         >
           <X className="h-4 w-4" />
         </button>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">
+        <div className="overflow-hidden rounded-2xl border border-zinc-300/65 bg-white/75 shadow-[0_24px_80px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-black/75 dark:shadow-[0_28px_90px_rgba(0,0,0,0.6)]">
           {kind === "image" ? (
             <Image
               src={item.attachment.url}
@@ -159,10 +160,15 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 md:p-8"
+        data-escape-layer="open"
+        className="media-preview-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-xl md:p-8"
         onPointerDown={onClose}
       >
-        <div className="absolute top-5 right-5 z-[120] flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+        <div aria-hidden className="media-preview-depth-layer absolute inset-0" />
+        <div
+          className="absolute top-5 right-5 z-[120] flex items-center gap-2 rounded-2xl border border-zinc-300/70 bg-white/85 p-2 shadow-xl backdrop-blur-xl dark:border-white/15 dark:bg-black/45"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           {kind === "image" ? (
             <>
               <button
@@ -203,7 +209,7 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
 
         {kind === "image" ? (
           <div
-            className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-black"
+            className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/55 shadow-[0_30px_100px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-black/60 dark:shadow-[0_36px_110px_rgba(0,0,0,0.62)]"
             onPointerDown={(event) => event.stopPropagation()}
             onWheel={(event) => {
               event.preventDefault();
@@ -246,16 +252,16 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
                 draggable={false}
               />
             </motion.div>
-            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold tracking-wider text-white">
+            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-zinc-300/65 bg-white/85 px-2 py-1 text-[10px] font-bold tracking-wider text-zinc-800 dark:border-white/15 dark:bg-black/60 dark:text-white">
               {Math.round(viewerState.zoom * 100)}%
             </div>
           </div>
         ) : kind === "audio" ? (
-          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-black/70 p-8" onPointerDown={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-2xl rounded-3xl border border-zinc-300/60 bg-white/70 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/70 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
             <AudioPlayer src={item!.attachment.url} isOutgoing={false} />
           </div>
         ) : (
-          <div className="w-full max-w-6xl rounded-3xl overflow-hidden border border-white/10 bg-black" onPointerDown={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/70 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/70 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
             <VideoPlayer src={item!.attachment.url} isOutgoing={false} className="max-h-[90vh]" />
           </div>
         )}

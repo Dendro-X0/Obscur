@@ -142,6 +142,8 @@
         "messaging.e2eEncrypted": "Cifrado E2E",
         "messaging.processingMedia": "Procesando medios...",
         "messaging.messageDeleted": "Mensaje Eliminado",
+        "messaging.deleteForMe": "Eliminar para m\u00ed",
+        "messaging.deleteForEveryone": "Eliminar para todos",
         "messaging.status.sending": "Enviando",
         "messaging.status.sent": "Enviado",
         "messaging.status.failed": "Falló",

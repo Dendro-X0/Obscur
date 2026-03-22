@@ -6,6 +6,7 @@ import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/s
 import { performanceMonitor } from "../lib/performance-monitor";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { CHAT_STATE_REPLACED_EVENT } from "./chat-state-store";
+import { clearMessageDeleteTombstones, isMessageDeleteSuppressed } from "./message-delete-tombstone-store";
 
 vi.mock("@dweb/storage/indexed-db", () => ({
     messagingDB: {
@@ -30,9 +31,11 @@ describe("MessagePersistenceService batching", () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
+        clearMessageDeleteTombstones();
     });
 
     afterEach(() => {
+        clearMessageDeleteTombstones();
         vi.useRealTimers();
         vi.restoreAllMocks();
         vi.clearAllMocks();
@@ -111,6 +114,7 @@ describe("MessagePersistenceService batching", () => {
         expect(messagingDB.bulkDelete).toHaveBeenCalledTimes(1);
         const deleted = [...(vi.mocked(messagingDB.bulkDelete).mock.calls[0]?.[1] ?? [])].sort();
         expect(deleted).toEqual(["d-1", "d-2"]);
+        expect(isMessageDeleteSuppressed("d-1")).toBe(true);
         expect(messagingDB.delete).not.toHaveBeenCalled();
 
         service.dispose();

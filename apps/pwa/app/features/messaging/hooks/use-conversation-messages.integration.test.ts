@@ -5,6 +5,7 @@ import { useConversationMessages } from "./use-conversation-messages";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
 import { messagingDB } from "@dweb/storage/indexed-db";
+import { clearMessageDeleteTombstones } from "../services/message-delete-tombstone-store";
 
 const accountProjectionSnapshot = {
     profileId: "default",
@@ -56,6 +57,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             chatPerformanceV2: true
         });
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
+        clearMessageDeleteTombstones();
         accountProjectionSnapshot.projection = null;
 
         vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback): number => {
@@ -73,6 +75,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     afterEach(() => {
+        clearMessageDeleteTombstones();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });
@@ -185,6 +188,49 @@ describe("useConversationMessages integration (perf mode)", () => {
         expect(result.current.messages[0]?.content).toBe("hello from projection");
         expect(result.current.hasEarlier).toBe(false);
         unmount();
+    });
+
+    it("does not resurrect projection-backed messages after local delete and remount", async () => {
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: "a".repeat(64),
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                "c-projection-delete": [
+                    {
+                        messageId: "p-delete-1",
+                        conversationId: "c-projection-delete",
+                        peerPublicKeyHex: "b".repeat(64),
+                        direction: "incoming",
+                        eventCreatedAtUnixSeconds: 10,
+                        plaintextPreview: "projection message",
+                        observedAtUnixMs: 10_000,
+                    },
+                ],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 1,
+            updatedAtUnixMs: 10_000,
+        };
+
+        const first = renderHook(() => useConversationMessages("c-projection-delete", "a".repeat(64)));
+        await waitFor(() => expect(first.result.current.isLoading).toBe(false));
+        expect(first.result.current.messages).toHaveLength(1);
+
+        act(() => {
+            messageBus.emitMessageDeleted("c-projection-delete", "p-delete-1");
+        });
+        await waitFor(() => expect(first.result.current.messages).toHaveLength(0));
+        first.unmount();
+
+        const second = renderHook(() => useConversationMessages("c-projection-delete", "a".repeat(64)));
+        await waitFor(() => expect(second.result.current.isLoading).toBe(false));
+        expect(second.result.current.messages).toHaveLength(0);
+        second.unmount();
     });
 
     it("derives media attachments from projection plaintext when attachment metadata is missing", async () => {

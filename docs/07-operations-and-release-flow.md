@@ -1,6 +1,6 @@
 # 07 Operations and Release Flow
 
-_Last reviewed: 2026-03-18 (baseline commit 11f5602)._
+_Last reviewed: 2026-03-21 (baseline commit 399ef6a)._
 
 ## Version Source of Truth
 
@@ -31,6 +31,23 @@ pnpm release:artifact-version-contract-check
 pnpm release:test-pack -- --skip-preflight
 pnpm release:preflight
 ```
+
+## Current Release Lane (v0.9.5)
+
+Before pushing a release tag:
+
+1. Run the automated gate set:
+: `pnpm version:check`
+: `pnpm docs:check`
+: `pnpm release:integrity-check`
+: `pnpm release:artifact-version-contract-check`
+: `pnpm release:ci-signal-check`
+: `pnpm release:test-pack -- --skip-preflight`
+2. Run strict preflight only on a clean tree:
+: `pnpm release:preflight -- --tag v0.9.5`
+3. If working tree is intentionally dirty during staging diagnostics, use:
+: `pnpm release:preflight -- --tag v0.9.5 --allow-dirty 1`
+: and do not tag until strict clean-tree preflight passes.
 
 ## Tagging Model
 

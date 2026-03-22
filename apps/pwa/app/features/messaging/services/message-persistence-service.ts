@@ -9,6 +9,7 @@ import { CHAT_STATE_REPLACED_EVENT } from "./chat-state-store";
 import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { suppressMessageDeleteTombstone } from "./message-delete-tombstone-store";
 
 const toConversationIdDiagnosticLabel = (value: string): string => {
     const trimmed = value.trim();
@@ -464,6 +465,7 @@ export class MessagePersistenceService {
     }
 
     private async deleteMessage(messageId: string) {
+        suppressMessageDeleteTombstone(messageId);
         this.markMessageDeleted(messageId);
         if (this.chatPerformanceV2Enabled) {
             this.queueMessageDelete(messageId);

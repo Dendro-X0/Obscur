@@ -142,6 +142,8 @@
         "messaging.e2eEncrypted": "端到端加密",
         "messaging.processingMedia": "正在处理媒体...",
         "messaging.messageDeleted": "消息已删除",
+        "messaging.deleteForMe": "仅删除我这边",
+        "messaging.deleteForEveryone": "为所有人删除",
         "messaging.status.sending": "发送中",
         "messaging.status.sent": "已发送",
         "messaging.status.failed": "失败",

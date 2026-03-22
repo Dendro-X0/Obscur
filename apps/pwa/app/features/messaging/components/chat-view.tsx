@@ -50,7 +50,8 @@ export interface ChatViewProps {
     onCopyText: (text: string) => void;
     onCopyAttachmentUrl: (url: string) => void;
     onReferenceMessage: (message: Message) => void;
-    onDeleteMessage: (messageId: string) => void;
+    onDeleteMessageForMe: (message: Message) => void;
+    onDeleteMessageForEveryone: (message: Message) => void;
 
     // Reaction Picker
     reactionPicker: { messageId: string; x: number; y: number } | null;
@@ -262,6 +263,57 @@ export function ChatView(props: ChatViewProps) {
         };
     }, [isMessageMenuHovered, messageMenu, messageMenuAnchorHoverId, setMessageMenu]);
 
+    React.useEffect(() => {
+        const handleEscapeDismiss = (event: KeyboardEvent): void => {
+            if (event.key !== "Escape") {
+                return;
+            }
+
+            let handled = false;
+
+            if (props.lightboxIndex !== null) {
+                props.setLightboxIndex(null);
+                handled = true;
+            } else if (props.isMediaGalleryOpen) {
+                props.setIsMediaGalleryOpen(false);
+                handled = true;
+            } else if (messageMenu) {
+                setMessageMenu(null);
+                setMessageMenuAnchorHoverId(null);
+                setIsMessageMenuHovered(false);
+                handled = true;
+            } else if (reactionPicker) {
+                setReactionPicker(null);
+                handled = true;
+            } else if (isHistorySearchOpen) {
+                setIsHistorySearchOpen(false);
+                handled = true;
+            }
+
+            if (!handled) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        window.addEventListener("keydown", handleEscapeDismiss);
+        return () => {
+            window.removeEventListener("keydown", handleEscapeDismiss);
+        };
+    }, [
+        isHistorySearchOpen,
+        messageMenu,
+        props.isMediaGalleryOpen,
+        props.lightboxIndex,
+        props.setIsMediaGalleryOpen,
+        props.setLightboxIndex,
+        reactionPicker,
+        setMessageMenu,
+        setReactionPicker,
+    ]);
+
 
     const activeMessage = messageMenu && getMessageById(messageMenu.messageId);
     const activeReactionMessage = reactionPicker && getMessageById(reactionPicker.messageId);
@@ -314,7 +366,10 @@ export function ChatView(props: ChatViewProps) {
                 </button>
 
                 {isHistorySearchOpen ? (
-                    <div className="pointer-events-auto w-full rounded-2xl border border-black/10 bg-white/85 p-2 shadow-lg backdrop-blur dark:border-white/10 dark:bg-zinc-950/85">
+                    <div
+                        data-escape-layer="open"
+                        className="pointer-events-auto w-full rounded-2xl border border-black/10 bg-white/85 p-2 shadow-lg backdrop-blur dark:border-white/10 dark:bg-zinc-950/85"
+                    >
                         <div className="mb-2 flex items-center justify-end">
                             <button
                                 type="button"
@@ -488,8 +543,12 @@ export function ChatView(props: ChatViewProps) {
                         props.onReferenceMessage(activeMessage);
                         props.setMessageMenu(null);
                     }}
-                    onDelete={() => {
-                        props.onDeleteMessage(activeMessage.id);
+                    onDeleteForMe={() => {
+                        props.onDeleteMessageForMe(activeMessage);
+                        props.setMessageMenu(null);
+                    }}
+                    onDeleteForEveryone={() => {
+                        props.onDeleteMessageForEveryone(activeMessage);
                         props.setMessageMenu(null);
                     }}
                     menuRef={props.messageMenuRef}

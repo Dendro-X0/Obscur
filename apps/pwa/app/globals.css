@@ -95,11 +95,13 @@
   --gradient-primary: linear-gradient(135deg, oklch(0.58 0.24 285) 0%, oklch(0.45 0.28 310) 45%, oklch(0.52 0.22 330) 100%);
   --gradient-accent: linear-gradient(135deg, oklch(0.94 0.08 285) 0%, oklch(0.92 0.06 275) 100%);
   --gradient-scrim: linear-gradient(to bottom, transparent, oklch(0 0 0 / 0.06));
-  --media-control-bg: oklch(0 0 0 / 0.55);
-  --media-control-bg-hover: oklch(0 0 0 / 0.7);
-  --media-control-fg: oklch(0.99 0 0);
-  --media-control-border: oklch(1 0 0 / 0.18);
+  --media-control-bg: oklch(0.98 0.01 275 / 0.9);
+  --media-control-bg-hover: oklch(0.94 0.02 275 / 0.98);
+  --media-control-fg: oklch(0.2 0.04 275);
+  --media-control-border: oklch(0 0 0 / 0.18);
   --media-focus-ring: oklch(0.58 0.24 285 / 0.55);
+  --media-preview-backdrop: radial-gradient(circle at 50% -10%, oklch(1 0.01 280 / 0.94) 0%, oklch(0.95 0.04 268 / 0.9) 48%, oklch(0.9 0.03 252 / 0.94) 100%);
+  --media-preview-depth-layer: radial-gradient(140% 120% at 50% 50%, transparent 35%, oklch(0.35 0.03 250 / 0.18) 100%);
 
   --gradient-main-fallback: linear-gradient(160deg, #ffffff 0%, #f0f4f8 100%);
 }
@@ -136,6 +138,8 @@
   --media-control-fg: oklch(0.98 0.01 270);
   --media-control-border: oklch(1 0 0 / 0.22);
   --media-focus-ring: oklch(0.72 0.19 274 / 0.7);
+  --media-preview-backdrop: radial-gradient(circle at 50% -12%, oklch(0.24 0.08 270 / 0.7) 0%, oklch(0.12 0.04 266 / 0.94) 52%, oklch(0.08 0.02 258 / 0.99) 100%);
+  --media-preview-depth-layer: radial-gradient(140% 120% at 50% 50%, transparent 30%, oklch(0 0 0 / 0.62) 100%);
 }
 
 @layer base {
@@ -472,6 +476,7 @@
     color: var(--media-control-fg);
     border-color: var(--media-control-border);
     backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px -14px oklch(0 0 0 / 0.4);
   }
 
   .media-viewer-control:hover {
@@ -499,6 +504,7 @@
     color: var(--media-control-fg);
     border-color: var(--media-control-border);
     backdrop-filter: blur(12px);
+    box-shadow: 0 10px 28px -16px oklch(0 0 0 / 0.45);
   }
 
   .media-viewer-nav:hover {
@@ -512,6 +518,15 @@
 
   .media-viewer-nav-right {
     right: 1rem;
+  }
+
+  .media-preview-backdrop {
+    background: var(--media-preview-backdrop);
+  }
+
+  .media-preview-depth-layer {
+    background: var(--media-preview-depth-layer);
+    pointer-events: none;
   }
 
   /* Accessibility: user-selected reduced motion */

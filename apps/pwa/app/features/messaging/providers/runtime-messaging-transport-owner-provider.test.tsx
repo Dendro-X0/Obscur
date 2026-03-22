@@ -7,6 +7,7 @@ import type { Message } from "@/app/features/messaging/types";
 
 const busMocks = vi.hoisted(() => ({
   emitNewMessage: vi.fn(),
+  emitMessageDeleted: vi.fn(),
 }));
 
 const peerInteractionMocks = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ vi.mock("@/app/features/messaging/hooks/use-enhanced-dm-controller", () => ({
 vi.mock("@/app/features/messaging/services/message-bus", () => ({
   messageBus: {
     emitNewMessage: busMocks.emitNewMessage,
+    emitMessageDeleted: busMocks.emitMessageDeleted,
   },
 }));
 
@@ -89,6 +91,7 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     runtimeState.phase = "ready";
     vi.mocked(useEnhancedDmController).mockClear();
     busMocks.emitNewMessage.mockReset();
+    busMocks.emitMessageDeleted.mockReset();
     peerInteractionMocks.recordPeerLastActive.mockReset();
   });
 
@@ -290,5 +293,27 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
 
     expect(peerInteractionMocks.recordPeerLastActive).not.toHaveBeenCalled();
     expect(busMocks.emitNewMessage).toHaveBeenCalledWith(outgoing.conversationId, outgoing);
+  });
+
+  it("emits delete events from controller callback to the message bus", () => {
+    projectionState.accountProjectionReady = true;
+    projectionState.phase = "ready";
+
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    const controllerParams = vi.mocked(useEnhancedDmController).mock.calls[0]?.[0] as Readonly<{
+      onMessageDeleted?: (params: Readonly<{ conversationId: string; messageId: string }>) => void;
+    }>;
+
+    controllerParams.onMessageDeleted?.({
+      conversationId: "conversation-delete",
+      messageId: "msg-delete-1",
+    });
+
+    expect(busMocks.emitMessageDeleted).toHaveBeenCalledWith("conversation-delete", "msg-delete-1");
   });
 });

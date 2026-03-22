@@ -1,6 +1,6 @@
 # 08 Maintainer Playbook and Continuation Handoff
 
-_Last reviewed: 2026-03-21 (baseline commit 68cb62f)._
+_Last reviewed: 2026-03-21 (baseline commit 399ef6a)._
 
 This file is the minimal context needed to resume the project after a pause.
 
@@ -93,6 +93,86 @@ Then map symptoms with:
 - `docs/13-relay-and-startup-failure-atlas.md`
 - `docs/14-module-owner-index.md`
 
+### v0.9.5 M0 Release-Candidate Manual Replay Checklist
+
+Run this checklist before promoting any `v0.9.5` release candidate:
+
+1. Restart/login continuity replay (desktop + web):
+: close and relaunch both runtimes without explicit logout, then verify remembered identity can unlock through the canonical auth path.
+2. Route-transition liveness replay:
+: rapid-switch `chats -> network -> groups -> settings -> chats` and verify no unrecoverable blank page/sidebar lock.
+3. Two-device sync confidence replay:
+: verify DM/group/media history parity after target-device restore and thread open.
+4. Triage capture export on first anomaly:
+: run `copy(window.obscurM0Triage?.captureJson(300))` and attach output before attempting secondary fixes.
+5. Owner-boundary confirmation:
+: map the failing symptom to canonical owners in `docs/14-module-owner-index.md` before code changes.
+
+### v0.9.5 M1 Session and Navigation Replay Checks
+
+When validating M1 guardrails, capture these event probes in addition to normal manual replay:
+
+1. Auto-unlock scan and native fallback evidence:
+: `window.obscurAppEvents.findByName("auth.auto_unlock_scan", 20)`
+: `window.obscurAppEvents.findByName("auth.auto_unlock_recovered_native_session", 20)`
+2. Route fallback guard evidence:
+: `window.obscurAppEvents.findByName("navigation.route_stall_hard_fallback", 20)`
+: `window.obscurAppEvents.findByName("navigation.route_settled", 20)`
+3. Route mount probe evidence:
+: `window.obscurAppEvents.findByName("navigation.route_mount_probe_slow", 20)`
+: `window.obscurAppEvents.findByName("navigation.route_mount_probe_settled", 20)`
+
+### v0.9.5 M2 Cross-Device Sync Replay Checks
+
+Use this compact capture first during two-device DM/group/media verification:
+
+1. Full digest (copy-ready):
+: `copy(JSON.stringify(window.obscurAppEvents.getCrossDeviceSyncDigest(400), null, 2))`
+2. DM continuity summary signal:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.selfAuthoredDmContinuity`
+3. Membership/sendability summary signal:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability`
+4. Media hydration parity summary signal:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.mediaHydrationParity`
+
+When summary risk level is `watch` or `high`, inspect event slices:
+: `events["account_sync.backup_payload_hydration_diagnostics"]`
+: `events["account_sync.backup_restore_merge_diagnostics"]`
+: `events["account_sync.backup_restore_apply_diagnostics"]`
+: `events["account_sync.backup_restore_history_regression"]`
+: `events["messaging.conversation_hydration_diagnostics"]`
+: `events["messaging.conversation_hydration_id_split_detected"]`
+: `events["groups.membership_recovery_hydrate"]`
+: `events["groups.room_key_missing_send_blocked"]`
+
+### v0.9.5 M2 Message Deletion Convergence Replay Checks
+
+For `Delete for me` / `Delete for everyone` verification, run this deterministic replay:
+
+1. Sender authority check:
+: from sender account, verify `Delete for everyone` is present only on self-authored messages.
+2. Recipient convergence check:
+: sender deletes a self-authored message with `Delete for everyone`, then recipient verifies the message is removed and does not reappear after thread reopen.
+3. Replay-resurrection check:
+: scroll thread, trigger new incoming messages, and reopen the app/runtime; deleted messages must stay removed.
+4. Diagnostics check on failure:
+: export `window.obscurAppEvents.getRecent(300)` and include the surrounding `messaging.conversation_hydration_*` and `account_sync.backup_restore_*` slices with the delete-reproduction timeline.
+
+### v0.9.5 M3 Vault Contrast and Control Visibility Replay Checks
+
+For the light-mode polish slice, run this quick manual pass:
+
+1. Vault gallery filters + pagination in Light mode:
+: verify type-filter chips and page controls remain readable without hover.
+2. Vault detail overlay controls in Light and Dark modes:
+: verify close button, action bar buttons, and zoom/reset controls are visible at rest (not hover-only).
+3. No behavior regression:
+: verify opening media, zooming images, favoriting, and local-cache delete still work as before.
+4. Chat media lightbox controls in Light and Dark modes:
+: verify top-right controls and left/right navigation controls remain visible at rest and maintain clear focus/hover feedback.
+5. Inline chat media players in Light and Dark modes:
+: verify audio/video playback controls (play/pause, volume, fullscreen/external) stay readable at rest without requiring hover.
+
 ### Cross-Device DM Loss Triage
 
 Capture the following in one A/B reproduction cycle:
@@ -112,6 +192,11 @@ Capture the following in one A/B reproduction cycle:
 
 ## Change Discipline
 
+- v0.9.x execution constraints (pre-v1):
+  - no new lifecycle or sync owners for startup, relay, or account-sync paths,
+  - no parallel mutation pipelines for the same runtime state,
+  - no optimistic success claims without evidence-backed outcomes,
+  - no broad refactor-only landings without reliability or diagnostics value.
 - Prefer subtraction over compatibility layering.
 - Avoid hidden singleton assumptions for profile/account scope.
 - Treat sender-local optimistic state as provisional only.

@@ -1182,6 +1182,16 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool, members, state.expelledMembers, state.metadata]);
 
   const leaveGroup = useCallback(async (): Promise<void> => {
+    let disbandPublished = false;
+    const activeMembersBeforeLeave = membersRef.current.filter((memberPubkey) => (
+      !leftMembersRef.current.includes(memberPubkey)
+      && !expelledMembersRef.current.includes(memberPubkey)
+    ));
+    const remainingKnownMembers = params.myPublicKeyHex
+      ? activeMembersBeforeLeave.filter((memberPubkey) => memberPubkey !== params.myPublicKeyHex)
+      : activeMembersBeforeLeave;
+    const shouldAttemptAutoDisband = remainingKnownMembers.length === 0;
+
     if (params.myPublicKeyHex && params.myPrivateKeyHex) {
       try {
         const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
@@ -1213,14 +1223,82 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
             throw new Error(sealedLeaveResult.overallError || "Failed to publish sealed leave event");
           }
         }
+
+        if (shouldAttemptAutoDisband && roomKeyHex) {
+          logAppEvent({
+            name: "groups.auto_disband_attempt",
+            level: "info",
+            scope: { feature: "groups", action: "disband" },
+            context: {
+              groupIdHint: params.groupId.length > 24
+                ? `${params.groupId.slice(0, 12)}...${params.groupId.slice(-8)}`
+                : params.groupId,
+              reason: "last_known_member_left",
+              knownActiveMemberCountBeforeLeave: activeMembersBeforeLeave.length,
+            },
+          });
+          const disbandEvent = await groupService.sendSealedDisband({
+            groupId: params.groupId,
+            roomKeyHex,
+          });
+          const disbandResult = await publishToCommunityScopeWithRetry({
+            event: disbandEvent,
+            operation: "Disband event",
+            allowGlobalFallback: true
+          });
+          if (disbandResult.success) {
+            const disbandTimestamp = Math.floor(Date.now() / 1000);
+            applyLedgerEvent({ type: "COMMUNITY_DISBANDED", timestamp: disbandTimestamp });
+            disbandPublished = true;
+            logAppEvent({
+              name: "groups.auto_disband_result",
+              level: "info",
+              scope: { feature: "groups", action: "disband" },
+              context: {
+                groupIdHint: params.groupId.length > 24
+                  ? `${params.groupId.slice(0, 12)}...${params.groupId.slice(-8)}`
+                  : params.groupId,
+                result: "published",
+                knownActiveMemberCountBeforeLeave: activeMembersBeforeLeave.length,
+              },
+            });
+          } else {
+            logAppEvent({
+              name: "groups.auto_disband_result",
+              level: "warn",
+              scope: { feature: "groups", action: "disband" },
+              context: {
+                groupIdHint: params.groupId.length > 24
+                  ? `${params.groupId.slice(0, 12)}...${params.groupId.slice(-8)}`
+                  : params.groupId,
+                result: "failed_publish",
+                reason: disbandResult.overallError ?? "publish_failed",
+                knownActiveMemberCountBeforeLeave: activeMembersBeforeLeave.length,
+              },
+            });
+          }
+        } else if (shouldAttemptAutoDisband && !roomKeyHex) {
+          logAppEvent({
+            name: "groups.auto_disband_result",
+            level: "warn",
+            scope: { feature: "groups", action: "disband" },
+            context: {
+              groupIdHint: params.groupId.length > 24
+                ? `${params.groupId.slice(0, 12)}...${params.groupId.slice(-8)}`
+                : params.groupId,
+              result: "skipped_missing_room_key",
+              knownActiveMemberCountBeforeLeave: activeMembersBeforeLeave.length,
+            },
+          });
+        }
       } catch (e: any) {
         console.error("Failed to broadcast leave event(s):", e);
         toast.error(e?.message || "Failed to leave via scoped relay. Try again or check relay status.");
       }
     }
     await roomKeyStore.deleteRoomKey(params.groupId);
-    toast.success("Disconnected from community");
-  }, [params.groupId, params.myPublicKeyHex, params.myPrivateKeyHex, publishToCommunityScopeWithRetry]);
+    toast.success(disbandPublished ? "Community disbanded" : "Disconnected from community");
+  }, [applyLedgerEvent, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
 
   const deleteMessage = useCallback(async (deleteParams: Readonly<{ eventId: string; reason?: string }>): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;

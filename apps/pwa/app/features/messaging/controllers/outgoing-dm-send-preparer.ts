@@ -2,10 +2,12 @@ import type { Dispatch, SetStateAction } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { DmEventBuildResult } from "./dm-event-builder";
 import type { IMessageQueue, Message } from "../lib/message-queue";
+import type { MessageKind } from "../types";
 
 export const prepareOutgoingDm = async (params: Readonly<{
   build: DmEventBuildResult;
   plaintext: string;
+  messageKind?: MessageKind;
   attachments?: Message["attachments"];
   createdAtUnixSeconds: number;
   myPublicKeyHex: PublicKeyHex;
@@ -35,7 +37,7 @@ export const prepareOutgoingDm = async (params: Readonly<{
     id: messageId,
     conversationId,
     content: params.plaintext,
-    kind: "user",
+    kind: params.messageKind ?? "user",
     timestamp: new Date(params.createdAtUnixSeconds * 1000),
     isOutgoing: true,
     status: "sending",

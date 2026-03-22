@@ -135,7 +135,20 @@ describe("encryptedAccountBackupService", () => {
     const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
       version: 2,
       createdConnections: [],
-      createdGroups: [],
+      createdGroups: [{
+        id: "community:alpha:wss://relay.example",
+        communityId: "alpha:wss://relay.example",
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        displayName: "Alpha",
+        memberPubkeys: [publicKeyHex],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTimeMs: 6_000,
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [publicKeyHex],
+      }],
       unreadByConversationId: {},
       connectionOverridesByConnectionId: {},
       messagesByConversationId: {
@@ -315,7 +328,20 @@ describe("encryptedAccountBackupService", () => {
     const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
       version: 2,
       createdConnections: [],
-      createdGroups: [],
+      createdGroups: [{
+        id: "community:alpha:wss://relay.example",
+        communityId: "alpha:wss://relay.example",
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        displayName: "Alpha",
+        memberPubkeys: [publicKeyHex],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTimeMs: 4_000,
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [publicKeyHex],
+      }],
       unreadByConversationId: {},
       connectionOverridesByConnectionId: {},
       messagesByConversationId: {},
@@ -349,7 +375,20 @@ describe("encryptedAccountBackupService", () => {
     const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
       version: 2,
       createdConnections: [],
-      createdGroups: [],
+      createdGroups: [{
+        id: "community:alpha:wss://relay.example",
+        communityId: "alpha:wss://relay.example",
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        displayName: "Alpha",
+        memberPubkeys: [publicKeyHex],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTimeMs: 6_000,
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [publicKeyHex],
+      }],
       unreadByConversationId: {},
       connectionOverridesByConnectionId: {},
       messagesByConversationId: {
@@ -399,6 +438,14 @@ describe("encryptedAccountBackupService", () => {
       createdAt: 1_000,
     }]);
     const upsertSpy = vi.spyOn(roomKeyStore, "upsertRoomKeyRecord").mockResolvedValue(undefined);
+    saveCommunityMembershipLedger(publicKeyHex, [{
+      communityId: "alpha:wss://relay.example",
+      groupId: "alpha",
+      relayUrl: "wss://relay.example",
+      status: "joined",
+      updatedAtUnixMs: 1_000,
+      displayName: "Alpha",
+    }]);
 
     await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
       version: 1,
@@ -415,6 +462,14 @@ describe("encryptedAccountBackupService", () => {
       requestFlowEvidence: { byPeer: {} },
       requestOutbox: { records: [] },
       syncCheckpoints: [],
+      communityMembershipLedger: [{
+        communityId: "alpha:wss://relay.example",
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        status: "joined",
+        updatedAtUnixMs: 2_000,
+        displayName: "Alpha",
+      }],
       roomKeys: [{
         groupId: "alpha",
         roomKeyHex: "room-key-remote",
@@ -442,6 +497,56 @@ describe("encryptedAccountBackupService", () => {
       createdAt: 2_000,
       previousKeys: expect.arrayContaining(["room-key-local", "room-key-legacy"]),
     }));
+
+    listSpy.mockRestore();
+    upsertSpy.mockRestore();
+  });
+
+  it("drops room key snapshots without same-account joined evidence during restore", async () => {
+    const listSpy = vi.spyOn(roomKeyStore, "listRoomKeyRecords").mockResolvedValue([{
+      groupId: "orphan",
+      roomKeyHex: "room-key-orphan-local",
+      createdAt: 1_000,
+    }]);
+    const upsertSpy = vi.spyOn(roomKeyStore, "upsertRoomKeyRecord").mockResolvedValue(undefined);
+
+    await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: Date.now(),
+      profile: {
+        username: "Recovered",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: { acceptedPeers: [], mutedPeers: [] },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      roomKeys: [{
+        groupId: "orphan",
+        roomKeyHex: "room-key-orphan-remote",
+        createdAt: 2_000,
+      }],
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {},
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+    });
+
+    expect(upsertSpy).not.toHaveBeenCalled();
 
     listSpy.mockRestore();
     upsertSpy.mockRestore();
@@ -1320,6 +1425,8 @@ describe("encryptedAccountBackupService", () => {
           stage: "post_apply_to_post_canonical_append",
           restorePath: "relay_sync_append",
           dmOutgoingDropped: true,
+          dmAttachmentDropped: false,
+          groupAttachmentDropped: false,
           dmOutgoingDelta: -1,
           canonicalEventCount: expect.any(Number),
         }),
@@ -1553,6 +1660,72 @@ describe("encryptedAccountBackupService", () => {
     expect(merged?.groupMessages?.["group:one"]).toEqual([
       expect.objectContaining({ id: "g-1" }),
     ]);
+  });
+
+  it("keeps richer group metadata and member coverage when newer backup row is regressed", () => {
+    const merged = encryptedAccountBackupServiceInternals.mergeChatState({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [{
+        id: "community:alpha:wss://relay.example",
+        communityId: "alpha:wss://relay.example",
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        displayName: "Alpha Team",
+        memberPubkeys: [publicKeyHex, acceptedPeerPublicKeyHex],
+        lastMessage: "older rich metadata",
+        unreadCount: 0,
+        lastMessageTimeMs: 1_000,
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [publicKeyHex],
+        avatar: "https://cdn.example/alpha.png",
+      }],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    }, {
+      version: 2,
+      createdConnections: [],
+      createdGroups: [{
+        id: "group:alpha:wss://relay.example",
+        communityId: "alpha:wss://relay.example",
+        groupId: "alpha",
+        relayUrl: "wss://relay.example",
+        displayName: "Private Group",
+        memberPubkeys: [acceptedPeerPublicKeyHex],
+        lastMessage: "newer but regressed metadata",
+        unreadCount: 0,
+        lastMessageTimeMs: 2_000,
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+
+    expect(merged?.createdGroups).toHaveLength(1);
+    expect(merged?.createdGroups[0]).toEqual(expect.objectContaining({
+      groupId: "alpha",
+      relayUrl: "wss://relay.example",
+      displayName: "Alpha Team",
+      avatar: "https://cdn.example/alpha.png",
+    }));
+    expect(merged?.createdGroups[0]?.memberPubkeys).toEqual(expect.arrayContaining([
+      publicKeyHex,
+      acceptedPeerPublicKeyHex,
+    ]));
+    expect((merged?.createdGroups[0]?.memberCount ?? 0) >= 2).toBe(true);
   });
 
   it("hydrates indexed chat state before publishing encrypted backup", async () => {

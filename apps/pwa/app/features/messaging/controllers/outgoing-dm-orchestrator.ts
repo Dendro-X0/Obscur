@@ -15,7 +15,7 @@ import type { RelayPool, SendResult } from "./enhanced-dm-controller";
 import type { MessageQueue, Message } from "../lib/message-queue";
 import { messageMemoryManager } from "../lib/performance-optimizer";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
-import type { Attachment } from "../types";
+import type { Attachment, MessageKind } from "../types";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
@@ -133,6 +133,11 @@ const getConnectionLifecycleTag = (customTags?: ReadonlyArray<ReadonlyArray<stri
         return transportTag;
     }
     return null;
+};
+
+const resolveOutgoingMessageKind = (customTags?: ReadonlyArray<ReadonlyArray<string>>): MessageKind => {
+    const lifecycleTag = customTags?.find((tag) => tag[0] === "t")?.[1];
+    return lifecycleTag === "message-delete" ? "command" : "user";
 };
 
 const dedupeRelayUrls = (relayUrls: ReadonlyArray<string>): ReadonlyArray<string> => (
@@ -446,6 +451,7 @@ export const orchestrateOutgoingDm = async (
         const prepared = await prepareOutgoingDm({
             build, plaintext: cleanedPlaintext, createdAtUnixSeconds: usedCreatedAt,
             myPublicKeyHex, recipientPubkey, replyTo,
+            messageKind: resolveOutgoingMessageKind(customTags),
             attachments: attachments ? [...attachments] : undefined,
             maxMessagesInMemory, extractAttachmentsFromContent,
             messageQueue, setState, createReadyState, messageMemoryManager,

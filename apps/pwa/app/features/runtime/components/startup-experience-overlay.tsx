@@ -18,6 +18,7 @@ type LaunchStep = Readonly<{
 
 const STARTUP_OVERLAY_MIN_VISIBLE_MS = 900;
 const STARTUP_OVERLAY_BYPASS_THRESHOLD_MS = 10_000;
+const STARTUP_OVERLAY_SESSION_KEY = "obscur.runtime.startup_overlay_seen.v1";
 
 const stepContribution = (status: LaunchStepStatus): number => {
   if (status === "done") {
@@ -36,10 +37,31 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
   const runtime = useWindowRuntime().snapshot;
   const accountSyncSnapshot = useAccountSyncSnapshot();
   const projectionSnapshot = useAccountProjectionSnapshot();
+  const [overlayEligibleThisSession] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+    try {
+      return window.sessionStorage.getItem(STARTUP_OVERLAY_SESSION_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
   const [isVisible, setIsVisible] = useState(false);
   const [manuallyDismissed, setManuallyDismissed] = useState(false);
   const [startedAtUnixMs, setStartedAtUnixMs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    if (!overlayEligibleThisSession) {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(STARTUP_OVERLAY_SESSION_KEY, "1");
+    } catch {
+      // sessionStorage can be unavailable in some embedded runtimes.
+    }
+  }, [overlayEligibleThisSession]);
 
   const runtimeSettled = runtime.phase === "ready" || runtime.phase === "degraded";
   const relayPhase = runtime.relayRuntime.phase;
@@ -49,7 +71,7 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
   const projectionReady = projectionSnapshot.phase === "ready" || projectionSnapshot.phase === "degraded";
   const startupComplete = runtimeSettled && accountSyncReady && projectionReady && relaySettled;
   const startupTransitioning = runtime.phase === "booting" || runtime.phase === "binding_profile" || runtime.phase === "unlocking" || runtime.phase === "activating_runtime";
-  const shouldParticipate = runtime.phase !== "auth_required" && runtime.phase !== "fatal" && runtime.session.identityStatus !== "locked";
+  const shouldParticipate = overlayEligibleThisSession && runtime.phase !== "auth_required" && runtime.phase !== "fatal" && runtime.session.identityStatus !== "locked";
   const shouldShow = shouldParticipate && !startupComplete && !manuallyDismissed && startupTransitioning;
 
   useEffect(() => {
@@ -181,32 +203,32 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[2200] flex items-center justify-center bg-gradient-to-b from-zinc-950/90 via-zinc-900/85 to-zinc-950/90 px-4 py-6 text-zinc-50 backdrop-blur-md">
+    <div className="pointer-events-none fixed inset-0 z-[2200] flex items-center justify-center bg-gradient-to-b from-white/90 via-indigo-50/80 to-violet-100/70 px-4 py-6 text-zinc-900 backdrop-blur-md dark:from-zinc-950/90 dark:via-zinc-900/85 dark:to-zinc-950/90 dark:text-zinc-50">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -left-16 top-12 h-48 w-48 rounded-full bg-cyan-500/20 blur-3xl animate-pulse" />
-        <div className="absolute right-0 top-24 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 left-1/3 h-44 w-44 rounded-full bg-fuchsia-500/20 blur-3xl animate-pulse" />
+        <div className="absolute -left-16 top-12 h-48 w-48 animate-pulse rounded-full bg-cyan-400/25 blur-3xl dark:bg-cyan-500/20" />
+        <div className="absolute right-0 top-24 h-56 w-56 animate-pulse rounded-full bg-indigo-400/25 blur-3xl dark:bg-indigo-500/20" />
+        <div className="absolute bottom-0 left-1/3 h-44 w-44 animate-pulse rounded-full bg-fuchsia-400/20 blur-3xl dark:bg-fuchsia-500/20" />
       </div>
 
-      <div className="pointer-events-auto relative w-full max-w-xl rounded-3xl border border-white/15 bg-zinc-950/70 p-6 shadow-2xl shadow-black/60">
+      <div className="pointer-events-auto relative w-full max-w-xl rounded-3xl border border-black/10 bg-gradient-card p-6 shadow-2xl shadow-indigo-900/15 dark:border-white/15 dark:bg-zinc-950/70 dark:shadow-black/60">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/5">
-              <Sparkles className="h-5 w-5 text-cyan-300" />
-              <div className="absolute -inset-1 rounded-2xl border border-cyan-400/35 animate-pulse" />
+            <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-300/45 bg-white/80 dark:border-white/15 dark:bg-white/5">
+              <Sparkles className="h-5 w-5 text-indigo-600 dark:text-cyan-300" />
+              <div className="absolute -inset-1 animate-pulse rounded-2xl border border-indigo-400/45 dark:border-cyan-400/35" />
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-400">Obscur Startup</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">Obscur Startup</p>
               <h2 className="text-xl font-semibold">Preparing your workspace</h2>
             </div>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold text-zinc-300">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-300" />
+          <div className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-3 py-1 text-xs font-bold text-zinc-700 dark:border-white/15 dark:bg-white/5 dark:text-zinc-300">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600 dark:text-cyan-300" />
             {progressPercent}%
           </div>
         </div>
 
-        <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-zinc-200/80 dark:bg-white/10">
           <div
             className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-indigo-400 to-fuchsia-400 transition-all duration-500 ease-out"
             style={{ width: `${progressPercent}%` }}
@@ -215,7 +237,7 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
 
         <div className="space-y-2.5">
           {steps.map((step) => (
-            <div key={step.key} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <div key={step.key} className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="mt-0.5">
                 {step.key === "identity" ? (
                   <StepIcon icon={<UserCircle2 className="h-4 w-4" />} status={step.status} />
@@ -228,23 +250,23 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-100">{step.label}</p>
-                <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">{step.description}</p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{step.label}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">{step.description}</p>
               </div>
             </div>
           ))}
         </div>
 
         <div className="mt-5 flex items-center justify-between">
-          <p className="inline-flex items-center gap-2 text-xs text-zinc-400">
-            <Radio className="h-3.5 w-3.5 text-cyan-300" />
+          <p className="inline-flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <Radio className="h-3.5 w-3.5 text-indigo-600 dark:text-cyan-300" />
             Startup operations continue in the background if relays are unstable.
           </p>
           {canBypass ? (
             <button
               type="button"
               onClick={() => setManuallyDismissed(true)}
-              className="rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-xs font-semibold text-zinc-300 transition hover:bg-white/10 hover:text-white"
+              className="rounded-lg border border-black/10 bg-white/70 px-2.5 py-1 text-xs font-semibold text-zinc-700 transition hover:bg-white hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
             >
               Continue
             </button>
@@ -258,21 +280,21 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
 function StepIcon(props: Readonly<{ icon: React.JSX.Element; status: LaunchStepStatus }>): React.JSX.Element {
   if (props.status === "done") {
     return (
-      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
         <CheckCircle2 className="h-4 w-4" />
       </div>
     );
   }
   if (props.status === "active") {
     return (
-      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300">
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-cyan-500/20 dark:text-cyan-300">
         <Loader2 className="h-4 w-4 animate-spin" />
       </div>
     );
   }
   if (props.status === "degraded") {
     return (
-      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-300">
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
         {React.cloneElement(props.icon, {
           className: cn(props.icon.props.className ?? "", "opacity-90"),
         })}
@@ -280,7 +302,7 @@ function StepIcon(props: Readonly<{ icon: React.JSX.Element; status: LaunchStepS
     );
   }
   return (
-    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-zinc-400">
+    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200/85 text-zinc-600 dark:bg-white/10 dark:text-zinc-400">
       {props.icon}
     </div>
   );

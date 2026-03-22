@@ -14,6 +14,10 @@ import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { extractAttachmentsFromContent } from "../utils/logic";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import {
+    loadSuppressedMessageDeleteIds,
+    suppressMessageDeleteTombstone,
+} from "../services/message-delete-tombstone-store";
 
 interface UseConversationMessagesResult {
     messages: ReadonlyArray<Message>;
@@ -140,6 +144,8 @@ const normalizeMessage = (
     };
 };
 
+const isDisplayableMessage = (message: Message): boolean => message.kind !== "command";
+
 const getMessageDirectionCounts = (
     entries: ReadonlyArray<Message>,
     myPublicKeyHex: PublicKeyHex | null,
@@ -232,6 +238,7 @@ export const applyBufferedEvents = (
     tombstones?: DeleteTombstones,
     nowMs: number = Date.now(),
     myPublicKeyHex?: string | null,
+    persistentSuppressedMessageIds?: ReadonlySet<string>,
 ): ReadonlyArray<Message> => {
     if (tombstones && tombstones.size > 0) {
         for (const [id, deletedAt] of tombstones.entries()) {
@@ -258,8 +265,19 @@ export const applyBufferedEvents = (
             return;
         }
 
+        if (event.message.kind === "command") {
+            byId.delete(event.message.id);
+            return;
+        }
+
         const deletedAt = tombstones?.get(event.message.id);
         if (typeof deletedAt === "number" && (nowMs - deletedAt) <= DELETE_TOMBSTONE_TTL_MS) {
+            return;
+        }
+        if (
+            persistentSuppressedMessageIds?.has(event.message.id)
+            || (!!event.message.eventId && persistentSuppressedMessageIds?.has(event.message.eventId))
+        ) {
             return;
         }
 
@@ -270,10 +288,15 @@ export const applyBufferedEvents = (
     });
 
     const sorted = Array.from(byId.values()).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    if (chatPerformanceV2Enabled && !allowExpandedHistory && sorted.length > LIVE_WINDOW_SOFT_LIMIT) {
-        return sorted.slice(-LIVE_WINDOW_SOFT_LIMIT);
+    const visible = sorted.filter((message) => (
+        isDisplayableMessage(message)
+        && !persistentSuppressedMessageIds?.has(message.id)
+        && !(message.eventId && persistentSuppressedMessageIds?.has(message.eventId))
+    ));
+    if (chatPerformanceV2Enabled && !allowExpandedHistory && visible.length > LIVE_WINDOW_SOFT_LIMIT) {
+        return visible.slice(-LIVE_WINDOW_SOFT_LIMIT);
     }
-    return sorted;
+    return visible;
 };
 
 /**
@@ -304,6 +327,7 @@ export function useConversationMessages(
     const projectionFallbackHydrationRef = useRef(false);
     const messagesRef = useRef<ReadonlyArray<Message>>([]);
     const deletedTombstonesRef = useRef<DeleteTombstones>(new Map());
+    const persistedDeletedIdsRef = useRef<Set<string>>(new Set(loadSuppressedMessageDeleteIds()));
     const projectionMessages = useMemo(() => {
         if (!conversationId || !publicKeyHex || !projectionReadAuthority.useProjectionReads) {
             return EMPTY_PROJECTION_MESSAGES;
@@ -317,7 +341,10 @@ export function useConversationMessages(
         return selected.map((entry) => normalizeMessage(entry, {
             conversationId,
             myPublicKeyHex: publicKeyHex,
-        }));
+        })).filter((message) => (
+            !persistedDeletedIdsRef.current.has(message.id)
+            && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
+        ));
     }, [
         accountProjectionSnapshot.projection,
         conversationId,
@@ -353,7 +380,10 @@ export function useConversationMessages(
             const mapped: Message[] = latestMessages.slice().reverse().map((m: any) => normalizeMessage(m, {
                 conversationId: cid,
                 myPublicKeyHex: publicKeyHex,
-            }));
+            })).filter((message) => (
+                !persistedDeletedIdsRef.current.has(message.id)
+                && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
+            ));
 
             const shouldUseProjectionFallback = (
                 mapped.length === 0
@@ -362,7 +392,7 @@ export function useConversationMessages(
             );
             const hydrated = shouldUseProjectionFallback
                 ? projectionMessages
-                : mapped;
+                : mapped.filter(isDisplayableMessage);
             const normalizedPublicKeyHex = normalizePublicKeyHex(publicKeyHex);
             const mappedDirectionCounts = getMessageDirectionCounts(mapped, normalizedPublicKeyHex);
             const projectionDirectionCounts = getMessageDirectionCounts(projectionMessages, normalizedPublicKeyHex);
@@ -476,6 +506,7 @@ export function useConversationMessages(
         expandedHistoryRef.current = false;
         projectionFallbackHydrationRef.current = false;
         deletedTombstonesRef.current.clear();
+        persistedDeletedIdsRef.current = new Set(loadSuppressedMessageDeleteIds());
 
         hydrateHistory(conversationId);
     }, [conversationId, hydrateHistory, publicKeyHex]);
@@ -495,7 +526,13 @@ export function useConversationMessages(
         previousMessages.forEach((message) => {
             byId.set(message.id, message);
         });
-        const merged = Array.from(byId.values()).sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+        const merged = Array.from(byId.values())
+            .filter((message) => (
+                !persistedDeletedIdsRef.current.has(message.id)
+                && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
+            ))
+            .filter(isDisplayableMessage)
+            .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
         const shouldCapToLiveWindow = !expandedHistoryRef.current && merged.length > LIVE_WINDOW_SOFT_LIMIT;
         const nextMessages = shouldCapToLiveWindow
             ? merged.slice(-LIVE_WINDOW_SOFT_LIMIT)
@@ -558,6 +595,7 @@ export function useConversationMessages(
                 deletedTombstonesRef.current,
                 Date.now(),
                 publicKeyHex,
+                persistedDeletedIdsRef.current,
             ));
             if (performanceMonitor.isEnabled()) {
                 const mergedOrDroppedCount = Math.max(0, queue.length - dedupeProbe.size);
@@ -586,6 +624,13 @@ export function useConversationMessages(
 
             if (!belongsToConversation) return;
 
+            if (event.type === "message_deleted" && event.messageId !== "all") {
+                const nowMs = Date.now();
+                deletedTombstonesRef.current.set(event.messageId, nowMs);
+                persistedDeletedIdsRef.current.add(event.messageId);
+                suppressMessageDeleteTombstone(event.messageId, nowMs);
+            }
+
             if (!chatPerformanceV2Enabled) {
                 setMessages((prev) => applyBufferedEvents(
                     prev,
@@ -595,6 +640,7 @@ export function useConversationMessages(
                     deletedTombstonesRef.current,
                     Date.now(),
                     publicKeyHex,
+                    persistedDeletedIdsRef.current,
                 ));
                 return;
             }
@@ -638,7 +684,11 @@ export function useConversationMessages(
                 const mapped: Message[] = earlierMessages.reverse().map((m: any) => normalizeMessage(m, {
                     conversationId,
                     myPublicKeyHex: publicKeyHex,
-                }));
+                })).filter((message) => (
+                    isDisplayableMessage(message)
+                    && !persistedDeletedIdsRef.current.has(message.id)
+                    && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
+                ));
 
                 setMessages(prev => [...mapped, ...prev]);
                 setHasEarlier(mapped.length >= loadEarlierBatchSize);
