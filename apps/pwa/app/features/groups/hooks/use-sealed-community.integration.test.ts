@@ -5,6 +5,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useSealedCommunity } from "./use-sealed-community";
 import { cryptoService } from "../../crypto/crypto-service";
 import { roomKeyStore } from "../../crypto/room-key-store";
+import { messageBus } from "../../messaging/services/message-bus";
 
 vi.mock("../../crypto/crypto-service", () => ({
     cryptoService: {
@@ -380,6 +381,7 @@ describe("use-sealed-community integration", () => {
 
     it("keeps deleted group message removed when stale replay arrives later", async () => {
         const pool = createPool();
+        const emitDeletedSpy = vi.spyOn(messageBus, "emitMessageDeleted");
         vi.mocked(cryptoService.decryptGroupMessage)
             .mockResolvedValueOnce(JSON.stringify({ type: "message", pubkey: actor, created_at: 600, content: "hello" }))
             .mockResolvedValueOnce(JSON.stringify({ type: "message", pubkey: actor, created_at: 600, content: "hello replay" }));
@@ -410,6 +412,7 @@ describe("use-sealed-community integration", () => {
         await waitFor(() => {
             expect(result.current.state.messages.some((message) => message.id === "msg-1")).toBe(false);
         });
+        expect(emitDeletedSpy).toHaveBeenCalledWith(`community:${groupId}:${scopedRelay}`, "msg-1");
 
         await act(async () => {
             await onEventHandler?.(createEvent({ id: "msg-1", createdAt: 602, pubkey: actor }), scopedRelay);
@@ -464,5 +467,36 @@ describe("use-sealed-community integration", () => {
         await waitFor(() => {
             expect([...result.current.members].sort()).toEqual([actor, another, peer].sort());
         });
+    });
+
+    it("publishes delete events and emits message-bus removal when deleting group messages", async () => {
+        const pool = createPool();
+        const emitDeletedSpy = vi.spyOn(messageBus, "emitMessageDeleted");
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor]
+        }));
+
+        await act(async () => {
+            await result.current.deleteMessage({ eventId: "msg-2" });
+        });
+
+        expect(emitDeletedSpy).toHaveBeenCalledWith(`community:${groupId}:${scopedRelay}`, "msg-2");
+
+        const publishCalls = vi.mocked(pool.publishToAll).mock.calls as unknown as Array<[string]>;
+        const publishedDelete = publishCalls
+            .map(([payload]) => JSON.parse(payload)[1] as Record<string, unknown>)
+            .find((event) => event.kind === 5);
+
+        expect(publishedDelete).toBeDefined();
+        expect(Array.isArray(publishedDelete?.tags)).toBe(true);
+        expect((publishedDelete?.tags as ReadonlyArray<ReadonlyArray<string>>).some((tag) => tag[0] === "h" && tag[1] === groupId)).toBe(true);
+        expect((publishedDelete?.tags as ReadonlyArray<ReadonlyArray<string>>).some((tag) => tag[0] === "e" && tag[1] === "msg-2")).toBe(true);
     });
 });

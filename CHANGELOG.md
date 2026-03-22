@@ -6,6 +6,62 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+### Changed (2026-03-21 - v1 readiness stability kickoff)
+
+- Added the pre-v1 hardening roadmap:
+  - `docs/19-v1-readiness-stability-plan.md`.
+- Consolidated docs navigation and triage reading order to include the new v1 readiness plan:
+  - `docs/README.md`.
+- Updated monitoring framing from `v0.9.4` release-candidate language to `v0.9.5 -> v1` readiness:
+  - `ISSUES.md`.
+
+### Changed (2026-03-21 - v1 readiness M1 automated reliability replay)
+
+- Started M1 session/route hardening soak with focused automated reliability replay:
+  - `auth-gateway`,
+  - `auth-screen`,
+  - `app-shell`,
+  - `mobile-tab-bar`,
+  - desktop `title-bar-profile-switcher`.
+- Validation:
+  - `pnpm -C apps/pwa exec vitest run app/features/auth/components/auth-gateway.test.tsx app/features/auth/components/auth-screen.test.tsx app/components/app-shell.test.tsx app/components/mobile-tab-bar.test.tsx app/components/desktop/title-bar-profile-switcher.test.ts`
+  - `5 files / 21 tests passed`.
+- Remaining M1 gate:
+  - manual desktop/web restart + route-liveness soak under live relay conditions.
+
+### Changed (2026-03-21 - v1 readiness M1 manual soak closure + M2 automated replay)
+
+- M1 manual soak closure recorded:
+  - desktop/web restart continuity remained stable,
+  - route-transition stress replay remained stable.
+- Started M2 cross-device sync/deletion soak with focused automated replay:
+  - `log-app-event`,
+  - `encrypted-account-backup-service`,
+  - `incoming-dm-event-handler`,
+  - `use-conversation-messages.integration`,
+  - `message-persistence-service`,
+  - `message-delete-tombstone-store`,
+  - `runtime-messaging-transport-owner-provider`.
+- Validation:
+  - `pnpm -C apps/pwa exec vitest run app/shared/log-app-event.test.ts app/features/account-sync/services/encrypted-account-backup-service.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts app/features/messaging/hooks/use-conversation-messages.integration.test.ts app/features/messaging/services/message-persistence-service.test.ts app/features/messaging/services/message-delete-tombstone-store.test.ts app/features/messaging/providers/runtime-messaging-transport-owner-provider.test.tsx`
+  - `7 files / 111 tests passed`.
+- Remaining M2 gate:
+  - manual two-device replay for DM continuity, group sendability, media parity, and delete no-resurrection.
+
+### Fixed (2026-03-21 - group delete-for-everyone convergence in community chats)
+
+- Hardened group message deletion propagation to follow the canonical chat-state owner path:
+  - incoming group delete events (`kind:5`) now emit `message_deleted` through MessageBus for each target message id,
+  - local group delete action path (`useSealedCommunity.deleteMessage`) now also emits MessageBus delete events after relay publish confirmation.
+- This aligns community deletion behavior with DM deletion convergence semantics so recipient UIs apply removal reliably from the same event stream.
+- Added focused integration regression coverage:
+  - `apps/pwa/app/features/groups/hooks/use-sealed-community.integration.test.ts`
+    - verifies delete-event bus emission on replay,
+    - verifies local group delete publishes kind 5 and emits bus removal.
+- Validation:
+  - `pnpm -C apps/pwa exec vitest run app/features/groups/hooks/use-sealed-community.integration.test.ts app/features/messaging/hooks/use-conversation-messages.integration.test.ts`
+  - `pnpm -C apps/pwa exec tsc --noEmit --pretty false`
+
 ### Fixed (2026-03-21 - v0.9.5 M2 deletion convergence hardening)
 
 - Landed dual deletion modes in chat UX with explicit ownership boundaries:

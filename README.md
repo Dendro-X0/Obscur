@@ -38,6 +38,8 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 
 - The v0.9.2 constrained-release blocker set remains in monitoring mode after replay verification.
 - v0.9.5 reliability and UX hardening content has been consolidated into standard docs and runbooks (`docs/07`, `docs/08`).
+- Pre-v1 stability milestones are now tracked in:
+  - [`docs/19-v1-readiness-stability-plan.md`](docs/19-v1-readiness-stability-plan.md).
 - Current workspace release-readiness snapshot:
   - `pnpm version:check` passes,
   - `pnpm docs:check` passes,

@@ -1,8 +1,8 @@
-# Issue Status Snapshot (v0.9.4 Release-Candidate Monitoring)
+# Issue Status Snapshot (v0.9.5 to v1 Readiness Monitoring)
 
 Last updated: 2026-03-21
 
-This file tracks runtime issue status after v0.9.3 plan closure while preparing the v0.9.4 release candidate.
+This file tracks runtime issue status during late v0.9.5 stabilization and pre-v1 readiness hardening.
 
 ## Current State
 
@@ -11,6 +11,33 @@ This file tracks runtime issue status after v0.9.3 plan closure while preparing 
 - Verification source:
   - manual two-device replay + navigation stress replay on dev server,
   - automated reliability/type/docs/release-pack gates passing in this workspace.
+
+## v1 Readiness Status
+
+- Pre-v1 hardening plan is tracked at:
+  - `docs/19-v1-readiness-stability-plan.md`.
+- Current execution focus:
+  - preserve stability and sync confidence while avoiding architectural churn,
+  - close only reproducible high-risk regressions before `v1.0.0`.
+- M0 baseline gate replay is green:
+  - `pnpm version:check`,
+  - `pnpm docs:check`,
+  - `pnpm release:test-pack -- --skip-preflight`.
+- M1 automated reliability replay is green:
+  - `auth-gateway`, `auth-screen`, `app-shell`, `mobile-tab-bar`, `title-bar-profile-switcher`,
+  - `5 files / 21 tests passed`.
+- M1 manual soak replay is complete:
+  - restart/login continuity on desktop + web remained stable,
+  - route-transition stress under live relay conditions remained stable.
+- M2 automated sync/deletion reliability replay is green:
+  - `log-app-event`, `encrypted-account-backup-service`, `incoming-dm-event-handler`,
+  - `use-conversation-messages.integration`, `message-persistence-service`,
+  - `message-delete-tombstone-store`, `runtime-messaging-transport-owner-provider`,
+  - `7 files / 111 tests passed`.
+- M2 group-chat delete-for-everyone convergence hardening landed:
+  - incoming and local group delete paths now emit MessageBus delete events to canonical chat state, preventing receiver-side stale visibility.
+- M2 manual two-device soak is pending:
+  - DM continuity + group membership/sendability + media parity + delete-for-everyone no-resurrection.
 
 ## v0.9.5 M0 Status
 

@@ -904,6 +904,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           const nowMs = Date.now();
           deletedIds.forEach((id) => {
             deletedMessageTombstonesRef.current.set(id, nowMs);
+            // Canonical chat rendering is MessageBus-backed (useConversationMessages).
+            // Emit delete events so all subscribers (including cross-device receivers) converge.
+            messageBus.emitMessageDeleted(conversationId, id);
           });
           setState((prev: Nip29GroupState): Nip29GroupState => ({
             ...prev,
@@ -1312,11 +1315,13 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     if (!deletionResult.success) {
       throw new Error(deletionResult.overallError || "Failed to publish delete to community relay scope");
     }
+    deletedMessageTombstonesRef.current.set(deleteParams.eventId, Date.now());
+    messageBus.emitMessageDeleted(conversationId, deleteParams.eventId);
     setState(prev => ({
       ...prev,
       messages: prev.messages.filter(m => m.id !== deleteParams.eventId)
     }));
-  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
+  }, [conversationId, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
 
   const noop = async () => { };
   const updateMetadata = noop;
