@@ -57,6 +57,7 @@ import type { GroupAccessMode } from "../types";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
+import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -226,6 +227,17 @@ export function GroupManagementDialog({
     const onlineMemberCount = React.useMemo(
         () => memberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey as PublicKeyHex)).length,
         [memberRegistry, presence]
+    );
+    const operatorHealth = React.useMemo(
+        () => summarizeCommunityOperatorHealth({
+            activeMembers: memberRegistry as ReadonlyArray<PublicKeyHex>,
+            leftMembers: state.leftMembers,
+            expelledMembers: state.expelledMembers,
+            onlineMemberCount,
+            kickVotes: state.kickVotes,
+            disbandedAt: state.disbandedAt
+        }),
+        [memberRegistry, onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers]
     );
 
     // Background Sync: Replace persisted members with live truth
@@ -562,6 +574,74 @@ export function GroupManagementDialog({
                                                 className="pl-11 h-11 bg-[#0A0A0B] border-[#1A1A1E] text-white rounded-xl text-xs font-bold"
                                             />
                                         </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                                    <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Membership Health</p>
+                                        <p className="mt-2 text-white text-2xl font-black">{operatorHealth.activeMemberCount}</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">active / {operatorHealth.knownMemberCount} known</p>
+                                        <div className="mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider">
+                                            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-emerald-400">{operatorHealth.onlineMemberCount} online</span>
+                                            <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-2 py-1 text-zinc-400">{operatorHealth.offlineMemberCount} offline</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Governance Pressure</p>
+                                        <p className="mt-2 text-white text-2xl font-black">{operatorHealth.targetsWithKickVotes}</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">targets with active kick votes</p>
+                                        <p className="mt-3 text-[11px] text-zinc-300">
+                                            Total votes: <span className="font-black text-white">{operatorHealth.totalKickVotes}</span> · quorum: <span className="font-black text-white">{operatorHealth.quorumThreshold}</span>
+                                        </p>
+                                        {operatorHealth.highestKickPressure && (
+                                            <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                                Highest pressure {operatorHealth.highestKickPressure.voteCount}/{Math.max(operatorHealth.quorumThreshold, 1)}
+                                                {operatorHealth.highestKickPressure.nearQuorum ? " (near quorum)" : ""}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Lifecycle Drift</p>
+                                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-wider">
+                                            <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-2 py-1 text-zinc-300">{operatorHealth.leftMemberCount} left</span>
+                                            <span className="rounded-full border border-rose-500/25 bg-rose-500/10 px-2 py-1 text-rose-300">{operatorHealth.expelledMemberCount} expelled</span>
+                                            <span className={cn(
+                                                "rounded-full border px-2 py-1",
+                                                operatorHealth.disbanded
+                                                    ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                                                    : "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+                                            )}>
+                                                {operatorHealth.disbanded ? "disbanded" : "active"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="h-4 w-4 text-indigo-400" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Operator Signals</p>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        {operatorHealth.signals.map((signal) => (
+                                            <div
+                                                key={signal.id}
+                                                className={cn(
+                                                    "rounded-2xl border px-3 py-2",
+                                                    signal.severity === "critical"
+                                                        ? "border-rose-500/30 bg-rose-500/10 text-rose-200"
+                                                        : signal.severity === "warn"
+                                                            ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                                                            : "border-indigo-500/25 bg-indigo-500/10 text-indigo-100"
+                                                )}
+                                            >
+                                                <p className="text-[10px] font-black uppercase tracking-[0.14em]">{signal.label}</p>
+                                                <p className="mt-1 text-[11px] leading-relaxed opacity-90">{signal.detail}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 

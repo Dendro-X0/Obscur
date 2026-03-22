@@ -6,6 +6,7 @@ import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapte
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { failedIncomingEventStore } from "../services/failed-incoming-event-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
+import { resetIncomingRequestAntiAbuseState } from "../services/incoming-request-anti-abuse";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../utils/commands";
 
@@ -89,6 +90,7 @@ describe("incoming-dm-event-handler", () => {
         vi.restoreAllMocks();
         failedIncomingEventStore.clear();
         requestEventTombstoneStore.clear();
+        resetIncomingRequestAntiAbuseState();
         getPrivacySettingsMock.mockReturnValue({ dmPrivacy: "everyone" });
         requestFlowEvidenceStoreMock.get.mockReturnValue({ receiptAckSeen: false, acceptSeen: false } as any);
         requestFlowEvidenceStoreMock.markRequestPublished.mockReset();
@@ -1064,6 +1066,68 @@ describe("incoming-dm-event-handler", () => {
 
         expect(upsertIncoming).toHaveBeenCalledTimes(1);
         expect(requestFlowEvidenceStoreMock.markRequestPublished).toHaveBeenCalledTimes(1);
+    });
+
+    it("quarantines connection-request bursts from the same unknown sender with reason-coded diagnostics", async () => {
+        const upsertIncoming = vi.fn();
+        const setStatus = vi.fn();
+        const persistMessage = vi.fn(async () => undefined);
+
+        const createEvent = (id: string, createdAt: number): NostrEvent => ({
+            id,
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: createdAt,
+            content: `cipher-request-${id}`,
+            tags: [
+                ["p", MY_PUBLIC_KEY],
+                ["t", "connection-request"],
+            ],
+        } as unknown as NostrEvent);
+
+        const run = async (event: NostrEvent) => {
+            await handleIncomingDmEvent({
+                event,
+                currentParams: {
+                    myPrivateKeyHex: "private-key",
+                    myPublicKeyHex: MY_PUBLIC_KEY,
+                    peerTrust: {
+                        isAccepted: () => false,
+                        acceptPeer: vi.fn(),
+                    },
+                    requestsInbox: {
+                        upsertIncoming,
+                        getRequestStatus: () => null,
+                        setStatus,
+                    },
+                },
+                messageQueue: {
+                    getMessage: vi.fn(async () => null),
+                    persistMessage,
+                } as any,
+                processingEvents: new Set<string>(),
+                failedDecryptEvents: new Set<string>(),
+                existingMessages: [],
+                maxMessagesInMemory: 100,
+                syncConversationTimestamps: new Map<string, Date>(),
+                activeSubscriptions: new Map(),
+                scheduleUiUpdate: (fn) => fn(),
+                setState: vi.fn(),
+                createReadyState: (messages) => ({ messages }),
+                messageMemoryManager: { addMessages: vi.fn() },
+                uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+            });
+        };
+
+        await run(createEvent("event-connection-request-burst-1", 2001));
+        await run(createEvent("event-connection-request-burst-2", 2002));
+        await run(createEvent("event-connection-request-burst-3", 2003));
+        await run(createEvent("event-connection-request-burst-4", 2004));
+
+        expect(upsertIncoming).toHaveBeenCalledTimes(3);
+        expect(requestFlowEvidenceStoreMock.markRequestPublished).toHaveBeenCalledTimes(3);
+        expect(setStatus).not.toHaveBeenCalled();
+        expect(persistMessage).not.toHaveBeenCalled();
     });
 
     it("deduplicates gift-wrap rumors replayed via different wrapper event IDs", async () => {

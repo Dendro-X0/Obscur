@@ -23,8 +23,9 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 15. [16 Cross-Device Group Visibility Incident](./16-cross-device-group-visibility-incident.md)
 16. [17 v0.9.2 Expansion Context](./17-v0.9.2-expansion-context.md)
 17. [18 v0.9.3 Execution Plan](./18-v0.9.3-execution-plan.md)
-19. [19 v1 Readiness Stability Plan](./19-v1-readiness-stability-plan.md)
-20. [20 v1 Official Release Execution](./20-v1-official-release-execution.md)
+18. [19 v1 Readiness Stability Plan](./19-v1-readiness-stability-plan.md)
+19. [20 v1 Official Release Execution](./20-v1-official-release-execution.md)
+20. [21 Post-v1 Value Roadmap](./21-post-v1-value-roadmap.md)
 
 ## Scope Rules
 
@@ -39,8 +40,10 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/19-v1-readiness-stability-plan.md`.
 - v1 launch execution steps are tracked in:
   - `docs/20-v1-official-release-execution.md`.
+- Post-v1 long-term value milestones are tracked in:
+  - `docs/21-post-v1-value-roadmap.md`.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
-- For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 17 -> 18` in that order before implementation work.
+- For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 20 -> 21 -> 17 -> 18` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).
 
 ## Mandatory Checks

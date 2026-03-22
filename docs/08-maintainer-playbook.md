@@ -20,6 +20,22 @@ For `v1.0.0`, run these manual checks and attach concise evidence snapshots:
 Canonical release execution sequencing:
 - `docs/20-v1-official-release-execution.md`.
 
+## Post-v1 M0 Baseline Checklist
+
+Use this before starting any post-v1 feature implementation (`docs/21-post-v1-value-roadmap.md`):
+
+1. Replay baseline gates:
+: `pnpm version:check`
+: `pnpm docs:check`
+: `pnpm release:test-pack -- --skip-preflight`
+2. Confirm no active blocker is opened before expansion:
+: `ISSUES.md` must remain blocker-clean or have explicit owner/risk notes.
+3. Prepare first-response diagnostics capture path:
+: `copy(window.obscurM0Triage?.captureJson(300))`
+: `copy(JSON.stringify(window.obscurAppEvents.getCrossDeviceSyncDigest?.(400), null, 2))` (when sync/drift symptoms appear).
+4. Map intended change to canonical owners before coding:
+: `docs/14-module-owner-index.md` + `docs/12-core-architecture-truth-map.md`.
+
 ## Current State Snapshot
 
 - Cross-platform beta release pipeline is wired through GitHub Releases.
@@ -137,6 +153,33 @@ When validating M1 guardrails, capture these event probes in addition to normal 
 3. Route mount probe evidence:
 : `window.obscurAppEvents.findByName("navigation.route_mount_probe_slow", 20)`
 : `window.obscurAppEvents.findByName("navigation.route_mount_probe_settled", 20)`
+
+### Post-v1 M1 Anti-Abuse Replay Checks
+
+For incoming request-spam verification, capture these evidence points:
+
+1. Incoming request quarantine events:
+: `window.obscurAppEvents.findByName("messaging.request.incoming_quarantined", 30)`
+2. Last incoming routing decision snapshot:
+: `window.obscurDeliveryDiagnostics?.getSnapshot()?.lastIncoming`
+3. Compact anomaly export for handoff:
+: `copy(window.obscurM0Triage?.captureJson(300))`
+4. Requests inbox UX signal check:
+: when quarantine events exist, Requests panel should display an anti-spam summary banner and per-peer anti-spam signal badges for affected senders.
+
+### Post-v1 M1 Community Operator Visibility Replay Checks
+
+For community-governance visibility verification in Group Management:
+
+1. Operator health summary cards:
+: in Community `Members` tab, verify counts render for active/known members, online/offline split, kick-vote pressure, and lifecycle drift (left/expelled/disbanded).
+2. Governance signal feed:
+: verify `Operator Signals` shows severity-coded entries (`info`/`warn`/`critical`) consistent with current membership and vote state.
+3. Kick pressure projection:
+: when kick votes are present, verify highest pressure card reflects vote/quorum ratio and near-quorum marker.
+4. Deterministic helper boundary:
+: preserve typed helper as canonical summarizer:
+: `apps/pwa/app/features/groups/services/community-operator-health.ts`.
 
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 

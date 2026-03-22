@@ -11,9 +11,10 @@ import type { Dispatch, SetStateAction } from "react";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { classifyDecryptFailure } from "../lib/decrypt-failure-classifier";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { incrementAbuseMetric } from "@/app/shared/abuse-observability";
-import { recordMalformedEventQuarantinedRisk } from "@/app/shared/sybil-risk-signals";
+import { recordMalformedEventQuarantinedRisk, recordRequestSuppressedRisk } from "@/app/shared/sybil-risk-signals";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { requestFlowEvidenceStore } from "../services/request-flow-evidence-store";
@@ -25,6 +26,7 @@ import { requestEventTombstoneStore } from "../services/request-event-tombstone-
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { resolveUiPerformancePolicy } from "../lib/ui-performance";
 import { parseCommandMessage } from "../utils/commands";
+import { evaluateIncomingRequestAntiAbuse } from "../services/incoming-request-anti-abuse";
 import {
   appendCanonicalContactEvent,
   appendCanonicalDecryptFailedEvent,
@@ -876,6 +878,39 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
               action: "ignored",
               routedPeerPubkey: actualSenderPubkey,
               reason: "request_event_replay_suppressed",
+            });
+            return;
+          }
+          const antiAbuseDecision = evaluateIncomingRequestAntiAbuse({
+            peerPublicKeyHex: actualSenderPubkey,
+          });
+          if (!antiAbuseDecision.allowed) {
+            incrementAbuseMetric("request_receive_suppressed");
+            recordRequestSuppressedRisk();
+            const reasonCode = `incoming_connection_request_${antiAbuseDecision.reasonCode}`;
+            deliveryDiagnosticsStore.markIncoming({
+              eventId: usedEventId,
+              kind: event.kind,
+              senderPubkey,
+              recipientPubkey: currentParams.myPublicKeyHex,
+              relayUrl,
+              action: "ignored",
+              routedPeerPubkey: actualSenderPubkey,
+              reason: reasonCode,
+            });
+            logAppEvent({
+              name: "messaging.request.incoming_quarantined",
+              level: "warn",
+              scope: { feature: "messaging", action: "incoming_request" },
+              context: {
+                reasonCode,
+                peerPubkeyPrefix: actualSenderPubkey.slice(0, 16),
+                peerWindowCount: antiAbuseDecision.peerWindowCount,
+                globalWindowCount: antiAbuseDecision.globalWindowCount,
+                peerLimit: antiAbuseDecision.peerLimit,
+                globalLimit: antiAbuseDecision.globalLimit,
+                windowMs: antiAbuseDecision.windowMs,
+              },
             });
             return;
           }

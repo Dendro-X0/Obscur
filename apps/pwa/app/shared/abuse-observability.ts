@@ -1,5 +1,6 @@
 export type AbuseMetricKey =
   | "request_send_suppressed"
+  | "request_receive_suppressed"
   | "join_request_suppressed"
   | "quarantined_malformed_event"
   | "deduped_state_entry";
@@ -10,6 +11,7 @@ const GLOBAL_STATE_KEY = "__obscur_abuse_metrics__";
 
 const createDefaultState = (): AbuseMetricsState => ({
   request_send_suppressed: 0,
+  request_receive_suppressed: 0,
   join_request_suppressed: 0,
   quarantined_malformed_event: 0,
   deduped_state_entry: 0,

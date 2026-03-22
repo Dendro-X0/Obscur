@@ -12,6 +12,10 @@ import { useTranslation } from "react-i18next";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { getInvitationInboxStatusCopy, type InvitationTone } from "../services/invitation-presentation";
+import {
+    getIncomingRequestQuarantineSummary,
+    type IncomingRequestQuarantineSummary,
+} from "../services/incoming-request-quarantine-summary";
 
 import type { ConnectionRequestStatusValue } from "../../messaging/types";
 
@@ -38,6 +42,16 @@ interface RequestsInboxPanelProps {
 
 export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBlock, onSelect, onFindSomeone, onClearHistory }: RequestsInboxPanelProps) {
     const { t } = useTranslation();
+    const [quarantineSummary, setQuarantineSummary] = React.useState<IncomingRequestQuarantineSummary>(() => (
+        getIncomingRequestQuarantineSummary()
+    ));
+
+    React.useEffect(() => {
+        const refresh = () => setQuarantineSummary(getIncomingRequestQuarantineSummary());
+        refresh();
+        const timer = window.setInterval(refresh, 5000);
+        return () => window.clearInterval(timer);
+    }, [requests.length]);
 
     if (requests.length === 0) {
         return (
@@ -73,6 +87,37 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                         Obscur only lists invitations here after incoming relay evidence is received.
                     </p>
+                    {quarantineSummary.totalSuppressed > 0 && (
+                        <div className="mt-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+                            <p className="font-black uppercase tracking-[0.14em]">
+                                Anti-spam protection active
+                            </p>
+                            <p className="mt-1 leading-relaxed">
+                                Blocked {quarantineSummary.totalSuppressed} suspicious request attempt{quarantineSummary.totalSuppressed === 1 ? "" : "s"} in the recent window.
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold">
+                                {quarantineSummary.byReason.incoming_connection_request_peer_rate_limited > 0 && (
+                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                        sender rate limit: {quarantineSummary.byReason.incoming_connection_request_peer_rate_limited}
+                                    </span>
+                                )}
+                                {quarantineSummary.byReason.incoming_connection_request_global_rate_limited > 0 && (
+                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                        global rate limit: {quarantineSummary.byReason.incoming_connection_request_global_rate_limited}
+                                    </span>
+                                )}
+                            </div>
+                            {quarantineSummary.recent.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                    {quarantineSummary.recent.slice(0, 3).map((entry, index) => (
+                                        <p key={`${entry.atUnixMs}-${index}`} className="text-[10px] leading-relaxed opacity-90">
+                                            {(entry.peerPrefix ?? "unknown sender").slice(0, 8)}... {quarantineReasonLabel(entry.reasonCode)} · {formatTime(new Date(entry.atUnixMs), nowMs)}
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     {onClearHistory && (
@@ -100,6 +145,7 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                     <RequestItemRow
                         key={request.peerPublicKeyHex}
                         request={request}
+                        quarantinePeerSignal={quarantineSummary.byPeerPrefix[request.peerPublicKeyHex.slice(0, 16).toLowerCase()] ?? null}
                         nowMs={nowMs}
                         onAccept={onAccept}
                         onIgnore={onIgnore}
@@ -114,6 +160,11 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
 
 interface RequestItemRowProps {
     request: RequestItem;
+    quarantinePeerSignal: Readonly<{
+        count: number;
+        latestReasonCode: "incoming_connection_request_peer_rate_limited" | "incoming_connection_request_global_rate_limited";
+        lastAtUnixMs: number;
+    }> | null;
     nowMs: number;
     onAccept: (pubkey: PublicKeyHex) => void;
     onIgnore: (pubkey: PublicKeyHex) => void;
@@ -129,7 +180,16 @@ const invitationToneClassName = (tone: InvitationTone): string => {
     return "border-black/5 bg-zinc-50 text-zinc-600 dark:border-white/5 dark:bg-zinc-800/70 dark:text-zinc-300";
 };
 
-function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect }: RequestItemRowProps) {
+const quarantineReasonLabel = (
+    reasonCode: "incoming_connection_request_peer_rate_limited" | "incoming_connection_request_global_rate_limited"
+): string => {
+    if (reasonCode === "incoming_connection_request_peer_rate_limited") {
+        return "sender rate-limited";
+    }
+    return "global anti-spam limit";
+};
+
+function RequestItemRow({ request, quarantinePeerSignal, nowMs, onAccept, onIgnore, onBlock, onSelect }: RequestItemRowProps) {
     const { t } = useTranslation();
     const metadata = useProfileMetadata(request.peerPublicKeyHex, { live: false });
     const isOutgoing = !!request.isOutgoing;
@@ -169,6 +229,14 @@ function RequestItemRow({ request, nowMs, onAccept, onIgnore, onBlock, onSelect 
                         <p className="text-[10px] font-black uppercase tracking-[0.18em]">{invitationStatus.badge}</p>
                         <p className="mt-1 text-xs leading-relaxed">{invitationStatus.detail}</p>
                     </div>
+                    {quarantinePeerSignal && (
+                        <div className="mt-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-700 dark:text-amber-300">
+                            <p className="font-black uppercase tracking-[0.14em]">Anti-spam signal</p>
+                            <p className="mt-1 leading-relaxed">
+                                Additional request attempts from this sender were blocked ({quarantineReasonLabel(quarantinePeerSignal.latestReasonCode)} x{quarantinePeerSignal.count}).
+                            </p>
+                        </div>
+                    )}
                     <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
                         {isOutgoing ? "Your note" : "Their note"}
                     </p>

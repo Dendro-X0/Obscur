@@ -12,6 +12,25 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - manual two-device replay + navigation stress replay on dev server,
   - automated reliability/type/docs/release-pack gates passing in this workspace.
 
+## Post-v1 Roadmap Status
+
+- Canonical roadmap:
+  - `docs/21-post-v1-value-roadmap.md`.
+- M0 status (completed 2026-03-22):
+  - post-v1 pillar scope + acceptance lock is documented,
+  - maintainer runbook now includes post-v1 baseline/diagnostics checklist,
+  - M0 acceptance gates passed on current `main`:
+    - `pnpm version:check`,
+    - `pnpm docs:check`,
+    - `pnpm release:test-pack -- --skip-preflight`.
+- M1 status (started 2026-03-22):
+  - anti-abuse foundation work started on incoming request path,
+  - unknown-sender connection-request burst guard landed with reason-coded quarantine diagnostics,
+  - Requests inbox now surfaces anti-spam quarantine summary + per-peer anti-spam signal badges using canonical app-event diagnostics,
+  - focused anti-abuse tests are green (`incoming-request-anti-abuse`, `incoming-dm-event-handler`),
+  - community operator visibility slice landed in Group Management (members tab) with deterministic health/governance signals from typed helper logic (`community-operator-health`),
+  - focused operator-health regression coverage is green (`community-operator-health.test.ts`).
+
 ## v1 Readiness Status
 
 - Pre-v1 hardening plan is tracked at:

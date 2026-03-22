@@ -13,6 +13,21 @@ Maintainer note:
 - Promoted the workspace to the official `v1.0.0` release line with synchronized app/package manifests and release contracts.
 - Executed strict release preflight and published the `v1.0.0` tag through the full release workflow.
 - Published cross-platform release artifacts for desktop, Android, and web package distribution.
+- Added the canonical post-v1 roadmap for long-term value milestones (community expansion, secure voice, anti-abuse, sync resilience, and performance hardening):
+  - `docs/21-post-v1-value-roadmap.md`.
+- Completed post-v1 `M0` baseline lock:
+  - replayed baseline acceptance gates (`version:check`, `docs:check`, `release:test-pack -- --skip-preflight`),
+  - added the post-v1 M0 maintainer diagnostics checklist in `docs/08-maintainer-playbook.md`,
+  - recorded M0 completion status in `ISSUES.md`.
+- Started post-v1 `M1` anti-abuse foundation:
+  - added incoming unknown-sender request burst guard (`per-peer` + `global` window) in `incoming-request-anti-abuse`,
+  - wired reason-coded quarantine event diagnostics (`messaging.request.incoming_quarantined`) into the canonical incoming DM owner path,
+  - added focused regression coverage for guard decisions and inbox-routing behavior,
+  - added Requests inbox anti-spam visibility (quarantine summary + per-peer anti-spam signal badges) from canonical app-event diagnostics.
+- Extended post-v1 `M1` community platform foundation with operator visibility:
+  - added deterministic community operator-health summarization (`community-operator-health`) for active/known membership, online-offline coverage, kick-vote pressure, lifecycle drift, and disband signals,
+  - surfaced governance/operator health cards and signal feed in Group Management members tab,
+  - added focused helper regression coverage (`community-operator-health.test.ts`).
 
 ### Changed (2026-03-22 - v1.0.0 launch staging execution)
 

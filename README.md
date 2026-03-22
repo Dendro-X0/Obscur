@@ -42,6 +42,8 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
   - [`docs/19-v1-readiness-stability-plan.md`](docs/19-v1-readiness-stability-plan.md).
 - Official `v1.0.0` release execution is tracked in:
   - [`docs/20-v1-official-release-execution.md`](docs/20-v1-official-release-execution.md).
+- Post-v1 feature expansion and milestone roadmap is tracked in:
+  - [`docs/21-post-v1-value-roadmap.md`](docs/21-post-v1-value-roadmap.md).
 - Current workspace release-readiness snapshot:
   - `pnpm version:check` passes,
   - `pnpm docs:check` passes,
