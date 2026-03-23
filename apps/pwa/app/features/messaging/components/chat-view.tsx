@@ -8,7 +8,7 @@ import { MediaGallery } from "./media-gallery";
 import { Lightbox } from "./lightbox";
 import { MessageMenu } from "./message-menu";
 import { ReactionPicker } from "./reaction-picker";
-import { Loader2, Lock, Search, UploadCloud, X } from "lucide-react";
+import { Loader2, Lock, Mic, Search, UploadCloud, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
     Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary,
@@ -18,11 +18,14 @@ import { chatStateStoreService } from "../services/chat-state-store";
 import { formatTime, highlightText } from "../utils/formatting";
 import Image from "next/image";
 import { cn } from "@/app/lib/utils";
+import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 
 type ChatHistorySearchResult = Readonly<{
     messageId: string;
     timestamp: Date;
     preview: string;
+    resultKind: "text" | "voice_note";
+    voiceDurationLabel: string | null;
 }>;
 
 export interface ChatViewProps {
@@ -166,11 +169,31 @@ export function ChatView(props: ChatViewProps) {
 
                 const conversationResults = searchResults
                     .filter((result) => result.conversationId === props.conversation.id)
-                    .map((result) => ({
-                        messageId: result.message.id,
-                        timestamp: new Date(result.message.timestampMs),
-                        preview: result.message.content,
-                    }))
+                    .map((result) => {
+                        const messageAttachments = Array.isArray(result.message.attachments)
+                            ? result.message.attachments
+                            : [];
+                        const voiceNoteMetadata = messageAttachments
+                            .map((attachment) => getVoiceNoteAttachmentMetadata({
+                                kind: typeof attachment.kind === "string" ? attachment.kind : null,
+                                fileName: typeof attachment.fileName === "string" ? attachment.fileName : null,
+                                contentType: typeof attachment.contentType === "string" ? attachment.contentType : null,
+                            }))
+                            .find((metadata) => metadata.isVoiceNote);
+                        const contentPreview = typeof result.message.content === "string"
+                            ? result.message.content
+                            : "";
+
+                        return {
+                            messageId: result.message.id,
+                            timestamp: new Date(result.message.timestampMs),
+                            preview: contentPreview.trim().length > 0
+                                ? contentPreview
+                                : (voiceNoteMetadata?.isVoiceNote ? "Voice note" : ""),
+                            resultKind: voiceNoteMetadata?.isVoiceNote ? "voice_note" : "text",
+                            voiceDurationLabel: voiceNoteMetadata?.durationLabel ?? null,
+                        } satisfies ChatHistorySearchResult;
+                    })
                     .slice(0, 50);
 
                 setHistorySearchResults(conversationResults);
@@ -434,9 +457,19 @@ export function ChatView(props: ChatViewProps) {
                                                 onClick={() => handleJumpToMessage(result.messageId)}
                                                 className="flex w-full flex-col items-start gap-1 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                                             >
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-                                                    {formatTime(result.timestamp, resolvedNowMs)}
-                                                </span>
+                                                <div className="flex w-full items-center justify-between gap-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                                                        {formatTime(result.timestamp, resolvedNowMs)}
+                                                    </span>
+                                                    {result.resultKind === "voice_note" ? (
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
+                                                            <Mic className="h-2.5 w-2.5" />
+                                                            {result.voiceDurationLabel
+                                                                ? `Voice Note ${result.voiceDurationLabel}`
+                                                                : "Voice Note"}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
                                                 <span className="line-clamp-2 text-xs text-zinc-800 dark:text-zinc-100">
                                                     {highlightText({ text: result.preview, query: historySearchQuery })}
                                                 </span>

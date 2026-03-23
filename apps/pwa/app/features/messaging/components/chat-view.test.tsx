@@ -194,4 +194,41 @@ describe("ChatView history search", () => {
             expect(screen.queryByPlaceholderText("Search message history in this chat...")).not.toBeInTheDocument();
         });
     });
+
+    it("renders voice-note metadata badge for attachment-only search hits", async () => {
+        searchMessagesMock.mockResolvedValue([
+            {
+                conversationId: "conv-a",
+                message: {
+                    id: "m-voice-a",
+                    content: "",
+                    timestampMs: 7_000,
+                    attachments: [{
+                        kind: "audio",
+                        fileName: "voice-note-1774249000000-d64.webm",
+                        contentType: "audio/webm",
+                    }],
+                },
+            },
+        ]);
+
+        render(<ChatView {...createBaseProps()} />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Search Messages" }));
+        fireEvent.change(screen.getByPlaceholderText("Search message history in this chat..."), {
+            target: { value: "1:04" },
+        });
+
+        await waitFor(() => {
+            expect(searchMessagesMock).toHaveBeenCalledWith("1:04", 120);
+        });
+
+        expect(screen.getByText("Voice Note 1:04")).toBeInTheDocument();
+        expect(screen.getByText("Voice note")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: /Voice Note 1:04/i }));
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-voice-a");
+        });
+    });
 });
