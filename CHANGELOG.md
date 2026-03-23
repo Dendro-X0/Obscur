@@ -65,6 +65,7 @@
 - `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm release:preflight -- --tag v1.0.9`
 
 ## [v1.0.8] - 2026-03-23
 

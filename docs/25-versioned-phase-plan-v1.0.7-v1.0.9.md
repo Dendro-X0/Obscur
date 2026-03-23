@@ -223,7 +223,9 @@ Current checkpoint progress:
 12. Focused delete-convergence validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
-13. Remaining before declaring CP1+CP2 complete:
+13. CP4 release-gate replay is green on clean `main` for `v1.0.9` preflight contract:
+: `pnpm release:preflight -- --tag v1.0.9`.
+14. Remaining before declaring CP1+CP2 complete:
 : capture two-device anti-abuse replay evidence (rate-limit -> cooldown -> digest summary) and attach diagnostics bundle.
 
 ## Working Rules During This Sequence
