@@ -70,6 +70,15 @@ export type M7AntiAbuseCaptureBundle = Readonly<{
       atUnixMs: number;
       reasonCode: string | null;
     }>>;
+    replayReadiness: Readonly<{
+      observedReasonCodes: ReadonlyArray<string>;
+      hasPeerRateLimited: boolean;
+      hasPeerCooldownActive: boolean;
+      hasExpectedReasonTransition: boolean;
+      digestHasPeerRateLimitedCount: boolean;
+      digestHasPeerCooldownActiveCount: boolean;
+      readyForCp3Evidence: boolean;
+    }>;
   }>;
   m0Triage: unknown | null;
 }>;
@@ -82,6 +91,8 @@ type M7AntiAbuseCaptureApi = Readonly<{
 const DEFAULT_EVENT_WINDOW_SIZE = 400;
 const EVENT_CAPTURE_LIMIT = 30;
 const QUARANTINE_EVENT_NAME = "messaging.request.incoming_quarantined";
+const PEER_RATE_LIMITED_REASON_CODE = "incoming_connection_request_peer_rate_limited";
+const PEER_COOLDOWN_ACTIVE_REASON_CODE = "incoming_connection_request_peer_cooldown_active";
 
 type M7AntiAbuseCaptureWindow = Window & {
   obscurAppEvents?: MinimalAppEventsApi;
@@ -235,6 +246,69 @@ const readM0TriageSafe = (
   }
 };
 
+const buildReplayReadiness = (params: Readonly<{
+  summary: IncomingRequestAntiAbuseSummary | null;
+  compactQuarantineEvents: ReadonlyArray<Readonly<{
+    atUnixMs: number;
+    context: Readonly<Record<string, string | number | boolean | null>>;
+  }>>;
+  recentQuarantinedEvents: ReadonlyArray<MinimalAppEvent>;
+}>): Readonly<{
+  observedReasonCodes: ReadonlyArray<string>;
+  hasPeerRateLimited: boolean;
+  hasPeerCooldownActive: boolean;
+  hasExpectedReasonTransition: boolean;
+  digestHasPeerRateLimitedCount: boolean;
+  digestHasPeerCooldownActiveCount: boolean;
+  readyForCp3Evidence: boolean;
+}> => {
+  const timeline = new Map<number, string>();
+  params.compactQuarantineEvents.forEach((event) => {
+    const reasonCode = toStringOrNull(event.context.reasonCode);
+    if (!reasonCode) {
+      return;
+    }
+    timeline.set(toNumber(event.atUnixMs), reasonCode);
+  });
+  params.recentQuarantinedEvents.forEach((event, index) => {
+    const context = toPrimitiveContext(event.context);
+    const reasonCode = toStringOrNull(context.reasonCode);
+    if (!reasonCode) {
+      return;
+    }
+    const time = toNumber(event.atUnixMs);
+    const fallbackTime = -(index + 1);
+    timeline.set(time > 0 ? time : fallbackTime, reasonCode);
+  });
+  const observedReasonCodes = Array.from(timeline.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map((entry) => entry[1]);
+  const hasPeerRateLimited = observedReasonCodes.includes(PEER_RATE_LIMITED_REASON_CODE);
+  const hasPeerCooldownActive = observedReasonCodes.includes(PEER_COOLDOWN_ACTIVE_REASON_CODE);
+  const firstPeerRateLimited = observedReasonCodes.indexOf(PEER_RATE_LIMITED_REASON_CODE);
+  const firstPeerCooldownActive = observedReasonCodes.indexOf(PEER_COOLDOWN_ACTIVE_REASON_CODE);
+  const hasExpectedReasonTransition = (
+    firstPeerRateLimited >= 0
+    && firstPeerCooldownActive >= 0
+    && firstPeerRateLimited < firstPeerCooldownActive
+  );
+  const digestHasPeerRateLimitedCount = (params.summary?.peerRateLimitedCount ?? 0) > 0;
+  const digestHasPeerCooldownActiveCount = (params.summary?.peerCooldownActiveCount ?? 0) > 0;
+  return {
+    observedReasonCodes,
+    hasPeerRateLimited,
+    hasPeerCooldownActive,
+    hasExpectedReasonTransition,
+    digestHasPeerRateLimitedCount,
+    digestHasPeerCooldownActiveCount,
+    readyForCp3Evidence: (
+      hasExpectedReasonTransition
+      && digestHasPeerRateLimitedCount
+      && digestHasPeerCooldownActiveCount
+    ),
+  };
+};
+
 const createBundle = (
   root: M7AntiAbuseCaptureWindow,
   eventWindowSizeInput?: number,
@@ -242,6 +316,12 @@ const createBundle = (
   const eventWindowSize = toNumericWindowSize(eventWindowSizeInput);
   const appEventsApi = root.obscurAppEvents;
   const digest = readCrossDeviceDigestSafe(appEventsApi, eventWindowSize);
+  const recentQuarantinedEvents = readRecentQuarantinedEvents(appEventsApi);
+  const replayReadiness = buildReplayReadiness({
+    summary: digest.summary,
+    compactQuarantineEvents: digest.compactQuarantineEvents,
+    recentQuarantinedEvents,
+  });
   return {
     generatedAtUnixMs: Date.now(),
     version: "obscur.m7.anti_abuse.v1",
@@ -258,8 +338,9 @@ const createBundle = (
     antiAbuse: {
       summary: digest.summary,
       compactQuarantineEvents: digest.compactQuarantineEvents,
-      recentQuarantinedEvents: readRecentQuarantinedEvents(appEventsApi),
+      recentQuarantinedEvents,
       recentWarnOrError: digest.recentWarnOrError,
+      replayReadiness,
     },
     m0Triage: readM0TriageSafe(root.obscurM0Triage, eventWindowSize),
   };
@@ -284,6 +365,7 @@ export const installM7AntiAbuseCapture = (): void => {
 };
 
 export const m7AntiAbuseCaptureInternals = {
+  buildReplayReadiness,
   createBundle,
   parseIncomingRequestAntiAbuseSummary,
   toNumericWindowSize,

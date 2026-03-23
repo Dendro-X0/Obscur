@@ -172,6 +172,10 @@ For incoming request-spam verification, capture these evidence points:
 : verify reason-coded counters (`peerRateLimitedCount`, `peerCooldownActiveCount`, `globalRateLimitedCount`) and latest reason transition.
 6. One-copy anti-abuse checkpoint bundle:
 : `copy(window.obscurM7AntiAbuseCapture?.captureJson(400))`
+7. CP3 readiness verdict check:
+: `JSON.parse(window.obscurM7AntiAbuseCapture?.captureJson(400) ?? "{}")?.antiAbuse?.replayReadiness`
+: `readyForCp3Evidence` must be `true` with observed transition
+: `incoming_connection_request_peer_rate_limited` -> `incoming_connection_request_peer_cooldown_active`.
 
 ### Post-v1 M1 Community Operator Visibility Replay Checks
 

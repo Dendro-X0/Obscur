@@ -40,6 +40,12 @@
     - `docs/08-maintainer-playbook.md`
 - Added focused regression coverage for M7 CP3 prep helper:
   - `apps/pwa/app/shared/m7-anti-abuse-capture.test.ts`
+- Upgraded M7 anti-abuse capture helper with deterministic CP3 gate verdict:
+  - `window.obscurM7AntiAbuseCapture.captureJson(400)` now includes
+    `antiAbuse.replayReadiness` (reason transition timeline + `readyForCp3Evidence`) in:
+    - `apps/pwa/app/shared/m7-anti-abuse-capture.ts`
+  - updated maintainer replay checks to include readiness probe in:
+    - `docs/08-maintainer-playbook.md`
 - Hardened DM "Delete for everyone" target derivation for attachment-heavy/voice-note messages:
   - delete command target generation now derives NIP-17 rumor ids even when `dmFormat` is unavailable on hydrated rows in:
     - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`

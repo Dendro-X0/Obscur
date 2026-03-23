@@ -231,10 +231,13 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       `app/shared/m7-anti-abuse-capture.ts`,
     - helper is installed at boot in
       `app/components/providers.tsx`,
+    - helper now emits deterministic CP3 gate readiness in
+      `antiAbuse.replayReadiness.readyForCp3Evidence` plus observed reason-code timeline,
   - DM delete-for-everyone convergence hardening landed for voice-note/attachment-heavy rows:
     - delete target derivation now computes NIP-17 rumor ids even when `dmFormat` is missing on hydrated messages,
     - attachment-only rows now use attachment-markdown + created-at fallback candidates to improve cross-device recipient delete matching,
     - implementation in `app/features/main-shell/hooks/use-chat-actions.ts`,
+    - manual two-device verification confirmed voice-note end-to-end delete convergence (sender + recipient disappearance),
   - focused CP2 automation replay is green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`,

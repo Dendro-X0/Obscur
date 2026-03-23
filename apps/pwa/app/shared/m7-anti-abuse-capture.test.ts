@@ -24,7 +24,7 @@ describe("m7-anti-abuse-capture", () => {
         summary: {
           incomingRequestAntiAbuse: {
             riskLevel: "watch",
-            quarantinedCount: 2,
+            quarantinedCount: 3,
             peerRateLimitedCount: 1,
             peerCooldownActiveCount: 1,
             globalRateLimitedCount: 0,
@@ -35,15 +35,25 @@ describe("m7-anti-abuse-capture", () => {
           },
         },
         events: {
-          "messaging.request.incoming_quarantined": [{
-            atUnixMs: 42,
-            level: "warn",
-            context: {
-              reasonCode: "incoming_connection_request_peer_cooldown_active",
-              peerPubkeyPrefix: "aaaaaaaaaaaaaaaa",
-              cooldownRemainingMs: 60000,
+          "messaging.request.incoming_quarantined": [
+            {
+              atUnixMs: 41,
+              level: "warn",
+              context: {
+                reasonCode: "incoming_connection_request_peer_rate_limited",
+                peerPubkeyPrefix: "aaaaaaaaaaaaaaaa",
+              },
             },
-          }],
+            {
+              atUnixMs: 42,
+              level: "warn",
+              context: {
+                reasonCode: "incoming_connection_request_peer_cooldown_active",
+                peerPubkeyPrefix: "aaaaaaaaaaaaaaaa",
+                cooldownRemainingMs: 60000,
+              },
+            },
+          ],
         },
         recentWarnOrError: [{
           name: "messaging.request.incoming_quarantined",
@@ -73,6 +83,15 @@ describe("m7-anti-abuse-capture", () => {
         compactQuarantineEvents: Array<{ context: Record<string, unknown> }>;
         recentQuarantinedEvents: Array<{ name: string }>;
         recentWarnOrError: Array<{ reasonCode: string | null }>;
+        replayReadiness: {
+          observedReasonCodes: string[];
+          hasPeerRateLimited: boolean;
+          hasPeerCooldownActive: boolean;
+          hasExpectedReasonTransition: boolean;
+          digestHasPeerRateLimitedCount: boolean;
+          digestHasPeerCooldownActiveCount: boolean;
+          readyForCp3Evidence: boolean;
+        };
       };
       m0Triage: unknown;
     };
@@ -81,16 +100,26 @@ describe("m7-anti-abuse-capture", () => {
     expect(bundle.checks.requiredApis.m0Triage).toBe(true);
     expect(bundle.antiAbuse.summary).toEqual(expect.objectContaining({
       riskLevel: "watch",
-      quarantinedCount: 2,
+      quarantinedCount: 3,
       peerCooldownActiveCount: 1,
       latestReasonCode: "incoming_connection_request_peer_cooldown_active",
     }));
-    expect(bundle.antiAbuse.compactQuarantineEvents[0]?.context).toEqual(expect.objectContaining({
-      reasonCode: "incoming_connection_request_peer_cooldown_active",
-      cooldownRemainingMs: 60000,
-    }));
+    expect(
+      bundle.antiAbuse.compactQuarantineEvents.map((entry) => entry.context.reasonCode),
+    ).toEqual([
+      "incoming_connection_request_peer_rate_limited",
+      "incoming_connection_request_peer_cooldown_active",
+    ]);
     expect(bundle.antiAbuse.recentQuarantinedEvents[0]?.name).toBe("messaging.request.incoming_quarantined");
     expect(bundle.antiAbuse.recentWarnOrError[0]?.reasonCode).toBe("incoming_connection_request_peer_cooldown_active");
+    expect(bundle.antiAbuse.replayReadiness).toEqual(expect.objectContaining({
+      hasPeerRateLimited: true,
+      hasPeerCooldownActive: true,
+      hasExpectedReasonTransition: true,
+      digestHasPeerRateLimitedCount: true,
+      digestHasPeerCooldownActiveCount: true,
+      readyForCp3Evidence: true,
+    }));
     expect(bundle.m0Triage).toEqual({ tag: "m0" });
     expect(() => JSON.parse(api.captureJson(320))).not.toThrow();
   });
@@ -107,6 +136,9 @@ describe("m7-anti-abuse-capture", () => {
         compactQuarantineEvents: unknown[];
         recentQuarantinedEvents: unknown[];
         recentWarnOrError: unknown[];
+        replayReadiness: {
+          readyForCp3Evidence: boolean;
+        };
       };
       m0Triage: unknown;
     };
@@ -117,6 +149,7 @@ describe("m7-anti-abuse-capture", () => {
     expect(bundle.antiAbuse.compactQuarantineEvents).toEqual([]);
     expect(bundle.antiAbuse.recentQuarantinedEvents).toEqual([]);
     expect(bundle.antiAbuse.recentWarnOrError).toEqual([]);
+    expect(bundle.antiAbuse.replayReadiness.readyForCp3Evidence).toBe(false);
     expect(bundle.m0Triage).toBeNull();
   });
 
@@ -142,5 +175,28 @@ describe("m7-anti-abuse-capture", () => {
     expect(m7AntiAbuseCaptureInternals.toNumericWindowSize(410.7)).toBe(410);
     expect(m7AntiAbuseCaptureInternals.toNumericWindowSize(0)).toBe(1);
     expect(m7AntiAbuseCaptureInternals.toNumericWindowSize(Number.NaN)).toBe(400);
+  });
+
+  it("marks replay not ready when cooldown transition evidence is incomplete", () => {
+    const replay = m7AntiAbuseCaptureInternals.buildReplayReadiness({
+      summary: {
+        riskLevel: "watch",
+        quarantinedCount: 1,
+        peerRateLimitedCount: 1,
+        peerCooldownActiveCount: 0,
+        globalRateLimitedCount: 0,
+        uniquePeerPrefixCount: 1,
+        latestReasonCode: "incoming_connection_request_peer_rate_limited",
+        latestPeerPubkeyPrefix: "aaaaaaaaaaaaaaaa",
+        latestCooldownRemainingMs: null,
+      },
+      compactQuarantineEvents: [{
+        atUnixMs: 100,
+        context: { reasonCode: "incoming_connection_request_peer_rate_limited" },
+      }],
+      recentQuarantinedEvents: [],
+    });
+    expect(replay.hasExpectedReasonTransition).toBe(false);
+    expect(replay.readyForCp3Evidence).toBe(false);
   });
 });
