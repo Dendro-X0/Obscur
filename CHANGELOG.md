@@ -16,9 +16,13 @@ Maintainer note:
     - `runtime.profile_binding_refresh_failed`.
   - auto-unlock now emits explicit scope-drift diagnostics when bound-profile startup has to rely on cross-profile fallback remember/token scope:
     - `auth.auto_unlock_scope_drift_detected`.
+  - canonical group sendability block path now emits room-key portability mismatch diagnostics:
+    - `groups.room_key_missing_send_blocked` includes `reasonCode`, `localRoomKeyCount`, `hasTargetGroupRecord`, `activeProfileId`, and group-key hint sample.
 - Added focused regression coverage for this M2-A slice:
   - `app/features/profiles/components/desktop-profile-bootstrap.test.tsx`,
-  - `app/features/auth/components/auth-gateway.test.tsx`.
+  - `app/features/auth/components/auth-gateway.test.tsx`,
+  - `app/features/groups/services/group-service.test.ts`,
+  - `app/shared/log-app-event.test.ts`.
 - Updated post-v1 roadmap/maintainer monitoring docs with new M2 diagnostics probes:
   - `docs/21-post-v1-value-roadmap.md`,
   - `docs/08-maintainer-playbook.md`,

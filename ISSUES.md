@@ -38,7 +38,9 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - `runtime.profile_binding_refresh_failed`,
   - startup auto-unlock now emits explicit scope drift diagnostics:
     - `auth.auto_unlock_scope_drift_detected` when fallback credentials imply cross-profile scope mismatch,
-  - focused M2-A suites are green (`desktop-profile-bootstrap`, `auth-gateway`, plus `tsc --noEmit`).
+  - group sendability diagnostics now include room-key portability mismatch reason codes on canonical send-block path:
+    - `groups.room_key_missing_send_blocked` includes `reasonCode`, `localRoomKeyCount`, `hasTargetGroupRecord`, `activeProfileId`, and group-key hint sample,
+  - focused M2-A suites are green (`desktop-profile-bootstrap`, `auth-gateway`, `group-service`, `log-app-event`, plus `tsc --noEmit`).
 
 ## v1 Readiness Status
 

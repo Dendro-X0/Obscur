@@ -196,7 +196,10 @@ For identity/scope resilience verification during startup and account-switch pat
 : `window.obscurAppEvents.findByName("runtime.profile_binding_refresh_failed", 30)`
 2. Auto-unlock scope drift diagnostics:
 : `window.obscurAppEvents.findByName("auth.auto_unlock_scope_drift_detected", 30)`
-3. Runtime/profile snapshot capture when drift appears:
+3. Room-key portability mismatch diagnostics:
+: `window.obscurAppEvents.findByName("groups.room_key_missing_send_blocked", 30)`
+: verify `reasonCode` (`no_local_room_keys`, `target_room_key_missing_local_profile_scope`, `target_room_key_record_unreadable`, `room_key_store_unavailable`) and `activeProfileId`/`localRoomKeyCount` context.
+4. Runtime/profile snapshot capture when drift appears:
 : `copy(JSON.stringify({
 :   runtime: window.obscurWindowRuntime?.getSnapshot?.() ?? null,
 :   digest: window.obscurAppEvents?.getDigest?.(300) ?? null,

@@ -277,6 +277,12 @@ describe("logAppEvent", () => {
       level: "warn",
       context: {
         groupIdHint: "group:abc",
+        reasonCode: "target_room_key_missing_local_profile_scope",
+        localRoomKeyCount: 2,
+        hasTargetGroupRecord: false,
+        activeProfileId: "profile-a",
+        senderPubkeySuffix: "1234abcd",
+        knownGroupHintSample: "group:one|group:two",
       },
     });
     logAppEvent({
@@ -380,6 +386,10 @@ describe("logAppEvent", () => {
     }));
     expect(digest.events["groups.room_key_missing_send_blocked"]?.[0]?.context).toEqual(expect.objectContaining({
       groupIdHint: "group:abc",
+      reasonCode: "target_room_key_missing_local_profile_scope",
+      localRoomKeyCount: 2,
+      hasTargetGroupRecord: false,
+      activeProfileId: "profile-a",
     }));
     expect(digest.summary.selfAuthoredDmContinuity).toEqual(expect.objectContaining({
       riskLevel: "high",

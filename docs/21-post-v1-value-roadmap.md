@@ -177,6 +177,13 @@ Current execution status (started 2026-03-23):
 : `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.test.tsx`
 : `apps/pwa/app/features/auth/components/auth-gateway.test.tsx`
 : plus `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+4. Room-key portability mismatch diagnostics landed on canonical group send path:
+: `groups.room_key_missing_send_blocked` now includes reason-coded context (`reasonCode`, `localRoomKeyCount`, `hasTargetGroupRecord`, `activeProfileId`, `knownGroupHintSample`) from
+: `apps/pwa/app/features/groups/services/group-service.ts`.
+5. Focused portability diagnostics coverage added and passing:
+: `apps/pwa/app/features/groups/services/group-service.test.ts`
+: and digest contract coverage in
+: `apps/pwa/app/shared/log-app-event.test.ts`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

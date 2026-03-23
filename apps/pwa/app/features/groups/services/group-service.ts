@@ -5,6 +5,7 @@ import type { UnsignedNostrEvent } from "../../crypto/crypto-interfaces";
 import { cryptoService } from "../../crypto/crypto-service";
 import type { GroupMetadata } from "../types";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 
 import { roomKeyStore } from "../../crypto/room-key-store";
 
@@ -18,6 +19,12 @@ export class GroupService {
         private readonly myPrivateKeyHex: PrivateKeyHex
     ) { }
 
+    private toGroupIdHint(groupId: string): string {
+        return groupId.length > 24
+            ? `${groupId.slice(0, 12)}...${groupId.slice(-8)}`
+            : groupId;
+    }
+
     /**
      * Sends an encrypted message to the community.
      */
@@ -27,16 +34,45 @@ export class GroupService {
         roomKeyHex?: string;
         replyTo?: string;
     }): Promise<NostrEvent> {
-        const roomKeyHex = params.roomKeyHex || await roomKeyStore.getRoomKey(params.groupId);
+        const directRecord = params.roomKeyHex
+            ? null
+            : await roomKeyStore.getRoomKeyRecord(params.groupId);
+        const roomKeyHex = params.roomKeyHex || directRecord?.roomKeyHex || null;
         if (!roomKeyHex) {
+            let reasonCode: "no_local_room_keys" | "target_room_key_missing_local_profile_scope" | "target_room_key_record_unreadable" | "room_key_store_unavailable" = "no_local_room_keys";
+            let localRoomKeyCount: number | null = null;
+            let hasTargetGroupRecord = false;
+            let knownGroupHintSample = "none";
+            try {
+                const records = await roomKeyStore.listRoomKeyRecords();
+                localRoomKeyCount = records.length;
+                hasTargetGroupRecord = records.some((record) => record.groupId === params.groupId);
+                knownGroupHintSample = records
+                    .slice(0, 3)
+                    .map((record) => this.toGroupIdHint(record.groupId))
+                    .join("|") || "none";
+                if (hasTargetGroupRecord) {
+                    reasonCode = "target_room_key_record_unreadable";
+                } else if (records.length > 0) {
+                    reasonCode = "target_room_key_missing_local_profile_scope";
+                } else {
+                    reasonCode = "no_local_room_keys";
+                }
+            } catch {
+                reasonCode = "room_key_store_unavailable";
+            }
             logAppEvent({
                 name: "groups.room_key_missing_send_blocked",
                 level: "warn",
                 scope: { feature: "groups", action: "send_message" },
                 context: {
-                    groupIdHint: params.groupId.length > 24
-                        ? `${params.groupId.slice(0, 12)}...${params.groupId.slice(-8)}`
-                        : params.groupId,
+                    groupIdHint: this.toGroupIdHint(params.groupId),
+                    reasonCode,
+                    localRoomKeyCount,
+                    hasTargetGroupRecord,
+                    activeProfileId: getActiveProfileIdSafe(),
+                    senderPubkeySuffix: this.myPublicKeyHex.slice(-8),
+                    knownGroupHintSample,
                 },
             });
             throw new Error("No room key found for this community on this device. Restore may be incomplete or key distribution has not arrived yet.");

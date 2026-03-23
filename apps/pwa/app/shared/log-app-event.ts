@@ -196,6 +196,12 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
   ],
   "groups.room_key_missing_send_blocked": [
     "groupIdHint",
+    "reasonCode",
+    "localRoomKeyCount",
+    "hasTargetGroupRecord",
+    "activeProfileId",
+    "senderPubkeySuffix",
+    "knownGroupHintSample",
   ],
   "messaging.chat_state_replaced": [
     "publicKeySuffix",
