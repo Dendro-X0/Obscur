@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { evaluateIncomingRequestAntiAbuse, resetIncomingRequestAntiAbuseState } from "./incoming-request-anti-abuse";
+import {
+  evaluateIncomingRequestAntiAbuse,
+  incomingRequestAntiAbuseInternals,
+  resetIncomingRequestAntiAbuseState,
+} from "./incoming-request-anti-abuse";
 
 const PEER_A = "a".repeat(64);
 const PEER_B = "b".repeat(64);
@@ -31,6 +35,25 @@ describe("incoming-request-anti-abuse", () => {
     expect(blocked.allowed).toBe(false);
     expect(blocked.reasonCode).toBe("peer_rate_limited");
     expect(blocked.peerWindowCount).toBe(4);
+    expect(blocked.peerCooldownMs).toBe(incomingRequestAntiAbuseInternals.PEER_COOLDOWN_MS);
+    expect(blocked.cooldownRemainingMs).toBe(incomingRequestAntiAbuseInternals.PEER_COOLDOWN_MS);
+
+    const cooldownBlocked = evaluateIncomingRequestAntiAbuse({
+      peerPublicKeyHex: PEER_A,
+      nowUnixMs: baseMs + 350,
+    });
+    expect(cooldownBlocked.allowed).toBe(false);
+    expect(cooldownBlocked.reasonCode).toBe("peer_cooldown_active");
+    expect(cooldownBlocked.peerCooldownMs).toBe(incomingRequestAntiAbuseInternals.PEER_COOLDOWN_MS);
+    expect(cooldownBlocked.cooldownRemainingMs).toBeGreaterThan(0);
+
+    const allowedAfterCooldown = evaluateIncomingRequestAntiAbuse({
+      peerPublicKeyHex: PEER_A,
+      nowUnixMs: baseMs + 300 + incomingRequestAntiAbuseInternals.PEER_COOLDOWN_MS + 10,
+    });
+    expect(allowedAfterCooldown.allowed).toBe(true);
+    expect(allowedAfterCooldown.reasonCode).toBe("allowed");
+    expect(allowedAfterCooldown.cooldownRemainingMs).toBeNull();
   });
 
   it("blocks on global burst across multiple peers", () => {

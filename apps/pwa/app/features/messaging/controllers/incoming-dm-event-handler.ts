@@ -911,6 +911,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
                 peerLimit: antiAbuseDecision.peerLimit,
                 globalLimit: antiAbuseDecision.globalLimit,
                 windowMs: antiAbuseDecision.windowMs,
+                peerCooldownMs: antiAbuseDecision.peerCooldownMs,
+                cooldownRemainingMs: antiAbuseDecision.cooldownRemainingMs,
               },
             });
             return;

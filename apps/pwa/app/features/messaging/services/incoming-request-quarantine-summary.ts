@@ -1,5 +1,6 @@
 type QuarantineReasonCode =
   | "incoming_connection_request_peer_rate_limited"
+  | "incoming_connection_request_peer_cooldown_active"
   | "incoming_connection_request_global_rate_limited";
 
 type QuarantineEvent = Readonly<{
@@ -30,6 +31,7 @@ const DEFAULT_SUMMARY: IncomingRequestQuarantineSummary = {
   totalSuppressed: 0,
   byReason: {
     incoming_connection_request_peer_rate_limited: 0,
+    incoming_connection_request_peer_cooldown_active: 0,
     incoming_connection_request_global_rate_limited: 0,
   },
   byPeerPrefix: {},
@@ -38,6 +40,7 @@ const DEFAULT_SUMMARY: IncomingRequestQuarantineSummary = {
 
 const isQuarantineReasonCode = (value: unknown): value is QuarantineReasonCode => (
   value === "incoming_connection_request_peer_rate_limited"
+  || value === "incoming_connection_request_peer_cooldown_active"
   || value === "incoming_connection_request_global_rate_limited"
 );
 
@@ -62,6 +65,7 @@ export const summarizeIncomingRequestQuarantineEvents = (
 
   const byReason: Record<QuarantineReasonCode, number> = {
     incoming_connection_request_peer_rate_limited: 0,
+    incoming_connection_request_peer_cooldown_active: 0,
     incoming_connection_request_global_rate_limited: 0,
   };
   const byPeerPrefix: Record<string, {

@@ -34,10 +34,10 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - Desktop updater and release-tag awareness.
 - Performance mode improvements for large timelines and burst traffic.
 
-## Current Status (v1.0.8 Planning)
+## Current Status (v1.0.9 Planning)
 
-- Latest released tag: `v1.0.7` (`2026-03-23`).
-- Active execution lane: `v1.0.8` (`M6` real-time voice beta slice) with one-milestone-per-version discipline.
+- Latest released tag: `v1.0.8` (`2026-03-23`).
+- Active execution lane: `v1.0.9` (`M7` anti-abuse + UX/performance reliability hardening) with one-milestone-per-version discipline.
 - Post-v1 roadmap and milestone status are tracked in:
   - [`docs/21-post-v1-value-roadmap.md`](docs/21-post-v1-value-roadmap.md).
 - Active version-bound phase sequence (`v1.0.7-v1.0.9`) is tracked in:

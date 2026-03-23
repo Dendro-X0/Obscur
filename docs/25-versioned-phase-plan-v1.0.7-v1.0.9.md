@@ -163,6 +163,10 @@ Current checkpoint progress:
 : observed transition chain:
 : `idle -> connecting -> active -> degraded -> connecting -> active`,
 : with no `recovery_exhausted` or unsupported terminal failure in replay window.
+14. CP4 status:
+: strict clean-tree release preflight passed and release handoff is complete:
+: `pnpm release:preflight -- --tag v1.0.8`
+: `main` and tag `v1.0.8` are published on origin.
 
 ## v1.0.9 - M7 Anti-Abuse + UX/Performance Reliability Hardening
 
@@ -181,7 +185,19 @@ Checkpoints:
 4. `CP4`: strict clean-tree preflight and `v1.0.9` release tag.
 
 Current checkpoint progress:
-1. pending.
+1. `CP1` implementation slice started on canonical incoming-request anti-abuse owner:
+: `apps/pwa/app/features/messaging/services/incoming-request-anti-abuse.ts`.
+2. Per-peer cooldown hardening landed after burst-limit quarantine:
+: new reason code `peer_cooldown_active` prevents repeated rapid retries from the same sender after `peer_rate_limited` is reached.
+3. Quarantine diagnostics and UI surfaces are updated for cooldown visibility:
+: `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`,
+: `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.ts`,
+: `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`.
+4. Focused CP1 validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+5. Remaining to close CP1:
+: capture two-device anti-abuse replay evidence (rate-limit then cooldown path) and attach diagnostics bundle.
 
 ## Working Rules During This Sequence
 

@@ -1,4 +1,36 @@
-## [Unreleased - v1.0.8]
+## [Unreleased - v1.0.9]
+
+### Changed
+
+- Started post-`v1.0.8` `v1.0.9` lane (`M7`) with a CP1 anti-abuse hardening slice on canonical incoming-request owner:
+  - added deterministic per-peer cooldown enforcement after burst-limit quarantine in:
+    - `apps/pwa/app/features/messaging/services/incoming-request-anti-abuse.ts`
+  - anti-abuse decisions now include cooldown diagnostics context:
+    - `peerCooldownMs`,
+    - `cooldownRemainingMs`,
+    - reason code `peer_cooldown_active`.
+- Extended incoming request quarantine diagnostics and UI visibility for cooldown outcomes:
+  - quarantine event context includes cooldown fields in:
+    - `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`
+  - quarantine summary reason map includes cooldown reason in:
+    - `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.ts`
+  - Requests inbox anti-spam badges now surface sender cooldown counts/labels in:
+    - `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`
+- Added focused regression coverage for M7 CP1 cooldown behavior:
+  - `apps/pwa/app/features/messaging/services/incoming-request-anti-abuse.test.ts`
+  - `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
+- Synced roadmap/status docs for `v1.0.9` kickoff and `v1.0.8` closeout:
+  - `README.md`
+  - `docs/21-post-v1-value-roadmap.md`
+  - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`
+  - `ISSUES.md`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+
+## [v1.0.8] - 2026-03-23
 
 ### Changed
 

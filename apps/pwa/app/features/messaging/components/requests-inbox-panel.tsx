@@ -101,6 +101,11 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                                         sender rate limit: {quarantineSummary.byReason.incoming_connection_request_peer_rate_limited}
                                     </span>
                                 )}
+                                {quarantineSummary.byReason.incoming_connection_request_peer_cooldown_active > 0 && (
+                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                        sender cooldown: {quarantineSummary.byReason.incoming_connection_request_peer_cooldown_active}
+                                    </span>
+                                )}
                                 {quarantineSummary.byReason.incoming_connection_request_global_rate_limited > 0 && (
                                     <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
                                         global rate limit: {quarantineSummary.byReason.incoming_connection_request_global_rate_limited}
@@ -162,7 +167,10 @@ interface RequestItemRowProps {
     request: RequestItem;
     quarantinePeerSignal: Readonly<{
         count: number;
-        latestReasonCode: "incoming_connection_request_peer_rate_limited" | "incoming_connection_request_global_rate_limited";
+        latestReasonCode:
+            | "incoming_connection_request_peer_rate_limited"
+            | "incoming_connection_request_peer_cooldown_active"
+            | "incoming_connection_request_global_rate_limited";
         lastAtUnixMs: number;
     }> | null;
     nowMs: number;
@@ -181,10 +189,16 @@ const invitationToneClassName = (tone: InvitationTone): string => {
 };
 
 const quarantineReasonLabel = (
-    reasonCode: "incoming_connection_request_peer_rate_limited" | "incoming_connection_request_global_rate_limited"
+    reasonCode:
+        | "incoming_connection_request_peer_rate_limited"
+        | "incoming_connection_request_peer_cooldown_active"
+        | "incoming_connection_request_global_rate_limited"
 ): string => {
     if (reasonCode === "incoming_connection_request_peer_rate_limited") {
         return "sender rate-limited";
+    }
+    if (reasonCode === "incoming_connection_request_peer_cooldown_active") {
+        return "sender cooldown active";
     }
     return "global anti-spam limit";
 };

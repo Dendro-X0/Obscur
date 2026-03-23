@@ -407,8 +407,10 @@ Current execution status:
 : `window.obscurM6VoiceReplay.runWeakNetworkReplay()` emitted deterministic transition evidence:
 : `idle -> connecting -> active -> degraded -> connecting -> active`,
 : and `window.obscurM6VoiceCapture.captureJson(400)` confirmed no `recovery_exhausted` signal in replay window.
-12. Remaining before declaring M6 complete:
-: CP4 release-gate replay and `v1.0.8` tag flow.
+12. CP4 status:
+: strict clean-tree release preflight passed and release handoff is complete:
+: `pnpm release:preflight -- --tag v1.0.8`
+: `main` and tag `v1.0.8` are published on origin.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 
@@ -423,7 +425,22 @@ Acceptance:
 3. release closeout includes diagnostics bundle + manual evidence matrix.
 
 Current execution status:
-1. pending (`v1.0.9` target lane).
+1. `v1.0.9` lane started with a CP1 anti-abuse hardening slice on canonical incoming-request owner:
+: `apps/pwa/app/features/messaging/services/incoming-request-anti-abuse.ts`.
+2. Per-peer cooldown enforcement landed after burst-limit quarantine:
+: cooldown reason code `peer_cooldown_active` now blocks repeated same-sender retries during the cooldown window after `peer_rate_limited`.
+3. Cooldown visibility now flows through diagnostics and inbox UX:
+: incoming quarantine diagnostics include cooldown context in
+: `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`,
+: quarantine summary reason support in
+: `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.ts`,
+: and Requests inbox reason chips/badges in
+: `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`.
+4. Focused CP1 validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+5. Remaining to close CP1:
+: capture two-device anti-abuse replay evidence bundle for rate-limit -> cooldown behavior before advancing CP2.
 
 ## Version-Bound Execution
 

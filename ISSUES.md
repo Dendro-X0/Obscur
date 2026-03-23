@@ -201,8 +201,25 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - transition chain observed:
         `idle -> connecting -> active -> degraded -> connecting -> active`,
       - no `recovery_exhausted`/unsupported terminal failure observed in replay window.
-  - remaining before M6 closeout:
-    - CP4 release gates and tag flow for `v1.0.8`.
+  - CP4 status:
+    - strict clean-tree release preflight passed:
+      - `pnpm release:preflight -- --tag v1.0.8`,
+    - `main` and tag `v1.0.8` are published on origin.
+- M7 status (started 2026-03-23):
+  - `v1.0.9` CP1 anti-abuse hardening started on canonical incoming-request owner:
+    - `app/features/messaging/services/incoming-request-anti-abuse.ts`,
+  - incoming unknown-sender burst control now applies deterministic per-peer cooldown after rate-limit quarantine:
+    - new reason code `peer_cooldown_active`,
+  - cooldown diagnostics are surfaced in canonical quarantine event context:
+    - `app/features/messaging/controllers/incoming-dm-event-handler.ts`,
+  - quarantine summary + Requests inbox UI now include cooldown reason counters/labels:
+    - `app/features/messaging/services/incoming-request-quarantine-summary.ts`,
+    - `app/features/messaging/components/requests-inbox-panel.tsx`,
+  - focused CP1 automation replay is green:
+    - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+  - remaining before CP1 closeout:
+    - capture manual two-device anti-abuse replay evidence (`peer_rate_limited -> peer_cooldown_active`) and attach diagnostics export.
 
 ## v1 Readiness Status
 
