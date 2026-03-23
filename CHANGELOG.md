@@ -6,6 +6,29 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+## [v1.0.1] - 2026-03-23
+
+### Changed
+
+- Continued post-v1 `M1` delivery with canonical anti-abuse request-ingress hardening:
+  - added unknown-sender request burst guard (`per-peer` + `global`) on the canonical incoming DM owner path,
+  - added reason-coded quarantine diagnostics (`messaging.request.incoming_quarantined`) and suppression observability,
+  - added Requests inbox anti-spam visibility (quarantine summary + per-peer anti-spam signal badges).
+- Extended community platform foundation with operator visibility in Group Management:
+  - introduced deterministic operator-health summarization for membership/governance signals,
+  - added members-tab health cards for active/known/online/offline counts, kick-vote pressure, lifecycle drift, and disband status,
+  - added severity-coded operator signal feed (`info` / `warn` / `critical`).
+- Completed `M1` closeout automation gate replay and documented remaining manual two-device evidence contract in:
+  - `docs/21-post-v1-value-roadmap.md`,
+  - `docs/08-maintainer-playbook.md`,
+  - `ISSUES.md`.
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts app/features/groups/services/community-operator-health.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm docs:check`
+
 ## [v1.0.0] - 2026-03-22
 
 ### Changed
