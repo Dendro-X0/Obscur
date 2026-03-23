@@ -19,6 +19,7 @@ import { formatTime, highlightText } from "../utils/formatting";
 import Image from "next/image";
 import { cn } from "@/app/lib/utils";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 type ChatHistorySearchResult = Readonly<{
     messageId: string;
@@ -27,6 +28,17 @@ type ChatHistorySearchResult = Readonly<{
     resultKind: "text" | "voice_note";
     voiceDurationLabel: string | null;
 }>;
+
+const toIdHint = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return "unknown";
+    }
+    if (trimmed.length <= 20) {
+        return trimmed;
+    }
+    return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
+};
 
 export interface ChatViewProps {
     conversation: Conversation;
@@ -144,9 +156,19 @@ export function ChatView(props: ChatViewProps) {
     };
 
     const handleJumpToMessage = React.useCallback((messageId: string): void => {
+        logAppEvent({
+            name: "messaging.search_jump_requested",
+            level: "info",
+            scope: { feature: "messaging", action: "search_jump" },
+            context: {
+                conversationIdHint: toIdHint(props.conversation.id),
+                conversationKind: props.conversation.kind,
+                targetMessageIdHint: toIdHint(messageId),
+            },
+        });
         setJumpToMessageId(messageId);
         setIsHistorySearchOpen(false);
-    }, []);
+    }, [props.conversation.id, props.conversation.kind]);
 
     React.useEffect(() => {
         setHistorySearchQuery("");
@@ -580,6 +602,7 @@ export function ChatView(props: ChatViewProps) {
                 </div>
             ) : (
                 <MessageList
+                    conversationId={props.conversation.id}
                     key={props.conversation.id}
                     hasHydrated={props.hasHydrated}
                     messages={props.messages}

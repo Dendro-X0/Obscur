@@ -25,6 +25,7 @@ import { PrivacySettingsService } from "../../settings/services/privacy-settings
 import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
 import { isMessageListAwayFromBottom, isMessageListFastScroll } from "./message-list-scroll";
 import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import {
     buildMessageRenderCaches,
     type ParsedMessagePayload,
@@ -32,6 +33,7 @@ import {
 } from "./message-list-render-meta";
 
 interface MessageListProps {
+    conversationId?: string;
     hasHydrated: boolean;
     messages: ReadonlyArray<Message>;
     rawMessagesCount: number; // to check if empty
@@ -60,7 +62,19 @@ interface MessageListProps {
 
 type MessageListScrollBehavior = "auto" | "smooth";
 
+const toIdHint = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return "unknown";
+    }
+    if (trimmed.length <= 20) {
+        return trimmed;
+    }
+    return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
+};
+
 function MessageListImpl({
+    conversationId,
     hasHydrated,
     messages,
     rawMessagesCount,
@@ -323,6 +337,19 @@ function MessageListImpl({
                 const target = document.getElementById(`msg-${resolvedMessageId}`);
                 if (target) {
                     target.scrollIntoView({ behavior: "auto", block: "center" });
+                    logAppEvent({
+                        name: "messaging.search_jump_resolved",
+                        level: "info",
+                        scope: { feature: "messaging", action: "search_jump" },
+                        context: {
+                            conversationIdHint: toIdHint(conversationId ?? "unknown"),
+                            targetMessageIdHint: toIdHint(jumpToMessageId),
+                            resolvedMessageIdHint: toIdHint(resolvedMessageId),
+                            loadAttemptCount: jumpLoadAttemptCountRef.current,
+                            renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                            messageWindowCount: messages.length,
+                        },
+                    });
                     onJumpToMessageHandled?.(jumpToMessageId);
                     jumpInFlightMessageIdRef.current = null;
                     jumpLoadAttemptCountRef.current = 0;
@@ -338,6 +365,19 @@ function MessageListImpl({
                     return;
                 }
 
+                logAppEvent({
+                    name: "messaging.search_jump_unresolved",
+                    level: "warn",
+                    scope: { feature: "messaging", action: "search_jump" },
+                    context: {
+                        reasonCode: "target_dom_not_resolved_after_index_match",
+                        conversationIdHint: toIdHint(conversationId ?? "unknown"),
+                        targetMessageIdHint: toIdHint(jumpToMessageId),
+                        loadAttemptCount: jumpLoadAttemptCountRef.current,
+                        renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                        messageWindowCount: messages.length,
+                    },
+                });
                 onJumpToMessageHandled?.(jumpToMessageId);
                 jumpInFlightMessageIdRef.current = null;
                 jumpLoadAttemptCountRef.current = 0;
@@ -355,6 +395,35 @@ function MessageListImpl({
                 return;
             }
 
+            if (jumpLoadAttemptCountRef.current === 0) {
+                logAppEvent({
+                    name: "messaging.search_jump_unresolved",
+                    level: "warn",
+                    scope: { feature: "messaging", action: "search_jump" },
+                    context: {
+                        reasonCode: "target_not_found_in_current_window",
+                        conversationIdHint: toIdHint(conversationId ?? "unknown"),
+                        targetMessageIdHint: toIdHint(jumpToMessageId),
+                        loadAttemptCount: jumpLoadAttemptCountRef.current,
+                        renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                        messageWindowCount: messages.length,
+                    },
+                });
+            } else {
+                logAppEvent({
+                    name: "messaging.search_jump_unresolved",
+                    level: "warn",
+                    scope: { feature: "messaging", action: "search_jump" },
+                    context: {
+                        reasonCode: "target_not_found_after_load_attempts",
+                        conversationIdHint: toIdHint(conversationId ?? "unknown"),
+                        targetMessageIdHint: toIdHint(jumpToMessageId),
+                        loadAttemptCount: jumpLoadAttemptCountRef.current,
+                        renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                        messageWindowCount: messages.length,
+                    },
+                });
+            }
             onJumpToMessageHandled?.(jumpToMessageId);
             jumpInFlightMessageIdRef.current = null;
             jumpLoadAttemptCountRef.current = 0;
@@ -370,7 +439,7 @@ function MessageListImpl({
                 jumpResolveTimerRef.current = null;
             }
         };
-    }, [jumpToMessageId, messages, onJumpToMessageHandled, onLoadEarlier, virtualizer]);
+    }, [conversationId, jumpToMessageId, messages, onJumpToMessageHandled, onLoadEarlier, virtualizer]);
 
     const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -653,6 +722,7 @@ function MessageListImpl({
 
 const messageListPropsAreEqual = (prev: MessageListProps, next: MessageListProps): boolean => {
     return (
+        prev.conversationId === next.conversationId &&
         prev.hasHydrated === next.hasHydrated &&
         prev.messages === next.messages &&
         prev.rawMessagesCount === next.rawMessagesCount &&

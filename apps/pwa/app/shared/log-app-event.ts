@@ -255,6 +255,27 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "fromGroupAttachmentCount",
     "toGroupAttachmentCount",
   ],
+  "messaging.search_jump_requested": [
+    "conversationIdHint",
+    "conversationKind",
+    "targetMessageIdHint",
+  ],
+  "messaging.search_jump_resolved": [
+    "conversationIdHint",
+    "targetMessageIdHint",
+    "resolvedMessageIdHint",
+    "loadAttemptCount",
+    "renderResolveAttemptCount",
+    "messageWindowCount",
+  ],
+  "messaging.search_jump_unresolved": [
+    "reasonCode",
+    "conversationIdHint",
+    "targetMessageIdHint",
+    "loadAttemptCount",
+    "renderResolveAttemptCount",
+    "messageWindowCount",
+  ],
   "runtime.activation.timeout": [
     "timeouts",
     "projectionPhase",

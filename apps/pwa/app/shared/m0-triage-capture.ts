@@ -82,6 +82,9 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
     "navigation.route_mount_probe_settled",
     "navigation.page_transition_watchdog_timeout",
     "navigation.page_transition_effects_disabled",
+    "messaging.search_jump_requested",
+    "messaging.search_jump_resolved",
+    "messaging.search_jump_unresolved",
   ],
   sync_restore: [
     "account_sync.backup_restore_merge_diagnostics",
