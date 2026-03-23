@@ -193,6 +193,9 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
   - CP3 manual replay matrix is defined:
     - `docs/27-v1.0.8-cp3-voice-replay-matrix.md`,
+  - CP3 replay bridge is now available for deterministic transition evidence:
+    - `window.obscurM6VoiceReplay?.runWeakNetworkReplay?.()` from
+      `app/shared/m6-voice-replay-bridge.ts`,
   - CP3 status:
     - pending operator weak-network replay evidence and pass/fail confirmation against the matrix.
 

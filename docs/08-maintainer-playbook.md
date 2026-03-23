@@ -306,9 +306,11 @@ Canonical matrix:
 : `copy(window.obscurM6VoiceCapture?.captureJson(400))`
 2. Realtime voice summary probe:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession`
-3. Transition event slice:
+3. Replay bridge (for builds without exposed realtime voice UI path):
+: `window.obscurM6VoiceReplay?.runWeakNetworkReplay?.()`
+4. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-4. One-copy CP2 export bundle (fallback when helper is unavailable):
+5. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -318,7 +320,7 @@ Canonical matrix:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-5. Escalate immediately if:
+6. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
 : transitions show repeated unsupported reasons on a previously supported runtime without capability changes.
 

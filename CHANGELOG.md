@@ -36,8 +36,14 @@
     - `apps/pwa/app/shared/m6-voice-capture.ts`
   - helper is installed during app boot in:
     - `apps/pwa/app/components/providers.tsx`
+- Added deterministic M6 replay bridge for transition evidence when voice UI path is not yet exposed:
+  - `window.obscurM6VoiceReplay.runWeakNetworkReplay()` in:
+    - `apps/pwa/app/shared/m6-voice-replay-bridge.ts`
+  - bridge is installed during app boot in:
+    - `apps/pwa/app/components/providers.tsx`
 - Added focused regression coverage for M6 CP3 helper:
   - `apps/pwa/app/shared/m6-voice-capture.test.ts`
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
 - Added explicit M6 CP3 manual replay matrix:
   - `docs/27-v1.0.8-cp3-voice-replay-matrix.md`
 - Synced docs/release status for `v1.0.8` kickoff:
@@ -52,6 +58,7 @@
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 - `pnpm version:sync`
 
