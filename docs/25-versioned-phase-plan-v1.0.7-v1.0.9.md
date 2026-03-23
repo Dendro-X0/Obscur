@@ -91,8 +91,9 @@ Current checkpoint progress (2026-03-23):
 : `pnpm release:ci-signal-check`
 : `pnpm release:test-pack -- --skip-preflight`
 : `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`
-11. Remaining to finalize `v1.0.7` release handoff:
-: run strict clean-tree `pnpm release:preflight -- --tag v1.0.7` immediately after the checkpoint commit/tag staging step.
+11. `v1.0.7` release handoff is complete:
+: strict clean-tree `pnpm release:preflight -- --tag v1.0.7` passed before push/tag,
+: `main` and `v1.0.7` are both published on origin.
 
 ## v1.0.8 - M6 Real-Time Voice Beta Slice
 
@@ -111,7 +112,37 @@ Checkpoints:
 4. `CP4`: full release gates and `v1.0.8` tag.
 
 Current checkpoint progress:
-1. pending.
+1. `CP1` started on canonical small-room voice lifecycle contracts:
+: added typed session lifecycle owner-safe contracts in
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
+2. Lifecycle contracts now enforce deterministic phase transitions for:
+: `create/join -> connecting`,
+: `connected -> active` only with peer-session evidence,
+: degraded transport + bounded recovery attempts,
+: explicit leave/closed terminal transitions.
+3. Unsupported/degraded outcomes are reason-coded at the contract boundary:
+: capability unsupported reason propagation,
+: `opus_codec_missing`,
+: `network_degraded`,
+: `transport_timeout`,
+: `peer_evidence_missing`,
+: `recovery_exhausted`.
+4. Focused `CP1` validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+5. `CP2` diagnostics slice landed for realtime voice degraded/unsupported triage:
+: added canonical transition diagnostics emitter in
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-diagnostics.ts`,
+: emitting `messaging.realtime_voice.session_transition` with reason-coded phase context.
+6. Cross-device digest now includes `summary.realtimeVoiceSession`:
+: transition/degraded/unsupported/recovery-exhausted counters with risk-level contracts in
+: `apps/pwa/app/shared/log-app-event.ts`.
+7. M0 capture now includes realtime voice focus events:
+: `messaging.realtime_voice.session_transition` in
+: `apps/pwa/app/shared/m0-triage-capture.ts`.
+8. Focused `CP2` validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1.0.9 - M7 Anti-Abuse + UX/Performance Reliability Hardening
 

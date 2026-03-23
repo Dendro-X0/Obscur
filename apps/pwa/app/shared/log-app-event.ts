@@ -87,6 +87,15 @@ type AppEventDiagnosticsApi = Readonly<{
         latestResolutionMode: string | null;
         latestUnresolvedReasonCode: string | null;
       }>;
+      realtimeVoiceSession: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        transitionCount: number;
+        degradedCount: number;
+        unsupportedCount: number;
+        recoveryExhaustedCount: number;
+        latestToPhase: string | null;
+        latestReasonCode: string | null;
+      }>;
     }>;
     recentWarnOrError: ReadonlyArray<Readonly<{
       name: string;
@@ -312,6 +321,18 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "loadAttemptCount",
     "renderResolveAttemptCount",
     "messageWindowCount",
+  ],
+  "messaging.realtime_voice.session_transition": [
+    "roomIdHint",
+    "mode",
+    "fromPhase",
+    "toPhase",
+    "reasonCode",
+    "participantCount",
+    "hasPeerSessionEvidence",
+    "recoveryAttemptCount",
+    "maxRecoveryAttempts",
+    "isRecoverable",
   ],
   "runtime.activation.timeout": [
     "timeouts",
@@ -623,6 +644,26 @@ const installDiagnosticsApi = (): void => {
       const latestSearchJumpUnresolvedReasonCode = toStringOrNull(
         searchJumpUnresolvedEvents.at(-1)?.context?.reasonCode,
       );
+      const voiceSessionTransitionEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.session_transition"
+      ));
+      const voiceSessionTransitionCount = voiceSessionTransitionEvents.length;
+      const voiceSessionDegradedCount = voiceSessionTransitionEvents.filter((event) => (
+        event.context?.toPhase === "degraded"
+      )).length;
+      const voiceSessionUnsupportedCount = voiceSessionTransitionEvents.filter((event) => (
+        event.context?.toPhase === "unsupported"
+      )).length;
+      const voiceSessionRecoveryExhaustedCount = voiceSessionTransitionEvents.filter((event) => (
+        event.context?.reasonCode === "recovery_exhausted"
+      )).length;
+      const latestVoiceSessionTransition = voiceSessionTransitionEvents.at(-1);
+      const latestVoiceSessionToPhase = toStringOrNull(
+        latestVoiceSessionTransition?.context?.toPhase,
+      );
+      const latestVoiceSessionReasonCode = toStringOrNull(
+        latestVoiceSessionTransition?.context?.reasonCode,
+      );
       const criticalHydrationDriftCount = recent.filter((event) => (
         event.name === "messaging.conversation_hydration_diagnostics"
         && typeof event.context?.criticalDriftCount === "number"
@@ -684,6 +725,10 @@ const installDiagnosticsApi = (): void => {
       const searchJumpNavigationRiskLevel = getRiskLevel({
         watch: searchJumpUnresolvedCount > 0,
         high: searchJumpDomUnresolvedCount > 0,
+      });
+      const realtimeVoiceSessionRiskLevel = getRiskLevel({
+        watch: voiceSessionDegradedCount > 0 || voiceSessionUnsupportedCount > 0,
+        high: voiceSessionRecoveryExhaustedCount > 0,
       });
       const recentWarnOrError = recent
         .filter((event) => event.level === "warn" || event.level === "error")
@@ -758,6 +803,15 @@ const installDiagnosticsApi = (): void => {
             loadExhaustedUnresolvedCount: searchJumpLoadExhaustedUnresolvedCount,
             latestResolutionMode: latestSearchJumpResolutionMode,
             latestUnresolvedReasonCode: latestSearchJumpUnresolvedReasonCode,
+          },
+          realtimeVoiceSession: {
+            riskLevel: realtimeVoiceSessionRiskLevel,
+            transitionCount: voiceSessionTransitionCount,
+            degradedCount: voiceSessionDegradedCount,
+            unsupportedCount: voiceSessionUnsupportedCount,
+            recoveryExhaustedCount: voiceSessionRecoveryExhaustedCount,
+            latestToPhase: latestVoiceSessionToPhase,
+            latestReasonCode: latestVoiceSessionReasonCode,
           },
         },
         recentWarnOrError,

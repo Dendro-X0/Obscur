@@ -153,7 +153,36 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm release:test-pack -- --skip-preflight`,
     - `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`,
   - remaining before tag cut:
-    - run strict clean-tree `pnpm release:preflight -- --tag v1.0.7` after checkpoint commit/tag staging.
+    - completed: strict clean-tree `pnpm release:preflight -- --tag v1.0.7` passed before push/tag,
+    - completed: `main` and `v1.0.7` are published on origin.
+- M6 status (started 2026-03-23):
+  - `v1.0.8` CP1 lifecycle-contract slice landed on canonical voice-session owner:
+    - `app/features/messaging/services/realtime-voice-session-lifecycle.ts`,
+  - bounded typed lifecycle now covers:
+    - `create/join -> connecting`,
+    - `connected -> active` only with peer-session evidence,
+    - degraded transport + bounded recovery attempts,
+    - deterministic leave/session-closed terminal transitions,
+  - reason-coded unsupported/degraded outcomes are explicit and replay-safe:
+    - capability unsupported propagation,
+    - `opus_codec_missing`,
+    - `network_degraded`,
+    - `transport_timeout`,
+    - `peer_evidence_missing`,
+    - `recovery_exhausted`,
+  - focused CP1 tests are green:
+    - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+  - CP2 diagnostics slice landed for realtime voice unsupported/degraded triage:
+    - canonical transition diagnostics helper emits `messaging.realtime_voice.session_transition` with reason-coded phase context from
+      `app/features/messaging/services/realtime-voice-session-diagnostics.ts`,
+    - cross-device digest now exposes `summary.realtimeVoiceSession` risk/counter signals in
+      `app/shared/log-app-event.ts`,
+    - M0 triage focus now includes realtime voice transition events in
+      `app/shared/m0-triage-capture.ts`,
+  - focused CP2 tests are green:
+    - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 

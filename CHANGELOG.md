@@ -1,4 +1,50 @@
-## [Unreleased - v1.0.7]
+## [Unreleased - v1.0.8]
+
+### Changed
+
+- Started post-`v1.0.7` `v1.0.8` lane (`M6`) with a CP1 small-room voice lifecycle contract slice:
+  - added typed bounded session lifecycle contracts in:
+    - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`
+  - contract now enforces deterministic create/join/connect/degrade/recover/leave transitions with explicit terminal outcomes.
+  - `active` voice-session state now requires explicit peer-session evidence at the contract boundary (no optimistic active transition).
+  - unsupported/degraded outcomes are reason-coded and replay-safe:
+    - capability unsupported reason propagation,
+    - `opus_codec_missing`,
+    - `network_degraded`,
+    - `transport_timeout`,
+    - `peer_evidence_missing`,
+    - `recovery_exhausted`.
+- Added focused regression coverage for M6 CP1 lifecycle contracts:
+  - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
+- Started `M6` CP2 diagnostics slice for realtime-voice degraded/unsupported triage:
+  - added canonical transition diagnostics helper in:
+    - `apps/pwa/app/features/messaging/services/realtime-voice-session-diagnostics.ts`
+  - transition diagnostics emit reason-coded phase evidence under:
+    - `messaging.realtime_voice.session_transition`
+  - extended cross-device digest summary with:
+    - `summary.realtimeVoiceSession` in `apps/pwa/app/shared/log-app-event.ts`
+  - extended M0 triage focused-event capture with:
+    - `messaging.realtime_voice.session_transition` in `apps/pwa/app/shared/m0-triage-capture.ts`
+- Added focused diagnostics regression coverage for M6 CP2:
+  - `apps/pwa/app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
+  - `apps/pwa/app/shared/log-app-event.test.ts`
+  - `apps/pwa/app/shared/m0-triage-capture.test.ts`
+- Updated maintainer replay runbook for M6 CP2 diagnostics capture:
+  - `docs/08-maintainer-playbook.md`
+- Synced docs/release status for `v1.0.8` kickoff:
+  - `README.md`
+  - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`
+  - `docs/21-post-v1-value-roadmap.md`
+  - `ISSUES.md`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm version:sync`
+
+## [v1.0.7] - 2026-03-23
 
 ### Changed
 

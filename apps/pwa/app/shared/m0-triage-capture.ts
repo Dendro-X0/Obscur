@@ -24,7 +24,8 @@ type M0FocusCategory =
   | "startup"
   | "navigation"
   | "sync_restore"
-  | "media_hydration";
+  | "media_hydration"
+  | "voice_realtime";
 
 export type M0TriageBundle = Readonly<{
   generatedAtUnixMs: number;
@@ -99,6 +100,9 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
   media_hydration: [
     "messaging.conversation_hydration_diagnostics",
     "messaging.conversation_projection_merge_window_cap_applied",
+  ],
+  voice_realtime: [
+    "messaging.realtime_voice.session_transition",
   ],
 };
 
@@ -205,6 +209,7 @@ const createBundle = (
         navigation: readFocusedEvents(appEventsApi, "navigation"),
         sync_restore: readFocusedEvents(appEventsApi, "sync_restore"),
         media_hydration: readFocusedEvents(appEventsApi, "media_hydration"),
+        voice_realtime: readFocusedEvents(appEventsApi, "voice_realtime"),
       },
     },
   };

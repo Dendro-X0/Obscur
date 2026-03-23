@@ -95,6 +95,9 @@ describe("m0-triage-capture", () => {
       if (name === "messaging.conversation_hydration_diagnostics") {
         return [{ name, atUnixMs: 4, level: "warn" }];
       }
+      if (name === "messaging.realtime_voice.session_transition") {
+        return [{ name, atUnixMs: 6, level: "warn" }];
+      }
       return [];
     });
     root.obscurAppEvents = {
@@ -126,6 +129,7 @@ describe("m0-triage-capture", () => {
       || entry.name === "groups.room_key_missing_send_blocked"
     ))).toBe(true);
     expect(bundle.events.focusedByCategory.media_hydration.some((entry) => entry.name === "messaging.conversation_hydration_diagnostics")).toBe(true);
+    expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.session_transition")).toBe(true);
     expect(findByName).toHaveBeenCalled();
   });
 

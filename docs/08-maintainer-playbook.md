@@ -295,6 +295,28 @@ For `v1.0.7` CP3 community-convergence verification:
 : creator/member coverage disappears,
 : `groups.room_key_missing_send_blocked` appears during replay.
 
+### Post-v1 M6 Realtime Voice Degraded/Unsupported Checks
+
+For `v1.0.8` CP2 realtime voice diagnostics verification:
+
+1. Realtime voice summary probe:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession`
+2. Transition event slice:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
+3. One-copy CP2 export bundle:
+: `copy(JSON.stringify((() => {`
+: `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
+: `  return {`
+: `    realtimeVoiceSession: digest?.summary?.realtimeVoiceSession ?? null,`
+: `    transitions: digest?.events?.["messaging.realtime_voice.session_transition"] ?? [],`
+: `    recentWarnOrError: digest?.recentWarnOrError ?? [],`
+: `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
+: `  };`
+: `})(), null, 2))`
+4. Escalate immediately if:
+: `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
+: transitions show repeated unsupported reasons on a previously supported runtime without capability changes.
+
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 
 Use this compact capture first during two-device DM/group/media verification:

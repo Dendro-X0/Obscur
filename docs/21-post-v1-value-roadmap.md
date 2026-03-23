@@ -351,8 +351,9 @@ Current execution status (started 2026-03-23):
 : `pnpm release:ci-signal-check`
 : `pnpm release:test-pack -- --skip-preflight`
 : `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`
-13. Remaining to finalize `v1.0.7` tagging:
-: strict clean-tree `pnpm release:preflight -- --tag v1.0.7` after checkpoint commit/tag staging.
+13. `v1.0.7` release/tagging is complete:
+: strict clean-tree `pnpm release:preflight -- --tag v1.0.7` passed before push/tag,
+: `main` and tag `v1.0.7` are published on origin.
 
 ## M6 - Real-Time Voice Beta Slice (Small-Room, Evidence-Backed)
 
@@ -367,7 +368,28 @@ Acceptance:
 3. voice path does not regress existing DM/group transport stability.
 
 Current execution status:
-1. pending (`v1.0.8` target lane).
+1. `v1.0.8` lane started with a CP1 lifecycle-contract slice on canonical voice-session owner:
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
+2. New typed contracts now enforce bounded create/join/connect/degrade/recover/leave flows:
+: `active` state is gated by explicit peer-session evidence,
+: recovery attempts are bounded with deterministic terminal outcome (`recovery_exhausted`),
+: unsupported/degraded reasons are explicit and replay-safe.
+3. Focused CP1 regression coverage is green:
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+4. CP2 diagnostics contracts landed for degraded/unsupported realtime voice paths:
+: canonical transition diagnostics helper now emits `messaging.realtime_voice.session_transition` with phase/reason evidence from
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-diagnostics.ts`.
+5. Cross-device digest and M0 triage now expose realtime-voice risk signals:
+: `summary.realtimeVoiceSession` in
+: `apps/pwa/app/shared/log-app-event.ts`,
+: plus M0 focus capture for `messaging.realtime_voice.session_transition` in
+: `apps/pwa/app/shared/m0-triage-capture.ts`.
+6. Focused CP2 diagnostics replay is green:
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
+: `apps/pwa/app/shared/log-app-event.test.ts`
+: `apps/pwa/app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

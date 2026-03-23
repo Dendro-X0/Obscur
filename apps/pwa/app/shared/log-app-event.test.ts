@@ -362,6 +362,22 @@ describe("logAppEvent", () => {
         targetMessageIdHint: "message:123",
       },
     });
+    logAppEvent({
+      name: "messaging.realtime_voice.session_transition",
+      level: "warn",
+      context: {
+        roomIdHint: "room:voice",
+        mode: "join",
+        fromPhase: "degraded",
+        toPhase: "ended",
+        reasonCode: "recovery_exhausted",
+        participantCount: 1,
+        hasPeerSessionEvidence: false,
+        recoveryAttemptCount: 3,
+        maxRecoveryAttempts: 3,
+        isRecoverable: false,
+      },
+    });
 
     const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
       getCrossDeviceSyncDigest: (count?: number) => {
@@ -417,6 +433,15 @@ describe("logAppEvent", () => {
             loadExhaustedUnresolvedCount: number;
             latestResolutionMode: string | null;
             latestUnresolvedReasonCode: string | null;
+          };
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            transitionCount: number;
+            degradedCount: number;
+            unsupportedCount: number;
+            recoveryExhaustedCount: number;
+            latestToPhase: string | null;
+            latestReasonCode: string | null;
           };
         };
         recentWarnOrError: Array<{ name: string; level: string; reasonCode: string | null }>;
@@ -556,6 +581,15 @@ describe("logAppEvent", () => {
       loadExhaustedUnresolvedCount: 0,
       latestResolutionMode: "timestamp_fallback",
       latestUnresolvedReasonCode: "timestamp_fallback_dom_not_resolved",
+    }));
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      transitionCount: 1,
+      degradedCount: 0,
+      unsupportedCount: 0,
+      recoveryExhaustedCount: 1,
+      latestToPhase: "ended",
+      latestReasonCode: "recovery_exhausted",
     }));
     expect(digest.recentWarnOrError.some((entry) => (
       entry.name === "runtime.activation.timeout"
@@ -901,6 +935,75 @@ describe("logAppEvent", () => {
       loadExhaustedUnresolvedCount: 0,
       latestResolutionMode: "id",
       latestUnresolvedReasonCode: null,
+    }));
+  });
+
+  it("marks realtime voice session summary as watch for degraded/unsupported and none when clean", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.session_transition",
+      level: "info",
+      context: {
+        toPhase: "connecting",
+        reasonCode: "none",
+      },
+    });
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            transitionCount: number;
+            degradedCount: number;
+            unsupportedCount: number;
+            recoveryExhaustedCount: number;
+            latestToPhase: string | null;
+            latestReasonCode: string | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "none",
+      transitionCount: 1,
+      degradedCount: 0,
+      unsupportedCount: 0,
+      recoveryExhaustedCount: 0,
+      latestToPhase: "connecting",
+      latestReasonCode: "none",
+    }));
+
+    diagnosticsApi.clear();
+    logAppEvent({
+      name: "messaging.realtime_voice.session_transition",
+      level: "warn",
+      context: {
+        toPhase: "degraded",
+        reasonCode: "network_degraded",
+      },
+    });
+    logAppEvent({
+      name: "messaging.realtime_voice.session_transition",
+      level: "warn",
+      context: {
+        toPhase: "unsupported",
+        reasonCode: "webrtc_unavailable",
+      },
+    });
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      transitionCount: 2,
+      degradedCount: 1,
+      unsupportedCount: 1,
+      recoveryExhaustedCount: 0,
+      latestToPhase: "unsupported",
+      latestReasonCode: "webrtc_unavailable",
     }));
   });
 });
