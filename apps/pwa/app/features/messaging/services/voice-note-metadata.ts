@@ -90,10 +90,19 @@ export const parseVoiceNoteFileName = (fileNameInput: string): VoiceNoteAttachme
 export const getVoiceNoteAttachmentMetadata = (
   attachment: VoiceNoteAttachmentCandidate,
 ): VoiceNoteAttachmentMetadata => {
+  const kind = typeof attachment.kind === "string" ? attachment.kind.trim().toLowerCase() : "";
   const fileName = typeof attachment.fileName === "string" ? attachment.fileName : "";
   const parsedByFileName = parseVoiceNoteFileName(fileName);
   if (parsedByFileName.isVoiceNote) {
     return parsedByFileName;
+  }
+  if (kind === "voice_note") {
+    return {
+      isVoiceNote: true,
+      recordedAtUnixMs: null,
+      durationSeconds: null,
+      durationLabel: null,
+    };
   }
 
   return {

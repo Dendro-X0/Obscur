@@ -14,7 +14,7 @@ describe("message-search-index", () => {
     const indexText = buildMessageSearchIndexText({
       content: "",
       attachments: [{
-        kind: "audio",
+        kind: "voice_note",
         fileName: "voice-note-1774249000000-d64.webm",
         contentType: "audio/webm",
         url: "https://files.example/voice-note-1774249000000-d64.webm",
@@ -39,4 +39,3 @@ describe("message-search-index", () => {
     expect(indexText).toContain("application/pdf");
   });
 });
-

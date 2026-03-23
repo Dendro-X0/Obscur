@@ -6,7 +6,7 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
-## [Unreleased - v1.0.3 Planning]
+## [v1.0.3] - 2026-03-23
 
 ### Changed
 
@@ -31,8 +31,19 @@ Maintainer note:
     - added gallery quick filters (`All`, `Images`, `Videos`, `Voice Notes`) with per-filter counts,
     - voice-note audio tiles now show `Voice Note` label + parsed duration (`m:ss`) when metadata is available.
   - fixed attachment-kind inference drift for voice-note recordings:
-    - voice-note-prefixed `.webm` filenames are now classified as `audio` (not `video`) in shared attachment inference contracts,
-    - markdown attachment extraction now preserves voice-note-prefixed `.webm` entries as `audio`.
+    - voice-note-prefixed `.webm` filenames are now classified as a dedicated `voice_note` attachment kind (not `video`) in shared attachment inference contracts,
+    - markdown attachment extraction now preserves voice-note-prefixed `.webm` entries as `voice_note`.
+  - voice-note storage policy hardening:
+    - introduced shared attachment storage policy contracts that treat voice notes as temporary audio,
+    - outgoing and incoming canonical cache paths now skip Vault/local-media persistence for `voice_note` attachments,
+    - encrypted backup attachment parsing now preserves `voice_note` kind across cross-device restore payloads.
+  - chat timeline voice-note presentation split:
+    - added dedicated minimalist `VoiceNoteCard` component for voice-note attachments in message bubbles,
+    - kept uploaded generic audio files on the existing audio-file card, creating a clear visual/behavioral distinction between voice notes and uploaded audio media.
+  - theme contrast hardening for light/dark gradient surfaces:
+    - added global contrast-safe surface tokens and utility classes in `app/globals.css` (`bg-gradient-surface-contrast`, `text-surface-contrast-primary`, `text-surface-contrast-secondary`, `border-surface-contrast`),
+    - updated community invite cards to stop inheriting outgoing-bubble text color (`text-current`) and use explicit contrast-safe text/border styling in both themes,
+    - aligned `VoiceNoteCard` with the new global contrast-safe gradient surface tokens.
   - `VoiceRecorder` now emits duration-aware output filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and a completion diagnostic:
     - `messaging.voice_note.recording_complete`.
   - composer audio preview now labels detected voice notes with parsed duration metadata (`Voice m:ss`) for immediate UX feedback.

@@ -42,25 +42,25 @@ describe("messaging logic attachment inference", () => {
     ]);
   });
 
-  it("treats voice-note prefixed webm attachments as audio", () => {
+  it("treats voice-note prefixed webm attachments as voice_note", () => {
     const attachment: Attachment = {
-      kind: "audio",
+      kind: "voice_note",
       url: "https://cdn.example.com/voice-note-1774249000000-d64.webm",
       contentType: "audio/webm",
       fileName: "voice-note-1774249000000-d64.webm",
     };
 
-    expect(inferAttachmentKind(attachment)).toBe("audio");
+    expect(inferAttachmentKind(attachment)).toBe("voice_note");
   });
 
-  it("extracts voice-note prefixed webm markdown entries as audio", () => {
+  it("extracts voice-note prefixed webm markdown entries as voice_note", () => {
     const extracted = extractAttachmentsFromContent(
       "[voice-note-1774249000000-d12.webm](https://cdn.example.com/voice-note-1774249000000-d12.webm)"
     );
 
     expect(extracted).toEqual([
       expect.objectContaining({
-        kind: "audio",
+        kind: "voice_note",
         fileName: "voice-note-1774249000000-d12.webm",
       }),
     ]);

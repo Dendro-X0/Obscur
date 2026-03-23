@@ -4,6 +4,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { hasNativeRuntime, shouldAutoEnableDefaultUploadProviders } from "@/app/features/runtime/runtime-capabilities";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { pickNativeFiles, readNativeFileBytes } from "@/app/features/runtime/native-host-adapter";
+import { parseVoiceNoteFileName } from "@/app/features/messaging/services/voice-note-metadata";
 
 export interface UploadService {
     uploadFile: (file: File) => Promise<Attachment>;
@@ -30,6 +31,10 @@ const PICKABLE_ACCEPT_STRING = [
  * Enhanced media kind detection with extension fallback
  */
 export function getAttachmentKind(file: File): AttachmentKind {
+    if (parseVoiceNoteFileName(file.name).isVoiceNote) {
+        return "voice_note";
+    }
+
     const type = file.type.toLowerCase();
     if (type.startsWith("video/")) return "video";
     if (type.startsWith("audio/")) return "audio";
@@ -110,13 +115,7 @@ export class LocalUploadService implements UploadService {
             throw new UploadError(UploadErrorCode.PROVIDER_ERROR, result.error || "Upload failed");
         }
 
-        const kind: AttachmentKind = result.contentType.startsWith("video/")
-            ? "video"
-            : result.contentType.startsWith("audio/")
-                ? "audio"
-                : result.contentType.startsWith("image/")
-                    ? "image"
-                    : "file";
+        const kind: AttachmentKind = getAttachmentKind(file);
 
         return {
             kind,

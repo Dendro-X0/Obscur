@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LocalUploadService, uploadServiceInternals } from "./upload-service";
+import { LocalUploadService, getAttachmentKind, uploadServiceInternals } from "./upload-service";
 
 describe("upload-service provider normalization", () => {
   beforeEach(() => {
@@ -48,5 +48,10 @@ describe("upload-service provider normalization", () => {
     const attachment = await service.uploadFile(file);
 
     expect(attachment.url).toBe(`${window.location.origin}/uploads/avatar.png`);
+  });
+
+  it("classifies voice-note prefixed webm uploads as voice_note", () => {
+    const file = new File(["voice"], "voice-note-1774249000000-d12.webm", { type: "video/webm" });
+    expect(getAttachmentKind(file)).toBe("voice_note");
   });
 });

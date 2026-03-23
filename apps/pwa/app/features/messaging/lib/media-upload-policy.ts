@@ -1,6 +1,7 @@
 "use client";
 
 import type { AttachmentKind } from "../types";
+import { parseVoiceNoteFileName } from "@/app/features/messaging/services/voice-note-metadata";
 
 export const MEDIA_UPLOAD_LIMITS = {
     imageBytes: 50 * 1024 * 1024,
@@ -20,6 +21,7 @@ export const BEST_EFFORT_STORAGE_NOTE =
 const formatMb = (bytes: number): string => `${Math.round((bytes / (1024 * 1024)) * 10) / 10}MB`;
 
 export const getMediaKindForPolicy = (file: File): AttachmentKind => {
+    if (parseVoiceNoteFileName(file.name).isVoiceNote) return "voice_note";
     const mime = (file.type || "").toLowerCase();
     if (mime.startsWith("video/")) return "video";
     if (mime.startsWith("audio/")) return "audio";
@@ -33,6 +35,7 @@ export const getMediaKindForPolicy = (file: File): AttachmentKind => {
 
 export const getMediaLimitBytes = (kind: AttachmentKind): number => {
     if (kind === "video") return MEDIA_UPLOAD_LIMITS.videoBytes;
+    if (kind === "voice_note") return MEDIA_UPLOAD_LIMITS.audioBytes;
     if (kind === "audio") return MEDIA_UPLOAD_LIMITS.audioBytes;
     if (kind === "file") return MEDIA_UPLOAD_LIMITS.fileBytes;
     return MEDIA_UPLOAD_LIMITS.imageBytes;

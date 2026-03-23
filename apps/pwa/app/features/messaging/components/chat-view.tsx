@@ -112,6 +112,7 @@ export function ChatView(props: ChatViewProps) {
     const [historySearchResults, setHistorySearchResults] = useState<ReadonlyArray<ChatHistorySearchResult>>([]);
     const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
     const [searchFlashMessageId, setSearchFlashMessageId] = useState<string | null>(null);
+    const searchFlashTimeoutRef = React.useRef<number | null>(null);
     const [messageMenuAnchorHoverId, setMessageMenuAnchorHoverId] = useState<string | null>(null);
     const [isMessageMenuHovered, setIsMessageMenuHovered] = useState(false);
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
@@ -144,10 +145,7 @@ export function ChatView(props: ChatViewProps) {
 
     const handleJumpToMessage = React.useCallback((messageId: string): void => {
         setJumpToMessageId(messageId);
-        setSearchFlashMessageId(messageId);
-        window.setTimeout(() => {
-            setSearchFlashMessageId((current) => (current === messageId ? null : current));
-        }, 2200);
+        setIsHistorySearchOpen(false);
     }, []);
 
     React.useEffect(() => {
@@ -230,6 +228,24 @@ export function ChatView(props: ChatViewProps) {
     }, []);
     const handleJumpToMessageHandled = React.useCallback((messageId: string): void => {
         setJumpToMessageId((current) => (current === messageId ? null : current));
+        setSearchFlashMessageId(messageId);
+        if (searchFlashTimeoutRef.current) {
+            window.clearTimeout(searchFlashTimeoutRef.current);
+            searchFlashTimeoutRef.current = null;
+        }
+        searchFlashTimeoutRef.current = window.setTimeout(() => {
+            setSearchFlashMessageId((current) => (current === messageId ? null : current));
+            searchFlashTimeoutRef.current = null;
+        }, 2200);
+    }, []);
+
+    React.useEffect(() => {
+        return () => {
+            if (searchFlashTimeoutRef.current) {
+                window.clearTimeout(searchFlashTimeoutRef.current);
+                searchFlashTimeoutRef.current = null;
+            }
+        };
     }, []);
     const handleOpenMessageMenu = React.useCallback((params: { messageId: string; x: number; y: number }): void => {
         setMessageMenu(params);

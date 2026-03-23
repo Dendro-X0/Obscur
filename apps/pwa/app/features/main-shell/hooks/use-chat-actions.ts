@@ -13,6 +13,7 @@ import { useUploadService } from "../../messaging/lib/upload-service";
 import { messageBus } from "../../messaging/services/message-bus";
 import { BEST_EFFORT_STORAGE_NOTE } from "../../messaging/lib/media-upload-policy";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
+import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-storage-policy";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../../messaging/utils/commands";
@@ -175,8 +176,9 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 }
 
                 // Do not block send path on local caching.
+                const cacheableAttachments = attachments.filter((attachment) => shouldCacheAttachmentInVault(attachment));
                 void Promise.all(
-                    attachments.map((attachment) => cacheAttachmentLocally(attachment, "sent", fileBytesMap.get(attachment.url)))
+                    cacheableAttachments.map((attachment) => cacheAttachmentLocally(attachment, "sent", fileBytesMap.get(attachment.url)))
                 ).catch((e) => {
                     console.warn("[Vault] Failed to cache sent attachments locally:", e);
                 });

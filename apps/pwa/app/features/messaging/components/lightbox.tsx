@@ -89,7 +89,7 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
               unoptimized
               className="h-auto w-full max-h-[90vh] object-contain"
             />
-          ) : kind === "audio" ? (
+          ) : (kind === "audio" || kind === "voice_note") ? (
             <div className="p-6">
               <AudioPlayer
                 src={item.attachment.url}
@@ -261,7 +261,7 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
               {Math.round(viewerState.zoom * 100)}%
             </div>
           </div>
-        ) : kind === "audio" ? (
+        ) : (kind === "audio" || kind === "voice_note") ? (
           <div className="w-full max-w-2xl rounded-3xl border border-zinc-300/60 bg-white/70 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/70 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
             <AudioPlayer
               src={item!.attachment.url}

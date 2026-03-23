@@ -1,5 +1,6 @@
 
 import type { Conversation, ConnectionOverridesByConnectionId, Message, ReactionEmoji, ReactionsByEmoji, Attachment } from "../types";
+import { parseVoiceNoteFileName } from "@/app/features/messaging/services/voice-note-metadata";
 
 export const createEmptyReactions = (): Record<ReactionEmoji, number> => ({
     "👍": 0,
@@ -52,11 +53,15 @@ export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] 
     const lowerUrl = attachment.url.toLowerCase();
     const lowerContentType = attachment.contentType.toLowerCase();
     const lowerFileName = attachment.fileName.toLowerCase();
-    const hasVoiceNoteFileNamePrefix = lowerFileName.startsWith("voice-note-");
+    const isVoiceNoteFileName = parseVoiceNoteFileName(attachment.fileName).isVoiceNote;
 
     // Voice-note recordings commonly use .webm extensions that collide with video extensions.
     // Preserve explicit voice-note intent before extension inference.
-    if (hasVoiceNoteFileNamePrefix || (attachment.kind === "audio" && lowerContentType.startsWith("audio/"))) {
+    if (attachment.kind === "voice_note" || isVoiceNoteFileName) {
+        return "voice_note";
+    }
+
+    if (attachment.kind === "audio" && lowerContentType.startsWith("audio/")) {
         return "audio";
     }
 
@@ -114,11 +119,11 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
         const fallbackName = cleanUrl.split('/').pop()?.split('?')[0] || 'file';
         const finalName = providedName || fallbackName;
         const lowerFileName = finalName.toLowerCase();
-        const hasVoiceNoteFileNamePrefix = lowerFileName.startsWith("voice-note-");
+        const isVoiceNoteFileName = parseVoiceNoteFileName(finalName).isVoiceNote;
 
-        if (hasVoiceNoteFileNamePrefix) {
+        if (isVoiceNoteFileName) {
             attachments.push({
-                kind: "audio",
+                kind: "voice_note",
                 url: cleanUrl,
                 contentType: "audio/*",
                 fileName: finalName

@@ -285,8 +285,8 @@ export const CommunityInviteCard = ({
             <div
                 onClick={() => setIsDetailsOpen(true)}
                 className={cn(
-                    "overflow-hidden border border-black/5 dark:border-white/5 bg-zinc-50 dark:bg-white/5 max-w-[320px] shadow-sm cursor-pointer transition-all hover:border-purple-500/50 hover:bg-zinc-100 dark:hover:bg-white/10 group/invite rounded-[32px]",
-                    isOutgoing && "bg-white/10 dark:bg-black/5 border-white/20 dark:border-black/10", // Secondary style for when inside an outgoing bubble
+                    "overflow-hidden border border-surface-contrast bg-gradient-surface-contrast text-surface-contrast-primary max-w-[320px] shadow-sm cursor-pointer transition-all hover:border-purple-500/50 group/invite rounded-[32px]",
+                    isOutgoing && "ring-1 ring-purple-400/20 dark:ring-purple-400/15", // Keep outgoing distinction without sacrificing contrast
                     isDetailsOpen && "ring-2 ring-purple-500/30 border-purple-500/50"
                 )}
             >
@@ -301,13 +301,13 @@ export const CommunityInviteCard = ({
                         <div className="min-w-0 flex-1">
                             <h4 className={cn(
                                 "text-sm font-black truncate group-hover/invite:text-purple-600 dark:group-hover/invite:text-purple-400",
-                                isOutgoing ? "text-current" : "text-zinc-900 dark:text-zinc-50"
+                                "text-surface-contrast-primary"
                             )}>
                                 {invite.metadata.name}
                             </h4>
                             <p className={cn(
                                 "text-[10px] line-clamp-2 mt-0.5 leading-relaxed",
-                                isOutgoing ? "opacity-70 text-current" : "text-zinc-500"
+                                "text-surface-contrast-secondary"
                             )}>
                                 {invite.metadata.about || t("groups.privateInviteDesc", "You've been invited to join this private encrypted community.")}
                             </p>
@@ -317,14 +317,14 @@ export const CommunityInviteCard = ({
                     <div className="flex items-center gap-3">
                         <div className={cn(
                             "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                            isOutgoing ? "bg-white/10 dark:bg-black/10 text-current" : "bg-black/5 dark:bg-white/5 text-zinc-500"
+                            "bg-black/5 dark:bg-white/5 text-surface-contrast-secondary"
                         )}>
                             <ShieldCheck className="h-3 w-3" />
                             {t("groups.encrypted", "Encrypted")}
                         </div>
                         <div className={cn(
                             "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                            isOutgoing ? "bg-white/10 dark:bg-black/10 text-current" : "bg-black/5 dark:bg-white/5 text-zinc-500"
+                            "bg-black/5 dark:bg-white/5 text-surface-contrast-secondary"
                         )}>
                             <Users className="h-3 w-3" />
                             {t("groups.private", "Private")}
@@ -332,7 +332,7 @@ export const CommunityInviteCard = ({
                         {invite.metadata.memberCount !== undefined && (
                             <div className={cn(
                                 "ml-auto text-[9px] font-bold",
-                                isOutgoing ? "opacity-60 text-current" : "text-zinc-400"
+                                "text-surface-contrast-secondary opacity-80"
                             )}>
                                 {invite.metadata.memberCount} {t("groups.members", "members")}
                             </div>
@@ -343,7 +343,7 @@ export const CommunityInviteCard = ({
                         {status === 'pending' ? (
                             isOutgoing ? (
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest opacity-80">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-surface-contrast-secondary opacity-90">
                                         <Clock className="h-3 w-3" />
                                         {t("groups.pending", "Pending Response")}
                                     </div>
@@ -355,7 +355,7 @@ export const CommunityInviteCard = ({
                                             e.stopPropagation();
                                             handleCancel();
                                         }}
-                                        className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest bg-white/10 dark:bg-black/5 hover:bg-white/20 dark:hover:bg-black/10 text-current transition-colors"
+                                        className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest border border-surface-contrast bg-white/50 text-surface-contrast-primary hover:bg-white/70 dark:bg-white/5 dark:hover:bg-white/10 transition-colors"
                                     >
                                         {isProcessing ? t("common.processing", "Processing...") : t("common.cancelInvite", "Cancel Invitation")}
                                     </Button>

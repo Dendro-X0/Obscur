@@ -137,7 +137,7 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                                     <div className="aspect-square">
                                         {kind === "image" ? (
                                             <Image src={item.attachment.url} alt={item.attachment.fileName} width={480} height={480} unoptimized className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                                        ) : kind === "audio" ? (
+                                        ) : (kind === "audio" || kind === "voice_note") ? (
                                             <div className="flex h-full w-full flex-col items-center justify-center bg-purple-600/90 text-white">
                                                 <Headphones className="h-8 w-8 mb-2" />
                                                 <div className="text-[10px] font-black uppercase tracking-widest opacity-70">

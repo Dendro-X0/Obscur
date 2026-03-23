@@ -58,7 +58,7 @@ export interface RelayResult {
 }
 
 export interface Attachment {
-  kind: 'image' | 'video' | 'audio' | 'file';
+  kind: 'image' | 'video' | 'audio' | 'voice_note' | 'file';
   url: string;
   contentType: string;
   fileName: string;

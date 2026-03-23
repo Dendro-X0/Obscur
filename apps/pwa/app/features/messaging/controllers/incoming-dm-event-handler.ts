@@ -27,6 +27,7 @@ import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { resolveUiPerformancePolicy } from "../lib/ui-performance";
 import { parseCommandMessage } from "../utils/commands";
 import { evaluateIncomingRequestAntiAbuse } from "../services/incoming-request-anti-abuse";
+import { shouldCacheAttachmentInVault } from "../utils/attachment-storage-policy";
 import {
   appendCanonicalContactEvent,
   appendCanonicalDecryptFailedEvent,
@@ -1005,8 +1006,9 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     };
 
     if (message.attachments && message.attachments.length > 0) {
+      const cacheableAttachments = message.attachments.filter((attachment) => shouldCacheAttachmentInVault(attachment));
       void Promise.all(
-        message.attachments.map((attachment) => cacheAttachmentLocally(attachment, "received"))
+        cacheableAttachments.map((attachment) => cacheAttachmentLocally(attachment, "received"))
       ).catch((e) => {
         logRuntimeEvent(
           "incoming_dm.cache_received_attachments_failed",

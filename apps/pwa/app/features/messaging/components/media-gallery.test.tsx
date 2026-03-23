@@ -33,7 +33,7 @@ describe("MediaGallery", () => {
         const voiceItem = createMediaItem({
             messageId: "m-voice",
             attachment: {
-                kind: "audio",
+                kind: "voice_note",
                 url: "https://cdn.example.com/voice-note-1774249000000-d64.webm",
                 contentType: "audio/webm",
                 fileName: "voice-note-1774249000000-d64.webm",
@@ -67,7 +67,7 @@ describe("MediaGallery", () => {
         const voiceItem = createMediaItem({
             messageId: "m-voice",
             attachment: {
-                kind: "audio",
+                kind: "voice_note",
                 url: "https://cdn.example.com/voice-note-1774249000000-d12.webm",
                 contentType: "audio/webm",
                 fileName: "voice-note-1774249000000-d12.webm",

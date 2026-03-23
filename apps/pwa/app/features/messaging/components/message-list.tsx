@@ -10,6 +10,7 @@ import { MessageContent } from "../../../components/message-content";
 import { MessageLinkPreview } from "../../../components/message-link-preview";
 import { AudioPlayer } from "./audio-player";
 import { VideoPlayer } from "./video-player";
+import { VoiceNoteCard } from "./voice-note-card";
 import { cn } from "../../../lib/cn";
 import { formatTime } from "../utils/formatting";
 import type { Message, ReactionEmoji, MessageStatus, StatusUi, SendDirectMessageParams, SendDirectMessageResult, Attachment } from "../types";
@@ -273,6 +274,8 @@ function MessageListImpl({
     const prevFirstId = React.useRef<string | null>(null);
     const jumpResolveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const jumpInFlightMessageIdRef = React.useRef<string | null>(null);
+    const jumpLoadAttemptCountRef = React.useRef(0);
+    const jumpRenderResolveAttemptCountRef = React.useRef(0);
 
     React.useEffect(() => {
         return () => {
@@ -286,41 +289,76 @@ function MessageListImpl({
     React.useEffect(() => {
         if (!jumpToMessageId) {
             jumpInFlightMessageIdRef.current = null;
+            jumpLoadAttemptCountRef.current = 0;
+            jumpRenderResolveAttemptCountRef.current = 0;
             return;
         }
 
-        if (jumpInFlightMessageIdRef.current === jumpToMessageId) {
-            return;
+        if (jumpInFlightMessageIdRef.current !== jumpToMessageId) {
+            jumpLoadAttemptCountRef.current = 0;
+            jumpRenderResolveAttemptCountRef.current = 0;
         }
-
         jumpInFlightMessageIdRef.current = jumpToMessageId;
-        let attempts = 0;
         let cancelled = false;
+        const maxLoadAttempts = 36;
+        const maxRenderResolveAttempts = 20;
 
         const settleJump = (): void => {
             if (cancelled) {
                 return;
             }
 
-            const target = document.getElementById(`msg-${jumpToMessageId}`);
-            if (target) {
-                target.scrollIntoView({ behavior: "smooth", block: "center" });
+            const targetMessageIndex = messages.findIndex((message) => (
+                message.id === jumpToMessageId
+                || message.eventId === jumpToMessageId
+            ));
+            if (targetMessageIndex >= 0) {
+                const resolvedMessageId = messages[targetMessageIndex]?.id ?? jumpToMessageId;
+                try {
+                    virtualizer.scrollToIndex(targetMessageIndex, { align: "center", behavior: "auto" });
+                } catch {
+                    // Best-effort jump; DOM fallback below handles older browsers/layouts.
+                }
+
+                const target = document.getElementById(`msg-${resolvedMessageId}`);
+                if (target) {
+                    target.scrollIntoView({ behavior: "auto", block: "center" });
+                    onJumpToMessageHandled?.(jumpToMessageId);
+                    jumpInFlightMessageIdRef.current = null;
+                    jumpLoadAttemptCountRef.current = 0;
+                    jumpRenderResolveAttemptCountRef.current = 0;
+                    return;
+                }
+
+                if (jumpRenderResolveAttemptCountRef.current < maxRenderResolveAttempts) {
+                    jumpRenderResolveAttemptCountRef.current += 1;
+                    jumpResolveTimerRef.current = setTimeout(() => {
+                        settleJump();
+                    }, 70);
+                    return;
+                }
+
                 onJumpToMessageHandled?.(jumpToMessageId);
                 jumpInFlightMessageIdRef.current = null;
+                jumpLoadAttemptCountRef.current = 0;
+                jumpRenderResolveAttemptCountRef.current = 0;
                 return;
             }
 
-            if (hasEarlierMessages && attempts < 12) {
-                attempts += 1;
-                onLoadEarlier();
+            if (jumpLoadAttemptCountRef.current < maxLoadAttempts) {
+                jumpLoadAttemptCountRef.current += 1;
+                jumpRenderResolveAttemptCountRef.current = 0;
+                void Promise.resolve(onLoadEarlier());
                 jumpResolveTimerRef.current = setTimeout(() => {
                     settleJump();
-                }, 140);
+                }, 180);
                 return;
             }
 
             onJumpToMessageHandled?.(jumpToMessageId);
             jumpInFlightMessageIdRef.current = null;
+            jumpLoadAttemptCountRef.current = 0;
+            jumpRenderResolveAttemptCountRef.current = 0;
         };
 
         settleJump();
@@ -332,7 +370,7 @@ function MessageListImpl({
                 jumpResolveTimerRef.current = null;
             }
         };
-    }, [hasEarlierMessages, jumpToMessageId, onJumpToMessageHandled, onLoadEarlier]);
+    }, [jumpToMessageId, messages, onJumpToMessageHandled, onLoadEarlier, virtualizer]);
 
     const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -1099,13 +1137,6 @@ function MessageAttachmentLayout({
             : "grid-cols-2 sm:grid-cols-3";
 
     const deriveDisplayFileName = (attachment: Attachment): string => displayNameByUrl[attachment.url] ?? fileLabel;
-    const deriveAudioBadgeLabel = (attachment: Attachment): string => (
-        voiceNoteMetadataByUrl[attachment.url]?.isVoiceNote ? "Voice Note" : "Audio"
-    );
-    const deriveVoiceDurationLabel = (attachment: Attachment): string | null => (
-        voiceNoteMetadataByUrl[attachment.url]?.durationLabel ?? null
-    );
-
     return (
         <div className="mb-3 space-y-3">
             {!chatUxV083Enabled && (
@@ -1258,70 +1289,80 @@ function MessageAttachmentLayout({
             {audios.length > 0 && (
                 <div className="space-y-2">
                     {audios.map((attachment, index) => (
-                        <div
-                            key={`aud-${attachment.url}-${index}`}
-                            className={cn(
-                                "rounded-xl border p-3 space-y-2",
-                                isOutgoing
-                                    ? "border-white/15 bg-white/10"
-                                    : "border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-800/70"
-                            )}
-                        >
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className={cn(
-                                            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest",
-                                            isOutgoing ? "bg-black/35 text-white" : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100"
-                                        )}>
-                                            <Music2 className="h-2.5 w-2.5" />
-                                            {deriveAudioBadgeLabel(attachment)}
-                                        </span>
-                                        {deriveVoiceDurationLabel(attachment) ? (
-                                            <span className={cn(
-                                                "inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest",
-                                                isOutgoing
-                                                    ? "bg-white/20 text-white"
-                                                    : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
-                                            )}>
-                                                {deriveVoiceDurationLabel(attachment)}
-                                            </span>
-                                        ) : null}
-                                        {localAttachmentUrlSet.has(attachment.url) ? (
-                                            <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
-                                                Vault
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                    <div className="mt-1 truncate text-xs font-bold">
-                                        {deriveDisplayFileName(attachment)}
-                                    </div>
-                                    <div className="mt-0.5 truncate text-[10px] opacity-60">
-                                        {hostByUrl[attachment.url] ?? attachment.url}
-                                    </div>
-                                </div>
-                                <a
-                                    href={attachment.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                        (() => {
+                            const voiceMetadata = voiceNoteMetadataByUrl[attachment.url] ?? null;
+                            const isVoiceNoteAttachment = voiceMetadata?.isVoiceNote || attachment.kind === "voice_note";
+                            if (isVoiceNoteAttachment) {
+                                return (
+                                    <VoiceNoteCard
+                                        key={`voice-note-${attachment.url}-${index}`}
+                                        src={attachment.url}
+                                        isOutgoing={isOutgoing}
+                                        fileName={deriveDisplayFileName(attachment)}
+                                        sourceLabel={hostByUrl[attachment.url] ?? attachment.url}
+                                        voiceNoteMetadata={voiceMetadata}
+                                        isLocalCached={localAttachmentUrlSet.has(attachment.url)}
+                                    />
+                                );
+                            }
+
+                            return (
+                                <div
+                                    key={`aud-${attachment.url}-${index}`}
                                     className={cn(
-                                        "h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center transition-colors",
+                                        "rounded-xl border p-3 space-y-2",
                                         isOutgoing
-                                            ? "border-white/20 hover:bg-white/10"
-                                            : "border-black/10 hover:bg-zinc-100 dark:border-white/10 dark:hover:bg-zinc-700/80"
+                                            ? "border-white/15 bg-white/10"
+                                            : "border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-800/70"
                                     )}
-                                    aria-label={t("common.openInNewTab", "Open in new tab")}
                                 >
-                                    <ExternalLink className="h-4 w-4" />
-                                </a>
-                            </div>
-                            <AudioPlayer
-                                src={attachment.url}
-                                isOutgoing={isOutgoing}
-                                className="max-w-none min-w-0"
-                                voiceNoteMetadata={voiceNoteMetadataByUrl[attachment.url] ?? null}
-                            />
-                        </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={cn(
+                                                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest",
+                                                    isOutgoing ? "bg-black/35 text-white" : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100"
+                                                )}>
+                                                    <Music2 className="h-2.5 w-2.5" />
+                                                    {t("common.audio", "Audio")}
+                                                </span>
+                                                {localAttachmentUrlSet.has(attachment.url) ? (
+                                                    <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
+                                                        Vault
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <div className="mt-1 truncate text-xs font-bold">
+                                                {deriveDisplayFileName(attachment)}
+                                            </div>
+                                            <div className="mt-0.5 truncate text-[10px] opacity-60">
+                                                {hostByUrl[attachment.url] ?? attachment.url}
+                                            </div>
+                                        </div>
+                                        <a
+                                            href={attachment.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={cn(
+                                                "h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center transition-colors",
+                                                isOutgoing
+                                                    ? "border-white/20 hover:bg-white/10"
+                                                    : "border-black/10 hover:bg-zinc-100 dark:border-white/10 dark:hover:bg-zinc-700/80"
+                                            )}
+                                            aria-label={t("common.openInNewTab", "Open in new tab")}
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                        </a>
+                                    </div>
+                                    <AudioPlayer
+                                        src={attachment.url}
+                                        isOutgoing={isOutgoing}
+                                        className="max-w-none min-w-0"
+                                        voiceNoteMetadata={null}
+                                    />
+                                </div>
+                            );
+                        })()
                     ))}
                 </div>
             )}

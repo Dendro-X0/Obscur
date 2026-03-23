@@ -1239,7 +1239,7 @@ const toPersistedGroupMessageFromIndexedRecord = (params: Readonly<{
 };
 
 const toAttachmentKind = (value: unknown): Attachment["kind"] | null => {
-  if (value === "image" || value === "video" || value === "audio" || value === "file") {
+  if (value === "image" || value === "video" || value === "audio" || value === "voice_note" || value === "file") {
     return value;
   }
   return null;

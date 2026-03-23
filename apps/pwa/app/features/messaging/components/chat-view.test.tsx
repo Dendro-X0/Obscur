@@ -180,6 +180,9 @@ describe("ChatView history search", () => {
         await waitFor(() => {
             expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-hit-a");
         });
+        await waitFor(() => {
+            expect(screen.queryByPlaceholderText("Search message history in this chat...")).not.toBeInTheDocument();
+        });
     });
 
     it("closes the history search panel with Escape", async () => {

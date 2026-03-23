@@ -26,6 +26,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 18. [19 v1 Readiness Stability Plan](./19-v1-readiness-stability-plan.md)
 19. [20 v1 Official Release Execution](./20-v1-official-release-execution.md)
 20. [21 Post-v1 Value Roadmap](./21-post-v1-value-roadmap.md)
+21. [22 Theme Contrast Guidelines](./22-theme-contrast-guidelines.md)
 
 ## Scope Rules
 

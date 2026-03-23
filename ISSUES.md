@@ -55,7 +55,8 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - voice-note playback now surfaces a recorded-at context row in `AudioPlayer` (timeline + lightbox paths) when parsed metadata is available,
     - chat-history search now includes quick in-panel filtering (`All` / `Voice Notes`) with voice-note count badges and voice-note-only empty-state handling,
     - media gallery now supports type-aware quick filters (`All` / `Images` / `Videos` / `Voice Notes`) with count badges and voice-note duration labels on audio tiles,
-    - shared attachment inference now keeps voice-note-prefixed `.webm` files classified as `audio` to prevent voice-note/video misrouting in UI surfaces,
+    - shared attachment inference now keeps voice-note-prefixed `.webm` files classified as dedicated `voice_note` attachments to prevent voice-note/video misrouting in UI surfaces,
+    - canonical incoming/outgoing local media cache paths now treat voice notes as temporary audio and skip Vault persistence for `voice_note` attachments,
   - focused M2-A/B suites are green (`desktop-profile-bootstrap`, `auth-gateway`, `group-service`, `encrypted-account-backup-service`, `runtime-activation-manager`, `voice-note-recording-capability`, `log-app-event`, `m0-triage-capture`, plus `tsc --noEmit`).
 
 ## v1 Readiness Status

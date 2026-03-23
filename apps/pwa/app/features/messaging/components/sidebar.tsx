@@ -88,7 +88,6 @@ export function Sidebar({
     hiddenChatIds,
     hideConversation,
     deleteConversation,
-    clearHistory,
     onClearHistory
     , isPeerOnline
 }: SidebarProps) {
@@ -162,6 +161,7 @@ export function Sidebar({
     const [visibleDmCount, setVisibleDmCount] = useState<number>(INITIAL_SIDEBAR_PAGE_SIZE);
     const [visibleCommunityCount, setVisibleCommunityCount] = useState<number>(INITIAL_SIDEBAR_PAGE_SIZE);
     const searchDismissSignal = `${activeTab}:${chatViewMode}:${selectedConversation?.id ?? ""}`;
+    const areChatSectionsExpanded = isDmsExpanded && isCommunitiesExpanded;
 
     React.useEffect(() => {
         if (selectedConversation?.kind === "group") {
@@ -218,22 +218,55 @@ export function Sidebar({
                 <div className="flex items-center gap-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-zinc-500">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-11 w-11 rounded-xl text-zinc-500"
+                                aria-label={t("messaging.sidebar_options", "Sidebar Options")}
+                                title={t("messaging.sidebar_options", "Sidebar Options")}
+                            >
                                 <MoreVertical className="h-5 w-5" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="z-[10040] w-48">
-                            <DropdownMenuItem className="gap-2">
-                                <Pin className="h-4 w-4" />
-                                <span>{t("messaging.pin_chat")}</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                className="gap-2 text-red-600 focus:text-red-600"
-                                onClick={() => selectedConversation && clearHistory(selectedConversation.id)}
-                            >
-                                <Trash2 className="h-4 w-4" />
-                                <span>{t("messaging.delete_chat")}</span>
-                            </DropdownMenuItem>
+                            {activeTab === "chats" ? (
+                                <>
+                                    <DropdownMenuItem
+                                        className="gap-2"
+                                        onClick={() => {
+                                            const nextExpanded = !areChatSectionsExpanded;
+                                            setIsDmsExpanded(nextExpanded);
+                                            setIsCommunitiesExpanded(nextExpanded);
+                                        }}
+                                    >
+                                        {areChatSectionsExpanded
+                                            ? <ChevronDown className="h-4 w-4" />
+                                            : <ChevronRight className="h-4 w-4" />}
+                                        <span>{areChatSectionsExpanded
+                                            ? t("messaging.collapse_sections", "Collapse Sections")
+                                            : t("messaging.expand_sections", "Expand Sections")}</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="gap-2"
+                                        onClick={() => setChatViewMode(chatViewMode === "direct" ? "community" : "direct")}
+                                    >
+                                        {chatViewMode === "direct"
+                                            ? <Users className="h-4 w-4" />
+                                            : <User className="h-4 w-4" />}
+                                        <span>{chatViewMode === "direct"
+                                            ? t("messaging.show_communities", "Show Communities")
+                                            : t("messaging.show_direct_messages", "Show Direct Messages")}</span>
+                                    </DropdownMenuItem>
+                                </>
+                            ) : (
+                                <DropdownMenuItem
+                                    className="gap-2 text-red-600 focus:text-red-600"
+                                    onClick={onClearHistory}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    <span>{t("messaging.clear_history", "Clear History")}</span>
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -334,6 +367,12 @@ export function Sidebar({
                             size="icon"
                             className="h-11 w-11 shrink-0 rounded-xl border-black/[0.03] dark:border-white/[0.03]"
                             onClick={() => chatViewMode === "direct" ? setIsNewChatOpen(true) : setIsNewGroupOpen(true)}
+                            aria-label={chatViewMode === "direct"
+                                ? t("messaging.new_chat", "New Chat")
+                                : t("messaging.new_group", "New Group")}
+                            title={chatViewMode === "direct"
+                                ? t("messaging.new_chat", "New Chat")
+                                : t("messaging.new_group", "New Group")}
                         >
                             <Plus className="h-5 w-5" />
                         </Button>

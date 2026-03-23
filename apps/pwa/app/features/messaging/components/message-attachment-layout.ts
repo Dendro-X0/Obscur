@@ -40,7 +40,7 @@ export const buildAttachmentBuckets = (
             videoMedia.push(attachment);
             return;
         }
-        if (kind === "audio") {
+        if (kind === "audio" || kind === "voice_note") {
             audios.push(attachment);
             return;
         }
