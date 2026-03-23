@@ -328,6 +328,31 @@ describe("logAppEvent", () => {
         reasonCode: "relay_timeout",
       },
     });
+    logAppEvent({
+      name: "messaging.search_jump_requested",
+      level: "info",
+      context: {
+        conversationIdHint: "conv:abc",
+        targetMessageIdHint: "message:123",
+      },
+    });
+    logAppEvent({
+      name: "messaging.search_jump_resolved",
+      level: "info",
+      context: {
+        resolutionMode: "timestamp_fallback",
+        targetMessageIdHint: "message:123",
+        resolvedMessageIdHint: "message:130",
+      },
+    });
+    logAppEvent({
+      name: "messaging.search_jump_unresolved",
+      level: "warn",
+      context: {
+        reasonCode: "timestamp_fallback_dom_not_resolved",
+        targetMessageIdHint: "message:123",
+      },
+    });
 
     const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
       getCrossDeviceSyncDigest: (count?: number) => {
@@ -359,6 +384,17 @@ describe("logAppEvent", () => {
             latestAppliedGroupAttachmentCount: number | null;
             attachmentDropRegressionCount: number;
             criticalHydrationDriftCount: number;
+          };
+          searchJumpNavigation: {
+            riskLevel: "none" | "watch" | "high";
+            requestedCount: number;
+            resolvedCount: number;
+            unresolvedCount: number;
+            timestampFallbackResolvedCount: number;
+            domUnresolvedCount: number;
+            loadExhaustedUnresolvedCount: number;
+            latestResolutionMode: string | null;
+            latestUnresolvedReasonCode: string | null;
           };
         };
         recentWarnOrError: Array<{ name: string; level: string; reasonCode: string | null }>;
@@ -465,6 +501,17 @@ describe("logAppEvent", () => {
       latestMergedGroupAttachmentCount: 1,
       latestAppliedGroupAttachmentCount: null,
       attachmentDropRegressionCount: 1,
+    }));
+    expect(digest.summary.searchJumpNavigation).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      requestedCount: 1,
+      resolvedCount: 1,
+      unresolvedCount: 1,
+      timestampFallbackResolvedCount: 1,
+      domUnresolvedCount: 1,
+      loadExhaustedUnresolvedCount: 0,
+      latestResolutionMode: "timestamp_fallback",
+      latestUnresolvedReasonCode: "timestamp_fallback_dom_not_resolved",
     }));
     expect(digest.recentWarnOrError.some((entry) => (
       entry.name === "runtime.activation.timeout"
@@ -594,6 +641,110 @@ describe("logAppEvent", () => {
       latestAppliedGroupAttachmentCount: 2,
       attachmentDropRegressionCount: 0,
       criticalHydrationDriftCount: 0,
+    }));
+  });
+
+  it("marks search-jump navigation as watch when unresolved load attempts are observed without dom drift", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.search_jump_requested",
+      level: "info",
+      context: {
+        targetMessageIdHint: "message:watch",
+      },
+    });
+    logAppEvent({
+      name: "messaging.search_jump_unresolved",
+      level: "warn",
+      context: {
+        reasonCode: "target_not_found_after_load_attempts",
+        targetMessageIdHint: "message:watch",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          searchJumpNavigation: {
+            riskLevel: "none" | "watch" | "high";
+            requestedCount: number;
+            resolvedCount: number;
+            unresolvedCount: number;
+            timestampFallbackResolvedCount: number;
+            domUnresolvedCount: number;
+            loadExhaustedUnresolvedCount: number;
+            latestResolutionMode: string | null;
+            latestUnresolvedReasonCode: string | null;
+          };
+        };
+      };
+    };
+
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.searchJumpNavigation).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      requestedCount: 1,
+      resolvedCount: 0,
+      unresolvedCount: 1,
+      timestampFallbackResolvedCount: 0,
+      domUnresolvedCount: 0,
+      loadExhaustedUnresolvedCount: 1,
+      latestResolutionMode: null,
+      latestUnresolvedReasonCode: "target_not_found_after_load_attempts",
+    }));
+  });
+
+  it("marks search-jump navigation as none when jumps resolve without unresolved evidence", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.search_jump_requested",
+      level: "info",
+      context: {
+        targetMessageIdHint: "message:ok",
+      },
+    });
+    logAppEvent({
+      name: "messaging.search_jump_resolved",
+      level: "info",
+      context: {
+        resolutionMode: "id",
+        targetMessageIdHint: "message:ok",
+        resolvedMessageIdHint: "message:ok",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          searchJumpNavigation: {
+            riskLevel: "none" | "watch" | "high";
+            requestedCount: number;
+            resolvedCount: number;
+            unresolvedCount: number;
+            timestampFallbackResolvedCount: number;
+            domUnresolvedCount: number;
+            loadExhaustedUnresolvedCount: number;
+            latestResolutionMode: string | null;
+            latestUnresolvedReasonCode: string | null;
+          };
+        };
+      };
+    };
+
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.searchJumpNavigation).toEqual(expect.objectContaining({
+      riskLevel: "none",
+      requestedCount: 1,
+      resolvedCount: 1,
+      unresolvedCount: 0,
+      timestampFallbackResolvedCount: 0,
+      domUnresolvedCount: 0,
+      loadExhaustedUnresolvedCount: 0,
+      latestResolutionMode: "id",
+      latestUnresolvedReasonCode: null,
     }));
   });
 });

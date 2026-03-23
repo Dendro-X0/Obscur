@@ -98,6 +98,33 @@ Checkpoints:
 3. `CP3`: long-session manual soak + two-device replay evidence.
 4. `CP4`: strict clean-tree preflight and `v1.0.6` release tag.
 
+Current checkpoint progress (2026-03-23):
+1. `CP1` in progress:
+: shipped search-jump stabilization extraction (`message-search-jump`) with typed step classification and dom-resolution contracts to keep jump handling owner-local and testable.
+2. `CP1` in progress:
+: hardened timestamp-fallback jump behavior so jumps are marked resolved only when target message dom is actually materialized, with bounded retry and explicit unresolved reason code (`timestamp_fallback_dom_not_resolved`) when visibility cannot be achieved.
+3. `CP1` in progress:
+: focused regression coverage added and green:
+: `app/features/messaging/components/message-search-jump.test.ts`
+: `app/features/messaging/components/chat-view.test.tsx`
+: `app/shared/log-app-event.test.ts`
+: `app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+4. `CP2` in progress:
+: cross-device digest summary now includes search-jump reliability signals (`summary.searchJumpNavigation`) with risk level, requested/resolved/unresolved counts, timestamp-fallback resolution counts, dom-unresolved counts, and latest resolution/unresolved reason context.
+5. `CP2` in progress:
+: focused digest contract coverage extended and green in `app/shared/log-app-event.test.ts`.
+6. `CP3` in progress:
+: added dedicated long-session stabilization evidence capture helper (`window.obscurM4Stabilization`) with copy-ready `captureJson()` output for search-jump/route-liveness soak bundles.
+7. `CP3` in progress:
+: helper install path + focused regression coverage landed and green:
+: `app/shared/m4-stabilization-capture.ts`
+: `app/shared/m4-stabilization-capture.test.ts`
+: `app/components/providers.tsx`
+8. `CP3` in progress:
+: manual replay execution matrix and escalation thresholds documented in:
+: `docs/24-v1.0.6-cp3-soak-matrix.md`
+
 ## Working Rules During This Sequence
 
 1. No adding parallel lifecycle owners for runtime/sync/identity/transport.

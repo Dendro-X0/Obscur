@@ -63,6 +63,17 @@ type AppEventDiagnosticsApi = Readonly<{
         attachmentDropRegressionCount: number;
         criticalHydrationDriftCount: number;
       }>;
+      searchJumpNavigation: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        requestedCount: number;
+        resolvedCount: number;
+        unresolvedCount: number;
+        timestampFallbackResolvedCount: number;
+        domUnresolvedCount: number;
+        loadExhaustedUnresolvedCount: number;
+        latestResolutionMode: string | null;
+        latestUnresolvedReasonCode: string | null;
+      }>;
     }>;
     recentWarnOrError: ReadonlyArray<Readonly<{
       name: string;
@@ -88,6 +99,10 @@ const APP_EVENT_BUFFER_KEY = "__obscur_app_event_buffer__";
 const APP_EVENT_API_KEY = "obscurAppEvents";
 const APP_EVENT_BUFFER_MAX = 500;
 const RUNTIME_WARN_EVENT_PATTERN = /(failed|failure|timeout|timed_out|unavailable|insufficient|rejected|degraded|cooldown|mismatch|error)/i;
+const SEARCH_JUMP_DOM_UNRESOLVED_REASON_CODES: ReadonlySet<string> = new Set([
+  "target_dom_not_resolved_after_index_match",
+  "timestamp_fallback_dom_not_resolved",
+]);
 const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<string>>> = {
   "account_sync.backup_restore_merge_diagnostics": [
     "publicKeySuffix",
@@ -526,6 +541,33 @@ const installDiagnosticsApi = (): void => {
           || event.context?.groupAttachmentDropped === true
         )
       )).length;
+      const searchJumpRequestedCount = recent.filter((event) => (
+        event.name === "messaging.search_jump_requested"
+      )).length;
+      const searchJumpResolvedEvents = recent.filter((event) => (
+        event.name === "messaging.search_jump_resolved"
+      ));
+      const searchJumpUnresolvedEvents = recent.filter((event) => (
+        event.name === "messaging.search_jump_unresolved"
+      ));
+      const searchJumpResolvedCount = searchJumpResolvedEvents.length;
+      const searchJumpUnresolvedCount = searchJumpUnresolvedEvents.length;
+      const searchJumpTimestampFallbackResolvedCount = searchJumpResolvedEvents.filter((event) => (
+        event.context?.resolutionMode === "timestamp_fallback"
+      )).length;
+      const searchJumpDomUnresolvedCount = searchJumpUnresolvedEvents.filter((event) => (
+        typeof event.context?.reasonCode === "string"
+        && SEARCH_JUMP_DOM_UNRESOLVED_REASON_CODES.has(event.context.reasonCode)
+      )).length;
+      const searchJumpLoadExhaustedUnresolvedCount = searchJumpUnresolvedEvents.filter((event) => (
+        event.context?.reasonCode === "target_not_found_after_load_attempts"
+      )).length;
+      const latestSearchJumpResolutionMode = toStringOrNull(
+        searchJumpResolvedEvents.at(-1)?.context?.resolutionMode,
+      );
+      const latestSearchJumpUnresolvedReasonCode = toStringOrNull(
+        searchJumpUnresolvedEvents.at(-1)?.context?.reasonCode,
+      );
       const criticalHydrationDriftCount = recent.filter((event) => (
         event.name === "messaging.conversation_hydration_diagnostics"
         && typeof event.context?.criticalDriftCount === "number"
@@ -577,6 +619,10 @@ const installDiagnosticsApi = (): void => {
         ),
         high: attachmentDropRegressionCount > 0,
       });
+      const searchJumpNavigationRiskLevel = getRiskLevel({
+        watch: searchJumpUnresolvedCount > 0,
+        high: searchJumpDomUnresolvedCount > 0,
+      });
       const recentWarnOrError = recent
         .filter((event) => event.level === "warn" || event.level === "error")
         .slice(-12)
@@ -626,6 +672,17 @@ const installDiagnosticsApi = (): void => {
             latestAppliedGroupAttachmentCount,
             attachmentDropRegressionCount,
             criticalHydrationDriftCount,
+          },
+          searchJumpNavigation: {
+            riskLevel: searchJumpNavigationRiskLevel,
+            requestedCount: searchJumpRequestedCount,
+            resolvedCount: searchJumpResolvedCount,
+            unresolvedCount: searchJumpUnresolvedCount,
+            timestampFallbackResolvedCount: searchJumpTimestampFallbackResolvedCount,
+            domUnresolvedCount: searchJumpDomUnresolvedCount,
+            loadExhaustedUnresolvedCount: searchJumpLoadExhaustedUnresolvedCount,
+            latestResolutionMode: latestSearchJumpResolutionMode,
+            latestUnresolvedReasonCode: latestSearchJumpUnresolvedReasonCode,
           },
         },
         recentWarnOrError,

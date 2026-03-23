@@ -6,6 +6,43 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+## [v1.0.6] - 2026-03-23
+
+### Changed
+
+- Started post-v1 `M4` stabilization lane (`v1.0.6` milestone) with a narrow high-risk regression slice on in-chat search navigation:
+  - extracted typed search-jump decision helpers in:
+    - `apps/pwa/app/features/messaging/components/message-search-jump.ts`
+  - canonical timeline jump owner now requires dom target materialization before timestamp-fallback jumps are marked resolved:
+    - `apps/pwa/app/features/messaging/components/message-list.tsx`
+  - unresolved timestamp-fallback paths now emit explicit diagnostics:
+    - `messaging.search_jump_unresolved` with `reasonCode: "timestamp_fallback_dom_not_resolved"`.
+- Added focused regression coverage for the new jump contracts:
+  - `apps/pwa/app/features/messaging/components/message-search-jump.test.ts`.
+- Extended cross-device digest triage contracts for M4 diagnostics:
+  - `apps/pwa/app/shared/log-app-event.ts` now includes `summary.searchJumpNavigation` in `getCrossDeviceSyncDigest` with risk-level and reason-coded unresolved counters for search-jump replay triage.
+- Added M4 soak-evidence capture helper for long-session stabilization replay:
+  - introduced `window.obscurM4Stabilization.captureJson(400)` in:
+    - `apps/pwa/app/shared/m4-stabilization-capture.ts`
+  - helper is installed at app boot in:
+    - `apps/pwa/app/components/providers.tsx`
+  - helper output includes search-jump summary, recent search-jump event slices, and route/UI responsiveness snapshots for incident bundles.
+- Added explicit CP3 manual soak matrix for `v1.0.6`:
+  - `docs/24-v1.0.6-cp3-soak-matrix.md`
+- Updated docs index for the new CP3 matrix:
+  - `docs/README.md`
+- Synced roadmap/status/playbook docs with `v1.0.6` CP1/CP2 progress:
+  - `docs/21-post-v1-value-roadmap.md`
+  - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`
+  - `docs/08-maintainer-playbook.md`
+  - `ISSUES.md`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/message-search-jump.test.ts app/features/messaging/components/chat-view.test.tsx app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/shared/m4-stabilization-capture.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+
 ## [v1.0.5] - 2026-03-23
 
 ### Changed

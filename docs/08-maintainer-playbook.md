@@ -230,8 +230,9 @@ For long-history in-chat search navigation validation:
 : verify `resolutionMode` (`id`/`timestamp_fallback`), `loadAttemptCount`, and `renderResolveAttemptCount`.
 3. Unresolved jump evidence:
 : `window.obscurAppEvents.findByName("messaging.search_jump_unresolved", 30)`
-: verify `reasonCode` (`target_dom_not_resolved_after_index_match`, `target_not_found_in_current_window`, `target_not_found_after_load_attempts`) before UI-level fixes.
+: verify `reasonCode` (`target_dom_not_resolved_after_index_match`, `timestamp_fallback_dom_not_resolved`, `target_not_found_in_current_window`, `target_not_found_after_load_attempts`) before UI-level fixes.
 4. Compact digest confirmation:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.searchJumpNavigation`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.search_jump_requested"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.search_jump_resolved"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.search_jump_unresolved"]`
@@ -241,6 +242,26 @@ For long-history in-chat search navigation validation:
 :   resolved: window.obscurAppEvents.findByName("messaging.search_jump_resolved", 30),
 :   unresolved: window.obscurAppEvents.findByName("messaging.search_jump_unresolved", 30),
 :   triage: window.obscurM0Triage?.capture?.(300) ?? null
+: }, null, 2))`
+
+### Post-v1 M4 Long-Session Search-Jump Soak Capture
+
+For stabilization soak runs (`v1.0.6` CP3), use this one-copy capture first:
+
+1. Dedicated M4 stabilization bundle:
+: `copy(window.obscurM4Stabilization?.captureJson(400))`
+2. Expected bundle contents:
+: search-jump digest summary (`riskLevel`, requested/resolved/unresolved counts, dom-unresolved counters),
+: recent search-jump request/resolution/unresolved event slices,
+: route-mount + UI responsiveness snapshots.
+3. Fallback when helper is unavailable:
+: `copy(JSON.stringify({
+:   summary: window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.searchJumpNavigation,
+:   requested: window.obscurAppEvents.findByName("messaging.search_jump_requested", 30),
+:   resolved: window.obscurAppEvents.findByName("messaging.search_jump_resolved", 30),
+:   unresolved: window.obscurAppEvents.findByName("messaging.search_jump_unresolved", 30),
+:   routeMount: window.obscurRouteMountDiagnostics?.getSnapshot?.() ?? null,
+:   ui: window.obscurUiResponsiveness?.getSnapshot?.() ?? null
 : }, null, 2))`
 
 ### v0.9.5 M2 Cross-Device Sync Replay Checks

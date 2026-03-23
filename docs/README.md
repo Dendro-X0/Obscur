@@ -28,6 +28,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 20. [21 Post-v1 Value Roadmap](./21-post-v1-value-roadmap.md)
 21. [22 Theme Contrast Guidelines](./22-theme-contrast-guidelines.md)
 22. [23 Versioned Phase Plan (v1.0.4-v1.0.6)](./23-versioned-phase-plan-v1.0.4-v1.0.6.md)
+23. [24 v1.0.6 CP3 Soak Matrix](./24-v1.0.6-cp3-soak-matrix.md)
 
 ## Scope Rules
 

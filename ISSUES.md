@@ -83,6 +83,31 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - focused CP1 tests are green:
     - `app/features/messaging/services/realtime-voice-capability.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+- M4 status (started 2026-03-23):
+  - `v1.0.6` CP1 stabilization slice started on long-history in-chat search navigation,
+  - canonical jump owner (`message-list`) now requires dom target materialization before marking timestamp fallback jumps as resolved,
+  - unresolved timestamp fallback now emits explicit reason code:
+    - `messaging.search_jump_unresolved` with `reasonCode: "timestamp_fallback_dom_not_resolved"`,
+  - typed search-jump step/dom-resolution helper contracts landed:
+    - `app/features/messaging/components/message-search-jump.ts`,
+  - `v1.0.6` CP2 diagnostics slice started:
+    - cross-device digest summary now includes `summary.searchJumpNavigation` for search-jump risk-level/counter triage in `app/shared/log-app-event.ts`,
+    - search-jump replay checklist now includes summary probe in `docs/08-maintainer-playbook.md`,
+  - `v1.0.6` CP3 soak-evidence prep landed:
+    - new one-copy stabilization capture helper:
+      - `window.obscurM4Stabilization?.captureJson(400)`,
+    - helper is installed at boot in `app/components/providers.tsx` and captures:
+      - search-jump summary risk/counters,
+      - recent search-jump requested/resolved/unresolved event slices,
+      - route-mount and UI responsiveness snapshots for long-session replay triage,
+    - CP3 manual replay checklist/matrix is documented in:
+      - `docs/24-v1.0.6-cp3-soak-matrix.md`,
+  - focused CP1 suites are green:
+    - `app/features/messaging/components/message-search-jump.test.ts`,
+    - `app/features/messaging/components/chat-view.test.tsx`,
+    - `app/shared/log-app-event.test.ts`,
+    - `app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 

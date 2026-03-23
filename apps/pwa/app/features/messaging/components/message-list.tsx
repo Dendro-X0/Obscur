@@ -26,6 +26,7 @@ import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-vi
 import { isMessageListAwayFromBottom, isMessageListFastScroll } from "./message-list-scroll";
 import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { resolveSearchJumpDomResolution, resolveSearchJumpStep } from "./message-search-jump";
 import {
     buildMessageRenderCaches,
     type ParsedMessagePayload,
@@ -329,46 +330,61 @@ function MessageListImpl({
                 return;
             }
 
-            const targetMessageIndex = messages.findIndex((message) => (
-                message.id === jumpToMessageId
-                || message.eventId === jumpToMessageId
-            ));
-            if (targetMessageIndex >= 0) {
-                const resolvedMessageId = messages[targetMessageIndex]?.id ?? jumpToMessageId;
+            const scheduleSettle = (delayMs: number): void => {
+                jumpResolveTimerRef.current = setTimeout(() => {
+                    settleJump();
+                }, delayMs);
+            };
+            const finalizeJump = (): void => {
+                onJumpToMessageHandled?.(jumpToMessageId);
+                jumpInFlightMessageIdRef.current = null;
+                jumpLoadAttemptCountRef.current = 0;
+                jumpRenderResolveAttemptCountRef.current = 0;
+            };
+
+            const nextStep = resolveSearchJumpStep({
+                messages,
+                jumpToMessageId,
+                jumpToMessageTimestampMs: targetTimestampMs,
+                loadAttemptCount: jumpLoadAttemptCountRef.current,
+                maxLoadAttempts,
+            });
+            if (nextStep.kind === "found_by_id") {
                 try {
-                    virtualizer.scrollToIndex(targetMessageIndex, { align: "center", behavior: "auto" });
+                    virtualizer.scrollToIndex(nextStep.targetMessageIndex, { align: "center", behavior: "auto" });
                 } catch {
                     // Best-effort jump; DOM fallback below handles older browsers/layouts.
                 }
 
-                const target = document.getElementById(`msg-${resolvedMessageId}`);
-                if (target) {
-                    target.scrollIntoView({ behavior: "auto", block: "center" });
+                const target = document.getElementById(`msg-${nextStep.resolvedMessageId}`);
+                const domResolution = resolveSearchJumpDomResolution({
+                    targetElement: target,
+                    renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                    maxRenderResolveAttempts,
+                });
+                if (domResolution === "resolved") {
+                    target?.scrollIntoView({ behavior: "auto", block: "center" });
                     logAppEvent({
                         name: "messaging.search_jump_resolved",
                         level: "info",
                         scope: { feature: "messaging", action: "search_jump" },
                         context: {
+                            resolutionMode: "id",
                             conversationIdHint: toIdHint(conversationId ?? "unknown"),
                             targetMessageIdHint: toIdHint(jumpToMessageId),
-                            resolvedMessageIdHint: toIdHint(resolvedMessageId),
+                            resolvedMessageIdHint: toIdHint(nextStep.resolvedMessageId),
                             loadAttemptCount: jumpLoadAttemptCountRef.current,
                             renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
                             messageWindowCount: messages.length,
                         },
                     });
-                    onJumpToMessageHandled?.(jumpToMessageId);
-                    jumpInFlightMessageIdRef.current = null;
-                    jumpLoadAttemptCountRef.current = 0;
-                    jumpRenderResolveAttemptCountRef.current = 0;
+                    finalizeJump();
                     return;
                 }
 
-                if (jumpRenderResolveAttemptCountRef.current < maxRenderResolveAttempts) {
+                if (domResolution === "retry") {
                     jumpRenderResolveAttemptCountRef.current += 1;
-                    jumpResolveTimerRef.current = setTimeout(() => {
-                        settleJump();
-                    }, 70);
+                    scheduleSettle(70);
                     return;
                 }
 
@@ -385,39 +401,46 @@ function MessageListImpl({
                         messageWindowCount: messages.length,
                     },
                 });
-                onJumpToMessageHandled?.(jumpToMessageId);
-                jumpInFlightMessageIdRef.current = null;
-                jumpLoadAttemptCountRef.current = 0;
-                jumpRenderResolveAttemptCountRef.current = 0;
+                finalizeJump();
                 return;
             }
 
-            if (targetTimestampMs !== null && messages.length > 0) {
-                const earliestTimestampMs = messages[0]?.timestamp.getTime();
-                if (
-                    Number.isFinite(earliestTimestampMs)
-                    && targetTimestampMs < earliestTimestampMs
-                    && jumpLoadAttemptCountRef.current < maxLoadAttempts
-                ) {
-                    jumpLoadAttemptCountRef.current += 1;
-                    jumpRenderResolveAttemptCountRef.current = 0;
-                    void Promise.resolve(onLoadEarlier());
-                    jumpResolveTimerRef.current = setTimeout(() => {
-                        settleJump();
-                    }, 180);
-                    return;
-                }
-
-                const fallbackIndex = messages.findIndex((message) => (
-                    message.timestamp.getTime() >= targetTimestampMs
-                ));
-                const resolvedIndex = fallbackIndex >= 0 ? fallbackIndex : Math.max(0, messages.length - 1);
-                const resolvedMessageId = messages[resolvedIndex]?.id ?? "unknown";
+            if (nextStep.kind === "timestamp_fallback") {
                 try {
-                    virtualizer.scrollToIndex(resolvedIndex, { align: "center", behavior: "auto" });
+                    virtualizer.scrollToIndex(nextStep.targetMessageIndex, { align: "center", behavior: "auto" });
                 } catch {
                     // Best-effort scroll to approximate timestamp position.
                 }
+                const target = document.getElementById(`msg-${nextStep.resolvedMessageId}`);
+                const domResolution = resolveSearchJumpDomResolution({
+                    targetElement: target,
+                    renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                    maxRenderResolveAttempts,
+                });
+                if (domResolution === "retry") {
+                    jumpRenderResolveAttemptCountRef.current += 1;
+                    scheduleSettle(70);
+                    return;
+                }
+                if (domResolution === "unresolved") {
+                    logAppEvent({
+                        name: "messaging.search_jump_unresolved",
+                        level: "warn",
+                        scope: { feature: "messaging", action: "search_jump" },
+                        context: {
+                            reasonCode: "timestamp_fallback_dom_not_resolved",
+                            conversationIdHint: toIdHint(conversationId ?? "unknown"),
+                            targetMessageIdHint: toIdHint(jumpToMessageId),
+                            loadAttemptCount: jumpLoadAttemptCountRef.current,
+                            renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                            messageWindowCount: messages.length,
+                        },
+                    });
+                    finalizeJump();
+                    return;
+                }
+
+                target?.scrollIntoView({ behavior: "auto", block: "center" });
                 logAppEvent({
                     name: "messaging.search_jump_resolved",
                     level: "info",
@@ -426,36 +449,31 @@ function MessageListImpl({
                         resolutionMode: "timestamp_fallback",
                         conversationIdHint: toIdHint(conversationId ?? "unknown"),
                         targetMessageIdHint: toIdHint(jumpToMessageId),
-                        resolvedMessageIdHint: toIdHint(resolvedMessageId),
+                        resolvedMessageIdHint: toIdHint(nextStep.resolvedMessageId),
                         loadAttemptCount: jumpLoadAttemptCountRef.current,
                         renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
                         messageWindowCount: messages.length,
                     },
                 });
-                onJumpToMessageHandled?.(jumpToMessageId);
-                jumpInFlightMessageIdRef.current = null;
-                jumpLoadAttemptCountRef.current = 0;
-                jumpRenderResolveAttemptCountRef.current = 0;
+                finalizeJump();
                 return;
             }
 
-            if (jumpLoadAttemptCountRef.current < maxLoadAttempts) {
+            if (nextStep.kind === "load_earlier_for_timestamp" || nextStep.kind === "load_earlier_for_id") {
                 jumpLoadAttemptCountRef.current += 1;
                 jumpRenderResolveAttemptCountRef.current = 0;
                 void Promise.resolve(onLoadEarlier());
-                jumpResolveTimerRef.current = setTimeout(() => {
-                    settleJump();
-                }, 180);
+                scheduleSettle(180);
                 return;
             }
 
-            if (jumpLoadAttemptCountRef.current === 0) {
+            if (nextStep.kind === "unresolved") {
                 logAppEvent({
                     name: "messaging.search_jump_unresolved",
                     level: "warn",
                     scope: { feature: "messaging", action: "search_jump" },
                     context: {
-                        reasonCode: "target_not_found_in_current_window",
+                        reasonCode: nextStep.reasonCode,
                         conversationIdHint: toIdHint(conversationId ?? "unknown"),
                         targetMessageIdHint: toIdHint(jumpToMessageId),
                         loadAttemptCount: jumpLoadAttemptCountRef.current,
@@ -463,25 +481,9 @@ function MessageListImpl({
                         messageWindowCount: messages.length,
                     },
                 });
-            } else {
-                logAppEvent({
-                    name: "messaging.search_jump_unresolved",
-                    level: "warn",
-                    scope: { feature: "messaging", action: "search_jump" },
-                    context: {
-                        reasonCode: "target_not_found_after_load_attempts",
-                        conversationIdHint: toIdHint(conversationId ?? "unknown"),
-                        targetMessageIdHint: toIdHint(jumpToMessageId),
-                        loadAttemptCount: jumpLoadAttemptCountRef.current,
-                        renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
-                        messageWindowCount: messages.length,
-                    },
-                });
+                finalizeJump();
+                return;
             }
-            onJumpToMessageHandled?.(jumpToMessageId);
-            jumpInFlightMessageIdRef.current = null;
-            jumpLoadAttemptCountRef.current = 0;
-            jumpRenderResolveAttemptCountRef.current = 0;
         };
 
         settleJump();

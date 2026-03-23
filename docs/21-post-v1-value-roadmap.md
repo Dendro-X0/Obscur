@@ -266,6 +266,30 @@ Acceptance:
 2. no active blocker in `ISSUES.md`,
 3. roadmap completion status documented before next major planning cycle.
 
+Current execution status (started 2026-03-23):
+1. `v1.0.6` CP1 stabilization slice landed for in-chat search jump:
+: extracted typed jump-step/dom-resolution contracts in
+: `apps/pwa/app/features/messaging/components/message-search-jump.ts`.
+2. Timestamp-fallback jump convergence hardening landed in canonical timeline owner:
+: `apps/pwa/app/features/messaging/components/message-list.tsx` now requires dom target materialization before marking timestamp fallback as resolved, and emits explicit unresolved diagnostics (`timestamp_fallback_dom_not_resolved`) when retries are exhausted.
+3. Focused CP1 automation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/message-search-jump.test.ts app/features/messaging/components/chat-view.test.tsx app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+4. `v1.0.6` CP2 diagnostics slice started on search-jump triage digest:
+: `apps/pwa/app/shared/log-app-event.ts` now exposes `summary.searchJumpNavigation` in `getCrossDeviceSyncDigest`, including risk-level and reasoned unresolved diagnostics counters.
+5. Focused CP2 diagnostics coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+6. `v1.0.6` CP3 soak-evidence prep slice landed:
+: added `window.obscurM4Stabilization.captureJson(400)` helper for one-copy long-session search-jump stabilization bundles in
+: `apps/pwa/app/shared/m4-stabilization-capture.ts`,
+: installed at boot in `apps/pwa/app/components/providers.tsx`.
+7. Focused CP3 helper regression coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m4-stabilization-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+8. CP3 manual soak execution matrix is documented in:
+: `docs/24-v1.0.6-cp3-soak-matrix.md`.
+
 ## Version-Bound Execution
 
 1. Canonical one-milestone-per-version sequence:

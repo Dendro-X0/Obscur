@@ -8,6 +8,7 @@ import { StartupExperienceOverlay } from "@/app/features/runtime/components/star
 import { DevRuntimeIssueCapture } from "@/app/shared/dev-runtime-issue-capture";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { installM0TriageCapture } from "@/app/shared/m0-triage-capture";
+import { installM4StabilizationCapture } from "@/app/shared/m4-stabilization-capture";
 
 const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_last_event.v1";
 
@@ -21,6 +22,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
         };
         globalRoot.__obscurBootReady = true;
         installM0TriageCapture();
+        installM4StabilizationCapture();
         window.dispatchEvent(new Event("obscur:boot-ready"));
     }, []);
 
