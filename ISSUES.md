@@ -218,8 +218,18 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - focused CP1 automation replay is green:
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
-  - remaining before CP1 closeout:
-    - capture manual two-device anti-abuse replay evidence (`peer_rate_limited -> peer_cooldown_active`) and attach diagnostics export.
+  - CP2 diagnostics slice landed:
+    - cross-device digest now includes `summary.incomingRequestAntiAbuse` + compact `messaging.request.incoming_quarantined` event slices in
+      `app/shared/log-app-event.ts`,
+    - M0 sync/restore focus now includes `messaging.request.incoming_quarantined` in
+      `app/shared/m0-triage-capture.ts`,
+    - maintainer anti-abuse replay checks now include digest summary probes in
+      `docs/08-maintainer-playbook.md`,
+  - focused CP2 automation replay is green:
+    - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+  - remaining before CP1+CP2 closeout:
+    - capture manual two-device anti-abuse replay evidence (`peer_rate_limited -> peer_cooldown_active -> digest summary`) and attach diagnostics export.
 
 ## v1 Readiness Status
 

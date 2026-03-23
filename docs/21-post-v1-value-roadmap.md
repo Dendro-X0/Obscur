@@ -439,8 +439,19 @@ Current execution status:
 4. Focused CP1 validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
-5. Remaining to close CP1:
-: capture two-device anti-abuse replay evidence bundle for rate-limit -> cooldown behavior before advancing CP2.
+5. CP2 diagnostics slice landed for anti-abuse triage:
+: cross-device digest now includes `summary.incomingRequestAntiAbuse` plus compact event slices for
+: `messaging.request.incoming_quarantined` in
+: `apps/pwa/app/shared/log-app-event.ts`.
+6. M0 triage capture sync/restore focus now includes incoming request quarantine evidence:
+: `apps/pwa/app/shared/m0-triage-capture.ts`.
+7. Maintainer replay runbook now includes anti-abuse digest summary checks:
+: `docs/08-maintainer-playbook.md`.
+8. Focused CP2 validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+9. Remaining before declaring CP1+CP2 complete:
+: capture two-device anti-abuse replay evidence bundle for rate-limit -> cooldown -> digest-summary behavior.
 
 ## Version-Bound Execution
 

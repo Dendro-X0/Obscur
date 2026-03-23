@@ -295,6 +295,51 @@ describe("logAppEvent", () => {
       },
     });
     logAppEvent({
+      name: "messaging.request.incoming_quarantined",
+      level: "warn",
+      context: {
+        reasonCode: "incoming_connection_request_peer_rate_limited",
+        peerPubkeyPrefix: "aaaaaaaaaaaaaaaa",
+        peerWindowCount: 4,
+        globalWindowCount: 9,
+        peerLimit: 3,
+        globalLimit: 20,
+        windowMs: 120000,
+        peerCooldownMs: 120000,
+        cooldownRemainingMs: 120000,
+      },
+    });
+    logAppEvent({
+      name: "messaging.request.incoming_quarantined",
+      level: "warn",
+      context: {
+        reasonCode: "incoming_connection_request_peer_cooldown_active",
+        peerPubkeyPrefix: "aaaaaaaaaaaaaaaa",
+        peerWindowCount: 3,
+        globalWindowCount: 9,
+        peerLimit: 3,
+        globalLimit: 20,
+        windowMs: 120000,
+        peerCooldownMs: 120000,
+        cooldownRemainingMs: 60000,
+      },
+    });
+    logAppEvent({
+      name: "messaging.request.incoming_quarantined",
+      level: "warn",
+      context: {
+        reasonCode: "incoming_connection_request_global_rate_limited",
+        peerPubkeyPrefix: "bbbbbbbbbbbbbbbb",
+        peerWindowCount: 2,
+        globalWindowCount: 21,
+        peerLimit: 3,
+        globalLimit: 20,
+        windowMs: 120000,
+        peerCooldownMs: 120000,
+        cooldownRemainingMs: null,
+      },
+    });
+    logAppEvent({
       name: "account_sync.backup_restore_profile_scope_mismatch",
       level: "warn",
       context: {
@@ -398,6 +443,17 @@ describe("logAppEvent", () => {
             latestVisibleGroupCount: number | null;
             latestChatStateGroupCount: number | null;
             roomKeyMissingSendBlockedCount: number;
+          };
+          incomingRequestAntiAbuse: {
+            riskLevel: "none" | "watch" | "high";
+            quarantinedCount: number;
+            peerRateLimitedCount: number;
+            peerCooldownActiveCount: number;
+            globalRateLimitedCount: number;
+            uniquePeerPrefixCount: number;
+            latestReasonCode: string | null;
+            latestPeerPubkeyPrefix: string | null;
+            latestCooldownRemainingMs: number | null;
           };
           communityLifecycleConvergence: {
             riskLevel: "none" | "watch" | "high";
@@ -516,6 +572,14 @@ describe("logAppEvent", () => {
       hasTargetGroupRecord: false,
       activeProfileId: "profile-a",
     }));
+    expect(digest.events["messaging.request.incoming_quarantined"]?.[0]?.context).toEqual(expect.objectContaining({
+      reasonCode: "incoming_connection_request_peer_rate_limited",
+      peerPubkeyPrefix: "aaaaaaaaaaaaaaaa",
+      peerWindowCount: 4,
+      globalWindowCount: 9,
+      peerCooldownMs: 120000,
+      cooldownRemainingMs: 120000,
+    }));
     expect(digest.events["account_sync.backup_restore_profile_scope_mismatch"]?.[0]?.context).toEqual(expect.objectContaining({
       reasonCode: "requested_profile_not_active",
       publicKeySuffix: "abc12345",
@@ -547,6 +611,17 @@ describe("logAppEvent", () => {
       latestVisibleGroupCount: 1,
       latestChatStateGroupCount: 0,
       roomKeyMissingSendBlockedCount: 1,
+    }));
+    expect(digest.summary.incomingRequestAntiAbuse).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      quarantinedCount: 3,
+      peerRateLimitedCount: 1,
+      peerCooldownActiveCount: 1,
+      globalRateLimitedCount: 1,
+      uniquePeerPrefixCount: 2,
+      latestReasonCode: "incoming_connection_request_global_rate_limited",
+      latestPeerPubkeyPrefix: "bbbbbbbbbbbbbbbb",
+      latestCooldownRemainingMs: null,
     }));
     expect(digest.summary.communityLifecycleConvergence).toEqual(expect.objectContaining({
       riskLevel: "high",
@@ -935,6 +1010,72 @@ describe("logAppEvent", () => {
       loadExhaustedUnresolvedCount: 0,
       latestResolutionMode: "id",
       latestUnresolvedReasonCode: null,
+    }));
+  });
+
+  it("marks incoming request anti-abuse summary as watch for peer-limited quarantines and none when no quarantines are present", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.request.incoming_quarantined",
+      level: "warn",
+      context: {
+        reasonCode: "incoming_connection_request_peer_rate_limited",
+        peerPubkeyPrefix: "cccccccccccccccc",
+        peerWindowCount: 4,
+        globalWindowCount: 8,
+        peerLimit: 3,
+        globalLimit: 20,
+        windowMs: 120000,
+        peerCooldownMs: 120000,
+        cooldownRemainingMs: 120000,
+      },
+    });
+
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          incomingRequestAntiAbuse: {
+            riskLevel: "none" | "watch" | "high";
+            quarantinedCount: number;
+            peerRateLimitedCount: number;
+            peerCooldownActiveCount: number;
+            globalRateLimitedCount: number;
+            uniquePeerPrefixCount: number;
+            latestReasonCode: string | null;
+            latestPeerPubkeyPrefix: string | null;
+            latestCooldownRemainingMs: number | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.incomingRequestAntiAbuse).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      quarantinedCount: 1,
+      peerRateLimitedCount: 1,
+      peerCooldownActiveCount: 0,
+      globalRateLimitedCount: 0,
+      uniquePeerPrefixCount: 1,
+      latestReasonCode: "incoming_connection_request_peer_rate_limited",
+      latestPeerPubkeyPrefix: "cccccccccccccccc",
+      latestCooldownRemainingMs: 120000,
+    }));
+
+    diagnosticsApi.clear();
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.incomingRequestAntiAbuse).toEqual(expect.objectContaining({
+      riskLevel: "none",
+      quarantinedCount: 0,
+      peerRateLimitedCount: 0,
+      peerCooldownActiveCount: 0,
+      globalRateLimitedCount: 0,
+      uniquePeerPrefixCount: 0,
+      latestReasonCode: null,
+      latestPeerPubkeyPrefix: null,
+      latestCooldownRemainingMs: null,
     }));
   });
 

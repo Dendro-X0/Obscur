@@ -84,7 +84,8 @@ describe("m0-triage-capture", () => {
         return [{ name, atUnixMs: 2, level: "warn" }];
       }
       if (
-        name === "account_sync.backup_restore_merge_diagnostics"
+        name === "messaging.request.incoming_quarantined"
+        || name === "account_sync.backup_restore_merge_diagnostics"
         || name === "account_sync.backup_restore_profile_scope_mismatch"
         || name === "groups.membership_recovery_hydrate"
         || name === "groups.membership_ledger_load"
@@ -92,7 +93,9 @@ describe("m0-triage-capture", () => {
       ) {
         return [{ name, atUnixMs: 3, level: "info" }];
       }
-      if (name === "messaging.conversation_hydration_diagnostics") {
+      if (
+        name === "messaging.conversation_hydration_diagnostics"
+      ) {
         return [{ name, atUnixMs: 4, level: "warn" }];
       }
       if (name === "messaging.realtime_voice.session_transition") {
@@ -121,6 +124,17 @@ describe("m0-triage-capture", () => {
       || entry.name === "auth.auto_unlock_scope_drift_detected"
     ))).toBe(true);
     expect(bundle.events.focusedByCategory.navigation.some((entry) => entry.name === "navigation.route_stall_hard_fallback" || entry.name === "navigation.route_mount_probe_slow")).toBe(true);
+    expect(bundle.events.focusedByCategory.sync_restore.some((entry) => (
+      entry.name === "messaging.request.incoming_quarantined"
+      || entry.name === "account_sync.backup_restore_merge_diagnostics"
+      || entry.name === "account_sync.backup_restore_profile_scope_mismatch"
+      || entry.name === "groups.membership_recovery_hydrate"
+      || entry.name === "groups.membership_ledger_load"
+      || entry.name === "groups.room_key_missing_send_blocked"
+    ))).toBe(true);
+    expect(bundle.events.focusedByCategory.sync_restore.some((entry) => (
+      entry.name === "messaging.request.incoming_quarantined"
+    ))).toBe(true);
     expect(bundle.events.focusedByCategory.sync_restore.some((entry) => (
       entry.name === "account_sync.backup_restore_merge_diagnostics"
       || entry.name === "account_sync.backup_restore_profile_scope_mismatch"

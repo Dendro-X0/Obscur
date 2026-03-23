@@ -52,6 +52,17 @@ type AppEventDiagnosticsApi = Readonly<{
         latestChatStateGroupCount: number | null;
         roomKeyMissingSendBlockedCount: number;
       }>;
+      incomingRequestAntiAbuse: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        quarantinedCount: number;
+        peerRateLimitedCount: number;
+        peerCooldownActiveCount: number;
+        globalRateLimitedCount: number;
+        uniquePeerPrefixCount: number;
+        latestReasonCode: string | null;
+        latestPeerPubkeyPrefix: string | null;
+        latestCooldownRemainingMs: number | null;
+      }>;
       communityLifecycleConvergence: Readonly<{
         riskLevel: "none" | "watch" | "high";
         latestPersistedGroupCount: number | null;
@@ -259,6 +270,17 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "publicKeySuffix",
     "profileId",
     "groupCount",
+  ],
+  "messaging.request.incoming_quarantined": [
+    "reasonCode",
+    "peerPubkeyPrefix",
+    "peerWindowCount",
+    "globalWindowCount",
+    "peerLimit",
+    "globalLimit",
+    "windowMs",
+    "peerCooldownMs",
+    "cooldownRemainingMs",
   ],
   "account_sync.backup_restore_result": [
     "reason",
@@ -539,6 +561,34 @@ const installDiagnosticsApi = (): void => {
       const roomKeyMissingSendBlockedCount = recent.filter((event) => (
         event.name === "groups.room_key_missing_send_blocked"
       )).length;
+      const incomingRequestQuarantineEvents = recent.filter((event) => (
+        event.name === "messaging.request.incoming_quarantined"
+      ));
+      const incomingRequestQuarantinedCount = incomingRequestQuarantineEvents.length;
+      const incomingRequestPeerRateLimitedCount = incomingRequestQuarantineEvents.filter((event) => (
+        event.context?.reasonCode === "incoming_connection_request_peer_rate_limited"
+      )).length;
+      const incomingRequestPeerCooldownActiveCount = incomingRequestQuarantineEvents.filter((event) => (
+        event.context?.reasonCode === "incoming_connection_request_peer_cooldown_active"
+      )).length;
+      const incomingRequestGlobalRateLimitedCount = incomingRequestQuarantineEvents.filter((event) => (
+        event.context?.reasonCode === "incoming_connection_request_global_rate_limited"
+      )).length;
+      const incomingRequestUniquePeerPrefixCount = new Set(
+        incomingRequestQuarantineEvents
+          .map((event) => toStringOrNull(event.context?.peerPubkeyPrefix))
+          .filter((value): value is string => typeof value === "string" && value.length > 0),
+      ).size;
+      const latestIncomingRequestQuarantineEvent = incomingRequestQuarantineEvents.at(-1);
+      const latestIncomingRequestReasonCode = toStringOrNull(
+        latestIncomingRequestQuarantineEvent?.context?.reasonCode,
+      );
+      const latestIncomingRequestPeerPubkeyPrefix = toStringOrNull(
+        latestIncomingRequestQuarantineEvent?.context?.peerPubkeyPrefix,
+      );
+      const latestIncomingRequestCooldownRemainingMs = toNumberOrNull(
+        latestIncomingRequestQuarantineEvent?.context?.cooldownRemainingMs,
+      );
       const latestHydratedOutgoingCount = toNumberOrNull(
         latestHydration?.hydratedDmOutgoingCount,
       );
@@ -707,6 +757,13 @@ const installDiagnosticsApi = (): void => {
         ),
         high: roomKeyMissingSendBlockedCount > 0,
       });
+      const incomingRequestAntiAbuseRiskLevel = getRiskLevel({
+        watch: incomingRequestQuarantinedCount > 0,
+        high: (
+          incomingRequestGlobalRateLimitedCount > 0
+          || incomingRequestPeerCooldownActiveCount >= 5
+        ),
+      });
       const communityLifecycleConvergenceRiskLevel = getRiskLevel({
         watch: (
           membershipRecoveryRepairSignalCount > 0
@@ -768,6 +825,17 @@ const installDiagnosticsApi = (): void => {
             latestVisibleGroupCount,
             latestChatStateGroupCount,
             roomKeyMissingSendBlockedCount,
+          },
+          incomingRequestAntiAbuse: {
+            riskLevel: incomingRequestAntiAbuseRiskLevel,
+            quarantinedCount: incomingRequestQuarantinedCount,
+            peerRateLimitedCount: incomingRequestPeerRateLimitedCount,
+            peerCooldownActiveCount: incomingRequestPeerCooldownActiveCount,
+            globalRateLimitedCount: incomingRequestGlobalRateLimitedCount,
+            uniquePeerPrefixCount: incomingRequestUniquePeerPrefixCount,
+            latestReasonCode: latestIncomingRequestReasonCode,
+            latestPeerPubkeyPrefix: latestIncomingRequestPeerPubkeyPrefix,
+            latestCooldownRemainingMs: latestIncomingRequestCooldownRemainingMs,
           },
           communityLifecycleConvergence: {
             riskLevel: communityLifecycleConvergenceRiskLevel,

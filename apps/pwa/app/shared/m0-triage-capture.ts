@@ -88,6 +88,7 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
     "messaging.search_jump_unresolved",
   ],
   sync_restore: [
+    "messaging.request.incoming_quarantined",
     "account_sync.backup_restore_merge_diagnostics",
     "account_sync.backup_restore_apply_diagnostics",
     "account_sync.backup_restore_result",
