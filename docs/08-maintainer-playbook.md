@@ -264,6 +264,37 @@ For stabilization soak runs (`v1.0.6` CP3), use this one-copy capture first:
 :   ui: window.obscurUiResponsiveness?.getSnapshot?.() ?? null
 : }, null, 2))`
 
+### Post-v1 M5 Community Lifecycle Convergence Replay Checks
+
+For `v1.0.7` CP3 community-convergence verification:
+
+1. Use the canonical matrix:
+: `docs/26-v1.0.7-cp3-community-convergence-matrix.md`.
+2. Required summary probes:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.communityLifecycleConvergence`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability`
+3. Required event slices:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_recovery_hydrate"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_ledger_load"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.room_key_missing_send_blocked"]`
+4. One-copy CP3 export bundle:
+: `copy(JSON.stringify((() => {`
+: `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
+: `  return {`
+: `    communityLifecycleConvergence: digest?.summary?.communityLifecycleConvergence ?? null,`
+: `    membershipSendability: digest?.summary?.membershipSendability ?? null,`
+: `    membershipRecoveryHydrate: digest?.events?.["groups.membership_recovery_hydrate"] ?? [],`
+: `    membershipLedgerLoad: digest?.events?.["groups.membership_ledger_load"] ?? [],`
+: `    roomKeyMissingSendBlocked: digest?.events?.["groups.room_key_missing_send_blocked"] ?? [],`
+: `    recentWarnOrError: digest?.recentWarnOrError ?? [],`
+: `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
+: `  };`
+: `})(), null, 2))`
+5. Escalate immediately if:
+: community name regresses to placeholder/default after account switch/restart,
+: creator/member coverage disappears,
+: `groups.room_key_missing_send_blocked` appears during replay.
+
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 
 Use this compact capture first during two-device DM/group/media verification:

@@ -91,6 +91,8 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
     "account_sync.backup_restore_apply_diagnostics",
     "account_sync.backup_restore_result",
     "account_sync.backup_restore_profile_scope_mismatch",
+    "groups.membership_recovery_hydrate",
+    "groups.membership_ledger_load",
     "messaging.legacy_migration_diagnostics",
     "groups.room_key_missing_send_blocked",
   ],

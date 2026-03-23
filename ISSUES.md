@@ -1,8 +1,8 @@
-# Issue Status Snapshot (v1.0.0 Launch Readiness Monitoring)
+# Issue Status Snapshot (Post-v1 Monitoring and Release Continuation)
 
 Last updated: 2026-03-23
 
-This file tracks runtime issue status during final `v1.0.0` launch staging and immediate post-launch monitoring preparation.
+This file tracks runtime issue status for post-v1 release continuation and stabilization monitoring.
 
 ## Current State
 
@@ -18,6 +18,7 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - `docs/21-post-v1-value-roadmap.md`.
 - Canonical version-bound execution cadence:
   - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
+  - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
 - M0 status (completed 2026-03-22):
   - post-v1 pillar scope + acceptance lock is documented,
   - maintainer runbook now includes post-v1 baseline/diagnostics checklist,
@@ -83,7 +84,7 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - focused CP1 tests are green:
     - `app/features/messaging/services/realtime-voice-capability.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
-- M4 status (started 2026-03-23):
+- M4 status (completed 2026-03-23):
   - `v1.0.6` CP1 stabilization slice started on long-history in-chat search navigation,
   - canonical jump owner (`message-list`) now requires dom target materialization before marking timestamp fallback jumps as resolved,
   - unresolved timestamp fallback now emits explicit reason code:
@@ -108,6 +109,51 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - `app/shared/log-app-event.test.ts`,
     - `app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+  - CP4 release gates and tag flow completed:
+    - `pnpm version:check`,
+    - `pnpm docs:check`,
+    - `pnpm release:integrity-check`,
+    - `pnpm release:artifact-version-contract-check`,
+    - `pnpm release:ci-signal-check`,
+    - `pnpm release:test-pack -- --skip-preflight`,
+    - `pnpm release:preflight -- --tag v1.0.6`,
+    - `v1.0.6` pushed and released.
+- M5 status (started 2026-03-23):
+  - `v1.0.7` planning kickoff is docs-first and owner-safe (no runtime path changes yet),
+  - next sequence is locked to one milestone per version in:
+    - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`,
+  - CP1 convergence hardening landed on canonical community recovery owner:
+    - duplicate persisted group rows now merge instead of letting newer placeholder regressions overwrite richer metadata/member coverage,
+    - joined-ledger merge now backfills active-account member coverage and prevents placeholder `Private Group` name drift when richer ledger metadata exists,
+    - recovery diagnostics now expose:
+      - `persistedDuplicateMergeCount`,
+      - `placeholderDisplayNameRecoveredCount`,
+      - `localMemberBackfillCount`,
+  - focused CP1 tests are green:
+    - `pnpm --dir apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+  - CP2 diagnostics slice landed:
+    - cross-device digest now includes `summary.communityLifecycleConvergence` with convergence-repair counters and risk level,
+    - M0 sync-restore focus now includes `groups.membership_recovery_hydrate` and `groups.membership_ledger_load` for first-response incident bundles,
+  - focused CP2 tests are green:
+    - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+  - CP3 manual replay matrix is defined:
+    - `docs/26-v1.0.7-cp3-community-convergence-matrix.md`,
+  - CP3 status:
+    - operator two-device/account-switch replay evidence captured and accepted against matrix criteria,
+  - CP4 release-gate replay is green in this checkpoint workspace (2026-03-23):
+    - `pnpm --dir apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+    - `pnpm version:check`,
+    - `pnpm docs:check`,
+    - `pnpm release:integrity-check`,
+    - `pnpm release:artifact-version-contract-check`,
+    - `pnpm release:ci-signal-check`,
+    - `pnpm release:test-pack -- --skip-preflight`,
+    - `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`,
+  - remaining before tag cut:
+    - run strict clean-tree `pnpm release:preflight -- --tag v1.0.7` after checkpoint commit/tag staging.
 
 ## v1 Readiness Status
 

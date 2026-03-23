@@ -250,9 +250,18 @@ describe("logAppEvent", () => {
       context: {
         publicKeySuffix: "abc12345",
         profileId: "default",
-        persistedGroupCount: 0,
-        ledgerEntryCount: 0,
-        visibleGroupCount: 0,
+        persistedGroupCount: 2,
+        persistedDuplicateMergeCount: 1,
+        ledgerEntryCount: 2,
+        visibleGroupCount: 1,
+        hydratedFromPersistedWithLedgerCount: 1,
+        hydratedFromPersistedFallbackCount: 0,
+        hydratedFromLedgerOnlyCount: 0,
+        placeholderDisplayNameRecoveredCount: 1,
+        localMemberBackfillCount: 1,
+        hiddenByTombstoneCount: 0,
+        hiddenByLedgerStatusCount: 0,
+        missingLedgerCoverageCount: 0,
       },
     });
     logAppEvent({
@@ -374,6 +383,19 @@ describe("logAppEvent", () => {
             latestChatStateGroupCount: number | null;
             roomKeyMissingSendBlockedCount: number;
           };
+          communityLifecycleConvergence: {
+            riskLevel: "none" | "watch" | "high";
+            latestPersistedGroupCount: number | null;
+            latestPersistedDuplicateMergeCount: number | null;
+            latestHydratedFromPersistedWithLedgerCount: number | null;
+            latestHydratedFromPersistedFallbackCount: number | null;
+            latestHydratedFromLedgerOnlyCount: number | null;
+            latestPlaceholderDisplayNameRecoveredCount: number | null;
+            latestLocalMemberBackfillCount: number | null;
+            latestMissingLedgerCoverageCount: number | null;
+            latestHiddenByLedgerStatusCount: number | null;
+            recoveryRepairSignalCount: number;
+          };
           mediaHydrationParity: {
             riskLevel: "none" | "watch" | "high";
             latestHydratedDmAttachmentCount: number | null;
@@ -445,9 +467,18 @@ describe("logAppEvent", () => {
       toDmAttachmentCount: 5,
     }));
     expect(digest.events["groups.membership_recovery_hydrate"]?.[0]?.context).toEqual(expect.objectContaining({
-      persistedGroupCount: 0,
-      ledgerEntryCount: 0,
-      visibleGroupCount: 0,
+      persistedGroupCount: 2,
+      persistedDuplicateMergeCount: 1,
+      ledgerEntryCount: 2,
+      visibleGroupCount: 1,
+      hydratedFromPersistedWithLedgerCount: 1,
+      hydratedFromPersistedFallbackCount: 0,
+      hydratedFromLedgerOnlyCount: 0,
+      placeholderDisplayNameRecoveredCount: 1,
+      localMemberBackfillCount: 1,
+      hiddenByTombstoneCount: 0,
+      hiddenByLedgerStatusCount: 0,
+      missingLedgerCoverageCount: 0,
     }));
     expect(digest.events["messaging.chat_state_groups_update"]?.[0]?.context).toEqual(expect.objectContaining({
       profileId: "default",
@@ -488,9 +519,22 @@ describe("logAppEvent", () => {
     }));
     expect(digest.summary.membershipSendability).toEqual(expect.objectContaining({
       riskLevel: "high",
-      latestVisibleGroupCount: 0,
+      latestVisibleGroupCount: 1,
       latestChatStateGroupCount: 0,
       roomKeyMissingSendBlockedCount: 1,
+    }));
+    expect(digest.summary.communityLifecycleConvergence).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      latestPersistedGroupCount: 2,
+      latestPersistedDuplicateMergeCount: 1,
+      latestHydratedFromPersistedWithLedgerCount: 1,
+      latestHydratedFromPersistedFallbackCount: 0,
+      latestHydratedFromLedgerOnlyCount: 0,
+      latestPlaceholderDisplayNameRecoveredCount: 1,
+      latestLocalMemberBackfillCount: 1,
+      latestMissingLedgerCoverageCount: 0,
+      latestHiddenByLedgerStatusCount: 0,
+      recoveryRepairSignalCount: 1,
     }));
     expect(digest.summary.mediaHydrationParity).toEqual(expect.objectContaining({
       riskLevel: "high",
@@ -575,6 +619,118 @@ describe("logAppEvent", () => {
       latestMergedGroupAttachmentCount: 3,
       latestAppliedGroupAttachmentCount: 2,
       attachmentDropRegressionCount: 0,
+    }));
+  });
+
+  it("marks community lifecycle convergence as watch when recovery repair/missing-coverage signals are present without send blocks", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "groups.membership_recovery_hydrate",
+      level: "info",
+      context: {
+        persistedGroupCount: 3,
+        persistedDuplicateMergeCount: 1,
+        ledgerEntryCount: 2,
+        visibleGroupCount: 2,
+        hydratedFromPersistedWithLedgerCount: 1,
+        hydratedFromPersistedFallbackCount: 1,
+        hydratedFromLedgerOnlyCount: 0,
+        placeholderDisplayNameRecoveredCount: 1,
+        localMemberBackfillCount: 0,
+        hiddenByLedgerStatusCount: 0,
+        missingLedgerCoverageCount: 1,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          communityLifecycleConvergence: {
+            riskLevel: "none" | "watch" | "high";
+            latestPersistedGroupCount: number | null;
+            latestPersistedDuplicateMergeCount: number | null;
+            latestHydratedFromPersistedWithLedgerCount: number | null;
+            latestHydratedFromPersistedFallbackCount: number | null;
+            latestHydratedFromLedgerOnlyCount: number | null;
+            latestPlaceholderDisplayNameRecoveredCount: number | null;
+            latestLocalMemberBackfillCount: number | null;
+            latestMissingLedgerCoverageCount: number | null;
+            latestHiddenByLedgerStatusCount: number | null;
+            recoveryRepairSignalCount: number;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.communityLifecycleConvergence).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      latestPersistedGroupCount: 3,
+      latestPersistedDuplicateMergeCount: 1,
+      latestHydratedFromPersistedWithLedgerCount: 1,
+      latestHydratedFromPersistedFallbackCount: 1,
+      latestHydratedFromLedgerOnlyCount: 0,
+      latestPlaceholderDisplayNameRecoveredCount: 1,
+      latestLocalMemberBackfillCount: 0,
+      latestMissingLedgerCoverageCount: 1,
+      latestHiddenByLedgerStatusCount: 0,
+      recoveryRepairSignalCount: 1,
+    }));
+  });
+
+  it("marks community lifecycle convergence as none when no recovery-drift signal is present", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "groups.membership_recovery_hydrate",
+      level: "info",
+      context: {
+        persistedGroupCount: 1,
+        persistedDuplicateMergeCount: 0,
+        ledgerEntryCount: 1,
+        visibleGroupCount: 1,
+        hydratedFromPersistedWithLedgerCount: 1,
+        hydratedFromPersistedFallbackCount: 0,
+        hydratedFromLedgerOnlyCount: 0,
+        placeholderDisplayNameRecoveredCount: 0,
+        localMemberBackfillCount: 0,
+        hiddenByLedgerStatusCount: 0,
+        missingLedgerCoverageCount: 0,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          communityLifecycleConvergence: {
+            riskLevel: "none" | "watch" | "high";
+            latestPersistedGroupCount: number | null;
+            latestPersistedDuplicateMergeCount: number | null;
+            latestHydratedFromPersistedWithLedgerCount: number | null;
+            latestHydratedFromPersistedFallbackCount: number | null;
+            latestHydratedFromLedgerOnlyCount: number | null;
+            latestPlaceholderDisplayNameRecoveredCount: number | null;
+            latestLocalMemberBackfillCount: number | null;
+            latestMissingLedgerCoverageCount: number | null;
+            latestHiddenByLedgerStatusCount: number | null;
+            recoveryRepairSignalCount: number;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.communityLifecycleConvergence).toEqual(expect.objectContaining({
+      riskLevel: "none",
+      latestPersistedGroupCount: 1,
+      latestPersistedDuplicateMergeCount: 0,
+      latestHydratedFromPersistedWithLedgerCount: 1,
+      latestHydratedFromPersistedFallbackCount: 0,
+      latestHydratedFromLedgerOnlyCount: 0,
+      latestPlaceholderDisplayNameRecoveredCount: 0,
+      latestLocalMemberBackfillCount: 0,
+      latestMissingLedgerCoverageCount: 0,
+      latestHiddenByLedgerStatusCount: 0,
+      recoveryRepairSignalCount: 0,
     }));
   });
 

@@ -1,0 +1,140 @@
+# 25 Versioned Phase Plan (v1.0.7-v1.0.9)
+
+_Last reviewed: 2026-03-23 (baseline commit 4c869a7)._
+
+This document locks the next version-bound execution cadence after `v1.0.6`:
+1. one milestone per version,
+2. explicit checkpoint commits inside each milestone,
+3. no release until checkpoint evidence is complete.
+
+## Version-Milestone Mapping
+
+1. `v1.0.7` -> `M5` community lifecycle convergence + governance reliability.
+2. `v1.0.8` -> `M6` real-time voice beta slice (small-room path, evidence-backed).
+3. `v1.0.9` -> `M7` anti-abuse intelligence + UX/performance reliability hardening.
+
+## Checkpoint Policy
+
+For every version milestone:
+1. `CP1` implementation checkpoint:
+: narrow-scope owner-safe code slice merged with focused tests.
+2. `CP2` diagnostics checkpoint:
+: required app-event diagnostics emitted and visible in triage digest surfaces.
+3. `CP3` runtime evidence checkpoint:
+: manual two-device replay evidence captured.
+4. `CP4` release checkpoint:
+: version/docs/release gates green, then tag.
+
+Checkpoint commit naming:
+1. `feat(mX): <slice>` for feature slices.
+2. `fix(mX): <stability-fix>` for regressions found during checkpoint replay.
+3. `docs(mX): <checkpoint-status>` for closeout/evidence updates.
+
+## v1.0.7 - M5 Community Lifecycle Convergence
+
+Goal:
+1. prevent community state drift (name/member/sendability) across account switches, restart, and restore replay.
+
+Scope:
+1. canonical community metadata convergence under restore + live relay replay,
+2. membership/sendability convergence when room-key and ledger evidence diverge,
+3. governance reliability guardrails (creator/operator lifecycle without hidden fallback state).
+
+Checkpoints:
+1. `CP1`: land deterministic convergence slice for membership + metadata reconciliation.
+2. `CP2`: expose reason-coded diagnostics in digest surfaces for convergence outcomes.
+3. `CP3`: manual two-device account-switch replay evidence:
+: community name continuity,
+: member-list continuity,
+: sendability continuity after restore/restart.
+4. `CP4`: release gate replay:
+: `pnpm version:check`
+: `pnpm docs:check`
+: focused `vitest` suites for touched owners
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+: `pnpm release:test-pack -- --skip-preflight`
+: `pnpm release:preflight -- --tag v1.0.7`
+
+Current checkpoint progress (2026-03-23):
+1. `CP1` started:
+: docs-first kickoff complete with version/milestone lock.
+2. `CP1` implementation slice landed on canonical community membership recovery owner:
+: `apps/pwa/app/features/groups/services/community-membership-recovery.ts`
+: merge logic now preserves richer metadata/member coverage when persisted duplicates or placeholder regressions are replayed.
+3. Joined-ledger merge now backfills local member coverage and prevents placeholder display-name drift:
+: persisted `Private Group` fallback names are replaced by richer joined-ledger display names when available,
+: joined ledger evidence now ensures the active account pubkey is present in recovered member coverage.
+4. Recovery diagnostics now expose CP1 convergence evidence:
+: `persistedDuplicateMergeCount`,
+: `placeholderDisplayNameRecoveredCount`,
+: `localMemberBackfillCount`.
+5. Focused CP1 validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+6. `CP2` diagnostics slice started and landed for convergence triage:
+: `apps/pwa/app/shared/log-app-event.ts` now includes `summary.communityLifecycleConvergence` in `getCrossDeviceSyncDigest`.
+7. CP2 digest and M0 triage coverage are green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+8. `CP3` manual replay matrix is documented:
+: `docs/26-v1.0.7-cp3-community-convergence-matrix.md`.
+9. CP3 status:
+: operator two-device/account-switch replay evidence was captured and accepted against the matrix criteria in
+: `docs/26-v1.0.7-cp3-community-convergence-matrix.md`.
+10. `CP4` release-gate replay is green in this checkpoint workspace (2026-03-23):
+: `pnpm --dir apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+: `pnpm version:check`
+: `pnpm docs:check`
+: `pnpm release:integrity-check`
+: `pnpm release:artifact-version-contract-check`
+: `pnpm release:ci-signal-check`
+: `pnpm release:test-pack -- --skip-preflight`
+: `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`
+11. Remaining to finalize `v1.0.7` release handoff:
+: run strict clean-tree `pnpm release:preflight -- --tag v1.0.7` immediately after the checkpoint commit/tag staging step.
+
+## v1.0.8 - M6 Real-Time Voice Beta Slice
+
+Goal:
+1. deliver a bounded small-room real-time voice beta path with explicit capability/degraded-state contracts.
+
+Scope:
+1. session lifecycle contracts (create/join/leave/recover),
+2. capability and network degradation handling with explicit outcomes,
+3. voice transport diagnostics for reproducible weak-network triage.
+
+Checkpoints:
+1. `CP1`: session-capability and lifecycle contracts with focused tests.
+2. `CP2`: diagnostics/digest exposure for degraded and unsupported paths.
+3. `CP3`: weak-network manual replay evidence for join/leave/recover flow.
+4. `CP4`: full release gates and `v1.0.8` tag.
+
+Current checkpoint progress:
+1. pending.
+
+## v1.0.9 - M7 Anti-Abuse + UX/Performance Reliability Hardening
+
+Goal:
+1. increase user protection and runtime responsiveness without centralized moderation or architectural churn.
+
+Scope:
+1. privacy-preserving anti-abuse decision quality and operator/user clarity,
+2. route/startup/chat responsiveness hardening under large histories and media-heavy sessions,
+3. regression burn-down from `v1.0.7` + `v1.0.8` rollout evidence.
+
+Checkpoints:
+1. `CP1`: anti-abuse and responsiveness high-risk fixes with focused tests.
+2. `CP2`: diagnostics and triage surfaces for each resolved incident class.
+3. `CP3`: long-session/two-device soak evidence bundle.
+4. `CP4`: strict clean-tree preflight and `v1.0.9` release tag.
+
+Current checkpoint progress:
+1. pending.
+
+## Working Rules During This Sequence
+
+1. No parallel lifecycle owners for runtime/sync/identity/transport.
+2. No release claim without diagnostics + manual replay evidence.
+3. Fix by subtraction where overlap paths cause ambiguity.
+4. Keep each checkpoint commit reviewable and bounded.

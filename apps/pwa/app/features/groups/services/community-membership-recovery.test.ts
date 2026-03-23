@@ -111,5 +111,63 @@ describe("community-membership-recovery", () => {
     expect(result.groups).toHaveLength(0);
     expect(result.diagnostics.hiddenByTombstoneCount).toBe(1);
   });
-});
 
+  it("recovers placeholder persisted display names from richer joined-ledger metadata", () => {
+    const result = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      persistedGroups: [createGroup({ displayName: "Private Group" })],
+      membershipLedger: [createLedgerEntry({ displayName: "Recovered Alpha" })],
+      tombstones: new Set<string>(),
+    });
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.displayName).toBe("Recovered Alpha");
+    expect(result.diagnostics.placeholderDisplayNameRecoveredCount).toBe(1);
+  });
+
+  it("backfills local member coverage when joined-ledger evidence exists", () => {
+    const otherMember = "1".repeat(64);
+    const result = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      persistedGroups: [createGroup({
+        memberPubkeys: [otherMember],
+        memberCount: 1,
+      })],
+      membershipLedger: [createLedgerEntry()],
+      tombstones: new Set<string>(),
+    });
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, otherMember]));
+    expect(result.groups[0]?.memberCount).toBeGreaterThanOrEqual(2);
+    expect(result.diagnostics.localMemberBackfillCount).toBe(1);
+  });
+
+  it("merges duplicate persisted rows and keeps richer metadata instead of newer placeholder regression", () => {
+    const olderRich = createGroup({
+      id: "community:alpha-rich",
+      displayName: "Alpha Rich",
+      memberPubkeys: [PUBLIC_KEY, "2".repeat(64)],
+      memberCount: 2,
+      lastMessageTime: new Date(1_000),
+    });
+    const newerRegressed = createGroup({
+      id: "community:alpha-regressed",
+      displayName: "Private Group",
+      memberPubkeys: [],
+      memberCount: 0,
+      lastMessageTime: new Date(2_000),
+    });
+    const result = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      persistedGroups: [olderRich, newerRegressed],
+      membershipLedger: [],
+      tombstones: new Set<string>(),
+    });
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.displayName).toBe("Alpha Rich");
+    expect(result.groups[0]?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, "2".repeat(64)]));
+    expect(result.diagnostics.persistedDuplicateMergeCount).toBe(1);
+  });
+});

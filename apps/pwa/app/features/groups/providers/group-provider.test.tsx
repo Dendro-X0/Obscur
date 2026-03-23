@@ -467,7 +467,9 @@ describe("group-provider membership ledger integration", () => {
     await waitFor(() => {
       expect(hook.result.current.createdGroups).toHaveLength(1);
     });
-    expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_B]);
+    expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual(
+      expect.arrayContaining([PUBLIC_KEY_B]),
+    );
 
     act(() => {
       window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {

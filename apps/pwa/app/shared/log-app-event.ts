@@ -52,6 +52,19 @@ type AppEventDiagnosticsApi = Readonly<{
         latestChatStateGroupCount: number | null;
         roomKeyMissingSendBlockedCount: number;
       }>;
+      communityLifecycleConvergence: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestPersistedGroupCount: number | null;
+        latestPersistedDuplicateMergeCount: number | null;
+        latestHydratedFromPersistedWithLedgerCount: number | null;
+        latestHydratedFromPersistedFallbackCount: number | null;
+        latestHydratedFromLedgerOnlyCount: number | null;
+        latestPlaceholderDisplayNameRecoveredCount: number | null;
+        latestLocalMemberBackfillCount: number | null;
+        latestMissingLedgerCoverageCount: number | null;
+        latestHiddenByLedgerStatusCount: number | null;
+        recoveryRepairSignalCount: number;
+      }>;
       mediaHydrationParity: Readonly<{
         riskLevel: "none" | "watch" | "high";
         latestHydratedDmAttachmentCount: number | null;
@@ -197,8 +210,15 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "publicKeySuffix",
     "profileId",
     "persistedGroupCount",
+    "persistedDuplicateMergeCount",
     "ledgerEntryCount",
     "visibleGroupCount",
+    "hydratedFromPersistedWithLedgerCount",
+    "hydratedFromPersistedFallbackCount",
+    "hydratedFromLedgerOnlyCount",
+    "placeholderDisplayNameRecoveredCount",
+    "localMemberBackfillCount",
+    "hiddenByTombstoneCount",
     "hiddenByLedgerStatusCount",
     "missingLedgerCoverageCount",
   ],
@@ -513,6 +533,33 @@ const installDiagnosticsApi = (): void => {
       const latestVisibleGroupCount = toNumberOrNull(
         latestMembershipHydrate?.visibleGroupCount,
       );
+      const latestPersistedGroupCount = toNumberOrNull(
+        latestMembershipHydrate?.persistedGroupCount,
+      );
+      const latestPersistedDuplicateMergeCount = toNumberOrNull(
+        latestMembershipHydrate?.persistedDuplicateMergeCount,
+      );
+      const latestHydratedFromPersistedWithLedgerCount = toNumberOrNull(
+        latestMembershipHydrate?.hydratedFromPersistedWithLedgerCount,
+      );
+      const latestHydratedFromPersistedFallbackCount = toNumberOrNull(
+        latestMembershipHydrate?.hydratedFromPersistedFallbackCount,
+      );
+      const latestHydratedFromLedgerOnlyCount = toNumberOrNull(
+        latestMembershipHydrate?.hydratedFromLedgerOnlyCount,
+      );
+      const latestPlaceholderDisplayNameRecoveredCount = toNumberOrNull(
+        latestMembershipHydrate?.placeholderDisplayNameRecoveredCount,
+      );
+      const latestLocalMemberBackfillCount = toNumberOrNull(
+        latestMembershipHydrate?.localMemberBackfillCount,
+      );
+      const latestMissingLedgerCoverageCount = toNumberOrNull(
+        latestMembershipHydrate?.missingLedgerCoverageCount,
+      );
+      const latestHiddenByLedgerStatusCount = toNumberOrNull(
+        latestMembershipHydrate?.hiddenByLedgerStatusCount,
+      );
       const latestChatStateGroupCount = toNumberOrNull(
         latestChatStateGroups?.groupCount,
       );
@@ -562,6 +609,14 @@ const installDiagnosticsApi = (): void => {
       const searchJumpLoadExhaustedUnresolvedCount = searchJumpUnresolvedEvents.filter((event) => (
         event.context?.reasonCode === "target_not_found_after_load_attempts"
       )).length;
+      const membershipRecoveryRepairSignalCount = recent.filter((event) => (
+        event.name === "groups.membership_recovery_hydrate"
+        && (
+          (typeof event.context?.persistedDuplicateMergeCount === "number" && event.context.persistedDuplicateMergeCount > 0)
+          || (typeof event.context?.placeholderDisplayNameRecoveredCount === "number" && event.context.placeholderDisplayNameRecoveredCount > 0)
+          || (typeof event.context?.localMemberBackfillCount === "number" && event.context.localMemberBackfillCount > 0)
+        )
+      )).length;
       const latestSearchJumpResolutionMode = toStringOrNull(
         searchJumpResolvedEvents.at(-1)?.context?.resolutionMode,
       );
@@ -610,6 +665,13 @@ const installDiagnosticsApi = (): void => {
           && latestChatStateGroupCount < latestVisibleGroupCount
         ),
         high: roomKeyMissingSendBlockedCount > 0,
+      });
+      const communityLifecycleConvergenceRiskLevel = getRiskLevel({
+        watch: (
+          membershipRecoveryRepairSignalCount > 0
+          || (typeof latestMissingLedgerCoverageCount === "number" && latestMissingLedgerCoverageCount > 0)
+        ),
+        high: roomKeyMissingSendBlockedCount > 0 && membershipRecoveryRepairSignalCount > 0,
       });
       const mediaHydrationParityRiskLevel = getRiskLevel({
         watch: (
@@ -661,6 +723,19 @@ const installDiagnosticsApi = (): void => {
             latestVisibleGroupCount,
             latestChatStateGroupCount,
             roomKeyMissingSendBlockedCount,
+          },
+          communityLifecycleConvergence: {
+            riskLevel: communityLifecycleConvergenceRiskLevel,
+            latestPersistedGroupCount,
+            latestPersistedDuplicateMergeCount,
+            latestHydratedFromPersistedWithLedgerCount,
+            latestHydratedFromPersistedFallbackCount,
+            latestHydratedFromLedgerOnlyCount,
+            latestPlaceholderDisplayNameRecoveredCount,
+            latestLocalMemberBackfillCount,
+            latestMissingLedgerCoverageCount,
+            latestHiddenByLedgerStatusCount,
+            recoveryRepairSignalCount: membershipRecoveryRepairSignalCount,
           },
           mediaHydrationParity: {
             riskLevel: mediaHydrationParityRiskLevel,

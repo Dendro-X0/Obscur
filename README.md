@@ -34,26 +34,16 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - Desktop updater and release-tag awareness.
 - Performance mode improvements for large timelines and burst traffic.
 
-## Current Status (v1.0.0 Launch Staging)
+## Current Status (v1.0.7 Planning)
 
-- The v0.9.2 constrained-release blocker set remains in monitoring mode after replay verification.
-- v1.0.0 launch sequencing and reliability hardening content is consolidated into standard docs and runbooks (`docs/07`, `docs/08`, `docs/19`, `docs/20`).
-- Pre-v1 stability milestones are now tracked in:
-  - [`docs/19-v1-readiness-stability-plan.md`](docs/19-v1-readiness-stability-plan.md).
-- Official `v1.0.0` release execution is tracked in:
-  - [`docs/20-v1-official-release-execution.md`](docs/20-v1-official-release-execution.md).
-- Post-v1 feature expansion and milestone roadmap is tracked in:
+- Latest released tag: `v1.0.6` (`2026-03-23`).
+- Active execution lane: `v1.0.7` planning kickoff with one-milestone-per-version discipline.
+- Post-v1 roadmap and milestone status are tracked in:
   - [`docs/21-post-v1-value-roadmap.md`](docs/21-post-v1-value-roadmap.md).
-- Current workspace release-readiness snapshot:
-  - `pnpm version:check` passes,
-  - `pnpm docs:check` passes,
-  - `pnpm release:integrity-check` passes,
-  - `pnpm release:artifact-version-contract-check` passes,
-  - `pnpm release:ci-signal-check` passes,
-  - `pnpm release:test-pack -- --skip-preflight` passes,
-  - `pnpm release:preflight -- --tag v1.0.0` passes.
-- Remaining release-prep work is operational:
-  - clean-tree strict preflight and tag flow.
+- Active version-bound phase sequence (`v1.0.7-v1.0.9`) is tracked in:
+  - [`docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`](docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md).
+- Previous sequence (`v1.0.4-v1.0.6`) remains documented as historical execution context:
+  - [`docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`](docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md).
 - Canonical runtime monitoring baseline:
   - [`ISSUES.md`](ISSUES.md)
   - [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
@@ -111,7 +101,7 @@ These placeholders are for future GIF demos in README and the future official we
 5. `docs/assets/demo-desktop-updater.gif`  
    Placeholder: current vs latest version state and install prompt.
 
-## Release Preparation (v1.0.0)
+## Release Preparation (Current Tag Lane)
 
 Before tagging:
 
@@ -124,7 +114,7 @@ pnpm release:ci-signal-check
 pnpm release:artifact-matrix-check
 pnpm release:artifact-version-contract-check
 pnpm release:test-pack
-pnpm release:preflight -- --tag v1.0.0
+pnpm release:preflight -- --tag vX.Y.Z
 pnpm release:verify-tag --tag vX.Y.Z
 ```
 

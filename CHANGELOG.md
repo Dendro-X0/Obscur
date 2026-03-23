@@ -1,10 +1,76 @@
-## [Unreleased - v0.9.x Foundation Recovery]
+## [Unreleased - v1.0.7]
 
-Maintainer note:
+### Changed
 
-- This branch is in pre-release recovery/stabilization mode for the `v0.9.x` lane.
-- The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
-- Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
+- Started post-`v1.0.6` planning lane for `v1.0.7` with a docs-first execution kickoff:
+  - added a new version-bound phase plan for `v1.0.7-v1.0.9`:
+    - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`
+  - synced roadmap and issue status tracking to mark `v1.0.6` (`M4`) closeout and `v1.0.7` (`M5`) kickoff:
+    - `docs/21-post-v1-value-roadmap.md`
+    - `ISSUES.md`
+  - refreshed docs index and root README release/status framing for the new active lane:
+    - `docs/README.md`
+    - `README.md`
+- Started `M5` CP1 implementation slice for community lifecycle convergence in canonical recovery owner:
+  - hardened persisted-group dedupe/merge in:
+    - `apps/pwa/app/features/groups/services/community-membership-recovery.ts`
+  - recovery now keeps richer metadata/member coverage when replay includes newer-but-regressed duplicate group rows.
+  - joined-ledger merge now:
+    - replaces placeholder `Private Group` display-name drift with richer ledger metadata when available,
+    - backfills active-account member coverage when joined ledger evidence exists.
+  - emitted recovery diagnostics now include convergence counters:
+    - `persistedDuplicateMergeCount`,
+    - `placeholderDisplayNameRecoveredCount`,
+    - `localMemberBackfillCount`.
+- Extended group recovery diagnostics surfacing in runtime event context:
+  - `apps/pwa/app/features/groups/providers/group-provider.tsx`.
+- Added focused regression coverage for M5 CP1 recovery hardening:
+  - `apps/pwa/app/features/groups/services/community-membership-recovery.test.ts`
+  - `apps/pwa/app/features/groups/providers/group-provider.test.tsx`
+- Started `M5` CP2 diagnostics slice for community lifecycle convergence triage:
+  - extended `getCrossDeviceSyncDigest` with:
+    - `summary.communityLifecycleConvergence` in `apps/pwa/app/shared/log-app-event.ts`,
+  - convergence summary now includes:
+    - duplicate-row merge signals,
+    - placeholder-name recovery signals,
+    - local-member backfill signals,
+    - missing-ledger coverage and hidden-by-ledger counters.
+- Extended M0 sync-restore focus event coverage:
+  - `apps/pwa/app/shared/m0-triage-capture.ts` now includes:
+    - `groups.membership_recovery_hydrate`,
+    - `groups.membership_ledger_load`.
+- Added focused diagnostics regression coverage for M5 CP2:
+  - `apps/pwa/app/shared/log-app-event.test.ts`
+  - `apps/pwa/app/shared/m0-triage-capture.test.ts`
+- Started `M5` CP3 manual evidence lane with a dedicated two-device/account-switch matrix:
+  - `docs/26-v1.0.7-cp3-community-convergence-matrix.md`
+- Updated maintainer replay runbook for M5 CP3 evidence capture:
+  - `docs/08-maintainer-playbook.md`
+- Marked M5 CP3 replay evidence as accepted and advanced CP4 release-gate replay for `v1.0.7` in roadmap/status docs:
+  - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`
+  - `docs/21-post-v1-value-roadmap.md`
+  - `ISSUES.md`
+- Replayed CP4 release gates in checkpoint workspace:
+  - `pnpm version:check`
+  - `pnpm docs:check`
+  - `pnpm release:integrity-check`
+  - `pnpm release:artifact-version-contract-check`
+  - `pnpm release:ci-signal-check`
+  - `pnpm release:test-pack -- --skip-preflight`
+  - `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
+- `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm version:check`
+- `pnpm docs:check`
+- `pnpm release:integrity-check`
+- `pnpm release:artifact-version-contract-check`
+- `pnpm release:ci-signal-check`
+- `pnpm release:test-pack -- --skip-preflight`
+- `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`
 
 ## [v1.0.6] - 2026-03-23
 

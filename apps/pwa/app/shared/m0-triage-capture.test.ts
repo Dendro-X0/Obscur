@@ -86,6 +86,8 @@ describe("m0-triage-capture", () => {
       if (
         name === "account_sync.backup_restore_merge_diagnostics"
         || name === "account_sync.backup_restore_profile_scope_mismatch"
+        || name === "groups.membership_recovery_hydrate"
+        || name === "groups.membership_ledger_load"
         || name === "groups.room_key_missing_send_blocked"
       ) {
         return [{ name, atUnixMs: 3, level: "info" }];
@@ -119,6 +121,8 @@ describe("m0-triage-capture", () => {
     expect(bundle.events.focusedByCategory.sync_restore.some((entry) => (
       entry.name === "account_sync.backup_restore_merge_diagnostics"
       || entry.name === "account_sync.backup_restore_profile_scope_mismatch"
+      || entry.name === "groups.membership_recovery_hydrate"
+      || entry.name === "groups.membership_ledger_load"
       || entry.name === "groups.room_key_missing_send_blocked"
     ))).toBe(true);
     expect(bundle.events.focusedByCategory.media_hydration.some((entry) => entry.name === "messaging.conversation_hydration_diagnostics")).toBe(true);

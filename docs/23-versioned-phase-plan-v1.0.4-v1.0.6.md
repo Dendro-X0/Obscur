@@ -1,11 +1,16 @@
 # 23 Versioned Phase Plan (v1.0.4-v1.0.6)
 
-_Last reviewed: 2026-03-23 (baseline commit 2539675)._
+_Last reviewed: 2026-03-23 (baseline commit 4c869a7)._
 
 This document locks a version-bound execution cadence:
 1. one milestone per version,
 2. explicit checkpoint commits inside each milestone,
 3. no release until checkpoint evidence is complete.
+
+Status note:
+1. This sequence is complete (`v1.0.4`, `v1.0.5`, `v1.0.6` released).
+2. Active planning/execution moved to:
+: `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
 
 ## Version-Milestone Mapping
 
@@ -124,6 +129,8 @@ Current checkpoint progress (2026-03-23):
 8. `CP3` in progress:
 : manual replay execution matrix and escalation thresholds documented in:
 : `docs/24-v1.0.6-cp3-soak-matrix.md`
+9. `CP4` completed:
+: strict release gates passed and `v1.0.6` tag pushed from clean `main`.
 
 ## Working Rules During This Sequence
 

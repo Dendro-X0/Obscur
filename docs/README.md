@@ -29,6 +29,8 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 21. [22 Theme Contrast Guidelines](./22-theme-contrast-guidelines.md)
 22. [23 Versioned Phase Plan (v1.0.4-v1.0.6)](./23-versioned-phase-plan-v1.0.4-v1.0.6.md)
 23. [24 v1.0.6 CP3 Soak Matrix](./24-v1.0.6-cp3-soak-matrix.md)
+24. [25 Versioned Phase Plan (v1.0.7-v1.0.9)](./25-versioned-phase-plan-v1.0.7-v1.0.9.md)
+25. [26 v1.0.7 CP3 Community Convergence Matrix](./26-v1.0.7-cp3-community-convergence-matrix.md)
 
 ## Scope Rules
 
@@ -47,6 +49,8 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/21-post-v1-value-roadmap.md`.
 - Version-bound execution cadence (`one milestone per version`) is tracked in:
   - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
+- Current active execution cadence (`v1.0.7-v1.0.9`) is tracked in:
+  - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
 - For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 20 -> 21 -> 17 -> 18` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).

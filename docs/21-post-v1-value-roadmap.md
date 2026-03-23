@@ -1,6 +1,6 @@
 # 21 Post-v1 Value Roadmap
 
-_Last reviewed: 2026-03-23 (baseline commit 2539675)._
+_Last reviewed: 2026-03-23 (baseline commit 4c869a7)._
 
 This roadmap defines the long-term value track after the `v1.0.0` release.
 
@@ -266,7 +266,7 @@ Acceptance:
 2. no active blocker in `ISSUES.md`,
 3. roadmap completion status documented before next major planning cycle.
 
-Current execution status (started 2026-03-23):
+Current execution status (completed 2026-03-23):
 1. `v1.0.6` CP1 stabilization slice landed for in-chat search jump:
 : extracted typed jump-step/dom-resolution contracts in
 : `apps/pwa/app/features/messaging/components/message-search-jump.ts`.
@@ -289,15 +289,115 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 8. CP3 manual soak execution matrix is documented in:
 : `docs/24-v1.0.6-cp3-soak-matrix.md`.
+9. CP4 release gates and tag flow completed on clean `main`:
+: `pnpm version:check`
+: `pnpm docs:check`
+: `pnpm release:integrity-check`
+: `pnpm release:artifact-version-contract-check`
+: `pnpm release:ci-signal-check`
+: `pnpm release:test-pack -- --skip-preflight`
+: `pnpm release:preflight -- --tag v1.0.6`
+: release commit/tag shipped as `v1.0.6`.
+
+## M5 - Community Lifecycle Convergence and Governance Reliability
+
+Scope:
+1. harden community identity/membership convergence across account switch + restart flows,
+2. make membership/sendability outcomes deterministic when room keys and membership ledgers disagree,
+3. keep creator/operator governance surfaces stable without introducing new lifecycle owners.
+
+Acceptance:
+1. two-device account-switch replay keeps community name, membership list, and sendability converged,
+2. no silent fallback to default community metadata when membership evidence exists,
+3. group send failures remain reason-coded and recoverable through canonical paths.
+
+Current execution status (started 2026-03-23):
+1. Docs-first kickoff started for `v1.0.7` with version-bound checkpoint planning in:
+: `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
+2. `M5` CP1 convergence slice landed in canonical membership recovery owner:
+: `apps/pwa/app/features/groups/services/community-membership-recovery.ts`.
+3. Recovery now merges duplicate persisted group rows instead of taking a newer regressed row verbatim:
+: keeps richer display-name/member/admin coverage when replay order is degraded.
+4. Joined-ledger merge now enforces local membership coverage and metadata convergence:
+: replaces placeholder `Private Group` names with richer joined-ledger display names when available,
+: backfills active account pubkey into recovered member coverage when joined evidence exists.
+5. Group membership recovery diagnostics now include explicit convergence counters:
+: `persistedDuplicateMergeCount`,
+: `placeholderDisplayNameRecoveredCount`,
+: `localMemberBackfillCount`.
+6. Focused CP1 validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+7. `M5` CP2 diagnostics slice landed for one-copy convergence triage:
+: `getCrossDeviceSyncDigest` now includes `summary.communityLifecycleConvergence` with repair/missing-coverage counters from
+: `groups.membership_recovery_hydrate` and sendability interplay evidence.
+8. M0 capture sync-restore focus now includes membership recovery/ledger hydration diagnostics:
+: `groups.membership_recovery_hydrate`
+: `groups.membership_ledger_load`.
+9. Focused CP2 diagnostics replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+10. `M5` CP3 manual replay matrix is now defined:
+: `docs/26-v1.0.7-cp3-community-convergence-matrix.md`.
+11. CP3 status:
+: operator two-device/account-switch replay evidence is captured and accepted per matrix criteria.
+12. CP4 release-gate replay is green in this checkpoint workspace (2026-03-23):
+: `pnpm --dir apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+: `pnpm version:check`
+: `pnpm docs:check`
+: `pnpm release:integrity-check`
+: `pnpm release:artifact-version-contract-check`
+: `pnpm release:ci-signal-check`
+: `pnpm release:test-pack -- --skip-preflight`
+: `pnpm release:preflight -- --tag v1.0.7 --allow-dirty true`
+13. Remaining to finalize `v1.0.7` tagging:
+: strict clean-tree `pnpm release:preflight -- --tag v1.0.7` after checkpoint commit/tag staging.
+
+## M6 - Real-Time Voice Beta Slice (Small-Room, Evidence-Backed)
+
+Scope:
+1. advance typed capability contracts into bounded small-room voice session lifecycle,
+2. enforce explicit unsupported/degraded-path outcomes under weak relay/network conditions,
+3. preserve deterministic teardown/recovery without cross-owner drift.
+
+Acceptance:
+1. weak-network manual replay stays interactive and recovers predictably,
+2. no optimistic success states without peer/session evidence,
+3. voice path does not regress existing DM/group transport stability.
+
+Current execution status:
+1. pending (`v1.0.8` target lane).
+
+## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
+
+Scope:
+1. extend privacy-preserving anti-abuse controls with explainable operator/user outcomes,
+2. harden route/startup/chat responsiveness under sustained history + media load,
+3. close high-risk regressions discovered during M5/M6 rollout.
+
+Acceptance:
+1. anti-abuse decisions remain reason-coded, reversible, and local-first,
+2. route freeze/blank-page class regressions remain non-reproducible in soak replay,
+3. release closeout includes diagnostics bundle + manual evidence matrix.
+
+Current execution status:
+1. pending (`v1.0.9` target lane).
 
 ## Version-Bound Execution
 
-1. Canonical one-milestone-per-version sequence:
+1. Completed one-milestone-per-version sequence:
 : `v1.0.4` -> `M2` closeout,
 : `v1.0.5` -> `M3`,
 : `v1.0.6` -> `M4`.
-2. Detailed checkpoints and release gates for this sequence are defined in:
+2. Active one-milestone-per-version sequence:
+: `v1.0.7` -> `M5`,
+: `v1.0.8` -> `M6`,
+: `v1.0.9` -> `M7`.
+3. Detailed checkpoints and release gates for the completed sequence are defined in:
 : `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
+4. Detailed checkpoints and release gates for the active sequence are defined in:
+: `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
 
 ## Non-Negotiable Validation Contract
 
