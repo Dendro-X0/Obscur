@@ -144,6 +144,15 @@ Current execution status (started 2026-03-22):
 : and `apps/pwa/app/features/groups/components/group-management-dialog.tsx`.
 6. Focused operator-health regression coverage added:
 : `apps/pwa/app/features/groups/services/community-operator-health.test.ts`.
+7. M1 closeout automation replay is green (2026-03-23):
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts app/features/groups/services/community-operator-health.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+: `pnpm docs:check`
+8. Remaining before declaring M1 complete:
+: manual two-device replay evidence for anti-abuse quarantine UX + community operator visibility UX, captured using
+: `window.obscurAppEvents.findByName("messaging.request.incoming_quarantined", 30)`
+: `window.obscurDeliveryDiagnostics?.getSnapshot()?.lastIncoming`
+: `copy(window.obscurM0Triage?.captureJson(300))`.
 
 ## M2 - Identity/Sync Hardening + Voice Stage A
 

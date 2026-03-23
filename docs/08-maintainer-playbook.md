@@ -180,6 +180,12 @@ For community-governance visibility verification in Group Management:
 4. Deterministic helper boundary:
 : preserve typed helper as canonical summarizer:
 : `apps/pwa/app/features/groups/services/community-operator-health.ts`.
+5. Manual replay capture bundle after execution:
+: `copy(JSON.stringify({
+:   quarantined: window.obscurAppEvents.findByName("messaging.request.incoming_quarantined", 30),
+:   lastIncoming: window.obscurDeliveryDiagnostics?.getSnapshot()?.lastIncoming ?? null,
+:   triage: window.obscurM0Triage?.capture?.(300) ?? null
+: }, null, 2))`
 
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 

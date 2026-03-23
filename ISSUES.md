@@ -29,7 +29,9 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - Requests inbox now surfaces anti-spam quarantine summary + per-peer anti-spam signal badges using canonical app-event diagnostics,
   - focused anti-abuse tests are green (`incoming-request-anti-abuse`, `incoming-dm-event-handler`),
   - community operator visibility slice landed in Group Management (members tab) with deterministic health/governance signals from typed helper logic (`community-operator-health`),
-  - focused operator-health regression coverage is green (`community-operator-health.test.ts`).
+  - focused operator-health regression coverage is green (`community-operator-health.test.ts`),
+  - M1 closeout automation replay is green on 2026-03-23 (`vitest` focused suites + `tsc --noEmit` + `docs:check`),
+  - remaining gate: manual two-device replay evidence for anti-abuse quarantine and community operator visibility before marking M1 complete.
 
 ## v1 Readiness Status
 
