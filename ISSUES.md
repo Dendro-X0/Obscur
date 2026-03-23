@@ -1,6 +1,6 @@
 # Issue Status Snapshot (v1.0.0 Launch Readiness Monitoring)
 
-Last updated: 2026-03-22
+Last updated: 2026-03-23
 
 This file tracks runtime issue status during final `v1.0.0` launch staging and immediate post-launch monitoring preparation.
 
@@ -58,6 +58,14 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - shared attachment inference now keeps voice-note-prefixed `.webm` files classified as dedicated `voice_note` attachments to prevent voice-note/video misrouting in UI surfaces,
     - canonical incoming/outgoing local media cache paths now treat voice notes as temporary audio and skip Vault persistence for `voice_note` attachments,
   - focused M2-A/B suites are green (`desktop-profile-bootstrap`, `auth-gateway`, `group-service`, `encrypted-account-backup-service`, `runtime-activation-manager`, `voice-note-recording-capability`, `log-app-event`, `m0-triage-capture`, plus `tsc --noEmit`).
+  - `v1.0.3` shipped on 2026-03-23 from `main` with:
+    - voice-note Stage A UX split (`VoiceNoteCard` for temporary async voice vs generic uploaded audio cards),
+    - light/dark contrast hardening for gradient surfaces and invite/message cards,
+    - sidebar action-role clarification (`+` create; header `...` global section controls),
+    - in-chat search jump hardening for virtualized + paged message histories.
+  - next active M2 closeout focus after `v1.0.3`:
+    - complete manual two-device evidence bundle for M2 acceptance,
+    - continue runtime watch for long-history search-jump navigation behavior and collect diagnostics on any miss.
 
 ## v1 Readiness Status
 

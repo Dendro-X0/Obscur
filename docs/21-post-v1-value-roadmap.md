@@ -1,6 +1,6 @@
 # 21 Post-v1 Value Roadmap
 
-_Last reviewed: 2026-03-22 (baseline commit a70ea91)._
+_Last reviewed: 2026-03-23 (baseline commit 6412408)._
 
 This roadmap defines the long-term value track after the `v1.0.0` release.
 
@@ -219,6 +219,15 @@ Current execution status (started 2026-03-23):
 : `apps/pwa/app/features/messaging/services/chat-state-store.ts`.
 : recorder output now includes duration-aware filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and completion diagnostics (`messaging.voice_note.recording_complete`) from
 : `apps/pwa/app/features/messaging/components/voice-recorder.tsx`.
+14. `v1.0.3` release slice completed (2026-03-23):
+: finalized voice-note Stage A UX hardening and release packaging on `main`,
+: shipped dedicated timeline `VoiceNoteCard` presentation split from generic audio file cards,
+: aligned light/dark contrast-safe gradient token usage in message and invite surfaces,
+: shipped sidebar action-role clarification (`+` create vs `...` global section controls),
+: hardened in-chat search result jump handling against virtualized/history-paged timelines.
+15. Remaining before declaring M2 complete:
+: capture manual two-device evidence for full M2 acceptance contract (cross-device DM/group/media continuity + startup/account-switch stability + voice-note fallback behavior),
+: keep post-release runtime watch active on search-jump navigation behavior in long-history conversations.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
