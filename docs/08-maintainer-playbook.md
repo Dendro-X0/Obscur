@@ -299,11 +299,13 @@ For `v1.0.7` CP3 community-convergence verification:
 
 For `v1.0.8` CP2 realtime voice diagnostics verification:
 
-1. Realtime voice summary probe:
+1. One-copy M6 voice bundle (preferred):
+: `copy(window.obscurM6VoiceCapture?.captureJson(400))`
+2. Realtime voice summary probe:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession`
-2. Transition event slice:
+3. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-3. One-copy CP2 export bundle:
+4. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -313,7 +315,7 @@ For `v1.0.8` CP2 realtime voice diagnostics verification:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-4. Escalate immediately if:
+5. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
 : transitions show repeated unsupported reasons on a previously supported runtime without capability changes.
 

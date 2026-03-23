@@ -143,6 +143,13 @@ Current checkpoint progress:
 8. Focused `CP2` validation replay is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+9. `CP3` prep helper landed for one-copy weak-network replay bundles:
+: `window.obscurM6VoiceCapture.captureJson(400)` in
+: `apps/pwa/app/shared/m6-voice-capture.ts`,
+: installed at boot in `apps/pwa/app/components/providers.tsx`.
+10. Focused CP3 helper validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1.0.9 - M7 Anti-Abuse + UX/Performance Reliability Hardening
 

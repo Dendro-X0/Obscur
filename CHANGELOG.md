@@ -31,6 +31,13 @@
   - `apps/pwa/app/shared/m0-triage-capture.test.ts`
 - Updated maintainer replay runbook for M6 CP2 diagnostics capture:
   - `docs/08-maintainer-playbook.md`
+- Started `M6` CP3 weak-network replay prep with one-copy diagnostics helper:
+  - added `window.obscurM6VoiceCapture.captureJson(400)` in:
+    - `apps/pwa/app/shared/m6-voice-capture.ts`
+  - helper is installed during app boot in:
+    - `apps/pwa/app/components/providers.tsx`
+- Added focused regression coverage for M6 CP3 helper:
+  - `apps/pwa/app/shared/m6-voice-capture.test.ts`
 - Synced docs/release status for `v1.0.8` kickoff:
   - `README.md`
   - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`
@@ -41,6 +48,7 @@
 
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 - `pnpm version:sync`
 

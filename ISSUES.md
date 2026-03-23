@@ -183,6 +183,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - focused CP2 tests are green:
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+  - CP3 weak-network replay prep helper landed:
+    - `window.obscurM6VoiceCapture?.captureJson(400)` in
+      `app/shared/m6-voice-capture.ts`,
+    - helper is installed at boot in
+      `app/components/providers.tsx`,
+  - focused CP3 helper tests are green:
+    - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 

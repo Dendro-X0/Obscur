@@ -390,6 +390,14 @@ Current execution status:
 : `apps/pwa/app/shared/log-app-event.test.ts`
 : `apps/pwa/app/shared/m0-triage-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+7. CP3 evidence-capture prep landed for weak-network/manual replay:
+: one-copy helper `window.obscurM6VoiceCapture.captureJson(400)` added in
+: `apps/pwa/app/shared/m6-voice-capture.ts`,
+: installed at app boot in
+: `apps/pwa/app/components/providers.tsx`.
+8. Focused CP3 helper validation is green:
+: `apps/pwa/app/shared/m6-voice-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 
