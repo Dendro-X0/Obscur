@@ -1,6 +1,6 @@
 # 21 Post-v1 Value Roadmap
 
-_Last reviewed: 2026-03-23 (baseline commit 6412408)._
+_Last reviewed: 2026-03-23 (baseline commit 2539675)._
 
 This roadmap defines the long-term value track after the `v1.0.0` release.
 
@@ -253,12 +253,14 @@ Acceptance:
 2. no active blocker in `ISSUES.md`,
 3. roadmap completion status documented before next major planning cycle.
 
-## Suggested Version Lanes
+## Version-Bound Execution
 
-1. `v1.1.x`: M1 priority (community + anti-abuse foundations).
-2. `v1.2.x`: M2 priority (identity/sync hardening + async voice).
-3. `v1.3.x`: M3 priority (real-time voice beta + operator tooling).
-4. `v1.4.x`: M4 priority (stabilization and rollout confidence).
+1. Canonical one-milestone-per-version sequence:
+: `v1.0.4` -> `M2` closeout,
+: `v1.0.5` -> `M3`,
+: `v1.0.6` -> `M4`.
+2. Detailed checkpoints and release gates for this sequence are defined in:
+: `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
 
 ## Non-Negotiable Validation Contract
 

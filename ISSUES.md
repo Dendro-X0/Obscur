@@ -16,6 +16,8 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
 
 - Canonical roadmap:
   - `docs/21-post-v1-value-roadmap.md`.
+- Canonical version-bound execution cadence:
+  - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
 - M0 status (completed 2026-03-22):
   - post-v1 pillar scope + acceptance lock is documented,
   - maintainer runbook now includes post-v1 baseline/diagnostics checklist,
@@ -66,6 +68,10 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - next active M2 closeout focus after `v1.0.3`:
     - complete manual two-device evidence bundle for M2 acceptance,
     - continue runtime watch for long-history search-jump navigation behavior and collect diagnostics on any miss.
+  - release cadence lock:
+    - `v1.0.4` is now the M2 closeout version (checkpointed `CP1-CP4`),
+    - `v1.0.5` is now the M3 delivery version,
+    - `v1.0.6` is now the M4 stabilization version.
 
 ## v1 Readiness Status
 

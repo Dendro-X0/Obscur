@@ -27,6 +27,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 19. [20 v1 Official Release Execution](./20-v1-official-release-execution.md)
 20. [21 Post-v1 Value Roadmap](./21-post-v1-value-roadmap.md)
 21. [22 Theme Contrast Guidelines](./22-theme-contrast-guidelines.md)
+22. [23 Versioned Phase Plan (v1.0.4-v1.0.6)](./23-versioned-phase-plan-v1.0.4-v1.0.6.md)
 
 ## Scope Rules
 
@@ -43,6 +44,8 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/20-v1-official-release-execution.md`.
 - Post-v1 long-term value milestones are tracked in:
   - `docs/21-post-v1-value-roadmap.md`.
+- Version-bound execution cadence (`one milestone per version`) is tracked in:
+  - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
 - For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 20 -> 21 -> 17 -> 18` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).
