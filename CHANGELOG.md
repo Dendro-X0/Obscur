@@ -6,6 +6,34 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+## [v1.0.5] - 2026-03-23
+
+### Changed
+
+- Started post-v1 `M3` delivery lane (`v1.0.5` milestone) with a deterministic real-time voice foundation contract:
+  - added typed runtime capability classifier in:
+    - `apps/pwa/app/features/messaging/services/realtime-voice-capability.ts`
+  - capability contract now reports:
+    - secure-context readiness,
+    - media-device availability,
+    - WebRTC peer-connection availability,
+    - `addTrack` support,
+    - Opus capability status (`available` / `missing` / `unknown`).
+- Added focused regression coverage for the new foundation contract:
+  - `apps/pwa/app/features/messaging/services/realtime-voice-capability.test.ts`
+- Synced post-v1 roadmap/status docs with `v1.0.5` CP1 checkpoint state:
+  - `docs/21-post-v1-value-roadmap.md`
+  - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`
+  - `ISSUES.md`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-capability.test.ts app/features/messaging/services/voice-note-recording-capability.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm version:check`
+- `pnpm docs:check`
+- `pnpm release:preflight -- --tag v1.0.5`
+
 ## [v1.0.4] - 2026-03-23
 
 ### Changed
