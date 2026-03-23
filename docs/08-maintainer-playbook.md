@@ -1,6 +1,6 @@
 # 08 Maintainer Playbook and Continuation Handoff
 
-_Last reviewed: 2026-03-21 (baseline commit 399ef6a)._
+_Last reviewed: 2026-03-23 (baseline commit 884e632)._
 
 This file is the minimal context needed to resume the project after a pause.
 
@@ -216,6 +216,30 @@ For identity/scope resilience verification during startup and account-switch pat
 : `copy(JSON.stringify({
 :   runtime: window.obscurWindowRuntime?.getSnapshot?.() ?? null,
 :   digest: window.obscurAppEvents?.getDigest?.(300) ?? null,
+:   triage: window.obscurM0Triage?.capture?.(300) ?? null
+: }, null, 2))`
+
+### Post-v1 M2 Search-Jump Navigation Replay Checks
+
+For long-history in-chat search navigation validation:
+
+1. Requested jump evidence:
+: `window.obscurAppEvents.findByName("messaging.search_jump_requested", 30)`
+2. Resolved jump evidence:
+: `window.obscurAppEvents.findByName("messaging.search_jump_resolved", 30)`
+: verify `resolutionMode` (`id`/`timestamp_fallback`), `loadAttemptCount`, and `renderResolveAttemptCount`.
+3. Unresolved jump evidence:
+: `window.obscurAppEvents.findByName("messaging.search_jump_unresolved", 30)`
+: verify `reasonCode` (`target_dom_not_resolved_after_index_match`, `target_not_found_in_current_window`, `target_not_found_after_load_attempts`) before UI-level fixes.
+4. Compact digest confirmation:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.search_jump_requested"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.search_jump_resolved"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.search_jump_unresolved"]`
+5. Incident export bundle when jump does not move viewport:
+: `copy(JSON.stringify({
+:   requested: window.obscurAppEvents.findByName("messaging.search_jump_requested", 30),
+:   resolved: window.obscurAppEvents.findByName("messaging.search_jump_resolved", 30),
+:   unresolved: window.obscurAppEvents.findByName("messaging.search_jump_unresolved", 30),
 :   triage: window.obscurM0Triage?.capture?.(300) ?? null
 : }, null, 2))`
 
