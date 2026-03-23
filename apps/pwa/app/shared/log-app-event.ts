@@ -259,8 +259,10 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "conversationIdHint",
     "conversationKind",
     "targetMessageIdHint",
+    "targetTimestampMs",
   ],
   "messaging.search_jump_resolved": [
+    "resolutionMode",
     "conversationIdHint",
     "targetMessageIdHint",
     "resolvedMessageIdHint",

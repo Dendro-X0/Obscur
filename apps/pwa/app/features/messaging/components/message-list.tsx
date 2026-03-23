@@ -42,6 +42,7 @@ interface MessageListProps {
     nowMs: number | null;
     flashMessageId: string | null;
     jumpToMessageId?: string | null;
+    jumpToMessageTimestampMs?: number | null;
     onJumpToMessageHandled?: (messageId: string) => void;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
     openMessageMenuMessageId?: string | null;
@@ -83,6 +84,7 @@ function MessageListImpl({
     nowMs,
     flashMessageId,
     jumpToMessageId,
+    jumpToMessageTimestampMs,
     onJumpToMessageHandled,
     onOpenMessageMenu,
     openMessageMenuMessageId,
@@ -316,6 +318,11 @@ function MessageListImpl({
         let cancelled = false;
         const maxLoadAttempts = 36;
         const maxRenderResolveAttempts = 20;
+        const targetTimestampMs = (
+            typeof jumpToMessageTimestampMs === "number" && Number.isFinite(jumpToMessageTimestampMs)
+                ? jumpToMessageTimestampMs
+                : null
+        );
 
         const settleJump = (): void => {
             if (cancelled) {
@@ -385,6 +392,53 @@ function MessageListImpl({
                 return;
             }
 
+            if (targetTimestampMs !== null && messages.length > 0) {
+                const earliestTimestampMs = messages[0]?.timestamp.getTime();
+                if (
+                    Number.isFinite(earliestTimestampMs)
+                    && targetTimestampMs < earliestTimestampMs
+                    && jumpLoadAttemptCountRef.current < maxLoadAttempts
+                ) {
+                    jumpLoadAttemptCountRef.current += 1;
+                    jumpRenderResolveAttemptCountRef.current = 0;
+                    void Promise.resolve(onLoadEarlier());
+                    jumpResolveTimerRef.current = setTimeout(() => {
+                        settleJump();
+                    }, 180);
+                    return;
+                }
+
+                const fallbackIndex = messages.findIndex((message) => (
+                    message.timestamp.getTime() >= targetTimestampMs
+                ));
+                const resolvedIndex = fallbackIndex >= 0 ? fallbackIndex : Math.max(0, messages.length - 1);
+                const resolvedMessageId = messages[resolvedIndex]?.id ?? "unknown";
+                try {
+                    virtualizer.scrollToIndex(resolvedIndex, { align: "center", behavior: "auto" });
+                } catch {
+                    // Best-effort scroll to approximate timestamp position.
+                }
+                logAppEvent({
+                    name: "messaging.search_jump_resolved",
+                    level: "info",
+                    scope: { feature: "messaging", action: "search_jump" },
+                    context: {
+                        resolutionMode: "timestamp_fallback",
+                        conversationIdHint: toIdHint(conversationId ?? "unknown"),
+                        targetMessageIdHint: toIdHint(jumpToMessageId),
+                        resolvedMessageIdHint: toIdHint(resolvedMessageId),
+                        loadAttemptCount: jumpLoadAttemptCountRef.current,
+                        renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
+                        messageWindowCount: messages.length,
+                    },
+                });
+                onJumpToMessageHandled?.(jumpToMessageId);
+                jumpInFlightMessageIdRef.current = null;
+                jumpLoadAttemptCountRef.current = 0;
+                jumpRenderResolveAttemptCountRef.current = 0;
+                return;
+            }
+
             if (jumpLoadAttemptCountRef.current < maxLoadAttempts) {
                 jumpLoadAttemptCountRef.current += 1;
                 jumpRenderResolveAttemptCountRef.current = 0;
@@ -439,7 +493,7 @@ function MessageListImpl({
                 jumpResolveTimerRef.current = null;
             }
         };
-    }, [conversationId, jumpToMessageId, messages, onJumpToMessageHandled, onLoadEarlier, virtualizer]);
+    }, [conversationId, jumpToMessageId, jumpToMessageTimestampMs, messages, onJumpToMessageHandled, onLoadEarlier, virtualizer]);
 
     const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -731,6 +785,7 @@ const messageListPropsAreEqual = (prev: MessageListProps, next: MessageListProps
         prev.nowMs === next.nowMs &&
         prev.flashMessageId === next.flashMessageId &&
         prev.jumpToMessageId === next.jumpToMessageId &&
+        prev.jumpToMessageTimestampMs === next.jumpToMessageTimestampMs &&
         prev.onJumpToMessageHandled === next.onJumpToMessageHandled &&
         prev.onOpenMessageMenu === next.onOpenMessageMenu &&
         prev.openMessageMenuMessageId === next.openMessageMenuMessageId &&

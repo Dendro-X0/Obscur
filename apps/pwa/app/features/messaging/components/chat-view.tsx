@@ -24,6 +24,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 type ChatHistorySearchResult = Readonly<{
     messageId: string;
     timestamp: Date;
+    timestampMs: number;
     preview: string;
     resultKind: "text" | "voice_note";
     voiceDurationLabel: string | null;
@@ -123,6 +124,7 @@ export function ChatView(props: ChatViewProps) {
     const [isHistorySearching, setIsHistorySearching] = useState(false);
     const [historySearchResults, setHistorySearchResults] = useState<ReadonlyArray<ChatHistorySearchResult>>([]);
     const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
+    const [jumpToMessageTimestampMs, setJumpToMessageTimestampMs] = useState<number | null>(null);
     const [searchFlashMessageId, setSearchFlashMessageId] = useState<string | null>(null);
     const searchFlashTimeoutRef = React.useRef<number | null>(null);
     const [messageMenuAnchorHoverId, setMessageMenuAnchorHoverId] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export function ChatView(props: ChatViewProps) {
         return props.messages.find(m => m.id === messageId);
     };
 
-    const handleJumpToMessage = React.useCallback((messageId: string): void => {
+    const handleJumpToMessage = React.useCallback((params: Readonly<{ messageId: string; timestampMs: number }>): void => {
         logAppEvent({
             name: "messaging.search_jump_requested",
             level: "info",
@@ -163,10 +165,12 @@ export function ChatView(props: ChatViewProps) {
             context: {
                 conversationIdHint: toIdHint(props.conversation.id),
                 conversationKind: props.conversation.kind,
-                targetMessageIdHint: toIdHint(messageId),
+                targetMessageIdHint: toIdHint(params.messageId),
+                targetTimestampMs: params.timestampMs,
             },
         });
-        setJumpToMessageId(messageId);
+        setJumpToMessageId(params.messageId);
+        setJumpToMessageTimestampMs(params.timestampMs);
         setIsHistorySearchOpen(false);
     }, [props.conversation.id, props.conversation.kind]);
 
@@ -175,6 +179,7 @@ export function ChatView(props: ChatViewProps) {
         setHistorySearchResults([]);
         setIsHistorySearching(false);
         setJumpToMessageId(null);
+        setJumpToMessageTimestampMs(null);
         setSearchFlashMessageId(null);
         setIsHistorySearchOpen(false);
         setHistorySearchFilter("all");
@@ -217,6 +222,7 @@ export function ChatView(props: ChatViewProps) {
                         return {
                             messageId: result.message.id,
                             timestamp: new Date(result.message.timestampMs),
+                            timestampMs: result.message.timestampMs,
                             preview: contentPreview.trim().length > 0
                                 ? contentPreview
                                 : (voiceNoteMetadata?.isVoiceNote ? "Voice note" : ""),
@@ -250,6 +256,7 @@ export function ChatView(props: ChatViewProps) {
     }, []);
     const handleJumpToMessageHandled = React.useCallback((messageId: string): void => {
         setJumpToMessageId((current) => (current === messageId ? null : current));
+        setJumpToMessageTimestampMs(null);
         setSearchFlashMessageId(messageId);
         if (searchFlashTimeoutRef.current) {
             window.clearTimeout(searchFlashTimeoutRef.current);
@@ -539,7 +546,10 @@ export function ChatView(props: ChatViewProps) {
                                             <button
                                                 key={result.messageId}
                                                 type="button"
-                                                onClick={() => handleJumpToMessage(result.messageId)}
+                                                onClick={() => handleJumpToMessage({
+                                                    messageId: result.messageId,
+                                                    timestampMs: result.timestampMs,
+                                                })}
                                                 className="flex w-full flex-col items-start gap-1 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                                             >
                                                 <div className="flex w-full items-center justify-between gap-2">
@@ -612,6 +622,7 @@ export function ChatView(props: ChatViewProps) {
                     nowMs={props.nowMs}
                     flashMessageId={effectiveFlashMessageId}
                     jumpToMessageId={jumpToMessageId}
+                    jumpToMessageTimestampMs={jumpToMessageTimestampMs}
                     onJumpToMessageHandled={handleJumpToMessageHandled}
                     onOpenMessageMenu={handleOpenMessageMenu}
                     openMessageMenuMessageId={props.messageMenu?.messageId ?? null}

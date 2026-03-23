@@ -180,6 +180,7 @@ describe("ChatView history search", () => {
         await waitFor(() => {
             expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-hit-a");
         });
+        expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(5_000);
         await waitFor(() => {
             expect(screen.queryByPlaceholderText("Search message history in this chat...")).not.toBeInTheDocument();
         });
@@ -233,6 +234,7 @@ describe("ChatView history search", () => {
         await waitFor(() => {
             expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-voice-a");
         });
+        expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(7_000);
     });
 
     it("filters search results to voice notes when voice filter is selected", async () => {
@@ -281,5 +283,6 @@ describe("ChatView history search", () => {
         await waitFor(() => {
             expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-voice-b");
         });
+        expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(9_000);
     });
 });
