@@ -187,6 +187,22 @@ For community-governance visibility verification in Group Management:
 :   triage: window.obscurM0Triage?.capture?.(300) ?? null
 : }, null, 2))`
 
+### Post-v1 M2 Startup/Profile-Binding Diagnostics Replay Checks
+
+For identity/scope resilience verification during startup and account-switch paths:
+
+1. Profile-binding refresh diagnostics:
+: `window.obscurAppEvents.findByName("runtime.profile_binding_refresh_timeout", 30)`
+: `window.obscurAppEvents.findByName("runtime.profile_binding_refresh_failed", 30)`
+2. Auto-unlock scope drift diagnostics:
+: `window.obscurAppEvents.findByName("auth.auto_unlock_scope_drift_detected", 30)`
+3. Runtime/profile snapshot capture when drift appears:
+: `copy(JSON.stringify({
+:   runtime: window.obscurWindowRuntime?.getSnapshot?.() ?? null,
+:   digest: window.obscurAppEvents?.getDigest?.(300) ?? null,
+:   triage: window.obscurM0Triage?.capture?.(300) ?? null
+: }, null, 2))`
+
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 
 Use this compact capture first during two-device DM/group/media verification:

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DesktopProfileBootstrap, desktopProfileBootstrapInternals } from "./desktop-profile-bootstrap";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: vi.fn(),
@@ -13,7 +14,12 @@ vi.mock("@/app/features/profiles/services/desktop-profile-runtime", () => ({
   desktopProfileRuntime: {
     refresh: vi.fn(),
     getLastRefreshError: vi.fn(),
+    getSnapshot: vi.fn(),
   },
+}));
+
+vi.mock("@/app/shared/log-app-event", () => ({
+  logAppEvent: vi.fn(),
 }));
 
 describe("DesktopProfileBootstrap", () => {
@@ -23,6 +29,9 @@ describe("DesktopProfileBootstrap", () => {
     vi.mocked(hasNativeRuntime).mockReturnValue(false);
     vi.mocked(desktopProfileRuntime.refresh).mockResolvedValue({} as any);
     vi.mocked(desktopProfileRuntime.getLastRefreshError).mockReturnValue(null);
+    vi.mocked(desktopProfileRuntime.getSnapshot).mockReturnValue({
+      currentWindow: { profileId: "default" },
+    } as any);
   });
 
   afterEach(() => {
@@ -69,6 +78,31 @@ describe("DesktopProfileBootstrap", () => {
     expect(screen.getByText("ready-content")).toBeInTheDocument();
     expect(desktopProfileRuntime.refresh).toHaveBeenCalledTimes(1);
     expect(warnSpy).toHaveBeenCalled();
+    expect(logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
+      name: "runtime.profile_binding_refresh_timeout",
+      level: "warn",
+    }));
     warnSpy.mockRestore();
+  });
+
+  it("emits diagnostics when native profile refresh returns fallback with error", async () => {
+    vi.mocked(hasNativeRuntime).mockReturnValue(true);
+    vi.mocked(desktopProfileRuntime.refresh).mockResolvedValue({} as any);
+    vi.mocked(desktopProfileRuntime.getLastRefreshError).mockReturnValue("native profile snapshot failed");
+
+    render(
+      <DesktopProfileBootstrap>
+        <div>ready-content</div>
+      </DesktopProfileBootstrap>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("ready-content")).toBeInTheDocument();
+    });
+
+    expect(logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
+      name: "runtime.profile_binding_refresh_failed",
+      level: "warn",
+    }));
   });
 });

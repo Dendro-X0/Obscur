@@ -6,6 +6,30 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+## [Unreleased - v1.0.2 Preparation]
+
+### Changed
+
+- Started post-v1 `M2` identity/sync hardening (diagnostics-first, no owner model changes):
+  - startup profile-binding bootstrap now emits reason-coded diagnostics when native profile resolution times out or falls back with an error:
+    - `runtime.profile_binding_refresh_timeout`,
+    - `runtime.profile_binding_refresh_failed`.
+  - auto-unlock now emits explicit scope-drift diagnostics when bound-profile startup has to rely on cross-profile fallback remember/token scope:
+    - `auth.auto_unlock_scope_drift_detected`.
+- Added focused regression coverage for this M2-A slice:
+  - `app/features/profiles/components/desktop-profile-bootstrap.test.tsx`,
+  - `app/features/auth/components/auth-gateway.test.tsx`.
+- Updated post-v1 roadmap/maintainer monitoring docs with new M2 diagnostics probes:
+  - `docs/21-post-v1-value-roadmap.md`,
+  - `docs/08-maintainer-playbook.md`,
+  - `ISSUES.md`.
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/profiles/components/desktop-profile-bootstrap.test.tsx app/features/auth/components/auth-gateway.test.tsx`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm docs:check`
+
 ## [v1.0.1] - 2026-03-23
 
 ### Changed

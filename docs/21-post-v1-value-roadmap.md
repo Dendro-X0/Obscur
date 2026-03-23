@@ -166,6 +166,18 @@ Acceptance:
 2. async voice works on supported runtimes and fails explicitly otherwise,
 3. no startup-binding regressions in restart/account-switch flows.
 
+Current execution status (started 2026-03-23):
+1. Startup/profile-binding diagnostics hardening slice landed on canonical startup owners:
+: `runtime.profile_binding_refresh_timeout` and `runtime.profile_binding_refresh_failed` now emit reason-coded app events from
+: `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.tsx`.
+2. Auto-unlock scope drift detection landed:
+: `auth.auto_unlock_scope_drift_detected` now emits when bound-profile startup relies on cross-profile fallback remember/token scope in
+: `apps/pwa/app/features/auth/components/auth-gateway.tsx`.
+3. Focused regression coverage added and passing:
+: `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.test.tsx`
+: `apps/pwa/app/features/auth/components/auth-gateway.test.tsx`
+: plus `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
 Scope:

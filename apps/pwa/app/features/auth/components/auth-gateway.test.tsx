@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthGateway } from "./auth-gateway";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 const authGatewayMocks = vi.hoisted(() => ({
   identityState: {
@@ -54,6 +55,10 @@ vi.mock("@/app/features/auth/utils/auth-storage-keys", () => ({
     `token::${profileId}`,
     "token::legacy",
   ],
+}));
+
+vi.mock("@/app/shared/log-app-event", () => ({
+  logAppEvent: vi.fn(),
 }));
 
 describe("AuthGateway", () => {
@@ -187,5 +192,29 @@ describe("AuthGateway", () => {
       expect(authGatewayMocks.retryNativeSessionUnlock).toHaveBeenCalledTimes(1);
     });
     expect(authGatewayMocks.runtime.unlockBoundProfile).not.toHaveBeenCalled();
+  });
+
+  it("emits scope drift diagnostics when only fallback profile token candidates exist", async () => {
+    authGatewayMocks.runtime.snapshot.session.profileId = "bound-profile";
+    localStorage.setItem("obscur_auth_token::other-profile", "token-from-other-profile");
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    await waitFor(() => {
+      expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenCalledTimes(1);
+    });
+
+    expect(logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
+      name: "auth.auto_unlock_scope_drift_detected",
+      level: "warn",
+      context: expect.objectContaining({
+        profileId: "bound-profile",
+        reasonCode: "fallback_token_profile_mismatch",
+      }),
+    }));
   });
 });

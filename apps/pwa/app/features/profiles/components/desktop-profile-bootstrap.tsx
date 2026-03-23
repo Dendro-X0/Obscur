@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 const PROFILE_REFRESH_RETRY_MS = 30_000;
 const PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS = 8_000;
@@ -64,6 +65,18 @@ export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactN
       }
       if (outcome === "timed_out") {
         settleFirstAttempt();
+        const currentProfileId = desktopProfileRuntime.getSnapshot?.().currentWindow.profileId ?? "unknown";
+        logAppEvent({
+          name: "runtime.profile_binding_refresh_timeout",
+          level: "warn",
+          scope: { feature: "runtime", action: "profile_boot" },
+          context: {
+            reasonCode: "profile_binding_refresh_timed_out",
+            profileId: currentProfileId,
+            bootstrapDeadlineMs: PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS,
+            retryInMs: PROFILE_REFRESH_RETRY_MS,
+          },
+        });
         console.warn(
           "[DesktopProfileBootstrap] Profile resolution exceeded startup deadline; continuing with fallback profile scope.",
         );
@@ -73,6 +86,19 @@ export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactN
       const refreshError = desktopProfileRuntime.getLastRefreshError();
       settleFirstAttempt();
       if (refreshError) {
+        const currentProfileId = desktopProfileRuntime.getSnapshot?.().currentWindow.profileId ?? "unknown";
+        logAppEvent({
+          name: "runtime.profile_binding_refresh_failed",
+          level: "warn",
+          scope: { feature: "runtime", action: "profile_boot" },
+          context: {
+            reasonCode: "profile_binding_refresh_failed",
+            profileId: currentProfileId,
+            bootstrapDeadlineMs: PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS,
+            retryInMs: PROFILE_REFRESH_RETRY_MS,
+            error: refreshError.slice(0, 160),
+          },
+        });
         console.error("[DesktopProfileBootstrap] Failed to resolve window profile binding:", new Error(refreshError));
         scheduleRetry();
       }

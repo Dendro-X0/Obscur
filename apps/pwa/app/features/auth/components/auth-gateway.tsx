@@ -47,6 +47,29 @@ const collectScopedStorageValues = (baseKey: string): ReadonlyArray<string> => {
   return values;
 };
 
+const collectScopedStorageProfileIds = (baseKey: string): ReadonlyArray<string> => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  const scopedPrefix = `${baseKey}::`;
+  const profileIds = new Set<string>();
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!key) {
+      continue;
+    }
+    const value = window.localStorage.getItem(key);
+    if (key === baseKey && value && value.length > 0) {
+      profileIds.add("default");
+      continue;
+    }
+    if (key.startsWith(scopedPrefix) && value && value.length > 0) {
+      profileIds.add(key.slice(scopedPrefix.length));
+    }
+  }
+  return [...profileIds];
+};
+
 const isLikelyCredentialFailure = (error: unknown): boolean => {
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
@@ -123,6 +146,38 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
       const autoUnlockEligible = hasTokenCandidates;
       const rememberSource = rememberedValues.length > 0 ? "scoped" : (fallbackRememberedValues.length > 0 ? "fallback" : "none");
       const tokenSource = tokenCandidates.length > 0 ? "scoped" : (fallbackTokenCandidates.length > 0 ? "fallback" : "none");
+      const fallbackTokenProfileIds = tokenCandidates.length > 0
+        ? []
+        : collectScopedStorageProfileIds(AUTH_TOKEN_BASE_KEY);
+      const fallbackRememberProfileIds = rememberedValues.length > 0
+        ? []
+        : collectScopedStorageProfileIds(REMEMBER_ME_BASE_KEY);
+      const fallbackTokenCrossProfile = tokenSource === "fallback"
+        && fallbackTokenProfileIds.some((candidateProfileId) => candidateProfileId !== profileId);
+      const fallbackRememberCrossProfile = rememberSource === "fallback"
+        && fallbackRememberProfileIds.some((candidateProfileId) => candidateProfileId !== profileId);
+      if (fallbackTokenCrossProfile || fallbackRememberCrossProfile) {
+        const driftReasonCode = fallbackTokenCrossProfile
+          ? "fallback_token_profile_mismatch"
+          : "fallback_remember_profile_mismatch";
+        logAppEvent({
+          name: "auth.auto_unlock_scope_drift_detected",
+          level: "warn",
+          scope: { feature: "auth", action: "auto_unlock" },
+          context: {
+            profileId,
+            reasonCode: driftReasonCode,
+            tokenSource,
+            rememberSource,
+            scopedTokenCandidateCount: tokenCandidates.length,
+            fallbackTokenCandidateCount: fallbackTokenCandidates.length,
+            scopedRememberCandidateCount: rememberedValues.length,
+            fallbackRememberCandidateCount: fallbackRememberedValues.length,
+            fallbackTokenProfileSample: fallbackTokenProfileIds.slice(0, 4).join("|") || "none",
+            fallbackRememberProfileSample: fallbackRememberProfileIds.slice(0, 4).join("|") || "none",
+          },
+        });
+      }
       logAppEvent({
         name: "auth.auto_unlock_scan",
         level: "info",

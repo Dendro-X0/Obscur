@@ -32,6 +32,13 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - focused operator-health regression coverage is green (`community-operator-health.test.ts`),
   - M1 closeout automation replay is green on 2026-03-23 (`vitest` focused suites + `tsc --noEmit` + `docs:check`),
   - remaining gate: manual two-device replay evidence for anti-abuse quarantine and community operator visibility before marking M1 complete.
+- M2 status (started 2026-03-23):
+  - startup/profile-binding diagnostics hardening landed with reason-coded events:
+    - `runtime.profile_binding_refresh_timeout`,
+    - `runtime.profile_binding_refresh_failed`,
+  - startup auto-unlock now emits explicit scope drift diagnostics:
+    - `auth.auto_unlock_scope_drift_detected` when fallback credentials imply cross-profile scope mismatch,
+  - focused M2-A suites are green (`desktop-profile-bootstrap`, `auth-gateway`, plus `tsc --noEmit`).
 
 ## v1 Readiness Status
 
