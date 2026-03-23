@@ -225,8 +225,15 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       `app/shared/m0-triage-capture.ts`,
     - maintainer anti-abuse replay checks now include digest summary probes in
       `docs/08-maintainer-playbook.md`,
+  - CP3 prep helper landed:
+    - one-copy anti-abuse evidence export is available via
+      `window.obscurM7AntiAbuseCapture?.captureJson(400)` from
+      `app/shared/m7-anti-abuse-capture.ts`,
+    - helper is installed at boot in
+      `app/components/providers.tsx`,
   - focused CP2 automation replay is green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
   - remaining before CP1+CP2 closeout:
     - capture manual two-device anti-abuse replay evidence (`peer_rate_limited -> peer_cooldown_active -> digest summary`) and attach diagnostics export.

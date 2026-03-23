@@ -170,6 +170,8 @@ For incoming request-spam verification, capture these evidence points:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.incomingRequestAntiAbuse`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.request.incoming_quarantined"]`
 : verify reason-coded counters (`peerRateLimitedCount`, `peerCooldownActiveCount`, `globalRateLimitedCount`) and latest reason transition.
+6. One-copy anti-abuse checkpoint bundle:
+: `copy(window.obscurM7AntiAbuseCapture?.captureJson(400))`
 
 ### Post-v1 M1 Community Operator Visibility Replay Checks
 

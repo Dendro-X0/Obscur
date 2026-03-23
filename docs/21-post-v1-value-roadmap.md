@@ -447,10 +447,15 @@ Current execution status:
 : `apps/pwa/app/shared/m0-triage-capture.ts`.
 7. Maintainer replay runbook now includes anti-abuse digest summary checks:
 : `docs/08-maintainer-playbook.md`.
-8. Focused CP2 validation is green:
+8. CP3 prep helper landed for one-copy anti-abuse evidence export:
+: `window.obscurM7AntiAbuseCapture.captureJson(400)` in
+: `apps/pwa/app/shared/m7-anti-abuse-capture.ts`,
+: installed at app boot in `apps/pwa/app/components/providers.tsx`.
+9. Focused CP2/CP3-prep validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
-9. Remaining before declaring CP1+CP2 complete:
+10. Remaining before declaring CP1+CP2 complete:
 : capture two-device anti-abuse replay evidence bundle for rate-limit -> cooldown -> digest-summary behavior.
 
 ## Version-Bound Execution

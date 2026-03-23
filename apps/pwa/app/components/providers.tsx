@@ -11,6 +11,7 @@ import { installM0TriageCapture } from "@/app/shared/m0-triage-capture";
 import { installM4StabilizationCapture } from "@/app/shared/m4-stabilization-capture";
 import { installM6VoiceCapture } from "@/app/shared/m6-voice-capture";
 import { installM6VoiceReplayBridge } from "@/app/shared/m6-voice-replay-bridge";
+import { installM7AntiAbuseCapture } from "@/app/shared/m7-anti-abuse-capture";
 
 const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_last_event.v1";
 
@@ -27,6 +28,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
         installM4StabilizationCapture();
         installM6VoiceCapture();
         installM6VoiceReplayBridge();
+        installM7AntiAbuseCapture();
         window.dispatchEvent(new Event("obscur:boot-ready"));
     }, []);
 

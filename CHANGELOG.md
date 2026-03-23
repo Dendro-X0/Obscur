@@ -31,6 +31,15 @@
 - Added focused diagnostics regression coverage for M7 CP2:
   - `apps/pwa/app/shared/log-app-event.test.ts`
   - `apps/pwa/app/shared/m0-triage-capture.test.ts`
+- Started `M7` CP3 prep with one-copy anti-abuse evidence helper:
+  - added `window.obscurM7AntiAbuseCapture.captureJson(400)` in:
+    - `apps/pwa/app/shared/m7-anti-abuse-capture.ts`
+  - helper is installed during app boot in:
+    - `apps/pwa/app/components/providers.tsx`
+  - maintainer anti-abuse replay runbook now includes helper usage in:
+    - `docs/08-maintainer-playbook.md`
+- Added focused regression coverage for M7 CP3 prep helper:
+  - `apps/pwa/app/shared/m7-anti-abuse-capture.test.ts`
 - Synced roadmap/status docs for `v1.0.9` kickoff and `v1.0.8` closeout:
   - `README.md`
   - `docs/21-post-v1-value-roadmap.md`
@@ -41,6 +50,7 @@
 
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 
 ## [v1.0.8] - 2026-03-23
