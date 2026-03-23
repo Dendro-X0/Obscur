@@ -73,10 +73,13 @@ describe("m0-triage-capture", () => {
       if (name === "runtime.profile_boot_stall_timeout") {
         return [{ name, atUnixMs: 1, level: "warn" }];
       }
+      if (name === "runtime.profile_binding_refresh_timeout" || name === "auth.auto_unlock_scope_drift_detected") {
+        return [{ name, atUnixMs: 5, level: "warn" }];
+      }
       if (name === "navigation.route_stall_hard_fallback" || name === "navigation.route_mount_probe_slow") {
         return [{ name, atUnixMs: 2, level: "warn" }];
       }
-      if (name === "account_sync.backup_restore_merge_diagnostics") {
+      if (name === "account_sync.backup_restore_merge_diagnostics" || name === "groups.room_key_missing_send_blocked") {
         return [{ name, atUnixMs: 3, level: "info" }];
       }
       if (name === "messaging.conversation_hydration_diagnostics") {
@@ -99,8 +102,15 @@ describe("m0-triage-capture", () => {
     };
 
     expect(bundle.events.focusedByCategory.startup.some((entry) => entry.name === "runtime.profile_boot_stall_timeout")).toBe(true);
+    expect(bundle.events.focusedByCategory.startup.some((entry) => (
+      entry.name === "runtime.profile_binding_refresh_timeout"
+      || entry.name === "auth.auto_unlock_scope_drift_detected"
+    ))).toBe(true);
     expect(bundle.events.focusedByCategory.navigation.some((entry) => entry.name === "navigation.route_stall_hard_fallback" || entry.name === "navigation.route_mount_probe_slow")).toBe(true);
-    expect(bundle.events.focusedByCategory.sync_restore.some((entry) => entry.name === "account_sync.backup_restore_merge_diagnostics")).toBe(true);
+    expect(bundle.events.focusedByCategory.sync_restore.some((entry) => (
+      entry.name === "account_sync.backup_restore_merge_diagnostics"
+      || entry.name === "groups.room_key_missing_send_blocked"
+    ))).toBe(true);
     expect(bundle.events.focusedByCategory.media_hydration.some((entry) => entry.name === "messaging.conversation_hydration_diagnostics")).toBe(true);
     expect(findByName).toHaveBeenCalled();
   });
