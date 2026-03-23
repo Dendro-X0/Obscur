@@ -6,6 +6,37 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
+## [v1.0.4] - 2026-03-23
+
+### Changed
+
+- Advanced post-v1 `M2` closeout with deterministic in-chat search navigation hardening:
+  - search jump requests now include timestamp context from search results,
+  - timeline jump resolution now supports timestamp-based fallback when direct message-id lookup is unavailable in the currently hydrated/virtualized window,
+  - jump path now emits explicit diagnostics for requested/resolved/unresolved outcomes with reason codes and attempt counters:
+    - `messaging.search_jump_requested`,
+    - `messaging.search_jump_resolved`,
+    - `messaging.search_jump_unresolved`.
+- Extended observability and triage surfaces for jump failures:
+  - added search-jump events to cross-device digest compact event slices in `app/shared/log-app-event.ts`,
+  - added search-jump events to M0 triage focus capture in `app/shared/m0-triage-capture.ts`,
+  - added dedicated M2 search-jump replay evidence checklist in `docs/08-maintainer-playbook.md`.
+- Locked version-bound milestone cadence for next phases (`v1.0.4 -> M2`, `v1.0.5 -> M3`, `v1.0.6 -> M4`) in:
+  - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/chat-view.test.tsx app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm version:check`
+- `pnpm docs:check`
+- `pnpm release:test-pack -- --skip-preflight`
+- `pnpm release:preflight -- --tag v1.0.4`
+
+### Operator Note
+
+- Manual CP3 two-device evidence capture was explicitly skipped by operator override for this release pass.
+
 ## [v1.0.3] - 2026-03-23
 
 ### Changed
