@@ -21,6 +21,9 @@ Maintainer note:
   - message timeline audio cards now render voice-note-aware labels and parsed duration chips directly in-bubble (when filename metadata is present):
     - shared attachment presentation metadata: `apps/pwa/app/features/messaging/components/message-attachment-layout.ts`,
     - audio bubble rendering: `apps/pwa/app/features/messaging/components/message-list.tsx`.
+  - voice-note playback context polish:
+    - `AudioPlayer` now renders a voice-note context row (`Voice Note` + recorded-at label) when parsed metadata is available,
+    - timeline and lightbox audio paths now pass typed voice-note metadata into the player from canonical attachment metadata contracts.
   - `VoiceRecorder` now emits duration-aware output filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and a completion diagnostic:
     - `messaging.voice_note.recording_complete`.
   - composer audio preview now labels detected voice notes with parsed duration metadata (`Voice m:ss`) for immediate UX feedback.
@@ -33,6 +36,7 @@ Maintainer note:
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/voice-note-metadata.test.ts app/features/messaging/services/message-search-index.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/chat-view.test.tsx`
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/message-attachment-layout.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/voice-note-metadata.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 
 ## [v1.0.2] - 2026-03-23

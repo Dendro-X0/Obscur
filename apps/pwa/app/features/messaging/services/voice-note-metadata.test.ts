@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildVoiceNoteSearchTokens,
+  formatVoiceNoteRecordedAtLabel,
   formatVoiceNoteDurationLabel,
   getVoiceNoteAttachmentMetadata,
   parseVoiceNoteFileName,
@@ -55,5 +56,15 @@ describe("voice-note-metadata", () => {
     expect(formatVoiceNoteDurationLabel(5)).toBe("0:05");
     expect(formatVoiceNoteDurationLabel(125)).toBe("2:05");
   });
-});
 
+  it("formats recorded-at labels for valid unix-ms timestamps", () => {
+    const label = formatVoiceNoteRecordedAtLabel(1774249000000);
+    expect(typeof label).toBe("string");
+    expect(label).toBeTruthy();
+  });
+
+  it("returns null for invalid recorded-at timestamps", () => {
+    expect(formatVoiceNoteRecordedAtLabel(-10)).toBeNull();
+    expect(formatVoiceNoteRecordedAtLabel(Number.NaN)).toBeNull();
+  });
+});

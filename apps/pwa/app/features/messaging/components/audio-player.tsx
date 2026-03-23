@@ -6,17 +6,22 @@ import { cn } from "@dweb/ui-kit";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { openNativeExternal } from "@/app/features/runtime/native-host-adapter";
+import {
+    formatVoiceNoteRecordedAtLabel,
+    type VoiceNoteAttachmentMetadata,
+} from "@/app/features/messaging/services/voice-note-metadata";
 
 interface AudioPlayerProps {
     src: string;
     isOutgoing: boolean;
     className?: string;
+    voiceNoteMetadata?: VoiceNoteAttachmentMetadata | null;
 }
 
 /**
  * Minimalist inline audio player for voice notes
  */
-export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
+export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = null }: AudioPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -105,6 +110,11 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
     };
 
     const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
+    const recordedAtLabel = (
+        voiceNoteMetadata?.isVoiceNote && typeof voiceNoteMetadata.recordedAtUnixMs === "number"
+            ? formatVoiceNoteRecordedAtLabel(voiceNoteMetadata.recordedAtUnixMs)
+            : null
+    );
 
     return (
         <div className={cn(
@@ -173,6 +183,17 @@ export function AudioPlayer({ src, isOutgoing, className }: AudioPlayerProps) {
                             Retry
                         </button>
                     </div>
+                </div>
+            ) : null}
+
+            {voiceNoteMetadata?.isVoiceNote ? (
+                <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300/80">
+                    <span className="inline-flex items-center rounded-md border border-purple-400/30 bg-purple-500/10 px-2 py-1 text-purple-700 dark:text-purple-300">
+                        Voice Note
+                    </span>
+                    <span className="truncate text-right text-zinc-500 dark:text-zinc-400">
+                        {recordedAtLabel ?? "Recorded recently"}
+                    </span>
                 </div>
             ) : null}
 

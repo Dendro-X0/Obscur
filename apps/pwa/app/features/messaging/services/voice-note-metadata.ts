@@ -30,6 +30,27 @@ export const formatVoiceNoteDurationLabel = (durationSecondsInput: number): stri
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
+export const formatVoiceNoteRecordedAtLabel = (recordedAtUnixMsInput: number): string | null => {
+  const recordedAtUnixMs = Math.floor(recordedAtUnixMsInput);
+  if (!Number.isFinite(recordedAtUnixMs) || recordedAtUnixMs <= 0) {
+    return null;
+  }
+  const recordedAtDate = new Date(recordedAtUnixMs);
+  if (Number.isNaN(recordedAtDate.getTime())) {
+    return null;
+  }
+  const dateLabel = recordedAtDate.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  const timeLabel = recordedAtDate.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${dateLabel} ${timeLabel}`;
+};
+
 export const parseVoiceNoteFileName = (fileNameInput: string): VoiceNoteAttachmentMetadata => {
   const fileName = fileNameInput.trim().toLowerCase();
   if (fileName.length === 0 || !fileName.startsWith(VOICE_NOTE_FILENAME_PREFIX)) {

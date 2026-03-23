@@ -7,6 +7,7 @@ import { VideoPlayer } from "./video-player";
 import { inferAttachmentKind } from "../utils/logic";
 import type { MediaItem } from "../types";
 import { cn } from "@/app/lib/utils";
+import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { ChevronLeft, ChevronRight, Download, Minus, Plus, RotateCcw, X } from "lucide-react";
 import {
@@ -90,7 +91,11 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
             />
           ) : kind === "audio" ? (
             <div className="p-6">
-              <AudioPlayer src={item.attachment.url} isOutgoing={false} />
+              <AudioPlayer
+                src={item.attachment.url}
+                isOutgoing={false}
+                voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item.attachment)}
+              />
             </div>
           ) : (
             <VideoPlayer src={item.attachment.url} isOutgoing={false} className="max-h-[90vh]" />
@@ -258,7 +263,11 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
           </div>
         ) : kind === "audio" ? (
           <div className="w-full max-w-2xl rounded-3xl border border-zinc-300/60 bg-white/70 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/70 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
-            <AudioPlayer src={item!.attachment.url} isOutgoing={false} />
+            <AudioPlayer
+              src={item!.attachment.url}
+              isOutgoing={false}
+              voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item!.attachment)}
+            />
           </div>
         ) : (
           <div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/70 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/70 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>

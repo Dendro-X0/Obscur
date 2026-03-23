@@ -1315,7 +1315,12 @@ function MessageAttachmentLayout({
                                     <ExternalLink className="h-4 w-4" />
                                 </a>
                             </div>
-                            <AudioPlayer src={attachment.url} isOutgoing={isOutgoing} className="max-w-none min-w-0" />
+                            <AudioPlayer
+                                src={attachment.url}
+                                isOutgoing={isOutgoing}
+                                className="max-w-none min-w-0"
+                                voiceNoteMetadata={voiceNoteMetadataByUrl[attachment.url] ?? null}
+                            />
                         </div>
                     ))}
                 </div>
