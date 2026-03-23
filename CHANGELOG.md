@@ -6,7 +6,29 @@ Maintainer note:
 - The `v0.9.2` constrained-release blocker set is retained as historical context and no longer represents current active blocker truth.
 - Current runtime monitoring truth is tracked in `ISSUES.md`, with latest plan closure in `docs/18-v0.9.3-execution-plan.md`.
 
-## [Unreleased - v1.0.2 Preparation]
+## [Unreleased - v1.0.3 Planning]
+
+### Changed
+
+- Continued post-v1 `M2` Voice Stage A hardening without introducing new runtime/sync owners:
+  - added typed voice-note metadata parsing + search token contracts in:
+    - `apps/pwa/app/features/messaging/services/voice-note-metadata.ts`,
+    - `apps/pwa/app/features/messaging/services/message-search-index.ts`.
+  - chat history search now indexes attachment metadata (including voice-note filename/duration tokens) rather than content-only text:
+    - `apps/pwa/app/features/messaging/services/chat-state-store.ts`.
+  - `VoiceRecorder` now emits duration-aware output filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and a completion diagnostic:
+    - `messaging.voice_note.recording_complete`.
+  - composer audio preview now labels detected voice notes with parsed duration metadata (`Voice m:ss`) for immediate UX feedback.
+- Added focused regression coverage:
+  - `apps/pwa/app/features/messaging/services/voice-note-metadata.test.ts`,
+  - `apps/pwa/app/features/messaging/services/message-search-index.test.ts`.
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/voice-note-metadata.test.ts app/features/messaging/services/message-search-index.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+
+## [v1.0.2] - 2026-03-23
 
 ### Changed
 

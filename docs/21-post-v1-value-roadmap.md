@@ -210,6 +210,15 @@ Current execution status (started 2026-03-23):
 : `apps/pwa/app/features/messaging/services/voice-note-recording-capability.ts`
 : with focused regression coverage in
 : `apps/pwa/app/features/messaging/services/voice-note-recording-capability.test.ts`.
+13. Voice-note Stage A metadata/search-readiness slice landed:
+: added typed voice-note metadata parsing + search token contracts in
+: `apps/pwa/app/features/messaging/services/voice-note-metadata.ts`
+: and message search indexing helpers in
+: `apps/pwa/app/features/messaging/services/message-search-index.ts`.
+: chat-history search now indexes attachment metadata (including voice-note duration/name tokens) via
+: `apps/pwa/app/features/messaging/services/chat-state-store.ts`.
+: recorder output now includes duration-aware filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and completion diagnostics (`messaging.voice_note.recording_complete`) from
+: `apps/pwa/app/features/messaging/components/voice-recorder.tsx`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

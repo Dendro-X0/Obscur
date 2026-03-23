@@ -32,6 +32,7 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const recordingDurationSecondsRef = useRef(0);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     const releaseStream = useCallback(() => {
@@ -67,9 +68,9 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
     };
 
     const startRecording = async () => {
+        const capability = getVoiceNoteRecordingCapability();
+        setRecordingCapability(capability);
         try {
-            const capability = getVoiceNoteRecordingCapability();
-            setRecordingCapability(capability);
             if (!capability.supported) {
                 const runtimeCapabilities = getRuntimeCapabilities();
                 logAppEvent({
@@ -95,6 +96,7 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
             const outputMimeType = recorder.mimeType || capability.preferredMimeType || "audio/webm";
             mediaRecorderRef.current = recorder;
             chunksRef.current = [];
+            recordingDurationSecondsRef.current = 0;
 
             recorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
@@ -117,12 +119,25 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
                     return;
                 }
                 const blob = new Blob(chunksRef.current, { type: outputMimeType });
+                const durationSeconds = Math.max(0, Math.floor(recordingDurationSecondsRef.current));
                 const extension = outputMimeType.includes("ogg")
                     ? "ogg"
                     : outputMimeType.includes("mp4")
                         ? "m4a"
                         : "webm";
-                const file = new File([blob], `voice-note-${Date.now()}.${extension}`, { type: outputMimeType });
+                const fileName = `voice-note-${Date.now()}-d${durationSeconds}.${extension}`;
+                const file = new File([blob], fileName, { type: outputMimeType });
+                logAppEvent({
+                    name: "messaging.voice_note.recording_complete",
+                    level: "info",
+                    scope: { feature: "messaging", action: "voice_note_record" },
+                    context: {
+                        reasonCode: "completed",
+                        durationSeconds,
+                        mimeType: outputMimeType,
+                        byteLength: blob.size,
+                    },
+                });
                 onRecordingComplete(file);
 
                 // Stop all tracks to release microphone
@@ -132,8 +147,10 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
             recorder.start();
             setIsRecording(true);
             setRecordingTime(0);
+            recordingDurationSecondsRef.current = 0;
             timerRef.current = setInterval(() => {
-                setRecordingTime(prev => prev + 1);
+                recordingDurationSecondsRef.current += 1;
+                setRecordingTime(recordingDurationSecondsRef.current);
             }, 1000);
         } catch (err) {
             const reasonCode = classifyStartFailureReasonCode(err);
@@ -145,9 +162,9 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
                 context: {
                     reasonCode,
                     errorName: err instanceof Error ? err.name : null,
-                    hasMediaDevices: recordingCapability.hasMediaDevices,
-                    hasMediaRecorder: recordingCapability.hasMediaRecorder,
-                    isSecureContext: recordingCapability.isSecureContext,
+                    hasMediaDevices: capability.hasMediaDevices,
+                    hasMediaRecorder: capability.hasMediaRecorder,
+                    isSecureContext: capability.isSecureContext,
                     isNativeRuntime: runtimeCapabilities.isNativeRuntime,
                 },
             });

@@ -13,6 +13,7 @@ import { messagingDB } from "@dweb/storage/indexed-db";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { buildMessageSearchIndexText } from "@/app/features/messaging/services/message-search-index";
 
 export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
 
@@ -296,7 +297,8 @@ class ChatStateStore {
                 const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
                 if (cursor) {
                     const msg = cursor.value;
-                    if (msg.content && msg.content.toLowerCase().includes(lowerQuery)) {
+                    const searchIndexText = buildMessageSearchIndexText(msg);
+                    if (searchIndexText.includes(lowerQuery)) {
                         results.push({
                             conversationId: msg.conversationId,
                             message: msg

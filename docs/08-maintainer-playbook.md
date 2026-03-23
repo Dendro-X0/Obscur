@@ -203,13 +203,16 @@ For identity/scope resilience verification during startup and account-switch pat
 : `window.obscurAppEvents.findByName("messaging.voice_note.recording_unsupported", 30)`
 : `window.obscurAppEvents.findByName("messaging.voice_note.recording_start_failed", 30)`
 : verify reason-coded unsupported/runtime capability context before treating voice-note failures as transport errors.
-5. Room-key portability mismatch diagnostics:
+5. Voice note completion metadata diagnostics:
+: `window.obscurAppEvents.findByName("messaging.voice_note.recording_complete", 30)`
+: verify emitted `durationSeconds`, `mimeType`, and `byteLength` fields for recorded voice notes before sync/search triage.
+6. Room-key portability mismatch diagnostics:
 : `window.obscurAppEvents.findByName("groups.room_key_missing_send_blocked", 30)`
 : verify `reasonCode` (`no_local_room_keys`, `target_room_key_missing_local_profile_scope`, `target_room_key_record_unreadable`, `room_key_store_unavailable`) and `activeProfileId`/`localRoomKeyCount` context.
-6. Backup-restore profile scope mismatch diagnostics:
+7. Backup-restore profile scope mismatch diagnostics:
 : `window.obscurAppEvents.findByName("account_sync.backup_restore_profile_scope_mismatch", 30)`
 : verify `reasonCode` (`requested_profile_not_active`, `active_profile_changed_during_restore`, `active_profile_changed_after_apply`) with `requestedProfileId` vs `activeProfileIdBeforeApply`.
-7. Runtime/profile snapshot capture when drift appears:
+8. Runtime/profile snapshot capture when drift appears:
 : `copy(JSON.stringify({
 :   runtime: window.obscurWindowRuntime?.getSnapshot?.() ?? null,
 :   digest: window.obscurAppEvents?.getDigest?.(300) ?? null,

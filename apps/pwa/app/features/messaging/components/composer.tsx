@@ -11,6 +11,7 @@ import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { VoiceRecorder } from "./voice-recorder";
 import type { ReplyTo, RelayStatusSummary } from "../types";
 import { BEST_EFFORT_STORAGE_NOTE } from "../lib/media-upload-policy";
+import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 
 interface ComposerProps {
     messageInput: string;
@@ -269,7 +270,22 @@ export function Composer({
                                                     <div className="w-1 h-2 bg-white animate-pulse" style={{ animationDelay: '0.2s' }} />
                                                 </div>
                                             </div>
-                                            <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80">Audio</span>
+                                            <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80">
+                                                {(() => {
+                                                    const voiceMetadata = getVoiceNoteAttachmentMetadata({
+                                                        kind: "audio",
+                                                        fileName: file.name,
+                                                        contentType: file.type,
+                                                    });
+                                                    if (!voiceMetadata.isVoiceNote) {
+                                                        return "Audio";
+                                                    }
+                                                    if (voiceMetadata.durationLabel) {
+                                                        return `Voice ${voiceMetadata.durationLabel}`;
+                                                    }
+                                                    return "Voice";
+                                                })()}
+                                            </span>
                                         </div>
                                     ) : (
                                         <div className="h-full w-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
