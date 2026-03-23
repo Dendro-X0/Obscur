@@ -8,6 +8,10 @@ const runtimeActivationMocks = vi.hoisted(() => ({
       phase: "activating_runtime",
       degradedReason: "none",
       lastError: undefined as string | undefined,
+      session: {
+        profileId: "default",
+        unlockedPublicKeyHex: "f".repeat(64),
+      },
       relayRuntime: {
         phase: "healthy",
         recovery: { readiness: "healthy" },
@@ -35,6 +39,7 @@ const runtimeActivationMocks = vi.hoisted(() => ({
   },
   relayListReplaceRelays: vi.fn(),
   accountSyncSnapshot: {
+    publicKeyHex: "f".repeat(64),
     phase: "ready",
     status: "public_restored",
     message: "Ready",
@@ -118,6 +123,8 @@ describe("RuntimeActivationManager", () => {
     runtimeActivationMocks.runtime.snapshot.phase = "activating_runtime";
     runtimeActivationMocks.runtime.snapshot.degradedReason = "none";
     runtimeActivationMocks.runtime.snapshot.lastError = undefined;
+    runtimeActivationMocks.runtime.snapshot.session.profileId = "default";
+    runtimeActivationMocks.runtime.snapshot.session.unlockedPublicKeyHex = "f".repeat(64);
     runtimeActivationMocks.runtime.snapshot.relayRuntime.phase = "healthy";
     runtimeActivationMocks.runtime.snapshot.relayRuntime.recovery.readiness = "healthy";
     runtimeActivationMocks.runtime.snapshot.relayRuntime.recoveryReasonCode = undefined;
@@ -134,6 +141,7 @@ describe("RuntimeActivationManager", () => {
     runtimeActivationMocks.identityState.privateKeyHex = "e".repeat(64);
     runtimeActivationMocks.relayPool.connections = [{ url: "wss://relay.one", status: "open" }];
     runtimeActivationMocks.accountSyncSnapshot.phase = "ready";
+    runtimeActivationMocks.accountSyncSnapshot.publicKeyHex = "f".repeat(64);
     runtimeActivationMocks.accountSyncSnapshot.status = "public_restored";
     runtimeActivationMocks.accountSyncSnapshot.message = "Ready";
     runtimeActivationMocks.accountSyncSnapshot.lastRelayFailureReason = undefined;
@@ -397,5 +405,53 @@ describe("RuntimeActivationManager", () => {
         message: "No writable relay connection",
       }),
     );
+  });
+
+  it("emits reason-coded profile-scope mismatch diagnostics when projection profile diverges from bound session", () => {
+    runtimeActivationMocks.runtime.snapshot.phase = "activating_runtime";
+    runtimeActivationMocks.runtime.snapshot.session.profileId = "profile-a";
+    runtimeActivationMocks.projectionSnapshot.profileId = "profile-b";
+    runtimeActivationMocks.projectionSnapshot.accountPublicKeyHex = "f".repeat(64);
+    runtimeActivationMocks.accountSyncSnapshot.publicKeyHex = "f".repeat(64);
+
+    render(<RuntimeActivationManager />);
+
+    expect(runtimeActivationMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
+      name: "runtime.activation.profile_scope_mismatch",
+      level: "warn",
+      context: expect.objectContaining({
+        reasonCode: "projection_profile_mismatch_bound_profile",
+        boundProfileId: "profile-a",
+        projectionProfileId: "profile-b",
+        runtimePhase: "activating_runtime",
+      }),
+    }));
+  });
+
+  it("dedupes profile-scope mismatch diagnostics for unchanged mismatch signatures", () => {
+    runtimeActivationMocks.runtime.snapshot.phase = "ready";
+    runtimeActivationMocks.runtime.snapshot.session.profileId = "default";
+    runtimeActivationMocks.runtime.snapshot.session.unlockedPublicKeyHex = "f".repeat(64);
+    runtimeActivationMocks.identityState.publicKeyHex = "f".repeat(64);
+    runtimeActivationMocks.projectionSnapshot.profileId = "default";
+    runtimeActivationMocks.projectionSnapshot.accountPublicKeyHex = "a".repeat(64);
+
+    const view = render(<RuntimeActivationManager />);
+
+    let mismatchEvents = runtimeActivationMocks.logAppEvent.mock.calls
+      .map((call) => call[0])
+      .filter((entry) => entry.name === "runtime.activation.profile_scope_mismatch");
+    expect(mismatchEvents).toHaveLength(1);
+    expect(mismatchEvents[0]).toMatchObject({
+      context: expect.objectContaining({
+        reasonCode: "projection_account_mismatch_identity",
+      }),
+    });
+
+    view.rerender(<RuntimeActivationManager />);
+    mismatchEvents = runtimeActivationMocks.logAppEvent.mock.calls
+      .map((call) => call[0])
+      .filter((entry) => entry.name === "runtime.activation.profile_scope_mismatch");
+    expect(mismatchEvents).toHaveLength(1);
   });
 });

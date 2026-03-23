@@ -18,10 +18,23 @@ Maintainer note:
     - `auth.auto_unlock_scope_drift_detected`.
   - canonical group sendability block path now emits room-key portability mismatch diagnostics:
     - `groups.room_key_missing_send_blocked` includes `reasonCode`, `localRoomKeyCount`, `hasTargetGroupRecord`, `activeProfileId`, and group-key hint sample.
+  - canonical backup-restore apply path now emits profile-scope mismatch diagnostics when restore scope diverges from active binding:
+    - `account_sync.backup_restore_profile_scope_mismatch` with `reasonCode` (`requested_profile_not_active`, `active_profile_changed_during_restore`, `active_profile_changed_after_apply`) and profile-scope evidence fields.
+  - canonical runtime activation owner now emits profile/account scope convergence diagnostics:
+    - `runtime.activation.profile_scope_mismatch` with reason codes (`projection_profile_mismatch_bound_profile`, `projection_account_mismatch_identity`, `account_sync_public_key_mismatch_identity`, `runtime_session_public_key_mismatch_identity`) and profile/account suffix context for bound session vs projection/account-sync scope.
+  - async voice-note Stage A capability fallback now fails explicitly in unsupported runtimes:
+    - `VoiceRecorder` performs typed runtime capability checks before microphone capture,
+    - unsupported/start-failure paths emit reason-coded diagnostics (`messaging.voice_note.recording_unsupported`, `messaging.voice_note.recording_start_failed`) instead of silent failure.
+  - wired voice-note recording into the canonical composer attachment flow:
+    - `main-shell` now passes `onSendVoiceNote` to `ChatView`, routing recorded audio files through existing attachment processing/upload/send paths.
 - Added focused regression coverage for this M2-A slice:
   - `app/features/profiles/components/desktop-profile-bootstrap.test.tsx`,
   - `app/features/auth/components/auth-gateway.test.tsx`,
   - `app/features/groups/services/group-service.test.ts`,
+  - `app/features/account-sync/services/encrypted-account-backup-service.test.ts`,
+  - `app/features/runtime/components/runtime-activation-manager.test.tsx`,
+  - `app/features/messaging/services/voice-note-recording-capability.test.ts`,
+  - `app/shared/m0-triage-capture.test.ts`,
   - `app/shared/log-app-event.test.ts`.
 - Updated post-v1 roadmap/maintainer monitoring docs with new M2 diagnostics probes:
   - `docs/21-post-v1-value-roadmap.md`,

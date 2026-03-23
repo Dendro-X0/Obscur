@@ -286,6 +286,39 @@ describe("logAppEvent", () => {
       },
     });
     logAppEvent({
+      name: "account_sync.backup_restore_profile_scope_mismatch",
+      level: "warn",
+      context: {
+        reasonCode: "requested_profile_not_active",
+        publicKeySuffix: "abc12345",
+        backupEventId: "backup-event-scope",
+        requestedProfileId: "requested-profile",
+        effectiveProfileId: "requested-profile",
+        activeProfileIdAtRestoreStart: "bound-profile",
+        activeProfileIdBeforeApply: "bound-profile",
+        activeProfileIdAfterApply: "bound-profile",
+        hasCanonicalAppender: false,
+        extraFieldShouldBeDropped: 123,
+      },
+    });
+    logAppEvent({
+      name: "runtime.activation.profile_scope_mismatch",
+      level: "warn",
+      context: {
+        reasonCode: "projection_profile_mismatch_bound_profile",
+        runtimePhase: "activating_runtime",
+        boundProfileId: "profile-a",
+        projectionProfileId: "profile-b",
+        identityPubkeySuffix: "1234abcd",
+        projectionPubkeySuffix: "5678efab",
+        accountSyncPubkeySuffix: "1234abcd",
+        runtimeSessionPubkeySuffix: "1234abcd",
+        accountProjectionPhase: "ready",
+        accountSyncPhase: "ready",
+        extraFieldShouldBeDropped: 321,
+      },
+    });
+    logAppEvent({
       name: "runtime.activation.timeout",
       level: "warn",
       context: {
@@ -391,6 +424,25 @@ describe("logAppEvent", () => {
       hasTargetGroupRecord: false,
       activeProfileId: "profile-a",
     }));
+    expect(digest.events["account_sync.backup_restore_profile_scope_mismatch"]?.[0]?.context).toEqual(expect.objectContaining({
+      reasonCode: "requested_profile_not_active",
+      publicKeySuffix: "abc12345",
+      backupEventId: "backup-event-scope",
+      requestedProfileId: "requested-profile",
+      effectiveProfileId: "requested-profile",
+      activeProfileIdBeforeApply: "bound-profile",
+      hasCanonicalAppender: false,
+    }));
+    expect(digest.events["account_sync.backup_restore_profile_scope_mismatch"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.events["runtime.activation.profile_scope_mismatch"]?.[0]?.context).toEqual(expect.objectContaining({
+      reasonCode: "projection_profile_mismatch_bound_profile",
+      runtimePhase: "activating_runtime",
+      boundProfileId: "profile-a",
+      projectionProfileId: "profile-b",
+      accountProjectionPhase: "ready",
+      accountSyncPhase: "ready",
+    }));
+    expect(digest.events["runtime.activation.profile_scope_mismatch"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
     expect(digest.summary.selfAuthoredDmContinuity).toEqual(expect.objectContaining({
       riskLevel: "high",
       latestHydratedOutgoingCount: 1,

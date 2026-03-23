@@ -6,6 +6,10 @@ const gateHarness = vi.hoisted(() => ({
   runtime: {
     snapshot: {
       phase: "activating_runtime",
+      session: {
+        profileId: "default",
+        unlockedPublicKeyHex: "f".repeat(64),
+      },
       messagingTransportRuntime: {
         activeIncomingOwnerCount: 0,
         activeQueueProcessorCount: 0,
@@ -24,6 +28,7 @@ const gateHarness = vi.hoisted(() => ({
   },
   relayListReplaceRelays: vi.fn(),
   accountSyncSnapshot: {
+    publicKeyHex: "f".repeat(64),
     phase: "ready",
     status: "public_restored",
     message: "Ready",
@@ -105,11 +110,14 @@ describe("runtime activation transport gate deterministic flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     gateHarness.runtime.snapshot.phase = "activating_runtime";
+    gateHarness.runtime.snapshot.session.profileId = "default";
+    gateHarness.runtime.snapshot.session.unlockedPublicKeyHex = "f".repeat(64);
     gateHarness.runtime.snapshot.messagingTransportRuntime = {
       activeIncomingOwnerCount: 0,
       activeQueueProcessorCount: 0,
       updatedAtUnixMs: 1_000,
     };
+    gateHarness.accountSyncSnapshot.publicKeyHex = "f".repeat(64);
     gateHarness.accountSyncSnapshot.phase = "ready";
     gateHarness.accountSyncSnapshot.status = "public_restored";
     gateHarness.projectionSnapshot.phase = "ready";

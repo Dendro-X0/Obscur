@@ -40,7 +40,14 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - `auth.auto_unlock_scope_drift_detected` when fallback credentials imply cross-profile scope mismatch,
   - group sendability diagnostics now include room-key portability mismatch reason codes on canonical send-block path:
     - `groups.room_key_missing_send_blocked` includes `reasonCode`, `localRoomKeyCount`, `hasTargetGroupRecord`, `activeProfileId`, and group-key hint sample,
-  - focused M2-A suites are green (`desktop-profile-bootstrap`, `auth-gateway`, `group-service`, `log-app-event`, plus `tsc --noEmit`).
+  - backup-restore now emits explicit profile-scope mismatch diagnostics on canonical restore apply:
+    - `account_sync.backup_restore_profile_scope_mismatch` with reason codes for explicit profile mismatch and restore-time scope drift,
+  - runtime activation now emits explicit profile/account scope mismatch diagnostics on the canonical activation owner:
+    - `runtime.activation.profile_scope_mismatch` with reason-coded profile/account divergence context across bound session, projection scope, and account-sync scope,
+  - async voice-note Stage A capability hardening started:
+    - `VoiceRecorder` now emits explicit unsupported/start-failure diagnostics (`messaging.voice_note.recording_unsupported`, `messaging.voice_note.recording_start_failed`) and blocks unsupported runtimes before capture attempts,
+    - recorded voice-note files are now routed into the canonical composer attachment/send flow from `main-shell`,
+  - focused M2-A/B suites are green (`desktop-profile-bootstrap`, `auth-gateway`, `group-service`, `encrypted-account-backup-service`, `runtime-activation-manager`, `voice-note-recording-capability`, `log-app-event`, `m0-triage-capture`, plus `tsc --noEmit`).
 
 ## v1 Readiness Status
 

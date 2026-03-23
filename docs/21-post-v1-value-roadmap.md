@@ -184,6 +184,32 @@ Current execution status (started 2026-03-23):
 : `apps/pwa/app/features/groups/services/group-service.test.ts`
 : and digest contract coverage in
 : `apps/pwa/app/shared/log-app-event.test.ts`.
+6. Backup-restore profile-scope drift diagnostics landed on canonical restore owner:
+: `account_sync.backup_restore_profile_scope_mismatch` now emits reason-coded warnings when restore runs with an explicit profile scope that diverges from the active bound profile, or active profile scope shifts during restore apply in
+: `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`.
+7. Focused profile-scope drift regression coverage added and passing:
+: `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
+: plus triage/digest contract updates in
+: `apps/pwa/app/shared/m0-triage-capture.test.ts`
+: and `apps/pwa/app/shared/log-app-event.test.ts`.
+8. Runtime activation scope-convergence diagnostics landed on canonical activation owner:
+: `runtime.activation.profile_scope_mismatch` now emits reason-coded warnings when bound-profile/session identity diverges from account-projection or account-sync scope in
+: `apps/pwa/app/features/runtime/components/runtime-activation-manager.tsx`.
+9. Focused activation scope diagnostics coverage added and passing:
+: `apps/pwa/app/features/runtime/components/runtime-activation-manager.test.tsx`
+: plus compact digest + M0 triage contract updates in
+: `apps/pwa/app/shared/log-app-event.test.ts`
+: and `apps/pwa/app/shared/m0-triage-capture.test.ts`.
+10. Async voice Stage A capability hardening started:
+: `VoiceRecorder` now resolves runtime recording capability before attempting capture and emits explicit unsupported/start-failure diagnostics (`messaging.voice_note.recording_unsupported`, `messaging.voice_note.recording_start_failed`) from
+: `apps/pwa/app/features/messaging/components/voice-recorder.tsx`.
+12. Voice note capture is now wired into canonical composer attachment flow:
+: `apps/pwa/app/features/main-shell/main-shell.tsx` now passes `onSendVoiceNote` into `ChatView`, routing recorded files through existing attachment processing and send flow.
+11. Voice capability contract coverage added:
+: typed capability resolver in
+: `apps/pwa/app/features/messaging/services/voice-note-recording-capability.ts`
+: with focused regression coverage in
+: `apps/pwa/app/features/messaging/services/voice-note-recording-capability.test.ts`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

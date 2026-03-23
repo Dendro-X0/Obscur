@@ -77,6 +77,73 @@ const resolveRelayRuntimeGate = (relayRuntime: RelayRuntimeSnapshot): Readonly<{
   return { status: "pass" };
 };
 
+type ActivationProfileScopeMismatchReasonCode =
+  | "projection_profile_mismatch_bound_profile"
+  | "projection_account_mismatch_identity"
+  | "account_sync_public_key_mismatch_identity"
+  | "runtime_session_public_key_mismatch_identity";
+
+const toLowerHex = (value: string | null | undefined): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const toPubkeySuffix = (value: string | null | undefined): string | null => {
+  const normalized = toLowerHex(value);
+  return normalized ? normalized.slice(-8) : null;
+};
+
+const resolveActivationProfileScopeMismatchReasonCode = (
+  params: Readonly<{
+    boundProfileId: string | null | undefined;
+    projectionProfileId: string | null | undefined;
+    identityPublicKeyHex: string | null | undefined;
+    projectionAccountPublicKeyHex: string | null | undefined;
+    accountSyncPublicKeyHex: string | null | undefined;
+    runtimeSessionPublicKeyHex: string | null | undefined;
+  }>,
+): ActivationProfileScopeMismatchReasonCode | null => {
+  const boundProfileId = params.boundProfileId?.trim() ?? "";
+  const projectionProfileId = params.projectionProfileId?.trim() ?? "";
+  const identityPublicKeyHex = toLowerHex(params.identityPublicKeyHex);
+  const projectionAccountPublicKeyHex = toLowerHex(params.projectionAccountPublicKeyHex);
+  const accountSyncPublicKeyHex = toLowerHex(params.accountSyncPublicKeyHex);
+  const runtimeSessionPublicKeyHex = toLowerHex(params.runtimeSessionPublicKeyHex);
+
+  if (
+    boundProfileId.length > 0
+    && projectionProfileId.length > 0
+    && boundProfileId !== projectionProfileId
+  ) {
+    return "projection_profile_mismatch_bound_profile";
+  }
+  if (
+    identityPublicKeyHex
+    && projectionAccountPublicKeyHex
+    && identityPublicKeyHex !== projectionAccountPublicKeyHex
+  ) {
+    return "projection_account_mismatch_identity";
+  }
+  if (
+    identityPublicKeyHex
+    && accountSyncPublicKeyHex
+    && identityPublicKeyHex !== accountSyncPublicKeyHex
+  ) {
+    return "account_sync_public_key_mismatch_identity";
+  }
+  if (
+    identityPublicKeyHex
+    && runtimeSessionPublicKeyHex
+    && identityPublicKeyHex !== runtimeSessionPublicKeyHex
+  ) {
+    return "runtime_session_public_key_mismatch_identity";
+  }
+  return null;
+};
+
 export function RuntimeActivationManager(): null {
   const runtime = useWindowRuntime();
   const runtimePhase = runtime.snapshot.phase;
@@ -115,6 +182,7 @@ export function RuntimeActivationManager(): null {
   const latestRelayCountsRef = useRef(getRelayCounts(relayPool.connections));
   const lastTransportInvariantSignatureRef = useRef<string | null>(null);
   const lastRelayRuntimeGateSignatureRef = useRef<string | null>(null);
+  const lastProfileScopeMismatchSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     latestAccountSyncSnapshotRef.current = accountSync.snapshot;
@@ -131,6 +199,77 @@ export function RuntimeActivationManager(): null {
       publicKeyHex,
     }));
   }, [accountProjection.snapshot, publicKeyHex]);
+
+  useEffect(() => {
+    const runtimeParticipatesInScopeGuard = (
+      runtimePhase === "activating_runtime"
+      || runtimePhase === "degraded"
+      || runtimePhase === "ready"
+    );
+    if (!publicKeyHex || !runtimeParticipatesInScopeGuard) {
+      lastProfileScopeMismatchSignatureRef.current = null;
+      return;
+    }
+    const reasonCode = resolveActivationProfileScopeMismatchReasonCode({
+      boundProfileId: runtime.snapshot.session.profileId,
+      projectionProfileId: accountProjection.snapshot.profileId,
+      identityPublicKeyHex: publicKeyHex,
+      projectionAccountPublicKeyHex: accountProjection.snapshot.accountPublicKeyHex,
+      accountSyncPublicKeyHex: accountSync.snapshot.publicKeyHex,
+      runtimeSessionPublicKeyHex: runtime.snapshot.session.unlockedPublicKeyHex,
+    });
+    if (!reasonCode) {
+      lastProfileScopeMismatchSignatureRef.current = null;
+      return;
+    }
+    const signature = [
+      reasonCode,
+      runtimePhase,
+      runtime.snapshot.session.profileId ?? "none",
+      accountProjection.snapshot.profileId ?? "none",
+      toLowerHex(publicKeyHex) ?? "none",
+      toLowerHex(accountProjection.snapshot.accountPublicKeyHex) ?? "none",
+      toLowerHex(accountSync.snapshot.publicKeyHex) ?? "none",
+      toLowerHex(runtime.snapshot.session.unlockedPublicKeyHex) ?? "none",
+      accountProjection.snapshot.phase,
+      accountSync.snapshot.phase,
+    ].join(":");
+    if (lastProfileScopeMismatchSignatureRef.current === signature) {
+      return;
+    }
+    lastProfileScopeMismatchSignatureRef.current = signature;
+    logAppEvent({
+      name: "runtime.activation.profile_scope_mismatch",
+      level: "warn",
+      scope: { feature: "runtime", action: "activation" },
+      context: {
+        reasonCode,
+        runtimePhase,
+        boundProfileId: runtime.snapshot.session.profileId,
+        projectionProfileId: accountProjection.snapshot.profileId,
+        identityPubkeySuffix: toPubkeySuffix(publicKeyHex),
+        projectionPubkeySuffix: toPubkeySuffix(accountProjection.snapshot.accountPublicKeyHex),
+        accountSyncPubkeySuffix: toPubkeySuffix(accountSync.snapshot.publicKeyHex),
+        runtimeSessionPubkeySuffix: toPubkeySuffix(runtime.snapshot.session.unlockedPublicKeyHex),
+        accountProjectionPhase: accountProjection.snapshot.phase,
+        accountProjectionStatus: accountProjection.snapshot.status,
+        accountSyncPhase: accountSync.snapshot.phase,
+        accountSyncStatus: accountSync.snapshot.status,
+      },
+    });
+  }, [
+    accountProjection.snapshot.accountPublicKeyHex,
+    accountProjection.snapshot.phase,
+    accountProjection.snapshot.profileId,
+    accountProjection.snapshot.status,
+    accountSync.snapshot.phase,
+    accountSync.snapshot.publicKeyHex,
+    accountSync.snapshot.status,
+    publicKeyHex,
+    runtime.snapshot.session.profileId,
+    runtime.snapshot.session.unlockedPublicKeyHex,
+    runtimePhase,
+  ]);
 
   useEffect(() => {
     const projectionReady = (

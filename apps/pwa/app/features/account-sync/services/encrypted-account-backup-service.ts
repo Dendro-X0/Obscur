@@ -251,6 +251,62 @@ type BackupSelectionDiagnostics = Readonly<{
   fallbackRelayCount: number;
 }>;
 
+type BackupRestoreProfileScopeMismatchReasonCode =
+  | "requested_profile_not_active"
+  | "active_profile_changed_during_restore"
+  | "active_profile_changed_after_apply";
+
+type BackupRestoreProfileScopeDiagnostics = Readonly<{
+  publicKeyHex: PublicKeyHex;
+  backupEventId: string | null;
+  requestedProfileId: string | null;
+  effectiveProfileId: string;
+  activeProfileIdAtRestoreStart: string;
+  activeProfileIdBeforeApply: string;
+  activeProfileIdAfterApply: string;
+  hasCanonicalAppender: boolean;
+}>;
+
+const resolveBackupRestoreProfileScopeMismatchReasonCode = (
+  params: BackupRestoreProfileScopeDiagnostics,
+): BackupRestoreProfileScopeMismatchReasonCode | null => {
+  if (params.requestedProfileId && params.requestedProfileId !== params.activeProfileIdBeforeApply) {
+    return "requested_profile_not_active";
+  }
+  if (params.activeProfileIdBeforeApply !== params.activeProfileIdAtRestoreStart) {
+    return "active_profile_changed_during_restore";
+  }
+  if (params.activeProfileIdAfterApply !== params.activeProfileIdBeforeApply) {
+    return "active_profile_changed_after_apply";
+  }
+  return null;
+};
+
+const maybeEmitBackupRestoreProfileScopeMismatch = (
+  params: BackupRestoreProfileScopeDiagnostics,
+): void => {
+  const reasonCode = resolveBackupRestoreProfileScopeMismatchReasonCode(params);
+  if (!reasonCode) {
+    return;
+  }
+  logAppEvent({
+    name: "account_sync.backup_restore_profile_scope_mismatch",
+    level: "warn",
+    scope: { feature: "account_sync", action: "backup_restore" },
+    context: {
+      reasonCode,
+      publicKeySuffix: params.publicKeyHex.slice(-8),
+      backupEventId: params.backupEventId,
+      requestedProfileId: params.requestedProfileId,
+      effectiveProfileId: params.effectiveProfileId,
+      activeProfileIdAtRestoreStart: params.activeProfileIdAtRestoreStart,
+      activeProfileIdBeforeApply: params.activeProfileIdBeforeApply,
+      activeProfileIdAfterApply: params.activeProfileIdAfterApply,
+      hasCanonicalAppender: params.hasCanonicalAppender,
+    },
+  });
+};
+
 const emitBackupRestoreSelectionDiagnostics = (params: BackupSelectionDiagnostics): void => {
   const selectedPayloadCreatedAtUnixMs = params.selectedEvent
     ? parseBackupCreatedAtMsTag(params.selectedEvent)
@@ -3138,11 +3194,14 @@ export const encryptedAccountBackupService = {
     profileId?: string;
     appendCanonicalEvents?: CanonicalBackupEventAppender;
   }>): Promise<AccountBackupFetchResult> {
+    const activeProfileIdAtRestoreStart = getActiveProfileIdSafe();
     const fetched = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload(params);
     if (!fetched.hasBackup || !fetched.payload) {
       return fetched;
     }
-    const profileId = params.profileId ?? getActiveProfileIdSafe();
+    const requestedProfileId = params.profileId ?? null;
+    const activeProfileIdBeforeApply = getActiveProfileIdSafe();
+    const profileId = params.profileId ?? activeProfileIdBeforeApply;
     if (params.appendCanonicalEvents) {
       const canonicalEvents = buildCanonicalBackupImportEvents({
         profileId,
@@ -3183,6 +3242,17 @@ export const encryptedAccountBackupService = {
     } else {
       await applyBackupPayload(params.publicKeyHex, fetched.payload, profileId);
     }
+    const activeProfileIdAfterApply = getActiveProfileIdSafe();
+    maybeEmitBackupRestoreProfileScopeMismatch({
+      publicKeyHex: params.publicKeyHex,
+      backupEventId: fetched.event?.id ?? null,
+      requestedProfileId,
+      effectiveProfileId: profileId,
+      activeProfileIdAtRestoreStart,
+      activeProfileIdBeforeApply,
+      activeProfileIdAfterApply,
+      hasCanonicalAppender: typeof params.appendCanonicalEvents === "function",
+    });
     accountSyncStatusStore.updateSnapshot({
       publicKeyHex: params.publicKeyHex,
       hasEncryptedBackup: true,

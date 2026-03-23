@@ -6,6 +6,12 @@ import { Button } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
+import { logAppEvent } from "@/app/shared/log-app-event";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import {
+    getVoiceNoteRecordingCapability,
+    type VoiceNoteRecordingCapability,
+} from "@/app/features/messaging/services/voice-note-recording-capability";
 
 interface VoiceRecorderProps {
     onRecordingComplete: (file: File) => void;
@@ -20,14 +26,73 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
     const { t } = useTranslation();
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
+    const [recordingCapability, setRecordingCapability] = useState<VoiceNoteRecordingCapability>(
+        () => getVoiceNoteRecordingCapability()
+    );
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+    const releaseStream = useCallback(() => {
+        if (!streamRef.current) {
+            return;
+        }
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+    }, []);
+
+    const clearTimer = useCallback(() => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+    }, []);
+
+    const classifyStartFailureReasonCode = (error: unknown): string => {
+        const name = error instanceof Error ? error.name : "";
+        if (name === "NotAllowedError" || name === "SecurityError") {
+            return "microphone_permission_denied";
+        }
+        if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+            return "microphone_not_found";
+        }
+        if (name === "NotReadableError" || name === "AbortError" || name === "TrackStartError") {
+            return "microphone_unavailable";
+        }
+        if (name === "InvalidStateError") {
+            return "media_recorder_invalid_state";
+        }
+        return "recording_start_failed";
+    };
+
     const startRecording = async () => {
         try {
+            const capability = getVoiceNoteRecordingCapability();
+            setRecordingCapability(capability);
+            if (!capability.supported) {
+                const runtimeCapabilities = getRuntimeCapabilities();
+                logAppEvent({
+                    name: "messaging.voice_note.recording_unsupported",
+                    level: "warn",
+                    scope: { feature: "messaging", action: "voice_note_record" },
+                    context: {
+                        reasonCode: capability.reasonCode,
+                        hasMediaDevices: capability.hasMediaDevices,
+                        hasMediaRecorder: capability.hasMediaRecorder,
+                        isSecureContext: capability.isSecureContext,
+                        isNativeRuntime: runtimeCapabilities.isNativeRuntime,
+                    },
+                });
+                toast.error(t("messaging.voiceRecordingUnsupported") || "Voice recording is unavailable on this runtime");
+                return;
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
+            streamRef.current = stream;
+            const recorder = capability.preferredMimeType
+                ? new MediaRecorder(stream, { mimeType: capability.preferredMimeType })
+                : new MediaRecorder(stream);
+            const outputMimeType = recorder.mimeType || capability.preferredMimeType || "audio/webm";
             mediaRecorderRef.current = recorder;
             chunksRef.current = [];
 
@@ -38,12 +103,30 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
             };
 
             recorder.onstop = () => {
-                const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-                const file = new File([blob], `voice-note-${Date.now()}.webm`, { type: "audio/webm" });
+                if (chunksRef.current.length === 0) {
+                    logAppEvent({
+                        name: "messaging.voice_note.recording_empty",
+                        level: "warn",
+                        scope: { feature: "messaging", action: "voice_note_record" },
+                        context: {
+                            reasonCode: "empty_blob",
+                        },
+                    });
+                    toast.error(t("messaging.voiceRecordingEmpty") || "No audio captured. Please try again.");
+                    releaseStream();
+                    return;
+                }
+                const blob = new Blob(chunksRef.current, { type: outputMimeType });
+                const extension = outputMimeType.includes("ogg")
+                    ? "ogg"
+                    : outputMimeType.includes("mp4")
+                        ? "m4a"
+                        : "webm";
+                const file = new File([blob], `voice-note-${Date.now()}.${extension}`, { type: outputMimeType });
                 onRecordingComplete(file);
 
                 // Stop all tracks to release microphone
-                stream.getTracks().forEach(track => track.stop());
+                releaseStream();
             };
 
             recorder.start();
@@ -53,8 +136,25 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
                 setRecordingTime(prev => prev + 1);
             }, 1000);
         } catch (err) {
+            const reasonCode = classifyStartFailureReasonCode(err);
+            const runtimeCapabilities = getRuntimeCapabilities();
+            logAppEvent({
+                name: "messaging.voice_note.recording_start_failed",
+                level: "warn",
+                scope: { feature: "messaging", action: "voice_note_record" },
+                context: {
+                    reasonCode,
+                    errorName: err instanceof Error ? err.name : null,
+                    hasMediaDevices: recordingCapability.hasMediaDevices,
+                    hasMediaRecorder: recordingCapability.hasMediaRecorder,
+                    isSecureContext: recordingCapability.isSecureContext,
+                    isNativeRuntime: runtimeCapabilities.isNativeRuntime,
+                },
+            });
             console.error("Failed to start recording:", err);
             toast.error(t("messaging.microphoneAccessDenied") || "Microphone access denied");
+            releaseStream();
+            clearTimer();
         }
     };
 
@@ -62,24 +162,27 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
         if (mediaRecorderRef.current && isRecording) {
             mediaRecorderRef.current.stop();
             setIsRecording(false);
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-            }
+            clearTimer();
         }
-    }, [isRecording]);
+    }, [clearTimer, isRecording]);
 
     const cancelRecording = useCallback(() => {
         if (mediaRecorderRef.current && isRecording) {
             mediaRecorderRef.current.onstop = null; // Prevent file creation
             mediaRecorderRef.current.stop();
             setIsRecording(false);
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-            }
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            clearTimer();
+            releaseStream();
             toast.info(t("messaging.recordingCanceled") || "Recording canceled");
         }
-    }, [isRecording, t]);
+    }, [clearTimer, isRecording, releaseStream, t]);
+
+    useEffect(() => {
+        return () => {
+            clearTimer();
+            releaseStream();
+        };
+    }, [clearTimer, releaseStream]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -124,8 +227,12 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
                         disabled && "opacity-50 grayscale cursor-not-allowed"
                     )}
                     onClick={startRecording}
-                    disabled={disabled || isUploading}
+                    disabled={disabled || isUploading || !recordingCapability.supported}
                     aria-label={t("messaging.recordVoiceNote")}
+                    title={recordingCapability.supported
+                        ? (t("messaging.recordVoiceNote") || "Record voice note")
+                        : (t("messaging.voiceRecordingUnsupported") || "Voice recording unavailable on this runtime")
+                    }
                 >
                     {isUploading ? (
                         <Loader2 className="h-5 w-5 animate-spin text-purple-600" />

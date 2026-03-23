@@ -14,7 +14,7 @@ import { PrivacySettingsService } from "@/app/features/settings/services/privacy
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import * as storedIdentityReader from "@/app/features/auth/utils/get-stored-identity";
 import * as storedIdentityWriter from "@/app/features/auth/utils/save-stored-identity";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getScopedStorageKey, setProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
 import { getLocalMediaStorageConfig } from "@/app/features/vault/services/local-media-store";
 import * as appEventLogger from "@/app/shared/log-app-event";
 import { ACCOUNT_BACKUP_D_TAG, ACCOUNT_BACKUP_EVENT_KIND } from "../account-sync-contracts";
@@ -42,6 +42,7 @@ const acceptedPeerPublicKeyHex = "e".repeat(64) as PublicKeyHex;
 describe("encryptedAccountBackupService", () => {
   beforeEach(() => {
     localStorage.clear();
+    setProfileScopeOverride(null);
     peerTrustInternals.saveToStorage(publicKeyHex, {
       acceptedPeers: [],
       mutedPeers: [],
@@ -1434,6 +1435,80 @@ describe("encryptedAccountBackupService", () => {
     ]));
     expect(Number(regressionLogs[0]?.context?.canonicalEventCount ?? 0)).toBeGreaterThan(0);
 
+    fetchSpy.mockRestore();
+    restoreLogSpy.mockRestore();
+  });
+
+  it("emits restore profile-scope mismatch diagnostics when explicit profile scope differs from active binding", async () => {
+    const restoreLogSpy = vi.spyOn(appEventLogger, "logAppEvent");
+    const fetchSpy = vi.spyOn(encryptedAccountBackupService, "fetchLatestEncryptedAccountBackupPayload").mockResolvedValue({
+      event: {
+        id: "backup-event-scope",
+        pubkey: publicKeyHex,
+        kind: ACCOUNT_BACKUP_EVENT_KIND,
+        created_at: 100,
+        tags: [],
+        content: "encrypted:{}",
+      } as any,
+      payload: {
+        version: 1,
+        publicKeyHex,
+        createdAtUnixMs: 9_000,
+        profile: {
+          username: "Scoped Restore",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: {
+          acceptedPeers: [],
+          mutedPeers: [],
+        },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        chatState: null,
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      },
+      hasBackup: true,
+      degradedReason: undefined,
+    });
+    setProfileScopeOverride("bound-profile");
+
+    await encryptedAccountBackupService.restoreEncryptedAccountBackup({
+      publicKeyHex,
+      privateKeyHex,
+      pool: {
+        connections: [],
+        waitForConnection: vi.fn(async () => true),
+        sendToOpen: vi.fn(),
+        subscribeToMessages: () => () => undefined,
+      } as any,
+      profileId: "requested-profile",
+    });
+
+    const mismatchLogs: ReadonlyArray<Parameters<typeof appEventLogger.logAppEvent>[0]> = (
+      restoreLogSpy.mock.calls
+        .map((call) => call[0])
+        .filter((entry): entry is Parameters<typeof appEventLogger.logAppEvent>[0] => (
+          entry.name === "account_sync.backup_restore_profile_scope_mismatch"
+        ))
+    );
+    expect(mismatchLogs).toHaveLength(1);
+    expect(mismatchLogs[0]?.context).toEqual(expect.objectContaining({
+      reasonCode: "requested_profile_not_active",
+      backupEventId: "backup-event-scope",
+      requestedProfileId: "requested-profile",
+      effectiveProfileId: "requested-profile",
+      activeProfileIdAtRestoreStart: "bound-profile",
+      activeProfileIdBeforeApply: "bound-profile",
+      activeProfileIdAfterApply: "bound-profile",
+      hasCanonicalAppender: false,
+    }));
+
+    setProfileScopeOverride(null);
     fetchSpy.mockRestore();
     restoreLogSpy.mockRestore();
   });

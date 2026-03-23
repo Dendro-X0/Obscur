@@ -696,6 +696,9 @@ function NostrMessengerContent() {
             setReplyTo={setReplyTo}
             onPickAttachments={(files) => files && handleFilesSelected(files)}
             onSelectFiles={pickAttachments}
+            onSendVoiceNote={(file) => {
+              void handleFilesSelected([file]);
+            }}
             removePendingAttachment={removePendingAttachment}
             clearPendingAttachment={clearPendingAttachments}
             relayStatus={relayStatus}
