@@ -52,6 +52,13 @@ export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] 
     const lowerUrl = attachment.url.toLowerCase();
     const lowerContentType = attachment.contentType.toLowerCase();
     const lowerFileName = attachment.fileName.toLowerCase();
+    const hasVoiceNoteFileNamePrefix = lowerFileName.startsWith("voice-note-");
+
+    // Voice-note recordings commonly use .webm extensions that collide with video extensions.
+    // Preserve explicit voice-note intent before extension inference.
+    if (hasVoiceNoteFileNamePrefix || (attachment.kind === "audio" && lowerContentType.startsWith("audio/"))) {
+        return "audio";
+    }
 
     if (hasKnownExtension(lowerFileName, AUDIO_EXTENSIONS)) {
         return "audio";
@@ -107,6 +114,17 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
         const fallbackName = cleanUrl.split('/').pop()?.split('?')[0] || 'file';
         const finalName = providedName || fallbackName;
         const lowerFileName = finalName.toLowerCase();
+        const hasVoiceNoteFileNamePrefix = lowerFileName.startsWith("voice-note-");
+
+        if (hasVoiceNoteFileNamePrefix) {
+            attachments.push({
+                kind: "audio",
+                url: cleanUrl,
+                contentType: "audio/*",
+                fileName: finalName
+            });
+            continue;
+        }
 
         // 1. Audio check (filename first, then url)
         const isAudio = hasKnownExtension(lowerFileName, AUDIO_EXTENSIONS) || hasKnownExtension(lowerUrl, AUDIO_EXTENSIONS);

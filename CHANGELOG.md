@@ -27,6 +27,12 @@ Maintainer note:
   - chat-history search quick filtering:
     - added in-panel quick filters (`All`, `Voice Notes`) to narrow results without leaving chat context,
     - voice filter shows count badge and voice-note-only empty-state copy for faster navigation under larger histories.
+  - media gallery voice-note UX polish:
+    - added gallery quick filters (`All`, `Images`, `Videos`, `Voice Notes`) with per-filter counts,
+    - voice-note audio tiles now show `Voice Note` label + parsed duration (`m:ss`) when metadata is available.
+  - fixed attachment-kind inference drift for voice-note recordings:
+    - voice-note-prefixed `.webm` filenames are now classified as `audio` (not `video`) in shared attachment inference contracts,
+    - markdown attachment extraction now preserves voice-note-prefixed `.webm` entries as `audio`.
   - `VoiceRecorder` now emits duration-aware output filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and a completion diagnostic:
     - `messaging.voice_note.recording_complete`.
   - composer audio preview now labels detected voice notes with parsed duration metadata (`Voice m:ss`) for immediate UX feedback.
@@ -41,6 +47,8 @@ Maintainer note:
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/message-attachment-layout.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/voice-note-metadata.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/chat-view.test.tsx`
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/media-gallery.test.tsx`
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/utils/logic.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 
 ## [v1.0.2] - 2026-03-23

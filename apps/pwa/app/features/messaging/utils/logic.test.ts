@@ -41,4 +41,28 @@ describe("messaging logic attachment inference", () => {
       }),
     ]);
   });
+
+  it("treats voice-note prefixed webm attachments as audio", () => {
+    const attachment: Attachment = {
+      kind: "audio",
+      url: "https://cdn.example.com/voice-note-1774249000000-d64.webm",
+      contentType: "audio/webm",
+      fileName: "voice-note-1774249000000-d64.webm",
+    };
+
+    expect(inferAttachmentKind(attachment)).toBe("audio");
+  });
+
+  it("extracts voice-note prefixed webm markdown entries as audio", () => {
+    const extracted = extractAttachmentsFromContent(
+      "[voice-note-1774249000000-d12.webm](https://cdn.example.com/voice-note-1774249000000-d12.webm)"
+    );
+
+    expect(extracted).toEqual([
+      expect.objectContaining({
+        kind: "audio",
+        fileName: "voice-note-1774249000000-d12.webm",
+      }),
+    ]);
+  });
 });
