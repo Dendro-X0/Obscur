@@ -31,6 +31,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 23. [24 v1.0.6 CP3 Soak Matrix](./24-v1.0.6-cp3-soak-matrix.md)
 24. [25 Versioned Phase Plan (v1.0.7-v1.0.9)](./25-versioned-phase-plan-v1.0.7-v1.0.9.md)
 25. [26 v1.0.7 CP3 Community Convergence Matrix](./26-v1.0.7-cp3-community-convergence-matrix.md)
+26. [27 v1.0.8 CP3 Voice Replay Matrix](./27-v1.0.8-cp3-voice-replay-matrix.md)
 
 ## Scope Rules
 

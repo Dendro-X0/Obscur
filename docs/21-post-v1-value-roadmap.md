@@ -398,6 +398,10 @@ Current execution status:
 8. Focused CP3 helper validation is green:
 : `apps/pwa/app/shared/m6-voice-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+9. CP3 manual weak-network replay matrix is now defined:
+: `docs/27-v1.0.8-cp3-voice-replay-matrix.md`.
+10. Remaining before declaring M6 complete:
+: operator weak-network replay evidence capture and pass/fail confirmation against CP3 matrix criteria.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

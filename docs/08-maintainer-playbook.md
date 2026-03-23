@@ -299,6 +299,9 @@ For `v1.0.7` CP3 community-convergence verification:
 
 For `v1.0.8` CP2 realtime voice diagnostics verification:
 
+Canonical matrix:
+: `docs/27-v1.0.8-cp3-voice-replay-matrix.md`.
+
 1. One-copy M6 voice bundle (preferred):
 : `copy(window.obscurM6VoiceCapture?.captureJson(400))`
 2. Realtime voice summary probe:

@@ -191,6 +191,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - focused CP3 helper tests are green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+  - CP3 manual replay matrix is defined:
+    - `docs/27-v1.0.8-cp3-voice-replay-matrix.md`,
+  - CP3 status:
+    - pending operator weak-network replay evidence and pass/fail confirmation against the matrix.
 
 ## v1 Readiness Status
 

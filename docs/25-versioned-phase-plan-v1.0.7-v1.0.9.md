@@ -150,6 +150,10 @@ Current checkpoint progress:
 10. Focused CP3 helper validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+11. `CP3` manual weak-network replay matrix is documented:
+: `docs/27-v1.0.8-cp3-voice-replay-matrix.md`.
+12. CP3 status:
+: pending operator weak-network replay evidence capture and pass/fail confirmation.
 
 ## v1.0.9 - M7 Anti-Abuse + UX/Performance Reliability Hardening
 

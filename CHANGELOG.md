@@ -38,10 +38,13 @@
     - `apps/pwa/app/components/providers.tsx`
 - Added focused regression coverage for M6 CP3 helper:
   - `apps/pwa/app/shared/m6-voice-capture.test.ts`
+- Added explicit M6 CP3 manual replay matrix:
+  - `docs/27-v1.0.8-cp3-voice-replay-matrix.md`
 - Synced docs/release status for `v1.0.8` kickoff:
   - `README.md`
   - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`
   - `docs/21-post-v1-value-roadmap.md`
+  - `docs/README.md`
   - `ISSUES.md`
 
 ### Validation
