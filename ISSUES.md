@@ -76,6 +76,13 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - `v1.0.4` is now the M2 closeout version (checkpointed `CP1-CP4`),
     - `v1.0.5` is now the M3 delivery version,
     - `v1.0.6` is now the M4 stabilization version.
+- M3 status (started 2026-03-23):
+  - `v1.0.5` CP1 foundation slice started with deterministic real-time voice capability contracts in
+    `app/features/messaging/services/realtime-voice-capability.ts`,
+  - capability classification now exposes secure-context/media-devices/WebRTC addTrack readiness and Opus capability status for future beta gating,
+  - focused CP1 tests are green:
+    - `app/features/messaging/services/realtime-voice-capability.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 

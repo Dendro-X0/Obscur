@@ -78,6 +78,10 @@ Checkpoints:
 3. `CP3`: weak-network/manual replay evidence for voice + operator flows.
 4. `CP4`: full release gates and `v1.0.5` tag.
 
+Current checkpoint progress (2026-03-23):
+1. `CP1` in progress:
+: shipped typed real-time voice capability detection contracts (secure context, media devices, WebRTC addTrack support, Opus capability status) with focused regression coverage.
+
 ## v1.0.6 - M4 Stabilization
 
 Goal:

@@ -245,6 +245,15 @@ Acceptance:
 2. operator workflows complete without ambiguous outcomes,
 3. release claims backed by tests + manual matrix evidence.
 
+Current execution status (started 2026-03-23):
+1. `v1.0.5` CP1 foundation slice landed with typed real-time voice capability contracts:
+: added deterministic capability classifier in
+: `apps/pwa/app/features/messaging/services/realtime-voice-capability.ts`,
+: including secure-context/media-devices/WebRTC addTrack readiness + Opus capability status.
+2. Focused capability coverage added and passing:
+: `apps/pwa/app/features/messaging/services/realtime-voice-capability.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+
 ## M4 - Stabilization, Rollout, and Patch Discipline
 
 Scope:
