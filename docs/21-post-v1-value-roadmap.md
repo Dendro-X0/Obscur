@@ -455,7 +455,14 @@ Current execution status:
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 : `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
-10. Remaining before declaring CP1+CP2 complete:
+10. CP1 reliability hardening landed for DM delete-for-everyone on attachment-heavy/voice-note rows:
+: delete target derivation in
+: `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`
+: now computes NIP-17 rumor ids even when `dmFormat` is missing and adds attachment-markdown + created-at fallback candidates for hydrated rows.
+11. Focused delete-convergence validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+12. Remaining before declaring CP1+CP2 complete:
 : capture two-device anti-abuse replay evidence bundle for rate-limit -> cooldown -> digest-summary behavior.
 
 ## Version-Bound Execution

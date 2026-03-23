@@ -40,6 +40,12 @@
     - `docs/08-maintainer-playbook.md`
 - Added focused regression coverage for M7 CP3 prep helper:
   - `apps/pwa/app/shared/m7-anti-abuse-capture.test.ts`
+- Hardened DM "Delete for everyone" target derivation for attachment-heavy/voice-note messages:
+  - delete command target generation now derives NIP-17 rumor ids even when `dmFormat` is unavailable on hydrated rows in:
+    - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`
+  - added attachment-markdown and timestamp-fallback derivation for attachment-only rows to preserve cross-device deletion convergence.
+- Added focused regression coverage for DM delete target derivation:
+  - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`
 - Synced roadmap/status docs for `v1.0.9` kickoff and `v1.0.8` closeout:
   - `README.md`
   - `docs/21-post-v1-value-roadmap.md`
@@ -51,6 +57,7 @@
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 
 ## [v1.0.8] - 2026-03-23
