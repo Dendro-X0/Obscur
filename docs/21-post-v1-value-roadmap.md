@@ -228,6 +228,10 @@ Current execution status (started 2026-03-23):
 15. Remaining before declaring M2 complete:
 : capture manual two-device evidence for full M2 acceptance contract (cross-device DM/group/media continuity + startup/account-switch stability + voice-note fallback behavior),
 : keep post-release runtime watch active on search-jump navigation behavior in long-history conversations.
+16. `v1.0.4` M2 checkpoint started with deterministic search-jump navigation hardening:
+: search-jump now carries timestamp context from search results and can resolve via timestamp fallback when canonical message-id matching is unavailable in the current timeline window,
+: jump flow now emits reason-coded diagnostics (`messaging.search_jump_requested`, `messaging.search_jump_resolved`, `messaging.search_jump_unresolved`) with attempt counters and resolution mode for triage replay,
+: cross-device digest and M0 triage capture now include search-jump diagnostic events for manual verification bundles.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

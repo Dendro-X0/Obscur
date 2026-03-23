@@ -68,6 +68,10 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
   - next active M2 closeout focus after `v1.0.3`:
     - complete manual two-device evidence bundle for M2 acceptance,
     - continue runtime watch for long-history search-jump navigation behavior and collect diagnostics on any miss.
+  - `v1.0.4` M2 checkpoint (`CP1`) progress:
+    - search-jump flow now includes deterministic request/resolution diagnostics (`messaging.search_jump_requested`, `messaging.search_jump_resolved`, `messaging.search_jump_unresolved`),
+    - search results now pass timestamp context to timeline jump so navigation can fall back to timestamp-based positioning when direct id match is unavailable,
+    - cross-device digest and M0 triage focus categories now include search-jump events for reproducible manual verification.
   - release cadence lock:
     - `v1.0.4` is now the M2 closeout version (checkpointed `CP1-CP4`),
     - `v1.0.5` is now the M3 delivery version,

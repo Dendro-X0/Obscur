@@ -57,6 +57,11 @@ Checkpoints:
 Release outcome:
 1. tag and publish `v1.0.4` only after `CP1-CP4` all pass.
 
+Current checkpoint progress (2026-03-23):
+1. `CP1` in progress:
+: shipped first reliability slice for in-chat search navigation:
+: timestamp-aware jump targets + reason-coded search-jump diagnostics + triage/digest exposure.
+
 ## v1.0.5 - M3 Delivery
 
 Goal:
