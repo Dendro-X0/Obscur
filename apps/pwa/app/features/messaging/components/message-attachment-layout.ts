@@ -1,6 +1,10 @@
 import type { Attachment } from "../types";
 import { inferAttachmentKind } from "../utils/logic";
 import { normalizeLocalMediaDisplayFileName } from "@/app/features/vault/services/local-media-store";
+import {
+    getVoiceNoteAttachmentMetadata,
+    type VoiceNoteAttachmentMetadata,
+} from "@/app/features/messaging/services/voice-note-metadata";
 
 export type VisualAttachment = Readonly<{
     attachment: Attachment;
@@ -55,6 +59,7 @@ export const buildAttachmentBuckets = (
 export type AttachmentPresentation = Readonly<{
     displayNameByUrl: Readonly<Record<string, string>>;
     hostByUrl: Readonly<Record<string, string>>;
+    voiceNoteMetadataByUrl: Readonly<Record<string, VoiceNoteAttachmentMetadata>>;
 }>;
 
 const parseUrlHost = (url: string): string | null => {
@@ -73,6 +78,7 @@ export const buildAttachmentPresentation = (params: Readonly<{
 }>): AttachmentPresentation => {
     const displayNameByUrl: Record<string, string> = {};
     const hostByUrl: Record<string, string> = {};
+    const voiceNoteMetadataByUrl: Record<string, VoiceNoteAttachmentMetadata> = {};
 
     params.attachments.forEach((attachment) => {
         const localName = params.localAttachmentFileNameByUrl[attachment.url];
@@ -90,10 +96,16 @@ export const buildAttachmentPresentation = (params: Readonly<{
             ?? params.fallbackFileLabel;
 
         hostByUrl[attachment.url] = host ?? attachment.url;
+        voiceNoteMetadataByUrl[attachment.url] = getVoiceNoteAttachmentMetadata({
+            kind: attachment.kind,
+            fileName: attachment.fileName,
+            contentType: attachment.contentType,
+        });
     });
 
     return {
         displayNameByUrl,
         hostByUrl,
+        voiceNoteMetadataByUrl,
     };
 };

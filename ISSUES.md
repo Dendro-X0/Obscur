@@ -51,6 +51,7 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - typed voice-note metadata parsing + search tokens now live in canonical messaging services (`voice-note-metadata`, `message-search-index`),
     - chat-history search now matches attachment metadata (including voice-note duration/name tokens) instead of content-only text,
     - recorder output now uses duration-aware filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and emits `messaging.voice_note.recording_complete` diagnostics,
+    - message timeline audio cards now surface voice-note-aware labels and parsed duration chips in-bubble when voice-note filename metadata is present,
   - focused M2-A/B suites are green (`desktop-profile-bootstrap`, `auth-gateway`, `group-service`, `encrypted-account-backup-service`, `runtime-activation-manager`, `voice-note-recording-capability`, `log-app-event`, `m0-triage-capture`, plus `tsc --noEmit`).
 
 ## v1 Readiness Status

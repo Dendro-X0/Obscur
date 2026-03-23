@@ -90,5 +90,33 @@ describe("message attachment layout utils", () => {
 
         expect(presentation.hostByUrl[localPreferred.url]).toBe("relay.example.com");
         expect(presentation.hostByUrl[invalidUrlFallback.url]).toBe("not-a-valid-url");
+        expect(presentation.voiceNoteMetadataByUrl[localPreferred.url]).toEqual({
+            isVoiceNote: false,
+            recordedAtUnixMs: null,
+            durationSeconds: null,
+            durationLabel: null,
+        });
+    });
+
+    it("exposes parsed voice-note metadata for audio attachments", () => {
+        const voiceAttachment = createAttachment({
+            kind: "audio",
+            url: "https://relay.example.com/voice-note-1774249000000-d64.webm",
+            contentType: "audio/webm",
+            fileName: "voice-note-1774249000000-d64.webm",
+        });
+
+        const presentation = buildAttachmentPresentation({
+            attachments: [voiceAttachment],
+            localAttachmentFileNameByUrl: {},
+            fallbackFileLabel: "File",
+        });
+
+        expect(presentation.voiceNoteMetadataByUrl[voiceAttachment.url]).toEqual({
+            isVoiceNote: true,
+            recordedAtUnixMs: 1774249000000,
+            durationSeconds: 64,
+            durationLabel: "1:04",
+        });
     });
 });

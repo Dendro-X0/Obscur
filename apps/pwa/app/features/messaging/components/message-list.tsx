@@ -1047,6 +1047,7 @@ function MessageAttachmentLayout({
     const {
         displayNameByUrl,
         hostByUrl,
+        voiceNoteMetadataByUrl,
     } = React.useMemo(() => buildAttachmentPresentation({
         attachments,
         localAttachmentFileNameByUrl,
@@ -1098,6 +1099,12 @@ function MessageAttachmentLayout({
             : "grid-cols-2 sm:grid-cols-3";
 
     const deriveDisplayFileName = (attachment: Attachment): string => displayNameByUrl[attachment.url] ?? fileLabel;
+    const deriveAudioBadgeLabel = (attachment: Attachment): string => (
+        voiceNoteMetadataByUrl[attachment.url]?.isVoiceNote ? "Voice Note" : "Audio"
+    );
+    const deriveVoiceDurationLabel = (attachment: Attachment): string | null => (
+        voiceNoteMetadataByUrl[attachment.url]?.durationLabel ?? null
+    );
 
     return (
         <div className="mb-3 space-y-3">
@@ -1268,8 +1275,18 @@ function MessageAttachmentLayout({
                                             isOutgoing ? "bg-black/35 text-white" : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100"
                                         )}>
                                             <Music2 className="h-2.5 w-2.5" />
-                                            Audio
+                                            {deriveAudioBadgeLabel(attachment)}
                                         </span>
+                                        {deriveVoiceDurationLabel(attachment) ? (
+                                            <span className={cn(
+                                                "inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest",
+                                                isOutgoing
+                                                    ? "bg-white/20 text-white"
+                                                    : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                                            )}>
+                                                {deriveVoiceDurationLabel(attachment)}
+                                            </span>
+                                        ) : null}
                                         {localAttachmentUrlSet.has(attachment.url) ? (
                                             <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
                                                 Vault
