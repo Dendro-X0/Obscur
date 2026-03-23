@@ -53,6 +53,7 @@ This file tracks runtime issue status during final `v1.0.0` launch staging and i
     - recorder output now uses duration-aware filenames (`voice-note-<timestamp>-d<seconds>.<ext>`) and emits `messaging.voice_note.recording_complete` diagnostics,
     - message timeline audio cards now surface voice-note-aware labels and parsed duration chips in-bubble when voice-note filename metadata is present,
     - voice-note playback now surfaces a recorded-at context row in `AudioPlayer` (timeline + lightbox paths) when parsed metadata is available,
+    - chat-history search now includes quick in-panel filtering (`All` / `Voice Notes`) with voice-note count badges and voice-note-only empty-state handling,
   - focused M2-A/B suites are green (`desktop-profile-bootstrap`, `auth-gateway`, `group-service`, `encrypted-account-backup-service`, `runtime-activation-manager`, `voice-note-recording-capability`, `log-app-event`, `m0-triage-capture`, plus `tsc --noEmit`).
 
 ## v1 Readiness Status

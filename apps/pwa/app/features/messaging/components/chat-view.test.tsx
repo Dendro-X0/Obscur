@@ -231,4 +231,52 @@ describe("ChatView history search", () => {
             expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-voice-a");
         });
     });
+
+    it("filters search results to voice notes when voice filter is selected", async () => {
+        searchMessagesMock.mockResolvedValue([
+            {
+                conversationId: "conv-a",
+                message: { id: "m-text-a", content: "project update alpha", timestampMs: 8_000 },
+            },
+            {
+                conversationId: "conv-a",
+                message: {
+                    id: "m-voice-b",
+                    content: "",
+                    timestampMs: 9_000,
+                    attachments: [{
+                        kind: "audio",
+                        fileName: "voice-note-1774249000000-d12.webm",
+                        contentType: "audio/webm",
+                    }],
+                },
+            },
+        ]);
+
+        render(<ChatView {...createBaseProps()} />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Search Messages" }));
+        fireEvent.change(screen.getByPlaceholderText("Search message history in this chat..."), {
+            target: { value: "voice" },
+        });
+
+        await waitFor(() => {
+            expect(searchMessagesMock).toHaveBeenCalledWith("voice", 120);
+        });
+
+        expect(screen.getByText(/project update alpha/i)).toBeInTheDocument();
+        expect(screen.getByText("Voice Note 0:12")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: /Voice Notes/i }));
+
+        await waitFor(() => {
+            expect(screen.queryByText(/project update alpha/i)).not.toBeInTheDocument();
+        });
+        expect(screen.getByText("Voice Note 0:12")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: /Voice Note 0:12/i }));
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-voice-b");
+        });
+    });
 });

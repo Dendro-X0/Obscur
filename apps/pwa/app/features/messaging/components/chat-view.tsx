@@ -107,6 +107,7 @@ export function ChatView(props: ChatViewProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isHistorySearchOpen, setIsHistorySearchOpen] = useState(false);
     const [historySearchQuery, setHistorySearchQuery] = useState("");
+    const [historySearchFilter, setHistorySearchFilter] = useState<"all" | "voice_note">("all");
     const [isHistorySearching, setIsHistorySearching] = useState(false);
     const [historySearchResults, setHistorySearchResults] = useState<ReadonlyArray<ChatHistorySearchResult>>([]);
     const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
@@ -118,6 +119,14 @@ export function ChatView(props: ChatViewProps) {
     const resolvedNowMs = props.nowMs ?? Date.now();
     const normalizedHistorySearchQuery = historySearchQuery.trim().toLowerCase();
     const canSearchHistory = normalizedHistorySearchQuery.length >= 2;
+    const voiceNoteSearchResultCount = React.useMemo(() => (
+        historySearchResults.filter((result) => result.resultKind === "voice_note").length
+    ), [historySearchResults]);
+    const filteredHistorySearchResults = React.useMemo(() => (
+        historySearchFilter === "voice_note"
+            ? historySearchResults.filter((result) => result.resultKind === "voice_note")
+            : historySearchResults
+    ), [historySearchFilter, historySearchResults]);
     const effectiveFlashMessageId = searchFlashMessageId ?? props.flashMessageId;
     const {
         isMediaGalleryOpen,
@@ -148,6 +157,7 @@ export function ChatView(props: ChatViewProps) {
         setJumpToMessageId(null);
         setSearchFlashMessageId(null);
         setIsHistorySearchOpen(false);
+        setHistorySearchFilter("all");
     }, [props.conversation.id]);
 
     React.useEffect(() => {
@@ -435,7 +445,10 @@ export function ChatView(props: ChatViewProps) {
                                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
                                 <input
                                     value={historySearchQuery}
-                                    onChange={(event) => setHistorySearchQuery(event.target.value)}
+                                    onChange={(event) => {
+                                        setHistorySearchQuery(event.target.value);
+                                        setHistorySearchFilter("all");
+                                    }}
                                     placeholder={t("messaging.searchMessagesInChatPlaceholder", "Search message history in this chat...")}
                                     className="h-10 w-full rounded-xl border border-black/10 bg-white/70 pl-9 pr-9 text-sm text-zinc-800 placeholder:text-zinc-400 outline-none ring-purple-500/20 transition focus:border-purple-400/50 focus:ring-2 dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-100 dark:placeholder:text-zinc-500"
                                     suppressHydrationWarning
@@ -446,11 +459,45 @@ export function ChatView(props: ChatViewProps) {
                             </div>
 
                             {canSearchHistory ? (
-                                <div className="max-h-44 overflow-y-auto rounded-xl border border-black/5 bg-white/70 p-1 dark:border-white/5 dark:bg-zinc-900/70">
-                                    {historySearchResults.length === 0 && !isHistorySearching ? (
-                                        <p className="px-3 py-4 text-xs text-zinc-500">{t("messaging.noMatchingMessages")}</p>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 px-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setHistorySearchFilter("all")}
+                                            className={cn(
+                                                "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest transition-colors",
+                                                historySearchFilter === "all"
+                                                    ? "border-zinc-400/30 bg-zinc-900/10 text-zinc-800 dark:border-zinc-300/30 dark:bg-zinc-100/10 dark:text-zinc-100"
+                                                    : "border-black/10 bg-white/70 text-zinc-500 hover:text-zinc-800 dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-400 dark:hover:text-zinc-100"
+                                            )}
+                                        >
+                                            {t("common.all", "All")}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setHistorySearchFilter("voice_note")}
+                                            className={cn(
+                                                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest transition-colors",
+                                                historySearchFilter === "voice_note"
+                                                    ? "border-purple-400/30 bg-purple-500/10 text-purple-700 dark:text-purple-300"
+                                                    : "border-black/10 bg-white/70 text-zinc-500 hover:text-zinc-800 dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-400 dark:hover:text-zinc-100"
+                                            )}
+                                        >
+                                            <Mic className="h-2.5 w-2.5" />
+                                            {t("messaging.voiceNotes", "Voice Notes")}
+                                            <span className="text-[9px] opacity-80">{voiceNoteSearchResultCount}</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="max-h-44 overflow-y-auto rounded-xl border border-black/5 bg-white/70 p-1 dark:border-white/5 dark:bg-zinc-900/70">
+                                    {filteredHistorySearchResults.length === 0 && !isHistorySearching ? (
+                                        <p className="px-3 py-4 text-xs text-zinc-500">
+                                            {historySearchFilter === "voice_note"
+                                                ? t("messaging.noMatchingVoiceNotes", "No matching voice notes")
+                                                : t("messaging.noMatchingMessages")}
+                                        </p>
                                     ) : (
-                                        historySearchResults.map((result) => (
+                                        filteredHistorySearchResults.map((result) => (
                                             <button
                                                 key={result.messageId}
                                                 type="button"
@@ -476,6 +523,7 @@ export function ChatView(props: ChatViewProps) {
                                             </button>
                                         ))
                                     )}
+                                    </div>
                                 </div>
                             ) : null}
                         </div>
