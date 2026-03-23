@@ -197,7 +197,12 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `window.obscurM6VoiceReplay?.runWeakNetworkReplay?.()` from
       `app/shared/m6-voice-replay-bridge.ts`,
   - CP3 status:
-    - pending operator weak-network replay evidence and pass/fail confirmation against the matrix.
+    - operator weak-network replay evidence captured and accepted (2026-03-23):
+      - transition chain observed:
+        `idle -> connecting -> active -> degraded -> connecting -> active`,
+      - no `recovery_exhausted`/unsupported terminal failure observed in replay window.
+  - remaining before M6 closeout:
+    - CP4 release gates and tag flow for `v1.0.8`.
 
 ## v1 Readiness Status
 

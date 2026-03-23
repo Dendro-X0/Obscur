@@ -46,6 +46,14 @@
   - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
 - Added explicit M6 CP3 manual replay matrix:
   - `docs/27-v1.0.8-cp3-voice-replay-matrix.md`
+- Captured and accepted M6 CP3 weak-network replay evidence (2026-03-23):
+  - replay executed with:
+    - `window.obscurM6VoiceReplay.runWeakNetworkReplay()`
+  - one-copy bundle captured with:
+    - `window.obscurM6VoiceCapture.captureJson(400)`
+  - observed deterministic transition chain:
+    - `idle -> connecting -> active -> degraded -> connecting -> active`
+  - no `recovery_exhausted` terminal signal observed in replay window.
 - Synced docs/release status for `v1.0.8` kickoff:
   - `README.md`
   - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`

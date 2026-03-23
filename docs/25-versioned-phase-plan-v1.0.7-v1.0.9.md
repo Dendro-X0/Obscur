@@ -157,7 +157,12 @@ Current checkpoint progress:
 12. `CP3` manual weak-network replay matrix is documented:
 : `docs/27-v1.0.8-cp3-voice-replay-matrix.md`.
 13. CP3 status:
-: pending operator weak-network replay evidence capture and pass/fail confirmation.
+: operator weak-network replay evidence was captured and accepted (2026-03-23) via:
+: `window.obscurM6VoiceReplay.runWeakNetworkReplay()`
+: followed by `window.obscurM6VoiceCapture.captureJson(400)`.
+: observed transition chain:
+: `idle -> connecting -> active -> degraded -> connecting -> active`,
+: with no `recovery_exhausted` or unsupported terminal failure in replay window.
 
 ## v1.0.9 - M7 Anti-Abuse + UX/Performance Reliability Hardening
 

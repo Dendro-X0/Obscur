@@ -403,8 +403,12 @@ Current execution status:
 10. Deterministic replay bridge is now available for CP3 evidence on builds without exposed voice UI:
 : `window.obscurM6VoiceReplay.runWeakNetworkReplay()` in
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
-11. Remaining before declaring M6 complete:
-: operator weak-network replay evidence capture and pass/fail confirmation against CP3 matrix criteria.
+11. CP3 weak-network replay evidence is captured and accepted (2026-03-23):
+: `window.obscurM6VoiceReplay.runWeakNetworkReplay()` emitted deterministic transition evidence:
+: `idle -> connecting -> active -> degraded -> connecting -> active`,
+: and `window.obscurM6VoiceCapture.captureJson(400)` confirmed no `recovery_exhausted` signal in replay window.
+12. Remaining before declaring M6 complete:
+: CP4 release-gate replay and `v1.0.8` tag flow.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 
