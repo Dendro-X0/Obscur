@@ -203,3 +203,9 @@ Mandatory release gates:
 2. no release claim without diagnostics + manual replay evidence attachment,
 3. fixes by subtraction when overlap paths are detected,
 4. each checkpoint commit remains bounded and reviewable.
+
+## Post-v1.1.0 Handoff
+
+1. `M8` closeout is complete with `v1.1.0` release and accepted CP3 gate-verdict evidence.
+2. Next active lane starts at `M9` (`v1.1.1` CP1) in:
+: `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.

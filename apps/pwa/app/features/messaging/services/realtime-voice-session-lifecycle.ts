@@ -342,6 +342,32 @@ export const markRealtimeVoiceSessionLeft = (
   });
 };
 
+export const markRealtimeVoiceSessionClosed = (
+  state: RealtimeVoiceSessionState,
+  params?: Readonly<{ nowUnixMs?: number }>,
+): RealtimeVoiceSessionState => {
+  if (
+    state.phase !== "connecting"
+    && state.phase !== "active"
+    && state.phase !== "degraded"
+    && state.phase !== "leaving"
+  ) {
+    return withTransition(state, {
+      phase: state.phase,
+      reasonCode: "invalid_transition",
+      nowUnixMs: params?.nowUnixMs,
+    });
+  }
+
+  return withTransition(state, {
+    phase: "ended",
+    participantCount: 0,
+    hasPeerSessionEvidence: false,
+    reasonCode: "session_closed",
+    nowUnixMs: params?.nowUnixMs,
+  });
+};
+
 export const isRealtimeVoiceSessionInteractive = (
   state: RealtimeVoiceSessionState,
 ): boolean => state.phase === "connecting" || state.phase === "active" || state.phase === "degraded";

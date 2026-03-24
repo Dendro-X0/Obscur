@@ -98,6 +98,17 @@ Evidence:
 1. focused voice lifecycle tests and typed contract validation,
 2. no optimistic-success path without peer/session evidence.
 
+Current checkpoint progress (2026-03-23):
+1. `M9` CP1 started with deterministic remote-close handling in canonical voice lifecycle owner:
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
+2. Added explicit session-closure transition:
+: `markRealtimeVoiceSessionClosed(state, { nowUnixMs })`
+: to end sessions from `connecting|active|degraded|leaving` with reason `session_closed`.
+3. The new transition prevents stuck interactive voice state when peer-side close arrives before local leave completion.
+4. Focused CP1 lifecycle diagnostics coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+
 ### v1.1.2 (M9-CP2)
 
 Scope:

@@ -1,5 +1,27 @@
 ## [Unreleased]
 
+### Changed
+
+- Started `v1.1.1` (`M9` `CP1`) secure-voice lifecycle hardening:
+  - added deterministic remote-close transition on canonical voice lifecycle owner in:
+    - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`
+    - new API:
+      `markRealtimeVoiceSessionClosed(state, { nowUnixMs })`
+  - session closure now transitions to `phase: "ended"` with reason `session_closed` from
+    `connecting|active|degraded|leaving`, preventing stuck interactive state when peer-side close arrives before local leave completion.
+  - added focused regression coverage in:
+    - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
+  - synced active major-phase docs/status:
+    - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`
+    - `docs/21-post-v1-value-roadmap.md`
+    - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`
+    - `ISSUES.md`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+
 ## [v1.1.0] - 2026-03-24
 
 ### Changed

@@ -3,6 +3,7 @@ import type { RealtimeVoiceCapability } from "./realtime-voice-capability";
 import {
   createInitialRealtimeVoiceSessionState,
   isRealtimeVoiceSessionInteractive,
+  markRealtimeVoiceSessionClosed,
   markRealtimeVoiceSessionConnected,
   markRealtimeVoiceSessionLeft,
   markRealtimeVoiceSessionRecoveryFailed,
@@ -208,6 +209,7 @@ describe("realtime-voice-session-lifecycle", () => {
 
     const invalidRecovery = requestRealtimeVoiceSessionRecovery(initial, { nowUnixMs: 8_000 });
     const invalidLeave = requestRealtimeVoiceSessionLeave(initial, { nowUnixMs: 8_100 });
+    const invalidClose = markRealtimeVoiceSessionClosed(initial, { nowUnixMs: 8_200 });
 
     expect(invalidRecovery).toEqual(expect.objectContaining({
       phase: "idle",
@@ -216,6 +218,58 @@ describe("realtime-voice-session-lifecycle", () => {
     expect(invalidLeave).toEqual(expect.objectContaining({
       phase: "idle",
       lastTransitionReasonCode: "invalid_transition",
+    }));
+    expect(invalidClose).toEqual(expect.objectContaining({
+      phase: "idle",
+      lastTransitionReasonCode: "invalid_transition",
+    }));
+  });
+
+  it("supports deterministic remote session close from interactive phases", () => {
+    const initial = createInitialRealtimeVoiceSessionState();
+    const started = startRealtimeVoiceSession(initial, {
+      roomId: "room-close",
+      mode: "join",
+      capability: SUPPORTED_CAPABILITY,
+      nowUnixMs: 9_000,
+    });
+    const active = markRealtimeVoiceSessionConnected(started, {
+      participantCount: 2,
+      hasPeerSessionEvidence: true,
+      nowUnixMs: 9_100,
+    });
+    const ended = markRealtimeVoiceSessionClosed(active, { nowUnixMs: 9_200 });
+
+    expect(ended).toEqual(expect.objectContaining({
+      phase: "ended",
+      participantCount: 0,
+      hasPeerSessionEvidence: false,
+      lastTransitionReasonCode: "session_closed",
+    }));
+    expect(isRealtimeVoiceSessionInteractive(ended)).toBe(false);
+  });
+
+  it("supports remote session close while leaving", () => {
+    const initial = createInitialRealtimeVoiceSessionState();
+    const started = startRealtimeVoiceSession(initial, {
+      roomId: "room-close-leaving",
+      mode: "create",
+      capability: SUPPORTED_CAPABILITY,
+      nowUnixMs: 10_000,
+    });
+    const active = markRealtimeVoiceSessionConnected(started, {
+      participantCount: 2,
+      hasPeerSessionEvidence: true,
+      nowUnixMs: 10_100,
+    });
+    const leaving = requestRealtimeVoiceSessionLeave(active, { nowUnixMs: 10_200 });
+    const ended = markRealtimeVoiceSessionClosed(leaving, { nowUnixMs: 10_300 });
+
+    expect(leaving.phase).toBe("leaving");
+    expect(ended).toEqual(expect.objectContaining({
+      phase: "ended",
+      lastTransitionReasonCode: "session_closed",
+      participantCount: 0,
     }));
   });
 });

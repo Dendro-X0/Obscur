@@ -544,6 +544,10 @@ Acceptance:
 : `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
 7. Active execution lane for major-phase start (`v1.0.10-v1.1.0`) is defined in:
 : `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
+8. `M8` closeout is complete and released as `v1.1.0` with accepted CP3 replay gate verdict evidence.
+9. `M9` (`v1.1.1` CP1) is now started with voice session lifecycle hardening:
+: explicit remote-close canonical transition in
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
 
 ## Non-Negotiable Validation Contract
 

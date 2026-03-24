@@ -377,6 +377,19 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       `groups.membership_ledger_load -> groups.membership_recovery_hydrate -> messaging.chat_state_groups_update -> groups.room_key_missing_send_blocked`.
   - `v1.1.0` remaining closeout work:
     - CP4 strict release-gate replay (`version:check`, `docs:check`, focused tests, `tsc`, `release:test-pack`, `release:preflight -- --tag v1.1.0`).
+  - `v1.1.0` CP4 release closeout status:
+    - strict release gates passed and `v1.1.0` is published.
+- M9 status (started 2026-03-23):
+  - `v1.1.1` CP1 lifecycle hardening started on canonical voice-session owner:
+    - added deterministic remote-close transition in
+      `app/features/messaging/services/realtime-voice-session-lifecycle.ts`:
+      `markRealtimeVoiceSessionClosed(state, { nowUnixMs })`,
+    - closure now converges to `phase: "ended"` with reason `session_closed` from
+      `connecting|active|degraded|leaving`,
+    - this prevents stuck interactive voice states when peer/session close is observed before local leave completion.
+  - focused CP1 lifecycle/diagnostics validation is green:
+    - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 
