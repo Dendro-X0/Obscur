@@ -80,7 +80,7 @@ function main() {
 
         // Sync to all files
         console.log('\n🔄 Syncing versions across workspace...\n');
-        execSync('node scripts/sync-version.js', { stdio: 'inherit', cwd: rootDir });
+        execSync('node scripts/sync-versions.mjs', { stdio: 'inherit', cwd: rootDir });
 
         console.log(`\n✨ Version bumped to v${newVersion}`);
         console.log(`\n💡 Next steps:`);
