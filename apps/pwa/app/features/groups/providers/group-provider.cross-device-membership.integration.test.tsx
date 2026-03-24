@@ -277,7 +277,7 @@ describe("group-provider cross-device membership integration", () => {
     ]));
   });
 
-  it.fails("keeps group visibility isolated by profile scope before profile rebind", async () => {
+  it("keeps group visibility isolated by profile scope before profile rebind", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
     );

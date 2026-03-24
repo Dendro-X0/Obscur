@@ -6,6 +6,7 @@ import { cryptoService } from "../../crypto/crypto-service";
 import type { GroupMetadata } from "../types";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 
 import { roomKeyStore } from "../../crypto/room-key-store";
 
@@ -39,10 +40,21 @@ export class GroupService {
             : await roomKeyStore.getRoomKeyRecord(params.groupId);
         const roomKeyHex = params.roomKeyHex || directRecord?.roomKeyHex || null;
         if (!roomKeyHex) {
-            let reasonCode: "no_local_room_keys" | "target_room_key_missing_local_profile_scope" | "target_room_key_record_unreadable" | "room_key_store_unavailable" = "no_local_room_keys";
+            let reasonCode: "no_local_room_keys" | "target_room_key_missing_local_profile_scope" | "target_room_key_record_unreadable" | "target_room_key_missing_after_membership_joined" | "room_key_store_unavailable" = "no_local_room_keys";
             let localRoomKeyCount: number | null = null;
             let hasTargetGroupRecord = false;
             let knownGroupHintSample = "none";
+            let joinedMembershipCount: number | null = null;
+            let hasTargetJoinedMembership = false;
+            try {
+                const membershipEntries = loadCommunityMembershipLedger(this.myPublicKeyHex);
+                const joinedEntries = membershipEntries.filter((entry) => entry.status === "joined");
+                joinedMembershipCount = joinedEntries.length;
+                hasTargetJoinedMembership = joinedEntries.some((entry) => entry.groupId === params.groupId);
+            } catch {
+                joinedMembershipCount = null;
+                hasTargetJoinedMembership = false;
+            }
             try {
                 const records = await roomKeyStore.listRoomKeyRecords();
                 localRoomKeyCount = records.length;
@@ -53,6 +65,8 @@ export class GroupService {
                     .join("|") || "none";
                 if (hasTargetGroupRecord) {
                     reasonCode = "target_room_key_record_unreadable";
+                } else if (hasTargetJoinedMembership) {
+                    reasonCode = "target_room_key_missing_after_membership_joined";
                 } else if (records.length > 0) {
                     reasonCode = "target_room_key_missing_local_profile_scope";
                 } else {
@@ -73,6 +87,8 @@ export class GroupService {
                     activeProfileId: getActiveProfileIdSafe(),
                     senderPubkeySuffix: this.myPublicKeyHex.slice(-8),
                     knownGroupHintSample,
+                    joinedMembershipCount,
+                    hasTargetJoinedMembership,
                 },
             });
             throw new Error("No room key found for this community on this device. Restore may be incomplete or key distribution has not arrived yet.");

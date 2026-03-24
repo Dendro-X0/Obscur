@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PersistedChatState } from "../types";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
+import { setProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
 import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "./chat-state-store";
 
 vi.mock("@/app/shared/account-sync-mutation-signal", () => ({
@@ -39,6 +40,8 @@ describe("chat-state-store replace event", () => {
     vi.restoreAllMocks();
     emitMutationMock.mockClear();
     messagingDbPutMock.mockClear();
+    setProfileScopeOverride(null);
+    window.localStorage.clear();
   });
 
   it("emits CHAT_STATE_REPLACED_EVENT with public key when replace is called", () => {
@@ -53,5 +56,26 @@ describe("chat-state-store replace event", () => {
     expect(emitMutationMock).not.toHaveBeenCalled();
 
     window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onReplaced);
+  });
+
+  it("keeps chat-state cache and pending writes isolated per profile scope for the same public key", async () => {
+    const scopeA = "profile-scope-a";
+    const scopeB = "profile-scope-b";
+
+    setProfileScopeOverride(scopeB);
+    chatStateStoreService.replace(PK as any, createState(), { emitMutationSignal: false });
+
+    setProfileScopeOverride(scopeA);
+    chatStateStoreService.updateHiddenChats(PK as any, ["scope-a-hidden"]);
+    expect(chatStateStoreService.load(PK as any)?.hiddenChatIds).toEqual(["scope-a-hidden"]);
+
+    setProfileScopeOverride(scopeB);
+    expect(chatStateStoreService.load(PK as any)?.hiddenChatIds ?? []).toEqual([]);
+
+    setProfileScopeOverride(scopeA);
+    expect(chatStateStoreService.load(PK as any)?.hiddenChatIds).toEqual(["scope-a-hidden"]);
+
+    await chatStateStoreService.flush(PK as any, { profileId: scopeA });
+    await chatStateStoreService.flush(PK as any, { profileId: scopeB });
   });
 });

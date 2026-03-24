@@ -19,6 +19,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
 - Canonical version-bound execution cadence:
   - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
   - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
+  - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
 - M0 status (completed 2026-03-22):
   - post-v1 pillar scope + acceptance lock is documented,
   - maintainer runbook now includes post-v1 baseline/diagnostics checklist,
@@ -261,6 +262,42 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - focused coverage updated in `app/features/messaging/components/voice-note-card.test.tsx`,
   - remaining before CP1+CP2 closeout:
     - capture and attach anti-abuse replay evidence bundle (`peer_rate_limited -> peer_cooldown_active -> digest summary`).
+- M8 status (started 2026-03-23):
+  - `v1.0.10` lane is started with docs-first checkpoint lock for community-platform completion + lifecycle resilience:
+    - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`,
+  - CP1 implementation scope is locked to canonical group lifecycle owners (no owner expansion):
+    - `app/features/groups/services/community-membership-recovery.ts`,
+    - `app/features/groups/services/group-service.ts`,
+    - `app/features/groups/providers/group-provider.tsx`,
+  - CP1 convergence hardening landed on canonical group provider owner:
+    - group add/dedupe paths now deterministically merge duplicate community rows instead of first-write-wins,
+    - existing-group `addGroup` now reconciles richer metadata/member/admin coverage and persists converged rows,
+    - implementation in `app/features/groups/providers/group-provider.tsx`,
+  - CP1 room-key sendability diagnostics hardening landed on canonical group send owner:
+    - missing room-key send blocks now emit joined-membership mismatch reason code:
+      `target_room_key_missing_after_membership_joined`,
+    - implementation in `app/features/groups/services/group-service.ts`,
+  - CP1 profile-scope convergence hardening landed for group hydration/store ownership:
+    - chat-state store cache/pending entries are now scoped by `profileId + publicKeyHex` to prevent cross-scope cache bleed during profile rebinding windows,
+    - implementation in `app/features/messaging/services/chat-state-store.ts`,
+    - group hydration continues to use canonical chat-state owner with scope-safe reads in
+      `app/features/groups/providers/group-provider.tsx`,
+  - profile-scope isolation regression is now enforced as a normal passing test:
+    - `app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
+      (`keeps group visibility isolated by profile scope before profile rebind`),
+  - chat-state owner coverage now includes profile-scoped cache/pending isolation validation:
+    - `app/features/messaging/services/chat-state-store.replace-event.test.ts`
+      (`keeps chat-state cache and pending writes isolated per profile scope for the same public key`),
+  - focused CP1 automation replay is green:
+    - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+  - CP1 acceptance gates for `v1.0.10` are defined and must pass before release handoff:
+    - focused `vitest` suites for touched owners,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+    - `pnpm docs:check`,
+  - CP2 and CP3/CP4 closeout sequencing is locked:
+    - `v1.0.11` carries diagnostics/replay-helper expansion,
+    - `v1.1.0` carries matrix evidence attachment + strict release closeout.
 
 ## v1 Readiness Status
 

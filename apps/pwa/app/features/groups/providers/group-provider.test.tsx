@@ -488,6 +488,70 @@ describe("group-provider membership ledger integration", () => {
     });
   });
 
+  it("merges richer metadata when addGroup is called for an existing community row", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:merge-me:wss://relay.merge",
+        communityId: "merge-me:wss://relay.merge",
+        groupId: "merge-me",
+        relayUrl: "wss://relay.merge",
+        displayName: "Private Group",
+        memberPubkeys: [PUBLIC_KEY_B],
+        lastMessage: "older",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+    expect(hook.result.current.createdGroups[0]?.displayName).toBe("Private Group");
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:merge-me:wss://relay.merge",
+        communityId: "merge-me:wss://relay.merge",
+        groupId: "merge-me",
+        relayUrl: "wss://relay.merge",
+        displayName: "Merge Me",
+        memberPubkeys: [PUBLIC_KEY_B, "c".repeat(64)],
+        lastMessage: "newer",
+        unreadCount: 0,
+        lastMessageTime: new Date(3_000),
+        access: "discoverable",
+        memberCount: 2,
+        adminPubkeys: [PUBLIC_KEY_A],
+        avatar: "https://cdn.example/avatar.png",
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      const group = hook.result.current.createdGroups[0];
+      expect(group?.displayName).toBe("Merge Me");
+      expect(group?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY_A, PUBLIC_KEY_B, "c".repeat(64)]));
+      expect(group?.adminPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY_A]));
+      expect(group?.avatar).toBe("https://cdn.example/avatar.png");
+      expect(group?.access).toBe("discoverable");
+      expect(group?.memberCount).toBeGreaterThanOrEqual(3);
+    });
+  });
+
   it("keeps restored groups visible after profile scope rebinding on a fresh device", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>

@@ -19,6 +19,7 @@ export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
 
 type SaveOptions = Readonly<{
     debounceMs?: number;
+    profileId?: string;
 }>;
 
 type ReplaceOptions = Readonly<{
@@ -32,6 +33,7 @@ type PendingSave = {
 
 const DEFAULT_DEBOUNCE_MS = 250;
 const toPublicKeySuffix = (publicKeyHex: PublicKeyHex): string => publicKeyHex.slice(-8);
+const toScopedCacheKey = (publicKeyHex: PublicKeyHex, profileId: string): string => `${profileId}::${publicKeyHex}`;
 
 /**
  * ChatStateStore Service
@@ -41,27 +43,29 @@ const toPublicKeySuffix = (publicKeyHex: PublicKeyHex): string => publicKeyHex.s
  * by managing a single in-memory "pending" state per public key.
  */
 class ChatStateStore {
-    private pendingByPublicKey = new Map<PublicKeyHex, PendingSave>();
-    private memoryCacheByPublicKey = new Map<PublicKeyHex, PersistedChatState>();
+    private pendingByScopeKey = new Map<string, PendingSave>();
+    private memoryCacheByScopeKey = new Map<string, PersistedChatState>();
 
     /**
      * Loads the current state from localStorage or memory cache.
      * Use hydrateMessages() for async message loading.
      */
-    load(publicKeyHex: PublicKeyHex): PersistedChatState | null {
-        const pending = this.pendingByPublicKey.get(publicKeyHex);
+    load(publicKeyHex: PublicKeyHex, options?: Readonly<{ profileId?: string }>): PersistedChatState | null {
+        const profileId = options?.profileId ?? getActiveProfileIdSafe();
+        const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
+        const pending = this.pendingByScopeKey.get(scopeKey);
         if (pending?.latest) {
             return pending.latest;
         }
 
-        const cached = this.memoryCacheByPublicKey.get(publicKeyHex);
+        const cached = this.memoryCacheByScopeKey.get(scopeKey);
         if (cached) {
             return cached;
         }
 
-        const reloaded = loadPersistedChatState(publicKeyHex);
+        const reloaded = loadPersistedChatState(publicKeyHex, { profileId });
         if (reloaded) {
-            this.memoryCacheByPublicKey.set(publicKeyHex, reloaded);
+            this.memoryCacheByScopeKey.set(scopeKey, reloaded);
         }
         return reloaded;
     }
@@ -98,13 +102,15 @@ class ChatStateStore {
      * Updates a slice of the chat state atomically.
      */
     update(publicKeyHex: PublicKeyHex, updater: (prev: PersistedChatState) => PersistedChatState): void {
-        const current = this.load(publicKeyHex) || this.createInitialState();
+        const profileId = getActiveProfileIdSafe();
+        const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
+        const current = this.load(publicKeyHex, { profileId }) || this.createInitialState();
         const next = updater(current);
         if (next === current) {
             return;
         }
-        this.memoryCacheByPublicKey.set(publicKeyHex, next);
-        this.save(publicKeyHex, next);
+        this.memoryCacheByScopeKey.set(scopeKey, next);
+        this.save(publicKeyHex, next, { profileId });
         emitAccountSyncMutation("chat_state_changed");
     }
 
@@ -164,9 +170,11 @@ class ChatStateStore {
     }
 
     replace(publicKeyHex: PublicKeyHex, nextState: PersistedChatState, options?: ReplaceOptions): void {
+        const profileId = getActiveProfileIdSafe();
+        const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         const normalizedState = normalizePersistedGroupState(nextState);
-        this.memoryCacheByPublicKey.set(publicKeyHex, normalizedState);
-        this.save(publicKeyHex, normalizedState, { debounceMs: 0 });
+        this.memoryCacheByScopeKey.set(scopeKey, normalizedState);
+        this.save(publicKeyHex, normalizedState, { debounceMs: 0, profileId });
         logAppEvent({
             name: "messaging.chat_state_replaced",
             level: "info",
@@ -194,13 +202,15 @@ class ChatStateStore {
      * Schedules a save operation for the state.
      */
     private save(publicKeyHex: PublicKeyHex, state: PersistedChatState, options?: SaveOptions): void {
+        const profileId = options?.profileId ?? getActiveProfileIdSafe();
+        const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         if (typeof window === "undefined") {
-            savePersistedChatState(state, publicKeyHex);
+            savePersistedChatState(state, publicKeyHex, { profileId });
             return;
         }
 
         const debounceMs: number = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-        const pending: PendingSave = this.pendingByPublicKey.get(publicKeyHex) ?? { timeoutId: null, latest: null };
+        const pending: PendingSave = this.pendingByScopeKey.get(scopeKey) ?? { timeoutId: null, latest: null };
         pending.latest = state;
 
         if (pending.timeoutId !== null) {
@@ -227,18 +237,20 @@ class ChatStateStore {
                 messagesByConversationId: {},
                 groupMessages: {}
             };
-            savePersistedChatState(metadataOnly, publicKeyHex);
+            savePersistedChatState(metadataOnly, publicKeyHex, { profileId });
         }, debounceMs);
 
-        this.pendingByPublicKey.set(publicKeyHex, pending);
+        this.pendingByScopeKey.set(scopeKey, pending);
     }
 
     /**
      * Immediately flushes any pending writes to storage.
      */
-    async flush(publicKeyHex: PublicKeyHex): Promise<void> {
+    async flush(publicKeyHex: PublicKeyHex, options?: Readonly<{ profileId?: string }>): Promise<void> {
+        const profileId = options?.profileId ?? getActiveProfileIdSafe();
+        const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         if (typeof window === "undefined") return;
-        const pending = this.pendingByPublicKey.get(publicKeyHex);
+        const pending = this.pendingByScopeKey.get(scopeKey);
         if (!pending?.latest) return;
 
         if (pending.timeoutId !== null) {
@@ -260,7 +272,7 @@ class ChatStateStore {
             messagesByConversationId: {},
             groupMessages: {}
         };
-        savePersistedChatState(metadataOnly, publicKeyHex);
+        savePersistedChatState(metadataOnly, publicKeyHex, { profileId });
     }
 
     private createInitialState(): PersistedChatState {

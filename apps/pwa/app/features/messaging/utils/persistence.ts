@@ -33,11 +33,14 @@ const LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY: string = "dweb.nostr.pwa.chatStat
 const PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX: string = "dweb.nostr.pwa.chatState.v2";
 const LAST_SEEN_STORAGE_PREFIX: string = "dweb.nostr.pwa.last-seen";
 
-const getPersistedChatStateStorageKey = (publicKeyHex: string | null | undefined): string => {
+const getPersistedChatStateStorageKey = (
+    publicKeyHex: string | null | undefined,
+    profileId?: string,
+): string => {
     if (!publicKeyHex || publicKeyHex.trim().length === 0) {
-        return getScopedStorageKey(LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY);
+        return getScopedStorageKey(LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY, profileId);
     }
-    return getScopedStorageKey(`${PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX}.${publicKeyHex}`);
+    return getScopedStorageKey(`${PERSISTED_CHAT_STATE_STORAGE_KEY_PREFIX}.${publicKeyHex}`, profileId);
 };
 
 // Helper functions for type checking
@@ -670,9 +673,12 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
 };
 
 // Public persistence API
-export const loadPersistedChatState = (publicKeyHex?: string | null): PersistedChatState | null => {
+export const loadPersistedChatState = (
+    publicKeyHex?: string | null,
+    options?: Readonly<{ profileId?: string }>,
+): PersistedChatState | null => {
     try {
-        const primaryKey = getPersistedChatStateStorageKey(publicKeyHex);
+        const primaryKey = getPersistedChatStateStorageKey(publicKeyHex, options?.profileId);
         const rawPrimary = localStorage.getItem(primaryKey);
         if (rawPrimary) {
             const parsed = JSON.parse(rawPrimary);
@@ -702,9 +708,13 @@ export const loadPersistedChatState = (publicKeyHex?: string | null): PersistedC
     }
 };
 
-export const savePersistedChatState = (state: PersistedChatState, publicKeyHex?: string | null): void => {
+export const savePersistedChatState = (
+    state: PersistedChatState,
+    publicKeyHex?: string | null,
+    options?: Readonly<{ profileId?: string }>,
+): void => {
     try {
-        const key = getPersistedChatStateStorageKey(publicKeyHex);
+        const key = getPersistedChatStateStorageKey(publicKeyHex, options?.profileId);
         localStorage.setItem(key, JSON.stringify(state));
     } catch {
         return;

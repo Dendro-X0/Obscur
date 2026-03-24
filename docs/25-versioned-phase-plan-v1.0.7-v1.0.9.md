@@ -7,6 +7,9 @@ This document locks the next version-bound execution cadence after `v1.0.6`:
 2. explicit checkpoint commits inside each milestone,
 3. no release until checkpoint evidence is complete.
 
+Follow-on major-phase sequencing after `v1.0.9` is defined in:
+1. `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
+
 ## Version-Milestone Mapping
 
 1. `v1.0.7` -> `M5` community lifecycle convergence + governance reliability.

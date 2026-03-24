@@ -32,6 +32,9 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 24. [25 Versioned Phase Plan (v1.0.7-v1.0.9)](./25-versioned-phase-plan-v1.0.7-v1.0.9.md)
 25. [26 v1.0.7 CP3 Community Convergence Matrix](./26-v1.0.7-cp3-community-convergence-matrix.md)
 26. [27 v1.0.8 CP3 Voice Replay Matrix](./27-v1.0.8-cp3-voice-replay-matrix.md)
+27. [28 v1.0.9 CP3 Anti-Abuse Replay Matrix](./28-v1.0.9-cp3-anti-abuse-replay-matrix.md)
+28. [29 Versioned Major-Phase Plan (v1.0.10-v1.3.0)](./29-versioned-major-phase-plan-v1.0.10-v1.3.0.md)
+29. [30 Versioned Phase Plan (v1.0.10-v1.1.0)](./30-versioned-phase-plan-v1.0.10-v1.1.0.md)
 
 ## Scope Rules
 
@@ -52,6 +55,10 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
 - Current active execution cadence (`v1.0.7-v1.0.9`) is tracked in:
   - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
+- Next major-phase execution cadence (`v1.0.10-v1.3.0`) is tracked in:
+  - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
+- Active execution lane for major-phase start (`v1.0.10-v1.1.0`) is tracked in:
+  - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
 - For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 20 -> 21 -> 17 -> 18` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).

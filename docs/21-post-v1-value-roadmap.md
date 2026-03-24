@@ -477,20 +477,73 @@ Current execution status:
 : capture and attach anti-abuse replay evidence bundle using
 : `copy(window.obscurM7AntiAbuseReplay?.runPeerCooldownReplayCaptureJson({ clearAppEvents: true }))`.
 
+## M8 - Community Platform Completion and Lifecycle Resilience
+
+Planned version window:
+1. `v1.0.10 -> v1.1.0` (major-phase closeout at `v1.1.0`).
+
+Scope:
+1. complete community information architecture (channels/topics, pinned resources, governance/audit visibility),
+2. harden membership portability across account-switch/restart/restore without creator/member drift,
+3. ensure membership/sendability convergence when room-key, ledger, and hydrated state are temporarily inconsistent.
+
+Acceptance:
+1. account-switch/restart replay keeps community identity (name/member coverage/operator role) converged,
+2. sendability and membership outcomes remain reason-coded and recoverable via canonical paths,
+3. community disband behavior is deterministic when membership reaches zero and remains reversible only through explicit join/invite paths.
+
+## M9 - Secure Voice Communication Rollout
+
+Planned version window:
+1. `v1.1.1 -> v1.2.0` (major-phase closeout at `v1.2.0`).
+
+Scope:
+1. expand bounded real-time voice from beta slice to stable small-room/operator-ready workflows,
+2. keep explicit capability/degraded/unsupported outcomes across desktop/web/mobile surfaces,
+3. converge async voice notes, realtime voice state, and deletion/privacy controls into one deterministic transport contract.
+
+Acceptance:
+1. weak-network replay remains interactive without optimistic success claims,
+2. voice session state transitions are diagnostics-backed and recoverable without cross-owner drift,
+3. end-to-end delete behavior converges for text/media/voice artifacts across two-device replay.
+
+## M10 - Anti-Abuse Intelligence and Trust Controls
+
+Planned version window:
+1. `v1.2.1 -> v1.3.0` (major-phase closeout at `v1.3.0`).
+
+Scope:
+1. extend local-first anti-abuse with optional signed shared-intel and relay risk signals,
+2. add attack-mode safety profile controls with explicit user/operator visibility and rollback paths,
+3. finish UX/performance hardening for high-load community/chat sessions under degraded relay conditions.
+
+Acceptance:
+1. anti-abuse outcomes stay reason-coded, explainable, and reversible by user policy,
+2. no plaintext-content scanning or centralized moderation path is introduced,
+3. long-session soak replay shows no route-freeze/blank-page regression class in release evidence.
+
 ## Version-Bound Execution
 
 1. Completed one-milestone-per-version sequence:
 : `v1.0.4` -> `M2` closeout,
 : `v1.0.5` -> `M3`,
 : `v1.0.6` -> `M4`.
-2. Active one-milestone-per-version sequence:
+2. Completed one-milestone-per-version sequence:
 : `v1.0.7` -> `M5`,
 : `v1.0.8` -> `M6`,
-: `v1.0.9` -> `M7`.
-3. Detailed checkpoints and release gates for the completed sequence are defined in:
+: `v1.0.9` -> `M7` (CP3 evidence attachment pending final closeout).
+3. Planned major-phase release sequence:
+: `v1.0.10`, `v1.0.11`, `v1.1.0` -> `M8`,
+: `v1.1.1`, `v1.1.2`, `v1.2.0` -> `M9`,
+: `v1.2.1`, `v1.2.2`, `v1.3.0` -> `M10`.
+4. Detailed checkpoints and release gates for the completed sequence are defined in:
 : `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
-4. Detailed checkpoints and release gates for the active sequence are defined in:
+5. Detailed checkpoints and release gates for the active sequence are defined in:
 : `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
+6. Detailed checkpoints and release gates for the planned major-phase sequence are defined in:
+: `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
+7. Active execution lane for major-phase start (`v1.0.10-v1.1.0`) is defined in:
+: `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
 
 ## Non-Negotiable Validation Contract
 

@@ -62,6 +62,25 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const dedupePubkeys = (values: ReadonlyArray<string>): ReadonlyArray<string> => (
         Array.from(new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)))
     );
+    const PLACEHOLDER_GROUP_DISPLAY_NAME = "Private Group";
+    const hasMeaningfulDisplayName = (value: string | undefined): boolean => {
+        const trimmed = value?.trim() ?? "";
+        return trimmed.length > 0 && trimmed !== PLACEHOLDER_GROUP_DISPLAY_NAME;
+    };
+    const pickPreferredDisplayName = (
+        current: string | undefined,
+        incoming: string | undefined,
+    ): string => {
+        if (hasMeaningfulDisplayName(current)) {
+            return current!.trim();
+        }
+        if (hasMeaningfulDisplayName(incoming)) {
+            return incoming!.trim();
+        }
+        const currentTrimmed = current?.trim() ?? "";
+        const incomingTrimmed = incoming?.trim() ?? "";
+        return currentTrimmed || incomingTrimmed || PLACEHOLDER_GROUP_DISPLAY_NAME;
+    };
     const toPublicKeySuffix = (value: string): string => value.slice(-8);
 
     const sanitizeGroup = (group: GroupConversation): GroupConversation => {
@@ -92,18 +111,97 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
     };
 
+    const mergeGroupConversations = useCallback((params: Readonly<{
+        current: GroupConversation;
+        incoming: GroupConversation;
+        localPublicKeyHex: string | null;
+    }>): GroupConversation => {
+        const current = sanitizeGroup(params.current);
+        const incoming = sanitizeGroup(params.incoming);
+        const currentLastMessageUnixMs = current.lastMessageTime?.getTime?.() ?? 0;
+        const incomingLastMessageUnixMs = incoming.lastMessageTime?.getTime?.() ?? 0;
+        const incomingIsNewer = incomingLastMessageUnixMs >= currentLastMessageUnixMs;
+        const primary = incomingIsNewer ? incoming : current;
+        const secondary = incomingIsNewer ? current : incoming;
+        const mergedMemberPubkeys = dedupePubkeys([
+            ...current.memberPubkeys,
+            ...incoming.memberPubkeys,
+            ...(params.localPublicKeyHex ? [params.localPublicKeyHex] : []),
+        ]);
+        const mergedAdminPubkeys = dedupePubkeys([
+            ...current.adminPubkeys,
+            ...incoming.adminPubkeys,
+        ]);
+        const primaryAvatar = primary.avatar?.trim();
+        const secondaryAvatar = secondary.avatar?.trim();
+        const primaryAbout = primary.about?.trim();
+        const secondaryAbout = secondary.about?.trim();
+
+        return sanitizeGroup({
+            ...secondary,
+            ...primary,
+            communityId: primary.communityId || secondary.communityId,
+            displayName: pickPreferredDisplayName(primary.displayName, secondary.displayName),
+            memberPubkeys: mergedMemberPubkeys,
+            adminPubkeys: mergedAdminPubkeys,
+            memberCount: Math.max(
+                current.memberCount ?? 0,
+                incoming.memberCount ?? 0,
+                mergedMemberPubkeys.length,
+                1,
+            ),
+            avatar: primaryAvatar && primaryAvatar.length > 0
+                ? primaryAvatar
+                : secondaryAvatar && secondaryAvatar.length > 0
+                    ? secondaryAvatar
+                    : undefined,
+            about: primaryAbout && primaryAbout.length > 0
+                ? primaryAbout
+                : secondaryAbout && secondaryAbout.length > 0
+                    ? secondaryAbout
+                    : undefined,
+        });
+    }, []);
+
+    const areGroupsEquivalent = useCallback((left: GroupConversation, right: GroupConversation): boolean => {
+        return (
+            left.id === right.id
+            && left.communityId === right.communityId
+            && left.groupId === right.groupId
+            && left.relayUrl === right.relayUrl
+            && left.displayName === right.displayName
+            && left.lastMessage === right.lastMessage
+            && left.unreadCount === right.unreadCount
+            && (left.lastMessageTime?.getTime?.() ?? 0) === (right.lastMessageTime?.getTime?.() ?? 0)
+            && left.access === right.access
+            && left.memberCount === right.memberCount
+            && left.avatar === right.avatar
+            && left.about === right.about
+            && left.memberPubkeys.join(",") === right.memberPubkeys.join(",")
+            && left.adminPubkeys.join(",") === right.adminPubkeys.join(",")
+        );
+    }, []);
+
     const getPublicKeyHex = useCallback(() => {
         return identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
     }, [identity.state.publicKeyHex, identity.state.stored?.publicKeyHex]);
 
     const dedupeGroups = (groups: ReadonlyArray<GroupConversation>): ReadonlyArray<GroupConversation> => {
         const map = new Map<string, GroupConversation>();
+        const localPublicKeyHex = getPublicKeyHex();
         groups.forEach((group) => {
             const normalized = sanitizeGroup(group);
             const key = toGroupTombstoneKey({ groupId: normalized.groupId, relayUrl: normalized.relayUrl });
-            if (!map.has(key)) {
+            const existing = map.get(key);
+            if (!existing) {
                 map.set(key, normalized);
+                return;
             }
+            map.set(key, mergeGroupConversations({
+                current: existing,
+                incoming: normalized,
+                localPublicKeyHex,
+            }));
         });
         return Array.from(map.values());
     };
@@ -240,13 +338,30 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
             const hasExisting = prev.some(g => g.groupId === normalized.groupId && g.relayUrl === normalized.relayUrl);
             if (hasExisting) {
+                const next = prev.map((group) => {
+                    if (group.groupId !== normalized.groupId || group.relayUrl !== normalized.relayUrl) {
+                        return group;
+                    }
+                    return mergeGroupConversations({
+                        current: group,
+                        incoming: normalized,
+                        localPublicKeyHex: pk,
+                    });
+                });
+                const merged = next.find((group) => (
+                    group.groupId === normalized.groupId && group.relayUrl === normalized.relayUrl
+                )) ?? normalized;
                 if (pk) {
-                    chatStateStoreService.updateGroups(pk, prev.map(g => toPersistedGroupConversation(g)));
-                    upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(normalized, {
+                    chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
+                    upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(merged, {
                         status: "joined",
                     }));
                 }
-                return prev;
+                return areGroupsEquivalent(prev.find((group) => (
+                    group.groupId === normalized.groupId && group.relayUrl === normalized.relayUrl
+                )) ?? normalized, merged)
+                    ? prev
+                    : next;
             }
             const next = dedupeGroups([...prev, normalized]);
             if (pk) {
