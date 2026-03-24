@@ -143,8 +143,14 @@ Current checkpoint progress (2026-03-24):
 3. M0 focused triage capture now includes ignored realtime voice event probes:
 : `messaging.realtime_voice.session_event_ignored` in
 : `apps/pwa/app/shared/m0-triage-capture.ts`.
-4. Focused CP2 diagnostics/capture validation is green:
+4. Deterministic weak-network replay helper now provides one-copy CP2 replay evidence export:
+: `window.obscurM6VoiceReplay.runWeakNetworkReplayCapture(...)`
+: and `runWeakNetworkReplayCaptureJson(...)` in
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts`,
+: including a typed CP2 evidence gate verdict (`cp2EvidenceGate.pass/failedChecks`) for manual replay dry-runs.
+5. Focused CP2 diagnostics/capture validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.2.0 (M9-CP3/CP4 closeout)

@@ -346,11 +346,15 @@ Canonical matrix:
 : `copy(window.obscurM6VoiceCapture?.captureJson(400))`
 2. Realtime voice summary probe:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession`
-3. Replay bridge (for builds without exposed realtime voice UI path):
-: `window.obscurM6VoiceReplay?.runWeakNetworkReplay?.()`
-4. Transition event slice:
+3. Replay bridge one-copy deterministic bundle (preferred when UI replay path is unavailable):
+: `copy(window.obscurM6VoiceReplay?.runWeakNetworkReplayCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400 }))`
+4. Replay bridge state-only helper (fallback):
+: `window.obscurM6VoiceReplay?.runWeakNetworkReplay?.({ clearAppEvents: true, captureWindowSize: 400 })`
+5. CP2 replay gate verdict probe:
+: `window.obscurM6VoiceReplay?.runWeakNetworkReplayCapture?.({ clearAppEvents: true, captureWindowSize: 400 })?.cp2EvidenceGate`
+6. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-5. One-copy CP2 export bundle (fallback when helper is unavailable):
+7. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -360,9 +364,10 @@ Canonical matrix:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-6. Escalate immediately if:
+8. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
-: transitions show repeated unsupported reasons on a previously supported runtime without capability changes.
+: transitions show repeated unsupported reasons on a previously supported runtime without capability changes,
+: `cp2EvidenceGate.pass` is `false` with missing degraded/recovery transition checks.
 
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 

@@ -430,8 +430,18 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - M0 focused triage voice category now includes
       `messaging.realtime_voice.session_event_ignored` in
       `app/shared/m0-triage-capture.ts`.
+  - `v1.1.2` CP2 replay-helper slice landed:
+    - deterministic one-copy weak-network replay export is now available in
+      `app/shared/m6-voice-replay-bridge.ts`:
+      - `window.obscurM6VoiceReplay.runWeakNetworkReplayCapture(...)`,
+      - `window.obscurM6VoiceReplay.runWeakNetworkReplayCaptureJson(...)`,
+    - replay output now includes typed CP2 gate verdict fields:
+      - `cp2EvidenceGate.pass`,
+      - `cp2EvidenceGate.failedChecks`,
+      - readiness probes aligned to degraded/recovery transition evidence.
   - focused CP2 diagnostics/capture validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
