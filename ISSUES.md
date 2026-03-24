@@ -387,6 +387,11 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - closure now converges to `phase: "ended"` with reason `session_closed` from
       `connecting|active|degraded|leaving`,
     - this prevents stuck interactive voice states when peer/session close is observed before local leave completion.
+  - `v1.1.1` CP1 active-session evidence hardening landed on the same canonical lifecycle owner:
+    - `markRealtimeVoiceSessionConnected(...)` now accepts `active`-phase updates so peer evidence refresh does not trigger `invalid_transition`,
+    - active sessions now deterministically degrade to `phase: "degraded"` with reason `peer_evidence_missing` when peer evidence disappears during update,
+    - focused regression coverage added in
+      `app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`.
   - focused CP1 lifecycle/diagnostics validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.

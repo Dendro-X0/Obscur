@@ -548,6 +548,10 @@ Acceptance:
 9. `M9` (`v1.1.1` CP1) is now started with voice session lifecycle hardening:
 : explicit remote-close canonical transition in
 : `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
+10. `M9` (`v1.1.1` CP1) active-session peer-evidence convergence hardening is now landed:
+: `markRealtimeVoiceSessionConnected(...)` accepts `active` refresh updates and degrades to
+: `peer_evidence_missing` when peer evidence drops, preserving deterministic phase ownership in
+: `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
 
 ## Non-Negotiable Validation Contract
 

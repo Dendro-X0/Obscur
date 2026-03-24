@@ -115,6 +115,62 @@ describe("realtime-voice-session-lifecycle", () => {
     expect(isRealtimeVoiceSessionInteractive(connected)).toBe(true);
   });
 
+  it("accepts active-phase peer evidence updates without invalid transitions", () => {
+    const initial = createInitialRealtimeVoiceSessionState();
+    const started = startRealtimeVoiceSession(initial, {
+      roomId: "room-active-update",
+      mode: "join",
+      capability: SUPPORTED_CAPABILITY,
+      nowUnixMs: 4_000,
+    });
+    const active = markRealtimeVoiceSessionConnected(started, {
+      participantCount: 2,
+      hasPeerSessionEvidence: true,
+      nowUnixMs: 4_100,
+    });
+
+    const updated = markRealtimeVoiceSessionConnected(active, {
+      participantCount: 4,
+      hasPeerSessionEvidence: true,
+      nowUnixMs: 4_200,
+    });
+
+    expect(updated).toEqual(expect.objectContaining({
+      phase: "active",
+      participantCount: 4,
+      hasPeerSessionEvidence: true,
+      lastTransitionReasonCode: "none",
+    }));
+  });
+
+  it("degrades active session when peer evidence disappears", () => {
+    const initial = createInitialRealtimeVoiceSessionState();
+    const started = startRealtimeVoiceSession(initial, {
+      roomId: "room-active-peer-drop",
+      mode: "join",
+      capability: SUPPORTED_CAPABILITY,
+      nowUnixMs: 4_500,
+    });
+    const active = markRealtimeVoiceSessionConnected(started, {
+      participantCount: 2,
+      hasPeerSessionEvidence: true,
+      nowUnixMs: 4_600,
+    });
+
+    const degraded = markRealtimeVoiceSessionConnected(active, {
+      participantCount: 1,
+      hasPeerSessionEvidence: false,
+      nowUnixMs: 4_700,
+    });
+
+    expect(degraded).toEqual(expect.objectContaining({
+      phase: "degraded",
+      participantCount: 1,
+      hasPeerSessionEvidence: false,
+      lastTransitionReasonCode: "peer_evidence_missing",
+    }));
+  });
+
   it("supports degraded to recovery to active flow", () => {
     const initial = createInitialRealtimeVoiceSessionState();
     const started = startRealtimeVoiceSession(initial, {

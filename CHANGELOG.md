@@ -9,6 +9,12 @@
       `markRealtimeVoiceSessionClosed(state, { nowUnixMs })`
   - session closure now transitions to `phase: "ended"` with reason `session_closed` from
     `connecting|active|degraded|leaving`, preventing stuck interactive state when peer-side close arrives before local leave completion.
+  - hardened canonical connect-transition handling for active session refresh paths:
+    - `markRealtimeVoiceSessionConnected(...)` now accepts `active` phase updates in
+      `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`,
+    - active sessions now update participant evidence deterministically instead of surfacing
+      `invalid_transition` on subsequent peer-evidence updates,
+    - active sessions now degrade with reason `peer_evidence_missing` when peer evidence drops during update.
   - added focused regression coverage in:
     - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
   - synced active major-phase docs/status:

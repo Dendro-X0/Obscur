@@ -173,7 +173,11 @@ export const markRealtimeVoiceSessionConnected = (
     nowUnixMs?: number;
   }>,
 ): RealtimeVoiceSessionState => {
-  if (state.phase !== "connecting" && state.phase !== "degraded") {
+  if (
+    state.phase !== "connecting"
+    && state.phase !== "degraded"
+    && state.phase !== "active"
+  ) {
     return withTransition(state, {
       phase: state.phase,
       reasonCode: "invalid_transition",

@@ -105,7 +105,9 @@ Current checkpoint progress (2026-03-23):
 : `markRealtimeVoiceSessionClosed(state, { nowUnixMs })`
 : to end sessions from `connecting|active|degraded|leaving` with reason `session_closed`.
 3. The new transition prevents stuck interactive voice state when peer-side close arrives before local leave completion.
-4. Focused CP1 lifecycle diagnostics coverage is green:
+4. Added active-session evidence convergence hardening on the same canonical lifecycle owner:
+: `markRealtimeVoiceSessionConnected(...)` now accepts `active` updates so peer-evidence refreshes remain deterministic (no `invalid_transition` drift), and active sessions degrade with `peer_evidence_missing` when peer evidence drops.
+5. Focused CP1 lifecycle diagnostics coverage is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
