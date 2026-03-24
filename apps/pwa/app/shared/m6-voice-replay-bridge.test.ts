@@ -66,6 +66,7 @@ describe("m6-voice-replay-bridge", () => {
     const replayApi = root.obscurM6VoiceReplay as {
       runWeakNetworkReplayCapture: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => {
         replay: {
+          scenario: string;
           finalState: { phase: string };
           replayReadiness: { readyForCp2Evidence: boolean };
           transitionEventCount: number;
@@ -81,7 +82,7 @@ describe("m6-voice-replay-bridge", () => {
         cp2EvidenceGate: {
           pass: boolean;
           failedChecks: readonly string[];
-          checks: Record<string, boolean>;
+          checks: Record<string, unknown>;
         };
       };
       runWeakNetworkReplayCaptureJson: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => string;
@@ -91,6 +92,7 @@ describe("m6-voice-replay-bridge", () => {
       clearAppEvents: true,
       captureWindowSize: 300,
     });
+    expect(bundle.replay?.scenario).toBe("weak_network");
     expect(bundle.replay?.finalState.phase).toBe("active");
     expect(bundle.replay?.transitionEventCount).toBeGreaterThanOrEqual(5);
     expect(bundle.replay?.degradedTransitionCount).toBe(1);
@@ -100,8 +102,67 @@ describe("m6-voice-replay-bridge", () => {
     expect(Array.isArray(bundle.capture?.voice.ignoredEvents)).toBe(true);
     expect(bundle.cp2EvidenceGate.pass).toBe(true);
     expect(bundle.cp2EvidenceGate.failedChecks).toEqual([]);
+    expect(bundle.cp2EvidenceGate.checks.scenario).toBe("weak_network");
     expect(bundle.cp2EvidenceGate.checks.replayReadyForCp2).toBe(true);
     expect(() => JSON.parse(replayApi.runWeakNetworkReplayCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    }))).not.toThrow();
+  });
+
+  it("exports deterministic account-switch replay capture bundle with CP2 gate verdict", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runAccountSwitchReplayCapture: (
+        params?: { clearAppEvents?: boolean; captureWindowSize?: number },
+      ) => {
+        replay: {
+          scenario: string;
+          finalState: { phase: string };
+          transitionEventCount: number;
+          endedTransitionCount: number;
+          roomHintCount: number;
+          replayReadiness: { readyForCp2Evidence: boolean; hasPostSwitchActiveTransition: boolean };
+        } | null;
+        capture: {
+          voice: {
+            summary: { transitionCount: number } | null;
+            ignoredEvents: unknown[];
+          };
+        } | null;
+        cp2EvidenceGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, unknown>;
+        };
+      };
+      runAccountSwitchReplayCaptureJson: (
+        params?: { clearAppEvents?: boolean; captureWindowSize?: number },
+      ) => string;
+    };
+
+    const bundle = replayApi.runAccountSwitchReplayCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    });
+    expect(bundle.replay?.scenario).toBe("account_switch");
+    expect(bundle.replay?.finalState.phase).toBe("active");
+    expect(bundle.replay?.transitionEventCount).toBeGreaterThanOrEqual(6);
+    expect(bundle.replay?.endedTransitionCount).toBeGreaterThanOrEqual(1);
+    expect(bundle.replay?.roomHintCount).toBeGreaterThanOrEqual(2);
+    expect(bundle.replay?.replayReadiness.hasPostSwitchActiveTransition).toBe(true);
+    expect(bundle.replay?.replayReadiness.readyForCp2Evidence).toBe(true);
+    expect(bundle.capture?.voice.summary?.transitionCount).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(bundle.capture?.voice.ignoredEvents)).toBe(true);
+    expect(bundle.cp2EvidenceGate.pass).toBe(true);
+    expect(bundle.cp2EvidenceGate.failedChecks).toEqual([]);
+    expect(bundle.cp2EvidenceGate.checks.scenario).toBe("account_switch");
+    expect(() => JSON.parse(replayApi.runAccountSwitchReplayCaptureJson({
       clearAppEvents: true,
       captureWindowSize: 300,
     }))).not.toThrow();

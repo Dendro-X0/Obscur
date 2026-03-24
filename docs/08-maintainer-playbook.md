@@ -348,13 +348,16 @@ Canonical matrix:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession`
 3. Replay bridge one-copy deterministic bundle (preferred when UI replay path is unavailable):
 : `copy(window.obscurM6VoiceReplay?.runWeakNetworkReplayCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400 }))`
-4. Replay bridge state-only helper (fallback):
+4. Account-switch replay bridge one-copy deterministic bundle:
+: `copy(window.obscurM6VoiceReplay?.runAccountSwitchReplayCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400 }))`
+5. Replay bridge state-only helper (fallback):
 : `window.obscurM6VoiceReplay?.runWeakNetworkReplay?.({ clearAppEvents: true, captureWindowSize: 400 })`
-5. CP2 replay gate verdict probe:
+6. CP2 replay gate verdict probes:
 : `window.obscurM6VoiceReplay?.runWeakNetworkReplayCapture?.({ clearAppEvents: true, captureWindowSize: 400 })?.cp2EvidenceGate`
-6. Transition event slice:
+: `window.obscurM6VoiceReplay?.runAccountSwitchReplayCapture?.({ clearAppEvents: true, captureWindowSize: 400 })?.cp2EvidenceGate`
+7. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-7. One-copy CP2 export bundle (fallback when helper is unavailable):
+8. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -364,10 +367,11 @@ Canonical matrix:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-8. Escalate immediately if:
+9. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
 : transitions show repeated unsupported reasons on a previously supported runtime without capability changes,
-: `cp2EvidenceGate.pass` is `false` with missing degraded/recovery transition checks.
+: weak-network `cp2EvidenceGate.pass` is `false` with missing degraded/recovery transition checks,
+: account-switch `cp2EvidenceGate.pass` is `false` with missing multi-room/end/second-active transition checks.
 
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 

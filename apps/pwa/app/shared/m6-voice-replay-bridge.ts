@@ -16,21 +16,39 @@ type M6WeakNetworkReplayParams = Readonly<{
   clearAppEvents?: boolean;
 }>;
 
+type M6AccountSwitchReplayParams = Readonly<{
+  firstRoomId?: string;
+  secondRoomId?: string;
+  mode?: RealtimeVoiceSessionMode;
+  baseUnixMs?: number;
+  maxRecoveryAttempts?: number;
+  captureWindowSize?: number;
+  clearAppEvents?: boolean;
+}>;
+
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
+type M6VoiceReplayScenario = "weak_network" | "account_switch";
 
 type M6VoiceReplayResult = Readonly<{
+  scenario: M6VoiceReplayScenario;
   generatedAtUnixMs: number;
   replayBaseUnixMs: number;
   finalState: RealtimeVoiceSessionState;
   transitionEventCount: number;
   degradedTransitionCount: number;
   recoveredActiveTransitionCount: number;
+  endedTransitionCount: number;
+  roomHintCount: number;
   ignoredEventCount: number;
   latestDigestSummary: M6VoiceDigestSummary | null;
   replayReadiness: Readonly<{
+    scenario: M6VoiceReplayScenario;
     hasTransitionEvents: boolean;
     hasDegradedTransition: boolean;
     hasRecoveredActiveTransition: boolean;
+    hasEndedTransition: boolean;
+    hasMultiRoomEvidence: boolean;
+    hasPostSwitchActiveTransition: boolean;
     digestHasTransitionCount: boolean;
     digestHasDegradedCount: boolean;
     digestHasIgnoredFieldCoverage: boolean;
@@ -43,11 +61,15 @@ type M6VoiceCp2EvidenceGate = Readonly<{
   pass: boolean;
   failedChecks: ReadonlyArray<string>;
   checks: Readonly<{
+    scenario: M6VoiceReplayScenario;
     hasReplayResult: boolean;
     hasCaptureBundle: boolean;
     hasTransitionEvents: boolean;
     hasDegradedTransition: boolean;
     hasRecoveredActiveTransition: boolean;
+    hasEndedTransition: boolean;
+    hasMultiRoomEvidence: boolean;
+    hasPostSwitchActiveTransition: boolean;
     hasIgnoredEventSlice: boolean;
     hasDigestSummary: boolean;
     digestHasIgnoredFieldCoverage: boolean;
@@ -86,6 +108,9 @@ type M6VoiceReplayApi = Readonly<{
   runWeakNetworkReplay: (params?: M6WeakNetworkReplayParams) => RealtimeVoiceSessionState;
   runWeakNetworkReplayCapture: (params?: M6WeakNetworkReplayParams) => M6VoiceReplayCaptureBundle;
   runWeakNetworkReplayCaptureJson: (params?: M6WeakNetworkReplayParams) => string;
+  runAccountSwitchReplay: (params?: M6AccountSwitchReplayParams) => RealtimeVoiceSessionState;
+  runAccountSwitchReplayCapture: (params?: M6AccountSwitchReplayParams) => M6VoiceReplayCaptureBundle;
+  runAccountSwitchReplayCaptureJson: (params?: M6AccountSwitchReplayParams) => string;
 }>;
 
 type M6VoiceReplayWindow = Window & {
@@ -114,6 +139,7 @@ declare global {
 
 const DEFAULT_CAPTURE_WINDOW_SIZE = 400;
 const DEFAULT_WEAK_REPLAY_TRANSITION_COUNT = 5;
+const DEFAULT_ACCOUNT_SWITCH_REPLAY_TRANSITION_COUNT = 6;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null
@@ -133,6 +159,16 @@ const toNumber = (value: unknown): number => (
 const toStringOrNull = (value: unknown): string | null => (
   typeof value === "string" && value.trim().length > 0 ? value : null
 );
+
+const toRoomIdHint = (roomId: string | null): string | null => {
+  if (typeof roomId !== "string" || roomId.length === 0) {
+    return null;
+  }
+  if (roomId.length <= 16) {
+    return roomId;
+  }
+  return `${roomId.slice(0, 8)}...${roomId.slice(-8)}`;
+};
 
 const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
   if (!isRecord(value)) {
@@ -193,6 +229,35 @@ const countTransitionsToPhase = (
   events.filter((event) => toStringOrNull(event.context?.toPhase) === toPhase).length
 );
 
+const countTransitionsByRoomAndPhase = (
+  events: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>,
+  params: Readonly<{
+    roomIdHint: string | null;
+    toPhase: string;
+  }>,
+): number => {
+  if (params.roomIdHint === null) {
+    return 0;
+  }
+  return events.filter((event) => (
+    toStringOrNull(event.context?.roomIdHint) === params.roomIdHint
+    && toStringOrNull(event.context?.toPhase) === params.toPhase
+  )).length;
+};
+
+const countDistinctRoomHints = (
+  events: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>,
+): number => {
+  const hints = new Set<string>();
+  events.forEach((event) => {
+    const roomIdHint = toStringOrNull(event.context?.roomIdHint);
+    if (roomIdHint) {
+      hints.add(roomIdHint);
+    }
+  });
+  return hints.size;
+};
+
 const countRecoveredActiveTransitions = (
   events: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>,
 ): number => {
@@ -212,32 +277,50 @@ const countRecoveredActiveTransitions = (
 };
 
 const buildReplayReadiness = (params: Readonly<{
+  scenario: M6VoiceReplayScenario;
   transitionEventCount: number;
   degradedTransitionCount: number;
   recoveredActiveTransitionCount: number;
+  endedTransitionCount: number;
+  roomHintCount: number;
+  postSwitchActiveTransitionCount: number;
   latestDigestSummary: M6VoiceDigestSummary | null;
 }>): M6VoiceReplayResult["replayReadiness"] => {
-  const hasTransitionEvents = params.transitionEventCount >= DEFAULT_WEAK_REPLAY_TRANSITION_COUNT;
+  const minTransitionCount = params.scenario === "account_switch"
+    ? DEFAULT_ACCOUNT_SWITCH_REPLAY_TRANSITION_COUNT
+    : DEFAULT_WEAK_REPLAY_TRANSITION_COUNT;
+  const hasTransitionEvents = params.transitionEventCount >= minTransitionCount;
   const hasDegradedTransition = params.degradedTransitionCount >= 1;
   const hasRecoveredActiveTransition = params.recoveredActiveTransitionCount >= 1;
+  const hasEndedTransition = params.endedTransitionCount >= 1;
+  const hasMultiRoomEvidence = params.roomHintCount >= 2;
+  const hasPostSwitchActiveTransition = params.postSwitchActiveTransitionCount >= 1;
   const digestHasTransitionCount = (params.latestDigestSummary?.transitionCount ?? 0) >= 1;
-  const digestHasDegradedCount = (params.latestDigestSummary?.degradedCount ?? 0) >= 1;
+  const digestHasDegradedCount = params.scenario === "account_switch"
+    ? true
+    : (params.latestDigestSummary?.degradedCount ?? 0) >= 1;
   const digestHasIgnoredFieldCoverage = params.latestDigestSummary !== null
     && typeof params.latestDigestSummary.staleEventIgnoredCount === "number"
     && Object.prototype.hasOwnProperty.call(params.latestDigestSummary, "latestIgnoredReasonCode");
   const riskNotHigh = params.latestDigestSummary?.riskLevel !== "high";
+  const scenarioReady = params.scenario === "account_switch"
+    ? (hasEndedTransition && hasMultiRoomEvidence && hasPostSwitchActiveTransition)
+    : (hasDegradedTransition && hasRecoveredActiveTransition);
   return {
+    scenario: params.scenario,
     hasTransitionEvents,
     hasDegradedTransition,
     hasRecoveredActiveTransition,
+    hasEndedTransition,
+    hasMultiRoomEvidence,
+    hasPostSwitchActiveTransition,
     digestHasTransitionCount,
     digestHasDegradedCount,
     digestHasIgnoredFieldCoverage,
     riskNotHigh,
     readyForCp2Evidence: (
       hasTransitionEvents
-      && hasDegradedTransition
-      && hasRecoveredActiveTransition
+      && scenarioReady
       && digestHasTransitionCount
       && digestHasDegradedCount
       && digestHasIgnoredFieldCoverage
@@ -250,12 +333,36 @@ const buildCp2EvidenceGate = (
   replay: M6VoiceReplayResult | null,
   capture: M6VoiceCaptureBundle | null,
 ): M6VoiceCp2EvidenceGate => {
+  const scenario = replay?.scenario ?? "weak_network";
+  const scenarioGateChecks = scenario === "account_switch"
+    ? {
+      hasDegradedTransition: true,
+      hasRecoveredActiveTransition: true,
+      hasEndedTransition: (replay?.endedTransitionCount ?? 0) >= 1,
+      hasMultiRoomEvidence: (replay?.roomHintCount ?? 0) >= 2,
+      hasPostSwitchActiveTransition: replay?.replayReadiness.hasPostSwitchActiveTransition === true,
+    }
+    : {
+      hasDegradedTransition: (replay?.degradedTransitionCount ?? 0) >= 1,
+      hasRecoveredActiveTransition: (replay?.recoveredActiveTransitionCount ?? 0) >= 1,
+      hasEndedTransition: true,
+      hasMultiRoomEvidence: true,
+      hasPostSwitchActiveTransition: true,
+    };
   const checks = {
+    scenario,
     hasReplayResult: replay !== null,
     hasCaptureBundle: capture !== null,
-    hasTransitionEvents: (replay?.transitionEventCount ?? 0) >= DEFAULT_WEAK_REPLAY_TRANSITION_COUNT,
-    hasDegradedTransition: (replay?.degradedTransitionCount ?? 0) >= 1,
-    hasRecoveredActiveTransition: (replay?.recoveredActiveTransitionCount ?? 0) >= 1,
+    hasTransitionEvents: (replay?.transitionEventCount ?? 0) >= (
+      scenario === "account_switch"
+        ? DEFAULT_ACCOUNT_SWITCH_REPLAY_TRANSITION_COUNT
+        : DEFAULT_WEAK_REPLAY_TRANSITION_COUNT
+    ),
+    hasDegradedTransition: scenarioGateChecks.hasDegradedTransition,
+    hasRecoveredActiveTransition: scenarioGateChecks.hasRecoveredActiveTransition,
+    hasEndedTransition: scenarioGateChecks.hasEndedTransition,
+    hasMultiRoomEvidence: scenarioGateChecks.hasMultiRoomEvidence,
+    hasPostSwitchActiveTransition: scenarioGateChecks.hasPostSwitchActiveTransition,
     hasIgnoredEventSlice: Array.isArray(capture?.voice?.ignoredEvents),
     hasDigestSummary: replay?.latestDigestSummary !== null,
     digestHasIgnoredFieldCoverage: replay?.replayReadiness?.digestHasIgnoredFieldCoverage === true,
@@ -264,13 +371,57 @@ const buildCp2EvidenceGate = (
   } as const;
 
   const failedChecks = Object.entries(checks)
-    .filter(([, pass]) => pass !== true)
+    .filter(([name, pass]) => name !== "scenario" && pass !== true)
     .map(([key]) => key);
 
   return {
     pass: failedChecks.length === 0,
     failedChecks,
     checks,
+  };
+};
+
+const buildReplayResult = (params: Readonly<{
+  scenario: M6VoiceReplayScenario;
+  replayBaseUnixMs: number;
+  finalState: RealtimeVoiceSessionState;
+  transitionEvents: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>;
+  ignoredEvents: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>;
+  latestDigestSummary: M6VoiceDigestSummary | null;
+  secondRoomIdHint?: string | null;
+}>): M6VoiceReplayResult => {
+  const degradedTransitionCount = countTransitionsToPhase(params.transitionEvents, "degraded");
+  const recoveredActiveTransitionCount = countRecoveredActiveTransitions(params.transitionEvents);
+  const endedTransitionCount = countTransitionsToPhase(params.transitionEvents, "ended");
+  const roomHintCount = countDistinctRoomHints(params.transitionEvents);
+  const postSwitchActiveTransitionCount = params.scenario === "account_switch"
+    ? countTransitionsByRoomAndPhase(params.transitionEvents, {
+      roomIdHint: params.secondRoomIdHint ?? null,
+      toPhase: "active",
+    })
+    : 0;
+  return {
+    scenario: params.scenario,
+    generatedAtUnixMs: Date.now(),
+    replayBaseUnixMs: params.replayBaseUnixMs,
+    finalState: params.finalState,
+    transitionEventCount: params.transitionEvents.length,
+    degradedTransitionCount,
+    recoveredActiveTransitionCount,
+    endedTransitionCount,
+    roomHintCount,
+    ignoredEventCount: params.ignoredEvents.length,
+    latestDigestSummary: params.latestDigestSummary,
+    replayReadiness: buildReplayReadiness({
+      scenario: params.scenario,
+      transitionEventCount: params.transitionEvents.length,
+      degradedTransitionCount,
+      recoveredActiveTransitionCount,
+      endedTransitionCount,
+      roomHintCount,
+      postSwitchActiveTransitionCount,
+      latestDigestSummary: params.latestDigestSummary,
+    }),
   };
 };
 
@@ -415,22 +566,14 @@ export const installM6VoiceReplayBridge = (): void => {
         captureWindowSize,
       );
       const latestDigestSummary = readDigestSummary(root, captureWindowSize);
-      lastReplay = {
-        generatedAtUnixMs: Date.now(),
+      lastReplay = buildReplayResult({
+        scenario: "weak_network",
         replayBaseUnixMs,
         finalState: state,
-        transitionEventCount: transitions.length,
-        degradedTransitionCount: countTransitionsToPhase(transitions, "degraded"),
-        recoveredActiveTransitionCount: countRecoveredActiveTransitions(transitions),
-        ignoredEventCount: ignoredEvents.length,
+        transitionEvents: transitions,
+        ignoredEvents,
         latestDigestSummary,
-        replayReadiness: buildReplayReadiness({
-          transitionEventCount: transitions.length,
-          degradedTransitionCount: countTransitionsToPhase(transitions, "degraded"),
-          recoveredActiveTransitionCount: countRecoveredActiveTransitions(transitions),
-          latestDigestSummary,
-        }),
-      };
+      });
       return state;
     },
     runWeakNetworkReplayCapture: (params) => {
@@ -454,13 +597,96 @@ export const installM6VoiceReplayBridge = (): void => {
         2,
       )
     ),
+    runAccountSwitchReplay: (params) => {
+      if (params?.clearAppEvents) {
+        root.obscurAppEvents?.clear?.();
+      }
+      const replayBaseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
+        ? Math.floor(params.baseUnixMs)
+        : Date.now();
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const firstRoomId = params?.firstRoomId ?? "m6-room-account-switch-a-0001";
+      const secondRoomId = params?.secondRoomId ?? "m6-room-account-switch-b-0002";
+      const secondRoomIdHint = toRoomIdHint(secondRoomId);
+      clockUnixMs = replayBaseUnixMs;
+      state = owner.reset({
+        maxRecoveryAttempts: params?.maxRecoveryAttempts,
+      });
+      root.obscurM6VoiceReplay?.start({
+        roomId: firstRoomId,
+        mode: params?.mode ?? "join",
+        supported: true,
+        maxRecoveryAttempts: params?.maxRecoveryAttempts,
+      });
+      root.obscurM6VoiceReplay?.connect({
+        participantCount: 2,
+        hasPeerSessionEvidence: true,
+      });
+      root.obscurM6VoiceReplay?.leave();
+      root.obscurM6VoiceReplay?.end({ reasonCode: "left_by_user" });
+      root.obscurM6VoiceReplay?.start({
+        roomId: secondRoomId,
+        mode: params?.mode ?? "join",
+        supported: true,
+        maxRecoveryAttempts: params?.maxRecoveryAttempts,
+      });
+      root.obscurM6VoiceReplay?.connect({
+        participantCount: 2,
+        hasPeerSessionEvidence: true,
+      });
+      const transitions = readEventsByName(
+        root,
+        "messaging.realtime_voice.session_transition",
+        captureWindowSize,
+      );
+      const ignoredEvents = readEventsByName(
+        root,
+        "messaging.realtime_voice.session_event_ignored",
+        captureWindowSize,
+      );
+      const latestDigestSummary = readDigestSummary(root, captureWindowSize);
+      lastReplay = buildReplayResult({
+        scenario: "account_switch",
+        replayBaseUnixMs,
+        finalState: state,
+        transitionEvents: transitions,
+        ignoredEvents,
+        latestDigestSummary,
+        secondRoomIdHint,
+      });
+      return state;
+    },
+    runAccountSwitchReplayCapture: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      root.obscurM6VoiceReplay?.runAccountSwitchReplay({
+        ...params,
+        captureWindowSize,
+      });
+      const replay = lastReplay;
+      const capture = root.obscurM6VoiceCapture?.capture?.(captureWindowSize) ?? null;
+      return {
+        replay,
+        capture,
+        cp2EvidenceGate: buildCp2EvidenceGate(replay, capture),
+      };
+    },
+    runAccountSwitchReplayCaptureJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runAccountSwitchReplayCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
   };
 };
 
 export const m6VoiceReplayBridgeInternals = {
+  buildReplayResult,
   buildCp2EvidenceGate,
   buildReplayReadiness,
+  countDistinctRoomHints,
   countRecoveredActiveTransitions,
   parseDigestSummary,
+  toRoomIdHint,
   toPositiveInteger,
 };

@@ -439,6 +439,16 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `cp2EvidenceGate.pass`,
       - `cp2EvidenceGate.failedChecks`,
       - readiness probes aligned to degraded/recovery transition evidence.
+  - `v1.1.2` CP2 account-switch replay-helper slice landed:
+    - deterministic one-copy account-switch replay export is now available in
+      `app/shared/m6-voice-replay-bridge.ts`:
+      - `window.obscurM6VoiceReplay.runAccountSwitchReplayCapture(...)`,
+      - `window.obscurM6VoiceReplay.runAccountSwitchReplayCaptureJson(...)`,
+    - replay output now includes scenario-aware transition evidence:
+      - `scenario: "account_switch"`,
+      - `roomHintCount`,
+      - `endedTransitionCount`,
+      - `cp2EvidenceGate.pass/failedChecks`.
   - focused CP2 diagnostics/capture validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,

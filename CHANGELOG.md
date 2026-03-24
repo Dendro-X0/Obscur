@@ -22,6 +22,11 @@
     - `window.obscurM6VoiceReplay.runWeakNetworkReplayCapture(...)`,
     - `window.obscurM6VoiceReplay.runWeakNetworkReplayCaptureJson(...)`,
     - replay output now includes CP2 readiness verdict fields and one-copy replay + capture export.
+  - added deterministic M6 account-switch replay capture helper in
+    `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+    - `window.obscurM6VoiceReplay.runAccountSwitchReplayCapture(...)`,
+    - `window.obscurM6VoiceReplay.runAccountSwitchReplayCaptureJson(...)`,
+    - replay output now includes multi-room switch evidence counters and CP2 gate verdict fields.
   - added focused regression coverage in:
     - `apps/pwa/app/shared/log-app-event.test.ts`
     - `apps/pwa/app/shared/m6-voice-capture.test.ts`
@@ -33,6 +38,7 @@
 - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm docs:check`
 
 ## [v1.1.1] - 2026-03-24
 
