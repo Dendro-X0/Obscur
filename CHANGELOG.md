@@ -1,4 +1,6 @@
-## [Unreleased - v1.0.9]
+## [Unreleased]
+
+## [v1.0.9] - 2026-03-24
 
 ### Changed
 
