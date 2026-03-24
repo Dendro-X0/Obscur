@@ -305,6 +305,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm docs:check`,
   - deterministic CP2 replay bridge is now available for convergence-evidence generation:
     - `window.obscurM8CommunityReplay?.runConvergenceReplay({ clearAppEvents: true })`,
+    - preferred one-copy CP3 export (with explicit gate verdict):
+      `copy(JSON.stringify(window.obscurM8CommunityReplay?.runConvergenceReplayCapture({ clearAppEvents: true }), null, 2))`,
     - one-copy replay + capture export:
       `copy(window.obscurM8CommunityReplay?.runConvergenceReplayCaptureJson({ clearAppEvents: true }))`,
     - implementation in `app/shared/m8-community-replay-bridge.ts`,
@@ -364,6 +366,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
         - `community.replayReadiness.readyForCp3Evidence` in `app/shared/m8-community-capture.ts`.
   - `v1.0.11` CP2 closeout status:
     - code/tests/docs slice is complete and published on `main`,
+    - deterministic CP3 evidence export now includes `cp3EvidenceGate.pass` + `cp3EvidenceGate.failedChecks` for operator-side one-copy verification,
     - remaining M8 closeout work is CP3 manual matrix evidence capture, then CP4 strict release gates for `v1.1.0`.
 
 ## v1 Readiness Status

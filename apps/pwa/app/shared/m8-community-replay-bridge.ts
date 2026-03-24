@@ -13,8 +13,34 @@ export type M8CommunityReplayResult = Readonly<{
   latestDigestSummary: Readonly<{
     communityLifecycleConvergence: M8CommunityCaptureBundle["community"]["communityLifecycleConvergence"];
     membershipSendability: M8CommunityCaptureBundle["community"]["membershipSendability"];
+    accountSwitchScopeConvergence: M8CommunityCaptureBundle["community"]["accountSwitchScopeConvergence"];
   }> | null;
   replayReadiness: M8CommunityCaptureBundle["community"]["replayReadiness"] | null;
+}>;
+
+export type M8CommunityCp3EvidenceGate = Readonly<{
+  pass: boolean;
+  failedChecks: ReadonlyArray<string>;
+  checks: Readonly<{
+    hasReplayResult: boolean;
+    hasCaptureBundle: boolean;
+    hasMembershipRecoveryHydrateEvent: boolean;
+    hasMembershipLedgerLoadEvent: boolean;
+    hasRoomKeyMissingSendBlockedEvent: boolean;
+    hasRecoveryRepairSignal: boolean;
+    hasJoinedMembershipMismatchSignal: boolean;
+    hasAccountSwitchScopeSummary: boolean;
+    replayReadyForCp2: boolean;
+    replayReadyForCp3: boolean;
+    captureReadyForCp2: boolean;
+    captureReadyForCp3: boolean;
+  }>;
+}>;
+
+export type M8CommunityReplayCaptureBundle = Readonly<{
+  replay: M8CommunityReplayResult | null;
+  capture: M8CommunityCaptureBundle | null;
+  cp3EvidenceGate: M8CommunityCp3EvidenceGate;
 }>;
 
 type M8CommunityReplayApi = Readonly<{
@@ -25,6 +51,11 @@ type M8CommunityReplayApi = Readonly<{
     captureWindowSize?: number;
     clearAppEvents?: boolean;
   }>) => M8CommunityReplayResult;
+  runConvergenceReplayCapture: (params?: Readonly<{
+    baseUnixMs?: number;
+    captureWindowSize?: number;
+    clearAppEvents?: boolean;
+  }>) => M8CommunityReplayCaptureBundle;
   runConvergenceReplayCaptureJson: (params?: Readonly<{
     baseUnixMs?: number;
     captureWindowSize?: number;
@@ -48,6 +79,11 @@ type M8CommunityReplayWindow = Window & {
           : never;
         membershipSendability?: M8CommunityReplayResult["latestDigestSummary"] extends infer T
           ? T extends Readonly<{ membershipSendability: infer V }>
+            ? V
+            : never
+          : never;
+        accountSwitchScopeConvergence?: M8CommunityReplayResult["latestDigestSummary"] extends infer T
+          ? T extends Readonly<{ accountSwitchScopeConvergence: infer V }>
             ? V
             : never
           : never;
@@ -146,6 +182,44 @@ const emitDeterministicConvergenceEvents = (baseUnixMs: number): Readonly<{
   };
 };
 
+const buildCp3EvidenceGate = (
+  replay: M8CommunityReplayResult | null,
+  capture: M8CommunityCaptureBundle | null,
+): M8CommunityCp3EvidenceGate => {
+  const checks = {
+    hasReplayResult: replay !== null,
+    hasCaptureBundle: capture !== null,
+    hasMembershipRecoveryHydrateEvent: (replay?.emittedEvents.membershipRecoveryHydrateCount ?? 0) >= 1,
+    hasMembershipLedgerLoadEvent: (replay?.emittedEvents.membershipLedgerLoadCount ?? 0) >= 1,
+    hasRoomKeyMissingSendBlockedEvent: (replay?.emittedEvents.roomKeyMissingSendBlockedCount ?? 0) >= 1,
+    hasRecoveryRepairSignal: (
+      typeof replay?.latestDigestSummary?.communityLifecycleConvergence?.recoveryRepairSignalCount === "number"
+      && replay.latestDigestSummary.communityLifecycleConvergence.recoveryRepairSignalCount >= 1
+    ),
+    hasJoinedMembershipMismatchSignal: (
+      typeof replay?.latestDigestSummary?.membershipSendability?.joinedMembershipRoomKeyMismatchCount === "number"
+      && replay.latestDigestSummary.membershipSendability.joinedMembershipRoomKeyMismatchCount >= 1
+      && replay.latestDigestSummary.membershipSendability.latestReasonCode
+      === "target_room_key_missing_after_membership_joined"
+    ),
+    hasAccountSwitchScopeSummary: replay?.latestDigestSummary?.accountSwitchScopeConvergence !== null,
+    replayReadyForCp2: replay?.replayReadiness?.readyForCp2Evidence === true,
+    replayReadyForCp3: replay?.replayReadiness?.readyForCp3Evidence === true,
+    captureReadyForCp2: capture?.community?.replayReadiness?.readyForCp2Evidence === true,
+    captureReadyForCp3: capture?.community?.replayReadiness?.readyForCp3Evidence === true,
+  } as const;
+
+  const failedChecks = Object.entries(checks)
+    .filter(([, passed]) => passed !== true)
+    .map(([name]) => name);
+
+  return {
+    pass: failedChecks.length === 0,
+    failedChecks,
+    checks,
+  };
+};
+
 export const installM8CommunityReplayBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -184,23 +258,34 @@ export const installM8CommunityReplayBridge = (): void => {
           ? {
             communityLifecycleConvergence: digestSummary.communityLifecycleConvergence ?? null,
             membershipSendability: digestSummary.membershipSendability ?? null,
+            accountSwitchScopeConvergence: digestSummary.accountSwitchScopeConvergence ?? null,
           }
           : null,
         replayReadiness: capture?.community?.replayReadiness ?? null,
       };
       return lastReplay;
     },
+    runConvergenceReplayCapture: (params) => {
+      const replay = root.obscurM8CommunityReplay?.runConvergenceReplay(params) ?? null;
+      const capture = root.obscurM8CommunityCapture?.capture?.(
+        toPositiveInteger(params?.captureWindowSize, 400),
+      ) ?? null;
+      return {
+        replay,
+        capture,
+        cp3EvidenceGate: buildCp3EvidenceGate(replay, capture),
+      };
+    },
     runConvergenceReplayCaptureJson: (params) => (
       JSON.stringify(
-        {
-          replay: root.obscurM8CommunityReplay?.runConvergenceReplay(params) ?? null,
-          capture: root.obscurM8CommunityCapture?.capture?.(
-            toPositiveInteger(params?.captureWindowSize, 400),
-          ) ?? null,
-        },
+        root.obscurM8CommunityReplay?.runConvergenceReplayCapture(params) ?? null,
         null,
         2,
       )
     ),
   };
+};
+
+export const m8CommunityReplayBridgeInternals = {
+  buildCp3EvidenceGate,
 };

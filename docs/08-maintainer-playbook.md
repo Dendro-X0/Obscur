@@ -290,29 +290,33 @@ For `v1.0.7` CP3 community-convergence verification:
 4. Deterministic CP3 replay helper (for builds without easy manual account-switch timing):
 : `window.obscurM8CommunityReplay?.runConvergenceReplay({ clearAppEvents: true })`
 : `copy(window.obscurM8CommunityReplay?.runConvergenceReplayCaptureJson({ clearAppEvents: true }))`
-5. Required summary probes:
+5. Preferred CP3 export helper with explicit gate verdict:
+: `copy(JSON.stringify(window.obscurM8CommunityReplay?.runConvergenceReplayCapture({ clearAppEvents: true }), null, 2))`
+6. Required summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.communityLifecycleConvergence`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability`
-6. Account-switch scope convergence probe (`v1.0.11` CP2+):
+7. Account-switch scope convergence probe (`v1.0.11` CP2+):
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.accountSwitchScopeConvergence`
-7. Membership-sendability reason probes (`v1.0.11` CP2+):
+8. Membership-sendability reason probes (`v1.0.11` CP2+):
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.joinedMembershipRoomKeyMismatchCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.localProfileScopeRoomKeyMissingCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.noLocalRoomKeysCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.latestReasonCode`
-8. Membership-sendability severity interpretation (`v1.0.11` CP2+):
+9. Membership-sendability severity interpretation (`v1.0.11` CP2+):
 : `high` -> joined-membership mismatch observed (`target_room_key_missing_after_membership_joined`),
 : `watch` -> non-joined send-block reason observed or visible-group/chat-state-group parity lag.
-9. Account-switch scope severity interpretation (`v1.0.11` CP2+):
+10. Account-switch scope severity interpretation (`v1.0.11` CP2+):
 : `high` -> runtime/restore profile-scope mismatch observed,
 : `watch` -> auto-unlock scope drift observed without runtime/restore mismatch evidence.
-10. Required event slices:
+11. Required event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_recovery_hydrate"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_ledger_load"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.room_key_missing_send_blocked"]`
-11. CP3 readiness probe (`v1.0.11` CP2+):
+12. CP3 readiness probe (`v1.0.11` CP2+):
 : `JSON.parse(window.obscurM8CommunityCapture?.captureJson(400) ?? "{}")?.community?.replayReadiness?.readyForCp3Evidence`
-12. One-copy CP3 export bundle (fallback when helper is unavailable):
+13. CP3 gate verdict probe (`v1.0.11` CP3 prep+):
+: `window.obscurM8CommunityReplay?.runConvergenceReplayCapture({ clearAppEvents: true })?.cp3EvidenceGate`
+14. One-copy CP3 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -326,7 +330,7 @@ For `v1.0.7` CP3 community-convergence verification:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-13. Escalate immediately if:
+15. Escalate immediately if:
 : community name regresses to placeholder/default after account switch/restart,
 : creator/member coverage disappears,
 : `groups.room_key_missing_send_blocked` appears during replay.

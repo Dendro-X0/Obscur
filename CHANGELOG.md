@@ -31,9 +31,15 @@
   - extended M8 capture replay-readiness with CP3 gate signal:
     - `community.replayReadiness.readyForCp3Evidence` in
       `apps/pwa/app/shared/m8-community-capture.ts`
+  - extended M8 replay bridge with explicit CP3 evidence gate verdict output:
+    - `window.obscurM8CommunityReplay.runConvergenceReplayCapture({ clearAppEvents: true })`
+    - emits `cp3EvidenceGate.pass` and `cp3EvidenceGate.failedChecks` in one-copy export bundles
+    - implementation in:
+      `apps/pwa/app/shared/m8-community-replay-bridge.ts`
   - added focused diagnostics regression coverage in:
     - `apps/pwa/app/shared/log-app-event.test.ts`
     - `apps/pwa/app/shared/m8-community-capture.test.ts`
+    - `apps/pwa/app/shared/m8-community-replay-bridge.test.ts`
   - updated M8 maintainer replay guidance for CP2 incident interpretation:
     - `docs/08-maintainer-playbook.md`
     - `docs/31-v1.0.10-cp3-community-replay-matrix.md`

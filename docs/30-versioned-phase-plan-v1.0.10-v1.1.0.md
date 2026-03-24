@@ -163,6 +163,9 @@ Current checkpoint progress (2026-03-23):
 9. CP2 closeout status:
 : implementation + focused tests + docs sync are complete and pushed on `main`.
 : next lane step is CP3 manual two-device evidence capture for `v1.1.0` closeout.
+10. CP3 evidence export now includes deterministic pass/fail gate verdict:
+: `window.obscurM8CommunityReplay?.runConvergenceReplayCapture({ clearAppEvents: true })`
+: emits `cp3EvidenceGate.pass` + `cp3EvidenceGate.failedChecks` for one-copy operator verification.
 
 ## v1.1.0 - M8 CP3/CP4 (Planned)
 
