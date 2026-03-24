@@ -56,6 +56,15 @@ type AppEventDiagnosticsApi = Readonly<{
         noLocalRoomKeysCount: number;
         latestReasonCode: string | null;
       }>;
+      accountSwitchScopeConvergence: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        backupRestoreProfileScopeMismatchCount: number;
+        runtimeActivationProfileScopeMismatchCount: number;
+        autoUnlockScopeDriftDetectedCount: number;
+        latestBackupRestoreReasonCode: string | null;
+        latestRuntimeActivationReasonCode: string | null;
+        latestAutoUnlockReasonCode: string | null;
+      }>;
       incomingRequestAntiAbuse: Readonly<{
         riskLevel: "none" | "watch" | "high";
         quarantinedCount: number;
@@ -379,6 +388,16 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "accountProjectionPhase",
     "accountSyncPhase",
   ],
+  "auth.auto_unlock_scope_drift_detected": [
+    "reasonCode",
+    "profileId",
+    "rememberSource",
+    "tokenSource",
+    "runtimePhase",
+    "identityStatus",
+    "resolvedRememberProfileId",
+    "resolvedTokenProfileId",
+  ],
   "runtime.activation.degraded": [
     "resultPhase",
     "activationDurationMs",
@@ -568,6 +587,15 @@ const installDiagnosticsApi = (): void => {
       const roomKeyMissingSendBlockedEvents = recent.filter((event) => (
         event.name === "groups.room_key_missing_send_blocked"
       ));
+      const backupRestoreProfileScopeMismatchEvents = recent.filter((event) => (
+        event.name === "account_sync.backup_restore_profile_scope_mismatch"
+      ));
+      const runtimeActivationProfileScopeMismatchEvents = recent.filter((event) => (
+        event.name === "runtime.activation.profile_scope_mismatch"
+      ));
+      const autoUnlockScopeDriftDetectedEvents = recent.filter((event) => (
+        event.name === "auth.auto_unlock_scope_drift_detected"
+      ));
       const joinedMembershipRoomKeyMismatchCount = roomKeyMissingSendBlockedEvents.filter((event) => (
         event.context?.reasonCode === "target_room_key_missing_after_membership_joined"
       )).length;
@@ -579,6 +607,18 @@ const installDiagnosticsApi = (): void => {
       )).length;
       const latestRoomKeyMissingSendBlockedReasonCode = toStringOrNull(
         roomKeyMissingSendBlockedEvents.at(-1)?.context?.reasonCode,
+      );
+      const backupRestoreProfileScopeMismatchCount = backupRestoreProfileScopeMismatchEvents.length;
+      const runtimeActivationProfileScopeMismatchCount = runtimeActivationProfileScopeMismatchEvents.length;
+      const autoUnlockScopeDriftDetectedCount = autoUnlockScopeDriftDetectedEvents.length;
+      const latestBackupRestoreProfileScopeMismatchReasonCode = toStringOrNull(
+        backupRestoreProfileScopeMismatchEvents.at(-1)?.context?.reasonCode,
+      );
+      const latestRuntimeActivationProfileScopeMismatchReasonCode = toStringOrNull(
+        runtimeActivationProfileScopeMismatchEvents.at(-1)?.context?.reasonCode,
+      );
+      const latestAutoUnlockScopeDriftReasonCode = toStringOrNull(
+        autoUnlockScopeDriftDetectedEvents.at(-1)?.context?.reasonCode,
       );
       const incomingRequestQuarantineEvents = recent.filter((event) => (
         event.name === "messaging.request.incoming_quarantined"
@@ -779,6 +819,13 @@ const installDiagnosticsApi = (): void => {
         ),
         high: joinedMembershipRoomKeyMismatchCount > 0,
       });
+      const accountSwitchScopeConvergenceRiskLevel = getRiskLevel({
+        watch: autoUnlockScopeDriftDetectedCount > 0,
+        high: (
+          backupRestoreProfileScopeMismatchCount > 0
+          || runtimeActivationProfileScopeMismatchCount > 0
+        ),
+      });
       const incomingRequestAntiAbuseRiskLevel = getRiskLevel({
         watch: incomingRequestQuarantinedCount > 0,
         high: (
@@ -851,6 +898,15 @@ const installDiagnosticsApi = (): void => {
             localProfileScopeRoomKeyMissingCount,
             noLocalRoomKeysCount,
             latestReasonCode: latestRoomKeyMissingSendBlockedReasonCode,
+          },
+          accountSwitchScopeConvergence: {
+            riskLevel: accountSwitchScopeConvergenceRiskLevel,
+            backupRestoreProfileScopeMismatchCount,
+            runtimeActivationProfileScopeMismatchCount,
+            autoUnlockScopeDriftDetectedCount,
+            latestBackupRestoreReasonCode: latestBackupRestoreProfileScopeMismatchReasonCode,
+            latestRuntimeActivationReasonCode: latestRuntimeActivationProfileScopeMismatchReasonCode,
+            latestAutoUnlockReasonCode: latestAutoUnlockScopeDriftReasonCode,
           },
           incomingRequestAntiAbuse: {
             riskLevel: incomingRequestAntiAbuseRiskLevel,

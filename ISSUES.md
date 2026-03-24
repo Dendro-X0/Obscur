@@ -351,6 +351,17 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - maintainer replay docs now include CP2 reason-partitioned sendability interpretation:
       - `docs/08-maintainer-playbook.md`,
       - `docs/31-v1.0.10-cp3-community-replay-matrix.md`.
+    - account-switch scope convergence diagnostics are now included in digest and capture contracts:
+      - `summary.accountSwitchScopeConvergence` in `app/shared/log-app-event.ts`,
+      - reason-coded counters:
+        - `backupRestoreProfileScopeMismatchCount`,
+        - `runtimeActivationProfileScopeMismatchCount`,
+        - `autoUnlockScopeDriftDetectedCount`,
+      - severity policy:
+        - `high` for runtime/restore profile-scope mismatch,
+        - `watch` for auto-unlock scope drift without runtime/restore mismatch evidence,
+      - M8 capture readiness now surfaces CP3 gate signal:
+        - `community.replayReadiness.readyForCp3Evidence` in `app/shared/m8-community-capture.ts`.
 
 ## v1 Readiness Status
 

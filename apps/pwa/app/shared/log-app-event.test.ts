@@ -448,6 +448,15 @@ describe("logAppEvent", () => {
             noLocalRoomKeysCount: number;
             latestReasonCode: string | null;
           };
+          accountSwitchScopeConvergence: {
+            riskLevel: "none" | "watch" | "high";
+            backupRestoreProfileScopeMismatchCount: number;
+            runtimeActivationProfileScopeMismatchCount: number;
+            autoUnlockScopeDriftDetectedCount: number;
+            latestBackupRestoreReasonCode: string | null;
+            latestRuntimeActivationReasonCode: string | null;
+            latestAutoUnlockReasonCode: string | null;
+          };
           incomingRequestAntiAbuse: {
             riskLevel: "none" | "watch" | "high";
             quarantinedCount: number;
@@ -619,6 +628,15 @@ describe("logAppEvent", () => {
       localProfileScopeRoomKeyMissingCount: 0,
       noLocalRoomKeysCount: 0,
       latestReasonCode: "target_room_key_missing_after_membership_joined",
+    }));
+    expect(digest.summary.accountSwitchScopeConvergence).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      backupRestoreProfileScopeMismatchCount: 1,
+      runtimeActivationProfileScopeMismatchCount: 1,
+      autoUnlockScopeDriftDetectedCount: 0,
+      latestBackupRestoreReasonCode: "requested_profile_not_active",
+      latestRuntimeActivationReasonCode: "projection_profile_mismatch_bound_profile",
+      latestAutoUnlockReasonCode: null,
     }));
     expect(digest.summary.incomingRequestAntiAbuse).toEqual(expect.objectContaining({
       riskLevel: "high",
@@ -904,6 +922,87 @@ describe("logAppEvent", () => {
       localProfileScopeRoomKeyMissingCount: 0,
       noLocalRoomKeysCount: 0,
       latestReasonCode: null,
+    }));
+  });
+
+  it("marks account-switch scope convergence as watch for auto-unlock drift and high for runtime/restore mismatches", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "auth.auto_unlock_scope_drift_detected",
+      level: "warn",
+      context: {
+        reasonCode: "remember_token_profile_mismatch",
+      },
+    });
+
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          accountSwitchScopeConvergence: {
+            riskLevel: "none" | "watch" | "high";
+            backupRestoreProfileScopeMismatchCount: number;
+            runtimeActivationProfileScopeMismatchCount: number;
+            autoUnlockScopeDriftDetectedCount: number;
+            latestBackupRestoreReasonCode: string | null;
+            latestRuntimeActivationReasonCode: string | null;
+            latestAutoUnlockReasonCode: string | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.accountSwitchScopeConvergence).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      backupRestoreProfileScopeMismatchCount: 0,
+      runtimeActivationProfileScopeMismatchCount: 0,
+      autoUnlockScopeDriftDetectedCount: 1,
+      latestBackupRestoreReasonCode: null,
+      latestRuntimeActivationReasonCode: null,
+      latestAutoUnlockReasonCode: "remember_token_profile_mismatch",
+    }));
+
+    diagnosticsApi.clear();
+    logAppEvent({
+      name: "runtime.activation.profile_scope_mismatch",
+      level: "warn",
+      context: {
+        reasonCode: "projection_public_key_mismatch",
+      },
+    });
+    logAppEvent({
+      name: "account_sync.backup_restore_profile_scope_mismatch",
+      level: "warn",
+      context: {
+        reasonCode: "restore_profile_scope_drift_detected",
+      },
+    });
+
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.accountSwitchScopeConvergence).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      backupRestoreProfileScopeMismatchCount: 1,
+      runtimeActivationProfileScopeMismatchCount: 1,
+      autoUnlockScopeDriftDetectedCount: 0,
+      latestBackupRestoreReasonCode: "restore_profile_scope_drift_detected",
+      latestRuntimeActivationReasonCode: "projection_public_key_mismatch",
+      latestAutoUnlockReasonCode: null,
+    }));
+
+    diagnosticsApi.clear();
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.accountSwitchScopeConvergence).toEqual(expect.objectContaining({
+      riskLevel: "none",
+      backupRestoreProfileScopeMismatchCount: 0,
+      runtimeActivationProfileScopeMismatchCount: 0,
+      autoUnlockScopeDriftDetectedCount: 0,
+      latestBackupRestoreReasonCode: null,
+      latestRuntimeActivationReasonCode: null,
+      latestAutoUnlockReasonCode: null,
     }));
   });
 

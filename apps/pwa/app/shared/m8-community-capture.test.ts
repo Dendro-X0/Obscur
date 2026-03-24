@@ -41,6 +41,15 @@ describe("m8-community-capture", () => {
             latestChatStateGroupCount: 1,
             roomKeyMissingSendBlockedCount: 1,
           },
+          accountSwitchScopeConvergence: {
+            riskLevel: "watch",
+            backupRestoreProfileScopeMismatchCount: 0,
+            runtimeActivationProfileScopeMismatchCount: 0,
+            autoUnlockScopeDriftDetectedCount: 1,
+            latestBackupRestoreReasonCode: null,
+            latestRuntimeActivationReasonCode: null,
+            latestAutoUnlockReasonCode: "remember_token_profile_mismatch",
+          },
         },
         events: {
           "groups.membership_recovery_hydrate": [
@@ -92,16 +101,19 @@ describe("m8-community-capture", () => {
       community: {
         communityLifecycleConvergence: Record<string, unknown> | null;
         membershipSendability: Record<string, unknown> | null;
+        accountSwitchScopeConvergence: Record<string, unknown> | null;
         membershipRecoveryHydrate: Array<{ atUnixMs: number }>;
         membershipLedgerLoad: Array<{ atUnixMs: number }>;
         roomKeyMissingSendBlocked: Array<{ context: Record<string, unknown> }>;
         replayReadiness: {
           hasCommunityLifecycleSummary: boolean;
           hasMembershipSendabilitySummary: boolean;
+          hasAccountSwitchScopeSummary: boolean;
           hasRecoveryHydrateEvents: boolean;
           hasLedgerLoadEvents: boolean;
           observedJoinedRoomKeyMismatch: boolean;
           readyForCp2Evidence: boolean;
+          readyForCp3Evidence: boolean;
         };
       };
       m0Triage: unknown;
@@ -118,6 +130,11 @@ describe("m8-community-capture", () => {
       riskLevel: "watch",
       roomKeyMissingSendBlockedCount: 1,
     }));
+    expect(bundle.community.accountSwitchScopeConvergence).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      autoUnlockScopeDriftDetectedCount: 1,
+      latestAutoUnlockReasonCode: "remember_token_profile_mismatch",
+    }));
     expect(bundle.community.membershipRecoveryHydrate[0]?.atUnixMs).toBe(21);
     expect(bundle.community.membershipLedgerLoad[0]?.atUnixMs).toBe(22);
     expect(bundle.community.roomKeyMissingSendBlocked[0]?.context.reasonCode)
@@ -125,10 +142,12 @@ describe("m8-community-capture", () => {
     expect(bundle.community.replayReadiness).toEqual(expect.objectContaining({
       hasCommunityLifecycleSummary: true,
       hasMembershipSendabilitySummary: true,
+      hasAccountSwitchScopeSummary: true,
       hasRecoveryHydrateEvents: true,
       hasLedgerLoadEvents: true,
       observedJoinedRoomKeyMismatch: true,
       readyForCp2Evidence: true,
+      readyForCp3Evidence: true,
     }));
     expect(bundle.m0Triage).toEqual({ tag: "m0" });
     expect(() => JSON.parse(api.captureJson(320))).not.toThrow();
@@ -144,11 +163,13 @@ describe("m8-community-capture", () => {
       community: {
         communityLifecycleConvergence: unknown;
         membershipSendability: unknown;
+        accountSwitchScopeConvergence: unknown;
         membershipRecoveryHydrate: unknown[];
         membershipLedgerLoad: unknown[];
         roomKeyMissingSendBlocked: unknown[];
         replayReadiness: {
           readyForCp2Evidence: boolean;
+          readyForCp3Evidence: boolean;
         };
       };
       m0Triage: unknown;
@@ -158,10 +179,12 @@ describe("m8-community-capture", () => {
     expect(bundle.checks.requiredApis.m0Triage).toBe(false);
     expect(bundle.community.communityLifecycleConvergence).toBeNull();
     expect(bundle.community.membershipSendability).toBeNull();
+    expect(bundle.community.accountSwitchScopeConvergence).toBeNull();
     expect(bundle.community.membershipRecoveryHydrate).toEqual([]);
     expect(bundle.community.membershipLedgerLoad).toEqual([]);
     expect(bundle.community.roomKeyMissingSendBlocked).toEqual([]);
     expect(bundle.community.replayReadiness.readyForCp2Evidence).toBe(false);
+    expect(bundle.community.replayReadiness.readyForCp3Evidence).toBe(false);
     expect(bundle.m0Triage).toBeNull();
   });
 
@@ -185,6 +208,20 @@ describe("m8-community-capture", () => {
       riskLevel: "watch",
       latestVisibleGroupCount: 2,
       roomKeyMissingSendBlockedCount: 4,
+    }));
+    expect(m8CommunityCaptureInternals.parseAccountSwitchScopeConvergenceSummary({
+      riskLevel: "high",
+      backupRestoreProfileScopeMismatchCount: 1,
+      runtimeActivationProfileScopeMismatchCount: 1,
+      autoUnlockScopeDriftDetectedCount: 2,
+      latestBackupRestoreReasonCode: "restore_profile_scope_drift_detected",
+      latestRuntimeActivationReasonCode: "projection_pubkey_mismatch",
+      latestAutoUnlockReasonCode: "remember_token_profile_mismatch",
+    })).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      backupRestoreProfileScopeMismatchCount: 1,
+      runtimeActivationProfileScopeMismatchCount: 1,
+      autoUnlockScopeDriftDetectedCount: 2,
     }));
     expect(m8CommunityCaptureInternals.toNumericWindowSize(410.7)).toBe(410);
     expect(m8CommunityCaptureInternals.toNumericWindowSize(0)).toBe(1);

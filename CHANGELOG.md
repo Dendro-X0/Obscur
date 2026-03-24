@@ -14,8 +14,26 @@
     - `watch` for non-joined send-block reasons and visible-group/chat-state parity lag.
   - synchronized M8 capture parser contract for the expanded digest shape in:
     - `apps/pwa/app/shared/m8-community-capture.ts`
+  - added account-switch profile-scope convergence summary to the cross-device digest:
+    - `summary.accountSwitchScopeConvergence` in
+      `apps/pwa/app/shared/log-app-event.ts`
+    - counters:
+      - `backupRestoreProfileScopeMismatchCount`
+      - `runtimeActivationProfileScopeMismatchCount`
+      - `autoUnlockScopeDriftDetectedCount`
+    - latest reason fields:
+      - `latestBackupRestoreReasonCode`
+      - `latestRuntimeActivationReasonCode`
+      - `latestAutoUnlockReasonCode`
+    - severity policy:
+      - `high` for runtime/restore profile-scope mismatches
+      - `watch` for auto-unlock drift-only evidence
+  - extended M8 capture replay-readiness with CP3 gate signal:
+    - `community.replayReadiness.readyForCp3Evidence` in
+      `apps/pwa/app/shared/m8-community-capture.ts`
   - added focused diagnostics regression coverage in:
     - `apps/pwa/app/shared/log-app-event.test.ts`
+    - `apps/pwa/app/shared/m8-community-capture.test.ts`
   - updated M8 maintainer replay guidance for CP2 incident interpretation:
     - `docs/08-maintainer-playbook.md`
     - `docs/31-v1.0.10-cp3-community-replay-matrix.md`

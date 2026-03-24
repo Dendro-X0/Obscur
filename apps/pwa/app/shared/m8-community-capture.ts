@@ -30,10 +30,21 @@ type MembershipSendabilitySummary = Readonly<{
   latestReasonCode: string | null;
 }>;
 
+type AccountSwitchScopeConvergenceSummary = Readonly<{
+  riskLevel: "none" | "watch" | "high";
+  backupRestoreProfileScopeMismatchCount: number;
+  runtimeActivationProfileScopeMismatchCount: number;
+  autoUnlockScopeDriftDetectedCount: number;
+  latestBackupRestoreReasonCode: string | null;
+  latestRuntimeActivationReasonCode: string | null;
+  latestAutoUnlockReasonCode: string | null;
+}>;
+
 type MinimalCrossDeviceDigest = Readonly<{
   summary?: Readonly<{
     communityLifecycleConvergence?: CommunityLifecycleConvergenceSummary;
     membershipSendability?: MembershipSendabilitySummary;
+    accountSwitchScopeConvergence?: AccountSwitchScopeConvergenceSummary;
   }>;
   events?: Readonly<Record<string, ReadonlyArray<Readonly<{
     atUnixMs: number;
@@ -72,6 +83,7 @@ export type M8CommunityCaptureBundle = Readonly<{
   community: Readonly<{
     communityLifecycleConvergence: CommunityLifecycleConvergenceSummary | null;
     membershipSendability: MembershipSendabilitySummary | null;
+    accountSwitchScopeConvergence: AccountSwitchScopeConvergenceSummary | null;
     membershipRecoveryHydrate: ReadonlyArray<Readonly<{
       atUnixMs: number;
       level: string;
@@ -96,10 +108,12 @@ export type M8CommunityCaptureBundle = Readonly<{
     replayReadiness: Readonly<{
       hasCommunityLifecycleSummary: boolean;
       hasMembershipSendabilitySummary: boolean;
+      hasAccountSwitchScopeSummary: boolean;
       hasRecoveryHydrateEvents: boolean;
       hasLedgerLoadEvents: boolean;
       observedJoinedRoomKeyMismatch: boolean;
       readyForCp2Evidence: boolean;
+      readyForCp3Evidence: boolean;
     }>;
   }>;
   m0Triage: unknown | null;
@@ -215,12 +229,34 @@ const parseMembershipSendabilitySummary = (
   };
 };
 
+const parseAccountSwitchScopeConvergenceSummary = (
+  value: unknown,
+): AccountSwitchScopeConvergenceSummary | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const riskLevel = value.riskLevel;
+  if (riskLevel !== "none" && riskLevel !== "watch" && riskLevel !== "high") {
+    return null;
+  }
+  return {
+    riskLevel,
+    backupRestoreProfileScopeMismatchCount: toNumberOrNull(value.backupRestoreProfileScopeMismatchCount) ?? 0,
+    runtimeActivationProfileScopeMismatchCount: toNumberOrNull(value.runtimeActivationProfileScopeMismatchCount) ?? 0,
+    autoUnlockScopeDriftDetectedCount: toNumberOrNull(value.autoUnlockScopeDriftDetectedCount) ?? 0,
+    latestBackupRestoreReasonCode: toStringOrNull(value.latestBackupRestoreReasonCode),
+    latestRuntimeActivationReasonCode: toStringOrNull(value.latestRuntimeActivationReasonCode),
+    latestAutoUnlockReasonCode: toStringOrNull(value.latestAutoUnlockReasonCode),
+  };
+};
+
 const readCrossDeviceDigestSafe = (
   appEventsApi: MinimalAppEventsApi | undefined,
   eventWindowSize: number,
 ): Readonly<{
   communityLifecycleConvergence: CommunityLifecycleConvergenceSummary | null;
   membershipSendability: MembershipSendabilitySummary | null;
+  accountSwitchScopeConvergence: AccountSwitchScopeConvergenceSummary | null;
   membershipRecoveryHydrate: ReadonlyArray<Readonly<{
     atUnixMs: number;
     level: string;
@@ -248,6 +284,7 @@ const readCrossDeviceDigestSafe = (
       return {
         communityLifecycleConvergence: null,
         membershipSendability: null,
+        accountSwitchScopeConvergence: null,
         membershipRecoveryHydrate: [],
         membershipLedgerLoad: [],
         roomKeyMissingSendBlocked: [],
@@ -295,6 +332,9 @@ const readCrossDeviceDigestSafe = (
         raw?.summary?.communityLifecycleConvergence,
       ),
       membershipSendability: parseMembershipSendabilitySummary(raw?.summary?.membershipSendability),
+      accountSwitchScopeConvergence: parseAccountSwitchScopeConvergenceSummary(
+        raw?.summary?.accountSwitchScopeConvergence,
+      ),
       membershipRecoveryHydrate: toCompactEvents(raw?.events?.[MEMBERSHIP_RECOVERY_HYDRATE_EVENT]),
       membershipLedgerLoad: toCompactEvents(raw?.events?.[MEMBERSHIP_LEDGER_LOAD_EVENT]),
       roomKeyMissingSendBlocked: toCompactEvents(raw?.events?.[ROOM_KEY_MISSING_SEND_BLOCKED_EVENT]),
@@ -304,6 +344,7 @@ const readCrossDeviceDigestSafe = (
     return {
       communityLifecycleConvergence: null,
       membershipSendability: null,
+      accountSwitchScopeConvergence: null,
       membershipRecoveryHydrate: [],
       membershipLedgerLoad: [],
       roomKeyMissingSendBlocked: [],
@@ -329,6 +370,7 @@ const readM0TriageSafe = (
 const buildReplayReadiness = (params: Readonly<{
   communityLifecycleConvergence: CommunityLifecycleConvergenceSummary | null;
   membershipSendability: MembershipSendabilitySummary | null;
+  accountSwitchScopeConvergence: AccountSwitchScopeConvergenceSummary | null;
   membershipRecoveryHydrate: ReadonlyArray<Readonly<{
     context: Readonly<Record<string, string | number | boolean | null>>;
   }>>;
@@ -341,30 +383,36 @@ const buildReplayReadiness = (params: Readonly<{
 }>): Readonly<{
   hasCommunityLifecycleSummary: boolean;
   hasMembershipSendabilitySummary: boolean;
+  hasAccountSwitchScopeSummary: boolean;
   hasRecoveryHydrateEvents: boolean;
   hasLedgerLoadEvents: boolean;
   observedJoinedRoomKeyMismatch: boolean;
   readyForCp2Evidence: boolean;
+  readyForCp3Evidence: boolean;
 }> => {
   const observedJoinedRoomKeyMismatch = params.roomKeyMissingSendBlocked.some((entry) => (
     toStringOrNull(entry.context.reasonCode) === ROOM_KEY_MISMATCH_REASON
   ));
   const hasCommunityLifecycleSummary = params.communityLifecycleConvergence !== null;
   const hasMembershipSendabilitySummary = params.membershipSendability !== null;
+  const hasAccountSwitchScopeSummary = params.accountSwitchScopeConvergence !== null;
   const hasRecoveryHydrateEvents = params.membershipRecoveryHydrate.length > 0;
   const hasLedgerLoadEvents = params.membershipLedgerLoad.length > 0;
+  const readyForCp2Evidence = (
+    hasCommunityLifecycleSummary
+    && hasMembershipSendabilitySummary
+    && hasRecoveryHydrateEvents
+    && hasLedgerLoadEvents
+  );
   return {
     hasCommunityLifecycleSummary,
     hasMembershipSendabilitySummary,
+    hasAccountSwitchScopeSummary,
     hasRecoveryHydrateEvents,
     hasLedgerLoadEvents,
     observedJoinedRoomKeyMismatch,
-    readyForCp2Evidence: (
-      hasCommunityLifecycleSummary
-      && hasMembershipSendabilitySummary
-      && hasRecoveryHydrateEvents
-      && hasLedgerLoadEvents
-    ),
+    readyForCp2Evidence,
+    readyForCp3Evidence: readyForCp2Evidence && hasAccountSwitchScopeSummary,
   };
 };
 
@@ -391,6 +439,7 @@ const createBundle = (
     community: {
       communityLifecycleConvergence: digest.communityLifecycleConvergence,
       membershipSendability: digest.membershipSendability,
+      accountSwitchScopeConvergence: digest.accountSwitchScopeConvergence,
       membershipRecoveryHydrate: digest.membershipRecoveryHydrate,
       membershipLedgerLoad: digest.membershipLedgerLoad,
       roomKeyMissingSendBlocked: digest.roomKeyMissingSendBlocked,
@@ -398,6 +447,7 @@ const createBundle = (
       replayReadiness: buildReplayReadiness({
         communityLifecycleConvergence: digest.communityLifecycleConvergence,
         membershipSendability: digest.membershipSendability,
+        accountSwitchScopeConvergence: digest.accountSwitchScopeConvergence,
         membershipRecoveryHydrate: digest.membershipRecoveryHydrate,
         membershipLedgerLoad: digest.membershipLedgerLoad,
         roomKeyMissingSendBlocked: digest.roomKeyMissingSendBlocked,
@@ -430,5 +480,6 @@ export const m8CommunityCaptureInternals = {
   toNumericWindowSize,
   parseCommunityLifecycleConvergenceSummary,
   parseMembershipSendabilitySummary,
+  parseAccountSwitchScopeConvergenceSummary,
   buildReplayReadiness,
 };

@@ -293,24 +293,32 @@ For `v1.0.7` CP3 community-convergence verification:
 5. Required summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.communityLifecycleConvergence`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability`
-6. Membership-sendability reason probes (`v1.0.11` CP2+):
+6. Account-switch scope convergence probe (`v1.0.11` CP2+):
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.accountSwitchScopeConvergence`
+7. Membership-sendability reason probes (`v1.0.11` CP2+):
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.joinedMembershipRoomKeyMismatchCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.localProfileScopeRoomKeyMissingCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.noLocalRoomKeysCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.latestReasonCode`
-7. Membership-sendability severity interpretation (`v1.0.11` CP2+):
+8. Membership-sendability severity interpretation (`v1.0.11` CP2+):
 : `high` -> joined-membership mismatch observed (`target_room_key_missing_after_membership_joined`),
 : `watch` -> non-joined send-block reason observed or visible-group/chat-state-group parity lag.
-8. Required event slices:
+9. Account-switch scope severity interpretation (`v1.0.11` CP2+):
+: `high` -> runtime/restore profile-scope mismatch observed,
+: `watch` -> auto-unlock scope drift observed without runtime/restore mismatch evidence.
+10. Required event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_recovery_hydrate"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_ledger_load"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.room_key_missing_send_blocked"]`
-9. One-copy CP3 export bundle (fallback when helper is unavailable):
+11. CP3 readiness probe (`v1.0.11` CP2+):
+: `JSON.parse(window.obscurM8CommunityCapture?.captureJson(400) ?? "{}")?.community?.replayReadiness?.readyForCp3Evidence`
+12. One-copy CP3 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
 : `    communityLifecycleConvergence: digest?.summary?.communityLifecycleConvergence ?? null,`
 : `    membershipSendability: digest?.summary?.membershipSendability ?? null,`
+: `    accountSwitchScopeConvergence: digest?.summary?.accountSwitchScopeConvergence ?? null,`
 : `    membershipRecoveryHydrate: digest?.events?.["groups.membership_recovery_hydrate"] ?? [],`
 : `    membershipLedgerLoad: digest?.events?.["groups.membership_ledger_load"] ?? [],`
 : `    roomKeyMissingSendBlocked: digest?.events?.["groups.room_key_missing_send_blocked"] ?? [],`
@@ -318,7 +326,7 @@ For `v1.0.7` CP3 community-convergence verification:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-10. Escalate immediately if:
+13. Escalate immediately if:
 : community name regresses to placeholder/default after account switch/restart,
 : creator/member coverage disappears,
 : `groups.room_key_missing_send_blocked` appears during replay.

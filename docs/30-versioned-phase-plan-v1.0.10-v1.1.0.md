@@ -145,6 +145,21 @@ Current checkpoint progress (2026-03-23):
 5. Focused CP2 diagnostics validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m8-community-capture.test.ts app/shared/m8-community-replay-bridge.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+6. CP2 account-switch scope convergence diagnostics landed in canonical app-event digest owner:
+: `summary.accountSwitchScopeConvergence` in `apps/pwa/app/shared/log-app-event.ts`.
+7. Account-switch scope convergence summary now exposes reason-coded mismatch counters and severity:
+: `backupRestoreProfileScopeMismatchCount`,
+: `runtimeActivationProfileScopeMismatchCount`,
+: `autoUnlockScopeDriftDetectedCount`,
+: `latestBackupRestoreReasonCode`,
+: `latestRuntimeActivationReasonCode`,
+: `latestAutoUnlockReasonCode`,
+: with severity policy:
+: `high` for runtime/restore profile-scope mismatches,
+: `watch` for auto-unlock scope drift without runtime/restore mismatch evidence.
+8. M8 capture readiness now includes explicit CP3 gate signal:
+: `community.replayReadiness.readyForCp3Evidence` in
+: `apps/pwa/app/shared/m8-community-capture.ts`.
 
 ## v1.1.0 - M8 CP3/CP4 (Planned)
 
