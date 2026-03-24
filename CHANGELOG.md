@@ -43,6 +43,16 @@
   - updated M8 maintainer replay guidance for CP2 incident interpretation:
     - `docs/08-maintainer-playbook.md`
     - `docs/31-v1.0.10-cp3-community-replay-matrix.md`
+  - accepted M8 CP3 operator replay evidence using gate-verdict capture helper:
+    - `window.obscurM8CommunityReplay.runConvergenceReplayCapture({ clearAppEvents: true })`
+    - observed verdict:
+      - `cp3EvidenceGate.pass: true`
+      - `cp3EvidenceGate.failedChecks: []`
+    - observed deterministic event chain includes:
+      - `groups.membership_ledger_load`
+      - `groups.membership_recovery_hydrate`
+      - `messaging.chat_state_groups_update`
+      - `groups.room_key_missing_send_blocked`
 
 ### Validation
 

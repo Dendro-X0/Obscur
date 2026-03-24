@@ -367,7 +367,16 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - `v1.0.11` CP2 closeout status:
     - code/tests/docs slice is complete and published on `main`,
     - deterministic CP3 evidence export now includes `cp3EvidenceGate.pass` + `cp3EvidenceGate.failedChecks` for operator-side one-copy verification,
-    - remaining M8 closeout work is CP3 manual matrix evidence capture, then CP4 strict release gates for `v1.1.0`.
+  - `v1.1.0` CP3 status:
+    - manual deterministic replay evidence capture is accepted via
+      `window.obscurM8CommunityReplay?.runConvergenceReplayCapture({ clearAppEvents: true })`,
+    - operator capture shows:
+      - `cp3EvidenceGate.pass: true`,
+      - `cp3EvidenceGate.failedChecks: []`,
+    - observed replay chain remains expected:
+      `groups.membership_ledger_load -> groups.membership_recovery_hydrate -> messaging.chat_state_groups_update -> groups.room_key_missing_send_blocked`.
+  - `v1.1.0` remaining closeout work:
+    - CP4 strict release-gate replay (`version:check`, `docs:check`, focused tests, `tsc`, `release:test-pack`, `release:preflight -- --tag v1.1.0`).
 
 ## v1 Readiness Status
 

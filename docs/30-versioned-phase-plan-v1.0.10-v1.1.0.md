@@ -167,7 +167,7 @@ Current checkpoint progress (2026-03-23):
 : `window.obscurM8CommunityReplay?.runConvergenceReplayCapture({ clearAppEvents: true })`
 : emits `cp3EvidenceGate.pass` + `cp3EvidenceGate.failedChecks` for one-copy operator verification.
 
-## v1.1.0 - M8 CP3/CP4 (Planned)
+## v1.1.0 - M8 CP3/CP4 (In Progress)
 
 Goal:
 1. close M8 with reproducible runtime evidence and strict release gates.
@@ -176,6 +176,18 @@ Scope:
 1. execute and attach manual two-device account-switch/restart/recover matrix evidence,
 2. burn down regressions discovered during CP3 replay,
 3. run strict release preflight and publish `v1.1.0`.
+
+Current checkpoint progress (2026-03-23):
+1. CP3 deterministic replay evidence capture is accepted from operator run:
+: `window.obscurM8CommunityReplay?.runConvergenceReplayCapture({ clearAppEvents: true })`.
+2. CP3 gate verdict was green in the operator capture:
+: `cp3EvidenceGate.pass === true`
+: and `cp3EvidenceGate.failedChecks.length === 0`.
+3. Observed replay event chain remains stable:
+: `groups.membership_ledger_load -> groups.membership_recovery_hydrate -> messaging.chat_state_groups_update -> groups.room_key_missing_send_blocked`
+: with expected joined-membership mismatch reason
+: `target_room_key_missing_after_membership_joined`.
+4. Remaining closeout work is CP4 strict release-gate replay for `v1.1.0`.
 
 Mandatory release gates:
 1. `pnpm version:check`
