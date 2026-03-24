@@ -30,7 +30,6 @@ const formatTime = (secondsInput: number): string => {
 export function VoiceNoteCard({
     src,
     isOutgoing,
-    fileName,
     sourceLabel,
     voiceNoteMetadata = null,
     isLocalCached = false,
@@ -194,7 +193,7 @@ export function VoiceNoteCard({
             </div>
 
             <div className="mb-2 min-w-0">
-                <div className="truncate text-xs font-bold">{fileName}</div>
+                <div className="truncate text-xs font-bold">Voice Notes</div>
                 <div className="truncate text-[10px] opacity-65">{sourceLabel}</div>
             </div>
 
