@@ -35,6 +35,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 27. [28 v1.0.9 CP3 Anti-Abuse Replay Matrix](./28-v1.0.9-cp3-anti-abuse-replay-matrix.md)
 28. [29 Versioned Major-Phase Plan (v1.0.10-v1.3.0)](./29-versioned-major-phase-plan-v1.0.10-v1.3.0.md)
 29. [30 Versioned Phase Plan (v1.0.10-v1.1.0)](./30-versioned-phase-plan-v1.0.10-v1.1.0.md)
+30. [31 v1.0.10 CP3 Community Replay Matrix](./31-v1.0.10-cp3-community-replay-matrix.md)
 
 ## Scope Rules
 
@@ -59,6 +60,8 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
 - Active execution lane for major-phase start (`v1.0.10-v1.1.0`) is tracked in:
   - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
+- Deterministic CP3 replay evidence matrix for the `v1.0.10` M8 lane is tracked in:
+  - `docs/31-v1.0.10-cp3-community-replay-matrix.md`.
 - Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
 - For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 20 -> 21 -> 17 -> 18` in that order before implementation work.
 - Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).

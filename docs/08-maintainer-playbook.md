@@ -287,14 +287,17 @@ For `v1.0.7` CP3 community-convergence verification:
 : `copy(window.obscurM8CommunityCapture?.captureJson(400))`
 3. Replay readiness probe for CP2 evidence prep:
 : `JSON.parse(window.obscurM8CommunityCapture?.captureJson(400) ?? "{}")?.community?.replayReadiness`
-4. Required summary probes:
+4. Deterministic CP3 replay helper (for builds without easy manual account-switch timing):
+: `window.obscurM8CommunityReplay?.runConvergenceReplay({ clearAppEvents: true })`
+: `copy(window.obscurM8CommunityReplay?.runConvergenceReplayCaptureJson({ clearAppEvents: true }))`
+5. Required summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.communityLifecycleConvergence`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability`
-5. Required event slices:
+6. Required event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_recovery_hydrate"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_ledger_load"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.room_key_missing_send_blocked"]`
-6. One-copy CP3 export bundle (fallback when helper is unavailable):
+7. One-copy CP3 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -307,7 +310,7 @@ For `v1.0.7` CP3 community-convergence verification:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-7. Escalate immediately if:
+8. Escalate immediately if:
 : community name regresses to placeholder/default after account switch/restart,
 : creator/member coverage disappears,
 : `groups.room_key_missing_send_blocked` appears during replay.

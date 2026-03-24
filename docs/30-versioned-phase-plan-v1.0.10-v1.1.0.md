@@ -86,6 +86,21 @@ Current checkpoint progress (2026-03-23):
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 : `pnpm docs:check`.
 : 
+: CP2 deterministic replay bridge checkpoint progress (2026-03-23):
+: 13. deterministic M8 replay bridge landed for account-switch convergence evidence:
+: `window.obscurM8CommunityReplay?.runConvergenceReplay({ clearAppEvents: true })`
+: and
+: `copy(window.obscurM8CommunityReplay?.runConvergenceReplayCaptureJson({ clearAppEvents: true }))`,
+: implementation in `apps/pwa/app/shared/m8-community-replay-bridge.ts`.
+: 14. replay bridge is installed at boot in canonical providers owner:
+: `apps/pwa/app/components/providers.tsx`.
+: 15. focused replay-bridge coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m8-community-replay-bridge.test.ts app/shared/m8-community-capture.test.ts app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`.
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+: `pnpm docs:check`.
+: 16. deterministic CP3 evidence matrix is now documented:
+: `docs/31-v1.0.10-cp3-community-replay-matrix.md`.
+: 
 : (Existing CP1 validation command remains green:)
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.

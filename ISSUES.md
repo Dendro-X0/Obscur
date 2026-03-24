@@ -303,6 +303,18 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm --dir apps/pwa exec vitest run app/shared/m8-community-capture.test.ts app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
     - `pnpm docs:check`,
+  - deterministic CP2 replay bridge is now available for convergence-evidence generation:
+    - `window.obscurM8CommunityReplay?.runConvergenceReplay({ clearAppEvents: true })`,
+    - one-copy replay + capture export:
+      `copy(window.obscurM8CommunityReplay?.runConvergenceReplayCaptureJson({ clearAppEvents: true }))`,
+    - implementation in `app/shared/m8-community-replay-bridge.ts`,
+    - helper is installed at boot in `app/components/providers.tsx`,
+  - focused CP2 replay-bridge automation replay is green:
+    - `pnpm --dir apps/pwa exec vitest run app/shared/m8-community-replay-bridge.test.ts app/shared/m8-community-capture.test.ts app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+    - `pnpm docs:check`,
+  - CP3 deterministic matrix is now documented for the `v1.0.10` lane:
+    - `docs/31-v1.0.10-cp3-community-replay-matrix.md`,
   - CP1 acceptance gates for `v1.0.10` are defined and must pass before release handoff:
     - focused `vitest` suites for touched owners,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
