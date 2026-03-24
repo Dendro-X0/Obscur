@@ -329,6 +329,10 @@ export const markRealtimeVoiceSessionLeft = (
   state: RealtimeVoiceSessionState,
   params?: Readonly<{ nowUnixMs?: number; reasonCode?: "left_by_user" | "session_closed" }>,
 ): RealtimeVoiceSessionState => {
+  if (state.phase === "ended") {
+    return state;
+  }
+
   if (state.phase !== "leaving") {
     return withTransition(state, {
       phase: state.phase,
@@ -350,6 +354,10 @@ export const markRealtimeVoiceSessionClosed = (
   state: RealtimeVoiceSessionState,
   params?: Readonly<{ nowUnixMs?: number }>,
 ): RealtimeVoiceSessionState => {
+  if (state.phase === "ended") {
+    return state;
+  }
+
   if (
     state.phase !== "connecting"
     && state.phase !== "active"

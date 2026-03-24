@@ -15,6 +15,10 @@
     - active sessions now update participant evidence deterministically instead of surfacing
       `invalid_transition` on subsequent peer-evidence updates,
     - active sessions now degrade with reason `peer_evidence_missing` when peer evidence drops during update.
+  - hardened terminal race handling for delayed close/leave callbacks:
+    - `markRealtimeVoiceSessionClosed(...)` and `markRealtimeVoiceSessionLeft(...)` now treat `ended` as idempotent terminal state in
+      `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`,
+    - delayed callback ordering no longer overwrites terminal reason with `invalid_transition`.
   - added focused regression coverage in:
     - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
   - synced active major-phase docs/status:

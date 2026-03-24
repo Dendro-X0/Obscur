@@ -392,6 +392,11 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - active sessions now deterministically degrade to `phase: "degraded"` with reason `peer_evidence_missing` when peer evidence disappears during update,
     - focused regression coverage added in
       `app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`.
+  - `v1.1.1` CP1 terminal-race hardening landed on canonical lifecycle owner:
+    - `markRealtimeVoiceSessionClosed(...)` and `markRealtimeVoiceSessionLeft(...)` now keep `ended` terminal states idempotent,
+    - delayed local/remote callback ordering no longer rewrites terminal reason to `invalid_transition`,
+    - race-order regression coverage added in
+      `app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`.
   - focused CP1 lifecycle/diagnostics validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.

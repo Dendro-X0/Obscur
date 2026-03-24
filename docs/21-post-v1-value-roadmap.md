@@ -552,6 +552,10 @@ Acceptance:
 : `markRealtimeVoiceSessionConnected(...)` accepts `active` refresh updates and degrades to
 : `peer_evidence_missing` when peer evidence drops, preserving deterministic phase ownership in
 : `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
+11. `M9` (`v1.1.1` CP1) terminal callback race hardening is now landed:
+: delayed local/remote close-leave callback ordering now preserves terminal outcome because
+: `markRealtimeVoiceSessionClosed(...)` and `markRealtimeVoiceSessionLeft(...)` treat `ended`
+: as idempotent in `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
 
 ## Non-Negotiable Validation Contract
 

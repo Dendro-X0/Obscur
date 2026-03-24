@@ -328,4 +328,57 @@ describe("realtime-voice-session-lifecycle", () => {
       participantCount: 0,
     }));
   });
+
+  it("keeps ended reason stable when local leave callback arrives after remote close", () => {
+    const initial = createInitialRealtimeVoiceSessionState();
+    const started = startRealtimeVoiceSession(initial, {
+      roomId: "room-race-close-then-leave",
+      mode: "join",
+      capability: SUPPORTED_CAPABILITY,
+      nowUnixMs: 11_000,
+    });
+    const active = markRealtimeVoiceSessionConnected(started, {
+      participantCount: 2,
+      hasPeerSessionEvidence: true,
+      nowUnixMs: 11_100,
+    });
+    const remotelyClosed = markRealtimeVoiceSessionClosed(active, { nowUnixMs: 11_200 });
+    const localLeaveAck = markRealtimeVoiceSessionLeft(remotelyClosed, {
+      nowUnixMs: 11_300,
+      reasonCode: "left_by_user",
+    });
+
+    expect(localLeaveAck).toBe(remotelyClosed);
+    expect(localLeaveAck).toEqual(expect.objectContaining({
+      phase: "ended",
+      lastTransitionReasonCode: "session_closed",
+    }));
+  });
+
+  it("keeps ended reason stable when remote close arrives after local leave completion", () => {
+    const initial = createInitialRealtimeVoiceSessionState();
+    const started = startRealtimeVoiceSession(initial, {
+      roomId: "room-race-leave-then-close",
+      mode: "create",
+      capability: SUPPORTED_CAPABILITY,
+      nowUnixMs: 12_000,
+    });
+    const active = markRealtimeVoiceSessionConnected(started, {
+      participantCount: 2,
+      hasPeerSessionEvidence: true,
+      nowUnixMs: 12_100,
+    });
+    const leaving = requestRealtimeVoiceSessionLeave(active, { nowUnixMs: 12_200 });
+    const localLeft = markRealtimeVoiceSessionLeft(leaving, {
+      nowUnixMs: 12_300,
+      reasonCode: "left_by_user",
+    });
+    const remoteCloseLate = markRealtimeVoiceSessionClosed(localLeft, { nowUnixMs: 12_400 });
+
+    expect(remoteCloseLate).toBe(localLeft);
+    expect(remoteCloseLate).toEqual(expect.objectContaining({
+      phase: "ended",
+      lastTransitionReasonCode: "left_by_user",
+    }));
+  });
 });
