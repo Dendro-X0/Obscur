@@ -2,6 +2,12 @@
 
 ### Changed
 
+- _No unreleased changes yet._
+
+## [v1.1.1] - 2026-03-24
+
+### Changed
+
 - Started `v1.1.1` (`M9` `CP1`) secure-voice lifecycle hardening:
   - added deterministic remote-close transition on canonical voice lifecycle owner in:
     - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`
@@ -48,7 +54,12 @@
 ### Validation
 
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-owner.test.ts app/shared/m6-voice-replay-bridge.test.ts app/shared/log-app-event.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm version:check`
+- `pnpm docs:check`
+- `pnpm release:test-pack -- --skip-preflight`
+- `pnpm release:preflight -- --tag v1.1.1`
 
 ## [v1.1.0] - 2026-03-24
 
