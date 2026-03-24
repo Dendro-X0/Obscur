@@ -34,7 +34,10 @@ import {
 } from "../utils/persistence";
 import { mergeProjectionUnreadByConversationId, unreadByConversationIdEqual } from "./projection-unread";
 import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
-import { removeGroupConversationIdsFromHidden } from "../utils/conversation-visibility";
+import {
+    removeConversationIdFromHidden,
+    removeGroupConversationIdsFromHidden,
+} from "../utils/conversation-visibility";
 
 interface MessagingContextType {
     createdConnections: ReadonlyArray<DmConversation>;
@@ -128,6 +131,16 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
 
     const setSelectedConversation = React.useCallback((conv: Conversation | null) => {
+        if (conv?.kind === "dm") {
+            const nextHiddenChatIds = removeConversationIdFromHidden(hiddenChatIdsRef.current, conv.id);
+            if (nextHiddenChatIds !== hiddenChatIdsRef.current) {
+                hiddenChatIdsRef.current = nextHiddenChatIds;
+                setHiddenChatIds(nextHiddenChatIds);
+                if (publicKeyHex) {
+                    chatStateStoreService.updateHiddenChats(publicKeyHex, nextHiddenChatIds);
+                }
+            }
+        }
         setSelectedConversationState(conv);
         if (publicKeyHex) {
             const key = getScopedStorageKey(`obscur-last-chat-${publicKeyHex}`);

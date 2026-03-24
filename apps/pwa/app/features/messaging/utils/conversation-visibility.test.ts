@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { removeGroupConversationIdsFromHidden } from "./conversation-visibility";
+import {
+    removeConversationIdFromHidden,
+    removeGroupConversationIdsFromHidden,
+} from "./conversation-visibility";
 
 describe("conversation visibility helpers", () => {
     it("keeps direct-message hidden ids but removes group-style ids", () => {
@@ -11,5 +14,21 @@ describe("conversation visibility helpers", () => {
         ]);
 
         expect(next).toEqual(["d34db33f:d00df00d"]);
+    });
+
+    it("removes a selected DM conversation id from hidden ids", () => {
+        const next = removeConversationIdFromHidden([
+            "aaaaaaaa:bbbbbbbb",
+            "cccccccc:dddddddd",
+        ], "cccccccc:dddddddd");
+
+        expect(next).toEqual(["aaaaaaaa:bbbbbbbb"]);
+    });
+
+    it("keeps hidden ids unchanged when selected id is not hidden", () => {
+        const hidden = ["aaaaaaaa:bbbbbbbb"];
+        const next = removeConversationIdFromHidden(hidden, "eeeeeeee:ffffffff");
+
+        expect(next).toBe(hidden);
     });
 });
