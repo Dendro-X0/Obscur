@@ -1,17 +1,10 @@
 import type { RealtimeVoiceUnsupportedReasonCode } from "@/app/features/messaging/services/realtime-voice-capability";
 import {
   createInitialRealtimeVoiceSessionState,
-  markRealtimeVoiceSessionConnected,
-  markRealtimeVoiceSessionLeft,
-  markRealtimeVoiceSessionRecoveryFailed,
-  markRealtimeVoiceSessionTransportDegraded,
-  requestRealtimeVoiceSessionLeave,
-  requestRealtimeVoiceSessionRecovery,
-  startRealtimeVoiceSession,
   type RealtimeVoiceSessionMode,
   type RealtimeVoiceSessionState,
 } from "@/app/features/messaging/services/realtime-voice-session-lifecycle";
-import { emitRealtimeVoiceSessionTransitionDiagnostic } from "@/app/features/messaging/services/realtime-voice-session-diagnostics";
+import { createRealtimeVoiceSessionOwner } from "@/app/features/messaging/services/realtime-voice-session-owner";
 
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
@@ -46,17 +39,6 @@ declare global {
   }
 }
 
-const applyTransition = (
-  currentState: RealtimeVoiceSessionState,
-  nextState: RealtimeVoiceSessionState,
-): RealtimeVoiceSessionState => {
-  emitRealtimeVoiceSessionTransitionDiagnostic({
-    previousState: currentState,
-    nextState,
-  });
-  return nextState;
-};
-
 export const installM6VoiceReplayBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -67,11 +49,22 @@ export const installM6VoiceReplayBridge = (): void => {
   }
 
   let state = createInitialRealtimeVoiceSessionState();
+  let clockUnixMs = 0;
+  const owner = createRealtimeVoiceSessionOwner();
+  const nextEventUnixMs = (): number => {
+    clockUnixMs += 100;
+    return clockUnixMs;
+  };
+  const syncFromOwner = (): RealtimeVoiceSessionState => {
+    state = owner.getState();
+    return state;
+  };
 
   root.obscurM6VoiceReplay = {
     reset: (options) => {
-      state = createInitialRealtimeVoiceSessionState(options);
-      return state;
+      clockUnixMs = 0;
+      state = owner.reset(options);
+      return syncFromOwner();
     },
     getState: () => state,
     start: (params) => {
@@ -95,53 +88,55 @@ export const installM6VoiceReplayBridge = (): void => {
           hasAddTrack: false,
           opusCapabilityStatus: "unknown" as const,
         };
-      const next = startRealtimeVoiceSession(state, {
+      state = owner.start({
         roomId: params?.roomId ?? "m6-voice-room",
         mode: params?.mode ?? "join",
         capability,
         maxRecoveryAttempts: params?.maxRecoveryAttempts,
+        eventUnixMs: nextEventUnixMs(),
       });
-      state = applyTransition(state, next);
-      return state;
+      return syncFromOwner();
     },
     connect: (params) => {
-      const next = markRealtimeVoiceSessionConnected(state, {
+      state = owner.connected({
         participantCount: params?.participantCount ?? 2,
         hasPeerSessionEvidence: params?.hasPeerSessionEvidence ?? true,
+        eventUnixMs: nextEventUnixMs(),
       });
-      state = applyTransition(state, next);
-      return state;
+      return syncFromOwner();
     },
     degrade: (params) => {
-      const next = markRealtimeVoiceSessionTransportDegraded(state, {
+      state = owner.transportDegraded({
         reasonCode: params?.reasonCode ?? "network_degraded",
+        eventUnixMs: nextEventUnixMs(),
       });
-      state = applyTransition(state, next);
-      return state;
+      return syncFromOwner();
     },
     requestRecovery: () => {
-      const next = requestRealtimeVoiceSessionRecovery(state);
-      state = applyTransition(state, next);
-      return state;
+      state = owner.requestRecovery({
+        eventUnixMs: nextEventUnixMs(),
+      });
+      return syncFromOwner();
     },
     failRecovery: (params) => {
-      const next = markRealtimeVoiceSessionRecoveryFailed(state, {
+      state = owner.recoveryFailed({
         reasonCode: params?.reasonCode ?? "transport_timeout",
+        eventUnixMs: nextEventUnixMs(),
       });
-      state = applyTransition(state, next);
-      return state;
+      return syncFromOwner();
     },
     leave: () => {
-      const next = requestRealtimeVoiceSessionLeave(state);
-      state = applyTransition(state, next);
-      return state;
+      state = owner.requestLeave({
+        eventUnixMs: nextEventUnixMs(),
+      });
+      return syncFromOwner();
     },
     end: (params) => {
-      const next = markRealtimeVoiceSessionLeft(state, {
+      state = owner.left({
         reasonCode: params?.reasonCode ?? "left_by_user",
+        eventUnixMs: nextEventUnixMs(),
       });
-      state = applyTransition(state, next);
-      return state;
+      return syncFromOwner();
     },
     runWeakNetworkReplay: (params) => {
       root.obscurM6VoiceReplay?.start({

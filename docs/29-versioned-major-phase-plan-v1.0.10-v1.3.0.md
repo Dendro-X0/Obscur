@@ -109,8 +109,13 @@ Current checkpoint progress (2026-03-23):
 : `markRealtimeVoiceSessionConnected(...)` now accepts `active` updates so peer-evidence refreshes remain deterministic (no `invalid_transition` drift), and active sessions degrade with `peer_evidence_missing` when peer evidence drops.
 5. Added terminal race-order hardening for delayed close/leave callbacks:
 : `markRealtimeVoiceSessionClosed(...)` and `markRealtimeVoiceSessionLeft(...)` now treat `ended` as idempotent terminal state, preserving first terminal reason under async callback reordering.
-6. Focused CP1 lifecycle diagnostics coverage is green:
+6. Added canonical realtime voice session owner path for CP1 lifecycle convergence:
+: new owner in `apps/pwa/app/features/messaging/services/realtime-voice-session-owner.ts` centralizes lifecycle + diagnostics emission and ignores stale transition events by event timestamp.
+7. Deterministic replay bridge now consumes owner APIs (single canonical transition path):
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
+8. Focused CP1 lifecycle diagnostics coverage is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-owner.test.ts app/shared/m6-voice-replay-bridge.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.1.2 (M9-CP2)

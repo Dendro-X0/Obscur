@@ -19,8 +19,18 @@
     - `markRealtimeVoiceSessionClosed(...)` and `markRealtimeVoiceSessionLeft(...)` now treat `ended` as idempotent terminal state in
       `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`,
     - delayed callback ordering no longer overwrites terminal reason with `invalid_transition`.
+  - added canonical realtime voice session owner contract with stale-event guard:
+    - new owner module:
+      `apps/pwa/app/features/messaging/services/realtime-voice-session-owner.ts`,
+    - owner centralizes lifecycle transitions and diagnostics emission behind one typed API,
+    - stale transition events (`eventUnixMs < lastTransitionAtUnixMs`) are ignored to preserve newer canonical state.
+  - migrated M6 replay bridge to consume canonical owner transitions:
+    - `apps/pwa/app/shared/m6-voice-replay-bridge.ts`,
+    - replay bridge now uses deterministic monotonic event timestamps through owner APIs instead of direct lifecycle calls.
   - added focused regression coverage in:
     - `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`
+    - `apps/pwa/app/features/messaging/services/realtime-voice-session-owner.test.ts`
+    - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
   - synced active major-phase docs/status:
     - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`
     - `docs/21-post-v1-value-roadmap.md`

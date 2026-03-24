@@ -397,6 +397,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - delayed local/remote callback ordering no longer rewrites terminal reason to `invalid_transition`,
     - race-order regression coverage added in
       `app/features/messaging/services/realtime-voice-session-lifecycle.test.ts`.
+  - `v1.1.1` CP1 canonical session-owner slice landed for realtime voice:
+    - new typed owner contract in
+      `app/features/messaging/services/realtime-voice-session-owner.ts`,
+    - owner centralizes lifecycle transitions + diagnostics emission under one path and rejects stale events (`eventUnixMs < lastTransitionAtUnixMs`) to prevent out-of-order state rollback,
+    - deterministic replay bridge is now wired through canonical owner APIs in
+      `app/shared/m6-voice-replay-bridge.ts`.
+  - focused owner/replay regression coverage is green:
+    - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-owner.test.ts app/shared/m6-voice-replay-bridge.test.ts`.
   - focused CP1 lifecycle/diagnostics validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.

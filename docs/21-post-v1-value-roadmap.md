@@ -556,6 +556,10 @@ Acceptance:
 : delayed local/remote close-leave callback ordering now preserves terminal outcome because
 : `markRealtimeVoiceSessionClosed(...)` and `markRealtimeVoiceSessionLeft(...)` treat `ended`
 : as idempotent in `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
+12. `M9` (`v1.1.1` CP1) canonical owner convergence slice is now landed:
+: added `apps/pwa/app/features/messaging/services/realtime-voice-session-owner.ts` to centralize
+: lifecycle + diagnostics transition ownership and reject stale event-time updates, and
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts` now exercises this owner path.
 
 ## Non-Negotiable Validation Contract
 
