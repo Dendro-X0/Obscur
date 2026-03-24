@@ -1,5 +1,57 @@
 ## [Unreleased]
 
+## [v1.0.10] - 2026-03-24
+
+### Changed
+
+- Started post-`v1.0.9` `v1.0.10` lane (`M8`) with CP1 community lifecycle convergence hardening on canonical group owners:
+  - provider-side group add/dedupe now performs deterministic convergence merge instead of first-write-wins:
+    - `apps/pwa/app/features/groups/providers/group-provider.tsx`
+  - room-key sendability mismatch now emits explicit joined-membership reason code on send block:
+    - `target_room_key_missing_after_membership_joined` in
+      `apps/pwa/app/features/groups/services/group-service.ts`
+  - chat-state cache/pending entries are profile-scoped (`profileId + publicKeyHex`) to prevent cross-scope group hydration bleed:
+    - `apps/pwa/app/features/messaging/services/chat-state-store.ts`
+- Added focused CP1 regression coverage for convergence + profile-scope isolation:
+  - `apps/pwa/app/features/groups/providers/group-provider.test.tsx`
+  - `apps/pwa/app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
+  - `apps/pwa/app/features/groups/services/group-service.test.ts`
+  - `apps/pwa/app/features/messaging/services/chat-state-store.replace-event.test.ts`
+- Added M8 deterministic capture + replay helper surfaces for CP2/CP3 evidence:
+  - one-copy community capture helper:
+    - `window.obscurM8CommunityCapture.captureJson(400)` in
+      `apps/pwa/app/shared/m8-community-capture.ts`
+  - deterministic replay bridge:
+    - `window.obscurM8CommunityReplay.runConvergenceReplay({ clearAppEvents: true })`
+    - `window.obscurM8CommunityReplay.runConvergenceReplayCaptureJson({ clearAppEvents: true })`
+    - `apps/pwa/app/shared/m8-community-replay-bridge.ts`
+  - replay + capture helpers are installed at app boot in:
+    - `apps/pwa/app/components/providers.tsx`
+  - focused replay bridge coverage:
+    - `apps/pwa/app/shared/m8-community-replay-bridge.test.ts`
+- Added CP3 deterministic replay matrix and synced maintainer/status docs:
+  - `docs/31-v1.0.10-cp3-community-replay-matrix.md`
+  - `docs/08-maintainer-playbook.md`
+  - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`
+  - `docs/README.md`
+  - `ISSUES.md`
+- Captured operator replay evidence for the deterministic M8 chain:
+  - observed:
+    - `groups.membership_ledger_load`
+    - `groups.membership_recovery_hydrate`
+    - `messaging.chat_state_groups_update`
+    - `groups.room_key_missing_send_blocked`
+  - expected mismatch reason observed:
+    - `target_room_key_missing_after_membership_joined`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/shared/m8-community-replay-bridge.test.ts app/shared/m8-community-capture.test.ts app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+- `pnpm version:check`
+- `pnpm docs:check`
+- `pnpm release:preflight -- --tag v1.0.10 --allow-dirty true`
+
 ## [v1.0.9] - 2026-03-24
 
 ### Changed
