@@ -98,7 +98,10 @@ describe("m0-triage-capture", () => {
       ) {
         return [{ name, atUnixMs: 4, level: "warn" }];
       }
-      if (name === "messaging.realtime_voice.session_transition") {
+      if (
+        name === "messaging.realtime_voice.session_transition"
+        || name === "messaging.realtime_voice.session_event_ignored"
+      ) {
         return [{ name, atUnixMs: 6, level: "warn" }];
       }
       return [];
@@ -144,6 +147,7 @@ describe("m0-triage-capture", () => {
     ))).toBe(true);
     expect(bundle.events.focusedByCategory.media_hydration.some((entry) => entry.name === "messaging.conversation_hydration_diagnostics")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.session_transition")).toBe(true);
+    expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.session_event_ignored")).toBe(true);
     expect(findByName).toHaveBeenCalled();
   });
 

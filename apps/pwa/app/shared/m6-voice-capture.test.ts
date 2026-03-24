@@ -25,8 +25,10 @@ describe("m6-voice-capture", () => {
             degradedCount: 2,
             unsupportedCount: 0,
             recoveryExhaustedCount: 0,
+            staleEventIgnoredCount: 1,
             latestToPhase: "degraded",
             latestReasonCode: "network_degraded",
+            latestIgnoredReasonCode: "stale_event",
           },
         },
         recentWarnOrError: [{
@@ -55,6 +57,7 @@ describe("m6-voice-capture", () => {
       voice: {
         summary: Record<string, unknown> | null;
         transitions: Array<{ name: string }>;
+        ignoredEvents: Array<{ name: string }>;
         recentWarnOrError: Array<{ reasonCode: string | null }>;
       };
       m0Triage: unknown;
@@ -66,9 +69,12 @@ describe("m6-voice-capture", () => {
       riskLevel: "watch",
       transitionCount: 4,
       degradedCount: 2,
+      staleEventIgnoredCount: 1,
       latestReasonCode: "network_degraded",
+      latestIgnoredReasonCode: "stale_event",
     }));
     expect(bundle.voice.transitions[0]?.name).toBe("messaging.realtime_voice.session_transition");
+    expect(bundle.voice.ignoredEvents[0]?.name).toBe("messaging.realtime_voice.session_event_ignored");
     expect(bundle.voice.recentWarnOrError[0]?.reasonCode).toBe("network_degraded");
     expect(bundle.m0Triage).toEqual({ tag: "m0" });
     expect(() => JSON.parse(api.captureJson(320))).not.toThrow();
@@ -84,6 +90,7 @@ describe("m6-voice-capture", () => {
       voice: {
         summary: unknown;
         transitions: unknown[];
+        ignoredEvents: unknown[];
         recentWarnOrError: unknown[];
       };
       m0Triage: unknown;
@@ -93,6 +100,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.checks.requiredApis.m0Triage).toBe(false);
     expect(bundle.voice.summary).toBeNull();
     expect(bundle.voice.transitions).toEqual([]);
+    expect(bundle.voice.ignoredEvents).toEqual([]);
     expect(bundle.voice.recentWarnOrError).toEqual([]);
     expect(bundle.m0Triage).toBeNull();
   });
@@ -106,13 +114,17 @@ describe("m6-voice-capture", () => {
       degradedCount: 2,
       unsupportedCount: 1,
       recoveryExhaustedCount: 1,
+      staleEventIgnoredCount: 2,
       latestToPhase: "ended",
       latestReasonCode: "recovery_exhausted",
+      latestIgnoredReasonCode: "stale_event",
     })).toEqual(expect.objectContaining({
       riskLevel: "high",
       transitionCount: 5,
       recoveryExhaustedCount: 1,
+      staleEventIgnoredCount: 2,
       latestReasonCode: "recovery_exhausted",
+      latestIgnoredReasonCode: "stale_event",
     }));
     expect(m6VoiceCaptureInternals.toNumericWindowSize(410.7)).toBe(410);
     expect(m6VoiceCaptureInternals.toNumericWindowSize(0)).toBe(1);

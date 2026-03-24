@@ -542,27 +542,33 @@ Acceptance:
 : `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
 6. Detailed checkpoints and release gates for the planned major-phase sequence are defined in:
 : `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
-7. Active execution lane for major-phase start (`v1.0.10-v1.1.0`) is defined in:
+7. Active execution lane for current major phase (`v1.1.2-v1.2.0`) is defined in:
+: `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
+8. Historical major-phase-start lane (`v1.0.10-v1.1.0`) remains documented in:
 : `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
-8. `M8` closeout is complete and released as `v1.1.0` with accepted CP3 replay gate verdict evidence.
-9. `M9` (`v1.1.1` CP1) is now started with voice session lifecycle hardening:
+9. `M8` closeout is complete and released as `v1.1.0` with accepted CP3 replay gate verdict evidence.
+10. `M9` (`v1.1.1` CP1) is now started with voice session lifecycle hardening:
 : explicit remote-close canonical transition in
 : `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
-10. `M9` (`v1.1.1` CP1) active-session peer-evidence convergence hardening is now landed:
+11. `M9` (`v1.1.1` CP1) active-session peer-evidence convergence hardening is now landed:
 : `markRealtimeVoiceSessionConnected(...)` accepts `active` refresh updates and degrades to
 : `peer_evidence_missing` when peer evidence drops, preserving deterministic phase ownership in
 : `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
-11. `M9` (`v1.1.1` CP1) terminal callback race hardening is now landed:
+12. `M9` (`v1.1.1` CP1) terminal callback race hardening is now landed:
 : delayed local/remote close-leave callback ordering now preserves terminal outcome because
 : `markRealtimeVoiceSessionClosed(...)` and `markRealtimeVoiceSessionLeft(...)` treat `ended`
 : as idempotent in `apps/pwa/app/features/messaging/services/realtime-voice-session-lifecycle.ts`.
-12. `M9` (`v1.1.1` CP1) canonical owner convergence slice is now landed:
+13. `M9` (`v1.1.1` CP1) canonical owner convergence slice is now landed:
 : added `apps/pwa/app/features/messaging/services/realtime-voice-session-owner.ts` to centralize
 : lifecycle + diagnostics transition ownership and reject stale event-time updates, and
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts` now exercises this owner path.
-13. `M9` (`v1.1.1` CP1) stale-event handling is now diagnosable in one-copy bundles:
+14. `M9` (`v1.1.1` CP1) stale-event handling is now diagnosable in one-copy bundles:
 : canonical owner emits `messaging.realtime_voice.session_event_ignored` for dropped stale events,
 : and compact digest capture includes this event for replay exports.
+15. `M9` (`v1.1.2` CP2) diagnostics/capture extension is now started:
+: digest summary now exposes realtime voice stale-ignore counters (`staleEventIgnoredCount`,
+: `latestIgnoredReasonCode`) and M6/M0 capture helpers now include
+: `messaging.realtime_voice.session_event_ignored` evidence in one-copy bundles.
 
 ## Non-Negotiable Validation Contract
 

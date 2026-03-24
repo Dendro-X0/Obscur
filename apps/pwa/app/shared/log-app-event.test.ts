@@ -509,8 +509,10 @@ describe("logAppEvent", () => {
             degradedCount: number;
             unsupportedCount: number;
             recoveryExhaustedCount: number;
+            staleEventIgnoredCount: number;
             latestToPhase: string | null;
             latestReasonCode: string | null;
+            latestIgnoredReasonCode: string | null;
           };
         };
         recentWarnOrError: Array<{ name: string; level: string; reasonCode: string | null }>;
@@ -689,8 +691,10 @@ describe("logAppEvent", () => {
       degradedCount: 0,
       unsupportedCount: 0,
       recoveryExhaustedCount: 1,
+      staleEventIgnoredCount: 0,
       latestToPhase: "ended",
       latestReasonCode: "recovery_exhausted",
+      latestIgnoredReasonCode: null,
     }));
     expect(digest.recentWarnOrError.some((entry) => (
       entry.name === "runtime.activation.timeout"
@@ -1263,8 +1267,10 @@ describe("logAppEvent", () => {
             degradedCount: number;
             unsupportedCount: number;
             recoveryExhaustedCount: number;
+            staleEventIgnoredCount: number;
             latestToPhase: string | null;
             latestReasonCode: string | null;
+            latestIgnoredReasonCode: string | null;
           };
         };
       };
@@ -1277,8 +1283,10 @@ describe("logAppEvent", () => {
       degradedCount: 0,
       unsupportedCount: 0,
       recoveryExhaustedCount: 0,
+      staleEventIgnoredCount: 0,
       latestToPhase: "connecting",
       latestReasonCode: "none",
+      latestIgnoredReasonCode: null,
     }));
 
     diagnosticsApi.clear();
@@ -1306,8 +1314,53 @@ describe("logAppEvent", () => {
       degradedCount: 1,
       unsupportedCount: 1,
       recoveryExhaustedCount: 0,
+      staleEventIgnoredCount: 0,
       latestToPhase: "unsupported",
       latestReasonCode: "webrtc_unavailable",
+      latestIgnoredReasonCode: null,
+    }));
+  });
+
+  it("marks realtime voice session summary as watch when stale events are ignored", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.session_event_ignored",
+      level: "info",
+      context: {
+        reasonCode: "stale_event",
+        phase: "degraded",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            transitionCount: number;
+            degradedCount: number;
+            unsupportedCount: number;
+            recoveryExhaustedCount: number;
+            staleEventIgnoredCount: number;
+            latestToPhase: string | null;
+            latestReasonCode: string | null;
+            latestIgnoredReasonCode: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      transitionCount: 0,
+      degradedCount: 0,
+      unsupportedCount: 0,
+      recoveryExhaustedCount: 0,
+      staleEventIgnoredCount: 1,
+      latestToPhase: null,
+      latestReasonCode: null,
+      latestIgnoredReasonCode: "stale_event",
     }));
   });
 

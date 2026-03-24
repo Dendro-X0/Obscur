@@ -117,8 +117,10 @@ type AppEventDiagnosticsApi = Readonly<{
         degradedCount: number;
         unsupportedCount: number;
         recoveryExhaustedCount: number;
+        staleEventIgnoredCount: number;
         latestToPhase: string | null;
         latestReasonCode: string | null;
+        latestIgnoredReasonCode: string | null;
       }>;
     }>;
     recentWarnOrError: ReadonlyArray<Readonly<{
@@ -774,12 +776,21 @@ const installDiagnosticsApi = (): void => {
       const voiceSessionRecoveryExhaustedCount = voiceSessionTransitionEvents.filter((event) => (
         event.context?.reasonCode === "recovery_exhausted"
       )).length;
+      const voiceSessionIgnoredEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.session_event_ignored"
+      ));
+      const voiceSessionStaleIgnoredCount = voiceSessionIgnoredEvents.filter((event) => (
+        event.context?.reasonCode === "stale_event"
+      )).length;
       const latestVoiceSessionTransition = voiceSessionTransitionEvents.at(-1);
       const latestVoiceSessionToPhase = toStringOrNull(
         latestVoiceSessionTransition?.context?.toPhase,
       );
       const latestVoiceSessionReasonCode = toStringOrNull(
         latestVoiceSessionTransition?.context?.reasonCode,
+      );
+      const latestVoiceSessionIgnoredReasonCode = toStringOrNull(
+        voiceSessionIgnoredEvents.at(-1)?.context?.reasonCode,
       );
       const criticalHydrationDriftCount = recent.filter((event) => (
         event.name === "messaging.conversation_hydration_diagnostics"
@@ -861,7 +872,11 @@ const installDiagnosticsApi = (): void => {
         high: searchJumpDomUnresolvedCount > 0,
       });
       const realtimeVoiceSessionRiskLevel = getRiskLevel({
-        watch: voiceSessionDegradedCount > 0 || voiceSessionUnsupportedCount > 0,
+        watch: (
+          voiceSessionDegradedCount > 0
+          || voiceSessionUnsupportedCount > 0
+          || voiceSessionStaleIgnoredCount > 0
+        ),
         high: voiceSessionRecoveryExhaustedCount > 0,
       });
       const recentWarnOrError = recent
@@ -968,8 +983,10 @@ const installDiagnosticsApi = (): void => {
             degradedCount: voiceSessionDegradedCount,
             unsupportedCount: voiceSessionUnsupportedCount,
             recoveryExhaustedCount: voiceSessionRecoveryExhaustedCount,
+            staleEventIgnoredCount: voiceSessionStaleIgnoredCount,
             latestToPhase: latestVoiceSessionToPhase,
             latestReasonCode: latestVoiceSessionReasonCode,
+            latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
           },
         },
         recentWarnOrError,

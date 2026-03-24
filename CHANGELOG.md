@@ -2,7 +2,30 @@
 
 ### Changed
 
-- _No unreleased changes yet._
+- Started `v1.1.2` (`M9` `CP2`) diagnostics/capture hardening for realtime voice:
+  - extended cross-device digest `summary.realtimeVoiceSession` in
+    `apps/pwa/app/shared/log-app-event.ts` with:
+    - `staleEventIgnoredCount`,
+    - `latestIgnoredReasonCode`,
+    - watch-level risk now also reflects stale-event ignore evidence.
+  - extended M6 voice capture contracts in
+    `apps/pwa/app/shared/m6-voice-capture.ts` with:
+    - `voice.summary.staleEventIgnoredCount`,
+    - `voice.summary.latestIgnoredReasonCode`,
+    - `voice.ignoredEvents` slice for one-copy replay bundles.
+  - extended M0 focused triage coverage in
+    `apps/pwa/app/shared/m0-triage-capture.ts`:
+    - `voice_realtime` now includes
+      `messaging.realtime_voice.session_event_ignored`.
+  - added focused regression coverage in:
+    - `apps/pwa/app/shared/log-app-event.test.ts`
+    - `apps/pwa/app/shared/m6-voice-capture.test.ts`
+    - `apps/pwa/app/shared/m0-triage-capture.test.ts`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 
 ## [v1.1.1] - 2026-03-24
 

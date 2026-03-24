@@ -1,6 +1,6 @@
 # Issue Status Snapshot (Post-v1 Monitoring and Release Continuation)
 
-Last updated: 2026-03-23
+Last updated: 2026-03-24
 
 This file tracks runtime issue status for post-v1 release continuation and stabilization monitoring.
 
@@ -380,6 +380,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - `v1.1.0` CP4 release closeout status:
     - strict release gates passed and `v1.1.0` is published.
 - M9 status (started 2026-03-23):
+  - `v1.1.1` CP1 release status:
+    - `main` and tag `v1.1.1` are published with strict release preflight green.
   - `v1.1.1` CP1 lifecycle hardening started on canonical voice-session owner:
     - added deterministic remote-close transition in
       `app/features/messaging/services/realtime-voice-session-lifecycle.ts`:
@@ -416,6 +418,20 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-owner.test.ts app/shared/log-app-event.test.ts`.
   - focused CP1 lifecycle/diagnostics validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+  - `v1.1.2` CP2 diagnostics slice started:
+    - cross-device digest `summary.realtimeVoiceSession` now includes stale-ignore counters:
+      - `staleEventIgnoredCount`,
+      - `latestIgnoredReasonCode`,
+      in `app/shared/log-app-event.ts`,
+    - M6 one-copy voice capture now includes ignored-event replay evidence:
+      - `voice.ignoredEvents` and expanded summary fields in
+        `app/shared/m6-voice-capture.ts`,
+    - M0 focused triage voice category now includes
+      `messaging.realtime_voice.session_event_ignored` in
+      `app/shared/m0-triage-capture.ts`.
+  - focused CP2 diagnostics/capture validation is green:
+    - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status

@@ -1,6 +1,6 @@
 # 29 Versioned Major-Phase Plan (v1.0.10-v1.3.0)
 
-_Last reviewed: 2026-03-23 (baseline commit 4c869a7)._
+_Last reviewed: 2026-03-24 (baseline commit 4c869a7)._
 
 This document defines the remaining post-`v1.0.9` release sequence as three major phases:
 1. one major phase completed before `v1.1.0`,
@@ -131,6 +131,21 @@ Scope:
 Evidence:
 1. digest summary coverage for voice risk counters,
 2. capture helper outputs accepted in manual replay dry-run.
+
+Current checkpoint progress (2026-03-24):
+1. `M9` CP2 diagnostics slice started on canonical digest/capture owners:
+: cross-device digest `summary.realtimeVoiceSession` now includes
+: `staleEventIgnoredCount` and `latestIgnoredReasonCode` from
+: `apps/pwa/app/shared/log-app-event.ts`.
+2. M6 voice capture contract now includes ignored-event replay evidence:
+: `voice.ignoredEvents` plus expanded summary fields in
+: `apps/pwa/app/shared/m6-voice-capture.ts`.
+3. M0 focused triage capture now includes ignored realtime voice event probes:
+: `messaging.realtime_voice.session_event_ignored` in
+: `apps/pwa/app/shared/m0-triage-capture.ts`.
+4. Focused CP2 diagnostics/capture validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.2.0 (M9-CP3/CP4 closeout)
 

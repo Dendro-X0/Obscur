@@ -11,8 +11,10 @@ type RealtimeVoiceSessionSummary = Readonly<{
   degradedCount: number;
   unsupportedCount: number;
   recoveryExhaustedCount: number;
+  staleEventIgnoredCount: number;
   latestToPhase: string | null;
   latestReasonCode: string | null;
+  latestIgnoredReasonCode: string | null;
 }>;
 
 type MinimalCrossDeviceDigest = Readonly<{
@@ -52,6 +54,7 @@ export type M6VoiceCaptureBundle = Readonly<{
   voice: Readonly<{
     summary: RealtimeVoiceSessionSummary | null;
     transitions: ReadonlyArray<MinimalAppEvent>;
+    ignoredEvents: ReadonlyArray<MinimalAppEvent>;
     recentWarnOrError: ReadonlyArray<Readonly<{
       name: string;
       level: string;
@@ -115,8 +118,10 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     degradedCount: toNumber(value.degradedCount),
     unsupportedCount: toNumber(value.unsupportedCount),
     recoveryExhaustedCount: toNumber(value.recoveryExhaustedCount),
+    staleEventIgnoredCount: toNumber(value.staleEventIgnoredCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
+    latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
   };
 };
 
@@ -170,6 +175,19 @@ const readRecentTransitions = (
   }
 };
 
+const readRecentIgnoredEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return appEventsApi.findByName("messaging.realtime_voice.session_event_ignored", EVENT_CAPTURE_LIMIT) ?? [];
+  } catch {
+    return [];
+  }
+};
+
 const readM0TriageSafe = (
   m0TriageApi: MinimalM0TriageApi | undefined,
   eventWindowSize: number,
@@ -207,6 +225,7 @@ const createBundle = (
     voice: {
       summary: digest.summary,
       transitions: readRecentTransitions(appEventsApi),
+      ignoredEvents: readRecentIgnoredEvents(appEventsApi),
       recentWarnOrError: digest.recentWarnOrError,
     },
     m0Triage: readM0TriageSafe(root.obscurM0Triage, eventWindowSize),
