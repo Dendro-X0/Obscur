@@ -24,6 +24,10 @@ type MembershipSendabilitySummary = Readonly<{
   latestVisibleGroupCount: number | null;
   latestChatStateGroupCount: number | null;
   roomKeyMissingSendBlockedCount: number;
+  joinedMembershipRoomKeyMismatchCount: number;
+  localProfileScopeRoomKeyMissingCount: number;
+  noLocalRoomKeysCount: number;
+  latestReasonCode: string | null;
 }>;
 
 type MinimalCrossDeviceDigest = Readonly<{
@@ -204,6 +208,10 @@ const parseMembershipSendabilitySummary = (
     latestVisibleGroupCount: toNumberOrNull(value.latestVisibleGroupCount),
     latestChatStateGroupCount: toNumberOrNull(value.latestChatStateGroupCount),
     roomKeyMissingSendBlockedCount: toNumberOrNull(value.roomKeyMissingSendBlockedCount) ?? 0,
+    joinedMembershipRoomKeyMismatchCount: toNumberOrNull(value.joinedMembershipRoomKeyMismatchCount) ?? 0,
+    localProfileScopeRoomKeyMissingCount: toNumberOrNull(value.localProfileScopeRoomKeyMissingCount) ?? 0,
+    noLocalRoomKeysCount: toNumberOrNull(value.noLocalRoomKeysCount) ?? 0,
+    latestReasonCode: toStringOrNull(value.latestReasonCode),
   };
 };
 

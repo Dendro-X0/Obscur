@@ -119,7 +119,7 @@ Current checkpoint progress (2026-03-23):
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
-## v1.0.11 - M8 CP2 (Planned)
+## v1.0.11 - M8 CP2 (In Progress)
 
 Goal:
 1. make lifecycle regressions one-copy diagnosable during two-device replay.
@@ -128,6 +128,23 @@ Scope:
 1. extend digest summary counters for membership/sendability convergence outcomes,
 2. add deterministic capture helper for `M8` two-device account-switch evidence bundles,
 3. update maintainer replay instructions and matrix docs for M8 incident classes.
+
+Current checkpoint progress (2026-03-23):
+1. CP2 membership-sendability diagnostics extension landed in canonical app-event digest owner:
+: `apps/pwa/app/shared/log-app-event.ts`.
+2. `summary.membershipSendability` now exposes reason-partitioned counters for room-key send blocks:
+: `joinedMembershipRoomKeyMismatchCount`,
+: `localProfileScopeRoomKeyMissingCount`,
+: `noLocalRoomKeysCount`,
+: `latestReasonCode`.
+3. Membership-sendability risk-level classification is now aligned to incident severity:
+: `high` only when joined-membership room-key mismatch is observed,
+: `watch` when any room-key send block is observed or visible-group vs chat-state-group parity lags.
+4. M8 capture helper digest parser is synchronized to the expanded summary contract:
+: `apps/pwa/app/shared/m8-community-capture.ts`.
+5. Focused CP2 diagnostics validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m8-community-capture.test.ts app/shared/m8-community-replay-bridge.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1.1.0 - M8 CP3/CP4 (Planned)
 

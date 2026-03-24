@@ -286,8 +286,8 @@ describe("logAppEvent", () => {
       level: "warn",
       context: {
         groupIdHint: "group:abc",
-        reasonCode: "target_room_key_missing_local_profile_scope",
-        localRoomKeyCount: 2,
+        reasonCode: "target_room_key_missing_after_membership_joined",
+        localRoomKeyCount: 1,
         hasTargetGroupRecord: false,
         activeProfileId: "profile-a",
         senderPubkeySuffix: "1234abcd",
@@ -443,6 +443,10 @@ describe("logAppEvent", () => {
             latestVisibleGroupCount: number | null;
             latestChatStateGroupCount: number | null;
             roomKeyMissingSendBlockedCount: number;
+            joinedMembershipRoomKeyMismatchCount: number;
+            localProfileScopeRoomKeyMissingCount: number;
+            noLocalRoomKeysCount: number;
+            latestReasonCode: string | null;
           };
           incomingRequestAntiAbuse: {
             riskLevel: "none" | "watch" | "high";
@@ -567,8 +571,8 @@ describe("logAppEvent", () => {
     }));
     expect(digest.events["groups.room_key_missing_send_blocked"]?.[0]?.context).toEqual(expect.objectContaining({
       groupIdHint: "group:abc",
-      reasonCode: "target_room_key_missing_local_profile_scope",
-      localRoomKeyCount: 2,
+      reasonCode: "target_room_key_missing_after_membership_joined",
+      localRoomKeyCount: 1,
       hasTargetGroupRecord: false,
       activeProfileId: "profile-a",
     }));
@@ -611,6 +615,10 @@ describe("logAppEvent", () => {
       latestVisibleGroupCount: 1,
       latestChatStateGroupCount: 0,
       roomKeyMissingSendBlockedCount: 1,
+      joinedMembershipRoomKeyMismatchCount: 1,
+      localProfileScopeRoomKeyMissingCount: 0,
+      noLocalRoomKeysCount: 0,
+      latestReasonCode: "target_room_key_missing_after_membership_joined",
     }));
     expect(digest.summary.incomingRequestAntiAbuse).toEqual(expect.objectContaining({
       riskLevel: "high",
@@ -840,6 +848,62 @@ describe("logAppEvent", () => {
       latestMissingLedgerCoverageCount: 0,
       latestHiddenByLedgerStatusCount: 0,
       recoveryRepairSignalCount: 0,
+    }));
+  });
+
+  it("marks membership sendability as watch for non-joined room-key blocks and none after clear", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "groups.room_key_missing_send_blocked",
+      level: "warn",
+      context: {
+        groupIdHint: "group:watch",
+        reasonCode: "target_room_key_missing_local_profile_scope",
+        localRoomKeyCount: 1,
+        hasTargetGroupRecord: false,
+        activeProfileId: "profile-watch",
+      },
+    });
+
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          membershipSendability: {
+            riskLevel: "none" | "watch" | "high";
+            latestVisibleGroupCount: number | null;
+            latestChatStateGroupCount: number | null;
+            roomKeyMissingSendBlockedCount: number;
+            joinedMembershipRoomKeyMismatchCount: number;
+            localProfileScopeRoomKeyMissingCount: number;
+            noLocalRoomKeysCount: number;
+            latestReasonCode: string | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.membershipSendability).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      roomKeyMissingSendBlockedCount: 1,
+      joinedMembershipRoomKeyMismatchCount: 0,
+      localProfileScopeRoomKeyMissingCount: 1,
+      noLocalRoomKeysCount: 0,
+      latestReasonCode: "target_room_key_missing_local_profile_scope",
+    }));
+
+    diagnosticsApi.clear();
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.membershipSendability).toEqual(expect.objectContaining({
+      riskLevel: "none",
+      roomKeyMissingSendBlockedCount: 0,
+      joinedMembershipRoomKeyMismatchCount: 0,
+      localProfileScopeRoomKeyMissingCount: 0,
+      noLocalRoomKeysCount: 0,
+      latestReasonCode: null,
     }));
   });
 

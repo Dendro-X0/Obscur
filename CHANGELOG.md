@@ -1,5 +1,27 @@
 ## [Unreleased]
 
+### Changed
+
+- Started `v1.0.11` (`M8` `CP2`) diagnostics extension for community membership/sendability triage:
+  - extended cross-device digest `summary.membershipSendability` with reason-partitioned room-key send-block counters in:
+    - `apps/pwa/app/shared/log-app-event.ts`
+    - `joinedMembershipRoomKeyMismatchCount`
+    - `localProfileScopeRoomKeyMissingCount`
+    - `noLocalRoomKeysCount`
+    - `latestReasonCode`
+  - membership sendability risk is now severity-aware:
+    - `high` only when joined-membership mismatch is observed (`target_room_key_missing_after_membership_joined`),
+    - `watch` for non-joined send-block reasons and visible-group/chat-state parity lag.
+  - synchronized M8 capture parser contract for the expanded digest shape in:
+    - `apps/pwa/app/shared/m8-community-capture.ts`
+  - added focused diagnostics regression coverage in:
+    - `apps/pwa/app/shared/log-app-event.test.ts`
+
+### Validation
+
+- `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m8-community-capture.test.ts app/shared/m8-community-replay-bridge.test.ts`
+- `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
+
 ## [v1.0.10] - 2026-03-24
 
 ### Changed

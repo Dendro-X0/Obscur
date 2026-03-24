@@ -51,6 +51,10 @@ type AppEventDiagnosticsApi = Readonly<{
         latestVisibleGroupCount: number | null;
         latestChatStateGroupCount: number | null;
         roomKeyMissingSendBlockedCount: number;
+        joinedMembershipRoomKeyMismatchCount: number;
+        localProfileScopeRoomKeyMissingCount: number;
+        noLocalRoomKeysCount: number;
+        latestReasonCode: string | null;
       }>;
       incomingRequestAntiAbuse: Readonly<{
         riskLevel: "none" | "watch" | "high";
@@ -561,6 +565,21 @@ const installDiagnosticsApi = (): void => {
       const roomKeyMissingSendBlockedCount = recent.filter((event) => (
         event.name === "groups.room_key_missing_send_blocked"
       )).length;
+      const roomKeyMissingSendBlockedEvents = recent.filter((event) => (
+        event.name === "groups.room_key_missing_send_blocked"
+      ));
+      const joinedMembershipRoomKeyMismatchCount = roomKeyMissingSendBlockedEvents.filter((event) => (
+        event.context?.reasonCode === "target_room_key_missing_after_membership_joined"
+      )).length;
+      const localProfileScopeRoomKeyMissingCount = roomKeyMissingSendBlockedEvents.filter((event) => (
+        event.context?.reasonCode === "target_room_key_missing_local_profile_scope"
+      )).length;
+      const noLocalRoomKeysCount = roomKeyMissingSendBlockedEvents.filter((event) => (
+        event.context?.reasonCode === "no_local_room_keys"
+      )).length;
+      const latestRoomKeyMissingSendBlockedReasonCode = toStringOrNull(
+        roomKeyMissingSendBlockedEvents.at(-1)?.context?.reasonCode,
+      );
       const incomingRequestQuarantineEvents = recent.filter((event) => (
         event.name === "messaging.request.incoming_quarantined"
       ));
@@ -751,11 +770,14 @@ const installDiagnosticsApi = (): void => {
       });
       const membershipSendabilityRiskLevel = getRiskLevel({
         watch: (
+          roomKeyMissingSendBlockedCount > 0
+          || (
           typeof latestVisibleGroupCount === "number"
           && typeof latestChatStateGroupCount === "number"
           && latestChatStateGroupCount < latestVisibleGroupCount
+          )
         ),
-        high: roomKeyMissingSendBlockedCount > 0,
+        high: joinedMembershipRoomKeyMismatchCount > 0,
       });
       const incomingRequestAntiAbuseRiskLevel = getRiskLevel({
         watch: incomingRequestQuarantinedCount > 0,
@@ -825,6 +847,10 @@ const installDiagnosticsApi = (): void => {
             latestVisibleGroupCount,
             latestChatStateGroupCount,
             roomKeyMissingSendBlockedCount,
+            joinedMembershipRoomKeyMismatchCount,
+            localProfileScopeRoomKeyMissingCount,
+            noLocalRoomKeysCount,
+            latestReasonCode: latestRoomKeyMissingSendBlockedReasonCode,
           },
           incomingRequestAntiAbuse: {
             riskLevel: incomingRequestAntiAbuseRiskLevel,

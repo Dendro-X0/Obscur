@@ -333,6 +333,21 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - CP2 and CP3/CP4 closeout sequencing is locked:
     - `v1.0.11` carries diagnostics/replay-helper expansion,
     - `v1.1.0` carries matrix evidence attachment + strict release closeout.
+  - `v1.0.11` CP2 diagnostics checkpoint is now in progress on canonical digest/capture owners:
+    - `summary.membershipSendability` now includes reason-partitioned room-key send-block counters in
+      `app/shared/log-app-event.ts`:
+      - `joinedMembershipRoomKeyMismatchCount`,
+      - `localProfileScopeRoomKeyMissingCount`,
+      - `noLocalRoomKeysCount`,
+      - `latestReasonCode`,
+    - membership-sendability risk level is now severity-aware:
+      - `high` only for `target_room_key_missing_after_membership_joined`,
+      - `watch` for non-joined send blocks and group-visibility/chat-state parity lag,
+    - M8 capture parser contract is synced in
+      `app/shared/m8-community-capture.ts`,
+    - focused CP2 automation replay is green:
+      - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m8-community-capture.test.ts app/shared/m8-community-replay-bridge.test.ts`,
+      - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 
