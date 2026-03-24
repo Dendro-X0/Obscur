@@ -251,6 +251,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       `copy(window.obscurM7AntiAbuseReplay?.runPeerCooldownReplayCaptureJson({ clearAppEvents: true }))`,
     - implementation in `app/shared/m7-anti-abuse-replay-bridge.ts`,
     - replay matrix in `docs/28-v1.0.9-cp3-anti-abuse-replay-matrix.md`,
+  - DM sidebar restore regression after `Delete Chat` is fixed:
+    - selecting a DM now auto-removes that conversation from hidden-chat state, so reopen flows from profile/deep-link paths restore sidebar visibility,
+    - implementation in `app/features/messaging/providers/messaging-provider.tsx`,
+    - focused helper/test coverage in `app/features/messaging/utils/conversation-visibility.ts` and `.test.ts`,
+  - voice-note card display cleanup landed:
+    - voice-note cards show `Voice Notes` instead of raw generated filenames in
+      `app/features/messaging/components/voice-note-card.tsx`,
+    - focused coverage updated in `app/features/messaging/components/voice-note-card.test.tsx`,
   - remaining before CP1+CP2 closeout:
     - capture and attach anti-abuse replay evidence bundle (`peer_rate_limited -> peer_cooldown_active -> digest summary`).
 

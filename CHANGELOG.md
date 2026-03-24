@@ -62,6 +62,17 @@
   - added attachment-markdown and timestamp-fallback derivation for attachment-only rows to preserve cross-device deletion convergence.
 - Added focused regression coverage for DM delete target derivation:
   - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`
+- Fixed DM sidebar restore regression after `Delete Chat`:
+  - selecting a DM conversation now auto-removes it from hidden-chat state, so reopening from contacts/deep-link paths restores sidebar visibility in:
+    - `apps/pwa/app/features/messaging/providers/messaging-provider.tsx`
+  - added focused hidden-state helpers and tests in:
+    - `apps/pwa/app/features/messaging/utils/conversation-visibility.ts`
+    - `apps/pwa/app/features/messaging/utils/conversation-visibility.test.ts`
+- Refined voice-note card copy for cleaner UI:
+  - voice-note cards now display `Voice Notes` instead of raw generated filenames in:
+    - `apps/pwa/app/features/messaging/components/voice-note-card.tsx`
+  - updated focused component coverage in:
+    - `apps/pwa/app/features/messaging/components/voice-note-card.test.tsx`
 - Synced roadmap/status docs for `v1.0.9` kickoff and `v1.0.8` closeout:
   - `README.md`
   - `docs/21-post-v1-value-roadmap.md`
@@ -75,6 +86,8 @@
 - `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-replay-bridge.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/utils/conversation-visibility.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/features/messaging/components/voice-note-card.test.tsx`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 - `pnpm release:preflight -- --tag v1.0.9`
 
