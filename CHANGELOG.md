@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [v1.1.0] - 2026-03-24
+
 ### Changed
 
 - Started `v1.0.11` (`M8` `CP2`) diagnostics extension for community membership/sendability triage:

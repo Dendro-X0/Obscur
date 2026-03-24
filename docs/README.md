@@ -54,11 +54,11 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/21-post-v1-value-roadmap.md`.
 - Version-bound execution cadence (`one milestone per version`) is tracked in:
   - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
-- Current active execution cadence (`v1.0.7-v1.0.9`) is tracked in:
+- Historical execution cadence (`v1.0.7-v1.0.9`) is tracked in:
   - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
 - Next major-phase execution cadence (`v1.0.10-v1.3.0`) is tracked in:
   - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
-- Active execution lane for major-phase start (`v1.0.10-v1.1.0`) is tracked in:
+- Active execution lane (`v1.0.10-v1.1.0`) is tracked in:
   - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
 - Deterministic CP3 replay evidence matrix for the `v1.0.10` M8 lane is tracked in:
   - `docs/31-v1.0.10-cp3-community-replay-matrix.md`.
