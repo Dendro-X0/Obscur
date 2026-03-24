@@ -333,7 +333,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - CP2 and CP3/CP4 closeout sequencing is locked:
     - `v1.0.11` carries diagnostics/replay-helper expansion,
     - `v1.1.0` carries matrix evidence attachment + strict release closeout.
-  - `v1.0.11` CP2 diagnostics checkpoint is now in progress on canonical digest/capture owners:
+  - `v1.0.11` CP2 diagnostics checkpoint landed on canonical digest/capture owners:
     - `summary.membershipSendability` now includes reason-partitioned room-key send-block counters in
       `app/shared/log-app-event.ts`:
       - `joinedMembershipRoomKeyMismatchCount`,
@@ -362,6 +362,9 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
         - `watch` for auto-unlock scope drift without runtime/restore mismatch evidence,
       - M8 capture readiness now surfaces CP3 gate signal:
         - `community.replayReadiness.readyForCp3Evidence` in `app/shared/m8-community-capture.ts`.
+  - `v1.0.11` CP2 closeout status:
+    - code/tests/docs slice is complete and published on `main`,
+    - remaining M8 closeout work is CP3 manual matrix evidence capture, then CP4 strict release gates for `v1.1.0`.
 
 ## v1 Readiness Status
 

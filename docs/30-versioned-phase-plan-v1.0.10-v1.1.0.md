@@ -119,7 +119,7 @@ Current checkpoint progress (2026-03-23):
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
-## v1.0.11 - M8 CP2 (In Progress)
+## v1.0.11 - M8 CP2 (Completed)
 
 Goal:
 1. make lifecycle regressions one-copy diagnosable during two-device replay.
@@ -160,6 +160,9 @@ Current checkpoint progress (2026-03-23):
 8. M8 capture readiness now includes explicit CP3 gate signal:
 : `community.replayReadiness.readyForCp3Evidence` in
 : `apps/pwa/app/shared/m8-community-capture.ts`.
+9. CP2 closeout status:
+: implementation + focused tests + docs sync are complete and pushed on `main`.
+: next lane step is CP3 manual two-device evidence capture for `v1.1.0` closeout.
 
 ## v1.1.0 - M8 CP3/CP4 (Planned)
 
