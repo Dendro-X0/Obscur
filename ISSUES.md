@@ -288,9 +288,21 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - chat-state owner coverage now includes profile-scoped cache/pending isolation validation:
     - `app/features/messaging/services/chat-state-store.replace-event.test.ts`
       (`keeps chat-state cache and pending writes isolated per profile scope for the same public key`),
+  - CP2-prep helper landed for one-copy community lifecycle evidence bundles:
+    - `window.obscurM8CommunityCapture?.captureJson(400)` in
+      `app/shared/m8-community-capture.ts`,
+    - helper is installed at boot in
+      `app/components/providers.tsx`,
+    - replay readiness probe:
+      `JSON.parse(window.obscurM8CommunityCapture?.captureJson(400) ?? "{}")?.community?.replayReadiness`,
+    - maintainer runbook updated in `docs/08-maintainer-playbook.md`,
   - focused CP1 automation replay is green:
     - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+  - focused CP1/CP2-prep automation replay is green:
+    - `pnpm --dir apps/pwa exec vitest run app/shared/m8-community-capture.test.ts app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+    - `pnpm docs:check`,
   - CP1 acceptance gates for `v1.0.10` are defined and must pass before release handoff:
     - focused `vitest` suites for touched owners,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,

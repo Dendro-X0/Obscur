@@ -75,7 +75,18 @@ Current checkpoint progress (2026-03-23):
 9. Focused chat-state owner coverage now validates profile-scoped cache/pending isolation:
 : `app/features/messaging/services/chat-state-store.replace-event.test.ts`
 : (`keeps chat-state cache and pending writes isolated per profile scope for the same public key`).
-10. Focused CP1 regression coverage is green:
+10. CP2-prep helper landed for one-copy community lifecycle evidence bundles:
+: `window.obscurM8CommunityCapture.captureJson(400)` in
+: `apps/pwa/app/shared/m8-community-capture.ts`,
+: installed at boot in `apps/pwa/app/components/providers.tsx`.
+11. Maintainer replay runbook now includes preferred M8 helper + readiness probe:
+: `docs/08-maintainer-playbook.md`.
+12. Focused CP1/CP2-prep regression coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m8-community-capture.test.ts app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+: `pnpm docs:check`.
+: 
+: (Existing CP1 validation command remains green:)
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 

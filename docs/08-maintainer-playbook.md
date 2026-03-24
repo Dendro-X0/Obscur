@@ -283,14 +283,18 @@ For `v1.0.7` CP3 community-convergence verification:
 
 1. Use the canonical matrix:
 : `docs/26-v1.0.7-cp3-community-convergence-matrix.md`.
-2. Required summary probes:
+2. One-copy M8 community bundle (preferred for current `v1.0.10+` lane):
+: `copy(window.obscurM8CommunityCapture?.captureJson(400))`
+3. Replay readiness probe for CP2 evidence prep:
+: `JSON.parse(window.obscurM8CommunityCapture?.captureJson(400) ?? "{}")?.community?.replayReadiness`
+4. Required summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.communityLifecycleConvergence`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability`
-3. Required event slices:
+5. Required event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_recovery_hydrate"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_ledger_load"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.room_key_missing_send_blocked"]`
-4. One-copy CP3 export bundle:
+6. One-copy CP3 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -303,7 +307,7 @@ For `v1.0.7` CP3 community-convergence verification:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-5. Escalate immediately if:
+7. Escalate immediately if:
 : community name regresses to placeholder/default after account switch/restart,
 : creator/member coverage disappears,
 : `groups.room_key_missing_send_blocked` appears during replay.
