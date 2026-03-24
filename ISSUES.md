@@ -315,6 +315,17 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm docs:check`,
   - CP3 deterministic matrix is now documented for the `v1.0.10` lane:
     - `docs/31-v1.0.10-cp3-community-replay-matrix.md`,
+  - deterministic replay execution evidence captured in operator run (2026-03-23):
+    - observed chain:
+      `groups.membership_ledger_load -> groups.membership_recovery_hydrate -> messaging.chat_state_groups_update -> groups.room_key_missing_send_blocked`,
+    - expected sendability mismatch reason code observed:
+      `target_room_key_missing_after_membership_joined`,
+    - one-copy bundle export command executed:
+      `copy(window.obscurM8CommunityReplay?.runConvergenceReplayCaptureJson({ clearAppEvents: true }))`,
+  - release-gate preflight replay for `v1.0.10` is green in current checkpoint workspace:
+    - `pnpm version:check`,
+    - `pnpm docs:check`,
+    - `pnpm release:preflight -- --tag v1.0.10 --allow-dirty true`,
   - CP1 acceptance gates for `v1.0.10` are defined and must pass before release handoff:
     - focused `vitest` suites for touched owners,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,

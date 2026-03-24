@@ -100,6 +100,20 @@ Current checkpoint progress (2026-03-23):
 : `pnpm docs:check`.
 : 16. deterministic CP3 evidence matrix is now documented:
 : `docs/31-v1.0.10-cp3-community-replay-matrix.md`.
+: 17. deterministic replay execution evidence was captured in operator run (2026-03-23):
+: observed event chain includes
+: `groups.membership_ledger_load`,
+: `groups.membership_recovery_hydrate`,
+: `messaging.chat_state_groups_update`,
+: and `groups.room_key_missing_send_blocked`.
+: 18. replay sendability anomaly signal matched expected joined-membership mismatch reason code:
+: `target_room_key_missing_after_membership_joined`.
+: 19. one-copy replay+capture export command executed for artifact handoff:
+: `copy(window.obscurM8CommunityReplay?.runConvergenceReplayCaptureJson({ clearAppEvents: true }))`.
+: 20. release-gate preflight replay is green in current checkpoint workspace:
+: `pnpm version:check`
+: `pnpm docs:check`
+: `pnpm release:preflight -- --tag v1.0.10 --allow-dirty true`.
 : 
 : (Existing CP1 validation command remains green:)
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/group-service.test.ts app/features/groups/providers/group-provider.test.tsx app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
