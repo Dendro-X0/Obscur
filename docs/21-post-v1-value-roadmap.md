@@ -468,8 +468,14 @@ Current execution status:
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 13. CP4 release-gate replay is green on clean `main` for `v1.0.9` preflight contract:
 : `pnpm release:preflight -- --tag v1.0.9`.
-14. Remaining before declaring CP1+CP2 complete:
-: capture two-device anti-abuse replay evidence bundle for rate-limit -> cooldown -> digest-summary behavior.
+14. Deterministic CP3 replay bridge landed for anti-abuse evidence on manual-constrained sessions:
+: `window.obscurM7AntiAbuseReplay.runPeerCooldownReplay({ clearAppEvents: true })` in
+: `apps/pwa/app/shared/m7-anti-abuse-replay-bridge.ts`,
+: installed at app boot in `apps/pwa/app/components/providers.tsx`,
+: with replay matrix doc in `docs/28-v1.0.9-cp3-anti-abuse-replay-matrix.md`.
+15. Remaining before declaring CP1+CP2 complete:
+: capture and attach anti-abuse replay evidence bundle using
+: `copy(window.obscurM7AntiAbuseReplay?.runPeerCooldownReplayCaptureJson({ clearAppEvents: true }))`.
 
 ## Version-Bound Execution
 

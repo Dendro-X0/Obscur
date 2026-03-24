@@ -245,8 +245,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
   - CP4 preflight gate replay is green on clean `main` for `v1.0.9`:
     - `pnpm release:preflight -- --tag v1.0.9`,
+  - deterministic CP3 replay bridge landed to reduce manual timing fragility:
+    - `window.obscurM7AntiAbuseReplay?.runPeerCooldownReplay({ clearAppEvents: true })`,
+    - one-copy replay + diagnostics bundle export:
+      `copy(window.obscurM7AntiAbuseReplay?.runPeerCooldownReplayCaptureJson({ clearAppEvents: true }))`,
+    - implementation in `app/shared/m7-anti-abuse-replay-bridge.ts`,
+    - replay matrix in `docs/28-v1.0.9-cp3-anti-abuse-replay-matrix.md`,
   - remaining before CP1+CP2 closeout:
-    - capture manual two-device anti-abuse replay evidence (`peer_rate_limited -> peer_cooldown_active -> digest summary`) and attach diagnostics export.
+    - capture and attach anti-abuse replay evidence bundle (`peer_rate_limited -> peer_cooldown_active -> digest summary`).
 
 ## v1 Readiness Status
 

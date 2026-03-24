@@ -176,6 +176,9 @@ For incoming request-spam verification, capture these evidence points:
 : `JSON.parse(window.obscurM7AntiAbuseCapture?.captureJson(400) ?? "{}")?.antiAbuse?.replayReadiness`
 : `readyForCp3Evidence` must be `true` with observed transition
 : `incoming_connection_request_peer_rate_limited` -> `incoming_connection_request_peer_cooldown_active`.
+8. Deterministic CP3 replay helper (for builds without easy manual spam generation):
+: `window.obscurM7AntiAbuseReplay?.runPeerCooldownReplay({ clearAppEvents: true })`
+: `copy(window.obscurM7AntiAbuseReplay?.runPeerCooldownReplayCaptureJson({ clearAppEvents: true }))`
 
 ### Post-v1 M1 Community Operator Visibility Replay Checks
 

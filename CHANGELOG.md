@@ -46,6 +46,16 @@
     - `apps/pwa/app/shared/m7-anti-abuse-capture.ts`
   - updated maintainer replay checks to include readiness probe in:
     - `docs/08-maintainer-playbook.md`
+- Added deterministic M7 anti-abuse replay bridge for CP3 evidence capture:
+  - `window.obscurM7AntiAbuseReplay.runPeerCooldownReplay({ clearAppEvents: true })` and
+    `window.obscurM7AntiAbuseReplay.runPeerCooldownReplayCaptureJson({ clearAppEvents: true })` in:
+    - `apps/pwa/app/shared/m7-anti-abuse-replay-bridge.ts`
+  - bridge is installed at app boot in:
+    - `apps/pwa/app/components/providers.tsx`
+  - added focused replay bridge coverage:
+    - `apps/pwa/app/shared/m7-anti-abuse-replay-bridge.test.ts`
+  - documented replay matrix:
+    - `docs/28-v1.0.9-cp3-anti-abuse-replay-matrix.md`
 - Hardened DM "Delete for everyone" target derivation for attachment-heavy/voice-note messages:
   - delete command target generation now derives NIP-17 rumor ids even when `dmFormat` is unavailable on hydrated rows in:
     - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`
@@ -63,6 +73,7 @@
 - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-capture.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/shared/m7-anti-abuse-replay-bridge.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 - `pnpm release:preflight -- --tag v1.0.9`

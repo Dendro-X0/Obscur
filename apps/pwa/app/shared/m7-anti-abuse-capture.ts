@@ -262,13 +262,22 @@ const buildReplayReadiness = (params: Readonly<{
   digestHasPeerCooldownActiveCount: boolean;
   readyForCp3Evidence: boolean;
 }> => {
-  const timeline = new Map<number, string>();
+  const timeline: Array<Readonly<{
+    atUnixMs: number;
+    sequence: number;
+    reasonCode: string;
+  }>> = [];
+  let sequence = 0;
   params.compactQuarantineEvents.forEach((event) => {
     const reasonCode = toStringOrNull(event.context.reasonCode);
     if (!reasonCode) {
       return;
     }
-    timeline.set(toNumber(event.atUnixMs), reasonCode);
+    timeline.push({
+      atUnixMs: toNumber(event.atUnixMs),
+      sequence: sequence++,
+      reasonCode,
+    });
   });
   params.recentQuarantinedEvents.forEach((event, index) => {
     const context = toPrimitiveContext(event.context);
@@ -278,11 +287,20 @@ const buildReplayReadiness = (params: Readonly<{
     }
     const time = toNumber(event.atUnixMs);
     const fallbackTime = -(index + 1);
-    timeline.set(time > 0 ? time : fallbackTime, reasonCode);
+    timeline.push({
+      atUnixMs: time > 0 ? time : fallbackTime,
+      sequence: sequence++,
+      reasonCode,
+    });
   });
-  const observedReasonCodes = Array.from(timeline.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map((entry) => entry[1]);
+  const observedReasonCodes = timeline
+    .slice()
+    .sort((left, right) => (
+      left.atUnixMs === right.atUnixMs
+        ? left.sequence - right.sequence
+        : left.atUnixMs - right.atUnixMs
+    ))
+    .map((entry) => entry.reasonCode);
   const hasPeerRateLimited = observedReasonCodes.includes(PEER_RATE_LIMITED_REASON_CODE);
   const hasPeerCooldownActive = observedReasonCodes.includes(PEER_COOLDOWN_ACTIVE_REASON_CODE);
   const firstPeerRateLimited = observedReasonCodes.indexOf(PEER_RATE_LIMITED_REASON_CODE);
