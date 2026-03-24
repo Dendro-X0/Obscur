@@ -16,6 +16,9 @@
     - `apps/pwa/app/shared/m8-community-capture.ts`
   - added focused diagnostics regression coverage in:
     - `apps/pwa/app/shared/log-app-event.test.ts`
+  - updated M8 maintainer replay guidance for CP2 incident interpretation:
+    - `docs/08-maintainer-playbook.md`
+    - `docs/31-v1.0.10-cp3-community-replay-matrix.md`
 
 ### Validation
 

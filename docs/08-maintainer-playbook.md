@@ -293,11 +293,19 @@ For `v1.0.7` CP3 community-convergence verification:
 5. Required summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.communityLifecycleConvergence`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability`
-6. Required event slices:
+6. Membership-sendability reason probes (`v1.0.11` CP2+):
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.joinedMembershipRoomKeyMismatchCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.localProfileScopeRoomKeyMissingCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.noLocalRoomKeysCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.membershipSendability.latestReasonCode`
+7. Membership-sendability severity interpretation (`v1.0.11` CP2+):
+: `high` -> joined-membership mismatch observed (`target_room_key_missing_after_membership_joined`),
+: `watch` -> non-joined send-block reason observed or visible-group/chat-state-group parity lag.
+8. Required event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_recovery_hydrate"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.membership_ledger_load"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["groups.room_key_missing_send_blocked"]`
-7. One-copy CP3 export bundle (fallback when helper is unavailable):
+9. One-copy CP3 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -310,7 +318,7 @@ For `v1.0.7` CP3 community-convergence verification:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-8. Escalate immediately if:
+10. Escalate immediately if:
 : community name regresses to placeholder/default after account switch/restart,
 : creator/member coverage disappears,
 : `groups.room_key_missing_send_blocked` appears during replay.

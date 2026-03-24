@@ -348,6 +348,9 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - focused CP2 automation replay is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m8-community-capture.test.ts app/shared/m8-community-replay-bridge.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+    - maintainer replay docs now include CP2 reason-partitioned sendability interpretation:
+      - `docs/08-maintainer-playbook.md`,
+      - `docs/31-v1.0.10-cp3-community-replay-matrix.md`.
 
 ## v1 Readiness Status
 
