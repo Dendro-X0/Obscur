@@ -113,9 +113,12 @@ Current checkpoint progress (2026-03-23):
 : new owner in `apps/pwa/app/features/messaging/services/realtime-voice-session-owner.ts` centralizes lifecycle + diagnostics emission and ignores stale transition events by event timestamp.
 7. Deterministic replay bridge now consumes owner APIs (single canonical transition path):
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
-8. Focused CP1 lifecycle diagnostics coverage is green:
+8. Ignored stale-event observability is now explicit for CP1 triage:
+: owner emits `messaging.realtime_voice.session_event_ignored` with reason + event/transition timestamps; compact digest captures this event for one-copy export.
+9. Focused CP1 lifecycle diagnostics coverage is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-diagnostics.test.ts`
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-owner.test.ts app/shared/m6-voice-replay-bridge.test.ts`
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-session-owner.test.ts app/shared/log-app-event.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.1.2 (M9-CP2)

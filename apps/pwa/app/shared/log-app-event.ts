@@ -369,6 +369,14 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "maxRecoveryAttempts",
     "isRecoverable",
   ],
+  "messaging.realtime_voice.session_event_ignored": [
+    "reasonCode",
+    "roomIdHint",
+    "phase",
+    "mode",
+    "eventUnixMs",
+    "lastTransitionAtUnixMs",
+  ],
   "runtime.activation.timeout": [
     "timeouts",
     "projectionPhase",

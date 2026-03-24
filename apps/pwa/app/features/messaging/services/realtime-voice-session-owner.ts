@@ -1,5 +1,6 @@
 import type { RealtimeVoiceCapability } from "./realtime-voice-capability";
 import { emitRealtimeVoiceSessionTransitionDiagnostic } from "./realtime-voice-session-diagnostics";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   createInitialRealtimeVoiceSessionState,
   markRealtimeVoiceSessionClosed,
@@ -26,6 +27,16 @@ const shouldIgnoreStaleEvent = (
   && isFiniteNumber(state.lastTransitionAtUnixMs)
   && eventUnixMs < state.lastTransitionAtUnixMs
 );
+
+const toRoomIdHint = (roomId: string | null): string | null => {
+  if (typeof roomId !== "string" || roomId.length === 0) {
+    return null;
+  }
+  if (roomId.length <= 16) {
+    return roomId;
+  }
+  return `${roomId.slice(0, 8)}...${roomId.slice(-8)}`;
+};
 
 type RealtimeVoiceOwnerTransitionParams = Readonly<{
   eventUnixMs?: number;
@@ -83,6 +94,21 @@ export const createRealtimeVoiceSessionOwner = (
     transition: (params: Readonly<{ nowUnixMs?: number }>) => RealtimeVoiceSessionState,
   ): RealtimeVoiceSessionState => {
     if (shouldIgnoreStaleEvent(state, eventUnixMs)) {
+      logAppEvent({
+        name: "messaging.realtime_voice.session_event_ignored",
+        level: "info",
+        scope: { feature: "messaging", action: "realtime_voice_session" },
+        context: {
+          reasonCode: "stale_event",
+          roomIdHint: toRoomIdHint(state.roomId),
+          phase: state.phase,
+          mode: state.mode,
+          eventUnixMs: isFiniteNumber(eventUnixMs) ? eventUnixMs : null,
+          lastTransitionAtUnixMs: isFiniteNumber(state.lastTransitionAtUnixMs)
+            ? state.lastTransitionAtUnixMs
+            : null,
+        },
+      });
       return state;
     }
     const previous = state;
@@ -146,4 +172,3 @@ export const createRealtimeVoiceSessionOwner = (
     )),
   };
 };
-

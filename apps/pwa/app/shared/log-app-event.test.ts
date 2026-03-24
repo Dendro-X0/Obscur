@@ -1310,4 +1310,39 @@ describe("logAppEvent", () => {
       latestReasonCode: "webrtc_unavailable",
     }));
   });
+
+  it("captures realtime voice ignored-event diagnostics in compact digest events", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.session_event_ignored",
+      level: "info",
+      context: {
+        reasonCode: "stale_event",
+        roomIdHint: "room:ignored",
+        phase: "degraded",
+        mode: "join",
+        eventUnixMs: 2400,
+        lastTransitionAtUnixMs: 2500,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.session_event_ignored"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.session_event_ignored"]?.[0]?.context).toEqual(expect.objectContaining({
+      reasonCode: "stale_event",
+      roomIdHint: "room:ignored",
+      phase: "degraded",
+      mode: "join",
+      eventUnixMs: 2400,
+      lastTransitionAtUnixMs: 2500,
+    }));
+    expect(digest.events["messaging.realtime_voice.session_event_ignored"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
 });

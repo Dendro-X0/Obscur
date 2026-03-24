@@ -560,6 +560,9 @@ Acceptance:
 : added `apps/pwa/app/features/messaging/services/realtime-voice-session-owner.ts` to centralize
 : lifecycle + diagnostics transition ownership and reject stale event-time updates, and
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts` now exercises this owner path.
+13. `M9` (`v1.1.1` CP1) stale-event handling is now diagnosable in one-copy bundles:
+: canonical owner emits `messaging.realtime_voice.session_event_ignored` for dropped stale events,
+: and compact digest capture includes this event for replay exports.
 
 ## Non-Negotiable Validation Contract
 

@@ -86,6 +86,20 @@ describe("realtime-voice-session-owner", () => {
       lastTransitionReasonCode: "network_degraded",
       lastTransitionAtUnixMs: 2_300,
     }));
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const ignored = diagnosticsApi.findByName("messaging.realtime_voice.session_event_ignored", 10);
+    expect(ignored).toHaveLength(1);
+    expect(ignored[0]?.context).toEqual(expect.objectContaining({
+      reasonCode: "stale_event",
+      phase: "degraded",
+      eventUnixMs: 2_200,
+      lastTransitionAtUnixMs: 2_300,
+    }));
   });
 
   it("keeps first terminal outcome when stale close arrives after left", () => {
