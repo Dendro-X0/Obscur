@@ -3,6 +3,14 @@
 ### Changed
 
 - Started `v1.1.5` (`M9` `CP4` continuation lane) with release-aligned version manifests and roadmap/status sync for the next secure-voice hardening slices.
+- Added deterministic CP4 long-session gate-probe helpers in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `window.obscurM6VoiceReplay.runCp4LongSessionGateProbe(...)`,
+  - `window.obscurM6VoiceReplay.runCp4LongSessionGateProbeJson(...)`,
+  - probe output now validates CP4 gate/event/final-phase alignment against expected pass/fail outcomes (including failure-injection expected-fail lanes).
+- Extended stale replay-bridge auto-upgrade guard to require CP4 gate-probe APIs, preventing stale runtime objects from hiding newly added CP4 tooling.
+- Added focused regression coverage for CP4 gate-probe nominal and expected-failure lanes in:
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
 
 ## [v1.1.4] - 2026-03-24
 

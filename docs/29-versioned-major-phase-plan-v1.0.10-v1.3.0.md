@@ -241,6 +241,13 @@ Scope:
 Current checkpoint progress (2026-03-24):
 1. `v1.1.5` lane is opened on `main` with release-tracked versions aligned to `1.1.5`.
 2. roadmap/changelog/issues are synchronized for CP4 continuation tracking.
+3. deterministic CP4 gate-probe helper landed in canonical replay bridge owner:
+: `runCp4LongSessionGateProbe(...)` and `runCp4LongSessionGateProbeJson(...)` in
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
+4. stale bridge upgrade guard now requires CP4 gate-probe APIs so older runtime bridge objects are auto-refreshed before CP4 replay verification.
+5. focused CP4 continuation validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.2.0 (M9-CP4 closeout)
 

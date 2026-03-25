@@ -536,7 +536,15 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
   - `v1.1.5` started (`M9` CP4 continuation lane):
     - release-tracked versions are aligned to `1.1.5`,
-    - roadmap/changelog/issues are synced for next CP4 secure-voice hardening slices.
+    - roadmap/changelog/issues are synced for next CP4 secure-voice hardening slices,
+    - deterministic CP4 gate-probe helpers landed in canonical replay bridge owner:
+      - `window.obscurM6VoiceReplay.runCp4LongSessionGateProbe(...)`,
+      - `window.obscurM6VoiceReplay.runCp4LongSessionGateProbeJson(...)`,
+      with expected-pass support for both nominal and failure-injection lanes.
+    - stale replay-bridge upgrade guard now requires CP4 gate-probe APIs so stale injected bridge objects are auto-upgraded.
+    - focused continuation validation is green:
+      - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`,
+      - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 
