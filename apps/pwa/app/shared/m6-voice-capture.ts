@@ -17,9 +17,33 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestIgnoredReasonCode: string | null;
 }>;
 
+type AsyncVoiceNoteSummary = Readonly<{
+  riskLevel: "none" | "watch" | "high";
+  recordingCompleteCount: number;
+  recordingUnsupportedCount: number;
+  recordingStartFailedCount: number;
+  recordingEmptyCount: number;
+  latestReasonCode: string | null;
+}>;
+
+type DeleteConvergenceSummary = Readonly<{
+  riskLevel: "none" | "watch" | "high";
+  requestedCount: number;
+  localAppliedCount: number;
+  remoteConfirmedCount: number;
+  remoteQueuedCount: number;
+  remoteFailedCount: number;
+  rejectedCount: number;
+  latestChannel: string | null;
+  latestResultCode: string | null;
+  latestReasonCode: string | null;
+}>;
+
 type MinimalCrossDeviceDigest = Readonly<{
   summary?: Readonly<{
     realtimeVoiceSession?: RealtimeVoiceSessionSummary;
+    asyncVoiceNote?: AsyncVoiceNoteSummary;
+    deleteConvergence?: DeleteConvergenceSummary;
   }>;
   recentWarnOrError?: ReadonlyArray<Readonly<{
     name: string;
@@ -53,8 +77,12 @@ export type M6VoiceCaptureBundle = Readonly<{
   }>;
   voice: Readonly<{
     summary: RealtimeVoiceSessionSummary | null;
+    asyncVoiceNoteSummary: AsyncVoiceNoteSummary | null;
+    deleteConvergenceSummary: DeleteConvergenceSummary | null;
     transitions: ReadonlyArray<MinimalAppEvent>;
     ignoredEvents: ReadonlyArray<MinimalAppEvent>;
+    voiceNoteEvents: ReadonlyArray<MinimalAppEvent>;
+    deleteConvergenceEvents: ReadonlyArray<MinimalAppEvent>;
     recentWarnOrError: ReadonlyArray<Readonly<{
       name: string;
       level: string;
@@ -125,11 +153,53 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
   };
 };
 
+const parseAsyncVoiceNoteSummary = (value: unknown): AsyncVoiceNoteSummary | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const riskLevel = value.riskLevel;
+  if (riskLevel !== "none" && riskLevel !== "watch" && riskLevel !== "high") {
+    return null;
+  }
+  return {
+    riskLevel,
+    recordingCompleteCount: toNumber(value.recordingCompleteCount),
+    recordingUnsupportedCount: toNumber(value.recordingUnsupportedCount),
+    recordingStartFailedCount: toNumber(value.recordingStartFailedCount),
+    recordingEmptyCount: toNumber(value.recordingEmptyCount),
+    latestReasonCode: toStringOrNull(value.latestReasonCode),
+  };
+};
+
+const parseDeleteConvergenceSummary = (value: unknown): DeleteConvergenceSummary | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const riskLevel = value.riskLevel;
+  if (riskLevel !== "none" && riskLevel !== "watch" && riskLevel !== "high") {
+    return null;
+  }
+  return {
+    riskLevel,
+    requestedCount: toNumber(value.requestedCount),
+    localAppliedCount: toNumber(value.localAppliedCount),
+    remoteConfirmedCount: toNumber(value.remoteConfirmedCount),
+    remoteQueuedCount: toNumber(value.remoteQueuedCount),
+    remoteFailedCount: toNumber(value.remoteFailedCount),
+    rejectedCount: toNumber(value.rejectedCount),
+    latestChannel: toStringOrNull(value.latestChannel),
+    latestResultCode: toStringOrNull(value.latestResultCode),
+    latestReasonCode: toStringOrNull(value.latestReasonCode),
+  };
+};
+
 const readCrossDeviceDigestSafe = (
   appEventsApi: MinimalAppEventsApi | undefined,
   eventWindowSize: number,
 ): Readonly<{
   summary: RealtimeVoiceSessionSummary | null;
+  asyncVoiceNoteSummary: AsyncVoiceNoteSummary | null;
+  deleteConvergenceSummary: DeleteConvergenceSummary | null;
   recentWarnOrError: ReadonlyArray<Readonly<{
     name: string;
     level: string;
@@ -139,10 +209,17 @@ const readCrossDeviceDigestSafe = (
 }> => {
   try {
     if (typeof appEventsApi?.getCrossDeviceSyncDigest !== "function") {
-      return { summary: null, recentWarnOrError: [] };
+      return {
+        summary: null,
+        asyncVoiceNoteSummary: null,
+        deleteConvergenceSummary: null,
+        recentWarnOrError: [],
+      };
     }
     const raw = appEventsApi.getCrossDeviceSyncDigest(eventWindowSize) as MinimalCrossDeviceDigest;
     const summary = parseRealtimeVoiceSummary(raw?.summary?.realtimeVoiceSession);
+    const asyncVoiceNoteSummary = parseAsyncVoiceNoteSummary(raw?.summary?.asyncVoiceNote);
+    const deleteConvergenceSummary = parseDeleteConvergenceSummary(raw?.summary?.deleteConvergence);
     const recentWarnOrError = Array.isArray(raw?.recentWarnOrError)
       ? raw.recentWarnOrError
         .slice(-12)
@@ -155,10 +232,17 @@ const readCrossDeviceDigestSafe = (
       : [];
     return {
       summary,
+      asyncVoiceNoteSummary,
+      deleteConvergenceSummary,
       recentWarnOrError,
     };
   } catch {
-    return { summary: null, recentWarnOrError: [] };
+    return {
+      summary: null,
+      asyncVoiceNoteSummary: null,
+      deleteConvergenceSummary: null,
+      recentWarnOrError: [],
+    };
   }
 };
 
@@ -183,6 +267,46 @@ const readRecentIgnoredEvents = (
       return [];
     }
     return appEventsApi.findByName("messaging.realtime_voice.session_event_ignored", EVENT_CAPTURE_LIMIT) ?? [];
+  } catch {
+    return [];
+  }
+};
+
+const readRecentVoiceNoteEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return [
+      ...(appEventsApi.findByName("messaging.voice_note.recording_complete", 8) ?? []),
+      ...(appEventsApi.findByName("messaging.voice_note.recording_unsupported", 8) ?? []),
+      ...(appEventsApi.findByName("messaging.voice_note.recording_start_failed", 8) ?? []),
+      ...(appEventsApi.findByName("messaging.voice_note.recording_empty", 8) ?? []),
+    ]
+      .sort((left, right) => toNumber(left.atUnixMs) - toNumber(right.atUnixMs))
+      .slice(-EVENT_CAPTURE_LIMIT);
+  } catch {
+    return [];
+  }
+};
+
+const readRecentDeleteConvergenceEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return [
+      ...(appEventsApi.findByName("messaging.delete_for_everyone_requested", 8) ?? []),
+      ...(appEventsApi.findByName("messaging.delete_for_everyone_rejected", 8) ?? []),
+      ...(appEventsApi.findByName("messaging.delete_for_everyone_local_applied", 8) ?? []),
+      ...(appEventsApi.findByName("messaging.delete_for_everyone_remote_result", 8) ?? []),
+    ]
+      .sort((left, right) => toNumber(left.atUnixMs) - toNumber(right.atUnixMs))
+      .slice(-EVENT_CAPTURE_LIMIT);
   } catch {
     return [];
   }
@@ -224,8 +348,12 @@ const createBundle = (
     },
     voice: {
       summary: digest.summary,
+      asyncVoiceNoteSummary: digest.asyncVoiceNoteSummary,
+      deleteConvergenceSummary: digest.deleteConvergenceSummary,
       transitions: readRecentTransitions(appEventsApi),
       ignoredEvents: readRecentIgnoredEvents(appEventsApi),
+      voiceNoteEvents: readRecentVoiceNoteEvents(appEventsApi),
+      deleteConvergenceEvents: readRecentDeleteConvergenceEvents(appEventsApi),
       recentWarnOrError: digest.recentWarnOrError,
     },
     m0Triage: readM0TriageSafe(root.obscurM0Triage, eventWindowSize),
@@ -252,6 +380,8 @@ export const installM6VoiceCapture = (): void => {
 
 export const m6VoiceCaptureInternals = {
   createBundle,
+  parseAsyncVoiceNoteSummary,
+  parseDeleteConvergenceSummary,
   parseRealtimeVoiceSummary,
   toNumericWindowSize,
 };

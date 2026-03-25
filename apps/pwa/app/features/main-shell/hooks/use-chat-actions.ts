@@ -15,6 +15,7 @@ import { BEST_EFFORT_STORAGE_NOTE } from "../../messaging/lib/media-upload-polic
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-storage-policy";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../../messaging/utils/commands";
 
@@ -27,6 +28,17 @@ type MultiRelayPublishResult = Readonly<{
 }>;
 
 const UNKNOWN_RELAY_SENTINELS = new Set(["unknown", "null", "undefined", "n/a", "none"]);
+
+const toIdHint = (value: string | null | undefined): string | null => {
+    const normalized = typeof value === "string" ? value.trim() : "";
+    if (normalized.length === 0) {
+        return null;
+    }
+    if (normalized.length <= 16) {
+        return normalized;
+    }
+    return `${normalized.slice(0, 8)}...${normalized.slice(-8)}`;
+};
 
 const fallbackDigestHex = (payload: string): string => {
     let hash = 0x811c9dc5;
@@ -435,16 +447,61 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
 
     const deleteMessageForEveryone = useCallback(async (params: { conversationId: string; message: Message }) => {
         if (!selectedConversation) {
+            logAppEvent({
+                name: "messaging.delete_for_everyone_rejected",
+                level: "warn",
+                scope: { feature: "messaging", action: "delete_message" },
+                context: {
+                    reasonCode: "no_selected_conversation",
+                    conversationIdHint: toIdHint(params.conversationId),
+                    messageIdHint: toIdHint(params.message.id),
+                },
+            });
             return;
         }
 
+        const hasVoiceNoteAttachment = (
+            Array.isArray(params.message.attachments)
+            && params.message.attachments.some((attachment) => attachment.kind === "voice_note")
+        );
+        const baseContext = {
+            conversationIdHint: toIdHint(params.conversationId),
+            messageIdHint: toIdHint(params.message.id),
+            messageEventIdHint: toIdHint(params.message.eventId ?? null),
+            conversationKind: selectedConversation.kind,
+            isOutgoing: params.message.isOutgoing,
+            hasVoiceNoteAttachment,
+        } as const;
+
+        logAppEvent({
+            name: "messaging.delete_for_everyone_requested",
+            level: "info",
+            scope: { feature: "messaging", action: "delete_message" },
+            context: baseContext,
+        });
+
         if (!params.message.isOutgoing) {
+            logAppEvent({
+                name: "messaging.delete_for_everyone_rejected",
+                level: "warn",
+                scope: { feature: "messaging", action: "delete_message" },
+                context: {
+                    ...baseContext,
+                    reasonCode: "not_outgoing_message",
+                },
+            });
             toast.info("You can only delete messages you sent.");
             return;
         }
 
         // Always delete locally first; remote propagation follows.
         messageBus.emitMessageDeleted(params.conversationId, params.message.id);
+        logAppEvent({
+            name: "messaging.delete_for_everyone_local_applied",
+            level: "info",
+            scope: { feature: "messaging", action: "delete_message" },
+            context: baseContext,
+        });
 
         if (selectedConversation?.kind === 'group') {
             try {
@@ -458,9 +515,32 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                         relayUrl: selectedConversation.relayUrl,
                         event: deletionEvent
                     });
+                    logAppEvent({
+                        name: "messaging.delete_for_everyone_remote_result",
+                        level: "info",
+                        scope: { feature: "messaging", action: "delete_message" },
+                        context: {
+                            ...baseContext,
+                            channel: "group",
+                            resultCode: "published",
+                            relayUrlHint: toIdHint(selectedConversation.relayUrl),
+                        },
+                    });
                 }
             } catch (error) {
                 console.error("Failed to delete group message:", error);
+                logAppEvent({
+                    name: "messaging.delete_for_everyone_remote_result",
+                    level: "warn",
+                    scope: { feature: "messaging", action: "delete_message" },
+                    context: {
+                        ...baseContext,
+                        channel: "group",
+                        resultCode: "failed",
+                        reasonCode: "group_publish_failed",
+                        relayUrlHint: toIdHint(selectedConversation.relayUrl),
+                    },
+                });
             }
             return;
         }
@@ -489,13 +569,85 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     messageBus.emitMessageDeleted(params.conversationId, deleteCommandSendResult.messageId);
                 }
 
+                if (deleteCommandSendResult.success) {
+                    logAppEvent({
+                        name: "messaging.delete_for_everyone_remote_result",
+                        level: "info",
+                        scope: { feature: "messaging", action: "delete_message" },
+                        context: {
+                            ...baseContext,
+                            channel: "dm",
+                            resultCode: "confirmed",
+                            deliveryStatus: deleteCommandSendResult.deliveryStatus ?? null,
+                            remoteMessageIdHint: toIdHint(deleteCommandSendResult.messageId ?? null),
+                            deleteTargetCount: normalizedTargetIds.length,
+                        },
+                    });
+                } else if (deleteCommandSendResult.deliveryStatus === "queued_retrying") {
+                    logAppEvent({
+                        name: "messaging.delete_for_everyone_remote_result",
+                        level: "warn",
+                        scope: { feature: "messaging", action: "delete_message" },
+                        context: {
+                            ...baseContext,
+                            channel: "dm",
+                            resultCode: "queued_retrying",
+                            reasonCode: "dm_delete_command_queued_retrying",
+                            deliveryStatus: deleteCommandSendResult.deliveryStatus,
+                            remoteMessageIdHint: toIdHint(deleteCommandSendResult.messageId ?? null),
+                            deleteTargetCount: normalizedTargetIds.length,
+                        },
+                    });
+                } else {
+                    logAppEvent({
+                        name: "messaging.delete_for_everyone_remote_result",
+                        level: "warn",
+                        scope: { feature: "messaging", action: "delete_message" },
+                        context: {
+                            ...baseContext,
+                            channel: "dm",
+                            resultCode: "failed",
+                            reasonCode: "dm_delete_command_delivery_failed",
+                            deliveryStatus: deleteCommandSendResult.deliveryStatus ?? null,
+                            remoteMessageIdHint: toIdHint(deleteCommandSendResult.messageId ?? null),
+                            deleteTargetCount: normalizedTargetIds.length,
+                        },
+                    });
+                }
+
                 if (!deleteCommandSendResult.success && deleteCommandSendResult.deliveryStatus !== "queued_retrying") {
                     toast.warning("Delete command did not reach relays yet. Recipient removal may be delayed.");
                 }
             } catch (error) {
                 console.error("Failed to send delete command:", error);
+                logAppEvent({
+                    name: "messaging.delete_for_everyone_remote_result",
+                    level: "warn",
+                    scope: { feature: "messaging", action: "delete_message" },
+                    context: {
+                        ...baseContext,
+                        channel: "dm",
+                        resultCode: "failed",
+                        reasonCode: "dm_delete_command_exception",
+                    },
+                });
                 toast.warning("Failed to sync delete command. Recipient may still see this message.");
             }
+            return;
+        }
+
+        if (selectedConversation.kind === "dm" && !dmController) {
+            logAppEvent({
+                name: "messaging.delete_for_everyone_remote_result",
+                level: "warn",
+                scope: { feature: "messaging", action: "delete_message" },
+                context: {
+                    ...baseContext,
+                    channel: "dm",
+                    resultCode: "failed",
+                    reasonCode: "dm_controller_missing",
+                },
+            });
         }
     }, [selectedConversation, identity.state, publishGroupEvent, dmController]);
 

@@ -357,21 +357,39 @@ Canonical matrix:
 : `window.obscurM6VoiceReplay?.runAccountSwitchReplayCapture?.({ clearAppEvents: true, captureWindowSize: 400 })?.cp2EvidenceGate`
 7. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-8. One-copy CP2 export bundle (fallback when helper is unavailable):
+8. Unified CP2 summary probes:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.asyncVoiceNote`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.deleteConvergence`
+9. M6 capture unified probes:
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.asyncVoiceNoteSummary`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceSummary`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.voiceNoteEvents`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceEvents`
+10. Delete convergence event slices:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
+11. Voice-note diagnostics slices:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_start_failed"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_unsupported"]`
+12. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
 : `    realtimeVoiceSession: digest?.summary?.realtimeVoiceSession ?? null,`
+: `    asyncVoiceNote: digest?.summary?.asyncVoiceNote ?? null,`
+: `    deleteConvergence: digest?.summary?.deleteConvergence ?? null,`
 : `    transitions: digest?.events?.["messaging.realtime_voice.session_transition"] ?? [],`
+: `    voiceNoteStartFailed: digest?.events?.["messaging.voice_note.recording_start_failed"] ?? [],`
+: `    deleteRemoteResult: digest?.events?.["messaging.delete_for_everyone_remote_result"] ?? [],`
 : `    recentWarnOrError: digest?.recentWarnOrError ?? [],`
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-9. Escalate immediately if:
+13. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
 : transitions show repeated unsupported reasons on a previously supported runtime without capability changes,
 : weak-network `cp2EvidenceGate.pass` is `false` with missing degraded/recovery transition checks,
-: account-switch `cp2EvidenceGate.pass` is `false` with missing multi-room/end/second-active transition checks.
+: account-switch `cp2EvidenceGate.pass` is `false` with missing multi-room/end/second-active transition checks,
+: `deleteConvergence.remoteFailedCount > 0` or `asyncVoiceNote.recordingStartFailedCount > 0` during expected happy-path replay.
 
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 

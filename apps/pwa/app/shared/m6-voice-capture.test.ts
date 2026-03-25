@@ -30,6 +30,26 @@ describe("m6-voice-capture", () => {
             latestReasonCode: "network_degraded",
             latestIgnoredReasonCode: "stale_event",
           },
+          asyncVoiceNote: {
+            riskLevel: "watch",
+            recordingCompleteCount: 2,
+            recordingUnsupportedCount: 1,
+            recordingStartFailedCount: 0,
+            recordingEmptyCount: 1,
+            latestReasonCode: "voice_note_empty_blob",
+          },
+          deleteConvergence: {
+            riskLevel: "watch",
+            requestedCount: 2,
+            localAppliedCount: 2,
+            remoteConfirmedCount: 1,
+            remoteQueuedCount: 1,
+            remoteFailedCount: 0,
+            rejectedCount: 0,
+            latestChannel: "dm",
+            latestResultCode: "queued_retrying",
+            latestReasonCode: "dm_delete_command_queued_retrying",
+          },
         },
         recentWarnOrError: [{
           name: "messaging.realtime_voice.session_transition",
@@ -38,7 +58,21 @@ describe("m6-voice-capture", () => {
           reasonCode: "network_degraded",
         }],
       }),
-      findByName: (name: string) => [{ name, atUnixMs: 43, level: "warn" }],
+      findByName: (name: string) => {
+        if (name === "messaging.voice_note.recording_complete") {
+          return [{ name, atUnixMs: 40, level: "info" }];
+        }
+        if (name === "messaging.voice_note.recording_start_failed") {
+          return [{ name, atUnixMs: 41, level: "warn" }];
+        }
+        if (name === "messaging.delete_for_everyone_requested") {
+          return [{ name, atUnixMs: 42, level: "info" }];
+        }
+        if (name === "messaging.delete_for_everyone_remote_result") {
+          return [{ name, atUnixMs: 44, level: "warn" }];
+        }
+        return [{ name, atUnixMs: 43, level: "warn" }];
+      },
     };
     (root as Record<string, unknown>).obscurM0Triage = {
       capture: () => ({ tag: "m0" }),
@@ -56,8 +90,12 @@ describe("m6-voice-capture", () => {
       checks: { requiredApis: Record<string, boolean> };
       voice: {
         summary: Record<string, unknown> | null;
+        asyncVoiceNoteSummary: Record<string, unknown> | null;
+        deleteConvergenceSummary: Record<string, unknown> | null;
         transitions: Array<{ name: string }>;
         ignoredEvents: Array<{ name: string }>;
+        voiceNoteEvents: Array<{ name: string }>;
+        deleteConvergenceEvents: Array<{ name: string }>;
         recentWarnOrError: Array<{ reasonCode: string | null }>;
       };
       m0Triage: unknown;
@@ -73,8 +111,30 @@ describe("m6-voice-capture", () => {
       latestReasonCode: "network_degraded",
       latestIgnoredReasonCode: "stale_event",
     }));
+    expect(bundle.voice.asyncVoiceNoteSummary).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      recordingCompleteCount: 2,
+      recordingUnsupportedCount: 1,
+      recordingEmptyCount: 1,
+      latestReasonCode: "voice_note_empty_blob",
+    }));
+    expect(bundle.voice.deleteConvergenceSummary).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      requestedCount: 2,
+      localAppliedCount: 2,
+      remoteConfirmedCount: 1,
+      remoteQueuedCount: 1,
+      remoteFailedCount: 0,
+      latestChannel: "dm",
+      latestResultCode: "queued_retrying",
+      latestReasonCode: "dm_delete_command_queued_retrying",
+    }));
     expect(bundle.voice.transitions[0]?.name).toBe("messaging.realtime_voice.session_transition");
     expect(bundle.voice.ignoredEvents[0]?.name).toBe("messaging.realtime_voice.session_event_ignored");
+    expect(bundle.voice.voiceNoteEvents.some((event) => event.name === "messaging.voice_note.recording_complete")).toBe(true);
+    expect(bundle.voice.voiceNoteEvents.some((event) => event.name === "messaging.voice_note.recording_start_failed")).toBe(true);
+    expect(bundle.voice.deleteConvergenceEvents.some((event) => event.name === "messaging.delete_for_everyone_requested")).toBe(true);
+    expect(bundle.voice.deleteConvergenceEvents.some((event) => event.name === "messaging.delete_for_everyone_remote_result")).toBe(true);
     expect(bundle.voice.recentWarnOrError[0]?.reasonCode).toBe("network_degraded");
     expect(bundle.m0Triage).toEqual({ tag: "m0" });
     expect(() => JSON.parse(api.captureJson(320))).not.toThrow();
@@ -89,8 +149,12 @@ describe("m6-voice-capture", () => {
       checks: { requiredApis: Record<string, boolean> };
       voice: {
         summary: unknown;
+        asyncVoiceNoteSummary: unknown;
+        deleteConvergenceSummary: unknown;
         transitions: unknown[];
         ignoredEvents: unknown[];
+        voiceNoteEvents: unknown[];
+        deleteConvergenceEvents: unknown[];
         recentWarnOrError: unknown[];
       };
       m0Triage: unknown;
@@ -99,8 +163,12 @@ describe("m6-voice-capture", () => {
     expect(bundle.checks.requiredApis.appEvents).toBe(false);
     expect(bundle.checks.requiredApis.m0Triage).toBe(false);
     expect(bundle.voice.summary).toBeNull();
+    expect(bundle.voice.asyncVoiceNoteSummary).toBeNull();
+    expect(bundle.voice.deleteConvergenceSummary).toBeNull();
     expect(bundle.voice.transitions).toEqual([]);
     expect(bundle.voice.ignoredEvents).toEqual([]);
+    expect(bundle.voice.voiceNoteEvents).toEqual([]);
+    expect(bundle.voice.deleteConvergenceEvents).toEqual([]);
     expect(bundle.voice.recentWarnOrError).toEqual([]);
     expect(bundle.m0Triage).toBeNull();
   });
@@ -125,6 +193,39 @@ describe("m6-voice-capture", () => {
       staleEventIgnoredCount: 2,
       latestReasonCode: "recovery_exhausted",
       latestIgnoredReasonCode: "stale_event",
+    }));
+    expect(m6VoiceCaptureInternals.parseAsyncVoiceNoteSummary({
+      riskLevel: "watch",
+      recordingCompleteCount: 2,
+      recordingUnsupportedCount: 1,
+      recordingStartFailedCount: 0,
+      recordingEmptyCount: 1,
+      latestReasonCode: "voice_note_empty_blob",
+    })).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      recordingCompleteCount: 2,
+      recordingUnsupportedCount: 1,
+      recordingStartFailedCount: 0,
+      recordingEmptyCount: 1,
+      latestReasonCode: "voice_note_empty_blob",
+    }));
+    expect(m6VoiceCaptureInternals.parseDeleteConvergenceSummary({
+      riskLevel: "watch",
+      requestedCount: 2,
+      localAppliedCount: 2,
+      remoteConfirmedCount: 1,
+      remoteQueuedCount: 1,
+      remoteFailedCount: 0,
+      rejectedCount: 0,
+      latestChannel: "dm",
+      latestResultCode: "queued_retrying",
+      latestReasonCode: "dm_delete_command_queued_retrying",
+    })).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      requestedCount: 2,
+      remoteQueuedCount: 1,
+      latestResultCode: "queued_retrying",
+      latestReasonCode: "dm_delete_command_queued_retrying",
     }));
     expect(m6VoiceCaptureInternals.toNumericWindowSize(410.7)).toBe(410);
     expect(m6VoiceCaptureInternals.toNumericWindowSize(0)).toBe(1);

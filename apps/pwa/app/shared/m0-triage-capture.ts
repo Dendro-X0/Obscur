@@ -105,6 +105,14 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
   voice_realtime: [
     "messaging.realtime_voice.session_transition",
     "messaging.realtime_voice.session_event_ignored",
+    "messaging.voice_note.recording_complete",
+    "messaging.voice_note.recording_unsupported",
+    "messaging.voice_note.recording_start_failed",
+    "messaging.voice_note.recording_empty",
+    "messaging.delete_for_everyone_requested",
+    "messaging.delete_for_everyone_rejected",
+    "messaging.delete_for_everyone_local_applied",
+    "messaging.delete_for_everyone_remote_result",
   ],
 };
 

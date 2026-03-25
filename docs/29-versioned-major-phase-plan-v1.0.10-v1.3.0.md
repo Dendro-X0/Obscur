@@ -153,9 +153,17 @@ Current checkpoint progress (2026-03-24):
 : and `runAccountSwitchReplayCaptureJson(...)` in
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts`,
 : including multi-room switch evidence counters (`roomHintCount`, `endedTransitionCount`) and scenario-aware CP2 gate verdict checks.
-6. Focused CP2 diagnostics/capture validation is green:
+6. Unified async voice-note + delete-convergence diagnostics now share the canonical CP2 evidence surface:
+: cross-device digest now includes `summary.asyncVoiceNote` and `summary.deleteConvergence` in
+: `apps/pwa/app/shared/log-app-event.ts`,
+: delete-for-everyone canonical owner now emits reason-coded convergence outcomes in
+: `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`,
+: and M6 capture exports one-copy summary + event slices for these domains in
+: `apps/pwa/app/shared/m6-voice-capture.ts`.
+7. Focused CP2 diagnostics/capture validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts app/shared/m6-voice-replay-bridge.test.ts app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.2.0 (M9-CP3/CP4 closeout)

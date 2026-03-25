@@ -101,6 +101,8 @@ describe("m0-triage-capture", () => {
       if (
         name === "messaging.realtime_voice.session_transition"
         || name === "messaging.realtime_voice.session_event_ignored"
+        || name === "messaging.voice_note.recording_complete"
+        || name === "messaging.delete_for_everyone_remote_result"
       ) {
         return [{ name, atUnixMs: 6, level: "warn" }];
       }
@@ -148,6 +150,8 @@ describe("m0-triage-capture", () => {
     expect(bundle.events.focusedByCategory.media_hydration.some((entry) => entry.name === "messaging.conversation_hydration_diagnostics")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.session_transition")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.session_event_ignored")).toBe(true);
+    expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.voice_note.recording_complete")).toBe(true);
+    expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.delete_for_everyone_remote_result")).toBe(true);
     expect(findByName).toHaveBeenCalled();
   });
 

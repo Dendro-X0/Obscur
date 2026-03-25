@@ -27,6 +27,19 @@
     - `window.obscurM6VoiceReplay.runAccountSwitchReplayCapture(...)`,
     - `window.obscurM6VoiceReplay.runAccountSwitchReplayCaptureJson(...)`,
     - replay output now includes multi-room switch evidence counters and CP2 gate verdict fields.
+  - unified async voice-note and delete-convergence diagnostics in canonical owners:
+    - cross-device digest now includes `summary.asyncVoiceNote` and `summary.deleteConvergence` in
+      `apps/pwa/app/shared/log-app-event.ts`,
+    - delete-for-everyone canonical action path now emits reason-coded convergence events in
+      `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`,
+    - M6 capture now exports one-copy voice-note/delete slices:
+      - `voice.asyncVoiceNoteSummary`,
+      - `voice.deleteConvergenceSummary`,
+      - `voice.voiceNoteEvents`,
+      - `voice.deleteConvergenceEvents`,
+      in `apps/pwa/app/shared/m6-voice-capture.ts`,
+    - M0 focused triage voice category now includes voice-note and delete-convergence events in
+      `apps/pwa/app/shared/m0-triage-capture.ts`.
   - added focused regression coverage in:
     - `apps/pwa/app/shared/log-app-event.test.ts`
     - `apps/pwa/app/shared/m6-voice-capture.test.ts`
@@ -37,6 +50,7 @@
 
 - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`
 - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+- `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts app/shared/m6-voice-replay-bridge.test.ts app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`
 - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 - `pnpm docs:check`
 

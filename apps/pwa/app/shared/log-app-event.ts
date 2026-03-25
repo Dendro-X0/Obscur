@@ -122,6 +122,26 @@ type AppEventDiagnosticsApi = Readonly<{
         latestReasonCode: string | null;
         latestIgnoredReasonCode: string | null;
       }>;
+      asyncVoiceNote: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        recordingCompleteCount: number;
+        recordingUnsupportedCount: number;
+        recordingStartFailedCount: number;
+        recordingEmptyCount: number;
+        latestReasonCode: string | null;
+      }>;
+      deleteConvergence: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        requestedCount: number;
+        localAppliedCount: number;
+        remoteConfirmedCount: number;
+        remoteQueuedCount: number;
+        remoteFailedCount: number;
+        rejectedCount: number;
+        latestChannel: string | null;
+        latestResultCode: string | null;
+        latestReasonCode: string | null;
+      }>;
     }>;
     recentWarnOrError: ReadonlyArray<Readonly<{
       name: string;
@@ -378,6 +398,62 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "mode",
     "eventUnixMs",
     "lastTransitionAtUnixMs",
+  ],
+  "messaging.voice_note.recording_complete": [
+    "durationSeconds",
+    "mimeType",
+    "byteLength",
+  ],
+  "messaging.voice_note.recording_unsupported": [
+    "reasonCode",
+    "isTauri",
+    "isSecureContext",
+    "supportsMediaDevices",
+    "supportsMediaRecorder",
+    "supportsGetUserMedia",
+  ],
+  "messaging.voice_note.recording_start_failed": [
+    "reasonCode",
+    "errorName",
+    "errorMessage",
+  ],
+  "messaging.voice_note.recording_empty": [
+    "reasonCode",
+    "mimeType",
+  ],
+  "messaging.delete_for_everyone_requested": [
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "hasVoiceNoteAttachment",
+  ],
+  "messaging.delete_for_everyone_rejected": [
+    "reasonCode",
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "hasVoiceNoteAttachment",
+  ],
+  "messaging.delete_for_everyone_local_applied": [
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "hasVoiceNoteAttachment",
+  ],
+  "messaging.delete_for_everyone_remote_result": [
+    "channel",
+    "resultCode",
+    "reasonCode",
+    "deliveryStatus",
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "deleteTargetCount",
+    "remoteMessageIdHint",
   ],
   "runtime.activation.timeout": [
     "timeouts",
@@ -792,6 +868,62 @@ const installDiagnosticsApi = (): void => {
       const latestVoiceSessionIgnoredReasonCode = toStringOrNull(
         voiceSessionIgnoredEvents.at(-1)?.context?.reasonCode,
       );
+      const voiceNoteRecordingCompleteEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_complete"
+      ));
+      const voiceNoteRecordingUnsupportedEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_unsupported"
+      ));
+      const voiceNoteRecordingStartFailedEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_start_failed"
+      ));
+      const voiceNoteRecordingEmptyEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_empty"
+      ));
+      const voiceNoteRecordingCompleteCount = voiceNoteRecordingCompleteEvents.length;
+      const voiceNoteRecordingUnsupportedCount = voiceNoteRecordingUnsupportedEvents.length;
+      const voiceNoteRecordingStartFailedCount = voiceNoteRecordingStartFailedEvents.length;
+      const voiceNoteRecordingEmptyCount = voiceNoteRecordingEmptyEvents.length;
+      const latestVoiceNoteReasonCode = toStringOrNull(
+        voiceNoteRecordingStartFailedEvents.at(-1)?.context?.reasonCode
+        ?? voiceNoteRecordingUnsupportedEvents.at(-1)?.context?.reasonCode
+        ?? voiceNoteRecordingEmptyEvents.at(-1)?.context?.reasonCode,
+      );
+      const deleteForEveryoneRequestedEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_requested"
+      ));
+      const deleteForEveryoneRejectedEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_rejected"
+      ));
+      const deleteForEveryoneLocalAppliedEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_local_applied"
+      ));
+      const deleteForEveryoneRemoteResultEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_remote_result"
+      ));
+      const deleteForEveryoneRequestedCount = deleteForEveryoneRequestedEvents.length;
+      const deleteForEveryoneRejectedCount = deleteForEveryoneRejectedEvents.length;
+      const deleteForEveryoneLocalAppliedCount = deleteForEveryoneLocalAppliedEvents.length;
+      const deleteForEveryoneRemoteConfirmedCount = deleteForEveryoneRemoteResultEvents.filter((event) => (
+        event.context?.resultCode === "confirmed" || event.context?.resultCode === "published"
+      )).length;
+      const deleteForEveryoneRemoteQueuedCount = deleteForEveryoneRemoteResultEvents.filter((event) => (
+        event.context?.resultCode === "queued_retrying"
+      )).length;
+      const deleteForEveryoneRemoteFailedCount = deleteForEveryoneRemoteResultEvents.filter((event) => (
+        event.context?.resultCode === "failed"
+      )).length;
+      const latestDeleteForEveryoneRemoteResult = deleteForEveryoneRemoteResultEvents.at(-1);
+      const latestDeleteForEveryoneChannel = toStringOrNull(
+        latestDeleteForEveryoneRemoteResult?.context?.channel,
+      );
+      const latestDeleteForEveryoneResultCode = toStringOrNull(
+        latestDeleteForEveryoneRemoteResult?.context?.resultCode,
+      );
+      const latestDeleteForEveryoneReasonCode = toStringOrNull(
+        latestDeleteForEveryoneRemoteResult?.context?.reasonCode
+        ?? deleteForEveryoneRejectedEvents.at(-1)?.context?.reasonCode,
+      );
       const criticalHydrationDriftCount = recent.filter((event) => (
         event.name === "messaging.conversation_hydration_diagnostics"
         && typeof event.context?.criticalDriftCount === "number"
@@ -878,6 +1010,20 @@ const installDiagnosticsApi = (): void => {
           || voiceSessionStaleIgnoredCount > 0
         ),
         high: voiceSessionRecoveryExhaustedCount > 0,
+      });
+      const asyncVoiceNoteRiskLevel = getRiskLevel({
+        watch: (
+          voiceNoteRecordingUnsupportedCount > 0
+          || voiceNoteRecordingEmptyCount > 0
+        ),
+        high: voiceNoteRecordingStartFailedCount > 0,
+      });
+      const deleteConvergenceRiskLevel = getRiskLevel({
+        watch: (
+          deleteForEveryoneRemoteQueuedCount > 0
+          || deleteForEveryoneRejectedCount > 0
+        ),
+        high: deleteForEveryoneRemoteFailedCount > 0,
       });
       const recentWarnOrError = recent
         .filter((event) => event.level === "warn" || event.level === "error")
@@ -987,6 +1133,26 @@ const installDiagnosticsApi = (): void => {
             latestToPhase: latestVoiceSessionToPhase,
             latestReasonCode: latestVoiceSessionReasonCode,
             latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
+          },
+          asyncVoiceNote: {
+            riskLevel: asyncVoiceNoteRiskLevel,
+            recordingCompleteCount: voiceNoteRecordingCompleteCount,
+            recordingUnsupportedCount: voiceNoteRecordingUnsupportedCount,
+            recordingStartFailedCount: voiceNoteRecordingStartFailedCount,
+            recordingEmptyCount: voiceNoteRecordingEmptyCount,
+            latestReasonCode: latestVoiceNoteReasonCode,
+          },
+          deleteConvergence: {
+            riskLevel: deleteConvergenceRiskLevel,
+            requestedCount: deleteForEveryoneRequestedCount,
+            localAppliedCount: deleteForEveryoneLocalAppliedCount,
+            remoteConfirmedCount: deleteForEveryoneRemoteConfirmedCount,
+            remoteQueuedCount: deleteForEveryoneRemoteQueuedCount,
+            remoteFailedCount: deleteForEveryoneRemoteFailedCount,
+            rejectedCount: deleteForEveryoneRejectedCount,
+            latestChannel: latestDeleteForEveryoneChannel,
+            latestResultCode: latestDeleteForEveryoneResultCode,
+            latestReasonCode: latestDeleteForEveryoneReasonCode,
           },
         },
         recentWarnOrError,

@@ -423,6 +423,75 @@ describe("logAppEvent", () => {
         isRecoverable: false,
       },
     });
+    logAppEvent({
+      name: "messaging.voice_note.recording_unsupported",
+      level: "warn",
+      context: {
+        reasonCode: "media_recorder_unavailable",
+        isSecureContext: true,
+        supportsMediaDevices: true,
+        supportsMediaRecorder: false,
+      },
+    });
+    logAppEvent({
+      name: "messaging.voice_note.recording_start_failed",
+      level: "warn",
+      context: {
+        reasonCode: "not_allowed_error",
+        errorName: "NotAllowedError",
+      },
+    });
+    logAppEvent({
+      name: "messaging.voice_note.recording_complete",
+      level: "info",
+      context: {
+        durationSeconds: 7,
+        mimeType: "audio/webm",
+        byteLength: 2048,
+      },
+    });
+    logAppEvent({
+      name: "messaging.delete_for_everyone_requested",
+      level: "info",
+      context: {
+        conversationIdHint: "conv:abc",
+        messageIdHint: "message:delete",
+        conversationKind: "dm",
+        isOutgoing: true,
+      },
+    });
+    logAppEvent({
+      name: "messaging.delete_for_everyone_local_applied",
+      level: "info",
+      context: {
+        conversationIdHint: "conv:abc",
+        messageIdHint: "message:delete",
+        conversationKind: "dm",
+        isOutgoing: true,
+      },
+    });
+    logAppEvent({
+      name: "messaging.delete_for_everyone_remote_result",
+      level: "warn",
+      context: {
+        channel: "dm",
+        resultCode: "queued_retrying",
+        reasonCode: "dm_delete_command_queued_retrying",
+        conversationIdHint: "conv:abc",
+        messageIdHint: "message:delete",
+      },
+    });
+    logAppEvent({
+      name: "messaging.delete_for_everyone_remote_result",
+      level: "warn",
+      context: {
+        channel: "group",
+        resultCode: "failed",
+        reasonCode: "group_publish_failed",
+        conversationIdHint: "group:abc",
+        messageIdHint: "message:group-delete",
+      },
+    });
 
     const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
       getCrossDeviceSyncDigest: (count?: number) => {
@@ -513,6 +582,26 @@ describe("logAppEvent", () => {
             latestToPhase: string | null;
             latestReasonCode: string | null;
             latestIgnoredReasonCode: string | null;
+          };
+          asyncVoiceNote: {
+            riskLevel: "none" | "watch" | "high";
+            recordingCompleteCount: number;
+            recordingUnsupportedCount: number;
+            recordingStartFailedCount: number;
+            recordingEmptyCount: number;
+            latestReasonCode: string | null;
+          };
+          deleteConvergence: {
+            riskLevel: "none" | "watch" | "high";
+            requestedCount: number;
+            localAppliedCount: number;
+            remoteConfirmedCount: number;
+            remoteQueuedCount: number;
+            remoteFailedCount: number;
+            rejectedCount: number;
+            latestChannel: string | null;
+            latestResultCode: string | null;
+            latestReasonCode: string | null;
           };
         };
         recentWarnOrError: Array<{ name: string; level: string; reasonCode: string | null }>;
@@ -695,6 +784,26 @@ describe("logAppEvent", () => {
       latestToPhase: "ended",
       latestReasonCode: "recovery_exhausted",
       latestIgnoredReasonCode: null,
+    }));
+    expect(digest.summary.asyncVoiceNote).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      recordingCompleteCount: 1,
+      recordingUnsupportedCount: 1,
+      recordingStartFailedCount: 1,
+      recordingEmptyCount: 0,
+      latestReasonCode: "not_allowed_error",
+    }));
+    expect(digest.summary.deleteConvergence).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      requestedCount: 1,
+      localAppliedCount: 1,
+      remoteConfirmedCount: 0,
+      remoteQueuedCount: 1,
+      remoteFailedCount: 1,
+      rejectedCount: 0,
+      latestChannel: "group",
+      latestResultCode: "failed",
+      latestReasonCode: "group_publish_failed",
     }));
     expect(digest.recentWarnOrError.some((entry) => (
       entry.name === "runtime.activation.timeout"

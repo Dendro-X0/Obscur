@@ -449,9 +449,29 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `roomHintCount`,
       - `endedTransitionCount`,
       - `cp2EvidenceGate.pass/failedChecks`.
+  - `v1.1.2` CP2 unified async-voice/delete diagnostics slice landed:
+    - cross-device digest now includes:
+      - `summary.asyncVoiceNote`,
+      - `summary.deleteConvergence`,
+      in `app/shared/log-app-event.ts`,
+    - delete-for-everyone canonical path now emits reason-coded convergence diagnostics in
+      `app/features/main-shell/hooks/use-chat-actions.ts`:
+      - `messaging.delete_for_everyone_requested`,
+      - `messaging.delete_for_everyone_rejected`,
+      - `messaging.delete_for_everyone_local_applied`,
+      - `messaging.delete_for_everyone_remote_result`,
+    - M6 capture now exports unified one-copy voice-note/delete evidence in
+      `app/shared/m6-voice-capture.ts`:
+      - `voice.asyncVoiceNoteSummary`,
+      - `voice.deleteConvergenceSummary`,
+      - `voice.voiceNoteEvents`,
+      - `voice.deleteConvergenceEvents`,
+    - M0 focused voice triage now includes voice-note and delete-convergence probes in
+      `app/shared/m0-triage-capture.ts`.
   - focused CP2 diagnostics/capture validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
+    - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts app/shared/m6-voice-replay-bridge.test.ts app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
