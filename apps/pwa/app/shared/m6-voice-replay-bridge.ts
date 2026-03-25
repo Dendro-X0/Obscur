@@ -378,6 +378,10 @@ const toStringOrNull = (value: unknown): string | null => (
   typeof value === "string" && value.trim().length > 0 ? value : null
 );
 
+const toBooleanOrNull = (value: unknown): boolean | null => (
+  typeof value === "boolean" ? value : null
+);
+
 const toRoomIdHint = (roomId: string | null): string | null => {
   if (typeof roomId !== "string" || roomId.length === 0) {
     return null;
@@ -403,9 +407,15 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     unsupportedCount: toNumber(value.unsupportedCount),
     recoveryExhaustedCount: toNumber(value.recoveryExhaustedCount),
     staleEventIgnoredCount: toNumber(value.staleEventIgnoredCount),
+    longSessionGateCount: toNumber(value.longSessionGateCount),
+    longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
+    longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
+    unexpectedLongSessionGateFailCount: toNumber(value.unexpectedLongSessionGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
+    latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
+    latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
   };
 };
 

@@ -11,6 +11,7 @@
 - Extended stale replay-bridge auto-upgrade guard to require CP4 gate-probe APIs, preventing stale runtime objects from hiding newly added CP4 tooling.
 - Added focused regression coverage for CP4 gate-probe nominal and expected-failure lanes in:
   - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Extended `m6-voice-capture` realtime voice summary contract to carry CP4 long-session gate fields from digest output (`longSessionGate*`, `latestLongSessionGatePass`, `latestLongSessionGateFailedCheckSample`) so one-copy replay captures retain full CP4 gate posture context.
 
 ## [v1.1.4] - 2026-03-24
 

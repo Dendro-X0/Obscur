@@ -12,9 +12,15 @@ type RealtimeVoiceSessionSummary = Readonly<{
   unsupportedCount: number;
   recoveryExhaustedCount: number;
   staleEventIgnoredCount: number;
+  longSessionGateCount: number;
+  longSessionGatePassCount: number;
+  longSessionGateFailCount: number;
+  unexpectedLongSessionGateFailCount: number;
   latestToPhase: string | null;
   latestReasonCode: string | null;
   latestIgnoredReasonCode: string | null;
+  latestLongSessionGatePass: boolean | null;
+  latestLongSessionGateFailedCheckSample: string | null;
 }>;
 
 type AsyncVoiceNoteSummary = Readonly<{
@@ -121,6 +127,10 @@ const toStringOrNull = (value: unknown): string | null => (
   typeof value === "string" && value.trim().length > 0 ? value : null
 );
 
+const toBooleanOrNull = (value: unknown): boolean | null => (
+  typeof value === "boolean" ? value : null
+);
+
 const toNumber = (value: unknown): number => (
   typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0
 );
@@ -147,9 +157,15 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     unsupportedCount: toNumber(value.unsupportedCount),
     recoveryExhaustedCount: toNumber(value.recoveryExhaustedCount),
     staleEventIgnoredCount: toNumber(value.staleEventIgnoredCount),
+    longSessionGateCount: toNumber(value.longSessionGateCount),
+    longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
+    longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
+    unexpectedLongSessionGateFailCount: toNumber(value.unexpectedLongSessionGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
+    latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
+    latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
   };
 };
 

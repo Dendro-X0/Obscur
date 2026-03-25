@@ -542,6 +542,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM6VoiceReplay.runCp4LongSessionGateProbeJson(...)`,
       with expected-pass support for both nominal and failure-injection lanes.
     - stale replay-bridge upgrade guard now requires CP4 gate-probe APIs so stale injected bridge objects are auto-upgraded.
+    - one-copy voice capture summary now includes CP4 long-session gate counters/latest gate sample from digest output, keeping capture bundles aligned with realtime voice digest schema.
     - focused continuation validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.

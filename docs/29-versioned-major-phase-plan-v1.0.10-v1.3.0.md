@@ -248,6 +248,8 @@ Current checkpoint progress (2026-03-24):
 5. focused CP4 continuation validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+6. one-copy voice capture contract now includes CP4 long-session gate counters/latest gate sample from digest summary in:
+: `apps/pwa/app/shared/m6-voice-capture.ts`.
 
 ### v1.2.0 (M9-CP4 closeout)
 
