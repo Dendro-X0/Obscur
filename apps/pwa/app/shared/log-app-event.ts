@@ -122,11 +122,17 @@ type AppEventDiagnosticsApi = Readonly<{
         longSessionGatePassCount: number;
         longSessionGateFailCount: number;
         unexpectedLongSessionGateFailCount: number;
+        checkpointGateCount: number;
+        checkpointGatePassCount: number;
+        checkpointGateFailCount: number;
+        unexpectedCheckpointGateFailCount: number;
         latestToPhase: string | null;
         latestReasonCode: string | null;
         latestIgnoredReasonCode: string | null;
         latestLongSessionGatePass: boolean | null;
         latestLongSessionGateFailedCheckSample: string | null;
+        latestCheckpointGatePass: boolean | null;
+        latestCheckpointGateFailedCheckSample: string | null;
       }>;
       asyncVoiceNote: Readonly<{
         riskLevel: "none" | "watch" | "high";
@@ -420,6 +426,21 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "digestRecoveryExhaustedCount",
     "digestRiskLevel",
     "replayReadinessReadyForCp2",
+  ],
+  "messaging.realtime_voice.cp4_checkpoint_gate": [
+    "cp4CheckpointPass",
+    "expectedPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "longSessionGatePass",
+    "gateProbePass",
+    "selfTestGatePass",
+    "digestRiskNotHigh",
+    "digestUnexpectedGateFailZero",
+    "digestRiskLevel",
+    "digestUnexpectedLongSessionGateFailCount",
+    "cycleCount",
+    "injectRecoveryExhausted",
   ],
   "messaging.voice_note.recording_complete": [
     "durationSeconds",
@@ -894,6 +915,20 @@ const installDiagnosticsApi = (): void => {
         event.context?.cp4Pass === false
         && event.context?.injectRecoveryExhausted !== true
       )).length;
+      const voiceCheckpointGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.cp4_checkpoint_gate"
+      ));
+      const voiceCheckpointGateCount = voiceCheckpointGateEvents.length;
+      const voiceCheckpointGatePassCount = voiceCheckpointGateEvents.filter((event) => (
+        event.context?.cp4CheckpointPass === true
+      )).length;
+      const voiceCheckpointGateFailCount = voiceCheckpointGateEvents.filter((event) => (
+        event.context?.cp4CheckpointPass === false
+      )).length;
+      const voiceUnexpectedCheckpointGateFailCount = voiceCheckpointGateEvents.filter((event) => (
+        event.context?.cp4CheckpointPass === false
+        && event.context?.expectedPass === true
+      )).length;
       const latestVoiceSessionTransition = voiceSessionTransitionEvents.at(-1);
       const latestVoiceSessionToPhase = toStringOrNull(
         latestVoiceSessionTransition?.context?.toPhase,
@@ -910,6 +945,13 @@ const installDiagnosticsApi = (): void => {
       );
       const latestVoiceLongSessionFailedCheckSample = toStringOrNull(
         latestVoiceLongSessionGate?.context?.failedCheckSample,
+      );
+      const latestVoiceCheckpointGate = voiceCheckpointGateEvents.at(-1);
+      const latestVoiceCheckpointGatePass = toBooleanOrNull(
+        latestVoiceCheckpointGate?.context?.cp4CheckpointPass,
+      );
+      const latestVoiceCheckpointFailedCheckSample = toStringOrNull(
+        latestVoiceCheckpointGate?.context?.failedCheckSample,
       );
       const voiceNoteRecordingCompleteEvents = recent.filter((event) => (
         event.name === "messaging.voice_note.recording_complete"
@@ -1052,10 +1094,12 @@ const installDiagnosticsApi = (): void => {
           || voiceSessionUnsupportedCount > 0
           || voiceSessionStaleIgnoredCount > 0
           || voiceLongSessionGateFailCount > 0
+          || voiceCheckpointGateFailCount > 0
         ),
         high: (
           voiceSessionRecoveryExhaustedCount > 0
           || voiceUnexpectedLongSessionGateFailCount > 0
+          || voiceUnexpectedCheckpointGateFailCount > 0
         ),
       });
       const asyncVoiceNoteRiskLevel = getRiskLevel({
@@ -1181,11 +1225,17 @@ const installDiagnosticsApi = (): void => {
             longSessionGatePassCount: voiceLongSessionGatePassCount,
             longSessionGateFailCount: voiceLongSessionGateFailCount,
             unexpectedLongSessionGateFailCount: voiceUnexpectedLongSessionGateFailCount,
+            checkpointGateCount: voiceCheckpointGateCount,
+            checkpointGatePassCount: voiceCheckpointGatePassCount,
+            checkpointGateFailCount: voiceCheckpointGateFailCount,
+            unexpectedCheckpointGateFailCount: voiceUnexpectedCheckpointGateFailCount,
             latestToPhase: latestVoiceSessionToPhase,
             latestReasonCode: latestVoiceSessionReasonCode,
             latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
             latestLongSessionGatePass: latestVoiceLongSessionGatePass,
             latestLongSessionGateFailedCheckSample: latestVoiceLongSessionFailedCheckSample,
+            latestCheckpointGatePass: latestVoiceCheckpointGatePass,
+            latestCheckpointGateFailedCheckSample: latestVoiceCheckpointFailedCheckSample,
           },
           asyncVoiceNote: {
             riskLevel: asyncVoiceNoteRiskLevel,

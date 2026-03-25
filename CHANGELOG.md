@@ -16,9 +16,22 @@
   - `selfTest`,
   - `digestSummary`,
   - aggregate `cp4CheckpointGate` pass/fail checks for release-readiness triage.
+- CP4 checkpoint capture now emits compact checkpoint diagnostics event:
+  - `messaging.realtime_voice.cp4_checkpoint_gate`
+  - with `expectedPass` and checkpoint gate check-sample context for digest-backed triage.
+- Cross-device digest realtime voice summary now surfaces checkpoint gate posture:
+  - `checkpointGateCount`,
+  - `checkpointGatePassCount`,
+  - `checkpointGateFailCount`,
+  - `unexpectedCheckpointGateFailCount`,
+  - `latestCheckpointGatePass`,
+  - `latestCheckpointGateFailedCheckSample`.
 - Extended stale replay-bridge upgrade guard to require CP4 checkpoint APIs and kept digest parser contracts aligned with long-session gate summary fields.
 - Added focused regression coverage for CP4 checkpoint capture pass/fail lanes in:
   - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Added focused digest/capture coverage for CP4 checkpoint event compaction and summary counters in:
+  - `apps/pwa/app/shared/log-app-event.test.ts`,
+  - `apps/pwa/app/shared/m6-voice-capture.test.ts`.
 
 ## [v1.1.5] - 2026-03-24
 

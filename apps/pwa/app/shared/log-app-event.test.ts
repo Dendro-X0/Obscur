@@ -1669,6 +1669,120 @@ describe("logAppEvent", () => {
     expect(digest.events["messaging.realtime_voice.long_session_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
 
+  it("marks realtime voice checkpoint gate failures as watch for expected failures and high for unexpected failures", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.cp4_checkpoint_gate",
+      level: "warn",
+      context: {
+        cp4CheckpointPass: false,
+        expectedPass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "longSessionGatePass",
+      },
+    });
+
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            checkpointGateCount: number;
+            checkpointGatePassCount: number;
+            checkpointGateFailCount: number;
+            unexpectedCheckpointGateFailCount: number;
+            latestCheckpointGatePass: boolean | null;
+            latestCheckpointGateFailedCheckSample: string | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      checkpointGateCount: 1,
+      checkpointGatePassCount: 0,
+      checkpointGateFailCount: 1,
+      unexpectedCheckpointGateFailCount: 0,
+      latestCheckpointGatePass: false,
+      latestCheckpointGateFailedCheckSample: "longSessionGatePass",
+    }));
+
+    diagnosticsApi.clear();
+    logAppEvent({
+      name: "messaging.realtime_voice.cp4_checkpoint_gate",
+      level: "warn",
+      context: {
+        cp4CheckpointPass: false,
+        expectedPass: true,
+        failedCheckCount: 1,
+        failedCheckSample: "selfTestGatePass",
+      },
+    });
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      checkpointGateCount: 1,
+      checkpointGatePassCount: 0,
+      checkpointGateFailCount: 1,
+      unexpectedCheckpointGateFailCount: 1,
+      latestCheckpointGatePass: false,
+      latestCheckpointGateFailedCheckSample: "selfTestGatePass",
+    }));
+  });
+
+  it("captures realtime voice checkpoint gate diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.cp4_checkpoint_gate",
+      level: "warn",
+      context: {
+        cp4CheckpointPass: false,
+        expectedPass: true,
+        failedCheckCount: 2,
+        failedCheckSample: "selfTestGatePass|digestRiskNotHigh",
+        longSessionGatePass: true,
+        gateProbePass: true,
+        selfTestGatePass: false,
+        digestRiskNotHigh: false,
+        digestUnexpectedGateFailZero: true,
+        digestRiskLevel: "high",
+        digestUnexpectedLongSessionGateFailCount: 0,
+        cycleCount: 6,
+        injectRecoveryExhausted: false,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.cp4_checkpoint_gate"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.cp4_checkpoint_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      cp4CheckpointPass: false,
+      expectedPass: true,
+      failedCheckCount: 2,
+      failedCheckSample: "selfTestGatePass|digestRiskNotHigh",
+      longSessionGatePass: true,
+      gateProbePass: true,
+      selfTestGatePass: false,
+      digestRiskNotHigh: false,
+      digestUnexpectedGateFailZero: true,
+      digestRiskLevel: "high",
+      digestUnexpectedLongSessionGateFailCount: 0,
+      cycleCount: 6,
+      injectRecoveryExhausted: false,
+    }));
+    expect(digest.events["messaging.realtime_voice.cp4_checkpoint_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
   it("captures realtime voice ignored-event diagnostics in compact digest events", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
 

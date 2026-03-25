@@ -538,6 +538,20 @@ describe("m6-voice-replay-bridge", () => {
     expect(checkpoint.digestSummary?.unexpectedLongSessionGateFailCount).toBe(0);
     expect(checkpoint.cp4CheckpointGate.pass).toBe(true);
     expect(checkpoint.cp4CheckpointGate.failedChecks).toEqual([]);
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const checkpointEvents = diagnosticsApi.findByName("messaging.realtime_voice.cp4_checkpoint_gate", 5);
+    expect(checkpointEvents.length).toBeGreaterThanOrEqual(1);
+    expect(checkpointEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      cp4CheckpointPass: true,
+      expectedPass: true,
+      longSessionGatePass: true,
+      gateProbePass: true,
+      selfTestGatePass: true,
+    }));
     expect(() => JSON.parse(replayApi.runCp4CheckpointCaptureJson({
       clearAppEvents: true,
       captureWindowSize: 300,

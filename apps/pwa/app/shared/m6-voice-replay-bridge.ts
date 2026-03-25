@@ -451,11 +451,17 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
     unexpectedLongSessionGateFailCount: toNumber(value.unexpectedLongSessionGateFailCount),
+    checkpointGateCount: toNumber(value.checkpointGateCount),
+    checkpointGatePassCount: toNumber(value.checkpointGatePassCount),
+    checkpointGateFailCount: toNumber(value.checkpointGateFailCount),
+    unexpectedCheckpointGateFailCount: toNumber(value.unexpectedCheckpointGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
+    latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
+    latestCheckpointGateFailedCheckSample: toStringOrNull(value.latestCheckpointGateFailedCheckSample),
   };
 };
 
@@ -803,6 +809,35 @@ const emitCp4LongSessionGateDiagnostic = (params: Readonly<{
       digestRecoveryExhaustedCount: params.replay?.latestDigestSummary?.recoveryExhaustedCount ?? null,
       digestRiskLevel: params.replay?.latestDigestSummary?.riskLevel ?? null,
       replayReadinessReadyForCp2: params.replay?.replayReadiness?.readyForCp2Evidence === true,
+    },
+  });
+};
+
+const emitCp4CheckpointGateDiagnostic = (params: Readonly<{
+  cp4CheckpointGate: M6VoiceCp4CheckpointCaptureBundle["cp4CheckpointGate"];
+  expectedPass: boolean;
+  longSession: M6VoiceLongSessionReplayCaptureBundle;
+  digestSummary: M6VoiceDigestSummary | null;
+}>): void => {
+  const failedChecks = params.cp4CheckpointGate.failedChecks;
+  logAppEvent({
+    name: "messaging.realtime_voice.cp4_checkpoint_gate",
+    level: params.cp4CheckpointGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      cp4CheckpointPass: params.cp4CheckpointGate.pass,
+      expectedPass: params.expectedPass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      longSessionGatePass: params.cp4CheckpointGate.checks.longSessionGatePass,
+      gateProbePass: params.cp4CheckpointGate.checks.gateProbePass,
+      selfTestGatePass: params.cp4CheckpointGate.checks.selfTestGatePass,
+      digestRiskNotHigh: params.cp4CheckpointGate.checks.digestRiskNotHigh,
+      digestUnexpectedGateFailZero: params.cp4CheckpointGate.checks.digestUnexpectedGateFailZero,
+      digestRiskLevel: params.digestSummary?.riskLevel ?? null,
+      digestUnexpectedLongSessionGateFailCount: params.digestSummary?.unexpectedLongSessionGateFailCount ?? null,
+      cycleCount: params.longSession.replayConfig.cycleCount,
+      injectRecoveryExhausted: params.longSession.replayConfig.injectRecoveryExhausted,
     },
   });
 };
@@ -1477,18 +1512,25 @@ export const installM6VoiceReplayBridge = (): void => {
         }),
       };
       const digestSummary = longSession.replay?.latestDigestSummary ?? null;
+      const cp4CheckpointGate = buildCp4CheckpointGate({
+        longSession,
+        gateProbe,
+        selfTest,
+        digestSummary,
+      });
+      emitCp4CheckpointGateDiagnostic({
+        cp4CheckpointGate,
+        expectedPass,
+        longSession,
+        digestSummary,
+      });
       return {
         generatedAtUnixMs: Date.now(),
         longSession,
         gateProbe,
         selfTest,
         digestSummary,
-        cp4CheckpointGate: buildCp4CheckpointGate({
-          longSession,
-          gateProbe,
-          selfTest,
-          digestSummary,
-        }),
+        cp4CheckpointGate,
       };
     },
     runCp4CheckpointCaptureJson: (params) => (

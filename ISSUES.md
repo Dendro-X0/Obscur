@@ -556,9 +556,21 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM6VoiceReplay.runCp4CheckpointGateProbeJson(...)`,
       for one-call checkpoint verdict export.
     - stale replay-bridge upgrade guard now requires CP4 checkpoint helper APIs (including checkpoint gate-probe methods) so stale injected bridge objects are auto-upgraded.
+    - CP4 checkpoint digest lane now emits canonical event + summary fields from the same owner path:
+      - new compact event: `messaging.realtime_voice.cp4_checkpoint_gate`,
+      - realtime-voice digest summary now includes:
+        - `checkpointGateCount`,
+        - `checkpointGatePassCount`,
+        - `checkpointGateFailCount`,
+        - `unexpectedCheckpointGateFailCount`,
+        - `latestCheckpointGatePass`,
+        - `latestCheckpointGateFailedCheckSample`.
+      - unexpected checkpoint failures (failed while `expectedPass === true`) now escalate realtime voice digest risk to `high`.
     - focused continuation validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`,
-      - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+      - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
+      - `pnpm docs:check`,
+      - `pnpm version:check`.
 
 ## v1 Readiness Status
 

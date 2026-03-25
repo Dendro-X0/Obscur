@@ -16,11 +16,17 @@ type RealtimeVoiceSessionSummary = Readonly<{
   longSessionGatePassCount: number;
   longSessionGateFailCount: number;
   unexpectedLongSessionGateFailCount: number;
+  checkpointGateCount: number;
+  checkpointGatePassCount: number;
+  checkpointGateFailCount: number;
+  unexpectedCheckpointGateFailCount: number;
   latestToPhase: string | null;
   latestReasonCode: string | null;
   latestIgnoredReasonCode: string | null;
   latestLongSessionGatePass: boolean | null;
   latestLongSessionGateFailedCheckSample: string | null;
+  latestCheckpointGatePass: boolean | null;
+  latestCheckpointGateFailedCheckSample: string | null;
 }>;
 
 type AsyncVoiceNoteSummary = Readonly<{
@@ -161,11 +167,17 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
     unexpectedLongSessionGateFailCount: toNumber(value.unexpectedLongSessionGateFailCount),
+    checkpointGateCount: toNumber(value.checkpointGateCount),
+    checkpointGatePassCount: toNumber(value.checkpointGatePassCount),
+    checkpointGateFailCount: toNumber(value.checkpointGateFailCount),
+    unexpectedCheckpointGateFailCount: toNumber(value.unexpectedCheckpointGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
+    latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
+    latestCheckpointGateFailedCheckSample: toStringOrNull(value.latestCheckpointGateFailedCheckSample),
   };
 };
 

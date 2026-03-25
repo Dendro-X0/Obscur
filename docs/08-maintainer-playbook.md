@@ -393,12 +393,21 @@ Canonical matrix:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.unexpectedLongSessionGateFailCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestLongSessionGatePass`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestLongSessionGateFailedCheckSample`
-19. Transition event slice:
+19. CP4 checkpoint gate diagnostics event slice:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.cp4_checkpoint_gate"]`
+20. CP4 checkpoint gate summary counters:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.checkpointGateCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.checkpointGatePassCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.checkpointGateFailCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.unexpectedCheckpointGateFailCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestCheckpointGatePass`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestCheckpointGateFailedCheckSample`
+21. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-20. Unified CP2 summary probes:
+22. Unified CP2 summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.asyncVoiceNote`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.deleteConvergence`
-21. M6 capture unified probes:
+23. M6 capture unified probes:
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.asyncVoiceNoteSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.voiceNoteEvents`
