@@ -2,7 +2,22 @@
 
 ### Changed
 
- - _No unreleased changes yet._
+- Added deterministic CP3 readiness helper APIs on canonical M10 bridge owner
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
+  - `window.obscurM10TrustControls.runCp3ReadinessCapture(...)`,
+  - `window.obscurM10TrustControls.runCp3ReadinessCaptureJson(...)`,
+  - `window.obscurM10TrustControls.runCp3ReadinessGateProbe(...)`,
+  - `window.obscurM10TrustControls.runCp3ReadinessGateProbeJson(...)`.
+- Added canonical CP3 readiness diagnostics event emission:
+  - `messaging.m10.cp3_readiness_gate`
+  with explicit pass/fail and failed-check sample posture.
+- Extended compact cross-device digest in
+  `apps/pwa/app/shared/log-app-event.ts` with:
+  - `events["messaging.m10.cp3_readiness_gate"]`,
+  - `summary.m10TrustControls.cp3ReadinessGate*` counters and latest sample fields.
+- Added focused regression coverage for CP3 readiness helper + digest posture in:
+  - `apps/pwa/app/shared/m10-trust-controls-bridge.test.ts`,
+  - `apps/pwa/app/shared/log-app-event.test.ts`.
 
 ## [v1.2.2] - 2026-03-25
 

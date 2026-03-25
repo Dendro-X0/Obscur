@@ -501,11 +501,14 @@ For `v1.2.2` CP2 anti-abuse and responsiveness incidents, use this order first:
 3. CP2 stability-gate probe (emits canonical event + returns gate verdict):
 : `copy(window.obscurM10TrustControls?.runCp2StabilityGateProbeJson?.({ eventWindowSize: 400, expectedStable: true }))`
 : `window.obscurM10TrustControls?.runCp2StabilityGateProbe?.({ eventWindowSize: 400, expectedStable: true })?.cp2TriageGate`
-4. Digest summary probes:
+4. CP3 readiness probe (emits canonical event + returns readiness verdict):
+: `copy(window.obscurM10TrustControls?.runCp3ReadinessCaptureJson?.({ eventWindowSize: 400, expectedStable: true }))`
+: `window.obscurM10TrustControls?.runCp3ReadinessGateProbe?.({ eventWindowSize: 400, expectedStable: true })`
+5. Digest summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.incomingRequestAntiAbuse`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.uiResponsiveness`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.m10TrustControls`
-5. Event slices for freeze-route correlation:
+6. Event slices for freeze-route correlation:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_stall_hard_fallback"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_mount_probe_slow"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_mount_performance_guard_enabled"]`
@@ -513,13 +516,15 @@ For `v1.2.2` CP2 anti-abuse and responsiveness incidents, use this order first:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.page_transition_effects_disabled"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["runtime.profile_boot_stall_timeout"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.m10.cp2_stability_gate"]`
-6. Trust-control action slice:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.m10.cp3_readiness_gate"]`
+7. Trust-control action slice:
 : `window.obscurM10TrustControls?.capture?.(400)?.recentTrustControlEvents`
-7. Escalate immediately if CP2 gate fails on:
+8. Escalate immediately if CP2/CP3 gates fail on:
 : `incomingRequestRiskNotHigh`,
 : `uiResponsivenessRiskNotHigh`,
 : `routeStallHardFallbackCountZero`,
-: `transitionEffectsDisabledCountZero`.
+: `transitionEffectsDisabledCountZero`,
+: `cp2UnexpectedFailCountZero`.
 
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 

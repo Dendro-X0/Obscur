@@ -2380,9 +2380,16 @@ describe("logAppEvent", () => {
             cp2StabilityGatePassCount: number;
             cp2StabilityGateFailCount: number;
             cp2StabilityGateUnexpectedFailCount: number;
+            cp3ReadinessGateCount: number;
+            cp3ReadinessGatePassCount: number;
+            cp3ReadinessGateFailCount: number;
+            cp3ReadinessGateUnexpectedFailCount: number;
             latestExpectedStable: boolean | null;
             latestPass: boolean | null;
             latestFailedCheckSample: string | null;
+            latestCp3ExpectedStable: boolean | null;
+            latestCp3Pass: boolean | null;
+            latestCp3FailedCheckSample: string | null;
           };
         };
       };
@@ -2403,9 +2410,94 @@ describe("logAppEvent", () => {
       cp2StabilityGatePassCount: 1,
       cp2StabilityGateFailCount: 1,
       cp2StabilityGateUnexpectedFailCount: 1,
+      cp3ReadinessGateCount: 0,
+      cp3ReadinessGatePassCount: 0,
+      cp3ReadinessGateFailCount: 0,
+      cp3ReadinessGateUnexpectedFailCount: 0,
       latestExpectedStable: false,
       latestPass: true,
       latestFailedCheckSample: null,
+      latestCp3ExpectedStable: null,
+      latestCp3Pass: null,
+      latestCp3FailedCheckSample: null,
+    }));
+  });
+
+  it("tracks m10 cp3 readiness gate pass/fail counters in digest summary", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.m10.cp3_readiness_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        cp3Pass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "cp2UnexpectedFailCountZero",
+        cp2TriagePass: true,
+        m10TrustControlsRiskLevel: "high",
+        cp2StabilityGateUnexpectedFailCount: 1,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+    logAppEvent({
+      name: "messaging.m10.cp3_readiness_gate",
+      level: "info",
+      context: {
+        expectedStable: false,
+        cp3Pass: true,
+        failedCheckCount: 0,
+        failedCheckSample: null,
+        cp2TriagePass: true,
+        m10TrustControlsRiskLevel: "watch",
+        cp2StabilityGateUnexpectedFailCount: 0,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+        summary: {
+          m10TrustControls: {
+            riskLevel: "none" | "watch" | "high";
+            cp2StabilityGateCount: number;
+            cp2StabilityGatePassCount: number;
+            cp2StabilityGateFailCount: number;
+            cp2StabilityGateUnexpectedFailCount: number;
+            cp3ReadinessGateCount: number;
+            cp3ReadinessGatePassCount: number;
+            cp3ReadinessGateFailCount: number;
+            cp3ReadinessGateUnexpectedFailCount: number;
+            latestExpectedStable: boolean | null;
+            latestPass: boolean | null;
+            latestFailedCheckSample: string | null;
+            latestCp3ExpectedStable: boolean | null;
+            latestCp3Pass: boolean | null;
+            latestCp3FailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.m10.cp3_readiness_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      cp3Pass: false,
+      failedCheckCount: 1,
+      failedCheckSample: "cp2UnexpectedFailCountZero",
+      cp2TriagePass: true,
+      m10TrustControlsRiskLevel: "high",
+      cp2StabilityGateUnexpectedFailCount: 1,
+    }));
+    expect(digest.events["messaging.m10.cp3_readiness_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.summary.m10TrustControls).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      cp3ReadinessGateCount: 2,
+      cp3ReadinessGatePassCount: 1,
+      cp3ReadinessGateFailCount: 1,
+      cp3ReadinessGateUnexpectedFailCount: 1,
+      latestCp3ExpectedStable: false,
+      latestCp3Pass: true,
+      latestCp3FailedCheckSample: null,
     }));
   });
 });

@@ -82,9 +82,16 @@ type AppEventDiagnosticsApi = Readonly<{
         cp2StabilityGatePassCount: number;
         cp2StabilityGateFailCount: number;
         cp2StabilityGateUnexpectedFailCount: number;
+        cp3ReadinessGateCount: number;
+        cp3ReadinessGatePassCount: number;
+        cp3ReadinessGateFailCount: number;
+        cp3ReadinessGateUnexpectedFailCount: number;
         latestExpectedStable: boolean | null;
         latestPass: boolean | null;
         latestFailedCheckSample: string | null;
+        latestCp3ExpectedStable: boolean | null;
+        latestCp3Pass: boolean | null;
+        latestCp3FailedCheckSample: string | null;
       }>;
       communityLifecycleConvergence: Readonly<{
         riskLevel: "none" | "watch" | "high";
@@ -386,6 +393,17 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "uiPageTransitionEffectsDisabledCount",
     "uiRouteMountPerformanceGuardEnabledCount",
     "uiStartupProfileBootStallTimeoutCount",
+  ],
+  "messaging.m10.cp3_readiness_gate": [
+    "expectedStable",
+    "cp3Pass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp2TriagePass",
+    "incomingRequestRiskLevel",
+    "uiResponsivenessRiskLevel",
+    "m10TrustControlsRiskLevel",
+    "cp2StabilityGateUnexpectedFailCount",
   ],
   "account_sync.backup_restore_result": [
     "reason",
@@ -987,6 +1005,30 @@ const installDiagnosticsApi = (): void => {
       const latestM10Cp2StabilityGateFailedCheckSample = toStringOrNull(
         latestM10Cp2StabilityGateEvent?.context?.failedCheckSample,
       );
+      const m10Cp3ReadinessGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.cp3_readiness_gate"
+      ));
+      const m10Cp3ReadinessGateCount = m10Cp3ReadinessGateEvents.length;
+      const m10Cp3ReadinessGatePassCount = m10Cp3ReadinessGateEvents.filter((event) => (
+        event.context?.cp3Pass === true
+      )).length;
+      const m10Cp3ReadinessGateFailCount = m10Cp3ReadinessGateEvents.filter((event) => (
+        event.context?.cp3Pass === false
+      )).length;
+      const m10Cp3ReadinessGateUnexpectedFailCount = m10Cp3ReadinessGateEvents.filter((event) => (
+        event.context?.cp3Pass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10Cp3ReadinessGateEvent = m10Cp3ReadinessGateEvents.at(-1);
+      const latestM10Cp3ReadinessGateExpectedStable = toBooleanOrNull(
+        latestM10Cp3ReadinessGateEvent?.context?.expectedStable,
+      );
+      const latestM10Cp3ReadinessGatePass = toBooleanOrNull(
+        latestM10Cp3ReadinessGateEvent?.context?.cp3Pass,
+      );
+      const latestM10Cp3ReadinessGateFailedCheckSample = toStringOrNull(
+        latestM10Cp3ReadinessGateEvent?.context?.failedCheckSample,
+      );
       const latestHydratedOutgoingCount = toNumberOrNull(
         latestHydration?.hydratedDmOutgoingCount,
       );
@@ -1410,8 +1452,14 @@ const installDiagnosticsApi = (): void => {
         ),
       });
       const m10TrustControlsRiskLevel = getRiskLevel({
-        watch: m10Cp2StabilityGateFailCount > 0,
-        high: m10Cp2StabilityGateUnexpectedFailCount > 0,
+        watch: (
+          m10Cp2StabilityGateFailCount > 0
+          || m10Cp3ReadinessGateFailCount > 0
+        ),
+        high: (
+          m10Cp2StabilityGateUnexpectedFailCount > 0
+          || m10Cp3ReadinessGateUnexpectedFailCount > 0
+        ),
       });
       const communityLifecycleConvergenceRiskLevel = getRiskLevel({
         watch: (
@@ -1547,9 +1595,16 @@ const installDiagnosticsApi = (): void => {
             cp2StabilityGatePassCount: m10Cp2StabilityGatePassCount,
             cp2StabilityGateFailCount: m10Cp2StabilityGateFailCount,
             cp2StabilityGateUnexpectedFailCount: m10Cp2StabilityGateUnexpectedFailCount,
+            cp3ReadinessGateCount: m10Cp3ReadinessGateCount,
+            cp3ReadinessGatePassCount: m10Cp3ReadinessGatePassCount,
+            cp3ReadinessGateFailCount: m10Cp3ReadinessGateFailCount,
+            cp3ReadinessGateUnexpectedFailCount: m10Cp3ReadinessGateUnexpectedFailCount,
             latestExpectedStable: latestM10Cp2StabilityGateExpectedStable,
             latestPass: latestM10Cp2StabilityGatePass,
             latestFailedCheckSample: latestM10Cp2StabilityGateFailedCheckSample,
+            latestCp3ExpectedStable: latestM10Cp3ReadinessGateExpectedStable,
+            latestCp3Pass: latestM10Cp3ReadinessGatePass,
+            latestCp3FailedCheckSample: latestM10Cp3ReadinessGateFailedCheckSample,
           },
           communityLifecycleConvergence: {
             riskLevel: communityLifecycleConvergenceRiskLevel,
