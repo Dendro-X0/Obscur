@@ -783,7 +783,11 @@ export const installM6VoiceReplayBridge = (): void => {
     return;
   }
   const root = window as M6VoiceReplayWindow;
-  if (root.obscurM6VoiceReplay) {
+  if (
+    root.obscurM6VoiceReplay
+    && typeof root.obscurM6VoiceReplay.runCp4LongSessionSelfTest === "function"
+    && typeof root.obscurM6VoiceReplay.runLongSessionReplayCapture === "function"
+  ) {
     return;
   }
 

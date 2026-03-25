@@ -513,4 +513,21 @@ describe("m6-voice-replay-bridge", () => {
       captureWindowSize: 300,
     }))).not.toThrow();
   });
+
+  it("upgrades stale replay bridge object so newly added CP4 helpers are available", () => {
+    const root = getMutableWindow();
+    (root as unknown as { obscurM6VoiceReplay: unknown }).obscurM6VoiceReplay = {
+      reset: () => ({ phase: "idle" }),
+      getState: () => ({ phase: "idle" }),
+      getLastReplay: () => null,
+      runWeakNetworkReplay: () => ({ phase: "active" }),
+    };
+
+    installM6VoiceReplayBridge();
+
+    const upgraded = root.obscurM6VoiceReplay as Record<string, unknown> | undefined;
+    expect(upgraded).toBeTruthy();
+    expect(typeof upgraded?.runLongSessionReplayCapture).toBe("function");
+    expect(typeof upgraded?.runCp4LongSessionSelfTest).toBe("function");
+  });
 });
