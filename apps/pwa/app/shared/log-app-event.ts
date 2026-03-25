@@ -130,6 +130,10 @@ type AppEventDiagnosticsApi = Readonly<{
         releaseReadinessGatePassCount: number;
         releaseReadinessGateFailCount: number;
         unexpectedReleaseReadinessGateFailCount: number;
+        releaseEvidenceGateCount: number;
+        releaseEvidenceGatePassCount: number;
+        releaseEvidenceGateFailCount: number;
+        unexpectedReleaseEvidenceGateFailCount: number;
         latestToPhase: string | null;
         latestReasonCode: string | null;
         latestIgnoredReasonCode: string | null;
@@ -139,6 +143,8 @@ type AppEventDiagnosticsApi = Readonly<{
         latestCheckpointGateFailedCheckSample: string | null;
         latestReleaseReadinessGatePass: boolean | null;
         latestReleaseReadinessGateFailedCheckSample: string | null;
+        latestReleaseEvidenceGatePass: boolean | null;
+        latestReleaseEvidenceGateFailedCheckSample: string | null;
       }>;
       asyncVoiceNote: Readonly<{
         riskLevel: "none" | "watch" | "high";
@@ -464,6 +470,25 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "digestCheckpointGateCount",
     "digestLatestCheckpointGatePass",
     "digestUnexpectedCheckpointGateFailCount",
+    "cycleCount",
+    "injectRecoveryExhausted",
+  ],
+  "messaging.realtime_voice.cp4_release_evidence_gate": [
+    "cp4ReleaseEvidencePass",
+    "expectedPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "releaseReadinessGatePass",
+    "longSessionEventObserved",
+    "checkpointEventObserved",
+    "releaseReadinessEventObserved",
+    "latestReleaseReadinessEventMatchesGate",
+    "digestSummaryPresent",
+    "digestRiskNotHighWhenExpectedPass",
+    "digestUnexpectedReleaseReadinessFailZeroWhenExpectedPass",
+    "digestRiskLevel",
+    "digestUnexpectedReleaseReadinessGateFailCount",
+    "eventSliceLimit",
     "cycleCount",
     "injectRecoveryExhausted",
   ],
@@ -968,6 +993,20 @@ const installDiagnosticsApi = (): void => {
         event.context?.cp4ReleaseReadinessPass === false
         && event.context?.expectedPass === true
       )).length;
+      const voiceReleaseEvidenceGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.cp4_release_evidence_gate"
+      ));
+      const voiceReleaseEvidenceGateCount = voiceReleaseEvidenceGateEvents.length;
+      const voiceReleaseEvidenceGatePassCount = voiceReleaseEvidenceGateEvents.filter((event) => (
+        event.context?.cp4ReleaseEvidencePass === true
+      )).length;
+      const voiceReleaseEvidenceGateFailCount = voiceReleaseEvidenceGateEvents.filter((event) => (
+        event.context?.cp4ReleaseEvidencePass === false
+      )).length;
+      const voiceUnexpectedReleaseEvidenceGateFailCount = voiceReleaseEvidenceGateEvents.filter((event) => (
+        event.context?.cp4ReleaseEvidencePass === false
+        && event.context?.expectedPass === true
+      )).length;
       const latestVoiceSessionTransition = voiceSessionTransitionEvents.at(-1);
       const latestVoiceSessionToPhase = toStringOrNull(
         latestVoiceSessionTransition?.context?.toPhase,
@@ -998,6 +1037,13 @@ const installDiagnosticsApi = (): void => {
       );
       const latestVoiceReleaseReadinessFailedCheckSample = toStringOrNull(
         latestVoiceReleaseReadinessGate?.context?.failedCheckSample,
+      );
+      const latestVoiceReleaseEvidenceGate = voiceReleaseEvidenceGateEvents.at(-1);
+      const latestVoiceReleaseEvidenceGatePass = toBooleanOrNull(
+        latestVoiceReleaseEvidenceGate?.context?.cp4ReleaseEvidencePass,
+      );
+      const latestVoiceReleaseEvidenceFailedCheckSample = toStringOrNull(
+        latestVoiceReleaseEvidenceGate?.context?.failedCheckSample,
       );
       const voiceNoteRecordingCompleteEvents = recent.filter((event) => (
         event.name === "messaging.voice_note.recording_complete"
@@ -1142,12 +1188,14 @@ const installDiagnosticsApi = (): void => {
           || voiceLongSessionGateFailCount > 0
           || voiceCheckpointGateFailCount > 0
           || voiceReleaseReadinessGateFailCount > 0
+          || voiceReleaseEvidenceGateFailCount > 0
         ),
         high: (
           voiceSessionRecoveryExhaustedCount > 0
           || voiceUnexpectedLongSessionGateFailCount > 0
           || voiceUnexpectedCheckpointGateFailCount > 0
           || voiceUnexpectedReleaseReadinessGateFailCount > 0
+          || voiceUnexpectedReleaseEvidenceGateFailCount > 0
         ),
       });
       const asyncVoiceNoteRiskLevel = getRiskLevel({
@@ -1281,6 +1329,10 @@ const installDiagnosticsApi = (): void => {
             releaseReadinessGatePassCount: voiceReleaseReadinessGatePassCount,
             releaseReadinessGateFailCount: voiceReleaseReadinessGateFailCount,
             unexpectedReleaseReadinessGateFailCount: voiceUnexpectedReleaseReadinessGateFailCount,
+            releaseEvidenceGateCount: voiceReleaseEvidenceGateCount,
+            releaseEvidenceGatePassCount: voiceReleaseEvidenceGatePassCount,
+            releaseEvidenceGateFailCount: voiceReleaseEvidenceGateFailCount,
+            unexpectedReleaseEvidenceGateFailCount: voiceUnexpectedReleaseEvidenceGateFailCount,
             latestToPhase: latestVoiceSessionToPhase,
             latestReasonCode: latestVoiceSessionReasonCode,
             latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
@@ -1290,6 +1342,8 @@ const installDiagnosticsApi = (): void => {
             latestCheckpointGateFailedCheckSample: latestVoiceCheckpointFailedCheckSample,
             latestReleaseReadinessGatePass: latestVoiceReleaseReadinessGatePass,
             latestReleaseReadinessGateFailedCheckSample: latestVoiceReleaseReadinessFailedCheckSample,
+            latestReleaseEvidenceGatePass: latestVoiceReleaseEvidenceGatePass,
+            latestReleaseEvidenceGateFailedCheckSample: latestVoiceReleaseEvidenceFailedCheckSample,
           },
           asyncVoiceNote: {
             riskLevel: asyncVoiceNoteRiskLevel,

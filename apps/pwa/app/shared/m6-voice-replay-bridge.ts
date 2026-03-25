@@ -541,6 +541,10 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     releaseReadinessGatePassCount: toNumber(value.releaseReadinessGatePassCount),
     releaseReadinessGateFailCount: toNumber(value.releaseReadinessGateFailCount),
     unexpectedReleaseReadinessGateFailCount: toNumber(value.unexpectedReleaseReadinessGateFailCount),
+    releaseEvidenceGateCount: toNumber(value.releaseEvidenceGateCount),
+    releaseEvidenceGatePassCount: toNumber(value.releaseEvidenceGatePassCount),
+    releaseEvidenceGateFailCount: toNumber(value.releaseEvidenceGateFailCount),
+    unexpectedReleaseEvidenceGateFailCount: toNumber(value.unexpectedReleaseEvidenceGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
@@ -550,6 +554,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestCheckpointGateFailedCheckSample: toStringOrNull(value.latestCheckpointGateFailedCheckSample),
     latestReleaseReadinessGatePass: toBooleanOrNull(value.latestReleaseReadinessGatePass),
     latestReleaseReadinessGateFailedCheckSample: toStringOrNull(value.latestReleaseReadinessGateFailedCheckSample),
+    latestReleaseEvidenceGatePass: toBooleanOrNull(value.latestReleaseEvidenceGatePass),
+    latestReleaseEvidenceGateFailedCheckSample: toStringOrNull(value.latestReleaseEvidenceGateFailedCheckSample),
   };
 };
 
@@ -1061,6 +1067,39 @@ const emitCp4ReleaseReadinessGateDiagnostic = (params: Readonly<{
       digestUnexpectedCheckpointGateFailCount: params.digestSummary?.unexpectedCheckpointGateFailCount ?? null,
       cycleCount: params.checkpoint.longSession.replayConfig.cycleCount,
       injectRecoveryExhausted: params.checkpoint.longSession.replayConfig.injectRecoveryExhausted,
+    },
+  });
+};
+
+const emitCp4ReleaseEvidenceGateDiagnostic = (params: Readonly<{
+  evidenceGate: M6VoiceCp4ReleaseEvidenceBundle["evidenceGate"];
+  releaseReadiness: M6VoiceCp4ReleaseReadinessCaptureBundle;
+  expectedPass: boolean;
+  eventSliceLimit: number;
+}>): void => {
+  const failedChecks = params.evidenceGate.failedChecks;
+  logAppEvent({
+    name: "messaging.realtime_voice.cp4_release_evidence_gate",
+    level: params.evidenceGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      cp4ReleaseEvidencePass: params.evidenceGate.pass,
+      expectedPass: params.expectedPass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      releaseReadinessGatePass: params.releaseReadiness.releaseReadinessGate.pass,
+      longSessionEventObserved: params.evidenceGate.checks.longSessionEventObserved,
+      checkpointEventObserved: params.evidenceGate.checks.checkpointEventObserved,
+      releaseReadinessEventObserved: params.evidenceGate.checks.releaseReadinessEventObserved,
+      latestReleaseReadinessEventMatchesGate: params.evidenceGate.checks.latestReleaseReadinessEventMatchesGate,
+      digestSummaryPresent: params.evidenceGate.checks.digestSummaryPresent,
+      digestRiskNotHighWhenExpectedPass: params.evidenceGate.checks.digestRiskNotHighWhenExpectedPass,
+      digestUnexpectedReleaseReadinessFailZeroWhenExpectedPass: params.evidenceGate.checks.digestUnexpectedReleaseReadinessFailZeroWhenExpectedPass,
+      digestRiskLevel: params.releaseReadiness.digestSummary?.riskLevel ?? null,
+      digestUnexpectedReleaseReadinessGateFailCount: params.releaseReadiness.digestSummary?.unexpectedReleaseReadinessGateFailCount ?? null,
+      eventSliceLimit: params.eventSliceLimit,
+      cycleCount: params.releaseReadiness.checkpoint.longSession.replayConfig.cycleCount,
+      injectRecoveryExhausted: params.releaseReadiness.checkpoint.longSession.replayConfig.injectRecoveryExhausted,
     },
   });
 };
@@ -2011,6 +2050,19 @@ export const installM6VoiceReplayBridge = (): void => {
         .slice(-eventSliceLimit)
         .map((event) => event.context ?? {});
       const recentWarnOrError = readRecentWarnOrError(root, captureWindowSize, eventSliceLimit);
+      const evidenceGate = buildCp4ReleaseEvidenceGate({
+        releaseReadiness,
+        expectedPass,
+        longSessionGateEventContexts,
+        checkpointGateEventContexts,
+        releaseReadinessGateEventContexts,
+      });
+      emitCp4ReleaseEvidenceGateDiagnostic({
+        evidenceGate,
+        releaseReadiness,
+        expectedPass,
+        eventSliceLimit,
+      });
       return {
         generatedAtUnixMs: Date.now(),
         releaseReadiness,
@@ -2018,13 +2070,7 @@ export const installM6VoiceReplayBridge = (): void => {
         checkpointGateEventContexts,
         releaseReadinessGateEventContexts,
         recentWarnOrError,
-        evidenceGate: buildCp4ReleaseEvidenceGate({
-          releaseReadiness,
-          expectedPass,
-          longSessionGateEventContexts,
-          checkpointGateEventContexts,
-          releaseReadinessGateEventContexts,
-        }),
+        evidenceGate,
       };
     },
     runCp4ReleaseEvidenceCaptureJson: (params) => (

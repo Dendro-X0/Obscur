@@ -24,6 +24,10 @@ type RealtimeVoiceSessionSummary = Readonly<{
   releaseReadinessGatePassCount: number;
   releaseReadinessGateFailCount: number;
   unexpectedReleaseReadinessGateFailCount: number;
+  releaseEvidenceGateCount: number;
+  releaseEvidenceGatePassCount: number;
+  releaseEvidenceGateFailCount: number;
+  unexpectedReleaseEvidenceGateFailCount: number;
   latestToPhase: string | null;
   latestReasonCode: string | null;
   latestIgnoredReasonCode: string | null;
@@ -33,6 +37,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestCheckpointGateFailedCheckSample: string | null;
   latestReleaseReadinessGatePass: boolean | null;
   latestReleaseReadinessGateFailedCheckSample: string | null;
+  latestReleaseEvidenceGatePass: boolean | null;
+  latestReleaseEvidenceGateFailedCheckSample: string | null;
 }>;
 
 type AsyncVoiceNoteSummary = Readonly<{
@@ -181,6 +187,10 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     releaseReadinessGatePassCount: toNumber(value.releaseReadinessGatePassCount),
     releaseReadinessGateFailCount: toNumber(value.releaseReadinessGateFailCount),
     unexpectedReleaseReadinessGateFailCount: toNumber(value.unexpectedReleaseReadinessGateFailCount),
+    releaseEvidenceGateCount: toNumber(value.releaseEvidenceGateCount),
+    releaseEvidenceGatePassCount: toNumber(value.releaseEvidenceGatePassCount),
+    releaseEvidenceGateFailCount: toNumber(value.releaseEvidenceGateFailCount),
+    unexpectedReleaseEvidenceGateFailCount: toNumber(value.unexpectedReleaseEvidenceGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
@@ -190,6 +200,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     latestCheckpointGateFailedCheckSample: toStringOrNull(value.latestCheckpointGateFailedCheckSample),
     latestReleaseReadinessGatePass: toBooleanOrNull(value.latestReleaseReadinessGatePass),
     latestReleaseReadinessGateFailedCheckSample: toStringOrNull(value.latestReleaseReadinessGateFailedCheckSample),
+    latestReleaseEvidenceGatePass: toBooleanOrNull(value.latestReleaseEvidenceGatePass),
+    latestReleaseEvidenceGateFailedCheckSample: toStringOrNull(value.latestReleaseEvidenceGateFailedCheckSample),
   };
 };
 

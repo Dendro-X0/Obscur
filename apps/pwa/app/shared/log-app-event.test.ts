@@ -1905,6 +1905,128 @@ describe("logAppEvent", () => {
     expect(digest.events["messaging.realtime_voice.cp4_release_readiness_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
 
+  it("marks realtime voice release-evidence gate failures as watch for expected failures and high for unexpected failures", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.cp4_release_evidence_gate",
+      level: "warn",
+      context: {
+        cp4ReleaseEvidencePass: false,
+        expectedPass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "releaseReadinessGateMatchesExpected",
+      },
+    });
+
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            releaseEvidenceGateCount: number;
+            releaseEvidenceGatePassCount: number;
+            releaseEvidenceGateFailCount: number;
+            unexpectedReleaseEvidenceGateFailCount: number;
+            latestReleaseEvidenceGatePass: boolean | null;
+            latestReleaseEvidenceGateFailedCheckSample: string | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      releaseEvidenceGateCount: 1,
+      releaseEvidenceGatePassCount: 0,
+      releaseEvidenceGateFailCount: 1,
+      unexpectedReleaseEvidenceGateFailCount: 0,
+      latestReleaseEvidenceGatePass: false,
+      latestReleaseEvidenceGateFailedCheckSample: "releaseReadinessGateMatchesExpected",
+    }));
+
+    diagnosticsApi.clear();
+    logAppEvent({
+      name: "messaging.realtime_voice.cp4_release_evidence_gate",
+      level: "warn",
+      context: {
+        cp4ReleaseEvidencePass: false,
+        expectedPass: true,
+        failedCheckCount: 1,
+        failedCheckSample: "releaseReadinessEventObserved",
+      },
+    });
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      releaseEvidenceGateCount: 1,
+      releaseEvidenceGatePassCount: 0,
+      releaseEvidenceGateFailCount: 1,
+      unexpectedReleaseEvidenceGateFailCount: 1,
+      latestReleaseEvidenceGatePass: false,
+      latestReleaseEvidenceGateFailedCheckSample: "releaseReadinessEventObserved",
+    }));
+  });
+
+  it("captures realtime voice release-evidence gate diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.cp4_release_evidence_gate",
+      level: "warn",
+      context: {
+        cp4ReleaseEvidencePass: false,
+        expectedPass: true,
+        failedCheckCount: 2,
+        failedCheckSample: "releaseReadinessEventObserved|digestSummaryPresent",
+        releaseReadinessGatePass: true,
+        longSessionEventObserved: true,
+        checkpointEventObserved: true,
+        releaseReadinessEventObserved: false,
+        latestReleaseReadinessEventMatchesGate: false,
+        digestSummaryPresent: true,
+        digestRiskNotHighWhenExpectedPass: true,
+        digestUnexpectedReleaseReadinessFailZeroWhenExpectedPass: true,
+        digestRiskLevel: "watch",
+        digestUnexpectedReleaseReadinessGateFailCount: 0,
+        eventSliceLimit: 3,
+        cycleCount: 6,
+        injectRecoveryExhausted: false,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.cp4_release_evidence_gate"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.cp4_release_evidence_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      cp4ReleaseEvidencePass: false,
+      expectedPass: true,
+      failedCheckCount: 2,
+      failedCheckSample: "releaseReadinessEventObserved|digestSummaryPresent",
+      releaseReadinessGatePass: true,
+      longSessionEventObserved: true,
+      checkpointEventObserved: true,
+      releaseReadinessEventObserved: false,
+      latestReleaseReadinessEventMatchesGate: false,
+      digestSummaryPresent: true,
+      digestRiskNotHighWhenExpectedPass: true,
+      digestUnexpectedReleaseReadinessFailZeroWhenExpectedPass: true,
+      digestRiskLevel: "watch",
+      digestUnexpectedReleaseReadinessGateFailCount: 0,
+      eventSliceLimit: 3,
+      cycleCount: 6,
+      injectRecoveryExhausted: false,
+    }));
+    expect(digest.events["messaging.realtime_voice.cp4_release_evidence_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
   it("captures realtime voice ignored-event diagnostics in compact digest events", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
 

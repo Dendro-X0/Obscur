@@ -65,6 +65,19 @@
 - Extended stale replay-bridge auto-upgrade guard to require CP4 release-evidence helper APIs.
 - Added focused regression coverage for CP4 release-evidence packet pass/fail lanes in:
   - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Added canonical CP4 release-evidence diagnostics event emission:
+  - `messaging.realtime_voice.cp4_release_evidence_gate`.
+- Cross-device digest realtime voice summary now surfaces release-evidence gate posture:
+  - `releaseEvidenceGateCount`,
+  - `releaseEvidenceGatePassCount`,
+  - `releaseEvidenceGateFailCount`,
+  - `unexpectedReleaseEvidenceGateFailCount`,
+  - `latestReleaseEvidenceGatePass`,
+  - `latestReleaseEvidenceGateFailedCheckSample`.
+- Extended digest/capture parser contracts with CP4 release-evidence fields in:
+  - `apps/pwa/app/shared/log-app-event.ts`,
+  - `apps/pwa/app/shared/m6-voice-capture.ts`,
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
 
 ## [v1.1.5] - 2026-03-24
 

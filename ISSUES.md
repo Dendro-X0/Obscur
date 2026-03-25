@@ -591,6 +591,15 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `messaging.realtime_voice.long_session_gate`,
       - `messaging.realtime_voice.cp4_checkpoint_gate`,
       - `messaging.realtime_voice.cp4_release_readiness_gate`.
+    - CP4 release-evidence helper now emits canonical diagnostics event:
+      - `messaging.realtime_voice.cp4_release_evidence_gate`,
+      and realtime voice digest summary now includes release-evidence counters/latest gate sample:
+      - `releaseEvidenceGateCount`,
+      - `releaseEvidenceGatePassCount`,
+      - `releaseEvidenceGateFailCount`,
+      - `unexpectedReleaseEvidenceGateFailCount`,
+      - `latestReleaseEvidenceGatePass`,
+      - `latestReleaseEvidenceGateFailedCheckSample`.
     - stale replay-bridge upgrade guard now requires CP4 release-evidence helper APIs so stale runtime bridge surfaces are replaced before CP4 operator verification.
     - focused continuation validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`,
