@@ -215,4 +215,77 @@ describe("AppShell navigation", () => {
       vi.useRealTimers();
     }
   });
+
+  it("enables route-mount performance guard after consecutive slow settles", async () => {
+    vi.useFakeTimers();
+    const animationFrameQueue: FrameRequestCallback[] = [];
+    const requestAnimationFrameSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      animationFrameQueue.push(callback);
+      return animationFrameQueue.length;
+    });
+    const cancelAnimationFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    try {
+      const { rerender } = render(
+        <AppShell hideSidebar={false}>
+          <div>Content</div>
+        </AppShell>,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const flushAnimationFrames = () => {
+        let safetyCounter = 0;
+        while (animationFrameQueue.length > 0 && safetyCounter < 16) {
+          const callback = animationFrameQueue.shift();
+          act(() => {
+            callback?.(0);
+          });
+          safetyCounter += 1;
+        }
+      };
+
+      const runSlowSettleCycle = async () => {
+        act(() => {
+          vi.advanceTimersByTime(pageTransitionRecovery.ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 20);
+        });
+        flushAnimationFrames();
+        await act(async () => {
+          await Promise.resolve();
+        });
+      };
+
+      await runSlowSettleCycle();
+      appShellMocks.pathname = "/network";
+      rerender(
+        <AppShell hideSidebar={false}>
+          <div>Content</div>
+        </AppShell>,
+      );
+      await runSlowSettleCycle();
+
+      appShellMocks.pathname = "/settings";
+      rerender(
+        <AppShell hideSidebar={false}>
+          <div>Content</div>
+        </AppShell>,
+      );
+      await runSlowSettleCycle();
+
+      const guardEnabledLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
+        event.name === "navigation.route_mount_performance_guard_enabled"
+        && event.context?.routeSurface === "settings"
+      ));
+      const transitionsDisabledLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
+        event.name === "navigation.page_transition_effects_disabled"
+        && event.context?.disableReason === "route_mount_consecutive_slow"
+      ));
+      expect(guardEnabledLogged).toBe(true);
+      expect(transitionsDisabledLogged).toBe(true);
+    } finally {
+      requestAnimationFrameSpy.mockRestore();
+      cancelAnimationFrameSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

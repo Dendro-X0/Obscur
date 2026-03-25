@@ -585,6 +585,15 @@ Current execution status (started 2026-03-25):
 : `window.obscurM10TrustControls.runCp2TriageCapture(...)`
 : and `window.obscurM10TrustControls.runCp2TriageCaptureJson(...)`
 : with explicit `cp2TriageGate` pass/fail checks over digest-backed anti-abuse + responsiveness signals.
+21. CP2 responsiveness hardening landed on canonical app-shell owner:
+: route-mount performance guard disables transition effects after consecutive slow settles
+: in `apps/pwa/app/components/app-shell.tsx` (fail-open, evidence-first behavior).
+22. Route-mount diagnostics now track consecutive-slow posture in
+: `apps/pwa/app/components/page-transition-recovery.ts`
+: via `consecutiveSlowSampleCount` and `ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD`.
+23. CP2 responsiveness digest now includes
+: `routeMountPerformanceGuardEnabledCount` in `summary.uiResponsiveness`
+: for high-load route-freeze triage.
 
 ## Version-Bound Execution
 

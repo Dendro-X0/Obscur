@@ -2295,6 +2295,19 @@ describe("logAppEvent", () => {
       },
     });
     logAppEvent({
+      name: "navigation.route_mount_performance_guard_enabled",
+      level: "warn",
+      context: {
+        pathname: "/",
+        routeSurface: "chats",
+        elapsedMs: 1550,
+        slowSampleCount: 3,
+        consecutiveSlowSampleCount: 3,
+        disableThreshold: 3,
+        warnThresholdMs: 1500,
+      },
+    });
+    logAppEvent({
       name: "navigation.page_transition_effects_disabled",
       level: "warn",
       context: {
@@ -2310,6 +2323,7 @@ describe("logAppEvent", () => {
           uiResponsiveness: {
             riskLevel: "none" | "watch" | "high";
             routeStallHardFallbackCount: number;
+            routeMountPerformanceGuardEnabledCount: number;
             pageTransitionEffectsDisabledCount: number;
             latestRouteSurface: string | null;
             latestRouteStallElapsedMs: number | null;
@@ -2321,6 +2335,7 @@ describe("logAppEvent", () => {
     expect(digest.summary.uiResponsiveness).toEqual(expect.objectContaining({
       riskLevel: "high",
       routeStallHardFallbackCount: 1,
+      routeMountPerformanceGuardEnabledCount: 1,
       pageTransitionEffectsDisabledCount: 1,
       latestRouteSurface: "chats",
       latestRouteStallElapsedMs: 1300,

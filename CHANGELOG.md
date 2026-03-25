@@ -68,6 +68,17 @@
   - `window.obscurM10TrustControls.runCp2TriageCapture(...)`,
   - `window.obscurM10TrustControls.runCp2TriageCaptureJson(...)`,
   - with explicit gate verdict (`cp2TriageGate`) over anti-abuse + responsiveness digest evidence.
+- Added a route-mount performance guard in canonical navigation owner
+  `apps/pwa/app/components/app-shell.tsx`:
+  - when route-mount settles are consecutively slow, transition effects are disabled fail-open to reduce UI freeze pressure,
+  - emits `navigation.route_mount_performance_guard_enabled` plus explicit disablement context.
+- Extended route-mount diagnostics state in
+  `apps/pwa/app/components/page-transition-recovery.ts`
+  with `consecutiveSlowSampleCount` and threshold constant
+  `ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD`.
+- Extended `summary.uiResponsiveness` with
+  `routeMountPerformanceGuardEnabledCount` in
+  `apps/pwa/app/shared/log-app-event.ts`.
 - Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
 - Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
 - Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.

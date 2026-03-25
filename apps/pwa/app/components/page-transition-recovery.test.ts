@@ -6,6 +6,7 @@ import {
   getRouteSurfaceFromPathname,
   PAGE_TRANSITION_TIMEOUT_DISABLE_THRESHOLD,
   ROUTE_MOUNT_PROBE_MAX_SAMPLES,
+  ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
   ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
   recordRouteMountProbeSample,
   recordPageTransitionWatchdogTimeout,
@@ -72,6 +73,7 @@ describe("page-transition-recovery", () => {
     });
     expect(state.recentSamples).toHaveLength(1);
     expect(state.slowSampleCount).toBe(0);
+    expect(state.consecutiveSlowSampleCount).toBe(0);
     expect(state.worstElapsedMs).toBe(200);
     expect(state.lastSlowAtUnixMs).toBeNull();
 
@@ -88,8 +90,42 @@ describe("page-transition-recovery", () => {
       transitionWatchdogTimeoutCount: 1,
     });
     expect(state.slowSampleCount).toBe(1);
+    expect(state.consecutiveSlowSampleCount).toBe(1);
     expect(state.worstElapsedMs).toBe(ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 10);
     expect(state.lastSlowAtUnixMs).toBe(2_020);
+  });
+
+  it("tracks consecutive slow samples and resets on a fast sample", () => {
+    let state = createRouteMountDiagnosticsState();
+    for (let index = 0; index < ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD; index += 1) {
+      state = recordRouteMountProbeSample(state, {
+        pathname: `/slow-${index}`,
+        routeSurface: "chats",
+        startedAtUnixMs: index * 1000,
+        settledAtUnixMs: index * 1000 + ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 5,
+        elapsedMs: ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 5,
+        firstFrameDelayMs: 800,
+        secondFrameDelayMs: 710,
+        routeRequestElapsedMs: null,
+        pageTransitionsEnabled: true,
+        transitionWatchdogTimeoutCount: 0,
+      });
+    }
+    expect(state.consecutiveSlowSampleCount).toBe(ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD);
+
+    state = recordRouteMountProbeSample(state, {
+      pathname: "/fast",
+      routeSurface: "chats",
+      startedAtUnixMs: 9_000,
+      settledAtUnixMs: 9_020,
+      elapsedMs: 20,
+      firstFrameDelayMs: 10,
+      secondFrameDelayMs: 10,
+      routeRequestElapsedMs: null,
+      pageTransitionsEnabled: true,
+      transitionWatchdogTimeoutCount: 0,
+    });
+    expect(state.consecutiveSlowSampleCount).toBe(0);
   });
 
   it("keeps route mount sample ring bounded and normalizes invalid thresholds", () => {

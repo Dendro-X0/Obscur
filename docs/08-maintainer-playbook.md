@@ -504,6 +504,7 @@ For `v1.2.2` CP2 anti-abuse and responsiveness incidents, use this order first:
 4. Event slices for freeze-route correlation:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_stall_hard_fallback"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_mount_probe_slow"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_mount_performance_guard_enabled"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.page_transition_watchdog_timeout"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.page_transition_effects_disabled"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["runtime.profile_boot_stall_timeout"]`

@@ -23,6 +23,7 @@ import {
   getRouteSurfaceFromPathname,
   hardNavigate,
   PAGE_TRANSITION_WATCHDOG_MS,
+  ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
   ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
   ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
   recordRouteMountProbeSample,
@@ -393,6 +394,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             transitionWatchdogTimeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
           },
         );
+        const latestRouteMountDiagnostics = routeMountDiagnosticsRef.current;
 
         const slowTimeoutId = routeMountProbeSlowTimeoutIdRef.current;
         if (typeof slowTimeoutId === "number") {
@@ -416,6 +418,41 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             transitionWatchdogTimeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
           },
         });
+
+        const shouldEnablePerformanceGuard = (
+          arePageTransitionsEnabledRef.current
+          && latestRouteMountDiagnostics.consecutiveSlowSampleCount >= ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD
+        );
+        if (shouldEnablePerformanceGuard) {
+          setArePageTransitionsEnabled(false);
+          logAppEvent({
+            name: "navigation.route_mount_performance_guard_enabled",
+            level: "warn",
+            scope: { feature: "navigation", action: "route_guard" },
+            context: {
+              pathname,
+              routeSurface: activeRouteSurface,
+              elapsedMs,
+              slowSampleCount: latestRouteMountDiagnostics.slowSampleCount,
+              consecutiveSlowSampleCount: latestRouteMountDiagnostics.consecutiveSlowSampleCount,
+              disableThreshold: ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
+              warnThresholdMs: ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
+            },
+          });
+          logAppEvent({
+            name: "navigation.page_transition_effects_disabled",
+            level: "warn",
+            scope: { feature: "navigation", action: "page_transition" },
+            context: {
+              pathname,
+              routeSurface: activeRouteSurface,
+              timeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
+              disableReason: "route_mount_consecutive_slow",
+              consecutiveSlowSampleCount: latestRouteMountDiagnostics.consecutiveSlowSampleCount,
+              disableThreshold: ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
+            },
+          });
+        }
       });
     });
 

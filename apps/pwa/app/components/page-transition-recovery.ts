@@ -32,6 +32,7 @@ export type RouteMountProbeSample = Readonly<{
 export type RouteMountDiagnosticsState = Readonly<{
   recentSamples: ReadonlyArray<RouteMountProbeSample>;
   slowSampleCount: number;
+  consecutiveSlowSampleCount: number;
   worstElapsedMs: number;
   lastSlowAtUnixMs: number | null;
 }>;
@@ -41,6 +42,7 @@ export const PAGE_TRANSITION_TIMEOUT_DISABLE_THRESHOLD = 3;
 export const ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS = 4_500;
 export const ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS = 1_500;
 export const ROUTE_MOUNT_PROBE_MAX_SAMPLES = 24;
+export const ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD = 3;
 
 const startsWithPathSegment = (pathname: string, prefix: string): boolean => (
   pathname === prefix || pathname.startsWith(`${prefix}/`)
@@ -54,6 +56,7 @@ export const createPageTransitionRecoveryState = (): PageTransitionRecoveryState
 export const createRouteMountDiagnosticsState = (): RouteMountDiagnosticsState => ({
   recentSamples: [],
   slowSampleCount: 0,
+  consecutiveSlowSampleCount: 0,
   worstElapsedMs: 0,
   lastSlowAtUnixMs: null,
 });
@@ -89,6 +92,7 @@ export const recordRouteMountProbeSample = (
   return {
     recentSamples: nextRecentSamples,
     slowSampleCount: currentState.slowSampleCount + (isSlow ? 1 : 0),
+    consecutiveSlowSampleCount: isSlow ? currentState.consecutiveSlowSampleCount + 1 : 0,
     worstElapsedMs: Math.max(currentState.worstElapsedMs, sample.elapsedMs),
     lastSlowAtUnixMs: isSlow ? sample.settledAtUnixMs : currentState.lastSlowAtUnixMs,
   };

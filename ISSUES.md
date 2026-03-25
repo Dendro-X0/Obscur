@@ -706,15 +706,22 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - cross-device digest now exposes compact UI responsiveness risk signals:
       - `summary.uiResponsiveness` in `apps/pwa/app/shared/log-app-event.ts`,
       - includes route stall/fallback, mount-probe slow, transition watchdog, transition-disablement, and startup profile-boot stall evidence,
+      - now also includes `routeMountPerformanceGuardEnabledCount`,
     - M10 trust-controls capture now includes `recentResponsivenessEvents` for one-packet operator triage:
       - `apps/pwa/app/shared/m10-trust-controls-bridge.ts`,
     - deterministic CP2 triage helper APIs are now available on M10 bridge:
       - `window.obscurM10TrustControls.runCp2TriageCapture({ eventWindowSize, expectedStable })`,
       - `window.obscurM10TrustControls.runCp2TriageCaptureJson({ eventWindowSize, expectedStable })`,
       - with explicit `cp2TriageGate` pass/fail checks for anti-abuse + responsiveness posture,
+    - app-shell responsiveness hardening landed on canonical owner:
+      - `apps/pwa/app/components/app-shell.tsx` now enables a route-mount performance guard after consecutive slow settles and disables transition effects fail-open,
+      - emits `navigation.route_mount_performance_guard_enabled` and enriched `navigation.page_transition_effects_disabled` context for deterministic triage,
+    - route-mount diagnostics state now tracks consecutive slow settles:
+      - `consecutiveSlowSampleCount` in `apps/pwa/app/components/page-transition-recovery.ts`,
     - focused CP2 slice validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts`,
+      - `pnpm --dir apps/pwa exec vitest run app/components/page-transition-recovery.test.ts app/components/app-shell.test.tsx`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status

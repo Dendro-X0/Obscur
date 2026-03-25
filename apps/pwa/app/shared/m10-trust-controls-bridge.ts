@@ -47,6 +47,7 @@ type M10UiResponsivenessSummary = Readonly<{
   riskLevel: "none" | "watch" | "high";
   routeStallHardFallbackCount: number;
   routeMountProbeSlowCount: number;
+  routeMountPerformanceGuardEnabledCount: number;
   pageTransitionWatchdogTimeoutCount: number;
   pageTransitionEffectsDisabledCount: number;
   startupProfileBootStallTimeoutCount: number;
@@ -70,6 +71,7 @@ type M10Cp2TriageGate = Readonly<{
     uiResponsivenessRiskNotHigh: boolean;
     routeStallHardFallbackCountZero: boolean;
     transitionEffectsDisabledCountZero: boolean;
+    routeMountPerformanceGuardEnabledCountZero: boolean;
     startupProfileBootStallTimeoutCountZero: boolean;
   }>;
 }>;
@@ -126,6 +128,7 @@ type M10TrustControlsBridgeWindow = Window & {
           riskLevel?: string;
           routeStallHardFallbackCount?: number;
           routeMountProbeSlowCount?: number;
+          routeMountPerformanceGuardEnabledCount?: number;
           pageTransitionWatchdogTimeoutCount?: number;
           pageTransitionEffectsDisabledCount?: number;
           startupProfileBootStallTimeoutCount?: number;
@@ -152,6 +155,7 @@ const TRUST_CONTROL_EVENT_NAMES: ReadonlyArray<string> = [
 const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
   "navigation.route_stall_hard_fallback",
   "navigation.route_mount_probe_slow",
+  "navigation.route_mount_performance_guard_enabled",
   "navigation.page_transition_watchdog_timeout",
   "navigation.page_transition_effects_disabled",
   "runtime.profile_boot_stall_timeout",
@@ -303,6 +307,7 @@ const readCp2TriageDigestSummary = (
       riskLevel: toRiskLevel(responsiveness.riskLevel),
       routeStallHardFallbackCount: toNumber(responsiveness.routeStallHardFallbackCount),
       routeMountProbeSlowCount: toNumber(responsiveness.routeMountProbeSlowCount),
+      routeMountPerformanceGuardEnabledCount: toNumber(responsiveness.routeMountPerformanceGuardEnabledCount),
       pageTransitionWatchdogTimeoutCount: toNumber(responsiveness.pageTransitionWatchdogTimeoutCount),
       pageTransitionEffectsDisabledCount: toNumber(responsiveness.pageTransitionEffectsDisabledCount),
       startupProfileBootStallTimeoutCount: toNumber(responsiveness.startupProfileBootStallTimeoutCount),
@@ -339,6 +344,10 @@ const buildCp2TriageGate = (params: Readonly<{
     transitionEffectsDisabledCountZero: (
       !params.expectedStable
       || (params.digestSummary.uiResponsiveness?.pageTransitionEffectsDisabledCount ?? 0) === 0
+    ),
+    routeMountPerformanceGuardEnabledCountZero: (
+      !params.expectedStable
+      || (params.digestSummary.uiResponsiveness?.routeMountPerformanceGuardEnabledCount ?? 0) === 0
     ),
     startupProfileBootStallTimeoutCountZero: (
       !params.expectedStable

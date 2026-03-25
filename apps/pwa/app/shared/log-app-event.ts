@@ -118,6 +118,7 @@ type AppEventDiagnosticsApi = Readonly<{
         routeStallHardFallbackCount: number;
         routeMountProbeSlowCount: number;
         routeMountProbeSettledWarnCount: number;
+        routeMountPerformanceGuardEnabledCount: number;
         pageTransitionWatchdogTimeoutCount: number;
         pageTransitionEffectsDisabledCount: number;
         startupProfileBootStallTimeoutCount: number;
@@ -631,6 +632,15 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "pageTransitionsEnabled",
     "transitionWatchdogTimeoutCount",
   ],
+  "navigation.route_mount_performance_guard_enabled": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "slowSampleCount",
+    "consecutiveSlowSampleCount",
+    "disableThreshold",
+    "warnThresholdMs",
+  ],
   "navigation.page_transition_watchdog_timeout": [
     "pathname",
     "routeSurface",
@@ -643,6 +653,9 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "pathname",
     "routeSurface",
     "timeoutCount",
+    "disableReason",
+    "consecutiveSlowSampleCount",
+    "disableThreshold",
   ],
   "runtime.profile_boot_stall_timeout": [
     "phase",
@@ -1047,6 +1060,9 @@ const installDiagnosticsApi = (): void => {
       const routeMountProbeSettledEvents = recent.filter((event) => (
         event.name === "navigation.route_mount_probe_settled"
       ));
+      const routeMountPerformanceGuardEnabledEvents = recent.filter((event) => (
+        event.name === "navigation.route_mount_performance_guard_enabled"
+      ));
       const pageTransitionWatchdogTimeoutEvents = recent.filter((event) => (
         event.name === "navigation.page_transition_watchdog_timeout"
       ));
@@ -1068,6 +1084,7 @@ const installDiagnosticsApi = (): void => {
           && event.context.elapsedMs >= event.context.warnThresholdMs
         )
       )).length;
+      const routeMountPerformanceGuardEnabledCount = routeMountPerformanceGuardEnabledEvents.length;
       const pageTransitionWatchdogTimeoutCount = pageTransitionWatchdogTimeoutEvents.length;
       const pageTransitionEffectsDisabledCount = pageTransitionEffectsDisabledEvents.length;
       const startupProfileBootStallTimeoutCount = startupProfileBootStallTimeoutEvents.length;
@@ -1515,6 +1532,7 @@ const installDiagnosticsApi = (): void => {
             routeStallHardFallbackCount,
             routeMountProbeSlowCount,
             routeMountProbeSettledWarnCount,
+            routeMountPerformanceGuardEnabledCount,
             pageTransitionWatchdogTimeoutCount,
             pageTransitionEffectsDisabledCount,
             startupProfileBootStallTimeoutCount,
