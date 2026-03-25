@@ -33,6 +33,19 @@
   `apps/pwa/app/shared/log-app-event.ts` with:
   - `events["messaging.m10.cp3_suite_gate"]`,
   - `summary.m10TrustControls.cp3SuiteGate*` counters and latest sample fields.
+- Added deterministic CP4 closeout helper APIs on canonical M10 bridge owner
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
+  - `window.obscurM10TrustControls.runCp4CloseoutCapture(...)`,
+  - `window.obscurM10TrustControls.runCp4CloseoutCaptureJson(...)`,
+  - `window.obscurM10TrustControls.runCp4CloseoutGateProbe(...)`,
+  - `window.obscurM10TrustControls.runCp4CloseoutGateProbeJson(...)`.
+- Added canonical CP4 closeout diagnostics event emission:
+  - `messaging.m10.cp4_closeout_gate`
+  with explicit aggregate closeout pass/fail and failed-check sample posture.
+- Extended compact cross-device digest in
+  `apps/pwa/app/shared/log-app-event.ts` with:
+  - `events["messaging.m10.cp4_closeout_gate"]`,
+  - `summary.m10TrustControls.cp4CloseoutGate*` counters and latest sample fields.
 
 ## [v1.2.2] - 2026-03-25
 

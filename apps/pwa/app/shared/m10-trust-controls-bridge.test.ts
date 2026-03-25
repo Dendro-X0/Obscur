@@ -335,4 +335,49 @@ describe("m10-trust-controls-bridge", () => {
       cp3ReadinessUnexpectedFailCount: expect.any(Number),
     }));
   });
+
+  it("emits cp4 closeout gate event and exposes closeout gate verdict", () => {
+    logAppEvent({
+      name: "messaging.m10.cp3_suite_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        cp3SuitePass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "cp3ReadinessUnexpectedFailCountZero",
+        cp3ReadinessPass: true,
+        cp3ReadinessUnexpectedFailCount: 1,
+      },
+    });
+
+    installM10TrustControlsBridge();
+    const closeoutCapture = window.obscurM10TrustControls?.runCp4CloseoutCapture({
+      expectedStable: true,
+      eventWindowSize: 200,
+    });
+    expect(closeoutCapture?.cp4CloseoutGate.pass).toBe(false);
+    expect(closeoutCapture?.cp4CloseoutGate.failedChecks).toContain("cp3SuiteUnexpectedFailCountZero");
+
+    const relaxedCloseoutGate = window.obscurM10TrustControls?.runCp4CloseoutGateProbe({
+      expectedStable: false,
+      eventWindowSize: 200,
+    });
+    expect(relaxedCloseoutGate?.pass).toBe(true);
+
+    const diagnosticsApi = (window as Window & {
+      obscurAppEvents?: Readonly<{
+        findByName?: (name: string, count?: number) => ReadonlyArray<Readonly<{
+          context?: Readonly<Record<string, string | number | boolean | null>>;
+        }>>;
+      }>;
+    }).obscurAppEvents;
+    const cp4CloseoutEvents = diagnosticsApi?.findByName?.("messaging.m10.cp4_closeout_gate", 10) ?? [];
+    expect(cp4CloseoutEvents.length).toBeGreaterThanOrEqual(2);
+    expect(cp4CloseoutEvents[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      cp4CloseoutPass: false,
+      cp3SuitePass: false,
+      cp3SuiteUnexpectedFailCount: expect.any(Number),
+    }));
+  });
 });

@@ -58,6 +58,10 @@ type M10TrustControlsDigestSummary = Readonly<{
   cp3SuiteGatePassCount: number;
   cp3SuiteGateFailCount: number;
   cp3SuiteGateUnexpectedFailCount: number;
+  cp4CloseoutGateCount: number;
+  cp4CloseoutGatePassCount: number;
+  cp4CloseoutGateFailCount: number;
+  cp4CloseoutGateUnexpectedFailCount: number;
   latestExpectedStable: boolean | null;
   latestPass: boolean | null;
   latestFailedCheckSample: string | null;
@@ -67,6 +71,9 @@ type M10TrustControlsDigestSummary = Readonly<{
   latestCp3SuiteExpectedStable: boolean | null;
   latestCp3SuitePass: boolean | null;
   latestCp3SuiteFailedCheckSample: string | null;
+  latestCp4CloseoutExpectedStable: boolean | null;
+  latestCp4CloseoutPass: boolean | null;
+  latestCp4CloseoutFailedCheckSample: string | null;
 }> | null;
 
 type M10UiResponsivenessSummary = Readonly<{
@@ -163,6 +170,31 @@ type M10Cp3SuiteCapture = Readonly<{
   cp3SuiteGate: M10Cp3SuiteGate;
 }>;
 
+type M10Cp4CloseoutGate = Readonly<{
+  pass: boolean;
+  failedChecks: ReadonlyArray<string>;
+  failedCheckSample: string | null;
+  checks: Readonly<{
+    expectedStable: boolean;
+    cp3SuitePass: boolean;
+    digestSummaryPresent: boolean;
+    incomingRequestRiskNotHigh: boolean;
+    uiResponsivenessRiskNotHigh: boolean;
+    m10TrustControlsRiskNotHigh: boolean;
+    cp3SuiteGateObserved: boolean;
+    cp3SuiteUnexpectedFailCountZero: boolean;
+  }>;
+}>;
+
+type M10Cp4CloseoutCapture = Readonly<{
+  generatedAtUnixMs: number;
+  eventWindowSize: number;
+  expectedStable: boolean;
+  cp3SuiteCapture: M10Cp3SuiteCapture;
+  digestSummaryAfterSuiteEvent: M10Cp2TriageDigestSummary;
+  cp4CloseoutGate: M10Cp4CloseoutGate;
+}>;
+
 type M10TrustControlsBridgeApi = Readonly<{
   getSnapshot: () => M10TrustControlsSnapshot;
   setAttackModeSafetyProfile: (profile: AttackModeSafetyProfile) => AttackModeSafetyProfile;
@@ -229,6 +261,22 @@ type M10TrustControlsBridgeApi = Readonly<{
     eventWindowSize?: number;
     expectedStable?: boolean;
   }>) => string;
+  runCp4CloseoutCapture: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => M10Cp4CloseoutCapture;
+  runCp4CloseoutCaptureJson: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => string;
+  runCp4CloseoutGateProbe: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => M10Cp4CloseoutGate;
+  runCp4CloseoutGateProbeJson: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => string;
 }>;
 
 type M10TrustControlsBridgeWindow = Window & {
@@ -256,6 +304,10 @@ type M10TrustControlsBridgeWindow = Window & {
           cp3SuiteGatePassCount?: number;
           cp3SuiteGateFailCount?: number;
           cp3SuiteGateUnexpectedFailCount?: number;
+          cp4CloseoutGateCount?: number;
+          cp4CloseoutGatePassCount?: number;
+          cp4CloseoutGateFailCount?: number;
+          cp4CloseoutGateUnexpectedFailCount?: number;
           latestExpectedStable?: boolean | null;
           latestPass?: boolean | null;
           latestFailedCheckSample?: string | null;
@@ -265,6 +317,9 @@ type M10TrustControlsBridgeWindow = Window & {
           latestCp3SuiteExpectedStable?: boolean | null;
           latestCp3SuitePass?: boolean | null;
           latestCp3SuiteFailedCheckSample?: string | null;
+          latestCp4CloseoutExpectedStable?: boolean | null;
+          latestCp4CloseoutPass?: boolean | null;
+          latestCp4CloseoutFailedCheckSample?: string | null;
         }>;
         uiResponsiveness?: Readonly<{
           riskLevel?: string;
@@ -296,6 +351,7 @@ const TRUST_CONTROL_EVENT_NAMES: ReadonlyArray<string> = [
   "messaging.m10.cp2_stability_gate",
   "messaging.m10.cp3_readiness_gate",
   "messaging.m10.cp3_suite_gate",
+  "messaging.m10.cp4_closeout_gate",
 ];
 const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
   "navigation.route_stall_hard_fallback",
@@ -308,6 +364,7 @@ const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
 const CP2_STABILITY_GATE_EVENT_NAME = "messaging.m10.cp2_stability_gate";
 const CP3_READINESS_GATE_EVENT_NAME = "messaging.m10.cp3_readiness_gate";
 const CP3_SUITE_GATE_EVENT_NAME = "messaging.m10.cp3_suite_gate";
+const CP4_CLOSEOUT_GATE_EVENT_NAME = "messaging.m10.cp4_closeout_gate";
 
 const isPositiveFinite = (value: unknown): value is number => (
   typeof value === "number" && Number.isFinite(value) && value > 0
@@ -470,6 +527,10 @@ const readCp2TriageDigestSummary = (
       cp3SuiteGatePassCount: toNumber(trustControls.cp3SuiteGatePassCount),
       cp3SuiteGateFailCount: toNumber(trustControls.cp3SuiteGateFailCount),
       cp3SuiteGateUnexpectedFailCount: toNumber(trustControls.cp3SuiteGateUnexpectedFailCount),
+      cp4CloseoutGateCount: toNumber(trustControls.cp4CloseoutGateCount),
+      cp4CloseoutGatePassCount: toNumber(trustControls.cp4CloseoutGatePassCount),
+      cp4CloseoutGateFailCount: toNumber(trustControls.cp4CloseoutGateFailCount),
+      cp4CloseoutGateUnexpectedFailCount: toNumber(trustControls.cp4CloseoutGateUnexpectedFailCount),
       latestExpectedStable: toBooleanOrNull(trustControls.latestExpectedStable),
       latestPass: toBooleanOrNull(trustControls.latestPass),
       latestFailedCheckSample: toStringOrNull(trustControls.latestFailedCheckSample),
@@ -479,6 +540,9 @@ const readCp2TriageDigestSummary = (
       latestCp3SuiteExpectedStable: toBooleanOrNull(trustControls.latestCp3SuiteExpectedStable),
       latestCp3SuitePass: toBooleanOrNull(trustControls.latestCp3SuitePass),
       latestCp3SuiteFailedCheckSample: toStringOrNull(trustControls.latestCp3SuiteFailedCheckSample),
+      latestCp4CloseoutExpectedStable: toBooleanOrNull(trustControls.latestCp4CloseoutExpectedStable),
+      latestCp4CloseoutPass: toBooleanOrNull(trustControls.latestCp4CloseoutPass),
+      latestCp4CloseoutFailedCheckSample: toStringOrNull(trustControls.latestCp4CloseoutFailedCheckSample),
     } : null,
     uiResponsiveness: responsiveness ? {
       riskLevel: toRiskLevel(responsiveness.riskLevel),
@@ -783,6 +847,105 @@ const emitCp3SuiteGateEvent = (capture: M10Cp3SuiteCapture): void => {
   });
 };
 
+const buildCp4CloseoutGate = (params: Readonly<{
+  expectedStable: boolean;
+  cp3SuiteCapture: M10Cp3SuiteCapture;
+  digestSummaryAfterSuiteEvent: M10Cp2TriageDigestSummary;
+}>): M10Cp4CloseoutGate => {
+  const digestSummary = params.digestSummaryAfterSuiteEvent;
+  const checks = {
+    expectedStable: params.expectedStable,
+    cp3SuitePass: (
+      !params.expectedStable
+      || params.cp3SuiteCapture.cp3SuiteGate.pass
+    ),
+    digestSummaryPresent: (
+      !params.expectedStable
+      || digestSummary.incomingRequestAntiAbuse !== null
+      || digestSummary.uiResponsiveness !== null
+      || digestSummary.m10TrustControls !== null
+    ),
+    incomingRequestRiskNotHigh: (
+      !params.expectedStable
+      || digestSummary.incomingRequestAntiAbuse?.riskLevel !== "high"
+    ),
+    uiResponsivenessRiskNotHigh: (
+      !params.expectedStable
+      || digestSummary.uiResponsiveness?.riskLevel !== "high"
+    ),
+    m10TrustControlsRiskNotHigh: (
+      !params.expectedStable
+      || digestSummary.m10TrustControls?.riskLevel !== "high"
+    ),
+    cp3SuiteGateObserved: (
+      !params.expectedStable
+      || (digestSummary.m10TrustControls?.cp3SuiteGateCount ?? 0) > 0
+    ),
+    cp3SuiteUnexpectedFailCountZero: (
+      !params.expectedStable
+      || (digestSummary.m10TrustControls?.cp3SuiteGateUnexpectedFailCount ?? 0) === 0
+    ),
+  } as const;
+
+  const failedChecks = Object.entries(checks)
+    .filter(([name, passed]) => name !== "expectedStable" && passed !== true)
+    .map(([name]) => name);
+
+  return {
+    pass: failedChecks.length === 0,
+    failedChecks,
+    failedCheckSample: failedChecks[0] ?? null,
+    checks,
+  };
+};
+
+const createCp4CloseoutCapture = (
+  root: M10TrustControlsBridgeWindow,
+  params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>,
+): M10Cp4CloseoutCapture => {
+  const cp3SuiteCapture = createCp3SuiteCapture(root, params);
+  emitCp3SuiteGateEvent(cp3SuiteCapture);
+  const digestSummaryAfterSuiteEvent = readCp2TriageDigestSummary(root, cp3SuiteCapture.eventWindowSize);
+  return {
+    generatedAtUnixMs: Date.now(),
+    eventWindowSize: cp3SuiteCapture.eventWindowSize,
+    expectedStable: cp3SuiteCapture.expectedStable,
+    cp3SuiteCapture,
+    digestSummaryAfterSuiteEvent,
+    cp4CloseoutGate: buildCp4CloseoutGate({
+      expectedStable: cp3SuiteCapture.expectedStable,
+      cp3SuiteCapture,
+      digestSummaryAfterSuiteEvent,
+    }),
+  };
+};
+
+const emitCp4CloseoutGateEvent = (capture: M10Cp4CloseoutCapture): void => {
+  const digestSummary = capture.digestSummaryAfterSuiteEvent;
+  logAppEvent({
+    name: CP4_CLOSEOUT_GATE_EVENT_NAME,
+    level: capture.cp4CloseoutGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "m10_trust_controls" },
+    context: {
+      expectedStable: capture.expectedStable,
+      cp4CloseoutPass: capture.cp4CloseoutGate.pass,
+      failedCheckCount: capture.cp4CloseoutGate.failedChecks.length,
+      failedCheckSample: capture.cp4CloseoutGate.failedCheckSample,
+      cp3SuitePass: capture.cp3SuiteCapture.cp3SuiteGate.pass,
+      incomingRequestRiskLevel: digestSummary.incomingRequestAntiAbuse?.riskLevel ?? "none",
+      uiResponsivenessRiskLevel: digestSummary.uiResponsiveness?.riskLevel ?? "none",
+      m10TrustControlsRiskLevel: digestSummary.m10TrustControls?.riskLevel ?? "none",
+      cp3SuiteGateCount: digestSummary.m10TrustControls?.cp3SuiteGateCount ?? 0,
+      cp3SuiteUnexpectedFailCount: (
+        digestSummary.m10TrustControls?.cp3SuiteGateUnexpectedFailCount ?? 0
+      ),
+    },
+  });
+};
+
 export const installM10TrustControlsBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -910,6 +1073,34 @@ export const installM10TrustControlsBridge = (): void => {
     runCp3SuiteGateProbeJson: (params) => (
       JSON.stringify(root.obscurM10TrustControls?.runCp3SuiteGateProbe(params) ?? null, null, 2)
     ),
+    runCp4CloseoutCapture: (params) => {
+      const capture = createCp4CloseoutCapture(root, params);
+      emitCp4CloseoutGateEvent(capture);
+      return capture;
+    },
+    runCp4CloseoutCaptureJson: (params) => (
+      JSON.stringify(root.obscurM10TrustControls?.runCp4CloseoutCapture(params) ?? null, null, 2)
+    ),
+    runCp4CloseoutGateProbe: (params) => (
+      root.obscurM10TrustControls?.runCp4CloseoutCapture(params).cp4CloseoutGate ?? {
+        pass: false,
+        failedChecks: ["bridge_unavailable"],
+        failedCheckSample: "bridge_unavailable",
+        checks: {
+          expectedStable: params?.expectedStable !== false,
+          cp3SuitePass: false,
+          digestSummaryPresent: false,
+          incomingRequestRiskNotHigh: false,
+          uiResponsivenessRiskNotHigh: false,
+          m10TrustControlsRiskNotHigh: false,
+          cp3SuiteGateObserved: false,
+          cp3SuiteUnexpectedFailCountZero: false,
+        },
+      }
+    ),
+    runCp4CloseoutGateProbeJson: (params) => (
+      JSON.stringify(root.obscurM10TrustControls?.runCp4CloseoutGateProbe(params) ?? null, null, 2)
+    ),
   };
 };
 
@@ -918,16 +1109,20 @@ export const m10TrustControlsBridgeInternals = {
   CP2_STABILITY_GATE_EVENT_NAME,
   CP3_READINESS_GATE_EVENT_NAME,
   CP3_SUITE_GATE_EVENT_NAME,
+  CP4_CLOSEOUT_GATE_EVENT_NAME,
   TRUST_CONTROL_EVENT_NAMES,
   RESPONSIVENESS_EVENT_NAMES,
+  buildCp4CloseoutGate,
   buildCp3SuiteGate,
   buildCp3ReadinessGate,
   buildCp2TriageGate,
+  createCp4CloseoutCapture,
   createCp3SuiteCapture,
   createCp3ReadinessCapture,
   createCp2TriageCapture,
   createSnapshot,
   createCapture,
+  emitCp4CloseoutGateEvent,
   emitCp3SuiteGateEvent,
   emitCp3ReadinessGateEvent,
   emitCp2StabilityGateEvent,

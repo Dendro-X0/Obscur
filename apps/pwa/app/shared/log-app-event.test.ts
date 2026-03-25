@@ -2388,6 +2388,10 @@ describe("logAppEvent", () => {
             cp3SuiteGatePassCount: number;
             cp3SuiteGateFailCount: number;
             cp3SuiteGateUnexpectedFailCount: number;
+            cp4CloseoutGateCount: number;
+            cp4CloseoutGatePassCount: number;
+            cp4CloseoutGateFailCount: number;
+            cp4CloseoutGateUnexpectedFailCount: number;
             latestExpectedStable: boolean | null;
             latestPass: boolean | null;
             latestFailedCheckSample: string | null;
@@ -2397,6 +2401,9 @@ describe("logAppEvent", () => {
             latestCp3SuiteExpectedStable: boolean | null;
             latestCp3SuitePass: boolean | null;
             latestCp3SuiteFailedCheckSample: string | null;
+            latestCp4CloseoutExpectedStable: boolean | null;
+            latestCp4CloseoutPass: boolean | null;
+            latestCp4CloseoutFailedCheckSample: string | null;
           };
         };
       };
@@ -2425,6 +2432,10 @@ describe("logAppEvent", () => {
       cp3SuiteGatePassCount: 0,
       cp3SuiteGateFailCount: 0,
       cp3SuiteGateUnexpectedFailCount: 0,
+      cp4CloseoutGateCount: 0,
+      cp4CloseoutGatePassCount: 0,
+      cp4CloseoutGateFailCount: 0,
+      cp4CloseoutGateUnexpectedFailCount: 0,
       latestExpectedStable: false,
       latestPass: true,
       latestFailedCheckSample: null,
@@ -2434,6 +2445,9 @@ describe("logAppEvent", () => {
       latestCp3SuiteExpectedStable: null,
       latestCp3SuitePass: null,
       latestCp3SuiteFailedCheckSample: null,
+      latestCp4CloseoutExpectedStable: null,
+      latestCp4CloseoutPass: null,
+      latestCp4CloseoutFailedCheckSample: null,
     }));
   });
 
@@ -2486,6 +2500,10 @@ describe("logAppEvent", () => {
             cp3SuiteGatePassCount: number;
             cp3SuiteGateFailCount: number;
             cp3SuiteGateUnexpectedFailCount: number;
+            cp4CloseoutGateCount: number;
+            cp4CloseoutGatePassCount: number;
+            cp4CloseoutGateFailCount: number;
+            cp4CloseoutGateUnexpectedFailCount: number;
             latestExpectedStable: boolean | null;
             latestPass: boolean | null;
             latestFailedCheckSample: string | null;
@@ -2495,6 +2513,9 @@ describe("logAppEvent", () => {
             latestCp3SuiteExpectedStable: boolean | null;
             latestCp3SuitePass: boolean | null;
             latestCp3SuiteFailedCheckSample: string | null;
+            latestCp4CloseoutExpectedStable: boolean | null;
+            latestCp4CloseoutPass: boolean | null;
+            latestCp4CloseoutFailedCheckSample: string | null;
           };
         };
       };
@@ -2520,12 +2541,19 @@ describe("logAppEvent", () => {
       cp3SuiteGatePassCount: 0,
       cp3SuiteGateFailCount: 0,
       cp3SuiteGateUnexpectedFailCount: 0,
+      cp4CloseoutGateCount: 0,
+      cp4CloseoutGatePassCount: 0,
+      cp4CloseoutGateFailCount: 0,
+      cp4CloseoutGateUnexpectedFailCount: 0,
       latestCp3ExpectedStable: false,
       latestCp3Pass: true,
       latestCp3FailedCheckSample: null,
       latestCp3SuiteExpectedStable: null,
       latestCp3SuitePass: null,
       latestCp3SuiteFailedCheckSample: null,
+      latestCp4CloseoutExpectedStable: null,
+      latestCp4CloseoutPass: null,
+      latestCp4CloseoutFailedCheckSample: null,
     }));
   });
 
@@ -2597,6 +2625,77 @@ describe("logAppEvent", () => {
       latestCp3SuiteExpectedStable: false,
       latestCp3SuitePass: true,
       latestCp3SuiteFailedCheckSample: null,
+    }));
+  });
+
+  it("tracks m10 cp4 closeout gate pass/fail counters in digest summary", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.m10.cp4_closeout_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        cp4CloseoutPass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "cp3SuiteUnexpectedFailCountZero",
+        cp3SuitePass: false,
+        m10TrustControlsRiskLevel: "high",
+        cp3SuiteUnexpectedFailCount: 1,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+    logAppEvent({
+      name: "messaging.m10.cp4_closeout_gate",
+      level: "info",
+      context: {
+        expectedStable: false,
+        cp4CloseoutPass: true,
+        failedCheckCount: 0,
+        failedCheckSample: null,
+        cp3SuitePass: true,
+        m10TrustControlsRiskLevel: "watch",
+        cp3SuiteUnexpectedFailCount: 0,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+        summary: {
+          m10TrustControls: {
+            riskLevel: "none" | "watch" | "high";
+            cp4CloseoutGateCount: number;
+            cp4CloseoutGatePassCount: number;
+            cp4CloseoutGateFailCount: number;
+            cp4CloseoutGateUnexpectedFailCount: number;
+            latestCp4CloseoutExpectedStable: boolean | null;
+            latestCp4CloseoutPass: boolean | null;
+            latestCp4CloseoutFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.m10.cp4_closeout_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      cp4CloseoutPass: false,
+      failedCheckCount: 1,
+      failedCheckSample: "cp3SuiteUnexpectedFailCountZero",
+      cp3SuitePass: false,
+      m10TrustControlsRiskLevel: "high",
+      cp3SuiteUnexpectedFailCount: 1,
+    }));
+    expect(digest.events["messaging.m10.cp4_closeout_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.summary.m10TrustControls).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      cp4CloseoutGateCount: 2,
+      cp4CloseoutGatePassCount: 1,
+      cp4CloseoutGateFailCount: 1,
+      cp4CloseoutGateUnexpectedFailCount: 1,
+      latestCp4CloseoutExpectedStable: false,
+      latestCp4CloseoutPass: true,
+      latestCp4CloseoutFailedCheckSample: null,
     }));
   });
 });

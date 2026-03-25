@@ -725,10 +725,18 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM10TrustControls.runCp3SuiteGateProbe({ eventWindowSize, expectedStable })`,
       - `window.obscurM10TrustControls.runCp3SuiteGateProbeJson({ eventWindowSize, expectedStable })`,
       - canonical suite event: `messaging.m10.cp3_suite_gate`,
+    - deterministic CP4 closeout helper APIs are now available on M10 bridge:
+      - `window.obscurM10TrustControls.runCp4CloseoutCapture({ eventWindowSize, expectedStable })`,
+      - `window.obscurM10TrustControls.runCp4CloseoutCaptureJson({ eventWindowSize, expectedStable })`,
+      - `window.obscurM10TrustControls.runCp4CloseoutGateProbe({ eventWindowSize, expectedStable })`,
+      - `window.obscurM10TrustControls.runCp4CloseoutGateProbeJson({ eventWindowSize, expectedStable })`,
+      - canonical closeout event: `messaging.m10.cp4_closeout_gate`,
     - digest now exposes CP3 readiness posture under `summary.m10TrustControls`:
       - `cp3ReadinessGateCount`, pass/fail/unexpected-fail counters, latest CP3 check sample fields,
     - digest now exposes CP3 suite posture under `summary.m10TrustControls`:
       - `cp3SuiteGateCount`, pass/fail/unexpected-fail counters, latest CP3 suite check sample fields,
+    - digest now exposes CP4 closeout posture under `summary.m10TrustControls`:
+      - `cp4CloseoutGateCount`, pass/fail/unexpected-fail counters, latest CP4 closeout check sample fields,
     - app-shell responsiveness hardening landed on canonical owner:
       - `apps/pwa/app/components/app-shell.tsx` now enables a route-mount performance guard after consecutive slow settles and disables transition effects fail-open,
       - emits `navigation.route_mount_performance_guard_enabled` and enriched `navigation.page_transition_effects_disabled` context for deterministic triage,

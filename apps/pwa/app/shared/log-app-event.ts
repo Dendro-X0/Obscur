@@ -90,6 +90,10 @@ type AppEventDiagnosticsApi = Readonly<{
         cp3SuiteGatePassCount: number;
         cp3SuiteGateFailCount: number;
         cp3SuiteGateUnexpectedFailCount: number;
+        cp4CloseoutGateCount: number;
+        cp4CloseoutGatePassCount: number;
+        cp4CloseoutGateFailCount: number;
+        cp4CloseoutGateUnexpectedFailCount: number;
         latestExpectedStable: boolean | null;
         latestPass: boolean | null;
         latestFailedCheckSample: string | null;
@@ -99,6 +103,9 @@ type AppEventDiagnosticsApi = Readonly<{
         latestCp3SuiteExpectedStable: boolean | null;
         latestCp3SuitePass: boolean | null;
         latestCp3SuiteFailedCheckSample: string | null;
+        latestCp4CloseoutExpectedStable: boolean | null;
+        latestCp4CloseoutPass: boolean | null;
+        latestCp4CloseoutFailedCheckSample: string | null;
       }>;
       communityLifecycleConvergence: Readonly<{
         riskLevel: "none" | "watch" | "high";
@@ -423,6 +430,18 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "m10TrustControlsRiskLevel",
     "cp3ReadinessGateCount",
     "cp3ReadinessUnexpectedFailCount",
+  ],
+  "messaging.m10.cp4_closeout_gate": [
+    "expectedStable",
+    "cp4CloseoutPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp3SuitePass",
+    "incomingRequestRiskLevel",
+    "uiResponsivenessRiskLevel",
+    "m10TrustControlsRiskLevel",
+    "cp3SuiteGateCount",
+    "cp3SuiteUnexpectedFailCount",
   ],
   "account_sync.backup_restore_result": [
     "reason",
@@ -1072,6 +1091,30 @@ const installDiagnosticsApi = (): void => {
       const latestM10Cp3SuiteGateFailedCheckSample = toStringOrNull(
         latestM10Cp3SuiteGateEvent?.context?.failedCheckSample,
       );
+      const m10Cp4CloseoutGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.cp4_closeout_gate"
+      ));
+      const m10Cp4CloseoutGateCount = m10Cp4CloseoutGateEvents.length;
+      const m10Cp4CloseoutGatePassCount = m10Cp4CloseoutGateEvents.filter((event) => (
+        event.context?.cp4CloseoutPass === true
+      )).length;
+      const m10Cp4CloseoutGateFailCount = m10Cp4CloseoutGateEvents.filter((event) => (
+        event.context?.cp4CloseoutPass === false
+      )).length;
+      const m10Cp4CloseoutGateUnexpectedFailCount = m10Cp4CloseoutGateEvents.filter((event) => (
+        event.context?.cp4CloseoutPass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10Cp4CloseoutGateEvent = m10Cp4CloseoutGateEvents.at(-1);
+      const latestM10Cp4CloseoutGateExpectedStable = toBooleanOrNull(
+        latestM10Cp4CloseoutGateEvent?.context?.expectedStable,
+      );
+      const latestM10Cp4CloseoutGatePass = toBooleanOrNull(
+        latestM10Cp4CloseoutGateEvent?.context?.cp4CloseoutPass,
+      );
+      const latestM10Cp4CloseoutGateFailedCheckSample = toStringOrNull(
+        latestM10Cp4CloseoutGateEvent?.context?.failedCheckSample,
+      );
       const latestHydratedOutgoingCount = toNumberOrNull(
         latestHydration?.hydratedDmOutgoingCount,
       );
@@ -1499,11 +1542,13 @@ const installDiagnosticsApi = (): void => {
           m10Cp2StabilityGateFailCount > 0
           || m10Cp3ReadinessGateFailCount > 0
           || m10Cp3SuiteGateFailCount > 0
+          || m10Cp4CloseoutGateFailCount > 0
         ),
         high: (
           m10Cp2StabilityGateUnexpectedFailCount > 0
           || m10Cp3ReadinessGateUnexpectedFailCount > 0
           || m10Cp3SuiteGateUnexpectedFailCount > 0
+          || m10Cp4CloseoutGateUnexpectedFailCount > 0
         ),
       });
       const communityLifecycleConvergenceRiskLevel = getRiskLevel({
@@ -1648,6 +1693,10 @@ const installDiagnosticsApi = (): void => {
             cp3SuiteGatePassCount: m10Cp3SuiteGatePassCount,
             cp3SuiteGateFailCount: m10Cp3SuiteGateFailCount,
             cp3SuiteGateUnexpectedFailCount: m10Cp3SuiteGateUnexpectedFailCount,
+            cp4CloseoutGateCount: m10Cp4CloseoutGateCount,
+            cp4CloseoutGatePassCount: m10Cp4CloseoutGatePassCount,
+            cp4CloseoutGateFailCount: m10Cp4CloseoutGateFailCount,
+            cp4CloseoutGateUnexpectedFailCount: m10Cp4CloseoutGateUnexpectedFailCount,
             latestExpectedStable: latestM10Cp2StabilityGateExpectedStable,
             latestPass: latestM10Cp2StabilityGatePass,
             latestFailedCheckSample: latestM10Cp2StabilityGateFailedCheckSample,
@@ -1657,6 +1706,9 @@ const installDiagnosticsApi = (): void => {
             latestCp3SuiteExpectedStable: latestM10Cp3SuiteGateExpectedStable,
             latestCp3SuitePass: latestM10Cp3SuiteGatePass,
             latestCp3SuiteFailedCheckSample: latestM10Cp3SuiteGateFailedCheckSample,
+            latestCp4CloseoutExpectedStable: latestM10Cp4CloseoutGateExpectedStable,
+            latestCp4CloseoutPass: latestM10Cp4CloseoutGatePass,
+            latestCp4CloseoutFailedCheckSample: latestM10Cp4CloseoutGateFailedCheckSample,
           },
           communityLifecycleConvergence: {
             riskLevel: communityLifecycleConvergenceRiskLevel,
