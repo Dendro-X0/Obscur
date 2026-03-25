@@ -581,6 +581,78 @@ describe("m6-voice-replay-bridge", () => {
     ]));
   });
 
+  it("exports deterministic CP4 checkpoint gate probe with nominal pass", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4CheckpointGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
+      };
+      runCp4CheckpointGateProbeJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => string;
+    };
+
+    const gate = replayApi.runCp4CheckpointGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(gate.pass).toBe(true);
+    expect(gate.failedChecks).toEqual([]);
+    expect(gate.checks.longSessionGatePass).toBe(true);
+    expect(gate.checks.gateProbePass).toBe(true);
+    expect(gate.checks.selfTestGatePass).toBe(true);
+    expect(() => JSON.parse(replayApi.runCp4CheckpointGateProbeJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    }))).not.toThrow();
+  });
+
+  it("fails CP4 checkpoint gate probe deterministically when capture summaries are unavailable", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4CheckpointGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
+      };
+    };
+
+    const gate = replayApi.runCp4CheckpointGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(gate.pass).toBe(false);
+    expect(gate.failedChecks).toEqual(expect.arrayContaining([
+      "longSessionGatePass",
+      "gateProbePass",
+      "selfTestGatePass",
+    ]));
+  });
+
   it("exports deterministic CP4 long-session self-test report with compact pass/fail verdict", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -719,6 +791,8 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runLongSessionReplayCapture).toBe("function");
     expect(typeof upgraded?.runCp4CheckpointCapture).toBe("function");
     expect(typeof upgraded?.runCp4CheckpointCaptureJson).toBe("function");
+    expect(typeof upgraded?.runCp4CheckpointGateProbe).toBe("function");
+    expect(typeof upgraded?.runCp4CheckpointGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionSelfTest).toBe("function");

@@ -381,31 +381,34 @@ Canonical matrix:
 15. Long-session CP4 checkpoint bundle (recommended one-copy release-readiness export):
 : `window.obscurM6VoiceReplay?.runCp4CheckpointCapture?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
 : `copy(window.obscurM6VoiceReplay?.runCp4CheckpointCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`
-16. Long-session gate diagnostics event slice:
+16. Long-session CP4 checkpoint gate probe (recommended quick release verdict):
+: `window.obscurM6VoiceReplay?.runCp4CheckpointGateProbe?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
+: `copy(window.obscurM6VoiceReplay?.runCp4CheckpointGateProbeJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`
+17. Long-session gate diagnostics event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.long_session_gate"]`
-17. Long-session gate summary counters:
+18. Long-session gate summary counters:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.longSessionGateCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.longSessionGatePassCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.longSessionGateFailCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.unexpectedLongSessionGateFailCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestLongSessionGatePass`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestLongSessionGateFailedCheckSample`
-18. Transition event slice:
+19. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-19. Unified CP2 summary probes:
+20. Unified CP2 summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.asyncVoiceNote`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.deleteConvergence`
-20. M6 capture unified probes:
+21. M6 capture unified probes:
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.asyncVoiceNoteSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.voiceNoteEvents`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceEvents`
-21. Delete convergence event slices:
+22. Delete convergence event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
-22. Voice-note diagnostics slices:
+23. Voice-note diagnostics slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_start_failed"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_unsupported"]`
-23. One-copy CP2 export bundle (fallback when helper is unavailable):
+24. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -420,7 +423,7 @@ Canonical matrix:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-24. Escalate immediately if:
+25. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
 : transitions show repeated unsupported reasons on a previously supported runtime without capability changes,
 : weak-network `cp2EvidenceGate.pass` is `false` with missing degraded/recovery transition checks,

@@ -551,7 +551,11 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM6VoiceReplay.runCp4CheckpointCapture(...)`,
       - `window.obscurM6VoiceReplay.runCp4CheckpointCaptureJson(...)`,
       with one-copy export of `longSession + gateProbe + selfTest + digestSummary + cp4CheckpointGate`.
-    - stale replay-bridge upgrade guard now requires CP4 checkpoint helper APIs so stale injected bridge objects are auto-upgraded.
+    - compact CP4 checkpoint gate-probe helpers landed:
+      - `window.obscurM6VoiceReplay.runCp4CheckpointGateProbe(...)`,
+      - `window.obscurM6VoiceReplay.runCp4CheckpointGateProbeJson(...)`,
+      for one-call checkpoint verdict export.
+    - stale replay-bridge upgrade guard now requires CP4 checkpoint helper APIs (including checkpoint gate-probe methods) so stale injected bridge objects are auto-upgraded.
     - focused continuation validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.

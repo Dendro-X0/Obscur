@@ -6,6 +6,10 @@
   `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
   - `window.obscurM6VoiceReplay.runCp4CheckpointCapture(...)`,
   - `window.obscurM6VoiceReplay.runCp4CheckpointCaptureJson(...)`.
+- Added compact CP4 checkpoint gate-probe helpers:
+  - `window.obscurM6VoiceReplay.runCp4CheckpointGateProbe(...)`,
+  - `window.obscurM6VoiceReplay.runCp4CheckpointGateProbeJson(...)`,
+  - for one-call checkpoint pass/fail verdict export without full bundle inspection.
 - CP4 checkpoint capture now exports one bundle with:
   - `longSession` replay capture,
   - `gateProbe`,

@@ -297,6 +297,8 @@ type M6VoiceReplayApi = Readonly<{
   runCp4LongSessionSelfTestJson: (params?: M6Cp4LongSessionSelfTestParams) => string;
   runCp4CheckpointCapture: (params?: M6Cp4CheckpointCaptureParams) => M6VoiceCp4CheckpointCaptureBundle;
   runCp4CheckpointCaptureJson: (params?: M6Cp4CheckpointCaptureParams) => string;
+  runCp4CheckpointGateProbe: (params?: M6Cp4CheckpointCaptureParams) => M6VoiceCp4CheckpointCaptureBundle["cp4CheckpointGate"];
+  runCp4CheckpointGateProbeJson: (params?: M6Cp4CheckpointCaptureParams) => string;
   runCp3ReplaySuiteCapture: (params?: Readonly<{
     baseUnixMs?: number;
     captureWindowSize?: number;
@@ -380,6 +382,13 @@ const EMPTY_REPLAY_SUITE_GATE_CHECKS: M6VoiceReplaySuiteGateChecks = {
   accountAsyncVoiceStartFailureCountZero: false,
   weakDeleteRemoteFailureCountZero: false,
   accountDeleteRemoteFailureCountZero: false,
+};
+const EMPTY_CP4_CHECKPOINT_GATE_CHECKS: M6VoiceCp4CheckpointCaptureBundle["cp4CheckpointGate"]["checks"] = {
+  longSessionGatePass: false,
+  gateProbePass: false,
+  selfTestGatePass: false,
+  digestRiskNotHigh: false,
+  digestUnexpectedGateFailZero: false,
 };
 const SUPPORTED_UNSUPPORTED_REASON_CODES = new Set<string>([
   "webrtc_unavailable",
@@ -927,6 +936,8 @@ export const installM6VoiceReplayBridge = (): void => {
     root.obscurM6VoiceReplay
     && typeof root.obscurM6VoiceReplay.runCp4CheckpointCapture === "function"
     && typeof root.obscurM6VoiceReplay.runCp4CheckpointCaptureJson === "function"
+    && typeof root.obscurM6VoiceReplay.runCp4CheckpointGateProbe === "function"
+    && typeof root.obscurM6VoiceReplay.runCp4CheckpointGateProbeJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionGateProbe === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionGateProbeJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionSelfTest === "function"
@@ -1483,6 +1494,20 @@ export const installM6VoiceReplayBridge = (): void => {
     runCp4CheckpointCaptureJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runCp4CheckpointCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runCp4CheckpointGateProbe: (params) => (
+      root.obscurM6VoiceReplay?.runCp4CheckpointCapture(params)?.cp4CheckpointGate ?? {
+        pass: false,
+        failedChecks: ["cp4_checkpoint_capture_unavailable"],
+        checks: EMPTY_CP4_CHECKPOINT_GATE_CHECKS,
+      }
+    ),
+    runCp4CheckpointGateProbeJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runCp4CheckpointGateProbe(params) ?? null,
         null,
         2,
       )
