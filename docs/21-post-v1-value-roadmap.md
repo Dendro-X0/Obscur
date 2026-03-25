@@ -634,6 +634,16 @@ Current execution status (started 2026-03-25):
 35. Cross-device digest now includes CP4 closeout posture under `summary.m10TrustControls`:
 : `cp4CloseoutGateCount`, pass/fail/unexpected-fail counters,
 : latest CP4 closeout expected-stable/pass/failed-check sample.
+36. v1.3 aggregate closeout helper APIs landed on canonical M10 bridge owner:
+: `window.obscurM10TrustControls.runV130CloseoutCapture(...)`,
+: `window.obscurM10TrustControls.runV130CloseoutCaptureJson(...)`,
+: `window.obscurM10TrustControls.runV130CloseoutGateProbe(...)`,
+: `window.obscurM10TrustControls.runV130CloseoutGateProbeJson(...)`.
+37. Canonical v1.3 aggregate closeout diagnostics event now emits from the same owner path:
+: `messaging.m10.v130_closeout_gate`.
+38. Cross-device digest now includes v1.3 aggregate closeout posture under `summary.m10TrustControls`:
+: `v130CloseoutGateCount`, pass/fail/unexpected-fail counters,
+: latest v1.3 closeout expected-stable/pass/failed-check sample.
 
 ## Version-Bound Execution
 

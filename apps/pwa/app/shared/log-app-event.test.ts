@@ -2698,4 +2698,78 @@ describe("logAppEvent", () => {
       latestCp4CloseoutFailedCheckSample: null,
     }));
   });
+
+  it("tracks m10 v130 closeout gate pass/fail counters in digest summary", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.m10.v130_closeout_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        v130CloseoutPass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "cp4CloseoutUnexpectedFailCountZero",
+        cp4CloseoutPass: false,
+        m10TrustControlsRiskLevel: "high",
+        cp4CloseoutGateCount: 1,
+        cp4CloseoutUnexpectedFailCount: 1,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+    logAppEvent({
+      name: "messaging.m10.v130_closeout_gate",
+      level: "info",
+      context: {
+        expectedStable: false,
+        v130CloseoutPass: true,
+        failedCheckCount: 0,
+        failedCheckSample: null,
+        cp4CloseoutPass: true,
+        m10TrustControlsRiskLevel: "watch",
+        cp4CloseoutGateCount: 2,
+        cp4CloseoutUnexpectedFailCount: 0,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+        summary: {
+          m10TrustControls: {
+            riskLevel: "none" | "watch" | "high";
+            v130CloseoutGateCount: number;
+            v130CloseoutGatePassCount: number;
+            v130CloseoutGateFailCount: number;
+            v130CloseoutGateUnexpectedFailCount: number;
+            latestV130CloseoutExpectedStable: boolean | null;
+            latestV130CloseoutPass: boolean | null;
+            latestV130CloseoutFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.m10.v130_closeout_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      v130CloseoutPass: false,
+      failedCheckCount: 1,
+      failedCheckSample: "cp4CloseoutUnexpectedFailCountZero",
+      cp4CloseoutPass: false,
+      m10TrustControlsRiskLevel: "high",
+      cp4CloseoutGateCount: 1,
+      cp4CloseoutUnexpectedFailCount: 1,
+    }));
+    expect(digest.events["messaging.m10.v130_closeout_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.summary.m10TrustControls).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      v130CloseoutGateCount: 2,
+      v130CloseoutGatePassCount: 1,
+      v130CloseoutGateFailCount: 1,
+      v130CloseoutGateUnexpectedFailCount: 1,
+      latestV130CloseoutExpectedStable: false,
+      latestV130CloseoutPass: true,
+      latestV130CloseoutFailedCheckSample: null,
+    }));
+  });
 });

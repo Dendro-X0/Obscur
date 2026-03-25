@@ -496,6 +496,17 @@ Current checkpoint progress (2026-03-25):
 27. Cross-device digest now includes CP4 closeout posture in
 : `summary.m10TrustControls.cp4CloseoutGate*`
 : plus latest CP4 closeout expected-stable/pass/check-sample fields.
+28. v1.3 aggregate closeout helper APIs landed on canonical M10 bridge owner:
+: `window.obscurM10TrustControls.runV130CloseoutCapture({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130CloseoutCaptureJson({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130CloseoutGateProbe({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130CloseoutGateProbeJson({ eventWindowSize, expectedStable })`.
+29. v1.3 aggregate closeout helper emits canonical compact diagnostics event:
+: `messaging.m10.v130_closeout_gate`
+: with explicit aggregate pass/fail and failed-check sample posture over CP4 closeout evidence.
+30. Cross-device digest now includes v1.3 aggregate closeout posture in
+: `summary.m10TrustControls.v130CloseoutGate*`
+: plus latest v1.3 closeout expected-stable/pass/check-sample fields.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,
