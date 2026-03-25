@@ -325,9 +325,10 @@ Current checkpoint progress (2026-03-25):
 : `messaging.realtime_voice.cp4_release_evidence_gate`,
 : `messaging.realtime_voice.v120_closeout_gate`.
 5. A separate relay runtime performance gate informational warning was observed with insufficient sample counts, but it did not invalidate the secure-voice closeout gate because the canonical `v120_closeout_gate` remained green on the same replay window.
-6. Remaining work for `v1.2.0` is now release-closeout only:
-: strict release pack/preflight on clean `main`,
-: then tag/publish once those gates pass.
+6. `v1.2.0` release closeout is complete:
+: `release:test-pack` and strict `release:preflight` both passed on clean `main`,
+: tag `v1.2.0` is published,
+: GitHub Release `v1.2.0` is live.
 
 Mandatory release gates:
 1. `pnpm version:check`
@@ -352,6 +353,16 @@ Scope:
 Evidence:
 1. anti-abuse decision tests with deterministic reason-code snapshots,
 2. policy toggles verified without owner overlap.
+
+Current checkpoint progress (2026-03-25):
+1. `v1.2.1` is now started with docs-first scope lock for `M10` CP1.
+2. Roadmap/status/changelog synchronization now reflects:
+: `v1.2.0` published and `M10` as the active lane.
+3. Release-tracked version manifests are aligned to `1.2.1` for the new execution lane.
+4. Next CP1 implementation focus is locked:
+: signed shared-intel + relay-risk contract scaffolding,
+: local-first attack-mode safety toggles with explicit reason codes,
+: strict no-central-moderation/no-plaintext-scanning boundary enforcement.
 
 ### v1.2.2 (M10-CP2)
 

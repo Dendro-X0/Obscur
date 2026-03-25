@@ -647,10 +647,18 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `messaging.realtime_voice.cp4_release_evidence_gate`,
       - `messaging.realtime_voice.v120_closeout_gate`.
     - separate relay runtime performance-gate telemetry reported `performanceGateStatus: "warn"` with insufficient sample counts, but this was informational and did not invalidate the secure-voice closeout gate because the canonical closeout verdict stayed green.
-    - remaining work before publishing `v1.2.0`:
-      - `pnpm release:test-pack -- --skip-preflight`,
-      - `pnpm release:preflight -- --tag v1.2.0`,
-      - tag/release publish after clean-tree gates pass.
+    - `v1.2.0` release closeout is complete:
+      - `pnpm release:test-pack -- --skip-preflight` passed,
+      - `pnpm release:preflight -- --tag v1.2.0` passed on clean tree,
+      - tag `v1.2.0` published and GitHub Release is live.
+  - `v1.2.1` started (`M10` CP1 lane):
+    - docs-first scope lock is active for anti-abuse intelligence + trust controls,
+    - roadmap/changelog/issues are synchronized with `v1.2.0` release completion,
+    - release-tracked version alignment moved to `1.2.1`,
+    - next CP1 implementation targets are locked:
+      - signed shared-intel + relay-risk contract scaffolding,
+      - local-first attack-mode safety toggles with explicit reason codes,
+      - strict no-central-moderation/no-plaintext-scanning boundary enforcement.
 
 ## v1 Readiness Status
 

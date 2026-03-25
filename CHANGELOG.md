@@ -2,6 +2,9 @@
 
 ### Changed
 
+- Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
+- Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
+- Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.
 - Started `v1.1.6` (`M9` `CP4` continuation lane) with deterministic CP4 checkpoint capture helpers in
   `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
   - `window.obscurM6VoiceReplay.runCp4CheckpointCapture(...)`,
