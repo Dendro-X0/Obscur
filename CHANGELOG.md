@@ -14,6 +14,9 @@
     - transition volume and repeated degrade/recover convergence,
     - no unexpected terminal end/recovery exhaustion on nominal soak,
     - unified async voice-note and delete-convergence health signals.
+  - long-session capture now emits deterministic gate diagnostics events:
+    - `messaging.realtime_voice.long_session_gate`
+    with CP4 pass/fail and failed-check context for digest-driven triage.
   - CP4 self-test output now provides compact nominal-vs-failure verdict:
     - nominal lane must pass CP4 readiness,
     - failure-injection lane must fail with `recovery_exhausted` signal coverage.

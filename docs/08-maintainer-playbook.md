@@ -375,22 +375,24 @@ Canonical matrix:
 13. Long-session CP4 compact self-test probe:
 : `window.obscurM6VoiceReplay?.runCp4LongSessionSelfTest?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
 : `copy(window.obscurM6VoiceReplay?.runCp4LongSessionSelfTestJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`
-14. Transition event slice:
+14. Long-session gate diagnostics event slice:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.long_session_gate"]`
+15. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-15. Unified CP2 summary probes:
+16. Unified CP2 summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.asyncVoiceNote`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.deleteConvergence`
-16. M6 capture unified probes:
+17. M6 capture unified probes:
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.asyncVoiceNoteSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.voiceNoteEvents`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceEvents`
-17. Delete convergence event slices:
+18. Delete convergence event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
-18. Voice-note diagnostics slices:
+19. Voice-note diagnostics slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_start_failed"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_unsupported"]`
-19. One-copy CP2 export bundle (fallback when helper is unavailable):
+20. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -404,7 +406,7 @@ Canonical matrix:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-20. Escalate immediately if:
+21. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
 : transitions show repeated unsupported reasons on a previously supported runtime without capability changes,
 : weak-network `cp2EvidenceGate.pass` is `false` with missing degraded/recovery transition checks,

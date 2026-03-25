@@ -5,6 +5,7 @@ import {
   type RealtimeVoiceSessionState,
 } from "@/app/features/messaging/services/realtime-voice-session-lifecycle";
 import { createRealtimeVoiceSessionOwner } from "@/app/features/messaging/services/realtime-voice-session-owner";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import type { M6VoiceCaptureBundle } from "@/app/shared/m6-voice-capture";
 
 type M6WeakNetworkReplayParams = Readonly<{
@@ -658,6 +659,36 @@ const buildCp4LongSessionSelfTestGate = (params: Readonly<{
   return buildBooleanGate(checks);
 };
 
+const emitCp4LongSessionGateDiagnostic = (params: Readonly<{
+  replay: M6VoiceReplayResult | null;
+  replayConfig: M6VoiceLongSessionReplayCaptureBundle["replayConfig"];
+  gate: M6VoiceCp4ReadinessGate;
+}>): void => {
+  const failedChecks = params.gate.failedChecks;
+  const finalState = params.replay?.finalState ?? null;
+  logAppEvent({
+    name: "messaging.realtime_voice.long_session_gate",
+    level: params.gate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      cp4Pass: params.gate.pass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      cycleCount: params.replayConfig.cycleCount,
+      injectRecoveryExhausted: params.replayConfig.injectRecoveryExhausted,
+      finalPhase: finalState?.phase ?? null,
+      finalReasonCode: finalState?.lastTransitionReasonCode ?? null,
+      transitionEventCount: params.replay?.transitionEventCount ?? 0,
+      degradedTransitionCount: params.replay?.degradedTransitionCount ?? 0,
+      recoveredActiveTransitionCount: params.replay?.recoveredActiveTransitionCount ?? 0,
+      endedTransitionCount: params.replay?.endedTransitionCount ?? 0,
+      digestRecoveryExhaustedCount: params.replay?.latestDigestSummary?.recoveryExhaustedCount ?? null,
+      digestRiskLevel: params.replay?.latestDigestSummary?.riskLevel ?? null,
+      replayReadinessReadyForCp2: params.replay?.replayReadiness?.readyForCp2Evidence === true,
+    },
+  });
+};
+
 const buildReplaySuiteGate = (params: Readonly<{
   weakNetwork: M6VoiceReplayCaptureBundle;
   accountSwitch: M6VoiceReplayCaptureBundle;
@@ -1116,18 +1147,25 @@ export const installM6VoiceReplayBridge = (): void => {
       });
       const replay = lastReplay;
       const capture = root.obscurM6VoiceCapture?.capture?.(captureWindowSize) ?? null;
+      const replayConfig = {
+        cycleCount,
+        injectRecoveryExhausted,
+      } as const;
+      const cp4ReadinessGate = buildCp4ReadinessGate({
+        replay,
+        capture,
+        cycleCount,
+      });
+      emitCp4LongSessionGateDiagnostic({
+        replay,
+        replayConfig,
+        gate: cp4ReadinessGate,
+      });
       return {
         replay,
         capture,
-        replayConfig: {
-          cycleCount,
-          injectRecoveryExhausted,
-        },
-        cp4ReadinessGate: buildCp4ReadinessGate({
-          replay,
-          capture,
-          cycleCount,
-        }),
+        replayConfig,
+        cp4ReadinessGate,
       };
     },
     runLongSessionReplayCaptureJson: (params) => (

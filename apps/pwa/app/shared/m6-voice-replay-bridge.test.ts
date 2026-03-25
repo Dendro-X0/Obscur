@@ -338,6 +338,18 @@ describe("m6-voice-replay-bridge", () => {
     expect(bundle.cp4ReadinessGate.checks.finalPhaseActive).toBe(true);
     expect(bundle.cp4ReadinessGate.checks.recoveredTransitionsSufficient).toBe(true);
     expect(bundle.cp4ReadinessGate.checks.endedTransitionsZero).toBe(true);
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const cp4Events = diagnosticsApi.findByName("messaging.realtime_voice.long_session_gate", 20);
+    expect(cp4Events.length).toBeGreaterThanOrEqual(1);
+    expect(cp4Events.at(-1)?.context).toEqual(expect.objectContaining({
+      cp4Pass: true,
+      injectRecoveryExhausted: false,
+      finalPhase: "active",
+    }));
     expect(() => JSON.parse(replayApi.runLongSessionReplayCaptureJson({
       clearAppEvents: true,
       captureWindowSize: 300,
@@ -390,6 +402,19 @@ describe("m6-voice-replay-bridge", () => {
       "endedTransitionsZero",
       "digestRecoveryExhaustedZero",
     ]));
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const cp4Events = diagnosticsApi.findByName("messaging.realtime_voice.long_session_gate", 20);
+    expect(cp4Events.length).toBeGreaterThanOrEqual(1);
+    expect(cp4Events.at(-1)?.context).toEqual(expect.objectContaining({
+      cp4Pass: false,
+      injectRecoveryExhausted: true,
+      finalPhase: "ended",
+      finalReasonCode: "recovery_exhausted",
+    }));
   });
 
   it("exports deterministic CP4 long-session self-test report with compact pass/fail verdict", () => {
