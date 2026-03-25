@@ -359,10 +359,27 @@ Current checkpoint progress (2026-03-25):
 2. Roadmap/status/changelog synchronization now reflects:
 : `v1.2.0` published and `M10` as the active lane.
 3. Release-tracked version manifests are aligned to `1.2.1` for the new execution lane.
-4. Next CP1 implementation focus is locked:
-: signed shared-intel + relay-risk contract scaffolding,
-: local-first attack-mode safety toggles with explicit reason codes,
-: strict no-central-moderation/no-plaintext-scanning boundary enforcement.
+4. Canonical CP1 shared-intel + relay-risk contract owner is now landed:
+: `apps/pwa/app/features/messaging/services/m10-shared-intel-policy.ts`.
+5. New CP1 contract surfaces are now explicit and typed:
+: signed shared-intel signal schema (`obscur.m10.shared_intel.v1`),
+: signature-verified relay/peer risk evaluation,
+: local-first attack-mode safety profile toggles (`standard|strict`),
+: strict no-plaintext-boundary enforcement via contract metadata checks.
+6. Canonical incoming request anti-abuse owner now consumes CP1 policy decisions:
+: `apps/pwa/app/features/messaging/services/incoming-request-anti-abuse.ts`,
+: with explicit reason-coded outcomes:
+: `attack_mode_strict_relay_high_risk`,
+: `attack_mode_peer_shared_intel_blocked`,
+: `attack_mode_contract_violation`.
+7. Incoming quarantine diagnostics and Requests Inbox anti-spam summaries now include the new CP1 reason-code family:
+: `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`,
+: `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.ts`,
+: `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`.
+8. Focused CP1 validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.2.2 (M10-CP2)
 

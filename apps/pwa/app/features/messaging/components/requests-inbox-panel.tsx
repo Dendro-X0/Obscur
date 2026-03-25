@@ -111,6 +111,21 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                                         global rate limit: {quarantineSummary.byReason.incoming_connection_request_global_rate_limited}
                                     </span>
                                 )}
+                                {quarantineSummary.byReason.incoming_connection_request_attack_mode_strict_relay_high_risk > 0 && (
+                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                        strict relay risk: {quarantineSummary.byReason.incoming_connection_request_attack_mode_strict_relay_high_risk}
+                                    </span>
+                                )}
+                                {quarantineSummary.byReason.incoming_connection_request_attack_mode_peer_shared_intel_blocked > 0 && (
+                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                        shared-intel peer block: {quarantineSummary.byReason.incoming_connection_request_attack_mode_peer_shared_intel_blocked}
+                                    </span>
+                                )}
+                                {quarantineSummary.byReason.incoming_connection_request_attack_mode_contract_violation > 0 && (
+                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                        contract boundary: {quarantineSummary.byReason.incoming_connection_request_attack_mode_contract_violation}
+                                    </span>
+                                )}
                             </div>
                             {quarantineSummary.recent.length > 0 && (
                                 <div className="mt-2 space-y-1">
@@ -170,7 +185,10 @@ interface RequestItemRowProps {
         latestReasonCode:
             | "incoming_connection_request_peer_rate_limited"
             | "incoming_connection_request_peer_cooldown_active"
-            | "incoming_connection_request_global_rate_limited";
+            | "incoming_connection_request_global_rate_limited"
+            | "incoming_connection_request_attack_mode_strict_relay_high_risk"
+            | "incoming_connection_request_attack_mode_peer_shared_intel_blocked"
+            | "incoming_connection_request_attack_mode_contract_violation";
         lastAtUnixMs: number;
     }> | null;
     nowMs: number;
@@ -193,12 +211,24 @@ const quarantineReasonLabel = (
         | "incoming_connection_request_peer_rate_limited"
         | "incoming_connection_request_peer_cooldown_active"
         | "incoming_connection_request_global_rate_limited"
+        | "incoming_connection_request_attack_mode_strict_relay_high_risk"
+        | "incoming_connection_request_attack_mode_peer_shared_intel_blocked"
+        | "incoming_connection_request_attack_mode_contract_violation"
 ): string => {
     if (reasonCode === "incoming_connection_request_peer_rate_limited") {
         return "sender rate-limited";
     }
     if (reasonCode === "incoming_connection_request_peer_cooldown_active") {
         return "sender cooldown active";
+    }
+    if (reasonCode === "incoming_connection_request_attack_mode_strict_relay_high_risk") {
+        return "strict mode relay risk";
+    }
+    if (reasonCode === "incoming_connection_request_attack_mode_peer_shared_intel_blocked") {
+        return "strict mode shared-intel block";
+    }
+    if (reasonCode === "incoming_connection_request_attack_mode_contract_violation") {
+        return "contract boundary blocked";
     }
     return "global anti-spam limit";
 };

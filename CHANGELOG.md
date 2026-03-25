@@ -2,6 +2,21 @@
 
 ### Changed
 
+- Landed `v1.2.1` (`M10` `CP1`) canonical shared-intel/relay-risk policy contracts in
+  `apps/pwa/app/features/messaging/services/m10-shared-intel-policy.ts`:
+  - typed signed shared-intel schema (`obscur.m10.shared_intel.v1`),
+  - signature-verified relay/peer risk evaluation,
+  - local-first attack-mode profile toggles (`standard|strict`),
+  - strict no-plaintext scanning boundary enforcement at contract inputs.
+- Wired CP1 policy decisions into canonical incoming request anti-abuse owner:
+  `apps/pwa/app/features/messaging/services/incoming-request-anti-abuse.ts`,
+  with explicit reason-coded strict-mode outcomes:
+  `attack_mode_strict_relay_high_risk`,
+  `attack_mode_peer_shared_intel_blocked`,
+  `attack_mode_contract_violation`.
+- Extended request-quarantine UX summaries/badges for new CP1 strict-mode reasons in:
+  `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.ts`
+  and `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`.
 - Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
 - Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
 - Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.

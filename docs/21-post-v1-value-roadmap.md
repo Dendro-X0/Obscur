@@ -522,6 +522,24 @@ Acceptance:
 2. no plaintext-content scanning or centralized moderation path is introduced,
 3. long-session soak replay shows no route-freeze/blank-page regression class in release evidence.
 
+Current execution status (started 2026-03-25):
+1. CP1 shared-intel/relay-risk contracts landed on canonical messaging anti-abuse owner path:
+: `apps/pwa/app/features/messaging/services/m10-shared-intel-policy.ts`.
+2. Contract boundaries now enforce strict no-plaintext-scanning inputs:
+: any payload metadata containing plaintext-like keys is treated as an explicit contract violation with reason-coded outcome.
+3. Local-first attack-mode safety profile toggles are available with deterministic policy gates:
+: `standard|strict` profile evaluation plus explicit reason codes for allow/block decisions.
+4. Canonical incoming request anti-abuse owner now consumes CP1 policy outcomes:
+: `apps/pwa/app/features/messaging/services/incoming-request-anti-abuse.ts`,
+: including reason-coded strict-mode quarantines for relay high-risk and signed peer blocks.
+5. Requests Inbox anti-spam summary + badges now include CP1 strict-mode quarantine reason codes:
+: `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.ts`,
+: `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`.
+6. Focused CP1 validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+
 ## Version-Bound Execution
 
 1. Completed one-milestone-per-version sequence:

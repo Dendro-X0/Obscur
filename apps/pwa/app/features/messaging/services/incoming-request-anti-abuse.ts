@@ -1,10 +1,23 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import {
+  evaluateIncomingRequestAttackModeGate,
+  evaluateSignedSharedIntelRelayRisk,
+  getAttackModeSafetyProfile,
+  type AttackModeGateReasonCode,
+  type AttackModeSafetyProfile,
+  type RelayRiskLevel,
+  type SignedSharedIntelSignal,
+  type SharedIntelSignatureVerifier,
+} from "./m10-shared-intel-policy";
 
 type IncomingRequestAntiAbuseDecisionCode =
   | "allowed"
   | "peer_rate_limited"
   | "peer_cooldown_active"
-  | "global_rate_limited";
+  | "global_rate_limited"
+  | "attack_mode_strict_relay_high_risk"
+  | "attack_mode_peer_shared_intel_blocked"
+  | "attack_mode_contract_violation";
 
 export type IncomingRequestAntiAbuseDecision = Readonly<{
   allowed: boolean;
@@ -16,6 +29,13 @@ export type IncomingRequestAntiAbuseDecision = Readonly<{
   windowMs: number;
   peerCooldownMs: number;
   cooldownRemainingMs: number | null;
+  attackModeSafetyProfile: AttackModeSafetyProfile;
+  attackModeReasonCode: AttackModeGateReasonCode;
+  relayRiskScore: number;
+  relayRiskLevel: RelayRiskLevel;
+  relayRiskReasonCode: string;
+  sharedIntelMatchedSignalCount: number;
+  sharedIntelIgnoredSignalCount: number;
 }>;
 
 type IncomingRequestAntiAbuseState = Readonly<{
@@ -108,8 +128,67 @@ const withPeerCooldown = (
 export const evaluateIncomingRequestAntiAbuse = (params: Readonly<{
   peerPublicKeyHex: PublicKeyHex;
   nowUnixMs?: number;
+  relayUrl?: string | null;
+  localRelayRiskScore?: number;
+  attackModeSafetyProfile?: AttackModeSafetyProfile;
+  sharedIntelSignals?: ReadonlyArray<SignedSharedIntelSignal>;
+  sharedIntelSignatureVerifier?: SharedIntelSignatureVerifier | null;
 }>): IncomingRequestAntiAbuseDecision => {
   const nowUnixMs = params.nowUnixMs ?? Date.now();
+  const attackModeSafetyProfile = params.attackModeSafetyProfile ?? getAttackModeSafetyProfile();
+  const relayRisk = evaluateSignedSharedIntelRelayRisk({
+    relayUrl: params.relayUrl ?? null,
+    peerPublicKeyHex: params.peerPublicKeyHex,
+    localRelayRiskScore: params.localRelayRiskScore ?? 0,
+    sharedIntelSignals: params.sharedIntelSignals,
+    signatureVerifier: params.sharedIntelSignatureVerifier ?? undefined,
+    nowUnixMs,
+    payloadMetadata: {
+      peerPublicKeyHex: params.peerPublicKeyHex,
+      relayUrl: params.relayUrl ?? null,
+      localRelayRiskScore: params.localRelayRiskScore ?? 0,
+    },
+  });
+  const attackModeDecision = evaluateIncomingRequestAttackModeGate({
+    safetyProfile: attackModeSafetyProfile,
+    relayRiskLevel: relayRisk.relayRiskLevel,
+    peerBlockedBySharedIntel: relayRisk.peerBlockedBySharedIntel,
+    contractViolationDetected: relayRisk.contractViolationDetected,
+  });
+  const mapAttackModeReasonCode = (
+    reasonCode: AttackModeGateReasonCode,
+  ): IncomingRequestAntiAbuseDecisionCode => {
+    if (reasonCode === "blocked_strict_mode_peer_shared_intel") {
+      return "attack_mode_peer_shared_intel_blocked";
+    }
+    if (reasonCode === "blocked_strict_mode_contract_violation") {
+      return "attack_mode_contract_violation";
+    }
+    if (reasonCode === "blocked_strict_mode_relay_high_risk") {
+      return "attack_mode_strict_relay_high_risk";
+    }
+    return "allowed";
+  };
+  if (!attackModeDecision.allowed) {
+    return {
+      allowed: false,
+      reasonCode: mapAttackModeReasonCode(attackModeDecision.reasonCode),
+      peerWindowCount: 0,
+      globalWindowCount: 0,
+      peerLimit: PEER_LIMIT,
+      globalLimit: GLOBAL_LIMIT,
+      windowMs: WINDOW_MS,
+      peerCooldownMs: PEER_COOLDOWN_MS,
+      cooldownRemainingMs: null,
+      attackModeSafetyProfile,
+      attackModeReasonCode: attackModeDecision.reasonCode,
+      relayRiskScore: relayRisk.relayRiskScore,
+      relayRiskLevel: relayRisk.relayRiskLevel,
+      relayRiskReasonCode: relayRisk.relayRiskReasonCode,
+      sharedIntelMatchedSignalCount: relayRisk.matchedSignalCount,
+      sharedIntelIgnoredSignalCount: relayRisk.ignoredSignalCount,
+    };
+  }
   const rawState = getState();
   const state: IncomingRequestAntiAbuseState = {
     globalEventUnixMs: pruneEventWindow(rawState.globalEventUnixMs, nowUnixMs),
@@ -133,6 +212,13 @@ export const evaluateIncomingRequestAntiAbuse = (params: Readonly<{
       windowMs: WINDOW_MS,
       peerCooldownMs: PEER_COOLDOWN_MS,
       cooldownRemainingMs: Math.max(0, activeCooldownUntilUnixMs - nowUnixMs),
+      attackModeSafetyProfile,
+      attackModeReasonCode: attackModeDecision.reasonCode,
+      relayRiskScore: relayRisk.relayRiskScore,
+      relayRiskLevel: relayRisk.relayRiskLevel,
+      relayRiskReasonCode: relayRisk.relayRiskReasonCode,
+      sharedIntelMatchedSignalCount: relayRisk.matchedSignalCount,
+      sharedIntelIgnoredSignalCount: relayRisk.ignoredSignalCount,
     };
   }
 
@@ -152,6 +238,13 @@ export const evaluateIncomingRequestAntiAbuse = (params: Readonly<{
       windowMs: WINDOW_MS,
       peerCooldownMs: PEER_COOLDOWN_MS,
       cooldownRemainingMs: PEER_COOLDOWN_MS,
+      attackModeSafetyProfile,
+      attackModeReasonCode: attackModeDecision.reasonCode,
+      relayRiskScore: relayRisk.relayRiskScore,
+      relayRiskLevel: relayRisk.relayRiskLevel,
+      relayRiskReasonCode: relayRisk.relayRiskReasonCode,
+      sharedIntelMatchedSignalCount: relayRisk.matchedSignalCount,
+      sharedIntelIgnoredSignalCount: relayRisk.ignoredSignalCount,
     };
   }
 
@@ -167,6 +260,13 @@ export const evaluateIncomingRequestAntiAbuse = (params: Readonly<{
       windowMs: WINDOW_MS,
       peerCooldownMs: PEER_COOLDOWN_MS,
       cooldownRemainingMs: null,
+      attackModeSafetyProfile,
+      attackModeReasonCode: attackModeDecision.reasonCode,
+      relayRiskScore: relayRisk.relayRiskScore,
+      relayRiskLevel: relayRisk.relayRiskLevel,
+      relayRiskReasonCode: relayRisk.relayRiskReasonCode,
+      sharedIntelMatchedSignalCount: relayRisk.matchedSignalCount,
+      sharedIntelIgnoredSignalCount: relayRisk.ignoredSignalCount,
     };
   }
 
@@ -181,6 +281,13 @@ export const evaluateIncomingRequestAntiAbuse = (params: Readonly<{
     windowMs: WINDOW_MS,
     peerCooldownMs: PEER_COOLDOWN_MS,
     cooldownRemainingMs: null,
+    attackModeSafetyProfile,
+    attackModeReasonCode: attackModeDecision.reasonCode,
+    relayRiskScore: relayRisk.relayRiskScore,
+    relayRiskLevel: relayRisk.relayRiskLevel,
+    relayRiskReasonCode: relayRisk.relayRiskReasonCode,
+    sharedIntelMatchedSignalCount: relayRisk.matchedSignalCount,
+    sharedIntelIgnoredSignalCount: relayRisk.ignoredSignalCount,
   };
 };
 

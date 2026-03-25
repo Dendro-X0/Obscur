@@ -884,6 +884,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
           }
           const antiAbuseDecision = evaluateIncomingRequestAntiAbuse({
             peerPublicKeyHex: actualSenderPubkey,
+            relayUrl,
           });
           if (!antiAbuseDecision.allowed) {
             incrementAbuseMetric("request_receive_suppressed");
@@ -913,6 +914,13 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
                 windowMs: antiAbuseDecision.windowMs,
                 peerCooldownMs: antiAbuseDecision.peerCooldownMs,
                 cooldownRemainingMs: antiAbuseDecision.cooldownRemainingMs,
+                attackModeSafetyProfile: antiAbuseDecision.attackModeSafetyProfile,
+                attackModeReasonCode: antiAbuseDecision.attackModeReasonCode,
+                relayRiskScore: antiAbuseDecision.relayRiskScore,
+                relayRiskLevel: antiAbuseDecision.relayRiskLevel,
+                relayRiskReasonCode: antiAbuseDecision.relayRiskReasonCode,
+                sharedIntelMatchedSignalCount: antiAbuseDecision.sharedIntelMatchedSignalCount,
+                sharedIntelIgnoredSignalCount: antiAbuseDecision.sharedIntelIgnoredSignalCount,
               },
             });
             return;

@@ -1,7 +1,10 @@
 type QuarantineReasonCode =
   | "incoming_connection_request_peer_rate_limited"
   | "incoming_connection_request_peer_cooldown_active"
-  | "incoming_connection_request_global_rate_limited";
+  | "incoming_connection_request_global_rate_limited"
+  | "incoming_connection_request_attack_mode_strict_relay_high_risk"
+  | "incoming_connection_request_attack_mode_peer_shared_intel_blocked"
+  | "incoming_connection_request_attack_mode_contract_violation";
 
 type QuarantineEvent = Readonly<{
   atUnixMs?: number;
@@ -33,6 +36,9 @@ const DEFAULT_SUMMARY: IncomingRequestQuarantineSummary = {
     incoming_connection_request_peer_rate_limited: 0,
     incoming_connection_request_peer_cooldown_active: 0,
     incoming_connection_request_global_rate_limited: 0,
+    incoming_connection_request_attack_mode_strict_relay_high_risk: 0,
+    incoming_connection_request_attack_mode_peer_shared_intel_blocked: 0,
+    incoming_connection_request_attack_mode_contract_violation: 0,
   },
   byPeerPrefix: {},
   recent: [],
@@ -42,6 +48,9 @@ const isQuarantineReasonCode = (value: unknown): value is QuarantineReasonCode =
   value === "incoming_connection_request_peer_rate_limited"
   || value === "incoming_connection_request_peer_cooldown_active"
   || value === "incoming_connection_request_global_rate_limited"
+  || value === "incoming_connection_request_attack_mode_strict_relay_high_risk"
+  || value === "incoming_connection_request_attack_mode_peer_shared_intel_blocked"
+  || value === "incoming_connection_request_attack_mode_contract_violation"
 );
 
 const normalizePeerPrefix = (value: unknown): string | null => {
@@ -67,6 +76,9 @@ export const summarizeIncomingRequestQuarantineEvents = (
     incoming_connection_request_peer_rate_limited: 0,
     incoming_connection_request_peer_cooldown_active: 0,
     incoming_connection_request_global_rate_limited: 0,
+    incoming_connection_request_attack_mode_strict_relay_high_risk: 0,
+    incoming_connection_request_attack_mode_peer_shared_intel_blocked: 0,
+    incoming_connection_request_attack_mode_contract_violation: 0,
   };
   const byPeerPrefix: Record<string, {
     count: number;

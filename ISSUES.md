@@ -1,6 +1,6 @@
 # Issue Status Snapshot (Post-v1 Monitoring and Release Continuation)
 
-Last updated: 2026-03-24
+Last updated: 2026-03-25
 
 This file tracks runtime issue status for post-v1 release continuation and stabilization monitoring.
 
@@ -655,10 +655,21 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - docs-first scope lock is active for anti-abuse intelligence + trust controls,
     - roadmap/changelog/issues are synchronized with `v1.2.0` release completion,
     - release-tracked version alignment moved to `1.2.1`,
-    - next CP1 implementation targets are locked:
-      - signed shared-intel + relay-risk contract scaffolding,
-      - local-first attack-mode safety toggles with explicit reason codes,
-      - strict no-central-moderation/no-plaintext-scanning boundary enforcement.
+    - CP1 shared-intel/relay-risk contract owner is now landed:
+      - `app/features/messaging/services/m10-shared-intel-policy.ts`,
+    - contract boundaries now hard-fail plaintext-like payload metadata with explicit reason code:
+      - `contract_violation_plaintext_boundary`,
+    - local-first attack-mode safety toggle contracts are now active:
+      - `standard|strict` profile gates with deterministic allow/block reason codes,
+    - canonical incoming-request anti-abuse owner now consumes CP1 policy decisions:
+      - `attack_mode_strict_relay_high_risk`,
+      - `attack_mode_peer_shared_intel_blocked`,
+      - `attack_mode_contract_violation`,
+    - requests inbox anti-spam summary now includes strict-mode quarantine reason counters/badges,
+    - focused CP1 validation is green:
+      - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
+      - `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,
+      - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 
