@@ -84,6 +84,24 @@
   - `voice.releaseReadinessGateEvents`,
   - `voice.releaseEvidenceGateEvents`,
   for faster operator handoff without ad-hoc event queries.
+- Added deterministic `v1.2.0` closeout helper set in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `window.obscurM6VoiceReplay.runV120CloseoutCapture(...)`,
+  - `window.obscurM6VoiceReplay.runV120CloseoutCaptureJson(...)`,
+  - `window.obscurM6VoiceReplay.runV120CloseoutGateProbe(...)`,
+  - `window.obscurM6VoiceReplay.runV120CloseoutGateProbeJson(...)`,
+  - closeout output now composes CP3 replay-suite evidence + CP4 release-evidence packet into one aggregate gate for `v1.2.0` checkpoint triage.
+- Added canonical closeout diagnostics event emission:
+  - `messaging.realtime_voice.v120_closeout_gate`.
+- Cross-device digest realtime voice summary now surfaces closeout-gate posture:
+  - `closeoutGateCount`,
+  - `closeoutGatePassCount`,
+  - `closeoutGateFailCount`,
+  - `unexpectedCloseoutGateFailCount`,
+  - `latestCloseoutGatePass`,
+  - `latestCloseoutGateFailedCheckSample`.
+- Extended one-copy `m6-voice-capture` CP4 event coverage with:
+  - `voice.closeoutGateEvents`.
 
 ## [v1.1.5] - 2026-03-24
 

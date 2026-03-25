@@ -416,6 +416,7 @@ Canonical matrix:
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.checkpointGateEvents`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.releaseReadinessGateEvents`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.releaseEvidenceGateEvents`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.closeoutGateEvents`
 24. CP4 release-readiness one-copy bundle (recommended for operator handoff):
 : `window.obscurM6VoiceReplay?.runCp4ReleaseReadinessCapture?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
 : `copy(window.obscurM6VoiceReplay?.runCp4ReleaseReadinessCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`
@@ -446,6 +447,21 @@ Canonical matrix:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.unexpectedReleaseEvidenceGateFailCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestReleaseEvidenceGatePass`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestReleaseEvidenceGateFailedCheckSample`
+32. v1.2.0 closeout one-copy bundle:
+: `window.obscurM6VoiceReplay?.runV120CloseoutCapture?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 })`
+: `copy(window.obscurM6VoiceReplay?.runV120CloseoutCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 }))`
+33. v1.2.0 closeout gate probe:
+: `window.obscurM6VoiceReplay?.runV120CloseoutGateProbe?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 })`
+: `copy(window.obscurM6VoiceReplay?.runV120CloseoutGateProbeJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 }))`
+34. v1.2.0 closeout diagnostics event slice:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.v120_closeout_gate"]`
+35. v1.2.0 closeout summary counters:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.closeoutGateCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.closeoutGatePassCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.closeoutGateFailCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.unexpectedCloseoutGateFailCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestCloseoutGatePass`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestCloseoutGateFailedCheckSample`
 22. Delete convergence event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
 23. Voice-note diagnostics slices:

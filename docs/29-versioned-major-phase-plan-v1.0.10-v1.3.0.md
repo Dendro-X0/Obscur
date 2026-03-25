@@ -282,7 +282,17 @@ Current checkpoint progress (2026-03-24):
 10. release-evidence helper now emits canonical `messaging.realtime_voice.cp4_release_evidence_gate` diagnostics and digest `summary.realtimeVoiceSession.releaseEvidenceGate*` fields from canonical owners.
 11. stale replay-bridge upgrade guard now requires CP4 release-evidence helper APIs so stale runtime bridge objects cannot hide newly added CP4 operator tooling.
 12. one-copy `m6-voice-capture` contract now includes CP4 gate event slices (`longSessionGateEvents`, `checkpointGateEvents`, `releaseReadinessGateEvents`, `releaseEvidenceGateEvents`) for compact operator handoff payloads.
-13. focused CP4 continuation validation is green:
+13. deterministic `v1.2.0` closeout helper lane landed in canonical replay bridge owner:
+: `runV120CloseoutCapture(...)`, `runV120CloseoutCaptureJson(...)`,
+: `runV120CloseoutGateProbe(...)`, and `runV120CloseoutGateProbeJson(...)`,
+: composing CP3 suite evidence and CP4 release-evidence packet into one aggregate closeout gate.
+14. canonical closeout diagnostics event now emits from the same owner path:
+: `messaging.realtime_voice.v120_closeout_gate`.
+15. realtime voice digest summary and one-copy capture now expose closeout gate posture:
+: digest `summary.realtimeVoiceSession.closeoutGate*` counters + latest sample fields,
+: capture slice `voice.closeoutGateEvents`.
+16. stale replay-bridge upgrade guard now requires `runV120Closeout*` APIs so stale runtime bridge objects cannot hide closeout tooling during CP4/v1.2.0 verification.
+17. focused CP4 continuation validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 : `pnpm docs:check`

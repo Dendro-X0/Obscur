@@ -2027,6 +2027,126 @@ describe("logAppEvent", () => {
     expect(digest.events["messaging.realtime_voice.cp4_release_evidence_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
 
+  it("marks realtime voice v1.2.0 closeout gate failures as watch for expected failures and high for unexpected failures", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.v120_closeout_gate",
+      level: "warn",
+      context: {
+        closeoutPass: false,
+        expectedPass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "cp4ReleaseEvidenceGateMatchesExpected",
+      },
+    });
+
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            closeoutGateCount: number;
+            closeoutGatePassCount: number;
+            closeoutGateFailCount: number;
+            unexpectedCloseoutGateFailCount: number;
+            latestCloseoutGatePass: boolean | null;
+            latestCloseoutGateFailedCheckSample: string | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      closeoutGateCount: 1,
+      closeoutGatePassCount: 0,
+      closeoutGateFailCount: 1,
+      unexpectedCloseoutGateFailCount: 0,
+      latestCloseoutGatePass: false,
+      latestCloseoutGateFailedCheckSample: "cp4ReleaseEvidenceGateMatchesExpected",
+    }));
+
+    diagnosticsApi.clear();
+    logAppEvent({
+      name: "messaging.realtime_voice.v120_closeout_gate",
+      level: "warn",
+      context: {
+        closeoutPass: false,
+        expectedPass: true,
+        failedCheckCount: 1,
+        failedCheckSample: "digestSummaryPresent",
+      },
+    });
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      closeoutGateCount: 1,
+      closeoutGatePassCount: 0,
+      closeoutGateFailCount: 1,
+      unexpectedCloseoutGateFailCount: 1,
+      latestCloseoutGatePass: false,
+      latestCloseoutGateFailedCheckSample: "digestSummaryPresent",
+    }));
+  });
+
+  it("captures realtime voice v1.2.0 closeout gate diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.v120_closeout_gate",
+      level: "warn",
+      context: {
+        closeoutPass: false,
+        expectedPass: true,
+        failedCheckCount: 2,
+        failedCheckSample: "cp3SuiteGatePass|digestSummaryPresent",
+        cp3SuitePass: true,
+        weakNetworkCp2Pass: true,
+        accountSwitchCp2Pass: true,
+        cp4ReleaseEvidencePass: false,
+        cp4ReleaseReadinessPass: false,
+        cp4CheckpointPass: false,
+        weakDeleteRemoteFailureCount: 0,
+        accountDeleteRemoteFailureCount: 0,
+        longSessionDeleteRemoteFailureCount: 0,
+        digestRiskLevel: "watch",
+        digestUnexpectedReleaseEvidenceGateFailCount: 0,
+        eventSliceLimit: 3,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.v120_closeout_gate"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.v120_closeout_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      closeoutPass: false,
+      expectedPass: true,
+      failedCheckCount: 2,
+      failedCheckSample: "cp3SuiteGatePass|digestSummaryPresent",
+      cp3SuitePass: true,
+      weakNetworkCp2Pass: true,
+      accountSwitchCp2Pass: true,
+      cp4ReleaseEvidencePass: false,
+      cp4ReleaseReadinessPass: false,
+      cp4CheckpointPass: false,
+      weakDeleteRemoteFailureCount: 0,
+      accountDeleteRemoteFailureCount: 0,
+      longSessionDeleteRemoteFailureCount: 0,
+      digestRiskLevel: "watch",
+      digestUnexpectedReleaseEvidenceGateFailCount: 0,
+      eventSliceLimit: 3,
+    }));
+    expect(digest.events["messaging.realtime_voice.v120_closeout_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
   it("captures realtime voice ignored-event diagnostics in compact digest events", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
 

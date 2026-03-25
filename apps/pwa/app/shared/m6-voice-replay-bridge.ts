@@ -71,6 +71,8 @@ type M6Cp4ReleaseEvidenceParams = M6Cp4CheckpointCaptureParams & Readonly<{
   eventSliceLimit?: number;
 }>;
 
+type M6V120CloseoutParams = M6Cp4ReleaseEvidenceParams;
+
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
 type M6VoiceReplayScenario = "weak_network" | "account_switch";
 
@@ -308,6 +310,29 @@ type M6VoiceCp4ReleaseEvidenceBundle = Readonly<{
   }>>;
 }>;
 
+type M6VoiceV120CloseoutCaptureBundle = Readonly<{
+  generatedAtUnixMs: number;
+  cp3Suite: M6VoiceReplaySuiteCaptureBundle;
+  cp4ReleaseEvidence: M6VoiceCp4ReleaseEvidenceBundle;
+  closeoutGate: M6VoiceReplayProbeGate<Readonly<{
+    cp3SuiteGatePass: boolean;
+    weakNetworkCp2Pass: boolean;
+    accountSwitchCp2Pass: boolean;
+    cp4ReleaseEvidenceGateMatchesExpected: boolean;
+    cp4ReleaseReadinessGateMatchesExpected: boolean;
+    cp4CheckpointGateMatchesExpected: boolean;
+    weakDeleteSummaryPresent: boolean;
+    accountDeleteSummaryPresent: boolean;
+    weakDeleteRemoteFailureCountZero: boolean;
+    accountDeleteRemoteFailureCountZero: boolean;
+    longSessionDeleteSummaryPresent: boolean;
+    longSessionDeleteRemoteFailureCountZero: boolean;
+    digestSummaryPresent: boolean;
+    digestRiskNotHighWhenExpectedPass: boolean;
+    digestUnexpectedReleaseEvidenceFailZeroWhenExpectedPass: boolean;
+  }>>;
+}>;
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -354,6 +379,10 @@ type M6VoiceReplayApi = Readonly<{
   runCp4ReleaseEvidenceCaptureJson: (params?: M6Cp4ReleaseEvidenceParams) => string;
   runCp4ReleaseEvidenceGateProbe: (params?: M6Cp4ReleaseEvidenceParams) => M6VoiceCp4ReleaseEvidenceBundle["evidenceGate"];
   runCp4ReleaseEvidenceGateProbeJson: (params?: M6Cp4ReleaseEvidenceParams) => string;
+  runV120CloseoutCapture: (params?: M6V120CloseoutParams) => M6VoiceV120CloseoutCaptureBundle;
+  runV120CloseoutCaptureJson: (params?: M6V120CloseoutParams) => string;
+  runV120CloseoutGateProbe: (params?: M6V120CloseoutParams) => M6VoiceV120CloseoutCaptureBundle["closeoutGate"];
+  runV120CloseoutGateProbeJson: (params?: M6V120CloseoutParams) => string;
   runCp3ReplaySuiteCapture: (params?: Readonly<{
     baseUnixMs?: number;
     captureWindowSize?: number;
@@ -472,6 +501,23 @@ const EMPTY_CP4_RELEASE_EVIDENCE_GATE_CHECKS: M6VoiceCp4ReleaseEvidenceBundle["e
   digestRiskNotHighWhenExpectedPass: false,
   digestUnexpectedReleaseReadinessFailZeroWhenExpectedPass: false,
 };
+const EMPTY_V120_CLOSEOUT_GATE_CHECKS: M6VoiceV120CloseoutCaptureBundle["closeoutGate"]["checks"] = {
+  cp3SuiteGatePass: false,
+  weakNetworkCp2Pass: false,
+  accountSwitchCp2Pass: false,
+  cp4ReleaseEvidenceGateMatchesExpected: false,
+  cp4ReleaseReadinessGateMatchesExpected: false,
+  cp4CheckpointGateMatchesExpected: false,
+  weakDeleteSummaryPresent: false,
+  accountDeleteSummaryPresent: false,
+  weakDeleteRemoteFailureCountZero: false,
+  accountDeleteRemoteFailureCountZero: false,
+  longSessionDeleteSummaryPresent: false,
+  longSessionDeleteRemoteFailureCountZero: false,
+  digestSummaryPresent: false,
+  digestRiskNotHighWhenExpectedPass: false,
+  digestUnexpectedReleaseEvidenceFailZeroWhenExpectedPass: false,
+};
 const SUPPORTED_UNSUPPORTED_REASON_CODES = new Set<string>([
   "webrtc_unavailable",
   "insecure_context",
@@ -545,6 +591,10 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     releaseEvidenceGatePassCount: toNumber(value.releaseEvidenceGatePassCount),
     releaseEvidenceGateFailCount: toNumber(value.releaseEvidenceGateFailCount),
     unexpectedReleaseEvidenceGateFailCount: toNumber(value.unexpectedReleaseEvidenceGateFailCount),
+    closeoutGateCount: toNumber(value.closeoutGateCount),
+    closeoutGatePassCount: toNumber(value.closeoutGatePassCount),
+    closeoutGateFailCount: toNumber(value.closeoutGateFailCount),
+    unexpectedCloseoutGateFailCount: toNumber(value.unexpectedCloseoutGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
@@ -556,6 +606,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestReleaseReadinessGateFailedCheckSample: toStringOrNull(value.latestReleaseReadinessGateFailedCheckSample),
     latestReleaseEvidenceGatePass: toBooleanOrNull(value.latestReleaseEvidenceGatePass),
     latestReleaseEvidenceGateFailedCheckSample: toStringOrNull(value.latestReleaseEvidenceGateFailedCheckSample),
+    latestCloseoutGatePass: toBooleanOrNull(value.latestCloseoutGatePass),
+    latestCloseoutGateFailedCheckSample: toStringOrNull(value.latestCloseoutGateFailedCheckSample),
   };
 };
 
@@ -979,6 +1031,58 @@ const buildCp4ReleaseEvidenceGate = (params: Readonly<{
   return buildBooleanGate(checks);
 };
 
+const buildV120CloseoutGate = (params: Readonly<{
+  cp3Suite: M6VoiceReplaySuiteCaptureBundle;
+  cp4ReleaseEvidence: M6VoiceCp4ReleaseEvidenceBundle;
+  expectedPass: boolean;
+}>): M6VoiceV120CloseoutCaptureBundle["closeoutGate"] => {
+  const weakDeleteSummary = params.cp3Suite.weakNetwork.capture?.voice.deleteConvergenceSummary ?? null;
+  const accountDeleteSummary = params.cp3Suite.accountSwitch.capture?.voice.deleteConvergenceSummary ?? null;
+  const longSessionDeleteSummary = (
+    params.cp4ReleaseEvidence.releaseReadiness.checkpoint.longSession.capture?.voice.deleteConvergenceSummary
+      ?? null
+  );
+  const digestSummary = params.cp4ReleaseEvidence.releaseReadiness.digestSummary;
+  const checks = {
+    cp3SuiteGatePass: params.cp3Suite.suiteGate.pass,
+    weakNetworkCp2Pass: params.cp3Suite.weakNetwork.cp2EvidenceGate.pass,
+    accountSwitchCp2Pass: params.cp3Suite.accountSwitch.cp2EvidenceGate.pass,
+    cp4ReleaseEvidenceGateMatchesExpected: params.cp4ReleaseEvidence.evidenceGate.pass === params.expectedPass,
+    cp4ReleaseReadinessGateMatchesExpected: (
+      params.cp4ReleaseEvidence.releaseReadiness.releaseReadinessGate.pass === params.expectedPass
+    ),
+    cp4CheckpointGateMatchesExpected: (
+      params.cp4ReleaseEvidence.releaseReadiness.checkpoint.cp4CheckpointGate.pass === params.expectedPass
+    ),
+    weakDeleteSummaryPresent: weakDeleteSummary !== null,
+    accountDeleteSummaryPresent: accountDeleteSummary !== null,
+    weakDeleteRemoteFailureCountZero: (weakDeleteSummary?.remoteFailedCount ?? -1) === 0,
+    accountDeleteRemoteFailureCountZero: (accountDeleteSummary?.remoteFailedCount ?? -1) === 0,
+    longSessionDeleteSummaryPresent: longSessionDeleteSummary !== null,
+    longSessionDeleteRemoteFailureCountZero: (longSessionDeleteSummary?.remoteFailedCount ?? -1) === 0,
+    digestSummaryPresent: digestSummary !== null,
+    digestRiskNotHighWhenExpectedPass: params.expectedPass
+      ? (
+        digestSummary !== null
+        && (
+          digestSummary.riskLevel !== "high"
+          || (
+            digestSummary.recoveryExhaustedCount > 0
+            && digestSummary.unexpectedLongSessionGateFailCount === 0
+            && digestSummary.unexpectedCheckpointGateFailCount === 0
+            && digestSummary.unexpectedReleaseReadinessGateFailCount === 0
+            && digestSummary.unexpectedReleaseEvidenceGateFailCount === 0
+          )
+        )
+      )
+      : true,
+    digestUnexpectedReleaseEvidenceFailZeroWhenExpectedPass: params.expectedPass
+      ? ((digestSummary?.unexpectedReleaseEvidenceGateFailCount ?? -1) === 0)
+      : true,
+  } as const;
+  return buildBooleanGate(checks);
+};
+
 const emitCp4LongSessionGateDiagnostic = (params: Readonly<{
   replay: M6VoiceReplayResult | null;
   replayConfig: M6VoiceLongSessionReplayCaptureBundle["replayConfig"];
@@ -1100,6 +1204,45 @@ const emitCp4ReleaseEvidenceGateDiagnostic = (params: Readonly<{
       eventSliceLimit: params.eventSliceLimit,
       cycleCount: params.releaseReadiness.checkpoint.longSession.replayConfig.cycleCount,
       injectRecoveryExhausted: params.releaseReadiness.checkpoint.longSession.replayConfig.injectRecoveryExhausted,
+    },
+  });
+};
+
+const emitV120CloseoutGateDiagnostic = (params: Readonly<{
+  closeoutGate: M6VoiceV120CloseoutCaptureBundle["closeoutGate"];
+  cp3Suite: M6VoiceReplaySuiteCaptureBundle;
+  cp4ReleaseEvidence: M6VoiceCp4ReleaseEvidenceBundle;
+  expectedPass: boolean;
+}>): void => {
+  const failedChecks = params.closeoutGate.failedChecks;
+  const digestSummary = params.cp4ReleaseEvidence.releaseReadiness.digestSummary;
+  const weakDeleteSummary = params.cp3Suite.weakNetwork.capture?.voice.deleteConvergenceSummary ?? null;
+  const accountDeleteSummary = params.cp3Suite.accountSwitch.capture?.voice.deleteConvergenceSummary ?? null;
+  const longSessionDeleteSummary = (
+    params.cp4ReleaseEvidence.releaseReadiness.checkpoint.longSession.capture?.voice.deleteConvergenceSummary
+      ?? null
+  );
+  logAppEvent({
+    name: "messaging.realtime_voice.v120_closeout_gate",
+    level: params.closeoutGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      closeoutPass: params.closeoutGate.pass,
+      expectedPass: params.expectedPass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      cp3SuitePass: params.cp3Suite.suiteGate.pass,
+      weakNetworkCp2Pass: params.cp3Suite.weakNetwork.cp2EvidenceGate.pass,
+      accountSwitchCp2Pass: params.cp3Suite.accountSwitch.cp2EvidenceGate.pass,
+      cp4ReleaseEvidencePass: params.cp4ReleaseEvidence.evidenceGate.pass,
+      cp4ReleaseReadinessPass: params.cp4ReleaseEvidence.releaseReadiness.releaseReadinessGate.pass,
+      cp4CheckpointPass: params.cp4ReleaseEvidence.releaseReadiness.checkpoint.cp4CheckpointGate.pass,
+      weakDeleteRemoteFailureCount: weakDeleteSummary?.remoteFailedCount ?? null,
+      accountDeleteRemoteFailureCount: accountDeleteSummary?.remoteFailedCount ?? null,
+      longSessionDeleteRemoteFailureCount: longSessionDeleteSummary?.remoteFailedCount ?? null,
+      digestRiskLevel: digestSummary?.riskLevel ?? null,
+      digestUnexpectedReleaseEvidenceGateFailCount: digestSummary?.unexpectedReleaseEvidenceGateFailCount ?? null,
+      eventSliceLimit: params.cp4ReleaseEvidence.longSessionGateEventContexts.length,
     },
   });
 };
@@ -1243,6 +1386,10 @@ export const installM6VoiceReplayBridge = (): void => {
     && typeof root.obscurM6VoiceReplay.runCp4ReleaseEvidenceCaptureJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4ReleaseEvidenceGateProbe === "function"
     && typeof root.obscurM6VoiceReplay.runCp4ReleaseEvidenceGateProbeJson === "function"
+    && typeof root.obscurM6VoiceReplay.runV120CloseoutCapture === "function"
+    && typeof root.obscurM6VoiceReplay.runV120CloseoutCaptureJson === "function"
+    && typeof root.obscurM6VoiceReplay.runV120CloseoutGateProbe === "function"
+    && typeof root.obscurM6VoiceReplay.runV120CloseoutGateProbeJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionGateProbe === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionGateProbeJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionSelfTest === "function"
@@ -2094,6 +2241,169 @@ export const installM6VoiceReplayBridge = (): void => {
         2,
       )
     ),
+    runV120CloseoutCapture: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const baseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
+        ? Math.floor(params.baseUnixMs)
+        : Date.now();
+      const expectedPass = typeof params?.expectedPass === "boolean"
+        ? params.expectedPass
+        : params?.injectRecoveryExhausted !== true;
+      const cp3Suite = root.obscurM6VoiceReplay?.runCp3ReplaySuiteCapture({
+        clearAppEvents: params?.clearAppEvents,
+        captureWindowSize,
+        mode: params?.mode,
+        baseUnixMs,
+      }) ?? {
+        generatedAtUnixMs: Date.now(),
+        weakNetwork: {
+          replay: null,
+          capture: null,
+          cp2EvidenceGate: buildCp2EvidenceGate(null, null),
+        },
+        accountSwitch: {
+          replay: null,
+          capture: null,
+          cp2EvidenceGate: buildCp2EvidenceGate(null, null),
+        },
+        suiteGate: {
+          pass: false,
+          failedChecks: ["suite_capture_unavailable"],
+          checks: EMPTY_REPLAY_SUITE_GATE_CHECKS,
+        },
+      };
+      const cp4ReleaseEvidence = root.obscurM6VoiceReplay?.runCp4ReleaseEvidenceCapture({
+        ...params,
+        clearAppEvents: true,
+        captureWindowSize,
+        baseUnixMs: baseUnixMs + 60_000,
+      }) ?? {
+        generatedAtUnixMs: Date.now(),
+        releaseReadiness: {
+          generatedAtUnixMs: Date.now(),
+          checkpoint: {
+            generatedAtUnixMs: Date.now(),
+            longSession: {
+              replay: null,
+              capture: null,
+              replayConfig: {
+                cycleCount: toPositiveInteger(params?.cycleCount, DEFAULT_LONG_SESSION_CYCLE_COUNT),
+                injectRecoveryExhausted: params?.injectRecoveryExhausted === true,
+              },
+              cp4ReadinessGate: buildCp4ReadinessGate({
+                replay: null,
+                capture: null,
+                cycleCount: toPositiveInteger(params?.cycleCount, DEFAULT_LONG_SESSION_CYCLE_COUNT),
+              }),
+            },
+            gateProbe: buildCp4LongSessionGateProbe({
+              capture: null,
+              expectedPass,
+              latestGateEventContext: null,
+            }),
+            selfTest: {
+              generatedAtUnixMs: Date.now(),
+              nominal: {
+                replay: null,
+                capture: null,
+                replayConfig: {
+                  cycleCount: toPositiveInteger(params?.cycleCount, DEFAULT_LONG_SESSION_CYCLE_COUNT),
+                  injectRecoveryExhausted: false,
+                },
+                cp4ReadinessGate: buildCp4ReadinessGate({
+                  replay: null,
+                  capture: null,
+                  cycleCount: toPositiveInteger(params?.cycleCount, DEFAULT_LONG_SESSION_CYCLE_COUNT),
+                }),
+              },
+              failureInjection: {
+                replay: null,
+                capture: null,
+                replayConfig: {
+                  cycleCount: toPositiveInteger(params?.selfTestFailureCycleCount, 3),
+                  injectRecoveryExhausted: true,
+                },
+                cp4ReadinessGate: buildCp4ReadinessGate({
+                  replay: null,
+                  capture: null,
+                  cycleCount: toPositiveInteger(params?.selfTestFailureCycleCount, 3),
+                }),
+              },
+              selfTestGate: buildBooleanGate({
+                nominalPass: false,
+                nominalFinalPhaseActive: false,
+                nominalRecoveryExhaustedZero: false,
+                failureGateRejected: false,
+                failureFinalPhaseEnded: false,
+                failureReasonRecoveryExhausted: false,
+                failureGateFlagsRecoverySignals: false,
+              }),
+            },
+            digestSummary: null,
+            cp4CheckpointGate: {
+              pass: false,
+              failedChecks: ["cp4_checkpoint_capture_unavailable"],
+              checks: EMPTY_CP4_CHECKPOINT_GATE_CHECKS,
+            },
+          },
+          latestLongSessionGateEventContext: null,
+          latestCheckpointGateEventContext: null,
+          digestSummary: null,
+          releaseReadinessGate: {
+            pass: false,
+            failedChecks: ["cp4_release_readiness_capture_unavailable"],
+            checks: EMPTY_CP4_RELEASE_READINESS_GATE_CHECKS,
+          },
+        },
+        longSessionGateEventContexts: [],
+        checkpointGateEventContexts: [],
+        releaseReadinessGateEventContexts: [],
+        recentWarnOrError: [],
+        evidenceGate: {
+          pass: false,
+          failedChecks: ["cp4_release_evidence_capture_unavailable"],
+          checks: EMPTY_CP4_RELEASE_EVIDENCE_GATE_CHECKS,
+        },
+      };
+      const closeoutGate = buildV120CloseoutGate({
+        cp3Suite,
+        cp4ReleaseEvidence,
+        expectedPass,
+      });
+      emitV120CloseoutGateDiagnostic({
+        closeoutGate,
+        cp3Suite,
+        cp4ReleaseEvidence,
+        expectedPass,
+      });
+      return {
+        generatedAtUnixMs: Date.now(),
+        cp3Suite,
+        cp4ReleaseEvidence,
+        closeoutGate,
+      };
+    },
+    runV120CloseoutCaptureJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runV120CloseoutCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runV120CloseoutGateProbe: (params) => (
+      root.obscurM6VoiceReplay?.runV120CloseoutCapture(params)?.closeoutGate ?? {
+        pass: false,
+        failedChecks: ["v120_closeout_capture_unavailable"],
+        checks: EMPTY_V120_CLOSEOUT_GATE_CHECKS,
+      }
+    ),
+    runV120CloseoutGateProbeJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runV120CloseoutGateProbe(params) ?? null,
+        null,
+        2,
+      )
+    ),
     runCp3ReplaySuiteCapture: (params) => {
       const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
       const baseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
@@ -2266,6 +2576,7 @@ export const m6VoiceReplayBridgeInternals = {
   buildCp4CheckpointGate,
   buildCp4ReleaseReadinessGate,
   buildCp4ReleaseEvidenceGate,
+  buildV120CloseoutGate,
   buildCp4LongSessionSelfTestGate,
   buildReplayResult,
   buildCp2EvidenceGate,

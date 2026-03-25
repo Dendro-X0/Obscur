@@ -606,6 +606,24 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `voice.releaseReadinessGateEvents`,
       - `voice.releaseEvidenceGateEvents`.
     - stale replay-bridge upgrade guard now requires CP4 release-evidence helper APIs so stale runtime bridge surfaces are replaced before CP4 operator verification.
+    - deterministic `v1.2.0` closeout helper lane landed on the same canonical owner:
+      - `window.obscurM6VoiceReplay.runV120CloseoutCapture(...)`,
+      - `window.obscurM6VoiceReplay.runV120CloseoutCaptureJson(...)`,
+      - `window.obscurM6VoiceReplay.runV120CloseoutGateProbe(...)`,
+      - `window.obscurM6VoiceReplay.runV120CloseoutGateProbeJson(...)`,
+      composing CP3 suite evidence + CP4 release-evidence packet into one aggregate closeout gate.
+    - canonical closeout diagnostics are now emitted from this same lane:
+      - `messaging.realtime_voice.v120_closeout_gate`,
+      with digest summary counters/sample fields:
+      - `closeoutGateCount`,
+      - `closeoutGatePassCount`,
+      - `closeoutGateFailCount`,
+      - `unexpectedCloseoutGateFailCount`,
+      - `latestCloseoutGatePass`,
+      - `latestCloseoutGateFailedCheckSample`.
+    - one-copy `m6-voice-capture` bundle now includes closeout event slice:
+      - `voice.closeoutGateEvents`.
+    - stale replay-bridge upgrade guard now requires `runV120Closeout*` APIs so stale runtime bridge objects cannot shadow closeout tooling during CP4/v1.2.0 verification.
     - focused continuation validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,

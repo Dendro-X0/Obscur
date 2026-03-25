@@ -134,6 +134,10 @@ type AppEventDiagnosticsApi = Readonly<{
         releaseEvidenceGatePassCount: number;
         releaseEvidenceGateFailCount: number;
         unexpectedReleaseEvidenceGateFailCount: number;
+        closeoutGateCount: number;
+        closeoutGatePassCount: number;
+        closeoutGateFailCount: number;
+        unexpectedCloseoutGateFailCount: number;
         latestToPhase: string | null;
         latestReasonCode: string | null;
         latestIgnoredReasonCode: string | null;
@@ -145,6 +149,8 @@ type AppEventDiagnosticsApi = Readonly<{
         latestReleaseReadinessGateFailedCheckSample: string | null;
         latestReleaseEvidenceGatePass: boolean | null;
         latestReleaseEvidenceGateFailedCheckSample: string | null;
+        latestCloseoutGatePass: boolean | null;
+        latestCloseoutGateFailedCheckSample: string | null;
       }>;
       asyncVoiceNote: Readonly<{
         riskLevel: "none" | "watch" | "high";
@@ -491,6 +497,24 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "eventSliceLimit",
     "cycleCount",
     "injectRecoveryExhausted",
+  ],
+  "messaging.realtime_voice.v120_closeout_gate": [
+    "closeoutPass",
+    "expectedPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp3SuitePass",
+    "weakNetworkCp2Pass",
+    "accountSwitchCp2Pass",
+    "cp4ReleaseEvidencePass",
+    "cp4ReleaseReadinessPass",
+    "cp4CheckpointPass",
+    "weakDeleteRemoteFailureCount",
+    "accountDeleteRemoteFailureCount",
+    "longSessionDeleteRemoteFailureCount",
+    "digestRiskLevel",
+    "digestUnexpectedReleaseEvidenceGateFailCount",
+    "eventSliceLimit",
   ],
   "messaging.voice_note.recording_complete": [
     "durationSeconds",
@@ -1007,6 +1031,20 @@ const installDiagnosticsApi = (): void => {
         event.context?.cp4ReleaseEvidencePass === false
         && event.context?.expectedPass === true
       )).length;
+      const voiceCloseoutGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.v120_closeout_gate"
+      ));
+      const voiceCloseoutGateCount = voiceCloseoutGateEvents.length;
+      const voiceCloseoutGatePassCount = voiceCloseoutGateEvents.filter((event) => (
+        event.context?.closeoutPass === true
+      )).length;
+      const voiceCloseoutGateFailCount = voiceCloseoutGateEvents.filter((event) => (
+        event.context?.closeoutPass === false
+      )).length;
+      const voiceUnexpectedCloseoutGateFailCount = voiceCloseoutGateEvents.filter((event) => (
+        event.context?.closeoutPass === false
+        && event.context?.expectedPass === true
+      )).length;
       const latestVoiceSessionTransition = voiceSessionTransitionEvents.at(-1);
       const latestVoiceSessionToPhase = toStringOrNull(
         latestVoiceSessionTransition?.context?.toPhase,
@@ -1044,6 +1082,13 @@ const installDiagnosticsApi = (): void => {
       );
       const latestVoiceReleaseEvidenceFailedCheckSample = toStringOrNull(
         latestVoiceReleaseEvidenceGate?.context?.failedCheckSample,
+      );
+      const latestVoiceCloseoutGate = voiceCloseoutGateEvents.at(-1);
+      const latestVoiceCloseoutGatePass = toBooleanOrNull(
+        latestVoiceCloseoutGate?.context?.closeoutPass,
+      );
+      const latestVoiceCloseoutGateFailedCheckSample = toStringOrNull(
+        latestVoiceCloseoutGate?.context?.failedCheckSample,
       );
       const voiceNoteRecordingCompleteEvents = recent.filter((event) => (
         event.name === "messaging.voice_note.recording_complete"
@@ -1189,6 +1234,7 @@ const installDiagnosticsApi = (): void => {
           || voiceCheckpointGateFailCount > 0
           || voiceReleaseReadinessGateFailCount > 0
           || voiceReleaseEvidenceGateFailCount > 0
+          || voiceCloseoutGateFailCount > 0
         ),
         high: (
           voiceSessionRecoveryExhaustedCount > 0
@@ -1196,6 +1242,7 @@ const installDiagnosticsApi = (): void => {
           || voiceUnexpectedCheckpointGateFailCount > 0
           || voiceUnexpectedReleaseReadinessGateFailCount > 0
           || voiceUnexpectedReleaseEvidenceGateFailCount > 0
+          || voiceUnexpectedCloseoutGateFailCount > 0
         ),
       });
       const asyncVoiceNoteRiskLevel = getRiskLevel({
@@ -1333,6 +1380,10 @@ const installDiagnosticsApi = (): void => {
             releaseEvidenceGatePassCount: voiceReleaseEvidenceGatePassCount,
             releaseEvidenceGateFailCount: voiceReleaseEvidenceGateFailCount,
             unexpectedReleaseEvidenceGateFailCount: voiceUnexpectedReleaseEvidenceGateFailCount,
+            closeoutGateCount: voiceCloseoutGateCount,
+            closeoutGatePassCount: voiceCloseoutGatePassCount,
+            closeoutGateFailCount: voiceCloseoutGateFailCount,
+            unexpectedCloseoutGateFailCount: voiceUnexpectedCloseoutGateFailCount,
             latestToPhase: latestVoiceSessionToPhase,
             latestReasonCode: latestVoiceSessionReasonCode,
             latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
@@ -1344,6 +1395,8 @@ const installDiagnosticsApi = (): void => {
             latestReleaseReadinessGateFailedCheckSample: latestVoiceReleaseReadinessFailedCheckSample,
             latestReleaseEvidenceGatePass: latestVoiceReleaseEvidenceGatePass,
             latestReleaseEvidenceGateFailedCheckSample: latestVoiceReleaseEvidenceFailedCheckSample,
+            latestCloseoutGatePass: latestVoiceCloseoutGatePass,
+            latestCloseoutGateFailedCheckSample: latestVoiceCloseoutGateFailedCheckSample,
           },
           asyncVoiceNote: {
             riskLevel: asyncVoiceNoteRiskLevel,

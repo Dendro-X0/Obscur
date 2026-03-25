@@ -28,6 +28,10 @@ type RealtimeVoiceSessionSummary = Readonly<{
   releaseEvidenceGatePassCount: number;
   releaseEvidenceGateFailCount: number;
   unexpectedReleaseEvidenceGateFailCount: number;
+  closeoutGateCount: number;
+  closeoutGatePassCount: number;
+  closeoutGateFailCount: number;
+  unexpectedCloseoutGateFailCount: number;
   latestToPhase: string | null;
   latestReasonCode: string | null;
   latestIgnoredReasonCode: string | null;
@@ -39,6 +43,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestReleaseReadinessGateFailedCheckSample: string | null;
   latestReleaseEvidenceGatePass: boolean | null;
   latestReleaseEvidenceGateFailedCheckSample: string | null;
+  latestCloseoutGatePass: boolean | null;
+  latestCloseoutGateFailedCheckSample: string | null;
 }>;
 
 type AsyncVoiceNoteSummary = Readonly<{
@@ -109,6 +115,7 @@ export type M6VoiceCaptureBundle = Readonly<{
     checkpointGateEvents: ReadonlyArray<MinimalAppEvent>;
     releaseReadinessGateEvents: ReadonlyArray<MinimalAppEvent>;
     releaseEvidenceGateEvents: ReadonlyArray<MinimalAppEvent>;
+    closeoutGateEvents: ReadonlyArray<MinimalAppEvent>;
     voiceNoteEvents: ReadonlyArray<MinimalAppEvent>;
     deleteConvergenceEvents: ReadonlyArray<MinimalAppEvent>;
     recentWarnOrError: ReadonlyArray<Readonly<{
@@ -195,6 +202,10 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     releaseEvidenceGatePassCount: toNumber(value.releaseEvidenceGatePassCount),
     releaseEvidenceGateFailCount: toNumber(value.releaseEvidenceGateFailCount),
     unexpectedReleaseEvidenceGateFailCount: toNumber(value.unexpectedReleaseEvidenceGateFailCount),
+    closeoutGateCount: toNumber(value.closeoutGateCount),
+    closeoutGatePassCount: toNumber(value.closeoutGatePassCount),
+    closeoutGateFailCount: toNumber(value.closeoutGateFailCount),
+    unexpectedCloseoutGateFailCount: toNumber(value.unexpectedCloseoutGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
@@ -206,6 +217,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     latestReleaseReadinessGateFailedCheckSample: toStringOrNull(value.latestReleaseReadinessGateFailedCheckSample),
     latestReleaseEvidenceGatePass: toBooleanOrNull(value.latestReleaseEvidenceGatePass),
     latestReleaseEvidenceGateFailedCheckSample: toStringOrNull(value.latestReleaseEvidenceGateFailedCheckSample),
+    latestCloseoutGatePass: toBooleanOrNull(value.latestCloseoutGatePass),
+    latestCloseoutGateFailedCheckSample: toStringOrNull(value.latestCloseoutGateFailedCheckSample),
   };
 };
 
@@ -426,6 +439,7 @@ const createBundle = (
       checkpointGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_checkpoint_gate"),
       releaseReadinessGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_release_readiness_gate"),
       releaseEvidenceGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_release_evidence_gate"),
+      closeoutGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.v120_closeout_gate"),
       voiceNoteEvents: readRecentVoiceNoteEvents(appEventsApi),
       deleteConvergenceEvents: readRecentDeleteConvergenceEvents(appEventsApi),
       recentWarnOrError: digest.recentWarnOrError,

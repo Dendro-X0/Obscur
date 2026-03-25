@@ -42,6 +42,10 @@ describe("m6-voice-capture", () => {
             releaseEvidenceGatePassCount: 1,
             releaseEvidenceGateFailCount: 0,
             unexpectedReleaseEvidenceGateFailCount: 0,
+            closeoutGateCount: 1,
+            closeoutGatePassCount: 1,
+            closeoutGateFailCount: 0,
+            unexpectedCloseoutGateFailCount: 0,
             latestToPhase: "degraded",
             latestReasonCode: "network_degraded",
             latestIgnoredReasonCode: "stale_event",
@@ -53,6 +57,8 @@ describe("m6-voice-capture", () => {
             latestReleaseReadinessGateFailedCheckSample: null,
             latestReleaseEvidenceGatePass: true,
             latestReleaseEvidenceGateFailedCheckSample: null,
+            latestCloseoutGatePass: true,
+            latestCloseoutGateFailedCheckSample: null,
           },
           asyncVoiceNote: {
             riskLevel: "watch",
@@ -122,6 +128,7 @@ describe("m6-voice-capture", () => {
         checkpointGateEvents: Array<{ name: string }>;
         releaseReadinessGateEvents: Array<{ name: string }>;
         releaseEvidenceGateEvents: Array<{ name: string }>;
+        closeoutGateEvents: Array<{ name: string }>;
         voiceNoteEvents: Array<{ name: string }>;
         deleteConvergenceEvents: Array<{ name: string }>;
         recentWarnOrError: Array<{ reasonCode: string | null }>;
@@ -152,6 +159,10 @@ describe("m6-voice-capture", () => {
       releaseEvidenceGatePassCount: 1,
       releaseEvidenceGateFailCount: 0,
       unexpectedReleaseEvidenceGateFailCount: 0,
+      closeoutGateCount: 1,
+      closeoutGatePassCount: 1,
+      closeoutGateFailCount: 0,
+      unexpectedCloseoutGateFailCount: 0,
       latestReasonCode: "network_degraded",
       latestIgnoredReasonCode: "stale_event",
       latestLongSessionGatePass: false,
@@ -162,6 +173,8 @@ describe("m6-voice-capture", () => {
       latestReleaseReadinessGateFailedCheckSample: null,
       latestReleaseEvidenceGatePass: true,
       latestReleaseEvidenceGateFailedCheckSample: null,
+      latestCloseoutGatePass: true,
+      latestCloseoutGateFailedCheckSample: null,
     }));
     expect(bundle.voice.asyncVoiceNoteSummary).toEqual(expect.objectContaining({
       riskLevel: "watch",
@@ -187,6 +200,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.checkpointGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_checkpoint_gate");
     expect(bundle.voice.releaseReadinessGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_readiness_gate");
     expect(bundle.voice.releaseEvidenceGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_evidence_gate");
+    expect(bundle.voice.closeoutGateEvents[0]?.name).toBe("messaging.realtime_voice.v120_closeout_gate");
     expect(bundle.voice.voiceNoteEvents.some((event) => event.name === "messaging.voice_note.recording_complete")).toBe(true);
     expect(bundle.voice.voiceNoteEvents.some((event) => event.name === "messaging.voice_note.recording_start_failed")).toBe(true);
     expect(bundle.voice.deleteConvergenceEvents.some((event) => event.name === "messaging.delete_for_everyone_requested")).toBe(true);
@@ -213,6 +227,7 @@ describe("m6-voice-capture", () => {
         checkpointGateEvents: unknown[];
         releaseReadinessGateEvents: unknown[];
         releaseEvidenceGateEvents: unknown[];
+        closeoutGateEvents: unknown[];
         voiceNoteEvents: unknown[];
         deleteConvergenceEvents: unknown[];
         recentWarnOrError: unknown[];
@@ -231,6 +246,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.checkpointGateEvents).toEqual([]);
     expect(bundle.voice.releaseReadinessGateEvents).toEqual([]);
     expect(bundle.voice.releaseEvidenceGateEvents).toEqual([]);
+    expect(bundle.voice.closeoutGateEvents).toEqual([]);
     expect(bundle.voice.voiceNoteEvents).toEqual([]);
     expect(bundle.voice.deleteConvergenceEvents).toEqual([]);
     expect(bundle.voice.recentWarnOrError).toEqual([]);
@@ -263,6 +279,10 @@ describe("m6-voice-capture", () => {
       releaseEvidenceGatePassCount: 1,
       releaseEvidenceGateFailCount: 1,
       unexpectedReleaseEvidenceGateFailCount: 1,
+      closeoutGateCount: 2,
+      closeoutGatePassCount: 1,
+      closeoutGateFailCount: 1,
+      unexpectedCloseoutGateFailCount: 1,
       latestToPhase: "ended",
       latestReasonCode: "recovery_exhausted",
       latestIgnoredReasonCode: "stale_event",
@@ -274,6 +294,8 @@ describe("m6-voice-capture", () => {
       latestReleaseReadinessGateFailedCheckSample: "checkpointEventMatchesGatePass",
       latestReleaseEvidenceGatePass: false,
       latestReleaseEvidenceGateFailedCheckSample: "releaseReadinessEventObserved",
+      latestCloseoutGatePass: false,
+      latestCloseoutGateFailedCheckSample: "cp3SuiteGatePass",
     })).toEqual(expect.objectContaining({
       riskLevel: "high",
       transitionCount: 5,
@@ -295,6 +317,10 @@ describe("m6-voice-capture", () => {
       releaseEvidenceGatePassCount: 1,
       releaseEvidenceGateFailCount: 1,
       unexpectedReleaseEvidenceGateFailCount: 1,
+      closeoutGateCount: 2,
+      closeoutGatePassCount: 1,
+      closeoutGateFailCount: 1,
+      unexpectedCloseoutGateFailCount: 1,
       latestReasonCode: "recovery_exhausted",
       latestIgnoredReasonCode: "stale_event",
       latestLongSessionGatePass: false,
@@ -305,6 +331,8 @@ describe("m6-voice-capture", () => {
       latestReleaseReadinessGateFailedCheckSample: "checkpointEventMatchesGatePass",
       latestReleaseEvidenceGatePass: false,
       latestReleaseEvidenceGateFailedCheckSample: "releaseReadinessEventObserved",
+      latestCloseoutGatePass: false,
+      latestCloseoutGateFailedCheckSample: "cp3SuiteGatePass",
     }));
     expect(m6VoiceCaptureInternals.parseAsyncVoiceNoteSummary({
       riskLevel: "watch",

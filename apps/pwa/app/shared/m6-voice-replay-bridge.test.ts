@@ -873,6 +873,148 @@ describe("m6-voice-replay-bridge", () => {
     }))).not.toThrow();
   });
 
+  it("exports deterministic v1.2.0 closeout capture bundle with aggregate pass verdict", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runV120CloseoutCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        eventSliceLimit?: number;
+      }) => {
+        cp3Suite: {
+          suiteGate: { pass: boolean };
+          weakNetwork: { cp2EvidenceGate: { pass: boolean } };
+          accountSwitch: { cp2EvidenceGate: { pass: boolean } };
+        };
+        cp4ReleaseEvidence: {
+          evidenceGate: { pass: boolean };
+          releaseReadiness: {
+            releaseReadinessGate: { pass: boolean };
+            checkpoint: { cp4CheckpointGate: { pass: boolean } };
+          };
+        };
+        closeoutGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+      runV120CloseoutCaptureJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        eventSliceLimit?: number;
+      }) => string;
+      runV120CloseoutGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        eventSliceLimit?: number;
+      }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
+      };
+      runV120CloseoutGateProbeJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        eventSliceLimit?: number;
+      }) => string;
+    };
+
+    const closeout = replayApi.runV120CloseoutCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+      eventSliceLimit: 2,
+    });
+    expect(closeout.cp3Suite.suiteGate.pass).toBe(true);
+    expect(closeout.cp3Suite.weakNetwork.cp2EvidenceGate.pass).toBe(true);
+    expect(closeout.cp3Suite.accountSwitch.cp2EvidenceGate.pass).toBe(true);
+    expect(closeout.cp4ReleaseEvidence.evidenceGate.pass).toBe(true);
+    expect(closeout.cp4ReleaseEvidence.releaseReadiness.releaseReadinessGate.pass).toBe(true);
+    expect(closeout.cp4ReleaseEvidence.releaseReadiness.checkpoint.cp4CheckpointGate.pass).toBe(true);
+    expect(closeout.closeoutGate.pass).toBe(true);
+    expect(closeout.closeoutGate.failedChecks).toEqual([]);
+    expect(closeout.closeoutGate.checks.cp3SuiteGatePass).toBe(true);
+    expect(closeout.closeoutGate.checks.cp4ReleaseEvidenceGateMatchesExpected).toBe(true);
+    expect(closeout.closeoutGate.checks.digestRiskNotHighWhenExpectedPass).toBe(true);
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const closeoutEvents = diagnosticsApi.findByName("messaging.realtime_voice.v120_closeout_gate", 5);
+    expect(closeoutEvents.length).toBeGreaterThanOrEqual(1);
+    expect(closeoutEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      closeoutPass: true,
+      expectedPass: true,
+      cp3SuitePass: true,
+      cp4ReleaseEvidencePass: true,
+      cp4ReleaseReadinessPass: true,
+      cp4CheckpointPass: true,
+    }));
+    expect(() => JSON.parse(replayApi.runV120CloseoutCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+      eventSliceLimit: 2,
+    }))).not.toThrow();
+    const gate = replayApi.runV120CloseoutGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+      eventSliceLimit: 2,
+    });
+    expect(gate.pass).toBe(true);
+    expect(gate.failedChecks).toEqual([]);
+    expect(() => JSON.parse(replayApi.runV120CloseoutGateProbeJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+      eventSliceLimit: 2,
+    }))).not.toThrow();
+  });
+
+  it("fails v1.2.0 closeout gate deterministically when capture summaries are unavailable", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runV120CloseoutGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
+      };
+    };
+
+    const gate = replayApi.runV120CloseoutGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(gate.pass).toBe(false);
+    expect(gate.failedChecks).toEqual(expect.arrayContaining([
+      "cp3SuiteGatePass",
+      "cp4ReleaseEvidenceGateMatchesExpected",
+      "weakDeleteSummaryPresent",
+      "accountDeleteSummaryPresent",
+    ]));
+  });
+
   it("exports deterministic CP4 long-session self-test report with compact pass/fail verdict", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1021,6 +1163,10 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runCp4ReleaseEvidenceCaptureJson).toBe("function");
     expect(typeof upgraded?.runCp4ReleaseEvidenceGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4ReleaseEvidenceGateProbeJson).toBe("function");
+    expect(typeof upgraded?.runV120CloseoutCapture).toBe("function");
+    expect(typeof upgraded?.runV120CloseoutCaptureJson).toBe("function");
+    expect(typeof upgraded?.runV120CloseoutGateProbe).toBe("function");
+    expect(typeof upgraded?.runV120CloseoutGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionSelfTest).toBe("function");
