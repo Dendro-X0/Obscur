@@ -363,22 +363,25 @@ Canonical matrix:
 9. CP3 suite gate one-copy probe (recommended for quick pass/fail checks):
 : `window.obscurM6VoiceReplay?.runCp3ReplaySuiteGateProbe?.({ clearAppEvents: true, captureWindowSize: 400 })`
 : `copy(window.obscurM6VoiceReplay?.runCp3ReplaySuiteGateProbeJson?.({ clearAppEvents: true, captureWindowSize: 400 }))`
-10. Transition event slice:
+10. Single-device CP3 self-test (recommended when only a small number of real accounts are available):
+: `window.obscurM6VoiceReplay?.runCp3SingleDeviceSelfTest?.({ clearAppEvents: true, captureWindowSize: 400 })`
+: `copy(window.obscurM6VoiceReplay?.runCp3SingleDeviceSelfTestJson?.({ clearAppEvents: true, captureWindowSize: 400 }))`
+11. Transition event slice:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.session_transition"]`
-11. Unified CP2 summary probes:
+12. Unified CP2 summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.asyncVoiceNote`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.deleteConvergence`
-12. M6 capture unified probes:
+13. M6 capture unified probes:
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.asyncVoiceNoteSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.voiceNoteEvents`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceEvents`
-13. Delete convergence event slices:
+14. Delete convergence event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
-14. Voice-note diagnostics slices:
+15. Voice-note diagnostics slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_start_failed"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.voice_note.recording_unsupported"]`
-15. One-copy CP2 export bundle (fallback when helper is unavailable):
+16. One-copy CP2 export bundle (fallback when helper is unavailable):
 : `copy(JSON.stringify((() => {`
 : `  const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400);`
 : `  return {`
@@ -392,7 +395,7 @@ Canonical matrix:
 : `    m0Triage: window.obscurM0Triage?.capture?.(300) ?? null,`
 : `  };`
 : `})(), null, 2))`
-16. Escalate immediately if:
+17. Escalate immediately if:
 : `recoveryExhaustedCount > 0` appears during expected recoverable weak-network replay,
 : transitions show repeated unsupported reasons on a previously supported runtime without capability changes,
 : weak-network `cp2EvidenceGate.pass` is `false` with missing degraded/recovery transition checks,

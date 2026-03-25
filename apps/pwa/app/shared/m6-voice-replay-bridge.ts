@@ -114,6 +114,42 @@ type M6VoiceReplaySuiteCaptureBundle = Readonly<{
 
 type M6VoiceReplaySuiteGate = M6VoiceReplaySuiteCaptureBundle["suiteGate"];
 type M6VoiceReplaySuiteGateChecks = M6VoiceReplaySuiteGate["checks"];
+type M6VoiceReplayBooleanChecks = Readonly<Record<string, boolean>>;
+
+type M6VoiceReplayProbeGate<TChecks extends M6VoiceReplayBooleanChecks> = Readonly<{
+  pass: boolean;
+  failedChecks: ReadonlyArray<string>;
+  checks: TChecks;
+}>;
+
+type M6VoiceReplayUnsupportedProbeGate = M6VoiceReplayProbeGate<Readonly<{
+  finalPhaseUnsupported: boolean;
+  transitionToUnsupportedObserved: boolean;
+  digestUnsupportedCountObserved: boolean;
+  latestReasonIsUnsupported: boolean;
+}>>;
+
+type M6VoiceReplayRecoveryExhaustedProbeGate = M6VoiceReplayProbeGate<Readonly<{
+  finalPhaseEnded: boolean;
+  finalReasonRecoveryExhausted: boolean;
+  transitionToEndedObserved: boolean;
+  endedReasonRecoveryExhaustedObserved: boolean;
+  digestRecoveryExhaustedCountObserved: boolean;
+}>>;
+
+type M6VoiceReplaySingleDeviceSelfTestReport = Readonly<{
+  generatedAtUnixMs: number;
+  suite: M6VoiceReplaySuiteCaptureBundle;
+  unsupportedProbe: M6VoiceReplayUnsupportedProbeGate;
+  recoveryExhaustedProbe: M6VoiceReplayRecoveryExhaustedProbeGate;
+  selfTestGate: M6VoiceReplayProbeGate<Readonly<{
+    suiteGatePass: boolean;
+    weakNetworkCp2Pass: boolean;
+    accountSwitchCp2Pass: boolean;
+    unsupportedProbePass: boolean;
+    recoveryExhaustedProbePass: boolean;
+  }>>;
+}>;
 
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
@@ -166,6 +202,18 @@ type M6VoiceReplayApi = Readonly<{
     clearAppEvents?: boolean;
     mode?: RealtimeVoiceSessionMode;
   }>) => string;
+  runCp3SingleDeviceSelfTest: (params?: Readonly<{
+    baseUnixMs?: number;
+    captureWindowSize?: number;
+    clearAppEvents?: boolean;
+    mode?: RealtimeVoiceSessionMode;
+  }>) => M6VoiceReplaySingleDeviceSelfTestReport;
+  runCp3SingleDeviceSelfTestJson: (params?: Readonly<{
+    baseUnixMs?: number;
+    captureWindowSize?: number;
+    clearAppEvents?: boolean;
+    mode?: RealtimeVoiceSessionMode;
+  }>) => string;
 }>;
 
 type M6VoiceReplayWindow = Window & {
@@ -213,6 +261,14 @@ const EMPTY_REPLAY_SUITE_GATE_CHECKS: M6VoiceReplaySuiteGateChecks = {
   weakDeleteRemoteFailureCountZero: false,
   accountDeleteRemoteFailureCountZero: false,
 };
+const SUPPORTED_UNSUPPORTED_REASON_CODES = new Set<string>([
+  "webrtc_unavailable",
+  "insecure_context",
+  "media_devices_unavailable",
+  "peer_connection_unavailable",
+  "add_track_unavailable",
+  "unsupported_runtime",
+]);
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null
@@ -301,6 +357,28 @@ const countTransitionsToPhase = (
 ): number => (
   events.filter((event) => toStringOrNull(event.context?.toPhase) === toPhase).length
 );
+
+const getLatestTransitionEvent = (
+  events: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>,
+): Readonly<{ context?: Readonly<Record<string, unknown>> }> | null => {
+  if (events.length === 0) {
+    return null;
+  }
+  return events[events.length - 1] ?? null;
+};
+
+const buildBooleanGate = <TChecks extends M6VoiceReplayBooleanChecks>(
+  checks: TChecks,
+): M6VoiceReplayProbeGate<TChecks> => {
+  const failedChecks = Object.entries(checks)
+    .filter(([, pass]) => pass !== true)
+    .map(([name]) => name);
+  return {
+    pass: failedChecks.length === 0,
+    failedChecks,
+    checks,
+  };
+};
 
 const countTransitionsByRoomAndPhase = (
   events: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>,
@@ -495,6 +573,42 @@ const buildReplaySuiteGate = (params: Readonly<{
     failedChecks,
     checks,
   };
+};
+
+const buildUnsupportedProbeGate = (params: Readonly<{
+  finalState: RealtimeVoiceSessionState;
+  transitionEvents: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>;
+  latestDigestSummary: M6VoiceDigestSummary | null;
+}>): M6VoiceReplayUnsupportedProbeGate => {
+  const latestTransition = getLatestTransitionEvent(params.transitionEvents);
+  const latestReasonCode = toStringOrNull(latestTransition?.context?.reasonCode);
+  const checks = {
+    finalPhaseUnsupported: params.finalState.phase === "unsupported",
+    transitionToUnsupportedObserved: countTransitionsToPhase(params.transitionEvents, "unsupported") >= 1,
+    digestUnsupportedCountObserved: (params.latestDigestSummary?.unsupportedCount ?? 0) >= 1,
+    latestReasonIsUnsupported: latestReasonCode !== null
+      && SUPPORTED_UNSUPPORTED_REASON_CODES.has(latestReasonCode),
+  } as const;
+  return buildBooleanGate(checks);
+};
+
+const buildRecoveryExhaustedProbeGate = (params: Readonly<{
+  finalState: RealtimeVoiceSessionState;
+  transitionEvents: ReadonlyArray<Readonly<{ context?: Readonly<Record<string, unknown>> }>>;
+  latestDigestSummary: M6VoiceDigestSummary | null;
+}>): M6VoiceReplayRecoveryExhaustedProbeGate => {
+  const endedWithRecoveryExhaustedObserved = params.transitionEvents.some((event) => (
+    toStringOrNull(event.context?.toPhase) === "ended"
+    && toStringOrNull(event.context?.reasonCode) === "recovery_exhausted"
+  ));
+  const checks = {
+    finalPhaseEnded: params.finalState.phase === "ended",
+    finalReasonRecoveryExhausted: params.finalState.lastTransitionReasonCode === "recovery_exhausted",
+    transitionToEndedObserved: countTransitionsToPhase(params.transitionEvents, "ended") >= 1,
+    endedReasonRecoveryExhaustedObserved: endedWithRecoveryExhaustedObserved,
+    digestRecoveryExhaustedCountObserved: (params.latestDigestSummary?.recoveryExhaustedCount ?? 0) >= 1,
+  } as const;
+  return buildBooleanGate(checks);
 };
 
 const buildReplayResult = (params: Readonly<{
@@ -845,6 +959,112 @@ export const installM6VoiceReplayBridge = (): void => {
     runCp3ReplaySuiteGateProbeJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runCp3ReplaySuiteGateProbe(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runCp3SingleDeviceSelfTest: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const baseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
+        ? Math.floor(params.baseUnixMs)
+        : Date.now();
+      const suite = root.obscurM6VoiceReplay?.runCp3ReplaySuiteCapture({
+        clearAppEvents: params?.clearAppEvents,
+        captureWindowSize,
+        mode: params?.mode,
+        baseUnixMs,
+      }) ?? {
+        generatedAtUnixMs: Date.now(),
+        weakNetwork: {
+          replay: null,
+          capture: null,
+          cp2EvidenceGate: buildCp2EvidenceGate(null, null),
+        },
+        accountSwitch: {
+          replay: null,
+          capture: null,
+          cp2EvidenceGate: buildCp2EvidenceGate(null, null),
+        },
+        suiteGate: {
+          pass: false,
+          failedChecks: ["suite_capture_unavailable"],
+          checks: EMPTY_REPLAY_SUITE_GATE_CHECKS,
+        },
+      };
+
+      root.obscurAppEvents?.clear?.();
+      clockUnixMs = baseUnixMs + 20_000;
+      state = owner.reset({
+        maxRecoveryAttempts: 3,
+      });
+      root.obscurM6VoiceReplay?.start({
+        roomId: "m6-cp3-unsupported-room",
+        mode: params?.mode ?? "join",
+        supported: false,
+        unsupportedReasonCode: "webrtc_unavailable",
+      });
+      const unsupportedTransitions = readEventsByName(
+        root,
+        "messaging.realtime_voice.session_transition",
+        captureWindowSize,
+      );
+      const unsupportedDigestSummary = readDigestSummary(root, captureWindowSize);
+      const unsupportedProbe = buildUnsupportedProbeGate({
+        finalState: state,
+        transitionEvents: unsupportedTransitions,
+        latestDigestSummary: unsupportedDigestSummary,
+      });
+
+      root.obscurAppEvents?.clear?.();
+      clockUnixMs = baseUnixMs + 30_000;
+      state = owner.reset({
+        maxRecoveryAttempts: 2,
+      });
+      root.obscurM6VoiceReplay?.start({
+        roomId: "m6-cp3-recovery-room",
+        mode: params?.mode ?? "join",
+        supported: true,
+      });
+      root.obscurM6VoiceReplay?.connect({
+        participantCount: 2,
+        hasPeerSessionEvidence: true,
+      });
+      root.obscurM6VoiceReplay?.degrade({ reasonCode: "network_degraded" });
+      root.obscurM6VoiceReplay?.requestRecovery();
+      root.obscurM6VoiceReplay?.failRecovery({ reasonCode: "transport_timeout" });
+      root.obscurM6VoiceReplay?.requestRecovery();
+      root.obscurM6VoiceReplay?.failRecovery({ reasonCode: "transport_timeout" });
+      const recoveryTransitions = readEventsByName(
+        root,
+        "messaging.realtime_voice.session_transition",
+        captureWindowSize,
+      );
+      const recoveryDigestSummary = readDigestSummary(root, captureWindowSize);
+      const recoveryExhaustedProbe = buildRecoveryExhaustedProbeGate({
+        finalState: state,
+        transitionEvents: recoveryTransitions,
+        latestDigestSummary: recoveryDigestSummary,
+      });
+
+      const selfTestGate = buildBooleanGate({
+        suiteGatePass: suite.suiteGate.pass,
+        weakNetworkCp2Pass: suite.weakNetwork.cp2EvidenceGate.pass,
+        accountSwitchCp2Pass: suite.accountSwitch.cp2EvidenceGate.pass,
+        unsupportedProbePass: unsupportedProbe.pass,
+        recoveryExhaustedProbePass: recoveryExhaustedProbe.pass,
+      });
+
+      return {
+        generatedAtUnixMs: Date.now(),
+        suite,
+        unsupportedProbe,
+        recoveryExhaustedProbe,
+        selfTestGate,
+      };
+    },
+    runCp3SingleDeviceSelfTestJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runCp3SingleDeviceSelfTest(params) ?? null,
         null,
         2,
       )

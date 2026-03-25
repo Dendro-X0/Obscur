@@ -9,6 +9,8 @@
     - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCaptureJson(...)`,
     - `window.obscurM6VoiceReplay.runCp3ReplaySuiteGateProbe(...)`,
     - `window.obscurM6VoiceReplay.runCp3ReplaySuiteGateProbeJson(...)`,
+    - `window.obscurM6VoiceReplay.runCp3SingleDeviceSelfTest(...)`,
+    - `window.obscurM6VoiceReplay.runCp3SingleDeviceSelfTestJson(...)`,
     - suite output now includes weak-network and account-switch replay bundles plus
       an overall `suiteGate` verdict for manual CP3 evidence collection.
     - `suiteGate` now also validates unified diagnostics health across both replay paths:
@@ -16,6 +18,10 @@
       - delete-convergence summary presence/risk/remote-failure counters.
     - risk checks now require summary presence (missing summaries cannot pass as low-risk),
       with focused regression coverage for deterministic failure on capture-unavailable runs.
+    - single-device self-test now includes deterministic synthetic probes for:
+      - unsupported runtime transition coverage,
+      - recovery-exhausted transition/digest coverage,
+      reducing dependency on large multi-account test pools.
   - added focused replay-suite coverage in:
     - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
 - Started `v1.1.3` (`M9` `CP3`) checkpoint documentation/runbook lane:

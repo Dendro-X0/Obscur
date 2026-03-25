@@ -311,4 +311,44 @@ describe("m6-voice-replay-bridge", () => {
       reasonCode: "webrtc_unavailable",
     }));
   });
+
+  it("exports deterministic single-device CP3 self-test report without extra accounts", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp3SingleDeviceSelfTest: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => {
+        suite: {
+          suiteGate: { pass: boolean };
+          weakNetwork: { cp2EvidenceGate: { pass: boolean } };
+          accountSwitch: { cp2EvidenceGate: { pass: boolean } };
+        };
+        unsupportedProbe: { pass: boolean; checks: Record<string, boolean> };
+        recoveryExhaustedProbe: { pass: boolean; checks: Record<string, boolean> };
+        selfTestGate: { pass: boolean; failedChecks: readonly string[]; checks: Record<string, boolean> };
+      };
+      runCp3SingleDeviceSelfTestJson: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => string;
+    };
+
+    const report = replayApi.runCp3SingleDeviceSelfTest({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    });
+    expect(report.suite.suiteGate.pass).toBe(true);
+    expect(report.suite.weakNetwork.cp2EvidenceGate.pass).toBe(true);
+    expect(report.suite.accountSwitch.cp2EvidenceGate.pass).toBe(true);
+    expect(report.unsupportedProbe.pass).toBe(true);
+    expect(report.unsupportedProbe.checks.finalPhaseUnsupported).toBe(true);
+    expect(report.recoveryExhaustedProbe.pass).toBe(true);
+    expect(report.recoveryExhaustedProbe.checks.finalReasonRecoveryExhausted).toBe(true);
+    expect(report.selfTestGate.pass).toBe(true);
+    expect(report.selfTestGate.failedChecks).toEqual([]);
+    expect(() => JSON.parse(replayApi.runCp3SingleDeviceSelfTestJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    }))).not.toThrow();
+  });
 });

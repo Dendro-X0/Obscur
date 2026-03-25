@@ -496,6 +496,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - delete-convergence summary presence/risk/remote-failure counters.
     - suite/cp2 risk checks now require summary presence so capture-missing paths fail deterministically,
       backed by focused regression coverage in `app/shared/m6-voice-replay-bridge.test.ts`.
+    - added single-device CP3 self-test helpers to reduce test-coverage blocking when only a small number of trusted accounts is available:
+      - `window.obscurM6VoiceReplay.runCp3SingleDeviceSelfTest(...)`,
+      - `window.obscurM6VoiceReplay.runCp3SingleDeviceSelfTestJson(...)`,
+      - includes synthetic unsupported-runtime and recovery-exhausted probes with explicit pass/fail gates.
 
 ## v1 Readiness Status
 
