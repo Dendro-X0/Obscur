@@ -223,8 +223,12 @@ Current checkpoint progress (2026-03-24):
 : producing one-copy nominal-vs-failure gate verdict with explicit `failedChecks`.
 3. CP4 readiness gate now emits explicit pass/fail checks for long-session risk posture:
 : `cp4ReadinessGate.pass/failedChecks` with transition-volume, recovery-exhausted, and unified diagnostics checks.
-4. Focused long-session helper coverage is green:
-: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`
+4. Cross-device digest realtime voice summary now includes CP4 long-session gate counters and latest failure sample:
+: `longSessionGateCount`, `longSessionGatePassCount`, `longSessionGateFailCount`, `unexpectedLongSessionGateFailCount`,
+: `latestLongSessionGatePass`, and `latestLongSessionGateFailedCheckSample` in
+: `apps/pwa/app/shared/log-app-event.ts`.
+5. Focused long-session helper coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.2.0 (M9-CP4 closeout)

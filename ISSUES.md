@@ -521,10 +521,18 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - CP4 self-test now emits a compact overall gate for nominal vs failure-injection lanes (pass/fail + failedChecks), reducing manual console inspection.
     - long-session replay capture now emits digest-visible diagnostics:
       - `messaging.realtime_voice.long_session_gate`.
+    - cross-device digest realtime voice summary now includes CP4 gate counters and latest failure sample:
+      - `longSessionGateCount`,
+      - `longSessionGatePassCount`,
+      - `longSessionGateFailCount`,
+      - `unexpectedLongSessionGateFailCount`,
+      - `latestLongSessionGatePass`,
+      - `latestLongSessionGateFailedCheckSample`,
+      with risk escalation to `high` only for unexpected non-injected gate failures.
     - dedicated matrix is active:
       - `docs/33-v1.1.4-cp4-voice-long-session-matrix.md`.
     - focused helper validation is green:
-      - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`,
+      - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status

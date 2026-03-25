@@ -424,6 +424,27 @@ describe("logAppEvent", () => {
       },
     });
     logAppEvent({
+      name: "messaging.realtime_voice.long_session_gate",
+      level: "warn",
+      context: {
+        cp4Pass: false,
+        failedCheckCount: 2,
+        failedCheckSample: "endedTransitionsZero|digestRecoveryExhaustedZero",
+        cycleCount: 3,
+        injectRecoveryExhausted: false,
+        finalPhase: "ended",
+        finalReasonCode: "recovery_exhausted",
+        transitionEventCount: 11,
+        degradedTransitionCount: 3,
+        recoveredActiveTransitionCount: 2,
+        endedTransitionCount: 1,
+        digestRecoveryExhaustedCount: 1,
+        digestRiskLevel: "high",
+        replayReadinessReadyForCp2: false,
+        extraFieldShouldBeDropped: "drop",
+      },
+    });
+    logAppEvent({
       name: "messaging.voice_note.recording_unsupported",
       level: "warn",
       context: {
@@ -579,9 +600,15 @@ describe("logAppEvent", () => {
             unsupportedCount: number;
             recoveryExhaustedCount: number;
             staleEventIgnoredCount: number;
+            longSessionGateCount: number;
+            longSessionGatePassCount: number;
+            longSessionGateFailCount: number;
+            unexpectedLongSessionGateFailCount: number;
             latestToPhase: string | null;
             latestReasonCode: string | null;
             latestIgnoredReasonCode: string | null;
+            latestLongSessionGatePass: boolean | null;
+            latestLongSessionGateFailedCheckSample: string | null;
           };
           asyncVoiceNote: {
             riskLevel: "none" | "watch" | "high";
@@ -781,10 +808,33 @@ describe("logAppEvent", () => {
       unsupportedCount: 0,
       recoveryExhaustedCount: 1,
       staleEventIgnoredCount: 0,
+      longSessionGateCount: 1,
+      longSessionGatePassCount: 0,
+      longSessionGateFailCount: 1,
+      unexpectedLongSessionGateFailCount: 1,
       latestToPhase: "ended",
       latestReasonCode: "recovery_exhausted",
       latestIgnoredReasonCode: null,
+      latestLongSessionGatePass: false,
+      latestLongSessionGateFailedCheckSample: "endedTransitionsZero|digestRecoveryExhaustedZero",
     }));
+    expect(digest.events["messaging.realtime_voice.long_session_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      cp4Pass: false,
+      failedCheckCount: 2,
+      failedCheckSample: "endedTransitionsZero|digestRecoveryExhaustedZero",
+      cycleCount: 3,
+      injectRecoveryExhausted: false,
+      finalPhase: "ended",
+      finalReasonCode: "recovery_exhausted",
+      transitionEventCount: 11,
+      degradedTransitionCount: 3,
+      recoveredActiveTransitionCount: 2,
+      endedTransitionCount: 1,
+      digestRecoveryExhaustedCount: 1,
+      digestRiskLevel: "high",
+      replayReadinessReadyForCp2: false,
+    }));
+    expect(digest.events["messaging.realtime_voice.long_session_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
     expect(digest.summary.asyncVoiceNote).toEqual(expect.objectContaining({
       riskLevel: "high",
       recordingCompleteCount: 1,
@@ -1377,9 +1427,15 @@ describe("logAppEvent", () => {
             unsupportedCount: number;
             recoveryExhaustedCount: number;
             staleEventIgnoredCount: number;
+            longSessionGateCount: number;
+            longSessionGatePassCount: number;
+            longSessionGateFailCount: number;
+            unexpectedLongSessionGateFailCount: number;
             latestToPhase: string | null;
             latestReasonCode: string | null;
             latestIgnoredReasonCode: string | null;
+            latestLongSessionGatePass: boolean | null;
+            latestLongSessionGateFailedCheckSample: string | null;
           };
         };
       };
@@ -1393,9 +1449,15 @@ describe("logAppEvent", () => {
       unsupportedCount: 0,
       recoveryExhaustedCount: 0,
       staleEventIgnoredCount: 0,
+      longSessionGateCount: 0,
+      longSessionGatePassCount: 0,
+      longSessionGateFailCount: 0,
+      unexpectedLongSessionGateFailCount: 0,
       latestToPhase: "connecting",
       latestReasonCode: "none",
       latestIgnoredReasonCode: null,
+      latestLongSessionGatePass: null,
+      latestLongSessionGateFailedCheckSample: null,
     }));
 
     diagnosticsApi.clear();
@@ -1424,9 +1486,15 @@ describe("logAppEvent", () => {
       unsupportedCount: 1,
       recoveryExhaustedCount: 0,
       staleEventIgnoredCount: 0,
+      longSessionGateCount: 0,
+      longSessionGatePassCount: 0,
+      longSessionGateFailCount: 0,
+      unexpectedLongSessionGateFailCount: 0,
       latestToPhase: "unsupported",
       latestReasonCode: "webrtc_unavailable",
       latestIgnoredReasonCode: null,
+      latestLongSessionGatePass: null,
+      latestLongSessionGateFailedCheckSample: null,
     }));
   });
 
@@ -1452,9 +1520,15 @@ describe("logAppEvent", () => {
             unsupportedCount: number;
             recoveryExhaustedCount: number;
             staleEventIgnoredCount: number;
+            longSessionGateCount: number;
+            longSessionGatePassCount: number;
+            longSessionGateFailCount: number;
+            unexpectedLongSessionGateFailCount: number;
             latestToPhase: string | null;
             latestReasonCode: string | null;
             latestIgnoredReasonCode: string | null;
+            latestLongSessionGatePass: boolean | null;
+            latestLongSessionGateFailedCheckSample: string | null;
           };
         };
       };
@@ -1467,10 +1541,132 @@ describe("logAppEvent", () => {
       unsupportedCount: 0,
       recoveryExhaustedCount: 0,
       staleEventIgnoredCount: 1,
+      longSessionGateCount: 0,
+      longSessionGatePassCount: 0,
+      longSessionGateFailCount: 0,
+      unexpectedLongSessionGateFailCount: 0,
       latestToPhase: null,
       latestReasonCode: null,
       latestIgnoredReasonCode: "stale_event",
+      latestLongSessionGatePass: null,
+      latestLongSessionGateFailedCheckSample: null,
     }));
+  });
+
+  it("marks realtime voice session long-session gate failures as watch for injected failures and high for unexpected failures", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.long_session_gate",
+      level: "warn",
+      context: {
+        cp4Pass: false,
+        failedCheckCount: 2,
+        failedCheckSample: "endedTransitionsZero|digestRecoveryExhaustedZero",
+        injectRecoveryExhausted: true,
+      },
+    });
+
+    let diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            longSessionGateCount: number;
+            longSessionGatePassCount: number;
+            longSessionGateFailCount: number;
+            unexpectedLongSessionGateFailCount: number;
+            latestLongSessionGatePass: boolean | null;
+            latestLongSessionGateFailedCheckSample: string | null;
+          };
+        };
+      };
+      clear: () => void;
+    };
+    let digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      longSessionGateCount: 1,
+      longSessionGatePassCount: 0,
+      longSessionGateFailCount: 1,
+      unexpectedLongSessionGateFailCount: 0,
+      latestLongSessionGatePass: false,
+      latestLongSessionGateFailedCheckSample: "endedTransitionsZero|digestRecoveryExhaustedZero",
+    }));
+
+    diagnosticsApi.clear();
+    logAppEvent({
+      name: "messaging.realtime_voice.long_session_gate",
+      level: "warn",
+      context: {
+        cp4Pass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "finalPhaseActive",
+        injectRecoveryExhausted: false,
+      },
+    });
+    diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as typeof diagnosticsApi;
+    digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      longSessionGateCount: 1,
+      longSessionGatePassCount: 0,
+      longSessionGateFailCount: 1,
+      unexpectedLongSessionGateFailCount: 1,
+      latestLongSessionGatePass: false,
+      latestLongSessionGateFailedCheckSample: "finalPhaseActive",
+    }));
+  });
+
+  it("captures realtime voice long-session gate diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.long_session_gate",
+      level: "warn",
+      context: {
+        cp4Pass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "transitionVolumeSufficient",
+        cycleCount: 4,
+        injectRecoveryExhausted: false,
+        finalPhase: "degraded",
+        finalReasonCode: "network_degraded",
+        transitionEventCount: 8,
+        degradedTransitionCount: 4,
+        recoveredActiveTransitionCount: 3,
+        endedTransitionCount: 0,
+        digestRecoveryExhaustedCount: 0,
+        digestRiskLevel: "watch",
+        replayReadinessReadyForCp2: true,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.long_session_gate"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.long_session_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      cp4Pass: false,
+      failedCheckCount: 1,
+      failedCheckSample: "transitionVolumeSufficient",
+      cycleCount: 4,
+      injectRecoveryExhausted: false,
+      finalPhase: "degraded",
+      finalReasonCode: "network_degraded",
+      transitionEventCount: 8,
+      degradedTransitionCount: 4,
+      recoveredActiveTransitionCount: 3,
+      endedTransitionCount: 0,
+      digestRecoveryExhaustedCount: 0,
+      digestRiskLevel: "watch",
+      replayReadinessReadyForCp2: true,
+    }));
+    expect(digest.events["messaging.realtime_voice.long_session_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
 
   it("captures realtime voice ignored-event diagnostics in compact digest events", () => {
