@@ -2,6 +2,12 @@
 
 ### Changed
 
+ - _No unreleased changes yet._
+
+## [v1.2.2] - 2026-03-25
+
+### Changed
+
 - Landed `v1.2.1` (`M10` `CP1`) canonical shared-intel/relay-risk policy contracts in
   `apps/pwa/app/features/messaging/services/m10-shared-intel-policy.ts`:
   - typed signed shared-intel schema (`obscur.m10.shared_intel.v1`),
