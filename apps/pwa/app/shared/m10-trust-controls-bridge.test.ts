@@ -79,6 +79,18 @@ describe("m10-trust-controls-bridge", () => {
             },
           ]);
         }
+        if (name === "navigation.route_mount_probe_slow") {
+          return ([
+            {
+              name: "navigation.route_mount_probe_slow",
+              atUnixMs: 11,
+              context: {
+                routeSurface: "chats",
+                elapsedMs: 1800,
+              },
+            },
+          ]);
+        }
         return [];
       },
     };
@@ -91,6 +103,8 @@ describe("m10-trust-controls-bridge", () => {
     );
     expect(capture?.recentTrustControlEvents).toHaveLength(1);
     expect(capture?.recentTrustControlEvents[0]?.name).toBe("messaging.m10.trust_controls_profile_changed");
+    expect(capture?.recentResponsivenessEvents).toHaveLength(1);
+    expect(capture?.recentResponsivenessEvents[0]?.name).toBe("navigation.route_mount_probe_slow");
   });
 
   it("ingests signals from JSON and reports invalid JSON deterministically", () => {

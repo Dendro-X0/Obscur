@@ -34,6 +34,7 @@ type M10TrustControlsCapture = Readonly<{
   snapshot: M10TrustControlsSnapshot;
   recentAttackModeQuarantineEvents: ReadonlyArray<MinimalAppEvent>;
   recentTrustControlEvents: ReadonlyArray<MinimalAppEvent>;
+  recentResponsivenessEvents: ReadonlyArray<MinimalAppEvent>;
 }>;
 
 type M10TrustControlsBridgeApi = Readonly<{
@@ -75,6 +76,13 @@ const TRUST_CONTROL_EVENT_NAMES: ReadonlyArray<string> = [
   "messaging.m10.trust_controls_import_result",
   "messaging.m10.trust_controls_clear_applied",
   "messaging.m10.trust_controls_undo_applied",
+];
+const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
+  "navigation.route_stall_hard_fallback",
+  "navigation.route_mount_probe_slow",
+  "navigation.page_transition_watchdog_timeout",
+  "navigation.page_transition_effects_disabled",
+  "runtime.profile_boot_stall_timeout",
 ];
 
 const isPositiveFinite = (value: unknown): value is number => (
@@ -164,6 +172,26 @@ const readTrustControlEvents = (
   }
 };
 
+const readResponsivenessEvents = (
+  root: M10TrustControlsBridgeWindow,
+  eventWindowSize: number,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof root.obscurAppEvents?.findByName !== "function") {
+      return [];
+    }
+    const mergedEvents = RESPONSIVENESS_EVENT_NAMES.flatMap((name) => (
+      root.obscurAppEvents?.findByName?.(name, eventWindowSize) ?? []
+    ));
+    return mergedEvents
+      .slice()
+      .sort((left, right) => (left.atUnixMs ?? 0) - (right.atUnixMs ?? 0))
+      .slice(-eventWindowSize);
+  } catch {
+    return [];
+  }
+};
+
 export const installM10TrustControlsBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -220,6 +248,7 @@ export const installM10TrustControlsBridge = (): void => {
         snapshot: createSnapshot(),
         recentAttackModeQuarantineEvents: readAttackModeQuarantineEvents(root, safeWindow),
         recentTrustControlEvents: readTrustControlEvents(root, safeWindow),
+        recentResponsivenessEvents: readResponsivenessEvents(root, safeWindow),
       };
     },
     captureJson: (eventWindowSize = 300) => (
@@ -231,8 +260,10 @@ export const installM10TrustControlsBridge = (): void => {
 export const m10TrustControlsBridgeInternals = {
   ATTACK_MODE_REASON_PREFIX,
   TRUST_CONTROL_EVENT_NAMES,
+  RESPONSIVENESS_EVENT_NAMES,
   createSnapshot,
   readAttackModeQuarantineEvents,
   readTrustControlEvents,
+  readResponsivenessEvents,
   toWindowSize,
 };

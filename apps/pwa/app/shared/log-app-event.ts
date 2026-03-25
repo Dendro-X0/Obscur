@@ -111,6 +111,22 @@ type AppEventDiagnosticsApi = Readonly<{
         latestResolutionMode: string | null;
         latestUnresolvedReasonCode: string | null;
       }>;
+      uiResponsiveness: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        routeRequestCount: number;
+        routeSettledCount: number;
+        routeStallHardFallbackCount: number;
+        routeMountProbeSlowCount: number;
+        routeMountProbeSettledWarnCount: number;
+        pageTransitionWatchdogTimeoutCount: number;
+        pageTransitionEffectsDisabledCount: number;
+        startupProfileBootStallTimeoutCount: number;
+        latestRouteSurface: string | null;
+        latestRouteStallElapsedMs: number | null;
+        latestRouteMountProbeElapsedMs: number | null;
+        latestPageTransitionWatchdogElapsedMs: number | null;
+        latestStartupProfileBootPhase: string | null;
+      }>;
       realtimeVoiceSession: Readonly<{
         riskLevel: "none" | "watch" | "high";
         transitionCount: number;
@@ -572,6 +588,66 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "deleteTargetCount",
     "remoteMessageIdHint",
   ],
+  "navigation.route_request": [
+    "guardSource",
+    "fromPathname",
+    "fromRouteSurface",
+    "targetHref",
+    "targetRouteSurface",
+    "hardFallbackAfterMs",
+  ],
+  "navigation.route_settled": [
+    "guardSource",
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+  ],
+  "navigation.route_stall_hard_fallback": [
+    "guardSource",
+    "fromPathname",
+    "fromRouteSurface",
+    "currentPathname",
+    "currentRouteSurface",
+    "targetHref",
+    "targetRouteSurface",
+    "elapsedMs",
+    "hardFallbackAfterMs",
+  ],
+  "navigation.route_mount_probe_slow": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "warnThresholdMs",
+    "pendingTargetHref",
+  ],
+  "navigation.route_mount_probe_settled": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "firstFrameDelayMs",
+    "secondFrameDelayMs",
+    "routeRequestElapsedMs",
+    "warnThresholdMs",
+    "pageTransitionsEnabled",
+    "transitionWatchdogTimeoutCount",
+  ],
+  "navigation.page_transition_watchdog_timeout": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "timeoutCount",
+    "transitionsDisabled",
+    "watchdogTimeoutMs",
+  ],
+  "navigation.page_transition_effects_disabled": [
+    "pathname",
+    "routeSurface",
+    "timeoutCount",
+  ],
+  "runtime.profile_boot_stall_timeout": [
+    "phase",
+    "timeoutMs",
+  ],
   "runtime.activation.timeout": [
     "timeouts",
     "projectionPhase",
@@ -956,6 +1032,69 @@ const installDiagnosticsApi = (): void => {
       const latestSearchJumpUnresolvedReasonCode = toStringOrNull(
         searchJumpUnresolvedEvents.at(-1)?.context?.reasonCode,
       );
+      const routeRequestEvents = recent.filter((event) => (
+        event.name === "navigation.route_request"
+      ));
+      const routeSettledEvents = recent.filter((event) => (
+        event.name === "navigation.route_settled"
+      ));
+      const routeStallHardFallbackEvents = recent.filter((event) => (
+        event.name === "navigation.route_stall_hard_fallback"
+      ));
+      const routeMountProbeSlowEvents = recent.filter((event) => (
+        event.name === "navigation.route_mount_probe_slow"
+      ));
+      const routeMountProbeSettledEvents = recent.filter((event) => (
+        event.name === "navigation.route_mount_probe_settled"
+      ));
+      const pageTransitionWatchdogTimeoutEvents = recent.filter((event) => (
+        event.name === "navigation.page_transition_watchdog_timeout"
+      ));
+      const pageTransitionEffectsDisabledEvents = recent.filter((event) => (
+        event.name === "navigation.page_transition_effects_disabled"
+      ));
+      const startupProfileBootStallTimeoutEvents = recent.filter((event) => (
+        event.name === "runtime.profile_boot_stall_timeout"
+      ));
+      const routeRequestCount = routeRequestEvents.length;
+      const routeSettledCount = routeSettledEvents.length;
+      const routeStallHardFallbackCount = routeStallHardFallbackEvents.length;
+      const routeMountProbeSlowCount = routeMountProbeSlowEvents.length;
+      const routeMountProbeSettledWarnCount = routeMountProbeSettledEvents.filter((event) => (
+        event.level === "warn"
+        || (
+          typeof event.context?.elapsedMs === "number"
+          && typeof event.context?.warnThresholdMs === "number"
+          && event.context.elapsedMs >= event.context.warnThresholdMs
+        )
+      )).length;
+      const pageTransitionWatchdogTimeoutCount = pageTransitionWatchdogTimeoutEvents.length;
+      const pageTransitionEffectsDisabledCount = pageTransitionEffectsDisabledEvents.length;
+      const startupProfileBootStallTimeoutCount = startupProfileBootStallTimeoutEvents.length;
+      const latestRouteStallHardFallbackEvent = routeStallHardFallbackEvents.at(-1);
+      const latestRouteMountProbeSettledEvent = routeMountProbeSettledEvents.at(-1);
+      const latestRouteMountProbeSlowEvent = routeMountProbeSlowEvents.at(-1);
+      const latestPageTransitionWatchdogTimeoutEvent = pageTransitionWatchdogTimeoutEvents.at(-1);
+      const latestStartupProfileBootStallTimeoutEvent = startupProfileBootStallTimeoutEvents.at(-1);
+      const latestUiRouteSurface = toStringOrNull(
+        latestRouteStallHardFallbackEvent?.context?.targetRouteSurface
+        ?? latestRouteMountProbeSettledEvent?.context?.routeSurface
+        ?? latestRouteMountProbeSlowEvent?.context?.routeSurface
+        ?? routeSettledEvents.at(-1)?.context?.routeSurface,
+      );
+      const latestRouteStallElapsedMs = toNumberOrNull(
+        latestRouteStallHardFallbackEvent?.context?.elapsedMs,
+      );
+      const latestRouteMountProbeElapsedMs = toNumberOrNull(
+        latestRouteMountProbeSettledEvent?.context?.elapsedMs
+        ?? latestRouteMountProbeSlowEvent?.context?.elapsedMs,
+      );
+      const latestPageTransitionWatchdogElapsedMs = toNumberOrNull(
+        latestPageTransitionWatchdogTimeoutEvent?.context?.elapsedMs,
+      );
+      const latestStartupProfileBootPhase = toStringOrNull(
+        latestStartupProfileBootStallTimeoutEvent?.context?.phase,
+      );
       const voiceSessionTransitionEvents = recent.filter((event) => (
         event.name === "messaging.realtime_voice.session_transition"
       ));
@@ -1225,6 +1364,18 @@ const installDiagnosticsApi = (): void => {
         watch: searchJumpUnresolvedCount > 0,
         high: searchJumpDomUnresolvedCount > 0,
       });
+      const uiResponsivenessRiskLevel = getRiskLevel({
+        watch: (
+          routeMountProbeSlowCount > 0
+          || routeMountProbeSettledWarnCount > 0
+          || pageTransitionWatchdogTimeoutCount > 0
+          || startupProfileBootStallTimeoutCount > 0
+        ),
+        high: (
+          routeStallHardFallbackCount > 0
+          || pageTransitionEffectsDisabledCount > 0
+        ),
+      });
       const realtimeVoiceSessionRiskLevel = getRiskLevel({
         watch: (
           voiceSessionDegradedCount > 0
@@ -1356,6 +1507,22 @@ const installDiagnosticsApi = (): void => {
             loadExhaustedUnresolvedCount: searchJumpLoadExhaustedUnresolvedCount,
             latestResolutionMode: latestSearchJumpResolutionMode,
             latestUnresolvedReasonCode: latestSearchJumpUnresolvedReasonCode,
+          },
+          uiResponsiveness: {
+            riskLevel: uiResponsivenessRiskLevel,
+            routeRequestCount,
+            routeSettledCount,
+            routeStallHardFallbackCount,
+            routeMountProbeSlowCount,
+            routeMountProbeSettledWarnCount,
+            pageTransitionWatchdogTimeoutCount,
+            pageTransitionEffectsDisabledCount,
+            startupProfileBootStallTimeoutCount,
+            latestRouteSurface: latestUiRouteSurface,
+            latestRouteStallElapsedMs,
+            latestRouteMountProbeElapsedMs,
+            latestPageTransitionWatchdogElapsedMs,
+            latestStartupProfileBootPhase,
           },
           realtimeVoiceSession: {
             riskLevel: realtimeVoiceSessionRiskLevel,

@@ -703,8 +703,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `messaging.m10.trust_controls_undo_applied`,
     - M10 bridge capture now includes `recentTrustControlEvents` for replay triage:
       - `apps/pwa/app/shared/m10-trust-controls-bridge.ts`,
+    - cross-device digest now exposes compact UI responsiveness risk signals:
+      - `summary.uiResponsiveness` in `apps/pwa/app/shared/log-app-event.ts`,
+      - includes route stall/fallback, mount-probe slow, transition watchdog, transition-disablement, and startup profile-boot stall evidence,
+    - M10 trust-controls capture now includes `recentResponsivenessEvents` for one-packet operator triage:
+      - `apps/pwa/app/shared/m10-trust-controls-bridge.ts`,
     - focused CP2 slice validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
+      - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status

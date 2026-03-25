@@ -432,6 +432,14 @@ Current checkpoint progress (2026-03-25):
 7. Focused CP2 slice validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+8. CP2 responsiveness diagnostics slice is now landed in canonical app-event digest owner:
+: `apps/pwa/app/shared/log-app-event.ts` exposes `summary.uiResponsiveness`
+: (route stall/fallback, route mount slow, page-transition watchdog/disablement, startup profile-boot stall).
+9. CP2 M10 operator capture now bundles responsiveness events with trust controls:
+: `apps/pwa/app/shared/m10-trust-controls-bridge.ts` adds `recentResponsivenessEvents`.
+10. Focused CP2 responsiveness validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m10-trust-controls-bridge.test.ts`,
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,

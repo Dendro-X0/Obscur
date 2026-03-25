@@ -2181,4 +2181,149 @@ describe("logAppEvent", () => {
     }));
     expect(digest.events["messaging.realtime_voice.session_event_ignored"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
+
+  it("marks ui responsiveness as watch when navigation/startup probes degrade without hard fallback", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "navigation.route_request",
+      level: "info",
+      context: {
+        guardSource: "app_shell",
+        targetHref: "/network",
+      },
+    });
+    logAppEvent({
+      name: "navigation.route_settled",
+      level: "info",
+      context: {
+        guardSource: "app_shell",
+        pathname: "/network",
+        routeSurface: "network",
+        elapsedMs: 400,
+      },
+    });
+    logAppEvent({
+      name: "navigation.route_mount_probe_slow",
+      level: "warn",
+      context: {
+        pathname: "/network",
+        routeSurface: "network",
+        elapsedMs: 1600,
+        warnThresholdMs: 1500,
+      },
+    });
+    logAppEvent({
+      name: "navigation.route_mount_probe_settled",
+      level: "warn",
+      context: {
+        pathname: "/network",
+        routeSurface: "network",
+        elapsedMs: 1600,
+        warnThresholdMs: 1500,
+      },
+    });
+    logAppEvent({
+      name: "navigation.page_transition_watchdog_timeout",
+      level: "warn",
+      context: {
+        pathname: "/network",
+        routeSurface: "network",
+        elapsedMs: 900,
+      },
+    });
+    logAppEvent({
+      name: "runtime.profile_boot_stall_timeout",
+      level: "warn",
+      context: {
+        phase: "binding_profile",
+        timeoutMs: 12000,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          uiResponsiveness: {
+            riskLevel: "none" | "watch" | "high";
+            routeRequestCount: number;
+            routeSettledCount: number;
+            routeStallHardFallbackCount: number;
+            routeMountProbeSlowCount: number;
+            routeMountProbeSettledWarnCount: number;
+            pageTransitionWatchdogTimeoutCount: number;
+            pageTransitionEffectsDisabledCount: number;
+            startupProfileBootStallTimeoutCount: number;
+            latestRouteSurface: string | null;
+            latestRouteStallElapsedMs: number | null;
+            latestRouteMountProbeElapsedMs: number | null;
+            latestPageTransitionWatchdogElapsedMs: number | null;
+            latestStartupProfileBootPhase: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.uiResponsiveness).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      routeRequestCount: 1,
+      routeSettledCount: 1,
+      routeStallHardFallbackCount: 0,
+      routeMountProbeSlowCount: 1,
+      routeMountProbeSettledWarnCount: 1,
+      pageTransitionWatchdogTimeoutCount: 1,
+      pageTransitionEffectsDisabledCount: 0,
+      startupProfileBootStallTimeoutCount: 1,
+      latestRouteSurface: "network",
+      latestRouteStallElapsedMs: null,
+      latestRouteMountProbeElapsedMs: 1600,
+      latestPageTransitionWatchdogElapsedMs: 900,
+      latestStartupProfileBootPhase: "binding_profile",
+    }));
+  });
+
+  it("marks ui responsiveness as high when hard fallback or transition disablement occurs", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "navigation.route_stall_hard_fallback",
+      level: "warn",
+      context: {
+        guardSource: "app_shell",
+        targetRouteSurface: "chats",
+        elapsedMs: 1300,
+      },
+    });
+    logAppEvent({
+      name: "navigation.page_transition_effects_disabled",
+      level: "warn",
+      context: {
+        pathname: "/",
+        routeSurface: "chats",
+        timeoutCount: 3,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          uiResponsiveness: {
+            riskLevel: "none" | "watch" | "high";
+            routeStallHardFallbackCount: number;
+            pageTransitionEffectsDisabledCount: number;
+            latestRouteSurface: string | null;
+            latestRouteStallElapsedMs: number | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.uiResponsiveness).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      routeStallHardFallbackCount: 1,
+      pageTransitionEffectsDisabledCount: 1,
+      latestRouteSurface: "chats",
+      latestRouteStallElapsedMs: 1300,
+    }));
+  });
 });

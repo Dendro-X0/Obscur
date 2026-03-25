@@ -54,6 +54,15 @@
 - Extended M10 trust-controls bridge capture evidence bundle in
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`
   with `recentTrustControlEvents` for operator replay triage.
+- Extended compact cross-device diagnostics in
+  `apps/pwa/app/shared/log-app-event.ts` with a new `summary.uiResponsiveness` block:
+  - route request/settle counters,
+  - hard-fallback and route-mount slow counters,
+  - page-transition watchdog/disablement counters,
+  - startup profile-boot stall counter,
+  - latest route/elapsed/phase evidence fields for freeze triage.
+- Extended M10 bridge capture bundle with `recentResponsivenessEvents` to attach
+  trust + responsiveness evidence in one operator packet.
 - Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
 - Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
 - Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.

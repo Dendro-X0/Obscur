@@ -572,6 +572,15 @@ Current execution status (started 2026-03-25):
 16. Focused CP2 trust-controls validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+17. CP2 responsiveness diagnostics slice landed on canonical app-event owner:
+: `apps/pwa/app/shared/log-app-event.ts` now exposes `summary.uiResponsiveness`
+: for route/page-transition/startup degradation triage without adding new runtime owners.
+18. CP2 trust-controls capture now includes responsiveness evidence:
+: `recentResponsivenessEvents` in `apps/pwa/app/shared/m10-trust-controls-bridge.ts`
+: for one-packet anti-abuse + performance handoff.
+19. Focused CP2 responsiveness validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m10-trust-controls-bridge.test.ts`,
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## Version-Bound Execution
 
