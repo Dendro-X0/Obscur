@@ -96,6 +96,18 @@ type M6VoiceReplaySuiteCaptureBundle = Readonly<{
       accountSwitchPass: boolean;
       weakNetworkReadyForCp2: boolean;
       accountSwitchReadyForCp2: boolean;
+      weakAsyncVoiceSummaryPresent: boolean;
+      accountAsyncVoiceSummaryPresent: boolean;
+      weakDeleteSummaryPresent: boolean;
+      accountDeleteSummaryPresent: boolean;
+      weakAsyncVoiceRiskNotHigh: boolean;
+      accountAsyncVoiceRiskNotHigh: boolean;
+      weakDeleteRiskNotHigh: boolean;
+      accountDeleteRiskNotHigh: boolean;
+      weakAsyncVoiceStartFailureCountZero: boolean;
+      accountAsyncVoiceStartFailureCountZero: boolean;
+      weakDeleteRemoteFailureCountZero: boolean;
+      accountDeleteRemoteFailureCountZero: boolean;
     }>;
   }>;
 }>;
@@ -413,11 +425,27 @@ const buildReplaySuiteGate = (params: Readonly<{
   weakNetwork: M6VoiceReplayCaptureBundle;
   accountSwitch: M6VoiceReplayCaptureBundle;
 }>): M6VoiceReplaySuiteCaptureBundle["suiteGate"] => {
+  const weakAsyncVoiceSummary = params.weakNetwork.capture?.voice.asyncVoiceNoteSummary ?? null;
+  const accountAsyncVoiceSummary = params.accountSwitch.capture?.voice.asyncVoiceNoteSummary ?? null;
+  const weakDeleteSummary = params.weakNetwork.capture?.voice.deleteConvergenceSummary ?? null;
+  const accountDeleteSummary = params.accountSwitch.capture?.voice.deleteConvergenceSummary ?? null;
   const checks = {
     weakNetworkPass: params.weakNetwork.cp2EvidenceGate.pass,
     accountSwitchPass: params.accountSwitch.cp2EvidenceGate.pass,
     weakNetworkReadyForCp2: params.weakNetwork.replay?.replayReadiness.readyForCp2Evidence === true,
     accountSwitchReadyForCp2: params.accountSwitch.replay?.replayReadiness.readyForCp2Evidence === true,
+    weakAsyncVoiceSummaryPresent: weakAsyncVoiceSummary !== null,
+    accountAsyncVoiceSummaryPresent: accountAsyncVoiceSummary !== null,
+    weakDeleteSummaryPresent: weakDeleteSummary !== null,
+    accountDeleteSummaryPresent: accountDeleteSummary !== null,
+    weakAsyncVoiceRiskNotHigh: weakAsyncVoiceSummary?.riskLevel !== "high",
+    accountAsyncVoiceRiskNotHigh: accountAsyncVoiceSummary?.riskLevel !== "high",
+    weakDeleteRiskNotHigh: weakDeleteSummary?.riskLevel !== "high",
+    accountDeleteRiskNotHigh: accountDeleteSummary?.riskLevel !== "high",
+    weakAsyncVoiceStartFailureCountZero: (weakAsyncVoiceSummary?.recordingStartFailedCount ?? -1) === 0,
+    accountAsyncVoiceStartFailureCountZero: (accountAsyncVoiceSummary?.recordingStartFailedCount ?? -1) === 0,
+    weakDeleteRemoteFailureCountZero: (weakDeleteSummary?.remoteFailedCount ?? -1) === 0,
+    accountDeleteRemoteFailureCountZero: (accountDeleteSummary?.remoteFailedCount ?? -1) === 0,
   } as const;
   const failedChecks = Object.entries(checks)
     .filter(([, pass]) => pass !== true)

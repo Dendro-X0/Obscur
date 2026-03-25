@@ -9,6 +9,9 @@
     - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCaptureJson(...)`,
     - suite output now includes weak-network and account-switch replay bundles plus
       an overall `suiteGate` verdict for manual CP3 evidence collection.
+    - `suiteGate` now also validates unified diagnostics health across both replay paths:
+      - async voice-note summary presence/risk/start-failure counters,
+      - delete-convergence summary presence/risk/remote-failure counters.
   - added focused replay-suite coverage in:
     - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
 - Started `v1.1.3` (`M9` `CP3`) checkpoint documentation/runbook lane:

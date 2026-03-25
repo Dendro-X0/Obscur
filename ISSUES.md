@@ -488,6 +488,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - dedicated CP3 replay-suite matrix is now active:
       - `docs/32-v1.1.3-cp3-voice-suite-matrix.md`,
     - active major-phase plan and maintainer runbook are synced to this CP3 lane.
+  - `v1.1.3` CP3 suite-gate hardening landed:
+    - `app/shared/m6-voice-replay-bridge.ts` suite gate now validates unified CP2 diagnostics health on both replay paths:
+      - async voice-note summary presence/risk/start-failure counters,
+      - delete-convergence summary presence/risk/remote-failure counters.
 
 ## v1 Readiness Status
 

@@ -198,6 +198,14 @@ describe("m6-voice-replay-bridge", () => {
     expect(suite.suiteGate.failedChecks).toEqual([]);
     expect(suite.suiteGate.checks.weakNetworkPass).toBe(true);
     expect(suite.suiteGate.checks.accountSwitchPass).toBe(true);
+    expect(suite.suiteGate.checks.weakAsyncVoiceSummaryPresent).toBe(true);
+    expect(suite.suiteGate.checks.accountAsyncVoiceSummaryPresent).toBe(true);
+    expect(suite.suiteGate.checks.weakDeleteSummaryPresent).toBe(true);
+    expect(suite.suiteGate.checks.accountDeleteSummaryPresent).toBe(true);
+    expect(suite.suiteGate.checks.weakAsyncVoiceStartFailureCountZero).toBe(true);
+    expect(suite.suiteGate.checks.accountAsyncVoiceStartFailureCountZero).toBe(true);
+    expect(suite.suiteGate.checks.weakDeleteRemoteFailureCountZero).toBe(true);
+    expect(suite.suiteGate.checks.accountDeleteRemoteFailureCountZero).toBe(true);
     expect(() => JSON.parse(replayApi.runCp3ReplaySuiteCaptureJson({
       clearAppEvents: true,
       captureWindowSize: 300,
