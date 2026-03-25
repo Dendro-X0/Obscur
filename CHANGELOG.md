@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [v1.1.2] - 2026-03-24
+
 ### Changed
 
 - Started `v1.1.2` (`M9` `CP2`) diagnostics/capture hardening for realtime voice:
