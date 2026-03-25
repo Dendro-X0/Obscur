@@ -84,6 +84,22 @@ type M6VoiceReplayCaptureBundle = Readonly<{
   cp2EvidenceGate: M6VoiceCp2EvidenceGate;
 }>;
 
+type M6VoiceReplaySuiteCaptureBundle = Readonly<{
+  generatedAtUnixMs: number;
+  weakNetwork: M6VoiceReplayCaptureBundle;
+  accountSwitch: M6VoiceReplayCaptureBundle;
+  suiteGate: Readonly<{
+    pass: boolean;
+    failedChecks: ReadonlyArray<string>;
+    checks: Readonly<{
+      weakNetworkPass: boolean;
+      accountSwitchPass: boolean;
+      weakNetworkReadyForCp2: boolean;
+      accountSwitchReadyForCp2: boolean;
+    }>;
+  }>;
+}>;
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -111,6 +127,18 @@ type M6VoiceReplayApi = Readonly<{
   runAccountSwitchReplay: (params?: M6AccountSwitchReplayParams) => RealtimeVoiceSessionState;
   runAccountSwitchReplayCapture: (params?: M6AccountSwitchReplayParams) => M6VoiceReplayCaptureBundle;
   runAccountSwitchReplayCaptureJson: (params?: M6AccountSwitchReplayParams) => string;
+  runCp3ReplaySuiteCapture: (params?: Readonly<{
+    baseUnixMs?: number;
+    captureWindowSize?: number;
+    clearAppEvents?: boolean;
+    mode?: RealtimeVoiceSessionMode;
+  }>) => M6VoiceReplaySuiteCaptureBundle;
+  runCp3ReplaySuiteCaptureJson: (params?: Readonly<{
+    baseUnixMs?: number;
+    captureWindowSize?: number;
+    clearAppEvents?: boolean;
+    mode?: RealtimeVoiceSessionMode;
+  }>) => string;
 }>;
 
 type M6VoiceReplayWindow = Window & {
@@ -374,6 +402,26 @@ const buildCp2EvidenceGate = (
     .filter(([name, pass]) => name !== "scenario" && pass !== true)
     .map(([key]) => key);
 
+  return {
+    pass: failedChecks.length === 0,
+    failedChecks,
+    checks,
+  };
+};
+
+const buildReplaySuiteGate = (params: Readonly<{
+  weakNetwork: M6VoiceReplayCaptureBundle;
+  accountSwitch: M6VoiceReplayCaptureBundle;
+}>): M6VoiceReplaySuiteCaptureBundle["suiteGate"] => {
+  const checks = {
+    weakNetworkPass: params.weakNetwork.cp2EvidenceGate.pass,
+    accountSwitchPass: params.accountSwitch.cp2EvidenceGate.pass,
+    weakNetworkReadyForCp2: params.weakNetwork.replay?.replayReadiness.readyForCp2Evidence === true,
+    accountSwitchReadyForCp2: params.accountSwitch.replay?.replayReadiness.readyForCp2Evidence === true,
+  } as const;
+  const failedChecks = Object.entries(checks)
+    .filter(([, pass]) => pass !== true)
+    .map(([name]) => name);
   return {
     pass: failedChecks.length === 0,
     failedChecks,
@@ -677,10 +725,53 @@ export const installM6VoiceReplayBridge = (): void => {
         2,
       )
     ),
+    runCp3ReplaySuiteCapture: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const baseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
+        ? Math.floor(params.baseUnixMs)
+        : Date.now();
+      const weakNetwork = root.obscurM6VoiceReplay?.runWeakNetworkReplayCapture({
+        clearAppEvents: params?.clearAppEvents,
+        captureWindowSize,
+        mode: params?.mode,
+        baseUnixMs,
+      }) ?? {
+        replay: null,
+        capture: null,
+        cp2EvidenceGate: buildCp2EvidenceGate(null, null),
+      };
+      const accountSwitch = root.obscurM6VoiceReplay?.runAccountSwitchReplayCapture({
+        clearAppEvents: false,
+        captureWindowSize,
+        mode: params?.mode,
+        baseUnixMs: baseUnixMs + 10_000,
+      }) ?? {
+        replay: null,
+        capture: null,
+        cp2EvidenceGate: buildCp2EvidenceGate(null, null),
+      };
+      return {
+        generatedAtUnixMs: Date.now(),
+        weakNetwork,
+        accountSwitch,
+        suiteGate: buildReplaySuiteGate({
+          weakNetwork,
+          accountSwitch,
+        }),
+      };
+    },
+    runCp3ReplaySuiteCaptureJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runCp3ReplaySuiteCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
   };
 };
 
 export const m6VoiceReplayBridgeInternals = {
+  buildReplaySuiteGate,
   buildReplayResult,
   buildCp2EvidenceGate,
   buildReplayReadiness,

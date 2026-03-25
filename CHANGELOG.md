@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+### Changed
+
+- Started post-`v1.1.2` M9 continuation with CP3 replay-suite prep:
+  - added deterministic one-copy M6 replay-suite helpers in
+    `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+    - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCapture(...)`,
+    - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCaptureJson(...)`,
+    - suite output now includes weak-network and account-switch replay bundles plus
+      an overall `suiteGate` verdict for manual CP3 evidence collection.
+  - added focused replay-suite coverage in:
+    - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
+
 ## [v1.1.2] - 2026-03-24
 
 ### Changed

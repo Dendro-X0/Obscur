@@ -165,6 +165,11 @@ Current checkpoint progress (2026-03-24):
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts app/shared/m6-voice-replay-bridge.test.ts app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+8. Post-`v1.1.2` CP3 replay-suite prep helper is now available for one-copy evidence export:
+: `window.obscurM6VoiceReplay.runCp3ReplaySuiteCapture(...)`
+: and `runCp3ReplaySuiteCaptureJson(...)` in
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts`,
+: combining weak-network + account-switch replay gates into one `suiteGate` verdict.
 
 ### v1.2.0 (M9-CP3/CP4 closeout)
 

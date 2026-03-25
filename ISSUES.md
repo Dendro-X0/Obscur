@@ -473,6 +473,17 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`,
     - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-capture.test.ts app/shared/m0-triage-capture.test.ts app/shared/m6-voice-replay-bridge.test.ts app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+  - `v1.1.2` release status:
+    - `main` pushed and tag `v1.1.2` published.
+  - post-`v1.1.2` continuation slice started (CP3 replay-suite prep):
+    - deterministic one-copy suite helper is available in
+      `app/shared/m6-voice-replay-bridge.ts`:
+      - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCapture(...)`,
+      - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCaptureJson(...)`,
+    - suite output includes:
+      - `weakNetwork` replay+capture+gate bundle,
+      - `accountSwitch` replay+capture+gate bundle,
+      - overall `suiteGate.pass/failedChecks`.
 
 ## v1 Readiness Status
 

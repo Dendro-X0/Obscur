@@ -168,6 +168,42 @@ describe("m6-voice-replay-bridge", () => {
     }))).not.toThrow();
   });
 
+  it("exports deterministic CP3 replay suite bundle with overall gate verdict", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp3ReplaySuiteCapture: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => {
+        weakNetwork: { cp2EvidenceGate: { pass: boolean } };
+        accountSwitch: { cp2EvidenceGate: { pass: boolean } };
+        suiteGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+      runCp3ReplaySuiteCaptureJson: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => string;
+    };
+
+    const suite = replayApi.runCp3ReplaySuiteCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    });
+    expect(suite.weakNetwork.cp2EvidenceGate.pass).toBe(true);
+    expect(suite.accountSwitch.cp2EvidenceGate.pass).toBe(true);
+    expect(suite.suiteGate.pass).toBe(true);
+    expect(suite.suiteGate.failedChecks).toEqual([]);
+    expect(suite.suiteGate.checks.weakNetworkPass).toBe(true);
+    expect(suite.suiteGate.checks.accountSwitchPass).toBe(true);
+    expect(() => JSON.parse(replayApi.runCp3ReplaySuiteCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    }))).not.toThrow();
+  });
+
   it("emits unsupported transition diagnostics when started with unsupported capability", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     installM6VoiceReplayBridge();
