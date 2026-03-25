@@ -102,6 +102,11 @@
   - `latestCloseoutGateFailedCheckSample`.
 - Extended one-copy `m6-voice-capture` CP4 event coverage with:
   - `voice.closeoutGateEvents`.
+- Accepted `v1.2.0` CP4 runtime closeout evidence on 2026-03-25 from the canonical closeout helper:
+  - `runV120CloseoutCaptureJson({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 })`
+  - with `closeoutPass`, `cp3SuitePass`, `weakNetworkCp2Pass`, `accountSwitchCp2Pass`, `cp4ReleaseEvidencePass`, `cp4ReleaseReadinessPass`, and `cp4CheckpointPass` all `true`.
+- The accepted closeout replay also confirmed delete convergence remained clean across the bundle:
+  - weak-network/account-switch/long-session delete remote failure counts were `0`.
 
 ## [v1.1.5] - 2026-03-24
 

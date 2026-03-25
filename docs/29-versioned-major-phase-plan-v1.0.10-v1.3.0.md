@@ -305,6 +305,30 @@ Scope:
 2. close critical regressions from long-session voice usage,
 3. publish stable `v1.2.0` milestone.
 
+Current checkpoint progress (2026-03-25):
+1. CP4 runtime closeout evidence is accepted from the canonical one-copy closeout helper:
+: `window.obscurM6VoiceReplay.runV120CloseoutCaptureJson({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 })`.
+2. Accepted operator evidence confirms aggregate closeout pass on the canonical owner path:
+: `closeoutPass === true`,
+: `cp3SuitePass === true`,
+: `weakNetworkCp2Pass === true`,
+: `accountSwitchCp2Pass === true`,
+: `cp4ReleaseEvidencePass === true`,
+: `cp4ReleaseReadinessPass === true`,
+: `cp4CheckpointPass === true`.
+3. Delete convergence remained clean in the accepted closeout bundle:
+: weak-network/account-switch/long-session delete remote failure counts were `0`.
+4. The accepted closeout replay also emitted canonical diagnostics events in order:
+: `messaging.realtime_voice.long_session_gate`,
+: `messaging.realtime_voice.cp4_checkpoint_gate`,
+: `messaging.realtime_voice.cp4_release_readiness_gate`,
+: `messaging.realtime_voice.cp4_release_evidence_gate`,
+: `messaging.realtime_voice.v120_closeout_gate`.
+5. A separate relay runtime performance gate informational warning was observed with insufficient sample counts, but it did not invalidate the secure-voice closeout gate because the canonical `v120_closeout_gate` remained green on the same replay window.
+6. Remaining work for `v1.2.0` is now release-closeout only:
+: strict release pack/preflight on clean `main`,
+: then tag/publish once those gates pass.
+
 Mandatory release gates:
 1. `pnpm version:check`
 2. `pnpm docs:check`

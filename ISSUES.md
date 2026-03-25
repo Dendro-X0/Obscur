@@ -629,6 +629,28 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,
       - `pnpm docs:check`,
       - `pnpm version:check`.
+  - `v1.2.0` CP4 closeout runtime evidence accepted on 2026-03-25:
+    - canonical closeout replay helper returned accepted aggregate pass:
+      - `closeoutPass === true`,
+      - `cp3SuitePass === true`,
+      - `weakNetworkCp2Pass === true`,
+      - `accountSwitchCp2Pass === true`,
+      - `cp4ReleaseEvidencePass === true`,
+      - `cp4ReleaseReadinessPass === true`,
+      - `cp4CheckpointPass === true`.
+    - delete convergence remained clean in the accepted closeout replay:
+      - weak-network/account-switch/long-session delete remote failure counts were `0`.
+    - accepted replay emitted canonical closeout-chain diagnostics:
+      - `messaging.realtime_voice.long_session_gate`,
+      - `messaging.realtime_voice.cp4_checkpoint_gate`,
+      - `messaging.realtime_voice.cp4_release_readiness_gate`,
+      - `messaging.realtime_voice.cp4_release_evidence_gate`,
+      - `messaging.realtime_voice.v120_closeout_gate`.
+    - separate relay runtime performance-gate telemetry reported `performanceGateStatus: "warn"` with insufficient sample counts, but this was informational and did not invalidate the secure-voice closeout gate because the canonical closeout verdict stayed green.
+    - remaining work before publishing `v1.2.0`:
+      - `pnpm release:test-pack -- --skip-preflight`,
+      - `pnpm release:preflight -- --tag v1.2.0`,
+      - tag/release publish after clean-tree gates pass.
 
 ## v1 Readiness Status
 
