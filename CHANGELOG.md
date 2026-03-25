@@ -8,10 +8,15 @@
     - `window.obscurM6VoiceReplay.runLongSessionReplay(...)`,
     - `window.obscurM6VoiceReplay.runLongSessionReplayCapture(...)`,
     - `window.obscurM6VoiceReplay.runLongSessionReplayCaptureJson(...)`,
+    - `window.obscurM6VoiceReplay.runCp4LongSessionSelfTest(...)`,
+    - `window.obscurM6VoiceReplay.runCp4LongSessionSelfTestJson(...)`,
   - helper output now includes `cp4ReadinessGate` with explicit checks for:
     - transition volume and repeated degrade/recover convergence,
     - no unexpected terminal end/recovery exhaustion on nominal soak,
     - unified async voice-note and delete-convergence health signals.
+  - CP4 self-test output now provides compact nominal-vs-failure verdict:
+    - nominal lane must pass CP4 readiness,
+    - failure-injection lane must fail with `recovery_exhausted` signal coverage.
   - added focused long-session helper coverage in:
     - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
   - added dedicated matrix/runbook lane:

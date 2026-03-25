@@ -515,7 +515,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM6VoiceReplay.runLongSessionReplay(...)`,
       - `window.obscurM6VoiceReplay.runLongSessionReplayCapture(...)`,
       - `window.obscurM6VoiceReplay.runLongSessionReplayCaptureJson(...)`,
+      - `window.obscurM6VoiceReplay.runCp4LongSessionSelfTest(...)`,
+      - `window.obscurM6VoiceReplay.runCp4LongSessionSelfTestJson(...)`,
     - helper output now includes `cp4ReadinessGate.pass/failedChecks` with transition-volume/recovery/diagnostics checks for sustained replay health.
+    - CP4 self-test now emits a compact overall gate for nominal vs failure-injection lanes (pass/fail + failedChecks), reducing manual console inspection.
     - dedicated matrix is active:
       - `docs/33-v1.1.4-cp4-voice-long-session-matrix.md`.
     - focused helper validation is green:

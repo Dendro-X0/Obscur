@@ -392,6 +392,61 @@ describe("m6-voice-replay-bridge", () => {
     ]));
   });
 
+  it("exports deterministic CP4 long-session self-test report with compact pass/fail verdict", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4LongSessionSelfTest: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        nominal: {
+          cp4ReadinessGate: { pass: boolean };
+          replay: { finalState: { phase: string } } | null;
+        };
+        failureInjection: {
+          cp4ReadinessGate: { pass: boolean };
+          replay: { finalState: { phase: string; lastTransitionReasonCode: string } } | null;
+        };
+        selfTestGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+      runCp4LongSessionSelfTestJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => string;
+    };
+
+    const report = replayApi.runCp4LongSessionSelfTest({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 6,
+    });
+    expect(report.nominal.cp4ReadinessGate.pass).toBe(true);
+    expect(report.nominal.replay?.finalState.phase).toBe("active");
+    expect(report.failureInjection.cp4ReadinessGate.pass).toBe(false);
+    expect(report.failureInjection.replay?.finalState.phase).toBe("ended");
+    expect(report.failureInjection.replay?.finalState.lastTransitionReasonCode).toBe("recovery_exhausted");
+    expect(report.selfTestGate.pass).toBe(true);
+    expect(report.selfTestGate.failedChecks).toEqual([]);
+    expect(report.selfTestGate.checks.nominalPass).toBe(true);
+    expect(report.selfTestGate.checks.failureGateRejected).toBe(true);
+    expect(() => JSON.parse(replayApi.runCp4LongSessionSelfTestJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 6,
+    }))).not.toThrow();
+  });
+
   it("emits unsupported transition diagnostics when started with unsupported capability", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     installM6VoiceReplayBridge();

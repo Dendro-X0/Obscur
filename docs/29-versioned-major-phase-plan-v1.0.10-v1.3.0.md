@@ -217,9 +217,13 @@ Current checkpoint progress (2026-03-24):
 : `runLongSessionReplayCapture(...)`,
 : `runLongSessionReplayCaptureJson(...)` in
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
-2. CP4 readiness gate now emits explicit pass/fail checks for long-session risk posture:
+2. CP4 compact self-test helper landed for limited-account verification:
+: `runCp4LongSessionSelfTest(...)` and
+: `runCp4LongSessionSelfTestJson(...)`,
+: producing one-copy nominal-vs-failure gate verdict with explicit `failedChecks`.
+3. CP4 readiness gate now emits explicit pass/fail checks for long-session risk posture:
 : `cp4ReadinessGate.pass/failedChecks` with transition-volume, recovery-exhausted, and unified diagnostics checks.
-3. Focused long-session helper coverage is green:
+4. Focused long-session helper coverage is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
