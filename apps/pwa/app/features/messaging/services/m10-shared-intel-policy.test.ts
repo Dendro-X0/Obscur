@@ -7,8 +7,10 @@ import {
   getAttackModeSafetyProfile,
   getSignedSharedIntelSignals,
   hydrateSignedSharedIntelSignalsFromStorage,
+  ingestSignedSharedIntelSignals,
   m10SharedIntelPolicyInternals,
   resetM10SharedIntelPolicyState,
+  setSharedIntelSignatureVerifier,
   setAttackModeSafetyProfile,
   setSignedSharedIntelSignals,
   type SignedSharedIntelSignal,
@@ -167,5 +169,43 @@ describe("m10-shared-intel-policy", () => {
     const hydrated = hydrateSignedSharedIntelSignalsFromStorage();
     expect(hydrated).toHaveLength(1);
     expect(hydrated[0]?.signalId).toBe("valid-persisted");
+  });
+
+  it("ingests with verification and reports deterministic rejection reasons", () => {
+    setSharedIntelSignatureVerifier(({ signatureHex }) => signatureHex === "good");
+    const result = ingestSignedSharedIntelSignals({
+      signals: [
+        { ...createRelayBlockSignal({ signalId: "accepted-good" }), signatureHex: "good" },
+        { ...createRelayBlockSignal({ signalId: "rejected-bad-sig" }), signatureHex: "bad" },
+        { signalId: "broken-shape" },
+      ],
+      replaceExisting: true,
+      requireSignatureVerification: true,
+      nowUnixMs: 3_000,
+    });
+
+    expect(result.acceptedCount).toBe(1);
+    expect(result.rejectedCount).toBe(2);
+    expect(result.rejectedByReason.invalid_signature).toBe(1);
+    expect(result.rejectedByReason.invalid_shape).toBe(1);
+    expect(result.storedSignalCount).toBe(1);
+    expect(getSignedSharedIntelSignals().map((signal) => signal.signalId)).toEqual(["accepted-good"]);
+  });
+
+  it("ingests expired signals as rejected", () => {
+    const result = ingestSignedSharedIntelSignals({
+      signals: [
+        {
+          ...createRelayBlockSignal({ signalId: "expired-signal" }),
+          expiresAtUnixMs: 2_000,
+        },
+      ],
+      nowUnixMs: 3_000,
+      requireSignatureVerification: false,
+    });
+
+    expect(result.acceptedCount).toBe(0);
+    expect(result.rejectedByReason.expired).toBe(1);
+    expect(result.storedSignalCount).toBe(0);
   });
 });

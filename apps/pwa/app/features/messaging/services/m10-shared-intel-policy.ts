@@ -6,6 +6,11 @@ export type SignedSharedIntelSubjectType = "relay_host" | "peer_public_key";
 export type SignedSharedIntelDisposition = "watch" | "block";
 export type RelayRiskLevel = "low" | "elevated" | "high";
 export type AttackModeSafetyProfile = "standard" | "strict";
+export type SharedIntelIngestRejectionReason =
+  | "invalid_shape"
+  | "expired"
+  | "missing_signature_verifier"
+  | "invalid_signature";
 
 export type AttackModeGateReasonCode =
   | "allowed_standard_mode"
@@ -56,6 +61,14 @@ export type AttackModeGateDecision = Readonly<{
   allowed: boolean;
   reasonCode: AttackModeGateReasonCode;
   safetyProfile: AttackModeSafetyProfile;
+}>;
+
+export type SignedSharedIntelIngestResult = Readonly<{
+  acceptedCount: number;
+  rejectedCount: number;
+  storedSignalCount: number;
+  rejectedByReason: Readonly<Record<SharedIntelIngestRejectionReason, number>>;
+  rejectedSignalIdSamples: ReadonlyArray<string>;
 }>;
 
 type SharedIntelPolicyState = {
@@ -294,6 +307,98 @@ export const clearSignedSharedIntelSignals = (): void => {
   clearPersistedSignedSharedIntelSignals();
 };
 
+const DEFAULT_INGEST_REJECTION_COUNTERS: Readonly<Record<SharedIntelIngestRejectionReason, number>> = {
+  invalid_shape: 0,
+  expired: 0,
+  missing_signature_verifier: 0,
+  invalid_signature: 0,
+};
+
+export const ingestSignedSharedIntelSignals = (params: Readonly<{
+  signals: ReadonlyArray<unknown>;
+  replaceExisting?: boolean;
+  requireSignatureVerification?: boolean;
+  signatureVerifier?: SharedIntelSignatureVerifier | null;
+  nowUnixMs?: number;
+}>): SignedSharedIntelIngestResult => {
+  const nowUnixMs = params.nowUnixMs ?? Date.now();
+  const requireSignatureVerification = params.requireSignatureVerification !== false;
+  const signatureVerifier = params.signatureVerifier ?? getState().signatureVerifier;
+  const existingById = new Map<string, SignedSharedIntelSignal>();
+  if (!params.replaceExisting) {
+    getState().signals.forEach((signal) => {
+      existingById.set(signal.signalId, signal);
+    });
+  }
+
+  const rejectedByReason: Record<SharedIntelIngestRejectionReason, number> = {
+    ...DEFAULT_INGEST_REJECTION_COUNTERS,
+  };
+  const rejectedSignalIdSamples: string[] = [];
+  let acceptedCount = 0;
+
+  for (const rawSignal of params.signals) {
+    const normalizedSignal = toNormalizedSignal(rawSignal);
+    if (!normalizedSignal) {
+      rejectedByReason.invalid_shape += 1;
+      if (rejectedSignalIdSamples.length < 6) {
+        rejectedSignalIdSamples.push("unknown");
+      }
+      continue;
+    }
+    if (normalizedSignal.expiresAtUnixMs <= nowUnixMs) {
+      rejectedByReason.expired += 1;
+      if (rejectedSignalIdSamples.length < 6) {
+        rejectedSignalIdSamples.push(normalizedSignal.signalId);
+      }
+      continue;
+    }
+    if (requireSignatureVerification && !signatureVerifier) {
+      rejectedByReason.missing_signature_verifier += 1;
+      if (rejectedSignalIdSamples.length < 6) {
+        rejectedSignalIdSamples.push(normalizedSignal.signalId);
+      }
+      continue;
+    }
+    if (requireSignatureVerification && signatureVerifier) {
+      const signatureValid = signatureVerifier({
+        payload: getSignalPayload(normalizedSignal),
+        signatureHex: normalizedSignal.signatureHex,
+        signerPublicKeyHex: normalizedSignal.signerPublicKeyHex,
+      });
+      if (!signatureValid) {
+        rejectedByReason.invalid_signature += 1;
+        if (rejectedSignalIdSamples.length < 6) {
+          rejectedSignalIdSamples.push(normalizedSignal.signalId);
+        }
+        continue;
+      }
+    }
+    const existing = existingById.get(normalizedSignal.signalId);
+    if (!existing || normalizedSignal.issuedAtUnixMs >= existing.issuedAtUnixMs) {
+      existingById.set(normalizedSignal.signalId, normalizedSignal);
+    }
+    acceptedCount += 1;
+  }
+
+  const nextSignals = Array.from(existingById.values())
+    .sort((left, right) => right.issuedAtUnixMs - left.issuedAtUnixMs);
+  setSignedSharedIntelSignals(nextSignals);
+  const rejectedCount = (
+    rejectedByReason.invalid_shape
+    + rejectedByReason.expired
+    + rejectedByReason.missing_signature_verifier
+    + rejectedByReason.invalid_signature
+  );
+  return {
+    acceptedCount,
+    rejectedCount,
+    storedSignalCount: nextSignals.length,
+    rejectedByReason,
+    rejectedSignalIdSamples,
+  };
+};
+
 export const resetM10SharedIntelPolicyState = (): void => {
   const root = globalThis as Record<string, unknown>;
   root[GLOBAL_STATE_KEY] = {
@@ -465,4 +570,5 @@ export const m10SharedIntelPolicyInternals = {
   scoreSignal,
   toRelayRiskLevel,
   toNormalizedSignal,
+  DEFAULT_INGEST_REJECTION_COUNTERS,
 };

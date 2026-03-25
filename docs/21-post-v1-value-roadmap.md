@@ -549,6 +549,12 @@ Current execution status (started 2026-03-25):
 9. CP1 operator replay bridge is available for manual evidence capture:
 : `window.obscurM10TrustControls` (`snapshot`, `captureJson`, strict-mode toggle, signal replace/clear),
 : installed at app boot via `app/components/providers.tsx`.
+10. CP1 signed-intel ingest/export contract landed with deterministic evidence counters:
+: `ingestSignedSharedIntelSignals(...)` returns typed rejection reasons
+: (`invalid_shape`, `expired`, `missing_signature_verifier`, `invalid_signature`),
+: and bridge JSON import/export is available via
+: `window.obscurM10TrustControls.ingestSignedSharedIntelSignalsJson(...)` and
+: `window.obscurM10TrustControls.exportSignedSharedIntelSignalsJson()`.
 
 ## Version-Bound Execution
 

@@ -37,6 +37,9 @@ describe("m10-trust-controls-bridge", () => {
     ]);
     expect(signalCount).toBe(1);
     expect(api?.getSnapshot().signalCount).toBe(1);
+
+    const exported = api?.exportSignedSharedIntelSignalsJson() ?? "[]";
+    expect(exported).toContain("bridge-signal-1");
   });
 
   it("captures only attack-mode quarantine events", () => {
@@ -70,5 +73,39 @@ describe("m10-trust-controls-bridge", () => {
     expect(capture?.recentAttackModeQuarantineEvents[0]?.context?.reasonCode).toBe(
       "incoming_connection_request_attack_mode_strict_relay_high_risk",
     );
+  });
+
+  it("ingests signals from JSON and reports invalid JSON deterministically", () => {
+    installM10TrustControlsBridge();
+    const api = window.obscurM10TrustControls;
+    const okResult = api?.ingestSignedSharedIntelSignalsJson({
+      payloadJson: JSON.stringify({
+        signals: [
+          {
+            version: "obscur.m10.shared_intel.v1",
+            signalId: "ingest-json-1",
+            subjectType: "relay_host",
+            subjectValue: "relay.bad.example",
+            disposition: "watch",
+            confidenceScore: 60,
+            reasonCode: "relay_watch",
+            issuedAtUnixMs: Date.now() - 1000,
+            expiresAtUnixMs: Date.now() + 60_000,
+            signerPublicKeyHex: "d".repeat(64),
+            signatureHex: "sig",
+          },
+        ],
+      }),
+      requireSignatureVerification: false,
+      replaceExisting: true,
+    });
+    expect(okResult?.acceptedCount).toBe(1);
+    expect(api?.getSnapshot().signalCount).toBe(1);
+
+    const badJsonResult = api?.ingestSignedSharedIntelSignalsJson({
+      payloadJson: "{not json}",
+    });
+    expect(badJsonResult?.rejectedByReason.invalid_shape).toBe(1);
+    expect(badJsonResult?.rejectedSignalIdSamples).toContain("invalid_json");
   });
 });

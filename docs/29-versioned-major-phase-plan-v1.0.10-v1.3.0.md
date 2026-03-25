@@ -392,6 +392,14 @@ Current checkpoint progress (2026-03-25):
 : `apps/pwa/app/shared/m10-trust-controls-bridge.ts`
 : (snapshot, strict-mode toggle, signed-intel replace/clear, capture JSON),
 : installed at boot in `apps/pwa/app/components/providers.tsx`.
+12. CP1 shared-intel ingest/export contract is now explicit for manual/operator lanes:
+: `ingestSignedSharedIntelSignals(...)` in
+: `apps/pwa/app/features/messaging/services/m10-shared-intel-policy.ts`
+: returns typed accept/reject evidence (`invalid_shape|expired|missing_signature_verifier|invalid_signature`)
+: and supports deterministic dedupe by `signalId` + latest `issuedAtUnixMs`.
+13. Operator bridge now supports JSON import/export for one-copy replay prep:
+: `window.obscurM10TrustControls.ingestSignedSharedIntelSignalsJson(...)`,
+: `window.obscurM10TrustControls.exportSignedSharedIntelSignalsJson()`.
 
 ### v1.2.2 (M10-CP2)
 

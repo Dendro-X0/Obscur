@@ -673,6 +673,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM10TrustControls.captureJson(300)`,
       - `window.obscurM10TrustControls.setAttackModeSafetyProfile("strict")`,
       - `window.obscurM10TrustControls.replaceSignedSharedIntelSignals([...])`,
+      - `window.obscurM10TrustControls.ingestSignedSharedIntelSignalsJson({ payloadJson, replaceExisting, requireSignatureVerification })`,
+      - `window.obscurM10TrustControls.exportSignedSharedIntelSignalsJson()`,
+    - CP1 ingest contract now provides typed acceptance/rejection evidence for shared-intel feeds:
+      - `invalid_shape`,
+      - `expired`,
+      - `missing_signature_verifier`,
+      - `invalid_signature`,
+      with deterministic dedupe by `signalId` + latest `issuedAtUnixMs`,
     - focused CP1 validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,

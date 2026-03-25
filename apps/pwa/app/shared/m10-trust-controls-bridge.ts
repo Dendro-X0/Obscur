@@ -3,8 +3,10 @@ import {
   clearSignedSharedIntelSignals,
   getAttackModeSafetyProfile,
   getSignedSharedIntelSignals,
+  ingestSignedSharedIntelSignals,
   setAttackModeSafetyProfile,
   setSignedSharedIntelSignals,
+  type SignedSharedIntelIngestResult,
   type AttackModeSafetyProfile,
   type SignedSharedIntelSignal,
 } from "@/app/features/messaging/services/m10-shared-intel-policy";
@@ -37,6 +39,17 @@ type M10TrustControlsBridgeApi = Readonly<{
   getSnapshot: () => M10TrustControlsSnapshot;
   setAttackModeSafetyProfile: (profile: AttackModeSafetyProfile) => AttackModeSafetyProfile;
   replaceSignedSharedIntelSignals: (signals: ReadonlyArray<SignedSharedIntelSignal>) => number;
+  ingestSignedSharedIntelSignals: (params: Readonly<{
+    signals: ReadonlyArray<unknown>;
+    replaceExisting?: boolean;
+    requireSignatureVerification?: boolean;
+  }>) => SignedSharedIntelIngestResult;
+  ingestSignedSharedIntelSignalsJson: (params: Readonly<{
+    payloadJson: string;
+    replaceExisting?: boolean;
+    requireSignatureVerification?: boolean;
+  }>) => SignedSharedIntelIngestResult;
+  exportSignedSharedIntelSignalsJson: () => string;
   clearSignedSharedIntelSignals: () => void;
   capture: (eventWindowSize?: number) => M10TrustControlsCapture;
   captureJson: (eventWindowSize?: number) => string;
@@ -67,6 +80,19 @@ const toWindowSize = (value: unknown, fallback = 300): number => {
   }
   return fallback;
 };
+
+const toJsonErrorIngestResult = (): SignedSharedIntelIngestResult => ({
+  acceptedCount: 0,
+  rejectedCount: 1,
+  storedSignalCount: getSignedSharedIntelSignals().length,
+  rejectedByReason: {
+    invalid_shape: 1,
+    expired: 0,
+    missing_signature_verifier: 0,
+    invalid_signature: 0,
+  },
+  rejectedSignalIdSamples: ["invalid_json"],
+});
 
 const createSnapshot = (): M10TrustControlsSnapshot => {
   const nowUnixMs = Date.now();
@@ -129,6 +155,35 @@ export const installM10TrustControlsBridge = (): void => {
       setSignedSharedIntelSignals(signals);
       return getSignedSharedIntelSignals().length;
     },
+    ingestSignedSharedIntelSignals: (params) => ingestSignedSharedIntelSignals({
+      signals: params.signals,
+      replaceExisting: params.replaceExisting,
+      requireSignatureVerification: params.requireSignatureVerification,
+    }),
+    ingestSignedSharedIntelSignalsJson: (params) => {
+      try {
+        const parsed = JSON.parse(params.payloadJson) as unknown;
+        const signals = Array.isArray(parsed)
+          ? parsed
+          : (
+            parsed
+            && typeof parsed === "object"
+            && Array.isArray((parsed as { signals?: unknown }).signals)
+          )
+            ? ((parsed as { signals: unknown[] }).signals)
+            : [parsed];
+        return ingestSignedSharedIntelSignals({
+          signals,
+          replaceExisting: params.replaceExisting,
+          requireSignatureVerification: params.requireSignatureVerification,
+        });
+      } catch {
+        return toJsonErrorIngestResult();
+      }
+    },
+    exportSignedSharedIntelSignalsJson: () => (
+      JSON.stringify(getSignedSharedIntelSignals(), null, 2)
+    ),
     clearSignedSharedIntelSignals: () => {
       clearSignedSharedIntelSignals();
     },
