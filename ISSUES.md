@@ -500,6 +500,15 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM6VoiceReplay.runCp3SingleDeviceSelfTest(...)`,
       - `window.obscurM6VoiceReplay.runCp3SingleDeviceSelfTestJson(...)`,
       - includes synthetic unsupported-runtime and recovery-exhausted probes with explicit pass/fail gates.
+  - `v1.1.3` CP3 evidence accepted on limited-account test setup:
+    - compact self-test projection returned:
+      - `selfTestPass: true`,
+      - `selfTestFailedChecks: []`,
+      - `suitePass: true`,
+      - `weakPass: true`,
+      - `accountPass: true`,
+      - `unsupportedProbePass: true`,
+      - `recoveryExhaustedProbePass: true`.
 
 ## v1 Readiness Status
 

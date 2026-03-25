@@ -187,6 +187,16 @@ Evidence:
 Current checkpoint progress (2026-03-24):
 1. `v1.1.3` CP3 started with dedicated replay matrix/runbook:
 : `docs/32-v1.1.3-cp3-voice-suite-matrix.md`.
+2. CP3 operator evidence accepted using limited-account-safe self-test probe:
+: `window.obscurM6VoiceReplay.runCp3SingleDeviceSelfTest(...)` and
+: compact verification projection:
+: `selfTestPass: true`,
+: `selfTestFailedChecks: []`,
+: `suitePass: true`,
+: `weakPass: true`,
+: `accountPass: true`,
+: `unsupportedProbePass: true`,
+: `recoveryExhaustedProbePass: true`.
 
 ### v1.2.0 (M9-CP4 closeout)
 

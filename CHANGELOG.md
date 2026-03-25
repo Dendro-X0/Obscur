@@ -31,6 +31,10 @@
     - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`
     - `docs/08-maintainer-playbook.md`
     - `docs/README.md`
+  - accepted CP3 operator evidence on limited-account setup using single-device projection:
+    - `selfTestPass: true`, `selfTestFailedChecks: []`,
+    - `suitePass: true`, `weakPass: true`, `accountPass: true`,
+    - `unsupportedProbePass: true`, `recoveryExhaustedProbePass: true`.
 
 ## [v1.1.2] - 2026-03-24
 
