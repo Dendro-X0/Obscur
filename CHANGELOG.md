@@ -18,6 +18,19 @@
 - Added focused regression coverage for CP3 readiness helper + digest posture in:
   - `apps/pwa/app/shared/m10-trust-controls-bridge.test.ts`,
   - `apps/pwa/app/shared/log-app-event.test.ts`.
+- Added deterministic CP3 suite helper APIs on canonical M10 bridge owner
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
+  - `window.obscurM10TrustControls.runCp3SuiteCapture(...)`,
+  - `window.obscurM10TrustControls.runCp3SuiteCaptureJson(...)`,
+  - `window.obscurM10TrustControls.runCp3SuiteGateProbe(...)`,
+  - `window.obscurM10TrustControls.runCp3SuiteGateProbeJson(...)`.
+- Added canonical CP3 suite diagnostics event emission:
+  - `messaging.m10.cp3_suite_gate`
+  with explicit aggregate CP3 pass/fail and failed-check sample posture.
+- Extended compact cross-device digest in
+  `apps/pwa/app/shared/log-app-event.ts` with:
+  - `events["messaging.m10.cp3_suite_gate"]`,
+  - `summary.m10TrustControls.cp3SuiteGate*` counters and latest sample fields.
 
 ## [v1.2.2] - 2026-03-25
 

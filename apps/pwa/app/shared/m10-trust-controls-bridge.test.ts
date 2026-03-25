@@ -290,4 +290,49 @@ describe("m10-trust-controls-bridge", () => {
       cp2StabilityGateUnexpectedFailCount: 1,
     }));
   });
+
+  it("emits cp3 suite gate event and exposes suite gate verdict", () => {
+    logAppEvent({
+      name: "messaging.m10.cp3_readiness_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        cp3Pass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "cp2UnexpectedFailCountZero",
+        cp2TriagePass: true,
+        cp2StabilityGateUnexpectedFailCount: 1,
+      },
+    });
+
+    installM10TrustControlsBridge();
+    const suiteCapture = window.obscurM10TrustControls?.runCp3SuiteCapture({
+      expectedStable: true,
+      eventWindowSize: 200,
+    });
+    expect(suiteCapture?.cp3SuiteGate.pass).toBe(false);
+    expect(suiteCapture?.cp3SuiteGate.failedChecks).toContain("cp3ReadinessUnexpectedFailCountZero");
+
+    const relaxedSuiteGate = window.obscurM10TrustControls?.runCp3SuiteGateProbe({
+      expectedStable: false,
+      eventWindowSize: 200,
+    });
+    expect(relaxedSuiteGate?.pass).toBe(true);
+
+    const diagnosticsApi = (window as Window & {
+      obscurAppEvents?: Readonly<{
+        findByName?: (name: string, count?: number) => ReadonlyArray<Readonly<{
+          context?: Readonly<Record<string, string | number | boolean | null>>;
+        }>>;
+      }>;
+    }).obscurAppEvents;
+    const cp3SuiteGateEvents = diagnosticsApi?.findByName?.("messaging.m10.cp3_suite_gate", 10) ?? [];
+    expect(cp3SuiteGateEvents.length).toBeGreaterThanOrEqual(2);
+    expect(cp3SuiteGateEvents[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      cp3SuitePass: false,
+      cp3ReadinessPass: false,
+      cp3ReadinessUnexpectedFailCount: expect.any(Number),
+    }));
+  });
 });

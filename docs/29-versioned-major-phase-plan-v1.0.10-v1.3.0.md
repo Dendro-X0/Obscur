@@ -472,6 +472,17 @@ Current checkpoint progress (2026-03-25):
 20. Cross-device digest now includes CP3 readiness posture in
 : `summary.m10TrustControls.cp3ReadinessGate*`
 : plus latest CP3 expected-stable/pass/check-sample fields.
+21. CP3 suite helper APIs landed on canonical M10 bridge owner:
+: `window.obscurM10TrustControls.runCp3SuiteCapture({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runCp3SuiteCaptureJson({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runCp3SuiteGateProbe({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runCp3SuiteGateProbeJson({ eventWindowSize, expectedStable })`.
+22. CP3 suite helper emits canonical compact diagnostics event:
+: `messaging.m10.cp3_suite_gate`
+: with explicit aggregate CP3 gate pass/fail and failed-check sample posture.
+23. Cross-device digest now includes CP3 suite posture in
+: `summary.m10TrustControls.cp3SuiteGate*`
+: plus latest CP3 suite expected-stable/pass/check-sample fields.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,

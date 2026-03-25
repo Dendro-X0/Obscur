@@ -614,6 +614,16 @@ Current execution status (started 2026-03-25):
 29. Cross-device digest now includes CP3 readiness posture under `summary.m10TrustControls`:
 : `cp3ReadinessGateCount`, pass/fail/unexpected-fail counters,
 : latest CP3 expected-stable/pass/failed-check sample.
+30. CP3 suite helper APIs landed on canonical M10 bridge owner:
+: `window.obscurM10TrustControls.runCp3SuiteCapture(...)`,
+: `window.obscurM10TrustControls.runCp3SuiteCaptureJson(...)`,
+: `window.obscurM10TrustControls.runCp3SuiteGateProbe(...)`,
+: `window.obscurM10TrustControls.runCp3SuiteGateProbeJson(...)`.
+31. Canonical CP3 suite diagnostics event now emits from the same owner path:
+: `messaging.m10.cp3_suite_gate`.
+32. Cross-device digest now includes CP3 suite posture under `summary.m10TrustControls`:
+: `cp3SuiteGateCount`, pass/fail/unexpected-fail counters,
+: latest CP3 suite expected-stable/pass/failed-check sample.
 
 ## Version-Bound Execution
 

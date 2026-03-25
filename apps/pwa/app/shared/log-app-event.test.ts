@@ -2384,12 +2384,19 @@ describe("logAppEvent", () => {
             cp3ReadinessGatePassCount: number;
             cp3ReadinessGateFailCount: number;
             cp3ReadinessGateUnexpectedFailCount: number;
+            cp3SuiteGateCount: number;
+            cp3SuiteGatePassCount: number;
+            cp3SuiteGateFailCount: number;
+            cp3SuiteGateUnexpectedFailCount: number;
             latestExpectedStable: boolean | null;
             latestPass: boolean | null;
             latestFailedCheckSample: string | null;
             latestCp3ExpectedStable: boolean | null;
             latestCp3Pass: boolean | null;
             latestCp3FailedCheckSample: string | null;
+            latestCp3SuiteExpectedStable: boolean | null;
+            latestCp3SuitePass: boolean | null;
+            latestCp3SuiteFailedCheckSample: string | null;
           };
         };
       };
@@ -2414,12 +2421,19 @@ describe("logAppEvent", () => {
       cp3ReadinessGatePassCount: 0,
       cp3ReadinessGateFailCount: 0,
       cp3ReadinessGateUnexpectedFailCount: 0,
+      cp3SuiteGateCount: 0,
+      cp3SuiteGatePassCount: 0,
+      cp3SuiteGateFailCount: 0,
+      cp3SuiteGateUnexpectedFailCount: 0,
       latestExpectedStable: false,
       latestPass: true,
       latestFailedCheckSample: null,
       latestCp3ExpectedStable: null,
       latestCp3Pass: null,
       latestCp3FailedCheckSample: null,
+      latestCp3SuiteExpectedStable: null,
+      latestCp3SuitePass: null,
+      latestCp3SuiteFailedCheckSample: null,
     }));
   });
 
@@ -2468,12 +2482,19 @@ describe("logAppEvent", () => {
             cp3ReadinessGatePassCount: number;
             cp3ReadinessGateFailCount: number;
             cp3ReadinessGateUnexpectedFailCount: number;
+            cp3SuiteGateCount: number;
+            cp3SuiteGatePassCount: number;
+            cp3SuiteGateFailCount: number;
+            cp3SuiteGateUnexpectedFailCount: number;
             latestExpectedStable: boolean | null;
             latestPass: boolean | null;
             latestFailedCheckSample: string | null;
             latestCp3ExpectedStable: boolean | null;
             latestCp3Pass: boolean | null;
             latestCp3FailedCheckSample: string | null;
+            latestCp3SuiteExpectedStable: boolean | null;
+            latestCp3SuitePass: boolean | null;
+            latestCp3SuiteFailedCheckSample: string | null;
           };
         };
       };
@@ -2495,9 +2516,87 @@ describe("logAppEvent", () => {
       cp3ReadinessGatePassCount: 1,
       cp3ReadinessGateFailCount: 1,
       cp3ReadinessGateUnexpectedFailCount: 1,
+      cp3SuiteGateCount: 0,
+      cp3SuiteGatePassCount: 0,
+      cp3SuiteGateFailCount: 0,
+      cp3SuiteGateUnexpectedFailCount: 0,
       latestCp3ExpectedStable: false,
       latestCp3Pass: true,
       latestCp3FailedCheckSample: null,
+      latestCp3SuiteExpectedStable: null,
+      latestCp3SuitePass: null,
+      latestCp3SuiteFailedCheckSample: null,
+    }));
+  });
+
+  it("tracks m10 cp3 suite gate pass/fail counters in digest summary", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.m10.cp3_suite_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        cp3SuitePass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "cp3ReadinessUnexpectedFailCountZero",
+        cp3ReadinessPass: true,
+        m10TrustControlsRiskLevel: "high",
+        cp3ReadinessUnexpectedFailCount: 1,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+    logAppEvent({
+      name: "messaging.m10.cp3_suite_gate",
+      level: "info",
+      context: {
+        expectedStable: false,
+        cp3SuitePass: true,
+        failedCheckCount: 0,
+        failedCheckSample: null,
+        cp3ReadinessPass: true,
+        m10TrustControlsRiskLevel: "watch",
+        cp3ReadinessUnexpectedFailCount: 0,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+        summary: {
+          m10TrustControls: {
+            riskLevel: "none" | "watch" | "high";
+            cp3SuiteGateCount: number;
+            cp3SuiteGatePassCount: number;
+            cp3SuiteGateFailCount: number;
+            cp3SuiteGateUnexpectedFailCount: number;
+            latestCp3SuiteExpectedStable: boolean | null;
+            latestCp3SuitePass: boolean | null;
+            latestCp3SuiteFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.m10.cp3_suite_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      cp3SuitePass: false,
+      failedCheckCount: 1,
+      failedCheckSample: "cp3ReadinessUnexpectedFailCountZero",
+      cp3ReadinessPass: true,
+      m10TrustControlsRiskLevel: "high",
+      cp3ReadinessUnexpectedFailCount: 1,
+    }));
+    expect(digest.events["messaging.m10.cp3_suite_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.summary.m10TrustControls).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      cp3SuiteGateCount: 2,
+      cp3SuiteGatePassCount: 1,
+      cp3SuiteGateFailCount: 1,
+      cp3SuiteGateUnexpectedFailCount: 1,
+      latestCp3SuiteExpectedStable: false,
+      latestCp3SuitePass: true,
+      latestCp3SuiteFailedCheckSample: null,
     }));
   });
 });

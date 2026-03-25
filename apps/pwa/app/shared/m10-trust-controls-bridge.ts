@@ -50,9 +50,23 @@ type M10TrustControlsDigestSummary = Readonly<{
   cp2StabilityGatePassCount: number;
   cp2StabilityGateFailCount: number;
   cp2StabilityGateUnexpectedFailCount: number;
+  cp3ReadinessGateCount: number;
+  cp3ReadinessGatePassCount: number;
+  cp3ReadinessGateFailCount: number;
+  cp3ReadinessGateUnexpectedFailCount: number;
+  cp3SuiteGateCount: number;
+  cp3SuiteGatePassCount: number;
+  cp3SuiteGateFailCount: number;
+  cp3SuiteGateUnexpectedFailCount: number;
   latestExpectedStable: boolean | null;
   latestPass: boolean | null;
   latestFailedCheckSample: string | null;
+  latestCp3ExpectedStable: boolean | null;
+  latestCp3Pass: boolean | null;
+  latestCp3FailedCheckSample: string | null;
+  latestCp3SuiteExpectedStable: boolean | null;
+  latestCp3SuitePass: boolean | null;
+  latestCp3SuiteFailedCheckSample: string | null;
 }> | null;
 
 type M10UiResponsivenessSummary = Readonly<{
@@ -124,6 +138,31 @@ type M10Cp3ReadinessCapture = Readonly<{
   cp3ReadinessGate: M10Cp3ReadinessGate;
 }>;
 
+type M10Cp3SuiteGate = Readonly<{
+  pass: boolean;
+  failedChecks: ReadonlyArray<string>;
+  failedCheckSample: string | null;
+  checks: Readonly<{
+    expectedStable: boolean;
+    cp3ReadinessPass: boolean;
+    digestSummaryPresent: boolean;
+    incomingRequestRiskNotHigh: boolean;
+    uiResponsivenessRiskNotHigh: boolean;
+    m10TrustControlsRiskNotHigh: boolean;
+    cp3ReadinessGateObserved: boolean;
+    cp3ReadinessUnexpectedFailCountZero: boolean;
+  }>;
+}>;
+
+type M10Cp3SuiteCapture = Readonly<{
+  generatedAtUnixMs: number;
+  eventWindowSize: number;
+  expectedStable: boolean;
+  cp3ReadinessCapture: M10Cp3ReadinessCapture;
+  digestSummaryAfterReadinessEvent: M10Cp2TriageDigestSummary;
+  cp3SuiteGate: M10Cp3SuiteGate;
+}>;
+
 type M10TrustControlsBridgeApi = Readonly<{
   getSnapshot: () => M10TrustControlsSnapshot;
   setAttackModeSafetyProfile: (profile: AttackModeSafetyProfile) => AttackModeSafetyProfile;
@@ -174,6 +213,22 @@ type M10TrustControlsBridgeApi = Readonly<{
     eventWindowSize?: number;
     expectedStable?: boolean;
   }>) => string;
+  runCp3SuiteCapture: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => M10Cp3SuiteCapture;
+  runCp3SuiteCaptureJson: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => string;
+  runCp3SuiteGateProbe: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => M10Cp3SuiteGate;
+  runCp3SuiteGateProbeJson: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => string;
 }>;
 
 type M10TrustControlsBridgeWindow = Window & {
@@ -193,9 +248,23 @@ type M10TrustControlsBridgeWindow = Window & {
           cp2StabilityGatePassCount?: number;
           cp2StabilityGateFailCount?: number;
           cp2StabilityGateUnexpectedFailCount?: number;
+          cp3ReadinessGateCount?: number;
+          cp3ReadinessGatePassCount?: number;
+          cp3ReadinessGateFailCount?: number;
+          cp3ReadinessGateUnexpectedFailCount?: number;
+          cp3SuiteGateCount?: number;
+          cp3SuiteGatePassCount?: number;
+          cp3SuiteGateFailCount?: number;
+          cp3SuiteGateUnexpectedFailCount?: number;
           latestExpectedStable?: boolean | null;
           latestPass?: boolean | null;
           latestFailedCheckSample?: string | null;
+          latestCp3ExpectedStable?: boolean | null;
+          latestCp3Pass?: boolean | null;
+          latestCp3FailedCheckSample?: string | null;
+          latestCp3SuiteExpectedStable?: boolean | null;
+          latestCp3SuitePass?: boolean | null;
+          latestCp3SuiteFailedCheckSample?: string | null;
         }>;
         uiResponsiveness?: Readonly<{
           riskLevel?: string;
@@ -226,6 +295,7 @@ const TRUST_CONTROL_EVENT_NAMES: ReadonlyArray<string> = [
   "messaging.m10.trust_controls_undo_applied",
   "messaging.m10.cp2_stability_gate",
   "messaging.m10.cp3_readiness_gate",
+  "messaging.m10.cp3_suite_gate",
 ];
 const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
   "navigation.route_stall_hard_fallback",
@@ -237,6 +307,7 @@ const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
 ];
 const CP2_STABILITY_GATE_EVENT_NAME = "messaging.m10.cp2_stability_gate";
 const CP3_READINESS_GATE_EVENT_NAME = "messaging.m10.cp3_readiness_gate";
+const CP3_SUITE_GATE_EVENT_NAME = "messaging.m10.cp3_suite_gate";
 
 const isPositiveFinite = (value: unknown): value is number => (
   typeof value === "number" && Number.isFinite(value) && value > 0
@@ -391,9 +462,23 @@ const readCp2TriageDigestSummary = (
       cp2StabilityGatePassCount: toNumber(trustControls.cp2StabilityGatePassCount),
       cp2StabilityGateFailCount: toNumber(trustControls.cp2StabilityGateFailCount),
       cp2StabilityGateUnexpectedFailCount: toNumber(trustControls.cp2StabilityGateUnexpectedFailCount),
+      cp3ReadinessGateCount: toNumber(trustControls.cp3ReadinessGateCount),
+      cp3ReadinessGatePassCount: toNumber(trustControls.cp3ReadinessGatePassCount),
+      cp3ReadinessGateFailCount: toNumber(trustControls.cp3ReadinessGateFailCount),
+      cp3ReadinessGateUnexpectedFailCount: toNumber(trustControls.cp3ReadinessGateUnexpectedFailCount),
+      cp3SuiteGateCount: toNumber(trustControls.cp3SuiteGateCount),
+      cp3SuiteGatePassCount: toNumber(trustControls.cp3SuiteGatePassCount),
+      cp3SuiteGateFailCount: toNumber(trustControls.cp3SuiteGateFailCount),
+      cp3SuiteGateUnexpectedFailCount: toNumber(trustControls.cp3SuiteGateUnexpectedFailCount),
       latestExpectedStable: toBooleanOrNull(trustControls.latestExpectedStable),
       latestPass: toBooleanOrNull(trustControls.latestPass),
       latestFailedCheckSample: toStringOrNull(trustControls.latestFailedCheckSample),
+      latestCp3ExpectedStable: toBooleanOrNull(trustControls.latestCp3ExpectedStable),
+      latestCp3Pass: toBooleanOrNull(trustControls.latestCp3Pass),
+      latestCp3FailedCheckSample: toStringOrNull(trustControls.latestCp3FailedCheckSample),
+      latestCp3SuiteExpectedStable: toBooleanOrNull(trustControls.latestCp3SuiteExpectedStable),
+      latestCp3SuitePass: toBooleanOrNull(trustControls.latestCp3SuitePass),
+      latestCp3SuiteFailedCheckSample: toStringOrNull(trustControls.latestCp3SuiteFailedCheckSample),
     } : null,
     uiResponsiveness: responsiveness ? {
       riskLevel: toRiskLevel(responsiveness.riskLevel),
@@ -599,6 +684,105 @@ const emitCp3ReadinessGateEvent = (capture: M10Cp3ReadinessCapture): void => {
   });
 };
 
+const buildCp3SuiteGate = (params: Readonly<{
+  expectedStable: boolean;
+  cp3ReadinessCapture: M10Cp3ReadinessCapture;
+  digestSummaryAfterReadinessEvent: M10Cp2TriageDigestSummary;
+}>): M10Cp3SuiteGate => {
+  const digestSummary = params.digestSummaryAfterReadinessEvent;
+  const checks = {
+    expectedStable: params.expectedStable,
+    cp3ReadinessPass: (
+      !params.expectedStable
+      || params.cp3ReadinessCapture.cp3ReadinessGate.pass
+    ),
+    digestSummaryPresent: (
+      !params.expectedStable
+      || digestSummary.incomingRequestAntiAbuse !== null
+      || digestSummary.uiResponsiveness !== null
+      || digestSummary.m10TrustControls !== null
+    ),
+    incomingRequestRiskNotHigh: (
+      !params.expectedStable
+      || digestSummary.incomingRequestAntiAbuse?.riskLevel !== "high"
+    ),
+    uiResponsivenessRiskNotHigh: (
+      !params.expectedStable
+      || digestSummary.uiResponsiveness?.riskLevel !== "high"
+    ),
+    m10TrustControlsRiskNotHigh: (
+      !params.expectedStable
+      || digestSummary.m10TrustControls?.riskLevel !== "high"
+    ),
+    cp3ReadinessGateObserved: (
+      !params.expectedStable
+      || (digestSummary.m10TrustControls?.cp3ReadinessGateCount ?? 0) > 0
+    ),
+    cp3ReadinessUnexpectedFailCountZero: (
+      !params.expectedStable
+      || (digestSummary.m10TrustControls?.cp3ReadinessGateUnexpectedFailCount ?? 0) === 0
+    ),
+  } as const;
+
+  const failedChecks = Object.entries(checks)
+    .filter(([name, passed]) => name !== "expectedStable" && passed !== true)
+    .map(([name]) => name);
+
+  return {
+    pass: failedChecks.length === 0,
+    failedChecks,
+    failedCheckSample: failedChecks[0] ?? null,
+    checks,
+  };
+};
+
+const createCp3SuiteCapture = (
+  root: M10TrustControlsBridgeWindow,
+  params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>,
+): M10Cp3SuiteCapture => {
+  const cp3ReadinessCapture = createCp3ReadinessCapture(root, params);
+  emitCp3ReadinessGateEvent(cp3ReadinessCapture);
+  const digestSummaryAfterReadinessEvent = readCp2TriageDigestSummary(root, cp3ReadinessCapture.eventWindowSize);
+  return {
+    generatedAtUnixMs: Date.now(),
+    eventWindowSize: cp3ReadinessCapture.eventWindowSize,
+    expectedStable: cp3ReadinessCapture.expectedStable,
+    cp3ReadinessCapture,
+    digestSummaryAfterReadinessEvent,
+    cp3SuiteGate: buildCp3SuiteGate({
+      expectedStable: cp3ReadinessCapture.expectedStable,
+      cp3ReadinessCapture,
+      digestSummaryAfterReadinessEvent,
+    }),
+  };
+};
+
+const emitCp3SuiteGateEvent = (capture: M10Cp3SuiteCapture): void => {
+  const digestSummary = capture.digestSummaryAfterReadinessEvent;
+  logAppEvent({
+    name: CP3_SUITE_GATE_EVENT_NAME,
+    level: capture.cp3SuiteGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "m10_trust_controls" },
+    context: {
+      expectedStable: capture.expectedStable,
+      cp3SuitePass: capture.cp3SuiteGate.pass,
+      failedCheckCount: capture.cp3SuiteGate.failedChecks.length,
+      failedCheckSample: capture.cp3SuiteGate.failedCheckSample,
+      cp3ReadinessPass: capture.cp3ReadinessCapture.cp3ReadinessGate.pass,
+      incomingRequestRiskLevel: digestSummary.incomingRequestAntiAbuse?.riskLevel ?? "none",
+      uiResponsivenessRiskLevel: digestSummary.uiResponsiveness?.riskLevel ?? "none",
+      m10TrustControlsRiskLevel: digestSummary.m10TrustControls?.riskLevel ?? "none",
+      cp3ReadinessGateCount: digestSummary.m10TrustControls?.cp3ReadinessGateCount ?? 0,
+      cp3ReadinessUnexpectedFailCount: (
+        digestSummary.m10TrustControls?.cp3ReadinessGateUnexpectedFailCount ?? 0
+      ),
+    },
+  });
+};
+
 export const installM10TrustControlsBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -698,6 +882,34 @@ export const installM10TrustControlsBridge = (): void => {
     runCp3ReadinessGateProbeJson: (params) => (
       JSON.stringify(root.obscurM10TrustControls?.runCp3ReadinessGateProbe(params) ?? null, null, 2)
     ),
+    runCp3SuiteCapture: (params) => {
+      const capture = createCp3SuiteCapture(root, params);
+      emitCp3SuiteGateEvent(capture);
+      return capture;
+    },
+    runCp3SuiteCaptureJson: (params) => (
+      JSON.stringify(root.obscurM10TrustControls?.runCp3SuiteCapture(params) ?? null, null, 2)
+    ),
+    runCp3SuiteGateProbe: (params) => (
+      root.obscurM10TrustControls?.runCp3SuiteCapture(params).cp3SuiteGate ?? {
+        pass: false,
+        failedChecks: ["bridge_unavailable"],
+        failedCheckSample: "bridge_unavailable",
+        checks: {
+          expectedStable: params?.expectedStable !== false,
+          cp3ReadinessPass: false,
+          digestSummaryPresent: false,
+          incomingRequestRiskNotHigh: false,
+          uiResponsivenessRiskNotHigh: false,
+          m10TrustControlsRiskNotHigh: false,
+          cp3ReadinessGateObserved: false,
+          cp3ReadinessUnexpectedFailCountZero: false,
+        },
+      }
+    ),
+    runCp3SuiteGateProbeJson: (params) => (
+      JSON.stringify(root.obscurM10TrustControls?.runCp3SuiteGateProbe(params) ?? null, null, 2)
+    ),
   };
 };
 
@@ -705,14 +917,18 @@ export const m10TrustControlsBridgeInternals = {
   ATTACK_MODE_REASON_PREFIX,
   CP2_STABILITY_GATE_EVENT_NAME,
   CP3_READINESS_GATE_EVENT_NAME,
+  CP3_SUITE_GATE_EVENT_NAME,
   TRUST_CONTROL_EVENT_NAMES,
   RESPONSIVENESS_EVENT_NAMES,
+  buildCp3SuiteGate,
   buildCp3ReadinessGate,
   buildCp2TriageGate,
+  createCp3SuiteCapture,
   createCp3ReadinessCapture,
   createCp2TriageCapture,
   createSnapshot,
   createCapture,
+  emitCp3SuiteGateEvent,
   emitCp3ReadinessGateEvent,
   emitCp2StabilityGateEvent,
   readAttackModeQuarantineEvents,
