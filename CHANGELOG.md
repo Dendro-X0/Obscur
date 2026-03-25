@@ -2,6 +2,10 @@
 
 ### Changed
 
+## [v1.1.4] - 2026-03-24
+
+### Changed
+
 - Started `v1.1.4` (`M9` `CP4` prep) with deterministic long-session voice stability tooling:
   - added long-session replay helpers in
     `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
