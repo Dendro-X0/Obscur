@@ -118,6 +118,10 @@ describe("m6-voice-capture", () => {
         deleteConvergenceSummary: Record<string, unknown> | null;
         transitions: Array<{ name: string }>;
         ignoredEvents: Array<{ name: string }>;
+        longSessionGateEvents: Array<{ name: string }>;
+        checkpointGateEvents: Array<{ name: string }>;
+        releaseReadinessGateEvents: Array<{ name: string }>;
+        releaseEvidenceGateEvents: Array<{ name: string }>;
         voiceNoteEvents: Array<{ name: string }>;
         deleteConvergenceEvents: Array<{ name: string }>;
         recentWarnOrError: Array<{ reasonCode: string | null }>;
@@ -179,6 +183,10 @@ describe("m6-voice-capture", () => {
     }));
     expect(bundle.voice.transitions[0]?.name).toBe("messaging.realtime_voice.session_transition");
     expect(bundle.voice.ignoredEvents[0]?.name).toBe("messaging.realtime_voice.session_event_ignored");
+    expect(bundle.voice.longSessionGateEvents[0]?.name).toBe("messaging.realtime_voice.long_session_gate");
+    expect(bundle.voice.checkpointGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_checkpoint_gate");
+    expect(bundle.voice.releaseReadinessGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_readiness_gate");
+    expect(bundle.voice.releaseEvidenceGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_evidence_gate");
     expect(bundle.voice.voiceNoteEvents.some((event) => event.name === "messaging.voice_note.recording_complete")).toBe(true);
     expect(bundle.voice.voiceNoteEvents.some((event) => event.name === "messaging.voice_note.recording_start_failed")).toBe(true);
     expect(bundle.voice.deleteConvergenceEvents.some((event) => event.name === "messaging.delete_for_everyone_requested")).toBe(true);
@@ -201,6 +209,10 @@ describe("m6-voice-capture", () => {
         deleteConvergenceSummary: unknown;
         transitions: unknown[];
         ignoredEvents: unknown[];
+        longSessionGateEvents: unknown[];
+        checkpointGateEvents: unknown[];
+        releaseReadinessGateEvents: unknown[];
+        releaseEvidenceGateEvents: unknown[];
         voiceNoteEvents: unknown[];
         deleteConvergenceEvents: unknown[];
         recentWarnOrError: unknown[];
@@ -215,6 +227,10 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.deleteConvergenceSummary).toBeNull();
     expect(bundle.voice.transitions).toEqual([]);
     expect(bundle.voice.ignoredEvents).toEqual([]);
+    expect(bundle.voice.longSessionGateEvents).toEqual([]);
+    expect(bundle.voice.checkpointGateEvents).toEqual([]);
+    expect(bundle.voice.releaseReadinessGateEvents).toEqual([]);
+    expect(bundle.voice.releaseEvidenceGateEvents).toEqual([]);
     expect(bundle.voice.voiceNoteEvents).toEqual([]);
     expect(bundle.voice.deleteConvergenceEvents).toEqual([]);
     expect(bundle.voice.recentWarnOrError).toEqual([]);

@@ -412,6 +412,10 @@ Canonical matrix:
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.voiceNoteEvents`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceEvents`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.longSessionGateEvents`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.checkpointGateEvents`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.releaseReadinessGateEvents`
+: `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.releaseEvidenceGateEvents`
 24. CP4 release-readiness one-copy bundle (recommended for operator handoff):
 : `window.obscurM6VoiceReplay?.runCp4ReleaseReadinessCapture?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
 : `copy(window.obscurM6VoiceReplay?.runCp4ReleaseReadinessCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`

@@ -78,6 +78,12 @@
   - `apps/pwa/app/shared/log-app-event.ts`,
   - `apps/pwa/app/shared/m6-voice-capture.ts`,
   - `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
+- Extended one-copy `m6-voice-capture` event coverage to include CP4 gate slices:
+  - `voice.longSessionGateEvents`,
+  - `voice.checkpointGateEvents`,
+  - `voice.releaseReadinessGateEvents`,
+  - `voice.releaseEvidenceGateEvents`,
+  for faster operator handoff without ad-hoc event queries.
 
 ## [v1.1.5] - 2026-03-24
 

@@ -281,7 +281,8 @@ Current checkpoint progress (2026-03-24):
 : `runCp4ReleaseEvidenceGateProbe(...)`, and `runCp4ReleaseEvidenceGateProbeJson(...)`.
 10. release-evidence helper now emits canonical `messaging.realtime_voice.cp4_release_evidence_gate` diagnostics and digest `summary.realtimeVoiceSession.releaseEvidenceGate*` fields from canonical owners.
 11. stale replay-bridge upgrade guard now requires CP4 release-evidence helper APIs so stale runtime bridge objects cannot hide newly added CP4 operator tooling.
-12. focused CP4 continuation validation is green:
+12. one-copy `m6-voice-capture` contract now includes CP4 gate event slices (`longSessionGateEvents`, `checkpointGateEvents`, `releaseReadinessGateEvents`, `releaseEvidenceGateEvents`) for compact operator handoff payloads.
+13. focused CP4 continuation validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 : `pnpm docs:check`
