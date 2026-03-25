@@ -453,6 +453,14 @@ Current checkpoint progress (2026-03-25):
 14. CP2 responsiveness digest now includes
 : `routeMountPerformanceGuardEnabledCount` under `summary.uiResponsiveness`
 : for deterministic freeze-pressure triage.
+15. CP2 stability-gate probe helpers are now available on the canonical M10 bridge:
+: `window.obscurM10TrustControls.runCp2StabilityGateProbe({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runCp2StabilityGateProbeJson({ eventWindowSize, expectedStable })`.
+16. CP2 stability-gate probe emits a canonical compact event:
+: `messaging.m10.cp2_stability_gate`
+: with pass/fail, failed-check sample, and anti-abuse/responsiveness evidence counters.
+17. Cross-device digest now includes `summary.m10TrustControls` for CP2 gate posture:
+: gate run/pass/fail/unexpected-fail counts plus latest expected-stable/pass/check-sample context.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,

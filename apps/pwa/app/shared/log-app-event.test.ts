@@ -2341,4 +2341,71 @@ describe("logAppEvent", () => {
       latestRouteStallElapsedMs: 1300,
     }));
   });
+
+  it("tracks m10 cp2 stability gate pass/fail counters in digest summary", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.m10.cp2_stability_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        cp2Pass: false,
+        failedCheckCount: 2,
+        failedCheckSample: "uiResponsivenessRiskNotHigh",
+        uiResponsivenessRiskLevel: "high",
+        uiRouteStallHardFallbackCount: 1,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+    logAppEvent({
+      name: "messaging.m10.cp2_stability_gate",
+      level: "info",
+      context: {
+        expectedStable: false,
+        cp2Pass: true,
+        failedCheckCount: 0,
+        failedCheckSample: null,
+        uiResponsivenessRiskLevel: "watch",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+        summary: {
+          m10TrustControls: {
+            riskLevel: "none" | "watch" | "high";
+            cp2StabilityGateCount: number;
+            cp2StabilityGatePassCount: number;
+            cp2StabilityGateFailCount: number;
+            cp2StabilityGateUnexpectedFailCount: number;
+            latestExpectedStable: boolean | null;
+            latestPass: boolean | null;
+            latestFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.m10.cp2_stability_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      cp2Pass: false,
+      failedCheckCount: 2,
+      failedCheckSample: "uiResponsivenessRiskNotHigh",
+      uiResponsivenessRiskLevel: "high",
+      uiRouteStallHardFallbackCount: 1,
+    }));
+    expect(digest.events["messaging.m10.cp2_stability_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.summary.m10TrustControls).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      cp2StabilityGateCount: 2,
+      cp2StabilityGatePassCount: 1,
+      cp2StabilityGateFailCount: 1,
+      cp2StabilityGateUnexpectedFailCount: 1,
+      latestExpectedStable: false,
+      latestPass: true,
+      latestFailedCheckSample: null,
+    }));
+  });
 });

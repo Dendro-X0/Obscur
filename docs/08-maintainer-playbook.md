@@ -498,19 +498,24 @@ For `v1.2.2` CP2 anti-abuse and responsiveness incidents, use this order first:
 : `copy(window.obscurM10TrustControls?.runCp2TriageCaptureJson?.({ eventWindowSize: 400, expectedStable: true }))`
 2. CP2 gate-only probe:
 : `window.obscurM10TrustControls?.runCp2TriageCapture?.({ eventWindowSize: 400, expectedStable: true })?.cp2TriageGate`
-3. Digest summary probes:
+3. CP2 stability-gate probe (emits canonical event + returns gate verdict):
+: `copy(window.obscurM10TrustControls?.runCp2StabilityGateProbeJson?.({ eventWindowSize: 400, expectedStable: true }))`
+: `window.obscurM10TrustControls?.runCp2StabilityGateProbe?.({ eventWindowSize: 400, expectedStable: true })?.cp2TriageGate`
+4. Digest summary probes:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.incomingRequestAntiAbuse`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.uiResponsiveness`
-4. Event slices for freeze-route correlation:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.m10TrustControls`
+5. Event slices for freeze-route correlation:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_stall_hard_fallback"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_mount_probe_slow"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_mount_performance_guard_enabled"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.page_transition_watchdog_timeout"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.page_transition_effects_disabled"]`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["runtime.profile_boot_stall_timeout"]`
-5. Trust-control action slice:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.m10.cp2_stability_gate"]`
+6. Trust-control action slice:
 : `window.obscurM10TrustControls?.capture?.(400)?.recentTrustControlEvents`
-6. Escalate immediately if CP2 gate fails on:
+7. Escalate immediately if CP2 gate fails on:
 : `incomingRequestRiskNotHigh`,
 : `uiResponsivenessRiskNotHigh`,
 : `routeStallHardFallbackCountZero`,

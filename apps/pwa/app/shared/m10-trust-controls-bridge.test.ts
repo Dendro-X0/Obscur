@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { installM10TrustControlsBridge } from "./m10-trust-controls-bridge";
 import { resetM10SharedIntelPolicyState } from "@/app/features/messaging/services/m10-shared-intel-policy";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 describe("m10-trust-controls-bridge", () => {
   beforeEach(() => {
     resetM10SharedIntelPolicyState();
     window.localStorage.clear();
+    (globalThis as Record<string, unknown>).__obscur_app_event_buffer__ = [];
     delete (window as Window & { obscurM10TrustControls?: unknown }).obscurM10TrustControls;
     delete (window as Window & { obscurAppEvents?: unknown }).obscurAppEvents;
   });
@@ -199,5 +201,50 @@ describe("m10-trust-controls-bridge", () => {
 
     const relaxedCapture = window.obscurM10TrustControls?.runCp2TriageCapture({ expectedStable: false, eventWindowSize: 200 });
     expect(relaxedCapture?.cp2TriageGate.pass).toBe(true);
+  });
+
+  it("emits a canonical cp2 stability gate event when probe runs", () => {
+    logAppEvent({
+      name: "navigation.route_stall_hard_fallback",
+      level: "warn",
+      context: {
+        targetRouteSurface: "chats",
+        elapsedMs: 1200,
+      },
+    });
+    logAppEvent({
+      name: "navigation.page_transition_effects_disabled",
+      level: "warn",
+      context: {
+        routeSurface: "chats",
+        timeoutCount: 2,
+      },
+    });
+
+    installM10TrustControlsBridge();
+    const probe = window.obscurM10TrustControls?.runCp2StabilityGateProbe({
+      expectedStable: true,
+      eventWindowSize: 200,
+    });
+    expect(probe?.cp2TriageGate.pass).toBe(false);
+
+    const diagnosticsApi = (window as Window & {
+      obscurAppEvents?: Readonly<{
+        findByName?: (name: string, count?: number) => ReadonlyArray<Readonly<{
+          context?: Readonly<Record<string, string | number | boolean | null>>;
+        }>>;
+      }>;
+    }).obscurAppEvents;
+    const cp2GateEvents = diagnosticsApi?.findByName?.("messaging.m10.cp2_stability_gate", 10) ?? [];
+    expect(cp2GateEvents).toHaveLength(1);
+    expect(cp2GateEvents[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      cp2Pass: false,
+      failedCheckCount: expect.any(Number),
+      failedCheckSample: expect.any(String),
+      uiResponsivenessRiskLevel: "high",
+      uiRouteStallHardFallbackCount: 1,
+      uiPageTransitionEffectsDisabledCount: 1,
+    }));
   });
 });

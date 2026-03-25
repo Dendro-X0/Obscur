@@ -10,6 +10,7 @@ import {
   type AttackModeSafetyProfile,
   type SignedSharedIntelSignal,
 } from "@/app/features/messaging/services/m10-shared-intel-policy";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 type MinimalAppEvent = Readonly<{
   name: string;
@@ -85,6 +86,8 @@ type M10Cp2TriageCapture = Readonly<{
   cp2TriageGate: M10Cp2TriageGate;
 }>;
 
+type M10Cp2StabilityGateProbe = M10Cp2TriageCapture;
+
 type M10TrustControlsBridgeApi = Readonly<{
   getSnapshot: () => M10TrustControlsSnapshot;
   setAttackModeSafetyProfile: (profile: AttackModeSafetyProfile) => AttackModeSafetyProfile;
@@ -108,6 +111,14 @@ type M10TrustControlsBridgeApi = Readonly<{
     expectedStable?: boolean;
   }>) => M10Cp2TriageCapture;
   runCp2TriageCaptureJson: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => string;
+  runCp2StabilityGateProbe: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => M10Cp2StabilityGateProbe;
+  runCp2StabilityGateProbeJson: (params?: Readonly<{
     eventWindowSize?: number;
     expectedStable?: boolean;
   }>) => string;
@@ -151,6 +162,7 @@ const TRUST_CONTROL_EVENT_NAMES: ReadonlyArray<string> = [
   "messaging.m10.trust_controls_import_result",
   "messaging.m10.trust_controls_clear_applied",
   "messaging.m10.trust_controls_undo_applied",
+  "messaging.m10.cp2_stability_gate",
 ];
 const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
   "navigation.route_stall_hard_fallback",
@@ -160,6 +172,7 @@ const RESPONSIVENESS_EVENT_NAMES: ReadonlyArray<string> = [
   "navigation.page_transition_effects_disabled",
   "runtime.profile_boot_stall_timeout",
 ];
+const CP2_STABILITY_GATE_EVENT_NAME = "messaging.m10.cp2_stability_gate";
 
 const isPositiveFinite = (value: unknown): value is number => (
   typeof value === "number" && Number.isFinite(value) && value > 0
@@ -367,6 +380,56 @@ const buildCp2TriageGate = (params: Readonly<{
   };
 };
 
+const createCp2TriageCapture = (
+  root: M10TrustControlsBridgeWindow,
+  params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>,
+): M10Cp2TriageCapture => {
+  const eventWindowSize = toWindowSize(params?.eventWindowSize, 400);
+  const expectedStable = params?.expectedStable !== false;
+  const capture = createCapture(root, eventWindowSize);
+  const digestSummary = readCp2TriageDigestSummary(root, eventWindowSize);
+  return {
+    generatedAtUnixMs: Date.now(),
+    eventWindowSize,
+    expectedStable,
+    capture,
+    digestSummary,
+    cp2TriageGate: buildCp2TriageGate({
+      expectedStable,
+      capture,
+      digestSummary,
+    }),
+  };
+};
+
+const emitCp2StabilityGateEvent = (probe: M10Cp2StabilityGateProbe): void => {
+  logAppEvent({
+    name: CP2_STABILITY_GATE_EVENT_NAME,
+    level: probe.cp2TriageGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "m10_trust_controls" },
+    context: {
+      expectedStable: probe.expectedStable,
+      cp2Pass: probe.cp2TriageGate.pass,
+      failedCheckCount: probe.cp2TriageGate.failedChecks.length,
+      failedCheckSample: probe.cp2TriageGate.failedCheckSample,
+      incomingRequestRiskLevel: probe.digestSummary.incomingRequestAntiAbuse?.riskLevel ?? "none",
+      incomingRequestQuarantinedCount: probe.digestSummary.incomingRequestAntiAbuse?.quarantinedCount ?? 0,
+      uiResponsivenessRiskLevel: probe.digestSummary.uiResponsiveness?.riskLevel ?? "none",
+      uiRouteStallHardFallbackCount: probe.digestSummary.uiResponsiveness?.routeStallHardFallbackCount ?? 0,
+      uiPageTransitionEffectsDisabledCount: probe.digestSummary.uiResponsiveness?.pageTransitionEffectsDisabledCount ?? 0,
+      uiRouteMountPerformanceGuardEnabledCount: (
+        probe.digestSummary.uiResponsiveness?.routeMountPerformanceGuardEnabledCount ?? 0
+      ),
+      uiStartupProfileBootStallTimeoutCount: (
+        probe.digestSummary.uiResponsiveness?.startupProfileBootStallTimeoutCount ?? 0
+      ),
+    },
+  });
+};
+
 export const installM10TrustControlsBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -424,37 +487,33 @@ export const installM10TrustControlsBridge = (): void => {
     captureJson: (eventWindowSize = 300) => (
       JSON.stringify(root.obscurM10TrustControls?.capture(eventWindowSize) ?? null, null, 2)
     ),
-    runCp2TriageCapture: (params) => {
-      const eventWindowSize = toWindowSize(params?.eventWindowSize, 400);
-      const expectedStable = params?.expectedStable !== false;
-      const capture = createCapture(root, eventWindowSize);
-      const digestSummary = readCp2TriageDigestSummary(root, eventWindowSize);
-      return {
-        generatedAtUnixMs: Date.now(),
-        eventWindowSize,
-        expectedStable,
-        capture,
-        digestSummary,
-        cp2TriageGate: buildCp2TriageGate({
-          expectedStable,
-          capture,
-          digestSummary,
-        }),
-      };
-    },
+    runCp2TriageCapture: (params) => (
+      createCp2TriageCapture(root, params)
+    ),
     runCp2TriageCaptureJson: (params) => (
       JSON.stringify(root.obscurM10TrustControls?.runCp2TriageCapture(params) ?? null, null, 2)
+    ),
+    runCp2StabilityGateProbe: (params) => {
+      const probe = createCp2TriageCapture(root, params);
+      emitCp2StabilityGateEvent(probe);
+      return probe;
+    },
+    runCp2StabilityGateProbeJson: (params) => (
+      JSON.stringify(root.obscurM10TrustControls?.runCp2StabilityGateProbe(params) ?? null, null, 2)
     ),
   };
 };
 
 export const m10TrustControlsBridgeInternals = {
   ATTACK_MODE_REASON_PREFIX,
+  CP2_STABILITY_GATE_EVENT_NAME,
   TRUST_CONTROL_EVENT_NAMES,
   RESPONSIVENESS_EVENT_NAMES,
   buildCp2TriageGate,
+  createCp2TriageCapture,
   createSnapshot,
   createCapture,
+  emitCp2StabilityGateEvent,
   readAttackModeQuarantineEvents,
   readCp2TriageDigestSummary,
   readResponsivenessEvents,

@@ -594,6 +594,16 @@ Current execution status (started 2026-03-25):
 23. CP2 responsiveness digest now includes
 : `routeMountPerformanceGuardEnabledCount` in `summary.uiResponsiveness`
 : for high-load route-freeze triage.
+24. CP2 stability-gate probe helpers landed on canonical M10 bridge owner:
+: `window.obscurM10TrustControls.runCp2StabilityGateProbe(...)`
+: and `window.obscurM10TrustControls.runCp2StabilityGateProbeJson(...)`,
+: reusing canonical triage capture and emitting one explicit gate verdict event.
+25. Canonical CP2 gate verdict diagnostics event is now compacted in digest events:
+: `messaging.m10.cp2_stability_gate` in
+: `apps/pwa/app/shared/log-app-event.ts`.
+26. Cross-device digest now exposes CP2 gate posture under
+: `summary.m10TrustControls` (`cp2StabilityGateCount`, pass/fail counters,
+: unexpected-fail counter, latest expected-stable/pass/failed-check sample).
 
 ## Version-Bound Execution
 

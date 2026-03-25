@@ -76,6 +76,16 @@ type AppEventDiagnosticsApi = Readonly<{
         latestPeerPubkeyPrefix: string | null;
         latestCooldownRemainingMs: number | null;
       }>;
+      m10TrustControls: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        cp2StabilityGateCount: number;
+        cp2StabilityGatePassCount: number;
+        cp2StabilityGateFailCount: number;
+        cp2StabilityGateUnexpectedFailCount: number;
+        latestExpectedStable: boolean | null;
+        latestPass: boolean | null;
+        latestFailedCheckSample: string | null;
+      }>;
       communityLifecycleConvergence: Readonly<{
         riskLevel: "none" | "watch" | "high";
         latestPersistedGroupCount: number | null;
@@ -363,6 +373,19 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "windowMs",
     "peerCooldownMs",
     "cooldownRemainingMs",
+  ],
+  "messaging.m10.cp2_stability_gate": [
+    "expectedStable",
+    "cp2Pass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "incomingRequestRiskLevel",
+    "incomingRequestQuarantinedCount",
+    "uiResponsivenessRiskLevel",
+    "uiRouteStallHardFallbackCount",
+    "uiPageTransitionEffectsDisabledCount",
+    "uiRouteMountPerformanceGuardEnabledCount",
+    "uiStartupProfileBootStallTimeoutCount",
   ],
   "account_sync.backup_restore_result": [
     "reason",
@@ -940,6 +963,30 @@ const installDiagnosticsApi = (): void => {
       const latestIncomingRequestCooldownRemainingMs = toNumberOrNull(
         latestIncomingRequestQuarantineEvent?.context?.cooldownRemainingMs,
       );
+      const m10Cp2StabilityGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.cp2_stability_gate"
+      ));
+      const m10Cp2StabilityGateCount = m10Cp2StabilityGateEvents.length;
+      const m10Cp2StabilityGatePassCount = m10Cp2StabilityGateEvents.filter((event) => (
+        event.context?.cp2Pass === true
+      )).length;
+      const m10Cp2StabilityGateFailCount = m10Cp2StabilityGateEvents.filter((event) => (
+        event.context?.cp2Pass === false
+      )).length;
+      const m10Cp2StabilityGateUnexpectedFailCount = m10Cp2StabilityGateEvents.filter((event) => (
+        event.context?.cp2Pass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10Cp2StabilityGateEvent = m10Cp2StabilityGateEvents.at(-1);
+      const latestM10Cp2StabilityGateExpectedStable = toBooleanOrNull(
+        latestM10Cp2StabilityGateEvent?.context?.expectedStable,
+      );
+      const latestM10Cp2StabilityGatePass = toBooleanOrNull(
+        latestM10Cp2StabilityGateEvent?.context?.cp2Pass,
+      );
+      const latestM10Cp2StabilityGateFailedCheckSample = toStringOrNull(
+        latestM10Cp2StabilityGateEvent?.context?.failedCheckSample,
+      );
       const latestHydratedOutgoingCount = toNumberOrNull(
         latestHydration?.hydratedDmOutgoingCount,
       );
@@ -1362,6 +1409,10 @@ const installDiagnosticsApi = (): void => {
           || incomingRequestPeerCooldownActiveCount >= 5
         ),
       });
+      const m10TrustControlsRiskLevel = getRiskLevel({
+        watch: m10Cp2StabilityGateFailCount > 0,
+        high: m10Cp2StabilityGateUnexpectedFailCount > 0,
+      });
       const communityLifecycleConvergenceRiskLevel = getRiskLevel({
         watch: (
           membershipRecoveryRepairSignalCount > 0
@@ -1489,6 +1540,16 @@ const installDiagnosticsApi = (): void => {
             latestReasonCode: latestIncomingRequestReasonCode,
             latestPeerPubkeyPrefix: latestIncomingRequestPeerPubkeyPrefix,
             latestCooldownRemainingMs: latestIncomingRequestCooldownRemainingMs,
+          },
+          m10TrustControls: {
+            riskLevel: m10TrustControlsRiskLevel,
+            cp2StabilityGateCount: m10Cp2StabilityGateCount,
+            cp2StabilityGatePassCount: m10Cp2StabilityGatePassCount,
+            cp2StabilityGateFailCount: m10Cp2StabilityGateFailCount,
+            cp2StabilityGateUnexpectedFailCount: m10Cp2StabilityGateUnexpectedFailCount,
+            latestExpectedStable: latestM10Cp2StabilityGateExpectedStable,
+            latestPass: latestM10Cp2StabilityGatePass,
+            latestFailedCheckSample: latestM10Cp2StabilityGateFailedCheckSample,
           },
           communityLifecycleConvergence: {
             riskLevel: communityLifecycleConvergenceRiskLevel,

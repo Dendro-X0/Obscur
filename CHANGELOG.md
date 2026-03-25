@@ -68,6 +68,12 @@
   - `window.obscurM10TrustControls.runCp2TriageCapture(...)`,
   - `window.obscurM10TrustControls.runCp2TriageCaptureJson(...)`,
   - with explicit gate verdict (`cp2TriageGate`) over anti-abuse + responsiveness digest evidence.
+- Added deterministic CP2 stability-gate probe APIs in
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
+  - `window.obscurM10TrustControls.runCp2StabilityGateProbe(...)`,
+  - `window.obscurM10TrustControls.runCp2StabilityGateProbeJson(...)`,
+  - reusing canonical triage capture and emitting `messaging.m10.cp2_stability_gate`
+    with explicit pass/fail + failed-check sample evidence.
 - Added a route-mount performance guard in canonical navigation owner
   `apps/pwa/app/components/app-shell.tsx`:
   - when route-mount settles are consecutively slow, transition effects are disabled fail-open to reduce UI freeze pressure,
@@ -79,6 +85,10 @@
 - Extended `summary.uiResponsiveness` with
   `routeMountPerformanceGuardEnabledCount` in
   `apps/pwa/app/shared/log-app-event.ts`.
+- Extended compact cross-device digest with `summary.m10TrustControls` and
+  `events["messaging.m10.cp2_stability_gate"]` in
+  `apps/pwa/app/shared/log-app-event.ts`
+  to expose CP2 gate run/pass/fail/unexpected-fail posture.
 - Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
 - Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
 - Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.
