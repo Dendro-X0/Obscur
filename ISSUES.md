@@ -509,6 +509,18 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `accountPass: true`,
       - `unsupportedProbePass: true`,
       - `recoveryExhaustedProbePass: true`.
+  - `v1.1.4` started (`M9` CP4 prep lane):
+    - added deterministic long-session replay helpers in
+      `app/shared/m6-voice-replay-bridge.ts`:
+      - `window.obscurM6VoiceReplay.runLongSessionReplay(...)`,
+      - `window.obscurM6VoiceReplay.runLongSessionReplayCapture(...)`,
+      - `window.obscurM6VoiceReplay.runLongSessionReplayCaptureJson(...)`,
+    - helper output now includes `cp4ReadinessGate.pass/failedChecks` with transition-volume/recovery/diagnostics checks for sustained replay health.
+    - dedicated matrix is active:
+      - `docs/33-v1.1.4-cp4-voice-long-session-matrix.md`.
+    - focused helper validation is green:
+      - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`,
+      - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 

@@ -285,6 +285,113 @@ describe("m6-voice-replay-bridge", () => {
     ]));
   });
 
+  it("exports deterministic long-session replay capture with CP4 readiness pass", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runLongSessionReplayCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        replay: {
+          finalState: { phase: string };
+          transitionEventCount: number;
+          degradedTransitionCount: number;
+          recoveredActiveTransitionCount: number;
+          endedTransitionCount: number;
+          latestDigestSummary: { recoveryExhaustedCount: number } | null;
+        } | null;
+        replayConfig: { cycleCount: number; injectRecoveryExhausted: boolean };
+        cp4ReadinessGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+      runLongSessionReplayCaptureJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => string;
+    };
+
+    const bundle = replayApi.runLongSessionReplayCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(bundle.replayConfig.cycleCount).toBe(5);
+    expect(bundle.replayConfig.injectRecoveryExhausted).toBe(false);
+    expect(bundle.replay?.finalState.phase).toBe("active");
+    expect(bundle.replay?.transitionEventCount).toBeGreaterThanOrEqual(17);
+    expect(bundle.replay?.degradedTransitionCount).toBeGreaterThanOrEqual(5);
+    expect(bundle.replay?.recoveredActiveTransitionCount).toBeGreaterThanOrEqual(5);
+    expect(bundle.replay?.endedTransitionCount).toBe(0);
+    expect(bundle.replay?.latestDigestSummary?.recoveryExhaustedCount).toBe(0);
+    expect(bundle.cp4ReadinessGate.pass).toBe(true);
+    expect(bundle.cp4ReadinessGate.failedChecks).toEqual([]);
+    expect(bundle.cp4ReadinessGate.checks.finalPhaseActive).toBe(true);
+    expect(bundle.cp4ReadinessGate.checks.recoveredTransitionsSufficient).toBe(true);
+    expect(bundle.cp4ReadinessGate.checks.endedTransitionsZero).toBe(true);
+    expect(() => JSON.parse(replayApi.runLongSessionReplayCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    }))).not.toThrow();
+  });
+
+  it("fails CP4 readiness gate when long-session replay exhausts recovery", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runLongSessionReplayCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        injectRecoveryExhausted?: boolean;
+        maxRecoveryAttempts?: number;
+      }) => {
+        replay: {
+          finalState: { phase: string; lastTransitionReasonCode: string };
+          endedTransitionCount: number;
+          latestDigestSummary: { recoveryExhaustedCount: number } | null;
+        } | null;
+        cp4ReadinessGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+    };
+
+    const bundle = replayApi.runLongSessionReplayCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 4,
+      injectRecoveryExhausted: true,
+      maxRecoveryAttempts: 2,
+    });
+    expect(bundle.replay?.finalState.phase).toBe("ended");
+    expect(bundle.replay?.finalState.lastTransitionReasonCode).toBe("recovery_exhausted");
+    expect(bundle.replay?.endedTransitionCount).toBeGreaterThanOrEqual(1);
+    expect(bundle.replay?.latestDigestSummary?.recoveryExhaustedCount).toBeGreaterThanOrEqual(1);
+    expect(bundle.cp4ReadinessGate.pass).toBe(false);
+    expect(bundle.cp4ReadinessGate.failedChecks).toEqual(expect.arrayContaining([
+      "finalPhaseActive",
+      "endedTransitionsZero",
+      "digestRecoveryExhaustedZero",
+    ]));
+  });
+
   it("emits unsupported transition diagnostics when started with unsupported capability", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     installM6VoiceReplayBridge();

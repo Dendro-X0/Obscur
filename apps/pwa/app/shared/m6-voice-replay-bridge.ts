@@ -26,6 +26,17 @@ type M6AccountSwitchReplayParams = Readonly<{
   clearAppEvents?: boolean;
 }>;
 
+type M6LongSessionReplayParams = Readonly<{
+  roomId?: string;
+  mode?: RealtimeVoiceSessionMode;
+  baseUnixMs?: number;
+  maxRecoveryAttempts?: number;
+  cycleCount?: number;
+  injectRecoveryExhausted?: boolean;
+  captureWindowSize?: number;
+  clearAppEvents?: boolean;
+}>;
+
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
 type M6VoiceReplayScenario = "weak_network" | "account_switch";
 
@@ -78,10 +89,38 @@ type M6VoiceCp2EvidenceGate = Readonly<{
   }>;
 }>;
 
+type M6VoiceCp4ReadinessGate = M6VoiceReplayProbeGate<Readonly<{
+  hasReplayResult: boolean;
+  hasCaptureBundle: boolean;
+  finalPhaseActive: boolean;
+  transitionVolumeSufficient: boolean;
+  degradedTransitionsSufficient: boolean;
+  recoveredTransitionsSufficient: boolean;
+  endedTransitionsZero: boolean;
+  digestRecoveryExhaustedZero: boolean;
+  digestRiskNotHigh: boolean;
+  replayReadyForCp2: boolean;
+  hasIgnoredEventSlice: boolean;
+  asyncVoiceSummaryPresent: boolean;
+  deleteSummaryPresent: boolean;
+  asyncVoiceStartFailureCountZero: boolean;
+  deleteRemoteFailureCountZero: boolean;
+}>>;
+
 type M6VoiceReplayCaptureBundle = Readonly<{
   replay: M6VoiceReplayResult | null;
   capture: M6VoiceCaptureBundle | null;
   cp2EvidenceGate: M6VoiceCp2EvidenceGate;
+}>;
+
+type M6VoiceLongSessionReplayCaptureBundle = Readonly<{
+  replay: M6VoiceReplayResult | null;
+  capture: M6VoiceCaptureBundle | null;
+  replayConfig: Readonly<{
+    cycleCount: number;
+    injectRecoveryExhausted: boolean;
+  }>;
+  cp4ReadinessGate: M6VoiceCp4ReadinessGate;
 }>;
 
 type M6VoiceReplaySuiteCaptureBundle = Readonly<{
@@ -178,6 +217,9 @@ type M6VoiceReplayApi = Readonly<{
   runAccountSwitchReplay: (params?: M6AccountSwitchReplayParams) => RealtimeVoiceSessionState;
   runAccountSwitchReplayCapture: (params?: M6AccountSwitchReplayParams) => M6VoiceReplayCaptureBundle;
   runAccountSwitchReplayCaptureJson: (params?: M6AccountSwitchReplayParams) => string;
+  runLongSessionReplay: (params?: M6LongSessionReplayParams) => RealtimeVoiceSessionState;
+  runLongSessionReplayCapture: (params?: M6LongSessionReplayParams) => M6VoiceLongSessionReplayCaptureBundle;
+  runLongSessionReplayCaptureJson: (params?: M6LongSessionReplayParams) => string;
   runCp3ReplaySuiteCapture: (params?: Readonly<{
     baseUnixMs?: number;
     captureWindowSize?: number;
@@ -243,6 +285,7 @@ declare global {
 const DEFAULT_CAPTURE_WINDOW_SIZE = 400;
 const DEFAULT_WEAK_REPLAY_TRANSITION_COUNT = 5;
 const DEFAULT_ACCOUNT_SWITCH_REPLAY_TRANSITION_COUNT = 6;
+const DEFAULT_LONG_SESSION_CYCLE_COUNT = 6;
 const EMPTY_REPLAY_SUITE_GATE_CHECKS: M6VoiceReplaySuiteGateChecks = {
   weakNetworkPass: false,
   accountSwitchPass: false,
@@ -533,6 +576,36 @@ const buildCp2EvidenceGate = (
     failedChecks,
     checks,
   };
+};
+
+const buildCp4ReadinessGate = (params: Readonly<{
+  replay: M6VoiceReplayResult | null;
+  capture: M6VoiceCaptureBundle | null;
+  cycleCount: number;
+}>): M6VoiceCp4ReadinessGate => {
+  const replayDigestSummary = params.replay?.latestDigestSummary ?? null;
+  const asyncVoiceSummary = params.capture?.voice.asyncVoiceNoteSummary ?? null;
+  const deleteSummary = params.capture?.voice.deleteConvergenceSummary ?? null;
+  const minimumTransitionCount = (params.cycleCount * 3) + 2;
+  const checks = {
+    hasReplayResult: params.replay !== null,
+    hasCaptureBundle: params.capture !== null,
+    finalPhaseActive: params.replay?.finalState.phase === "active",
+    transitionVolumeSufficient: (params.replay?.transitionEventCount ?? 0) >= minimumTransitionCount,
+    degradedTransitionsSufficient: (params.replay?.degradedTransitionCount ?? 0) >= params.cycleCount,
+    recoveredTransitionsSufficient: (params.replay?.recoveredActiveTransitionCount ?? 0) >= params.cycleCount,
+    endedTransitionsZero: (params.replay?.endedTransitionCount ?? -1) === 0,
+    digestRecoveryExhaustedZero: (replayDigestSummary?.recoveryExhaustedCount ?? -1) === 0,
+    digestRiskNotHigh: replayDigestSummary !== null
+      && replayDigestSummary.riskLevel !== "high",
+    replayReadyForCp2: params.replay?.replayReadiness.readyForCp2Evidence === true,
+    hasIgnoredEventSlice: Array.isArray(params.capture?.voice.ignoredEvents),
+    asyncVoiceSummaryPresent: asyncVoiceSummary !== null,
+    deleteSummaryPresent: deleteSummary !== null,
+    asyncVoiceStartFailureCountZero: (asyncVoiceSummary?.recordingStartFailedCount ?? -1) === 0,
+    deleteRemoteFailureCountZero: (deleteSummary?.remoteFailedCount ?? -1) === 0,
+  } as const;
+  return buildBooleanGate(checks);
 };
 
 const buildReplaySuiteGate = (params: Readonly<{
@@ -907,6 +980,109 @@ export const installM6VoiceReplayBridge = (): void => {
         2,
       )
     ),
+    runLongSessionReplay: (params) => {
+      if (params?.clearAppEvents) {
+        root.obscurAppEvents?.clear?.();
+      }
+      const replayBaseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
+        ? Math.floor(params.baseUnixMs)
+        : Date.now();
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const cycleCount = toPositiveInteger(params?.cycleCount, DEFAULT_LONG_SESSION_CYCLE_COUNT);
+      const injectRecoveryExhausted = params?.injectRecoveryExhausted === true;
+      const resolvedMaxRecoveryAttempts = params?.maxRecoveryAttempts ?? (injectRecoveryExhausted ? 2 : 8);
+
+      clockUnixMs = replayBaseUnixMs;
+      state = owner.reset({
+        maxRecoveryAttempts: resolvedMaxRecoveryAttempts,
+      });
+      root.obscurM6VoiceReplay?.start({
+        roomId: params?.roomId ?? "m6-voice-room-long-session",
+        mode: params?.mode ?? "join",
+        supported: true,
+        maxRecoveryAttempts: resolvedMaxRecoveryAttempts,
+      });
+      root.obscurM6VoiceReplay?.connect({
+        participantCount: 2,
+        hasPeerSessionEvidence: true,
+      });
+
+      for (let cycleIndex = 0; cycleIndex < cycleCount; cycleIndex += 1) {
+        if (state.phase === "ended") {
+          break;
+        }
+        root.obscurM6VoiceReplay?.degrade({ reasonCode: "network_degraded" });
+        root.obscurM6VoiceReplay?.requestRecovery();
+        if (injectRecoveryExhausted) {
+          root.obscurM6VoiceReplay?.failRecovery({ reasonCode: "transport_timeout" });
+          continue;
+        }
+        root.obscurM6VoiceReplay?.connect({
+          participantCount: 2,
+          hasPeerSessionEvidence: true,
+        });
+      }
+
+      if (!injectRecoveryExhausted && state.phase !== "active") {
+        root.obscurM6VoiceReplay?.connect({
+          participantCount: 2,
+          hasPeerSessionEvidence: true,
+        });
+      }
+
+      const transitions = readEventsByName(
+        root,
+        "messaging.realtime_voice.session_transition",
+        captureWindowSize,
+      );
+      const ignoredEvents = readEventsByName(
+        root,
+        "messaging.realtime_voice.session_event_ignored",
+        captureWindowSize,
+      );
+      const latestDigestSummary = readDigestSummary(root, captureWindowSize);
+      lastReplay = buildReplayResult({
+        scenario: "weak_network",
+        replayBaseUnixMs,
+        finalState: state,
+        transitionEvents: transitions,
+        ignoredEvents,
+        latestDigestSummary,
+      });
+      return state;
+    },
+    runLongSessionReplayCapture: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const cycleCount = toPositiveInteger(params?.cycleCount, DEFAULT_LONG_SESSION_CYCLE_COUNT);
+      const injectRecoveryExhausted = params?.injectRecoveryExhausted === true;
+      root.obscurM6VoiceReplay?.runLongSessionReplay({
+        ...params,
+        captureWindowSize,
+        cycleCount,
+      });
+      const replay = lastReplay;
+      const capture = root.obscurM6VoiceCapture?.capture?.(captureWindowSize) ?? null;
+      return {
+        replay,
+        capture,
+        replayConfig: {
+          cycleCount,
+          injectRecoveryExhausted,
+        },
+        cp4ReadinessGate: buildCp4ReadinessGate({
+          replay,
+          capture,
+          cycleCount,
+        }),
+      };
+    },
+    runLongSessionReplayCaptureJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runLongSessionReplayCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
     runCp3ReplaySuiteCapture: (params) => {
       const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
       const baseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
@@ -1074,6 +1250,7 @@ export const installM6VoiceReplayBridge = (): void => {
 
 export const m6VoiceReplayBridgeInternals = {
   buildReplaySuiteGate,
+  buildCp4ReadinessGate,
   buildReplayResult,
   buildCp2EvidenceGate,
   buildReplayReadiness,

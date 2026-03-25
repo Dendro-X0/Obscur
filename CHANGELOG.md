@@ -1,5 +1,22 @@
 ## [Unreleased]
 
+### Changed
+
+- Started `v1.1.4` (`M9` `CP4` prep) with deterministic long-session voice stability tooling:
+  - added long-session replay helpers in
+    `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+    - `window.obscurM6VoiceReplay.runLongSessionReplay(...)`,
+    - `window.obscurM6VoiceReplay.runLongSessionReplayCapture(...)`,
+    - `window.obscurM6VoiceReplay.runLongSessionReplayCaptureJson(...)`,
+  - helper output now includes `cp4ReadinessGate` with explicit checks for:
+    - transition volume and repeated degrade/recover convergence,
+    - no unexpected terminal end/recovery exhaustion on nominal soak,
+    - unified async voice-note and delete-convergence health signals.
+  - added focused long-session helper coverage in:
+    - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+  - added dedicated matrix/runbook lane:
+    - `docs/33-v1.1.4-cp4-voice-long-session-matrix.md`.
+
 ## [v1.1.3] - 2026-03-24
 
 ### Changed

@@ -37,6 +37,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 29. [30 Versioned Phase Plan (v1.0.10-v1.1.0)](./30-versioned-phase-plan-v1.0.10-v1.1.0.md)
 30. [31 v1.0.10 CP3 Community Replay Matrix](./31-v1.0.10-cp3-community-replay-matrix.md)
 31. [32 v1.1.3 CP3 Voice Suite Replay Matrix](./32-v1.1.3-cp3-voice-suite-matrix.md)
+32. [33 v1.1.4 CP4 Voice Long-Session Matrix](./33-v1.1.4-cp4-voice-long-session-matrix.md)
 
 ## Scope Rules
 
@@ -59,7 +60,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
 - Next major-phase execution cadence (`v1.0.10-v1.3.0`) is tracked in:
   - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
-- Active execution lane (`v1.1.3-v1.2.0`) is tracked in:
+- Active execution lane (`v1.1.4-v1.2.0`) is tracked in:
   - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
 - Historical closeout lane (`v1.0.10-v1.1.0`) remains documented in:
   - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.

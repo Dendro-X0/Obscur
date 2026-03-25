@@ -198,6 +198,31 @@ Current checkpoint progress (2026-03-24):
 : `unsupportedProbePass: true`,
 : `recoveryExhaustedProbePass: true`.
 
+### v1.1.4 (M9-CP4 prep)
+
+Scope:
+1. add deterministic long-session replay helper for CP4 readiness burn-down,
+2. expose typed CP4 readiness gate verdict for sustained degrade/recover sessions,
+3. validate deterministic failure-injection behavior (`recovery_exhausted`) without requiring large multi-account pools.
+
+Evidence:
+1. long-session helper bundle:
+: `window.obscurM6VoiceReplay.runLongSessionReplayCaptureJson(...)`,
+2. matrix/runbook notes:
+: `docs/33-v1.1.4-cp4-voice-long-session-matrix.md`.
+
+Current checkpoint progress (2026-03-24):
+1. `v1.1.4` CP4-prep deterministic helper landed in canonical replay bridge owner:
+: `runLongSessionReplay(...)`,
+: `runLongSessionReplayCapture(...)`,
+: `runLongSessionReplayCaptureJson(...)` in
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
+2. CP4 readiness gate now emits explicit pass/fail checks for long-session risk posture:
+: `cp4ReadinessGate.pass/failedChecks` with transition-volume, recovery-exhausted, and unified diagnostics checks.
+3. Focused long-session helper coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+
 ### v1.2.0 (M9-CP4 closeout)
 
 Scope:
