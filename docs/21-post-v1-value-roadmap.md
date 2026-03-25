@@ -561,6 +561,17 @@ Current execution status (started 2026-03-25):
 : including deterministic ingest result summaries and explicit signature/replace import options.
 12. Focused CP1 trust-controls UI validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx`.
+13. `v1.2.1` tag is now published and `v1.2.2` (`M10` `CP2`) implementation has started.
+14. CP2 trust-controls UX clarity slice landed:
+: reversible import/clear controls (`Undo Last Change`) and compact trust snapshot counters in
+: `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`.
+15. CP2 diagnostics tooling slice landed:
+: trust-control actions emit canonical diagnostics events and
+: `apps/pwa/app/shared/m10-trust-controls-bridge.ts` capture now includes
+: `recentTrustControlEvents` for operator replay evidence packets.
+16. Focused CP2 trust-controls validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## Version-Bound Execution
 

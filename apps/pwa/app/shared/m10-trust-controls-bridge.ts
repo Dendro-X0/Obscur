@@ -33,6 +33,7 @@ type M10TrustControlsSnapshot = Readonly<{
 type M10TrustControlsCapture = Readonly<{
   snapshot: M10TrustControlsSnapshot;
   recentAttackModeQuarantineEvents: ReadonlyArray<MinimalAppEvent>;
+  recentTrustControlEvents: ReadonlyArray<MinimalAppEvent>;
 }>;
 
 type M10TrustControlsBridgeApi = Readonly<{
@@ -69,6 +70,12 @@ declare global {
 }
 
 const ATTACK_MODE_REASON_PREFIX = "incoming_connection_request_attack_mode_";
+const TRUST_CONTROL_EVENT_NAMES: ReadonlyArray<string> = [
+  "messaging.m10.trust_controls_profile_changed",
+  "messaging.m10.trust_controls_import_result",
+  "messaging.m10.trust_controls_clear_applied",
+  "messaging.m10.trust_controls_undo_applied",
+];
 
 const isPositiveFinite = (value: unknown): value is number => (
   typeof value === "number" && Number.isFinite(value) && value > 0
@@ -137,6 +144,26 @@ const readAttackModeQuarantineEvents = (
   }
 };
 
+const readTrustControlEvents = (
+  root: M10TrustControlsBridgeWindow,
+  eventWindowSize: number,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof root.obscurAppEvents?.findByName !== "function") {
+      return [];
+    }
+    const mergedEvents = TRUST_CONTROL_EVENT_NAMES.flatMap((name) => (
+      root.obscurAppEvents?.findByName?.(name, eventWindowSize) ?? []
+    ));
+    return mergedEvents
+      .slice()
+      .sort((left, right) => (left.atUnixMs ?? 0) - (right.atUnixMs ?? 0))
+      .slice(-eventWindowSize);
+  } catch {
+    return [];
+  }
+};
+
 export const installM10TrustControlsBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -192,6 +219,7 @@ export const installM10TrustControlsBridge = (): void => {
       return {
         snapshot: createSnapshot(),
         recentAttackModeQuarantineEvents: readAttackModeQuarantineEvents(root, safeWindow),
+        recentTrustControlEvents: readTrustControlEvents(root, safeWindow),
       };
     },
     captureJson: (eventWindowSize = 300) => (
@@ -202,7 +230,9 @@ export const installM10TrustControlsBridge = (): void => {
 
 export const m10TrustControlsBridgeInternals = {
   ATTACK_MODE_REASON_PREFIX,
+  TRUST_CONTROL_EVENT_NAMES,
   createSnapshot,
   readAttackModeQuarantineEvents,
+  readTrustControlEvents,
   toWindowSize,
 };

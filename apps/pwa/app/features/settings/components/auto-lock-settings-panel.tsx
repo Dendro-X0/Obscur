@@ -5,16 +5,59 @@ import { useAutoLock } from '../hooks/use-auto-lock';
 import type { PrivacySettings } from '../services/privacy-settings-service';
 import {
     getSignedSharedIntelSignals,
+    setSignedSharedIntelSignals,
     ingestSignedSharedIntelSignals,
     setAttackModeSafetyProfile,
     clearSignedSharedIntelSignals,
     type AttackModeSafetyProfile,
+    type SignedSharedIntelSignal,
 } from "@/app/features/messaging/services/m10-shared-intel-policy";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { Label } from '../../../components/ui/label';
 import { cn } from '../../../lib/cn';
 import { SettingsActionStatus, type SettingsActionPhase } from './settings-action-status';
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+
+type SharedIntelSnapshot = Readonly<{
+    signalCount: number;
+    activeCount: number;
+    expiredCount: number;
+    blockDispositionCount: number;
+    watchDispositionCount: number;
+}>;
+
+const buildSharedIntelSnapshot = (): SharedIntelSnapshot => {
+    const nowUnixMs = Date.now();
+    const signals = getSignedSharedIntelSignals();
+    const activeCount = signals.filter((signal) => signal.expiresAtUnixMs > nowUnixMs).length;
+    const expiredCount = signals.length - activeCount;
+    const blockDispositionCount = signals.filter((signal) => signal.disposition === "block").length;
+    return {
+        signalCount: signals.length,
+        activeCount,
+        expiredCount,
+        blockDispositionCount,
+        watchDispositionCount: signals.length - blockDispositionCount,
+    };
+};
+
+const hasSignalStateChanged = (
+    previous: ReadonlyArray<SignedSharedIntelSignal>,
+    next: ReadonlyArray<SignedSharedIntelSignal>,
+): boolean => {
+    if (previous.length !== next.length) {
+        return true;
+    }
+    return previous.some((signal, index) => {
+        const peer = next[index];
+        return !peer
+            || signal.signalId !== peer.signalId
+            || signal.issuedAtUnixMs !== peer.issuedAtUnixMs
+            || signal.expiresAtUnixMs !== peer.expiresAtUnixMs
+            || signal.signatureHex !== peer.signatureHex;
+    });
+};
 
 /**
  * Premium Privacy & Safety Settings Panel
@@ -31,6 +74,9 @@ export const AutoLockSettingsPanel: React.FC = () => {
     const [requireSignatureVerification, setRequireSignatureVerification] = React.useState<boolean>(true);
     const [replaceExistingSharedIntelSignals, setReplaceExistingSharedIntelSignals] = React.useState<boolean>(false);
     const [sharedIntelResultMessage, setSharedIntelResultMessage] = React.useState<string>("");
+    const [sharedIntelSnapshot, setSharedIntelSnapshot] = React.useState<SharedIntelSnapshot>(() => buildSharedIntelSnapshot());
+    const [rollbackSignals, setRollbackSignals] = React.useState<ReadonlyArray<SignedSharedIntelSignal> | null>(null);
+    const [rollbackReasonLabel, setRollbackReasonLabel] = React.useState<string | null>(null);
 
     const isTauri: boolean = getRuntimeCapabilities().isNativeRuntime;
 
@@ -61,6 +107,10 @@ export const AutoLockSettingsPanel: React.FC = () => {
         settings.attackModeSafetyProfileV121 === "strict" ? "strict" : "standard"
     );
 
+    const refreshSharedIntelSnapshot = (): void => {
+        setSharedIntelSnapshot(buildSharedIntelSnapshot());
+    };
+
     const setAttackModeProfile = (profile: AttackModeSafetyProfile): void => {
         if (profile === attackModeSafetyProfile) {
             return;
@@ -74,6 +124,14 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 ? "Strict attack-mode profile enabled."
                 : "Standard attack-mode profile enabled."
         );
+        logAppEvent({
+            name: "messaging.m10.trust_controls_profile_changed",
+            level: "info",
+            scope: { feature: "messaging", action: "m10_trust_controls" },
+            context: {
+                profile,
+            },
+        });
     };
 
     const parseSharedIntelSignalsJson = (rawJson: string): ReadonlyArray<unknown> => {
@@ -93,12 +151,19 @@ export const AutoLockSettingsPanel: React.FC = () => {
             return;
         }
         try {
+            const previousSignals = getSignedSharedIntelSignals();
             const signals = parseSharedIntelSignalsJson(sharedIntelJson);
             const result = ingestSignedSharedIntelSignals({
                 signals,
                 replaceExisting: replaceExistingSharedIntelSignals,
                 requireSignatureVerification,
             });
+            const nextSignals = getSignedSharedIntelSignals();
+            if (hasSignalStateChanged(previousSignals, nextSignals)) {
+                setRollbackSignals([...previousSignals]);
+                setRollbackReasonLabel("import");
+            }
+            refreshSharedIntelSnapshot();
             setSharedIntelResultMessage(
                 `Imported signals: accepted ${result.acceptedCount}, rejected ${result.rejectedCount}, stored ${result.storedSignalCount}. ` +
                 `Rejections: invalid_shape=${result.rejectedByReason.invalid_shape}, expired=${result.rejectedByReason.expired}, ` +
@@ -108,8 +173,32 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 setActionPhase("success");
                 setActionMessage("Shared-intel signals imported.");
             }
+            logAppEvent({
+                name: "messaging.m10.trust_controls_import_result",
+                level: "info",
+                scope: { feature: "messaging", action: "m10_trust_controls" },
+                context: {
+                    acceptedCount: result.acceptedCount,
+                    rejectedCount: result.rejectedCount,
+                    storedSignalCount: result.storedSignalCount,
+                    replaceExisting: replaceExistingSharedIntelSignals,
+                    requireSignatureVerification,
+                    invalidShapeRejectedCount: result.rejectedByReason.invalid_shape,
+                    expiredRejectedCount: result.rejectedByReason.expired,
+                    missingSignatureVerifierRejectedCount: result.rejectedByReason.missing_signature_verifier,
+                    invalidSignatureRejectedCount: result.rejectedByReason.invalid_signature,
+                },
+            });
         } catch {
             setSharedIntelResultMessage("Shared-intel import failed: invalid JSON payload.");
+            logAppEvent({
+                name: "messaging.m10.trust_controls_import_result",
+                level: "warn",
+                scope: { feature: "messaging", action: "m10_trust_controls" },
+                context: {
+                    reasonCode: "invalid_json",
+                },
+            });
         }
     };
 
@@ -121,10 +210,46 @@ export const AutoLockSettingsPanel: React.FC = () => {
     };
 
     const handleClearSharedIntelSignals = (): void => {
+        const previousSignals = getSignedSharedIntelSignals();
+        if (previousSignals.length > 0) {
+            setRollbackSignals([...previousSignals]);
+            setRollbackReasonLabel("clear");
+        }
         clearSignedSharedIntelSignals();
+        refreshSharedIntelSnapshot();
         setSharedIntelResultMessage("Cleared all persisted shared-intel signals for this profile.");
         setActionPhase("success");
         setActionMessage("Shared-intel signal store cleared.");
+        logAppEvent({
+            name: "messaging.m10.trust_controls_clear_applied",
+            level: "info",
+            scope: { feature: "messaging", action: "m10_trust_controls" },
+            context: {
+                previousSignalCount: previousSignals.length,
+            },
+        });
+    };
+
+    const handleUndoSharedIntelChange = (): void => {
+        if (!rollbackSignals) {
+            setSharedIntelResultMessage("No reversible trust-control change is available.");
+            return;
+        }
+        setSignedSharedIntelSignals(rollbackSignals);
+        refreshSharedIntelSnapshot();
+        setRollbackSignals(null);
+        setRollbackReasonLabel(null);
+        setSharedIntelResultMessage("Reverted the latest shared-intel trust-control change.");
+        setActionPhase("success");
+        setActionMessage("Trust-control change reverted.");
+        logAppEvent({
+            name: "messaging.m10.trust_controls_undo_applied",
+            level: "info",
+            scope: { feature: "messaging", action: "m10_trust_controls" },
+            context: {
+                restoredSignalCount: rollbackSignals.length,
+            },
+        });
     };
 
     return (
@@ -202,6 +327,31 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     </label>
                 </div>
 
+                <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/40 px-3 py-2.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        <div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Profile</div>
+                            <div>{attackModeSafetyProfile}</div>
+                        </div>
+                        <div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Signals</div>
+                            <div>{sharedIntelSnapshot.signalCount}</div>
+                        </div>
+                        <div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Active</div>
+                            <div>{sharedIntelSnapshot.activeCount}</div>
+                        </div>
+                        <div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Block</div>
+                            <div>{sharedIntelSnapshot.blockDispositionCount}</div>
+                        </div>
+                        <div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Watch</div>
+                            <div>{sharedIntelSnapshot.watchDispositionCount}</div>
+                        </div>
+                    </div>
+                </div>
+
                 <textarea
                     value={sharedIntelJson}
                     onChange={(event) => setSharedIntelJson(event.currentTarget.value)}
@@ -232,10 +382,28 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     >
                         Clear Signals
                     </button>
+                    <button
+                        type="button"
+                        onClick={handleUndoSharedIntelChange}
+                        disabled={!rollbackSignals}
+                        className={cn(
+                            "px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-colors",
+                            rollbackSignals
+                                ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                : "bg-zinc-200/80 text-zinc-400 cursor-not-allowed dark:bg-white/5 dark:text-zinc-500"
+                        )}
+                    >
+                        Undo Last Change
+                    </button>
                 </div>
 
                 {sharedIntelResultMessage ? (
                     <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">{sharedIntelResultMessage}</p>
+                ) : null}
+                {rollbackReasonLabel ? (
+                    <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        Undo is available for the latest {rollbackReasonLabel} operation.
+                    </p>
                 ) : null}
             </div>
 

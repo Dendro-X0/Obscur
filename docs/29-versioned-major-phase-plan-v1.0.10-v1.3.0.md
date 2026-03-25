@@ -413,6 +413,26 @@ Scope:
 2. route/startup/chat responsiveness hardening for high-load sessions,
 3. replay and digest tooling for long-session anti-abuse/performance triage.
 
+Current checkpoint progress (2026-03-25):
+1. `v1.2.1` release tag is published and CP2 execution is active.
+2. CP2 trust-controls UX clarity slice landed in canonical settings composition path:
+: `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`.
+3. Reversible controls are now explicit for operator safety:
+: `Undo Last Change` restores previous shared-intel state after import/clear.
+4. CP2 panel diagnostics clarity improved with compact live trust snapshot counters:
+: `signalCount`, `activeCount`, `blockDispositionCount`, `watchDispositionCount`.
+5. Trust-control action diagnostics are now explicit and reason-coded:
+: `messaging.m10.trust_controls_profile_changed`,
+: `messaging.m10.trust_controls_import_result`,
+: `messaging.m10.trust_controls_clear_applied`,
+: `messaging.m10.trust_controls_undo_applied`.
+6. CP2 replay/evidence tooling now captures trust-control actions directly:
+: `apps/pwa/app/shared/m10-trust-controls-bridge.ts` capture includes
+: `recentTrustControlEvents`.
+7. Focused CP2 slice validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,
 2. runbook guidance updated for incident-class triage order.

@@ -691,6 +691,21 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts app/features/settings/services/privacy-settings-service.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+    - `v1.2.1` tag has been pushed.
+  - `v1.2.2` started (`M10` CP2 lane):
+    - trust-controls panel now includes reversible operations (`Undo Last Change`) for import/clear mutations:
+      - `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`,
+    - panel now surfaces compact trust snapshot counters (`signalCount`, `activeCount`, `block/watch`) for operator clarity,
+    - trust-control actions now emit canonical diagnostics events:
+      - `messaging.m10.trust_controls_profile_changed`,
+      - `messaging.m10.trust_controls_import_result`,
+      - `messaging.m10.trust_controls_clear_applied`,
+      - `messaging.m10.trust_controls_undo_applied`,
+    - M10 bridge capture now includes `recentTrustControlEvents` for replay triage:
+      - `apps/pwa/app/shared/m10-trust-controls-bridge.ts`,
+    - focused CP2 slice validation is green:
+      - `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
+      - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 

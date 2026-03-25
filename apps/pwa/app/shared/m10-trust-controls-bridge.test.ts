@@ -51,20 +51,36 @@ describe("m10-trust-controls-bridge", () => {
         }>>;
       }>;
     }).obscurAppEvents = {
-      findByName: () => ([
-        {
-          name: "messaging.request.incoming_quarantined",
-          context: {
-            reasonCode: "incoming_connection_request_attack_mode_strict_relay_high_risk",
-          },
-        },
-        {
-          name: "messaging.request.incoming_quarantined",
-          context: {
-            reasonCode: "incoming_connection_request_peer_rate_limited",
-          },
-        },
-      ]),
+      findByName: (name: string) => {
+        if (name === "messaging.request.incoming_quarantined") {
+          return ([
+            {
+              name: "messaging.request.incoming_quarantined",
+              context: {
+                reasonCode: "incoming_connection_request_attack_mode_strict_relay_high_risk",
+              },
+            },
+            {
+              name: "messaging.request.incoming_quarantined",
+              context: {
+                reasonCode: "incoming_connection_request_peer_rate_limited",
+              },
+            },
+          ]);
+        }
+        if (name === "messaging.m10.trust_controls_profile_changed") {
+          return ([
+            {
+              name: "messaging.m10.trust_controls_profile_changed",
+              atUnixMs: 10,
+              context: {
+                profile: "strict",
+              },
+            },
+          ]);
+        }
+        return [];
+      },
     };
 
     installM10TrustControlsBridge();
@@ -73,6 +89,8 @@ describe("m10-trust-controls-bridge", () => {
     expect(capture?.recentAttackModeQuarantineEvents[0]?.context?.reasonCode).toBe(
       "incoming_connection_request_attack_mode_strict_relay_high_risk",
     );
+    expect(capture?.recentTrustControlEvents).toHaveLength(1);
+    expect(capture?.recentTrustControlEvents[0]?.name).toBe("messaging.m10.trust_controls_profile_changed");
   });
 
   it("ingests signals from JSON and reports invalid JSON deterministically", () => {

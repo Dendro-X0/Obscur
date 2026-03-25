@@ -40,6 +40,20 @@
   - explicit import options for `requireSignatureVerification` and `replaceExisting`.
 - Added focused UI coverage for CP1 settings trust controls in
   `apps/pwa/app/features/settings/components/auto-lock-settings-panel.test.tsx`.
+- Pushed release tag `v1.2.1` and opened `v1.2.2` (`M10` `CP2`) implementation lane.
+- Started `v1.2.2` (`M10` `CP2`) trust-controls UX clarity slice:
+  - added reversible trust-control operations in
+    `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`
+    (`Undo Last Change` after import/clear),
+  - added live trust snapshot counters (signal/active/block/watch) in the same panel,
+  - added canonical diagnostics events for profile/import/clear/undo actions:
+    `messaging.m10.trust_controls_profile_changed`,
+    `messaging.m10.trust_controls_import_result`,
+    `messaging.m10.trust_controls_clear_applied`,
+    `messaging.m10.trust_controls_undo_applied`.
+- Extended M10 trust-controls bridge capture evidence bundle in
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`
+  with `recentTrustControlEvents` for operator replay triage.
 - Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
 - Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
 - Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.
