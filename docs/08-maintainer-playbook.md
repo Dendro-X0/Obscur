@@ -412,6 +412,12 @@ Canonical matrix:
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceSummary`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.voiceNoteEvents`
 : `JSON.parse(window.obscurM6VoiceCapture?.captureJson(400) ?? "{}")?.voice?.deleteConvergenceEvents`
+24. CP4 release-readiness one-copy bundle (recommended for operator handoff):
+: `window.obscurM6VoiceReplay?.runCp4ReleaseReadinessCapture?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
+: `copy(window.obscurM6VoiceReplay?.runCp4ReleaseReadinessCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`
+25. CP4 release-readiness gate probe (recommended quick pass/fail verdict):
+: `window.obscurM6VoiceReplay?.runCp4ReleaseReadinessGateProbe?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
+: `copy(window.obscurM6VoiceReplay?.runCp4ReleaseReadinessGateProbeJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`
 22. Delete convergence event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
 23. Voice-note diagnostics slices:

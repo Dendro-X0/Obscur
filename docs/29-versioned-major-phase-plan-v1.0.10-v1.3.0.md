@@ -270,7 +270,12 @@ Current checkpoint progress (2026-03-24):
 5. CP4 checkpoint diagnostics now converge on canonical digest/capture owners:
 : `runCp4CheckpointCapture(...)` emits `messaging.realtime_voice.cp4_checkpoint_gate` and
 : cross-device digest `summary.realtimeVoiceSession` now includes `checkpointGate*` counters plus latest checkpoint gate sample fields.
-6. focused CP4 continuation validation is green:
+6. deterministic CP4 release-readiness helper lane landed to reduce manual probe drift:
+: `runCp4ReleaseReadinessCapture(...)`, `runCp4ReleaseReadinessCaptureJson(...)`,
+: `runCp4ReleaseReadinessGateProbe(...)`, and `runCp4ReleaseReadinessGateProbeJson(...)` in
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
+7. stale replay-bridge upgrade guard now requires CP4 release-readiness helper APIs so stale runtime bridge objects cannot shadow new CP4 surfaces.
+8. focused CP4 continuation validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 : `pnpm docs:check`

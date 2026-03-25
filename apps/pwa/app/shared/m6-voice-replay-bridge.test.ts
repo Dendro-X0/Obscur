@@ -667,6 +667,95 @@ describe("m6-voice-replay-bridge", () => {
     ]));
   });
 
+  it("exports deterministic CP4 release-readiness capture with aligned event evidence", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4ReleaseReadinessCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        releaseReadinessGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+        latestCheckpointGateEventContext: Record<string, unknown> | null;
+        digestSummary: { checkpointGateCount: number; latestCheckpointGatePass: boolean | null } | null;
+      };
+      runCp4ReleaseReadinessCaptureJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => string;
+    };
+
+    const bundle = replayApi.runCp4ReleaseReadinessCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(bundle.releaseReadinessGate.pass).toBe(true);
+    expect(bundle.releaseReadinessGate.failedChecks).toEqual([]);
+    expect(bundle.releaseReadinessGate.checks.checkpointGateMatchesExpected).toBe(true);
+    expect(bundle.releaseReadinessGate.checks.checkpointGateEventObserved).toBe(true);
+    expect(bundle.releaseReadinessGate.checks.digestSummaryPresent).toBe(true);
+    expect(bundle.releaseReadinessGate.checks.digestCheckpointGateCountObserved).toBe(true);
+    expect(bundle.latestCheckpointGateEventContext?.cp4CheckpointPass).toBe(true);
+    expect(bundle.digestSummary?.checkpointGateCount).toBeGreaterThanOrEqual(1);
+    expect(bundle.digestSummary?.latestCheckpointGatePass).toBe(true);
+    expect(() => JSON.parse(replayApi.runCp4ReleaseReadinessCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    }))).not.toThrow();
+  });
+
+  it("fails CP4 release-readiness gate probe when capture summaries are unavailable", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4ReleaseReadinessGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
+      };
+      runCp4ReleaseReadinessGateProbeJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => string;
+    };
+
+    const gate = replayApi.runCp4ReleaseReadinessGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(gate.pass).toBe(false);
+    expect(gate.failedChecks).toEqual(expect.arrayContaining([
+      "checkpointGateMatchesExpected",
+      "digestUnexpectedCheckpointFailZeroWhenExpectedPass",
+    ]));
+    expect(() => JSON.parse(replayApi.runCp4ReleaseReadinessGateProbeJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    }))).not.toThrow();
+  });
+
   it("exports deterministic CP4 long-session self-test report with compact pass/fail verdict", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -807,6 +896,10 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runCp4CheckpointCaptureJson).toBe("function");
     expect(typeof upgraded?.runCp4CheckpointGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4CheckpointGateProbeJson).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseReadinessCapture).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseReadinessCaptureJson).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseReadinessGateProbe).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseReadinessGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionSelfTest).toBe("function");

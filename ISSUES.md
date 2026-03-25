@@ -566,6 +566,13 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
         - `latestCheckpointGatePass`,
         - `latestCheckpointGateFailedCheckSample`.
       - unexpected checkpoint failures (failed while `expectedPass === true`) now escalate realtime voice digest risk to `high`.
+    - deterministic CP4 release-readiness helper lane landed in canonical replay bridge owner:
+      - `runCp4ReleaseReadinessCapture(...)`,
+      - `runCp4ReleaseReadinessCaptureJson(...)`,
+      - `runCp4ReleaseReadinessGateProbe(...)`,
+      - `runCp4ReleaseReadinessGateProbeJson(...)`,
+      returning one-copy checkpoint evidence + latest digest/event alignment checks.
+    - stale replay-bridge upgrade guard now requires CP4 release-readiness helper APIs to avoid stale runtime bridge surfaces during CP4 operator verification.
     - focused continuation validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`,

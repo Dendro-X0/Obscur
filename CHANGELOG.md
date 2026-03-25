@@ -32,6 +32,16 @@
 - Added focused digest/capture coverage for CP4 checkpoint event compaction and summary counters in:
   - `apps/pwa/app/shared/log-app-event.test.ts`,
   - `apps/pwa/app/shared/m6-voice-capture.test.ts`.
+- Added deterministic CP4 release-readiness helper set in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `window.obscurM6VoiceReplay.runCp4ReleaseReadinessCapture(...)`,
+  - `window.obscurM6VoiceReplay.runCp4ReleaseReadinessCaptureJson(...)`,
+  - `window.obscurM6VoiceReplay.runCp4ReleaseReadinessGateProbe(...)`,
+  - `window.obscurM6VoiceReplay.runCp4ReleaseReadinessGateProbeJson(...)`.
+- CP4 release-readiness helper now provides one-copy checkpoint + latest event alignment + digest summary gate checks to reduce manual probe drift for limited-account operators.
+- Extended stale replay-bridge auto-upgrade guard to require CP4 release-readiness helper APIs.
+- Added focused regression coverage for CP4 release-readiness helper pass/fail lanes in:
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
 
 ## [v1.1.5] - 2026-03-24
 
