@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [v1.1.3] - 2026-03-24
+
 ### Changed
 
 - Started post-`v1.1.2` M9 continuation with CP3 replay-suite prep:
