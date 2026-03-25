@@ -581,6 +581,10 @@ Current execution status (started 2026-03-25):
 19. Focused CP2 responsiveness validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m10-trust-controls-bridge.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+20. CP2 deterministic triage helper APIs landed on M10 bridge for operator speed:
+: `window.obscurM10TrustControls.runCp2TriageCapture(...)`
+: and `window.obscurM10TrustControls.runCp2TriageCaptureJson(...)`
+: with explicit `cp2TriageGate` pass/fail checks over digest-backed anti-abuse + responsiveness signals.
 
 ## Version-Bound Execution
 

@@ -708,6 +708,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - includes route stall/fallback, mount-probe slow, transition watchdog, transition-disablement, and startup profile-boot stall evidence,
     - M10 trust-controls capture now includes `recentResponsivenessEvents` for one-packet operator triage:
       - `apps/pwa/app/shared/m10-trust-controls-bridge.ts`,
+    - deterministic CP2 triage helper APIs are now available on M10 bridge:
+      - `window.obscurM10TrustControls.runCp2TriageCapture({ eventWindowSize, expectedStable })`,
+      - `window.obscurM10TrustControls.runCp2TriageCaptureJson({ eventWindowSize, expectedStable })`,
+      - with explicit `cp2TriageGate` pass/fail checks for anti-abuse + responsiveness posture,
     - focused CP2 slice validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx app/shared/m10-trust-controls-bridge.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts`,

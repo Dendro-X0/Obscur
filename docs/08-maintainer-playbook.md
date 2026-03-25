@@ -490,6 +490,31 @@ Canonical matrix:
 : long-session `cp4ReadinessGate.pass` is `false` on nominal replay (`injectRecoveryExhausted: false`),
 : `deleteConvergence.remoteFailedCount > 0` or `asyncVoiceNote.recordingStartFailedCount > 0` during expected happy-path replay.
 
+### Post-v1 M10 CP2 Trust + Responsiveness Triage Checks
+
+For `v1.2.2` CP2 anti-abuse and responsiveness incidents, use this order first:
+
+1. One-command M10 CP2 triage capture (preferred):
+: `copy(window.obscurM10TrustControls?.runCp2TriageCaptureJson?.({ eventWindowSize: 400, expectedStable: true }))`
+2. CP2 gate-only probe:
+: `window.obscurM10TrustControls?.runCp2TriageCapture?.({ eventWindowSize: 400, expectedStable: true })?.cp2TriageGate`
+3. Digest summary probes:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.incomingRequestAntiAbuse`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.uiResponsiveness`
+4. Event slices for freeze-route correlation:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_stall_hard_fallback"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.route_mount_probe_slow"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.page_transition_watchdog_timeout"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["navigation.page_transition_effects_disabled"]`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["runtime.profile_boot_stall_timeout"]`
+5. Trust-control action slice:
+: `window.obscurM10TrustControls?.capture?.(400)?.recentTrustControlEvents`
+6. Escalate immediately if CP2 gate fails on:
+: `incomingRequestRiskNotHigh`,
+: `uiResponsivenessRiskNotHigh`,
+: `routeStallHardFallbackCountZero`,
+: `transitionEffectsDisabledCountZero`.
+
 ### v0.9.5 M2 Cross-Device Sync Replay Checks
 
 Use this compact capture first during two-device DM/group/media verification:

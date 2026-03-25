@@ -140,4 +140,64 @@ describe("m10-trust-controls-bridge", () => {
     expect(badJsonResult?.rejectedByReason.invalid_shape).toBe(1);
     expect(badJsonResult?.rejectedSignalIdSamples).toContain("invalid_json");
   });
+
+  it("produces cp2 triage gate verdict from anti-abuse + responsiveness digest signals", () => {
+    (window as Window & {
+      obscurAppEvents?: Readonly<{
+        findByName: (name: string, count?: number) => ReadonlyArray<Readonly<{
+          name: string;
+          atUnixMs?: number;
+          context?: Readonly<Record<string, string | number | boolean | null>>;
+        }>>;
+        getCrossDeviceSyncDigest: (count?: number) => Readonly<{
+          summary: Readonly<{
+            incomingRequestAntiAbuse: Readonly<{
+              riskLevel: "watch" | "none" | "high";
+              quarantinedCount: number;
+              latestReasonCode: string | null;
+            }>;
+            uiResponsiveness: Readonly<{
+              riskLevel: "watch" | "none" | "high";
+              routeStallHardFallbackCount: number;
+              routeMountProbeSlowCount: number;
+              pageTransitionWatchdogTimeoutCount: number;
+              pageTransitionEffectsDisabledCount: number;
+              startupProfileBootStallTimeoutCount: number;
+              latestRouteSurface: string | null;
+            }>;
+          }>;
+        }>;
+      }>;
+    }).obscurAppEvents = {
+      findByName: () => [],
+      getCrossDeviceSyncDigest: () => ({
+        summary: {
+          incomingRequestAntiAbuse: {
+            riskLevel: "watch",
+            quarantinedCount: 1,
+            latestReasonCode: "incoming_connection_request_peer_rate_limited",
+          },
+          uiResponsiveness: {
+            riskLevel: "high",
+            routeStallHardFallbackCount: 1,
+            routeMountProbeSlowCount: 2,
+            pageTransitionWatchdogTimeoutCount: 1,
+            pageTransitionEffectsDisabledCount: 1,
+            startupProfileBootStallTimeoutCount: 0,
+            latestRouteSurface: "chats",
+          },
+        },
+      }),
+    };
+
+    installM10TrustControlsBridge();
+    const capture = window.obscurM10TrustControls?.runCp2TriageCapture({ expectedStable: true, eventWindowSize: 200 });
+    expect(capture?.cp2TriageGate.pass).toBe(false);
+    expect(capture?.cp2TriageGate.failedChecks).toContain("uiResponsivenessRiskNotHigh");
+    expect(capture?.cp2TriageGate.failedChecks).toContain("routeStallHardFallbackCountZero");
+    expect(capture?.cp2TriageGate.failedChecks).toContain("transitionEffectsDisabledCountZero");
+
+    const relaxedCapture = window.obscurM10TrustControls?.runCp2TriageCapture({ expectedStable: false, eventWindowSize: 200 });
+    expect(relaxedCapture?.cp2TriageGate.pass).toBe(true);
+  });
 });

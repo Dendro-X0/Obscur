@@ -440,6 +440,10 @@ Current checkpoint progress (2026-03-25):
 10. Focused CP2 responsiveness validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m10-trust-controls-bridge.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+11. CP2 deterministic triage helper APIs are now available for one-command operator verdicts:
+: `window.obscurM10TrustControls.runCp2TriageCapture({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runCp2TriageCaptureJson({ eventWindowSize, expectedStable })`,
+: returning `cp2TriageGate` with explicit failed-check samples.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,

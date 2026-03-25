@@ -37,6 +37,52 @@ type M10TrustControlsCapture = Readonly<{
   recentResponsivenessEvents: ReadonlyArray<MinimalAppEvent>;
 }>;
 
+type M10IncomingRequestAntiAbuseSummary = Readonly<{
+  riskLevel: "none" | "watch" | "high";
+  quarantinedCount: number;
+  latestReasonCode: string | null;
+}> | null;
+
+type M10UiResponsivenessSummary = Readonly<{
+  riskLevel: "none" | "watch" | "high";
+  routeStallHardFallbackCount: number;
+  routeMountProbeSlowCount: number;
+  pageTransitionWatchdogTimeoutCount: number;
+  pageTransitionEffectsDisabledCount: number;
+  startupProfileBootStallTimeoutCount: number;
+  latestRouteSurface: string | null;
+}> | null;
+
+type M10Cp2TriageDigestSummary = Readonly<{
+  incomingRequestAntiAbuse: M10IncomingRequestAntiAbuseSummary;
+  uiResponsiveness: M10UiResponsivenessSummary;
+}>;
+
+type M10Cp2TriageGate = Readonly<{
+  pass: boolean;
+  failedChecks: ReadonlyArray<string>;
+  failedCheckSample: string | null;
+  checks: Readonly<{
+    expectedStable: boolean;
+    hasSnapshot: boolean;
+    hasDigestSummary: boolean;
+    incomingRequestRiskNotHigh: boolean;
+    uiResponsivenessRiskNotHigh: boolean;
+    routeStallHardFallbackCountZero: boolean;
+    transitionEffectsDisabledCountZero: boolean;
+    startupProfileBootStallTimeoutCountZero: boolean;
+  }>;
+}>;
+
+type M10Cp2TriageCapture = Readonly<{
+  generatedAtUnixMs: number;
+  eventWindowSize: number;
+  expectedStable: boolean;
+  capture: M10TrustControlsCapture;
+  digestSummary: M10Cp2TriageDigestSummary;
+  cp2TriageGate: M10Cp2TriageGate;
+}>;
+
 type M10TrustControlsBridgeApi = Readonly<{
   getSnapshot: () => M10TrustControlsSnapshot;
   setAttackModeSafetyProfile: (profile: AttackModeSafetyProfile) => AttackModeSafetyProfile;
@@ -55,12 +101,38 @@ type M10TrustControlsBridgeApi = Readonly<{
   clearSignedSharedIntelSignals: () => void;
   capture: (eventWindowSize?: number) => M10TrustControlsCapture;
   captureJson: (eventWindowSize?: number) => string;
+  runCp2TriageCapture: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => M10Cp2TriageCapture;
+  runCp2TriageCaptureJson: (params?: Readonly<{
+    eventWindowSize?: number;
+    expectedStable?: boolean;
+  }>) => string;
 }>;
 
 type M10TrustControlsBridgeWindow = Window & {
   obscurM10TrustControls?: M10TrustControlsBridgeApi;
   obscurAppEvents?: Readonly<{
     findByName?: (name: string, count?: number) => ReadonlyArray<MinimalAppEvent>;
+    getCrossDeviceSyncDigest?: (count?: number) => Readonly<{
+      summary?: Readonly<{
+        incomingRequestAntiAbuse?: Readonly<{
+          riskLevel?: string;
+          quarantinedCount?: number;
+          latestReasonCode?: string | null;
+        }>;
+        uiResponsiveness?: Readonly<{
+          riskLevel?: string;
+          routeStallHardFallbackCount?: number;
+          routeMountProbeSlowCount?: number;
+          pageTransitionWatchdogTimeoutCount?: number;
+          pageTransitionEffectsDisabledCount?: number;
+          startupProfileBootStallTimeoutCount?: number;
+          latestRouteSurface?: string | null;
+        }>;
+      }>;
+    }>;
   }>;
 };
 
@@ -108,6 +180,18 @@ const toJsonErrorIngestResult = (): SignedSharedIntelIngestResult => ({
   },
   rejectedSignalIdSamples: ["invalid_json"],
 });
+
+const toRiskLevel = (value: unknown): "none" | "watch" | "high" => (
+  value === "high" || value === "watch" ? value : "none"
+);
+
+const toNumber = (value: unknown): number => (
+  typeof value === "number" && Number.isFinite(value) ? value : 0
+);
+
+const toStringOrNull = (value: unknown): string | null => (
+  typeof value === "string" && value.trim().length > 0 ? value : null
+);
 
 const createSnapshot = (): M10TrustControlsSnapshot => {
   const nowUnixMs = Date.now();
@@ -192,6 +276,88 @@ const readResponsivenessEvents = (
   }
 };
 
+const createCapture = (
+  root: M10TrustControlsBridgeWindow,
+  eventWindowSize: number,
+): M10TrustControlsCapture => ({
+  snapshot: createSnapshot(),
+  recentAttackModeQuarantineEvents: readAttackModeQuarantineEvents(root, eventWindowSize),
+  recentTrustControlEvents: readTrustControlEvents(root, eventWindowSize),
+  recentResponsivenessEvents: readResponsivenessEvents(root, eventWindowSize),
+});
+
+const readCp2TriageDigestSummary = (
+  root: M10TrustControlsBridgeWindow,
+  eventWindowSize: number,
+): M10Cp2TriageDigestSummary => {
+  const summary = root.obscurAppEvents?.getCrossDeviceSyncDigest?.(eventWindowSize)?.summary;
+  const incoming = summary?.incomingRequestAntiAbuse;
+  const responsiveness = summary?.uiResponsiveness;
+  return {
+    incomingRequestAntiAbuse: incoming ? {
+      riskLevel: toRiskLevel(incoming.riskLevel),
+      quarantinedCount: toNumber(incoming.quarantinedCount),
+      latestReasonCode: toStringOrNull(incoming.latestReasonCode),
+    } : null,
+    uiResponsiveness: responsiveness ? {
+      riskLevel: toRiskLevel(responsiveness.riskLevel),
+      routeStallHardFallbackCount: toNumber(responsiveness.routeStallHardFallbackCount),
+      routeMountProbeSlowCount: toNumber(responsiveness.routeMountProbeSlowCount),
+      pageTransitionWatchdogTimeoutCount: toNumber(responsiveness.pageTransitionWatchdogTimeoutCount),
+      pageTransitionEffectsDisabledCount: toNumber(responsiveness.pageTransitionEffectsDisabledCount),
+      startupProfileBootStallTimeoutCount: toNumber(responsiveness.startupProfileBootStallTimeoutCount),
+      latestRouteSurface: toStringOrNull(responsiveness.latestRouteSurface),
+    } : null,
+  };
+};
+
+const buildCp2TriageGate = (params: Readonly<{
+  expectedStable: boolean;
+  capture: M10TrustControlsCapture;
+  digestSummary: M10Cp2TriageDigestSummary;
+}>): M10Cp2TriageGate => {
+  const checks = {
+    expectedStable: params.expectedStable,
+    hasSnapshot: params.capture.snapshot.signalCount >= 0,
+    hasDigestSummary: (
+      !params.expectedStable
+      || params.digestSummary.incomingRequestAntiAbuse !== null
+      || params.digestSummary.uiResponsiveness !== null
+    ),
+    incomingRequestRiskNotHigh: (
+      !params.expectedStable
+      || params.digestSummary.incomingRequestAntiAbuse?.riskLevel !== "high"
+    ),
+    uiResponsivenessRiskNotHigh: (
+      !params.expectedStable
+      || params.digestSummary.uiResponsiveness?.riskLevel !== "high"
+    ),
+    routeStallHardFallbackCountZero: (
+      !params.expectedStable
+      || (params.digestSummary.uiResponsiveness?.routeStallHardFallbackCount ?? 0) === 0
+    ),
+    transitionEffectsDisabledCountZero: (
+      !params.expectedStable
+      || (params.digestSummary.uiResponsiveness?.pageTransitionEffectsDisabledCount ?? 0) === 0
+    ),
+    startupProfileBootStallTimeoutCountZero: (
+      !params.expectedStable
+      || (params.digestSummary.uiResponsiveness?.startupProfileBootStallTimeoutCount ?? 0) === 0
+    ),
+  } as const;
+
+  const failedChecks = Object.entries(checks)
+    .filter(([name, passed]) => name !== "expectedStable" && passed !== true)
+    .map(([name]) => name);
+
+  return {
+    pass: failedChecks.length === 0,
+    failedChecks,
+    failedCheckSample: failedChecks[0] ?? null,
+    checks,
+  };
+};
+
 export const installM10TrustControlsBridge = (): void => {
   if (typeof window === "undefined") {
     return;
@@ -244,15 +410,31 @@ export const installM10TrustControlsBridge = (): void => {
     },
     capture: (eventWindowSize = 300) => {
       const safeWindow = toWindowSize(eventWindowSize, 300);
-      return {
-        snapshot: createSnapshot(),
-        recentAttackModeQuarantineEvents: readAttackModeQuarantineEvents(root, safeWindow),
-        recentTrustControlEvents: readTrustControlEvents(root, safeWindow),
-        recentResponsivenessEvents: readResponsivenessEvents(root, safeWindow),
-      };
+      return createCapture(root, safeWindow);
     },
     captureJson: (eventWindowSize = 300) => (
       JSON.stringify(root.obscurM10TrustControls?.capture(eventWindowSize) ?? null, null, 2)
+    ),
+    runCp2TriageCapture: (params) => {
+      const eventWindowSize = toWindowSize(params?.eventWindowSize, 400);
+      const expectedStable = params?.expectedStable !== false;
+      const capture = createCapture(root, eventWindowSize);
+      const digestSummary = readCp2TriageDigestSummary(root, eventWindowSize);
+      return {
+        generatedAtUnixMs: Date.now(),
+        eventWindowSize,
+        expectedStable,
+        capture,
+        digestSummary,
+        cp2TriageGate: buildCp2TriageGate({
+          expectedStable,
+          capture,
+          digestSummary,
+        }),
+      };
+    },
+    runCp2TriageCaptureJson: (params) => (
+      JSON.stringify(root.obscurM10TrustControls?.runCp2TriageCapture(params) ?? null, null, 2)
     ),
   };
 };
@@ -261,9 +443,12 @@ export const m10TrustControlsBridgeInternals = {
   ATTACK_MODE_REASON_PREFIX,
   TRUST_CONTROL_EVENT_NAMES,
   RESPONSIVENESS_EVENT_NAMES,
+  buildCp2TriageGate,
   createSnapshot,
+  createCapture,
   readAttackModeQuarantineEvents,
-  readTrustControlEvents,
+  readCp2TriageDigestSummary,
   readResponsivenessEvents,
+  readTrustControlEvents,
   toWindowSize,
 };
