@@ -2,6 +2,10 @@
 
 ### Changed
 
+## [v1.1.5] - 2026-03-24
+
+### Changed
+
 - Started `v1.1.5` (`M9` `CP4` continuation lane) with release-aligned version manifests and roadmap/status sync for the next secure-voice hardening slices.
 - Added deterministic CP4 long-session gate-probe helpers in
   `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
