@@ -534,6 +534,9 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - focused helper validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+  - `v1.1.5` started (`M9` CP4 continuation lane):
+    - release-tracked versions are aligned to `1.1.5`,
+    - roadmap/changelog/issues are synced for next CP4 secure-voice hardening slices.
 
 ## v1 Readiness Status
 

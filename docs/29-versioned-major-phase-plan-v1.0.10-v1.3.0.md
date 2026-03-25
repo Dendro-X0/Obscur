@@ -231,6 +231,17 @@ Current checkpoint progress (2026-03-24):
 : `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
+### v1.1.5 (M9-CP4 continuation)
+
+Scope:
+1. continue CP4 hardening with deterministic operator evidence surfaces for long-session replay convergence,
+2. keep all changes on canonical digest/replay owners without adding parallel runtime paths,
+3. maintain release-ready manifests/docs while progressing CP4 burn-down toward `v1.2.0`.
+
+Current checkpoint progress (2026-03-24):
+1. `v1.1.5` lane is opened on `main` with release-tracked versions aligned to `1.1.5`.
+2. roadmap/changelog/issues are synchronized for CP4 continuation tracking.
+
 ### v1.2.0 (M9-CP4 closeout)
 
 Scope:

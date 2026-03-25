@@ -2,6 +2,8 @@
 
 ### Changed
 
+- Started `v1.1.5` (`M9` `CP4` continuation lane) with release-aligned version manifests and roadmap/status sync for the next secure-voice hardening slices.
+
 ## [v1.1.4] - 2026-03-24
 
 ### Changed
