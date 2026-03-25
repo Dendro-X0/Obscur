@@ -745,6 +745,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - canonical aggregate closeout event: `messaging.m10.v130_closeout_gate`,
     - digest now exposes v1.3 aggregate closeout posture under `summary.m10TrustControls`:
       - `v130CloseoutGateCount`, pass/fail/unexpected-fail counters, latest v1.3 closeout check sample fields,
+    - deterministic v1.3 evidence helper APIs are now available on M10 bridge:
+      - `window.obscurM10TrustControls.runV130EvidenceCapture({ eventWindowSize, expectedStable })`,
+      - `window.obscurM10TrustControls.runV130EvidenceCaptureJson({ eventWindowSize, expectedStable })`,
+      - `window.obscurM10TrustControls.runV130EvidenceGateProbe({ eventWindowSize, expectedStable })`,
+      - `window.obscurM10TrustControls.runV130EvidenceGateProbeJson({ eventWindowSize, expectedStable })`,
+      - canonical evidence event: `messaging.m10.v130_evidence_gate`,
+    - digest now exposes v1.3 evidence posture under `summary.m10TrustControls`:
+      - `v130EvidenceGateCount`, pass/fail/unexpected-fail counters, latest v1.3 evidence check sample fields,
     - app-shell responsiveness hardening landed on canonical owner:
       - `apps/pwa/app/components/app-shell.tsx` now enables a route-mount performance guard after consecutive slow settles and disables transition effects fail-open,
       - emits `navigation.route_mount_performance_guard_enabled` and enriched `navigation.page_transition_effects_disabled` context for deterministic triage,

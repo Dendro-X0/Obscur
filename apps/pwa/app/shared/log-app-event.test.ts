@@ -2772,4 +2772,90 @@ describe("logAppEvent", () => {
       latestV130CloseoutFailedCheckSample: null,
     }));
   });
+
+  it("tracks m10 v130 evidence gate pass/fail counters in digest summary", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.m10.v130_evidence_gate",
+      level: "warn",
+      context: {
+        expectedStable: true,
+        v130EvidencePass: false,
+        failedCheckCount: 1,
+        failedCheckSample: "v130CloseoutUnexpectedFailCountZero",
+        v130CloseoutPass: false,
+        cp4CloseoutPass: false,
+        m10TrustControlsRiskLevel: "high",
+        cp4CloseoutGateCount: 1,
+        v130CloseoutGateCount: 1,
+        v130CloseoutUnexpectedFailCount: 1,
+        v130CloseoutEventCount: 1,
+        latestV130EventMatchesGate: false,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+    logAppEvent({
+      name: "messaging.m10.v130_evidence_gate",
+      level: "info",
+      context: {
+        expectedStable: false,
+        v130EvidencePass: true,
+        failedCheckCount: 0,
+        failedCheckSample: null,
+        v130CloseoutPass: true,
+        cp4CloseoutPass: true,
+        m10TrustControlsRiskLevel: "watch",
+        cp4CloseoutGateCount: 2,
+        v130CloseoutGateCount: 2,
+        v130CloseoutUnexpectedFailCount: 0,
+        v130CloseoutEventCount: 2,
+        latestV130EventMatchesGate: true,
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+        summary: {
+          m10TrustControls: {
+            riskLevel: "none" | "watch" | "high";
+            v130EvidenceGateCount: number;
+            v130EvidenceGatePassCount: number;
+            v130EvidenceGateFailCount: number;
+            v130EvidenceGateUnexpectedFailCount: number;
+            latestV130EvidenceExpectedStable: boolean | null;
+            latestV130EvidencePass: boolean | null;
+            latestV130EvidenceFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.m10.v130_evidence_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: true,
+      v130EvidencePass: false,
+      failedCheckCount: 1,
+      failedCheckSample: "v130CloseoutUnexpectedFailCountZero",
+      v130CloseoutPass: false,
+      cp4CloseoutPass: false,
+      m10TrustControlsRiskLevel: "high",
+      cp4CloseoutGateCount: 1,
+      v130CloseoutGateCount: 1,
+      v130CloseoutUnexpectedFailCount: 1,
+      v130CloseoutEventCount: 1,
+      latestV130EventMatchesGate: false,
+    }));
+    expect(digest.events["messaging.m10.v130_evidence_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.summary.m10TrustControls).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      v130EvidenceGateCount: 2,
+      v130EvidenceGatePassCount: 1,
+      v130EvidenceGateFailCount: 1,
+      v130EvidenceGateUnexpectedFailCount: 1,
+      latestV130EvidenceExpectedStable: false,
+      latestV130EvidencePass: true,
+      latestV130EvidenceFailedCheckSample: null,
+    }));
+  });
 });

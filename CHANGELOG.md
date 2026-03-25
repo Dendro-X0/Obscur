@@ -59,6 +59,19 @@
   `apps/pwa/app/shared/log-app-event.ts` with:
   - `events["messaging.m10.v130_closeout_gate"]`,
   - `summary.m10TrustControls.v130CloseoutGate*` counters and latest sample fields.
+- Added deterministic v1.3 evidence helper APIs on canonical M10 bridge owner
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
+  - `window.obscurM10TrustControls.runV130EvidenceCapture(...)`,
+  - `window.obscurM10TrustControls.runV130EvidenceCaptureJson(...)`,
+  - `window.obscurM10TrustControls.runV130EvidenceGateProbe(...)`,
+  - `window.obscurM10TrustControls.runV130EvidenceGateProbeJson(...)`.
+- Added canonical v1.3 evidence diagnostics event emission:
+  - `messaging.m10.v130_evidence_gate`
+  with explicit final evidence pass/fail and failed-check sample posture.
+- Extended compact cross-device digest in
+  `apps/pwa/app/shared/log-app-event.ts` with:
+  - `events["messaging.m10.v130_evidence_gate"]`,
+  - `summary.m10TrustControls.v130EvidenceGate*` counters and latest sample fields.
 
 ## [v1.2.2] - 2026-03-25
 

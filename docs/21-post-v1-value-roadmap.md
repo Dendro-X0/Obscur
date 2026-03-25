@@ -644,6 +644,16 @@ Current execution status (started 2026-03-25):
 38. Cross-device digest now includes v1.3 aggregate closeout posture under `summary.m10TrustControls`:
 : `v130CloseoutGateCount`, pass/fail/unexpected-fail counters,
 : latest v1.3 closeout expected-stable/pass/failed-check sample.
+39. v1.3 evidence helper APIs landed on canonical M10 bridge owner:
+: `window.obscurM10TrustControls.runV130EvidenceCapture(...)`,
+: `window.obscurM10TrustControls.runV130EvidenceCaptureJson(...)`,
+: `window.obscurM10TrustControls.runV130EvidenceGateProbe(...)`,
+: `window.obscurM10TrustControls.runV130EvidenceGateProbeJson(...)`.
+40. Canonical v1.3 evidence diagnostics event now emits from the same owner path:
+: `messaging.m10.v130_evidence_gate`.
+41. Cross-device digest now includes v1.3 evidence posture under `summary.m10TrustControls`:
+: `v130EvidenceGateCount`, pass/fail/unexpected-fail counters,
+: latest v1.3 evidence expected-stable/pass/failed-check sample.
 
 ## Version-Bound Execution
 

@@ -507,6 +507,17 @@ Current checkpoint progress (2026-03-25):
 30. Cross-device digest now includes v1.3 aggregate closeout posture in
 : `summary.m10TrustControls.v130CloseoutGate*`
 : plus latest v1.3 closeout expected-stable/pass/check-sample fields.
+31. v1.3 evidence helper APIs landed on canonical M10 bridge owner:
+: `window.obscurM10TrustControls.runV130EvidenceCapture({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130EvidenceCaptureJson({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130EvidenceGateProbe({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130EvidenceGateProbeJson({ eventWindowSize, expectedStable })`.
+32. v1.3 evidence helper emits canonical compact diagnostics event:
+: `messaging.m10.v130_evidence_gate`
+: with explicit final evidence pass/fail and failed-check sample posture.
+33. Cross-device digest now includes v1.3 evidence posture in
+: `summary.m10TrustControls.v130EvidenceGate*`
+: plus latest v1.3 evidence expected-stable/pass/check-sample fields.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,
