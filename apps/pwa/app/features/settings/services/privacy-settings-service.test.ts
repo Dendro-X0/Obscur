@@ -31,6 +31,7 @@ describe("privacy-settings-service", () => {
     expect(settings.protocolCoreRustV090).toBe(false);
     expect(settings.x3dhRatchetV090).toBe(false);
     expect(settings.tanstackQueryV1).toBe(false);
+    expect(settings.attackModeSafetyProfileV121).toBe("standard");
   });
 
   it("persists v0.9 recovery flags", () => {

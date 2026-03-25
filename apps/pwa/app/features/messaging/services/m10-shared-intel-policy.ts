@@ -1,5 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 
 export type SignedSharedIntelSubjectType = "relay_host" | "peer_public_key";
 export type SignedSharedIntelDisposition = "watch" | "block";
@@ -62,8 +63,15 @@ type SharedIntelPolicyState = {
   signatureVerifier: SharedIntelSignatureVerifier | null;
 };
 
+type PersistedSharedIntelSignals = Readonly<{
+  version: "obscur.m10.shared_intel_store.v1";
+  updatedAtUnixMs: number;
+  signals: ReadonlyArray<SignedSharedIntelSignal>;
+}>;
+
 const GLOBAL_STATE_KEY = "__obscur_m10_shared_intel_policy_state__";
-const ATTACK_MODE_PROFILE_STORAGE_KEY = "obscur.messaging.attack_mode_safety_profile.v1";
+const SHARED_INTEL_SIGNALS_STORAGE_KEY = "obscur.messaging.shared_intel_signals.v1";
+const SHARED_INTEL_SIGNALS_STORAGE_VERSION = "obscur.m10.shared_intel_store.v1";
 const PLAIN_TEXT_BOUNDARY_KEYS: ReadonlySet<string> = new Set([
   "content",
   "plaintext",
@@ -106,6 +114,114 @@ const containsPlaintextBoundaryKey = (
   ));
 };
 
+const isSignalSubjectType = (value: unknown): value is SignedSharedIntelSubjectType => (
+  value === "relay_host" || value === "peer_public_key"
+);
+
+const isSignalDisposition = (value: unknown): value is SignedSharedIntelDisposition => (
+  value === "watch" || value === "block"
+);
+
+const isNonEmptyString = (value: unknown): value is string => (
+  typeof value === "string" && value.trim().length > 0
+);
+
+const isFiniteNumber = (value: unknown): value is number => (
+  typeof value === "number" && Number.isFinite(value)
+);
+
+const toNormalizedSignal = (value: unknown): SignedSharedIntelSignal | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.version !== "obscur.m10.shared_intel.v1") {
+    return null;
+  }
+  if (!isNonEmptyString(record.signalId)) {
+    return null;
+  }
+  if (!isSignalSubjectType(record.subjectType)) {
+    return null;
+  }
+  if (!isNonEmptyString(record.subjectValue)) {
+    return null;
+  }
+  if (!isSignalDisposition(record.disposition)) {
+    return null;
+  }
+  if (!isFiniteNumber(record.confidenceScore)) {
+    return null;
+  }
+  if (!isNonEmptyString(record.reasonCode)) {
+    return null;
+  }
+  if (!isFiniteNumber(record.issuedAtUnixMs) || !isFiniteNumber(record.expiresAtUnixMs)) {
+    return null;
+  }
+  if (!isNonEmptyString(record.signerPublicKeyHex)) {
+    return null;
+  }
+  if (!isNonEmptyString(record.signatureHex)) {
+    return null;
+  }
+  return {
+    version: "obscur.m10.shared_intel.v1",
+    signalId: record.signalId.trim(),
+    subjectType: record.subjectType,
+    subjectValue: record.subjectValue.trim(),
+    disposition: record.disposition,
+    confidenceScore: clampRiskScore(record.confidenceScore),
+    reasonCode: record.reasonCode.trim(),
+    issuedAtUnixMs: Math.floor(record.issuedAtUnixMs),
+    expiresAtUnixMs: Math.floor(record.expiresAtUnixMs),
+    signerPublicKeyHex: record.signerPublicKeyHex.trim() as PublicKeyHex,
+    signatureHex: record.signatureHex.trim(),
+  };
+};
+
+const getSignalsStorageKey = (): string => getScopedStorageKey(SHARED_INTEL_SIGNALS_STORAGE_KEY);
+
+const readPersistedSignedSharedIntelSignals = (): SignedSharedIntelSignal[] => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(getSignalsStorageKey());
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as Partial<PersistedSharedIntelSignals>;
+    if (parsed.version !== SHARED_INTEL_SIGNALS_STORAGE_VERSION || !Array.isArray(parsed.signals)) {
+      return [];
+    }
+    return parsed.signals
+      .map((signal) => toNormalizedSignal(signal))
+      .filter((signal): signal is SignedSharedIntelSignal => signal !== null);
+  } catch {
+    return [];
+  }
+};
+
+const writePersistedSignedSharedIntelSignals = (signals: ReadonlyArray<SignedSharedIntelSignal>): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const payload: PersistedSharedIntelSignals = {
+    version: SHARED_INTEL_SIGNALS_STORAGE_VERSION,
+    updatedAtUnixMs: Date.now(),
+    signals: [...signals],
+  };
+  window.localStorage.setItem(getSignalsStorageKey(), JSON.stringify(payload));
+};
+
+const clearPersistedSignedSharedIntelSignals = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(getSignalsStorageKey());
+};
+
 const getState = (): SharedIntelPolicyState => {
   const root = globalThis as Record<string, unknown>;
   const existing = root[GLOBAL_STATE_KEY];
@@ -113,7 +229,7 @@ const getState = (): SharedIntelPolicyState => {
     return existing as SharedIntelPolicyState;
   }
   const created: SharedIntelPolicyState = {
-    signals: [],
+    signals: readPersistedSignedSharedIntelSignals(),
     signatureVerifier: null,
   };
   root[GLOBAL_STATE_KEY] = created;
@@ -154,11 +270,28 @@ export const setSignedSharedIntelSignals = (
   signals: ReadonlyArray<SignedSharedIntelSignal>,
 ): void => {
   const state = getState();
-  state.signals = [...signals];
+  const normalizedSignals = signals
+    .map((signal) => toNormalizedSignal(signal))
+    .filter((signal): signal is SignedSharedIntelSignal => signal !== null);
+  state.signals = [...normalizedSignals];
+  writePersistedSignedSharedIntelSignals(normalizedSignals);
 };
 
 export const getSignedSharedIntelSignals = (): ReadonlyArray<SignedSharedIntelSignal> => {
   return [...getState().signals];
+};
+
+export const hydrateSignedSharedIntelSignalsFromStorage = (): ReadonlyArray<SignedSharedIntelSignal> => {
+  const signals = readPersistedSignedSharedIntelSignals();
+  const state = getState();
+  state.signals = [...signals];
+  return [...signals];
+};
+
+export const clearSignedSharedIntelSignals = (): void => {
+  const state = getState();
+  state.signals = [];
+  clearPersistedSignedSharedIntelSignals();
 };
 
 export const resetM10SharedIntelPolicyState = (): void => {
@@ -167,24 +300,20 @@ export const resetM10SharedIntelPolicyState = (): void => {
     signals: [],
     signatureVerifier: null,
   } as SharedIntelPolicyState;
+  clearPersistedSignedSharedIntelSignals();
 };
 
 export const getAttackModeSafetyProfile = (): AttackModeSafetyProfile => {
-  if (typeof window === "undefined") {
-    return "standard";
-  }
-  const scopedKey = getScopedStorageKey(ATTACK_MODE_PROFILE_STORAGE_KEY);
-  const raw = window.localStorage.getItem(scopedKey);
-  return raw === "strict" ? "strict" : "standard";
+  const settings = PrivacySettingsService.getSettings();
+  return settings.attackModeSafetyProfileV121 === "strict" ? "strict" : "standard";
 };
 
 export const setAttackModeSafetyProfile = (profile: AttackModeSafetyProfile): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const scopedKey = getScopedStorageKey(ATTACK_MODE_PROFILE_STORAGE_KEY);
-  window.localStorage.setItem(scopedKey, profile);
-  window.dispatchEvent(new Event("privacy-settings-changed"));
+  const settings = PrivacySettingsService.getSettings();
+  PrivacySettingsService.saveSettings({
+    ...settings,
+    attackModeSafetyProfileV121: profile,
+  });
 };
 
 export const evaluateSignedSharedIntelRelayRisk = (params: Readonly<{
@@ -326,10 +455,14 @@ export const evaluateIncomingRequestAttackModeGate = (params: Readonly<{
 };
 
 export const m10SharedIntelPolicyInternals = {
-  ATTACK_MODE_PROFILE_STORAGE_KEY,
+  SHARED_INTEL_SIGNALS_STORAGE_KEY,
+  SHARED_INTEL_SIGNALS_STORAGE_VERSION,
   PLAIN_TEXT_BOUNDARY_KEYS,
   getSignalPayload,
+  getSignalsStorageKey,
   normalizeRelayHost,
+  readPersistedSignedSharedIntelSignals,
   scoreSignal,
   toRelayRiskLevel,
+  toNormalizedSignal,
 };

@@ -380,6 +380,18 @@ Current checkpoint progress (2026-03-25):
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+9. CP1 shared-intel signals are now profile-scoped and persistent (no singleton-only memory path):
+: policy state hydrates from scoped storage key `obscur.messaging.shared_intel_signals.v1::profile`,
+: with typed normalization on read/write in `m10-shared-intel-policy`.
+10. CP1 attack-mode profile now converges on canonical privacy settings owner:
+: `attackModeSafetyProfileV121` in
+: `apps/pwa/app/features/settings/services/privacy-settings-service.ts`
+: is used by policy getters/setters (instead of a standalone ad-hoc key).
+11. CP1 operator replay tooling is now available for deterministic manual verification:
+: `window.obscurM10TrustControls` from
+: `apps/pwa/app/shared/m10-trust-controls-bridge.ts`
+: (snapshot, strict-mode toggle, signed-intel replace/clear, capture JSON),
+: installed at boot in `apps/pwa/app/components/providers.tsx`.
 
 ### v1.2.2 (M10-CP2)
 

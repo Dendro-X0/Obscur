@@ -22,6 +22,7 @@ export interface PrivacySettings {
     discoveryDeepLinkV1?: boolean; // Phase-0 flag: deep-link add-contact discovery path
     discoverySuggestionsV1?: boolean; // Phase-0 flag: friend suggestions discovery path
     tanstackQueryV1?: boolean; // Phase-1 flag: TanStack Query adapter lane
+    attackModeSafetyProfileV121?: "standard" | "strict"; // Phase-M10 flag: local-first anti-abuse safety profile
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -45,6 +46,7 @@ export const defaultPrivacySettings: PrivacySettings = {
     discoveryDeepLinkV1: true,
     discoverySuggestionsV1: true,
     tanstackQueryV1: false,
+    attackModeSafetyProfileV121: "standard",
 };
 
 export type DiscoveryFeatureFlags = Readonly<{

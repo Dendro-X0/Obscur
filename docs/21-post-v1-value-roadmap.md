@@ -539,6 +539,16 @@ Current execution status (started 2026-03-25):
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+7. CP1 shared-intel state is now profile-scoped and persistent:
+: signed signals are normalized + stored at scoped key
+: `obscur.messaging.shared_intel_signals.v1::profile`
+: and rehydrated by the canonical M10 policy owner.
+8. CP1 attack-mode profile now converges on canonical privacy settings owner:
+: `attackModeSafetyProfileV121` is persisted through
+: `PrivacySettingsService` instead of a separate ad-hoc storage owner.
+9. CP1 operator replay bridge is available for manual evidence capture:
+: `window.obscurM10TrustControls` (`snapshot`, `captureJson`, strict-mode toggle, signal replace/clear),
+: installed at app boot via `app/components/providers.tsx`.
 
 ## Version-Bound Execution
 

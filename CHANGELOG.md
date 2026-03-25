@@ -17,6 +17,14 @@
 - Extended request-quarantine UX summaries/badges for new CP1 strict-mode reasons in:
   `apps/pwa/app/features/messaging/services/incoming-request-quarantine-summary.ts`
   and `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`.
+- Added profile-scoped persistence/hydration for signed shared-intel signals in
+  `apps/pwa/app/features/messaging/services/m10-shared-intel-policy.ts` to avoid transient in-memory-only policy state.
+- Moved attack-mode profile persistence to canonical privacy settings owner via
+  `attackModeSafetyProfileV121` in `apps/pwa/app/features/settings/services/privacy-settings-service.ts`.
+- Added deterministic CP1 operator replay bridge:
+  `window.obscurM10TrustControls` from
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`,
+  installed at boot in `apps/pwa/app/components/providers.tsx`.
 - Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
 - Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
 - Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.

@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
+  clearSignedSharedIntelSignals,
   evaluateIncomingRequestAttackModeGate,
   evaluateSignedSharedIntelRelayRisk,
   getAttackModeSafetyProfile,
+  getSignedSharedIntelSignals,
+  hydrateSignedSharedIntelSignalsFromStorage,
   m10SharedIntelPolicyInternals,
   resetM10SharedIntelPolicyState,
   setAttackModeSafetyProfile,
@@ -134,5 +137,35 @@ describe("m10-shared-intel-policy", () => {
   it("normalizes relay hosts for deterministic matching", () => {
     expect(m10SharedIntelPolicyInternals.normalizeRelayHost("wss://Relay.Bad.Example/path")).toBe("relay.bad.example");
     expect(m10SharedIntelPolicyInternals.normalizeRelayHost("")).toBeNull();
+  });
+
+  it("persists signed shared-intel signals and clears them deterministically", () => {
+    const signal = createRelayBlockSignal({ signalId: "persisted-1" });
+    setSignedSharedIntelSignals([signal]);
+
+    const persistedRaw = window.localStorage.getItem(m10SharedIntelPolicyInternals.getSignalsStorageKey());
+    expect(persistedRaw).toContain(m10SharedIntelPolicyInternals.SHARED_INTEL_SIGNALS_STORAGE_VERSION);
+    expect(getSignedSharedIntelSignals()).toHaveLength(1);
+
+    clearSignedSharedIntelSignals();
+    expect(getSignedSharedIntelSignals()).toHaveLength(0);
+    expect(window.localStorage.getItem(m10SharedIntelPolicyInternals.getSignalsStorageKey())).toBeNull();
+  });
+
+  it("hydrates only valid persisted shared-intel signals from storage", () => {
+    const key = m10SharedIntelPolicyInternals.getSignalsStorageKey();
+    const valid = createRelayBlockSignal({ signalId: "valid-persisted" });
+    window.localStorage.setItem(key, JSON.stringify({
+      version: m10SharedIntelPolicyInternals.SHARED_INTEL_SIGNALS_STORAGE_VERSION,
+      updatedAtUnixMs: 4_200,
+      signals: [
+        valid,
+        { version: "broken", signalId: 123 },
+      ],
+    }));
+
+    const hydrated = hydrateSignedSharedIntelSignalsFromStorage();
+    expect(hydrated).toHaveLength(1);
+    expect(hydrated[0]?.signalId).toBe("valid-persisted");
   });
 });

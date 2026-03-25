@@ -666,9 +666,17 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `attack_mode_peer_shared_intel_blocked`,
       - `attack_mode_contract_violation`,
     - requests inbox anti-spam summary now includes strict-mode quarantine reason counters/badges,
+    - signed shared-intel signals are now profile-scoped + persistent (normalized read/write + hydration) via canonical M10 policy owner,
+    - attack-mode profile persistence now converges on canonical privacy settings owner (`attackModeSafetyProfileV121`),
+    - deterministic operator replay bridge is available for CP1 verification:
+      - `window.obscurM10TrustControls.getSnapshot()`,
+      - `window.obscurM10TrustControls.captureJson(300)`,
+      - `window.obscurM10TrustControls.setAttackModeSafetyProfile("strict")`,
+      - `window.obscurM10TrustControls.replaceSignedSharedIntelSignals([...])`,
     - focused CP1 validation is green:
       - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,
+      - `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts app/features/settings/services/privacy-settings-service.test.ts`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status

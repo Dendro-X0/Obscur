@@ -1,0 +1,153 @@
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import {
+  clearSignedSharedIntelSignals,
+  getAttackModeSafetyProfile,
+  getSignedSharedIntelSignals,
+  setAttackModeSafetyProfile,
+  setSignedSharedIntelSignals,
+  type AttackModeSafetyProfile,
+  type SignedSharedIntelSignal,
+} from "@/app/features/messaging/services/m10-shared-intel-policy";
+
+type MinimalAppEvent = Readonly<{
+  name: string;
+  level?: string;
+  atUnixMs?: number;
+  context?: Readonly<Record<string, string | number | boolean | null>>;
+}>;
+
+type M10TrustControlsSnapshot = Readonly<{
+  generatedAtUnixMs: number;
+  attackModeSafetyProfile: AttackModeSafetyProfile;
+  signalCount: number;
+  activeSignalCount: number;
+  expiredSignalCount: number;
+  relayHostSignalCount: number;
+  peerSignalCount: number;
+  blockDispositionCount: number;
+  watchDispositionCount: number;
+}>;
+
+type M10TrustControlsCapture = Readonly<{
+  snapshot: M10TrustControlsSnapshot;
+  recentAttackModeQuarantineEvents: ReadonlyArray<MinimalAppEvent>;
+}>;
+
+type M10TrustControlsBridgeApi = Readonly<{
+  getSnapshot: () => M10TrustControlsSnapshot;
+  setAttackModeSafetyProfile: (profile: AttackModeSafetyProfile) => AttackModeSafetyProfile;
+  replaceSignedSharedIntelSignals: (signals: ReadonlyArray<SignedSharedIntelSignal>) => number;
+  clearSignedSharedIntelSignals: () => void;
+  capture: (eventWindowSize?: number) => M10TrustControlsCapture;
+  captureJson: (eventWindowSize?: number) => string;
+}>;
+
+type M10TrustControlsBridgeWindow = Window & {
+  obscurM10TrustControls?: M10TrustControlsBridgeApi;
+  obscurAppEvents?: Readonly<{
+    findByName?: (name: string, count?: number) => ReadonlyArray<MinimalAppEvent>;
+  }>;
+};
+
+declare global {
+  interface Window {
+    obscurM10TrustControls?: M10TrustControlsBridgeApi;
+  }
+}
+
+const ATTACK_MODE_REASON_PREFIX = "incoming_connection_request_attack_mode_";
+
+const isPositiveFinite = (value: unknown): value is number => (
+  typeof value === "number" && Number.isFinite(value) && value > 0
+);
+
+const toWindowSize = (value: unknown, fallback = 300): number => {
+  if (isPositiveFinite(value)) {
+    return Math.max(1, Math.floor(value));
+  }
+  return fallback;
+};
+
+const createSnapshot = (): M10TrustControlsSnapshot => {
+  const nowUnixMs = Date.now();
+  const profile = getAttackModeSafetyProfile();
+  const signals = getSignedSharedIntelSignals();
+
+  const activeSignalCount = signals.filter((signal) => signal.expiresAtUnixMs > nowUnixMs).length;
+  const expiredSignalCount = signals.length - activeSignalCount;
+  const relayHostSignalCount = signals.filter((signal) => signal.subjectType === "relay_host").length;
+  const peerSignalCount = signals.length - relayHostSignalCount;
+  const blockDispositionCount = signals.filter((signal) => signal.disposition === "block").length;
+  const watchDispositionCount = signals.length - blockDispositionCount;
+
+  return {
+    generatedAtUnixMs: nowUnixMs,
+    attackModeSafetyProfile: profile,
+    signalCount: signals.length,
+    activeSignalCount,
+    expiredSignalCount,
+    relayHostSignalCount,
+    peerSignalCount,
+    blockDispositionCount,
+    watchDispositionCount,
+  };
+};
+
+const readAttackModeQuarantineEvents = (
+  root: M10TrustControlsBridgeWindow,
+  eventWindowSize: number,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof root.obscurAppEvents?.findByName !== "function") {
+      return [];
+    }
+    const events = root.obscurAppEvents.findByName("messaging.request.incoming_quarantined", eventWindowSize);
+    return events.filter((event) => (
+      typeof event.context?.reasonCode === "string"
+      && event.context.reasonCode.startsWith(ATTACK_MODE_REASON_PREFIX)
+    ));
+  } catch {
+    return [];
+  }
+};
+
+export const installM10TrustControlsBridge = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const root = window as M10TrustControlsBridgeWindow;
+  if (root.obscurM10TrustControls) {
+    return;
+  }
+  root.obscurM10TrustControls = {
+    getSnapshot: () => createSnapshot(),
+    setAttackModeSafetyProfile: (profile) => {
+      setAttackModeSafetyProfile(profile);
+      return getAttackModeSafetyProfile();
+    },
+    replaceSignedSharedIntelSignals: (signals) => {
+      setSignedSharedIntelSignals(signals);
+      return getSignedSharedIntelSignals().length;
+    },
+    clearSignedSharedIntelSignals: () => {
+      clearSignedSharedIntelSignals();
+    },
+    capture: (eventWindowSize = 300) => {
+      const safeWindow = toWindowSize(eventWindowSize, 300);
+      return {
+        snapshot: createSnapshot(),
+        recentAttackModeQuarantineEvents: readAttackModeQuarantineEvents(root, safeWindow),
+      };
+    },
+    captureJson: (eventWindowSize = 300) => (
+      JSON.stringify(root.obscurM10TrustControls?.capture(eventWindowSize) ?? null, null, 2)
+    ),
+  };
+};
+
+export const m10TrustControlsBridgeInternals = {
+  ATTACK_MODE_REASON_PREFIX,
+  createSnapshot,
+  readAttackModeQuarantineEvents,
+  toWindowSize,
+};

@@ -15,6 +15,7 @@ import { installM7AntiAbuseCapture } from "@/app/shared/m7-anti-abuse-capture";
 import { installM7AntiAbuseReplayBridge } from "@/app/shared/m7-anti-abuse-replay-bridge";
 import { installM8CommunityCapture } from "@/app/shared/m8-community-capture";
 import { installM8CommunityReplayBridge } from "@/app/shared/m8-community-replay-bridge";
+import { installM10TrustControlsBridge } from "@/app/shared/m10-trust-controls-bridge";
 
 const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_last_event.v1";
 
@@ -35,6 +36,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
         installM7AntiAbuseReplayBridge();
         installM8CommunityCapture();
         installM8CommunityReplayBridge();
+        installM10TrustControlsBridge();
         window.dispatchEvent(new Event("obscur:boot-ready"));
     }, []);
 
