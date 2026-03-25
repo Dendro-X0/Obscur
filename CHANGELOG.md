@@ -7,6 +7,8 @@
     `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
     - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCapture(...)`,
     - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCaptureJson(...)`,
+    - `window.obscurM6VoiceReplay.runCp3ReplaySuiteGateProbe(...)`,
+    - `window.obscurM6VoiceReplay.runCp3ReplaySuiteGateProbeJson(...)`,
     - suite output now includes weak-network and account-switch replay bundles plus
       an overall `suiteGate` verdict for manual CP3 evidence collection.
     - `suiteGate` now also validates unified diagnostics health across both replay paths:

@@ -480,6 +480,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       `app/shared/m6-voice-replay-bridge.ts`:
       - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCapture(...)`,
       - `window.obscurM6VoiceReplay.runCp3ReplaySuiteCaptureJson(...)`,
+      - `window.obscurM6VoiceReplay.runCp3ReplaySuiteGateProbe(...)`,
+      - `window.obscurM6VoiceReplay.runCp3ReplaySuiteGateProbeJson(...)`,
     - suite output includes:
       - `weakNetwork` replay+capture+gate bundle,
       - `accountSwitch` replay+capture+gate bundle,

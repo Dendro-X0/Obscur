@@ -186,6 +186,12 @@ describe("m6-voice-replay-bridge", () => {
         };
       };
       runCp3ReplaySuiteCaptureJson: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => string;
+      runCp3ReplaySuiteGateProbe: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
+      };
+      runCp3ReplaySuiteGateProbeJson: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => string;
     };
 
     const suite = replayApi.runCp3ReplaySuiteCapture({
@@ -210,7 +216,17 @@ describe("m6-voice-replay-bridge", () => {
     expect(suite.suiteGate.checks.accountAsyncVoiceStartFailureCountZero).toBe(true);
     expect(suite.suiteGate.checks.weakDeleteRemoteFailureCountZero).toBe(true);
     expect(suite.suiteGate.checks.accountDeleteRemoteFailureCountZero).toBe(true);
+    const gateProbe = replayApi.runCp3ReplaySuiteGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    });
+    expect(gateProbe.pass).toBe(true);
+    expect(gateProbe.failedChecks).toEqual([]);
     expect(() => JSON.parse(replayApi.runCp3ReplaySuiteCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    }))).not.toThrow();
+    expect(() => JSON.parse(replayApi.runCp3ReplaySuiteGateProbeJson({
       clearAppEvents: true,
       captureWindowSize: 300,
     }))).not.toThrow();
@@ -229,6 +245,11 @@ describe("m6-voice-replay-bridge", () => {
           failedChecks: readonly string[];
           checks: Record<string, boolean>;
         };
+      };
+      runCp3ReplaySuiteGateProbe: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
       };
     };
 
@@ -250,6 +271,17 @@ describe("m6-voice-replay-bridge", () => {
       "accountAsyncVoiceStartFailureCountZero",
       "weakDeleteRemoteFailureCountZero",
       "accountDeleteRemoteFailureCountZero",
+    ]));
+    const gateProbe = replayApi.runCp3ReplaySuiteGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    });
+    expect(gateProbe.pass).toBe(false);
+    expect(gateProbe.failedChecks).toEqual(expect.arrayContaining([
+      "weakAsyncVoiceSummaryPresent",
+      "accountAsyncVoiceSummaryPresent",
+      "weakDeleteSummaryPresent",
+      "accountDeleteSummaryPresent",
     ]));
   });
 

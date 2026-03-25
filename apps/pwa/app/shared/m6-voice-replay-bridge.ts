@@ -112,6 +112,9 @@ type M6VoiceReplaySuiteCaptureBundle = Readonly<{
   }>;
 }>;
 
+type M6VoiceReplaySuiteGate = M6VoiceReplaySuiteCaptureBundle["suiteGate"];
+type M6VoiceReplaySuiteGateChecks = M6VoiceReplaySuiteGate["checks"];
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -151,6 +154,18 @@ type M6VoiceReplayApi = Readonly<{
     clearAppEvents?: boolean;
     mode?: RealtimeVoiceSessionMode;
   }>) => string;
+  runCp3ReplaySuiteGateProbe: (params?: Readonly<{
+    baseUnixMs?: number;
+    captureWindowSize?: number;
+    clearAppEvents?: boolean;
+    mode?: RealtimeVoiceSessionMode;
+  }>) => M6VoiceReplaySuiteGate;
+  runCp3ReplaySuiteGateProbeJson: (params?: Readonly<{
+    baseUnixMs?: number;
+    captureWindowSize?: number;
+    clearAppEvents?: boolean;
+    mode?: RealtimeVoiceSessionMode;
+  }>) => string;
 }>;
 
 type M6VoiceReplayWindow = Window & {
@@ -180,6 +195,24 @@ declare global {
 const DEFAULT_CAPTURE_WINDOW_SIZE = 400;
 const DEFAULT_WEAK_REPLAY_TRANSITION_COUNT = 5;
 const DEFAULT_ACCOUNT_SWITCH_REPLAY_TRANSITION_COUNT = 6;
+const EMPTY_REPLAY_SUITE_GATE_CHECKS: M6VoiceReplaySuiteGateChecks = {
+  weakNetworkPass: false,
+  accountSwitchPass: false,
+  weakNetworkReadyForCp2: false,
+  accountSwitchReadyForCp2: false,
+  weakAsyncVoiceSummaryPresent: false,
+  accountAsyncVoiceSummaryPresent: false,
+  weakDeleteSummaryPresent: false,
+  accountDeleteSummaryPresent: false,
+  weakAsyncVoiceRiskNotHigh: false,
+  accountAsyncVoiceRiskNotHigh: false,
+  weakDeleteRiskNotHigh: false,
+  accountDeleteRiskNotHigh: false,
+  weakAsyncVoiceStartFailureCountZero: false,
+  accountAsyncVoiceStartFailureCountZero: false,
+  weakDeleteRemoteFailureCountZero: false,
+  accountDeleteRemoteFailureCountZero: false,
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null
@@ -798,6 +831,20 @@ export const installM6VoiceReplayBridge = (): void => {
     runCp3ReplaySuiteCaptureJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runCp3ReplaySuiteCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runCp3ReplaySuiteGateProbe: (params) => (
+      root.obscurM6VoiceReplay?.runCp3ReplaySuiteCapture(params)?.suiteGate ?? {
+        pass: false,
+        failedChecks: ["suite_capture_unavailable"],
+        checks: EMPTY_REPLAY_SUITE_GATE_CHECKS,
+      }
+    ),
+    runCp3ReplaySuiteGateProbeJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runCp3ReplaySuiteGateProbe(params) ?? null,
         null,
         2,
       )
