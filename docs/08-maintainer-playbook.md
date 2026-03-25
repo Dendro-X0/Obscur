@@ -427,6 +427,12 @@ Canonical matrix:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.unexpectedReleaseReadinessGateFailCount`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestReleaseReadinessGatePass`
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestReleaseReadinessGateFailedCheckSample`
+28. CP4 release-evidence one-copy packet (recommended operator handoff):
+: `window.obscurM6VoiceReplay?.runCp4ReleaseEvidenceCapture?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 })`
+: `copy(window.obscurM6VoiceReplay?.runCp4ReleaseEvidenceCaptureJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 }))`
+29. CP4 release-evidence gate probe:
+: `window.obscurM6VoiceReplay?.runCp4ReleaseEvidenceGateProbe?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 })`
+: `copy(window.obscurM6VoiceReplay?.runCp4ReleaseEvidenceGateProbeJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6, eventSliceLimit: 3 }))`
 22. Delete convergence event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
 23. Voice-note diagnostics slices:

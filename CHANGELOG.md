@@ -55,6 +55,16 @@
   - `apps/pwa/app/shared/log-app-event.ts`,
   - `apps/pwa/app/shared/m6-voice-capture.ts`,
   - `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
+- Added deterministic CP4 release-evidence packet helper set in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `window.obscurM6VoiceReplay.runCp4ReleaseEvidenceCapture(...)`,
+  - `window.obscurM6VoiceReplay.runCp4ReleaseEvidenceCaptureJson(...)`,
+  - `window.obscurM6VoiceReplay.runCp4ReleaseEvidenceGateProbe(...)`,
+  - `window.obscurM6VoiceReplay.runCp4ReleaseEvidenceGateProbeJson(...)`.
+- CP4 release-evidence helper now returns one packet with release-readiness bundle + compact CP4 event slices (`long_session_gate`, `cp4_checkpoint_gate`, `cp4_release_readiness_gate`) plus an aggregate evidence gate verdict.
+- Extended stale replay-bridge auto-upgrade guard to require CP4 release-evidence helper APIs.
+- Added focused regression coverage for CP4 release-evidence packet pass/fail lanes in:
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
 
 ## [v1.1.5] - 2026-03-24
 

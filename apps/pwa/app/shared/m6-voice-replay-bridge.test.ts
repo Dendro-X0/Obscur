@@ -769,6 +769,98 @@ describe("m6-voice-replay-bridge", () => {
     }))).not.toThrow();
   });
 
+  it("exports deterministic CP4 release-evidence packet with aligned event slices", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4ReleaseEvidenceCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        eventSliceLimit?: number;
+      }) => {
+        evidenceGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+        longSessionGateEventContexts: ReadonlyArray<Record<string, unknown>>;
+        checkpointGateEventContexts: ReadonlyArray<Record<string, unknown>>;
+        releaseReadinessGateEventContexts: ReadonlyArray<Record<string, unknown>>;
+        recentWarnOrError: ReadonlyArray<{ name: string; level: string }>;
+      };
+      runCp4ReleaseEvidenceCaptureJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        eventSliceLimit?: number;
+      }) => string;
+    };
+
+    const evidence = replayApi.runCp4ReleaseEvidenceCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+      eventSliceLimit: 2,
+    });
+    expect(evidence.evidenceGate.pass).toBe(true);
+    expect(evidence.evidenceGate.failedChecks).toEqual([]);
+    expect(evidence.evidenceGate.checks.releaseReadinessGateMatchesExpected).toBe(true);
+    expect(evidence.longSessionGateEventContexts.length).toBeGreaterThanOrEqual(1);
+    expect(evidence.checkpointGateEventContexts.length).toBeGreaterThanOrEqual(1);
+    expect(evidence.releaseReadinessGateEventContexts.length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(evidence.recentWarnOrError)).toBe(true);
+    expect(() => JSON.parse(replayApi.runCp4ReleaseEvidenceCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+      eventSliceLimit: 2,
+    }))).not.toThrow();
+  });
+
+  it("fails CP4 release-evidence gate probe deterministically when capture summaries are unavailable", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4ReleaseEvidenceGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        pass: boolean;
+        failedChecks: readonly string[];
+        checks: Record<string, boolean>;
+      };
+      runCp4ReleaseEvidenceGateProbeJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => string;
+    };
+
+    const gate = replayApi.runCp4ReleaseEvidenceGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(gate.pass).toBe(false);
+    expect(gate.failedChecks).toEqual(expect.arrayContaining([
+      "releaseReadinessGateMatchesExpected",
+    ]));
+    expect(() => JSON.parse(replayApi.runCp4ReleaseEvidenceGateProbeJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    }))).not.toThrow();
+  });
+
   it("exports deterministic CP4 long-session self-test report with compact pass/fail verdict", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -913,6 +1005,10 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runCp4ReleaseReadinessCaptureJson).toBe("function");
     expect(typeof upgraded?.runCp4ReleaseReadinessGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4ReleaseReadinessGateProbeJson).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseEvidenceCapture).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseEvidenceCaptureJson).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseEvidenceGateProbe).toBe("function");
+    expect(typeof upgraded?.runCp4ReleaseEvidenceGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionSelfTest).toBe("function");
