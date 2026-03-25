@@ -171,7 +171,24 @@ Current checkpoint progress (2026-03-24):
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts`,
 : combining weak-network + account-switch replay gates into one `suiteGate` verdict.
 
-### v1.2.0 (M9-CP3/CP4 closeout)
+### v1.1.3 (M9-CP3)
+
+Scope:
+1. execute deterministic CP3 replay-suite evidence for weak-network + account-switch voice continuity,
+2. validate unified async voice-note and delete-convergence diagnostics in the same replay window,
+3. attach one-copy operator evidence bundle and burn down discovered regressions.
+
+Evidence:
+1. CP3 suite helper output accepted with pass verdict:
+: `window.obscurM6VoiceReplay.runCp3ReplaySuiteCaptureJson(...)`,
+2. replay matrix completion notes in:
+: `docs/32-v1.1.3-cp3-voice-suite-matrix.md`.
+
+Current checkpoint progress (2026-03-24):
+1. `v1.1.3` CP3 started with dedicated replay matrix/runbook:
+: `docs/32-v1.1.3-cp3-voice-suite-matrix.md`.
+
+### v1.2.0 (M9-CP4 closeout)
 
 Scope:
 1. complete two-device weak-network replay evidence for voice + deletion convergence,

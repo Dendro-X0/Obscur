@@ -11,6 +11,13 @@
       an overall `suiteGate` verdict for manual CP3 evidence collection.
   - added focused replay-suite coverage in:
     - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
+- Started `v1.1.3` (`M9` `CP3`) checkpoint documentation/runbook lane:
+  - added dedicated matrix:
+    - `docs/32-v1.1.3-cp3-voice-suite-matrix.md`
+  - synced active major-phase and maintainer references:
+    - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`
+    - `docs/08-maintainer-playbook.md`
+    - `docs/README.md`
 
 ## [v1.1.2] - 2026-03-24
 

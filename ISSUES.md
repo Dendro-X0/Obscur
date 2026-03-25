@@ -484,6 +484,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `weakNetwork` replay+capture+gate bundle,
       - `accountSwitch` replay+capture+gate bundle,
       - overall `suiteGate.pass/failedChecks`.
+  - `v1.1.3` CP3 start status:
+    - dedicated CP3 replay-suite matrix is now active:
+      - `docs/32-v1.1.3-cp3-voice-suite-matrix.md`,
+    - active major-phase plan and maintainer runbook are synced to this CP3 lane.
 
 ## v1 Readiness Status
 

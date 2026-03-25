@@ -341,6 +341,7 @@ For `v1.0.8` CP2 realtime voice diagnostics verification:
 
 Canonical matrix:
 : `docs/27-v1.0.8-cp3-voice-replay-matrix.md`.
+: `docs/32-v1.1.3-cp3-voice-suite-matrix.md` (active CP3 suite lane).
 
 1. One-copy M6 voice bundle (preferred):
 : `copy(window.obscurM6VoiceCapture?.captureJson(400))`
