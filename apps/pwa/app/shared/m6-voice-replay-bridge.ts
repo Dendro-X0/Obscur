@@ -53,6 +53,20 @@ type M6Cp4LongSessionGateProbeParams = M6LongSessionReplayParams & Readonly<{
   expectedPass?: boolean;
 }>;
 
+type M6Cp4CheckpointCaptureParams = Readonly<{
+  baseUnixMs?: number;
+  captureWindowSize?: number;
+  clearAppEvents?: boolean;
+  mode?: RealtimeVoiceSessionMode;
+  cycleCount?: number;
+  maxRecoveryAttempts?: number;
+  injectRecoveryExhausted?: boolean;
+  expectedPass?: boolean;
+  selfTestCycleCount?: number;
+  selfTestFailureCycleCount?: number;
+  selfTestFailureMaxRecoveryAttempts?: number;
+}>;
+
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
 type M6VoiceReplayScenario = "weak_network" | "account_switch";
 
@@ -232,6 +246,21 @@ type M6VoiceLongSessionGateProbe = M6VoiceReplayProbeGate<Readonly<{
   digestRecoveryExhaustedAlignedWithExpectedPass: boolean;
 }>>;
 
+type M6VoiceCp4CheckpointCaptureBundle = Readonly<{
+  generatedAtUnixMs: number;
+  longSession: M6VoiceLongSessionReplayCaptureBundle;
+  gateProbe: M6VoiceLongSessionGateProbe;
+  selfTest: M6VoiceLongSessionSelfTestReport;
+  digestSummary: M6VoiceDigestSummary | null;
+  cp4CheckpointGate: M6VoiceReplayProbeGate<Readonly<{
+    longSessionGatePass: boolean;
+    gateProbePass: boolean;
+    selfTestGatePass: boolean;
+    digestRiskNotHigh: boolean;
+    digestUnexpectedGateFailZero: boolean;
+  }>>;
+}>;
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -266,6 +295,8 @@ type M6VoiceReplayApi = Readonly<{
   runCp4LongSessionGateProbeJson: (params?: M6Cp4LongSessionGateProbeParams) => string;
   runCp4LongSessionSelfTest: (params?: M6Cp4LongSessionSelfTestParams) => M6VoiceLongSessionSelfTestReport;
   runCp4LongSessionSelfTestJson: (params?: M6Cp4LongSessionSelfTestParams) => string;
+  runCp4CheckpointCapture: (params?: M6Cp4CheckpointCaptureParams) => M6VoiceCp4CheckpointCaptureBundle;
+  runCp4CheckpointCaptureJson: (params?: M6Cp4CheckpointCaptureParams) => string;
   runCp3ReplaySuiteCapture: (params?: Readonly<{
     baseUnixMs?: number;
     captureWindowSize?: number;
@@ -716,6 +747,27 @@ const buildCp4LongSessionGateProbe = (params: Readonly<{
   return buildBooleanGate(checks);
 };
 
+const buildCp4CheckpointGate = (params: Readonly<{
+  longSession: M6VoiceLongSessionReplayCaptureBundle;
+  gateProbe: M6VoiceLongSessionGateProbe;
+  selfTest: M6VoiceLongSessionSelfTestReport;
+  digestSummary: M6VoiceDigestSummary | null;
+}>): M6VoiceCp4CheckpointCaptureBundle["cp4CheckpointGate"] => {
+  const checks = {
+    longSessionGatePass: params.longSession.cp4ReadinessGate.pass,
+    gateProbePass: params.gateProbe.pass,
+    selfTestGatePass: params.selfTest.selfTestGate.pass,
+    digestRiskNotHigh: (
+      params.digestSummary !== null
+      && params.digestSummary.riskLevel !== "high"
+    ),
+    digestUnexpectedGateFailZero: (
+      (params.digestSummary?.unexpectedLongSessionGateFailCount ?? -1) === 0
+    ),
+  } as const;
+  return buildBooleanGate(checks);
+};
+
 const emitCp4LongSessionGateDiagnostic = (params: Readonly<{
   replay: M6VoiceReplayResult | null;
   replayConfig: M6VoiceLongSessionReplayCaptureBundle["replayConfig"];
@@ -873,6 +925,8 @@ export const installM6VoiceReplayBridge = (): void => {
   const root = window as M6VoiceReplayWindow;
   if (
     root.obscurM6VoiceReplay
+    && typeof root.obscurM6VoiceReplay.runCp4CheckpointCapture === "function"
+    && typeof root.obscurM6VoiceReplay.runCp4CheckpointCaptureJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionGateProbe === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionGateProbeJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionSelfTest === "function"
@@ -1325,6 +1379,114 @@ export const installM6VoiceReplayBridge = (): void => {
         2,
       )
     ),
+    runCp4CheckpointCapture: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const baseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
+        ? Math.floor(params.baseUnixMs)
+        : Date.now();
+      const cycleCount = toPositiveInteger(params?.cycleCount, DEFAULT_LONG_SESSION_CYCLE_COUNT);
+      const longSession = root.obscurM6VoiceReplay?.runLongSessionReplayCapture({
+        clearAppEvents: params?.clearAppEvents,
+        captureWindowSize,
+        mode: params?.mode,
+        cycleCount,
+        maxRecoveryAttempts: params?.maxRecoveryAttempts,
+        injectRecoveryExhausted: params?.injectRecoveryExhausted,
+        baseUnixMs,
+      }) ?? {
+        replay: null,
+        capture: null,
+        replayConfig: {
+          cycleCount,
+          injectRecoveryExhausted: params?.injectRecoveryExhausted === true,
+        },
+        cp4ReadinessGate: buildCp4ReadinessGate({
+          replay: null,
+          capture: null,
+          cycleCount,
+        }),
+      };
+      const expectedPass = typeof params?.expectedPass === "boolean"
+        ? params.expectedPass
+        : params?.injectRecoveryExhausted !== true;
+      const latestGateEvent = root.obscurAppEvents?.findByName?.(
+        "messaging.realtime_voice.long_session_gate",
+        1,
+      )?.at(-1) ?? null;
+      const gateProbe = buildCp4LongSessionGateProbe({
+        capture: longSession,
+        expectedPass,
+        latestGateEventContext: latestGateEvent?.context ?? null,
+      });
+      const selfTest = root.obscurM6VoiceReplay?.runCp4LongSessionSelfTest({
+        clearAppEvents: true,
+        captureWindowSize,
+        mode: params?.mode,
+        baseUnixMs: baseUnixMs + 40_000,
+        cycleCount: toPositiveInteger(params?.selfTestCycleCount, cycleCount),
+        maxRecoveryAttempts: params?.maxRecoveryAttempts,
+        failureCycleCount: params?.selfTestFailureCycleCount,
+        failureMaxRecoveryAttempts: params?.selfTestFailureMaxRecoveryAttempts,
+      }) ?? {
+        generatedAtUnixMs: Date.now(),
+        nominal: {
+          replay: null,
+          capture: null,
+          replayConfig: {
+            cycleCount,
+            injectRecoveryExhausted: false,
+          },
+          cp4ReadinessGate: buildCp4ReadinessGate({
+            replay: null,
+            capture: null,
+            cycleCount,
+          }),
+        },
+        failureInjection: {
+          replay: null,
+          capture: null,
+          replayConfig: {
+            cycleCount: toPositiveInteger(params?.selfTestFailureCycleCount, Math.max(3, Math.min(4, cycleCount))),
+            injectRecoveryExhausted: true,
+          },
+          cp4ReadinessGate: buildCp4ReadinessGate({
+            replay: null,
+            capture: null,
+            cycleCount: toPositiveInteger(params?.selfTestFailureCycleCount, Math.max(3, Math.min(4, cycleCount))),
+          }),
+        },
+        selfTestGate: buildBooleanGate({
+          nominalPass: false,
+          nominalFinalPhaseActive: false,
+          nominalRecoveryExhaustedZero: false,
+          failureGateRejected: false,
+          failureFinalPhaseEnded: false,
+          failureReasonRecoveryExhausted: false,
+          failureGateFlagsRecoverySignals: false,
+        }),
+      };
+      const digestSummary = longSession.replay?.latestDigestSummary ?? null;
+      return {
+        generatedAtUnixMs: Date.now(),
+        longSession,
+        gateProbe,
+        selfTest,
+        digestSummary,
+        cp4CheckpointGate: buildCp4CheckpointGate({
+          longSession,
+          gateProbe,
+          selfTest,
+          digestSummary,
+        }),
+      };
+    },
+    runCp4CheckpointCaptureJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runCp4CheckpointCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
     runCp3ReplaySuiteCapture: (params) => {
       const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
       const baseUnixMs = typeof params?.baseUnixMs === "number" && Number.isFinite(params.baseUnixMs)
@@ -1494,6 +1656,7 @@ export const m6VoiceReplayBridgeInternals = {
   buildReplaySuiteGate,
   buildCp4ReadinessGate,
   buildCp4LongSessionGateProbe,
+  buildCp4CheckpointGate,
   buildCp4LongSessionSelfTestGate,
   buildReplayResult,
   buildCp2EvidenceGate,

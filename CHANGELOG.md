@@ -2,6 +2,20 @@
 
 ### Changed
 
+- Started `v1.1.6` (`M9` `CP4` continuation lane) with deterministic CP4 checkpoint capture helpers in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `window.obscurM6VoiceReplay.runCp4CheckpointCapture(...)`,
+  - `window.obscurM6VoiceReplay.runCp4CheckpointCaptureJson(...)`.
+- CP4 checkpoint capture now exports one bundle with:
+  - `longSession` replay capture,
+  - `gateProbe`,
+  - `selfTest`,
+  - `digestSummary`,
+  - aggregate `cp4CheckpointGate` pass/fail checks for release-readiness triage.
+- Extended stale replay-bridge upgrade guard to require CP4 checkpoint APIs and kept digest parser contracts aligned with long-session gate summary fields.
+- Added focused regression coverage for CP4 checkpoint capture pass/fail lanes in:
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+
 ## [v1.1.5] - 2026-03-24
 
 ### Changed

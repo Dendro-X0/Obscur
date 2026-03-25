@@ -251,6 +251,24 @@ Current checkpoint progress (2026-03-24):
 6. one-copy voice capture contract now includes CP4 long-session gate counters/latest gate sample from digest summary in:
 : `apps/pwa/app/shared/m6-voice-capture.ts`.
 
+### v1.1.6 (M9-CP4 continuation)
+
+Scope:
+1. compress CP4 verification into one deterministic one-copy export for limited-account operators,
+2. keep CP4 replay tooling on canonical replay/digest owners,
+3. preserve release-ready contracts while reducing manual probe drift.
+
+Current checkpoint progress (2026-03-24):
+1. deterministic CP4 checkpoint helper landed in canonical replay bridge owner:
+: `runCp4CheckpointCapture(...)` and `runCp4CheckpointCaptureJson(...)` in
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
+2. checkpoint bundle now includes:
+: `longSession`, `gateProbe`, `selfTest`, `digestSummary`, and aggregate `cp4CheckpointGate`.
+3. stale bridge upgrade guard now requires CP4 checkpoint helper APIs to prevent stale runtime bridge surfaces.
+4. focused CP4 continuation validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+
 ### v1.2.0 (M9-CP4 closeout)
 
 Scope:

@@ -496,6 +496,91 @@ describe("m6-voice-replay-bridge", () => {
     expect(probe.checks.finalPhaseAlignedWithExpectedPass).toBe(true);
   });
 
+  it("exports deterministic CP4 checkpoint capture bundle with aggregate pass verdict", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4CheckpointCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => {
+        longSession: { cp4ReadinessGate: { pass: boolean } };
+        gateProbe: { pass: boolean };
+        selfTest: { selfTestGate: { pass: boolean } };
+        digestSummary: { riskLevel: "none" | "watch" | "high"; unexpectedLongSessionGateFailCount: number } | null;
+        cp4CheckpointGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+      runCp4CheckpointCaptureJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+      }) => string;
+    };
+
+    const checkpoint = replayApi.runCp4CheckpointCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    });
+    expect(checkpoint.longSession.cp4ReadinessGate.pass).toBe(true);
+    expect(checkpoint.gateProbe.pass).toBe(true);
+    expect(checkpoint.selfTest.selfTestGate.pass).toBe(true);
+    expect(checkpoint.digestSummary?.riskLevel).not.toBe("high");
+    expect(checkpoint.digestSummary?.unexpectedLongSessionGateFailCount).toBe(0);
+    expect(checkpoint.cp4CheckpointGate.pass).toBe(true);
+    expect(checkpoint.cp4CheckpointGate.failedChecks).toEqual([]);
+    expect(() => JSON.parse(replayApi.runCp4CheckpointCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 5,
+    }))).not.toThrow();
+  });
+
+  it("fails CP4 checkpoint gate when long-session replay is recovery-exhausted", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp4CheckpointCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        cycleCount?: number;
+        maxRecoveryAttempts?: number;
+        injectRecoveryExhausted?: boolean;
+      }) => {
+        cp4CheckpointGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+    };
+
+    const checkpoint = replayApi.runCp4CheckpointCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+      cycleCount: 4,
+      maxRecoveryAttempts: 2,
+      injectRecoveryExhausted: true,
+    });
+    expect(checkpoint.cp4CheckpointGate.pass).toBe(false);
+    expect(checkpoint.cp4CheckpointGate.failedChecks).toEqual(expect.arrayContaining([
+      "longSessionGatePass",
+    ]));
+  });
+
   it("exports deterministic CP4 long-session self-test report with compact pass/fail verdict", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -632,6 +717,8 @@ describe("m6-voice-replay-bridge", () => {
     const upgraded = root.obscurM6VoiceReplay as Record<string, unknown> | undefined;
     expect(upgraded).toBeTruthy();
     expect(typeof upgraded?.runLongSessionReplayCapture).toBe("function");
+    expect(typeof upgraded?.runCp4CheckpointCapture).toBe("function");
+    expect(typeof upgraded?.runCp4CheckpointCaptureJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbe).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionGateProbeJson).toBe("function");
     expect(typeof upgraded?.runCp4LongSessionSelfTest).toBe("function");
