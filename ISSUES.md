@@ -675,6 +675,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `window.obscurM10TrustControls.replaceSignedSharedIntelSignals([...])`,
       - `window.obscurM10TrustControls.ingestSignedSharedIntelSignalsJson({ payloadJson, replaceExisting, requireSignatureVerification })`,
       - `window.obscurM10TrustControls.exportSignedSharedIntelSignalsJson()`,
+    - CP1 trust controls now have a settings UI surface for operator/user policy control:
+      - `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`,
+      - strict/standard attack-mode toggle uses canonical M10 policy owner,
+      - signed shared-intel JSON import/export editor includes deterministic ingest evidence summary with signature/replace options,
     - CP1 ingest contract now provides typed acceptance/rejection evidence for shared-intel feeds:
       - `invalid_shape`,
       - `expired`,
@@ -685,6 +689,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/incoming-request-quarantine-summary.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts app/features/settings/services/privacy-settings-service.test.ts`,
+      - `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status

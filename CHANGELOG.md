@@ -33,6 +33,13 @@
 - Extended trust-controls bridge with JSON ingest/export operator helpers:
   - `window.obscurM10TrustControls.ingestSignedSharedIntelSignalsJson(...)`,
   - `window.obscurM10TrustControls.exportSignedSharedIntelSignalsJson()`.
+- Added CP1 security settings UI surface for trust controls in
+  `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`:
+  - strict/standard attack-mode profile toggle wired to canonical policy owner,
+  - signed shared-intel JSON import/export editor with deterministic ingest evidence summary,
+  - explicit import options for `requireSignatureVerification` and `replaceExisting`.
+- Added focused UI coverage for CP1 settings trust controls in
+  `apps/pwa/app/features/settings/components/auto-lock-settings-panel.test.tsx`.
 - Started `v1.2.1` (`M10` `CP1`) with docs-first scope lock and release-sequence synchronization after `v1.2.0` publish.
 - Marked `v1.2.0` secure-voice closeout as released (tag + GitHub Release live) and shifted active execution to anti-abuse/trust-controls `M10`.
 - Aligned release-tracked version manifests to `1.2.1` to open the new implementation lane.

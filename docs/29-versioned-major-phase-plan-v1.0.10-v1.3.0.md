@@ -400,6 +400,11 @@ Current checkpoint progress (2026-03-25):
 13. Operator bridge now supports JSON import/export for one-copy replay prep:
 : `window.obscurM10TrustControls.ingestSignedSharedIntelSignalsJson(...)`,
 : `window.obscurM10TrustControls.exportSignedSharedIntelSignalsJson()`.
+14. CP1 trust controls are now exposed in security settings UI:
+: `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`
+: with canonical strict/standard profile toggle and signed-intel JSON import/export editor.
+15. Focused CP1 trust-controls UI regression coverage is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx`.
 
 ### v1.2.2 (M10-CP2)
 

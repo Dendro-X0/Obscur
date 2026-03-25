@@ -3,6 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Clock, Shield, Lock, HardDrive, Clipboard, Globe, AlertTriangle } from 'lucide-react';
 import { useAutoLock } from '../hooks/use-auto-lock';
 import type { PrivacySettings } from '../services/privacy-settings-service';
+import {
+    getSignedSharedIntelSignals,
+    ingestSignedSharedIntelSignals,
+    setAttackModeSafetyProfile,
+    clearSignedSharedIntelSignals,
+    type AttackModeSafetyProfile,
+} from "@/app/features/messaging/services/m10-shared-intel-policy";
 import { Label } from '../../../components/ui/label';
 import { cn } from '../../../lib/cn';
 import { SettingsActionStatus, type SettingsActionPhase } from './settings-action-status';
@@ -20,6 +27,10 @@ export const AutoLockSettingsPanel: React.FC = () => {
     const [showLogs, setShowLogs] = React.useState(false);
     const [actionPhase, setActionPhase] = React.useState<SettingsActionPhase>("idle");
     const [actionMessage, setActionMessage] = React.useState<string>("");
+    const [sharedIntelJson, setSharedIntelJson] = React.useState<string>("");
+    const [requireSignatureVerification, setRequireSignatureVerification] = React.useState<boolean>(true);
+    const [replaceExistingSharedIntelSignals, setReplaceExistingSharedIntelSignals] = React.useState<boolean>(false);
+    const [sharedIntelResultMessage, setSharedIntelResultMessage] = React.useState<string>("");
 
     const isTauri: boolean = getRuntimeCapabilities().isNativeRuntime;
 
@@ -46,6 +57,76 @@ export const AutoLockSettingsPanel: React.FC = () => {
         setActionMessage(message);
     };
 
+    const attackModeSafetyProfile: AttackModeSafetyProfile = (
+        settings.attackModeSafetyProfileV121 === "strict" ? "strict" : "standard"
+    );
+
+    const setAttackModeProfile = (profile: AttackModeSafetyProfile): void => {
+        if (profile === attackModeSafetyProfile) {
+            return;
+        }
+        setActionPhase("working");
+        setActionMessage("Applying attack-mode profile...");
+        setAttackModeSafetyProfile(profile);
+        setActionPhase("success");
+        setActionMessage(
+            profile === "strict"
+                ? "Strict attack-mode profile enabled."
+                : "Standard attack-mode profile enabled."
+        );
+    };
+
+    const parseSharedIntelSignalsJson = (rawJson: string): ReadonlyArray<unknown> => {
+        const parsed = JSON.parse(rawJson) as unknown;
+        if (Array.isArray(parsed)) {
+            return parsed;
+        }
+        if (parsed && typeof parsed === "object" && Array.isArray((parsed as { signals?: unknown }).signals)) {
+            return (parsed as { signals: unknown[] }).signals;
+        }
+        return [parsed];
+    };
+
+    const handleImportSharedIntelJson = (): void => {
+        if (!sharedIntelJson.trim()) {
+            setSharedIntelResultMessage("Paste signed shared-intel JSON before importing.");
+            return;
+        }
+        try {
+            const signals = parseSharedIntelSignalsJson(sharedIntelJson);
+            const result = ingestSignedSharedIntelSignals({
+                signals,
+                replaceExisting: replaceExistingSharedIntelSignals,
+                requireSignatureVerification,
+            });
+            setSharedIntelResultMessage(
+                `Imported signals: accepted ${result.acceptedCount}, rejected ${result.rejectedCount}, stored ${result.storedSignalCount}. ` +
+                `Rejections: invalid_shape=${result.rejectedByReason.invalid_shape}, expired=${result.rejectedByReason.expired}, ` +
+                `missing_signature_verifier=${result.rejectedByReason.missing_signature_verifier}, invalid_signature=${result.rejectedByReason.invalid_signature}.`
+            );
+            if (result.acceptedCount > 0) {
+                setActionPhase("success");
+                setActionMessage("Shared-intel signals imported.");
+            }
+        } catch {
+            setSharedIntelResultMessage("Shared-intel import failed: invalid JSON payload.");
+        }
+    };
+
+    const handleExportSharedIntelJson = (): void => {
+        const signals = getSignedSharedIntelSignals();
+        const payload = JSON.stringify(signals, null, 2);
+        setSharedIntelJson(payload);
+        setSharedIntelResultMessage(`Exported ${signals.length} shared-intel signals to editor.`);
+    };
+
+    const handleClearSharedIntelSignals = (): void => {
+        clearSignedSharedIntelSignals();
+        setSharedIntelResultMessage("Cleared all persisted shared-intel signals for this profile.");
+        setActionPhase("success");
+        setActionMessage("Shared-intel signal store cleared.");
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-center gap-4 mb-2">
@@ -56,6 +137,106 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     <h3 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">{t("settings.security.title")}</h3>
                     <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium">{t("settings.security.desc")}</p>
                 </div>
+            </div>
+
+            {/* Attack Mode Trust Controls (M10) */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-zinc-900/40 border border-black/5 dark:border-white/5 backdrop-blur-xl transition-all duration-300 hover:border-black/10 dark:hover:border-white/10 group shadow-sm space-y-5">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 group-hover:scale-110 transition-transform">
+                            <Shield className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                        </div>
+                        <div className="space-y-0.5">
+                            <Label className="text-base text-zinc-900 dark:text-white font-bold tracking-tight">Attack Mode Trust Controls</Label>
+                            <p className="text-zinc-500 dark:text-zinc-400 text-xs max-w-[560px] leading-relaxed font-medium">
+                                Strict mode quarantines high-risk requests using relay/peer shared-intel evidence. Standard mode keeps requests open with diagnostics.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setAttackModeProfile("standard")}
+                            className={cn(
+                                "px-3 py-1.5 rounded-lg text-[11px] font-black border transition-colors",
+                                attackModeSafetyProfile === "standard"
+                                    ? "bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-black dark:border-white"
+                                    : "bg-zinc-50 text-zinc-600 border-black/10 dark:bg-white/5 dark:text-zinc-300 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/10"
+                            )}
+                            aria-label="Set attack mode profile to standard"
+                        >
+                            Standard
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setAttackModeProfile("strict")}
+                            className={cn(
+                                "px-3 py-1.5 rounded-lg text-[11px] font-black border transition-colors",
+                                attackModeSafetyProfile === "strict"
+                                    ? "bg-rose-600 text-white border-rose-600"
+                                    : "bg-zinc-50 text-zinc-600 border-black/10 dark:bg-white/5 dark:text-zinc-300 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/10"
+                            )}
+                            aria-label="Set attack mode profile to strict"
+                        >
+                            Strict
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                        <input
+                            type="checkbox"
+                            checked={requireSignatureVerification}
+                            onChange={(event) => setRequireSignatureVerification(event.currentTarget.checked)}
+                        />
+                        Require signature verification
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300 sm:justify-end">
+                        <input
+                            type="checkbox"
+                            checked={replaceExistingSharedIntelSignals}
+                            onChange={(event) => setReplaceExistingSharedIntelSignals(event.currentTarget.checked)}
+                        />
+                        Replace existing stored signals
+                    </label>
+                </div>
+
+                <textarea
+                    value={sharedIntelJson}
+                    onChange={(event) => setSharedIntelJson(event.currentTarget.value)}
+                    className="w-full h-40 rounded-2xl border border-black/10 dark:border-white/10 bg-zinc-50/80 dark:bg-zinc-950/70 p-3 text-xs font-mono text-zinc-700 dark:text-zinc-200 resize-y focus:outline-none focus:ring-2 focus:ring-rose-500/40"
+                    placeholder='Paste signed shared-intel JSON (array or {"signals":[...]})'
+                    aria-label="Shared intel JSON payload"
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleImportSharedIntelJson}
+                        className="px-3 py-2 rounded-lg bg-rose-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-rose-700 transition-colors"
+                    >
+                        Import JSON
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleExportSharedIntelJson}
+                        className="px-3 py-2 rounded-lg bg-zinc-200 text-zinc-900 text-[11px] font-black uppercase tracking-wider hover:bg-zinc-300 dark:bg-white/10 dark:text-zinc-100 dark:hover:bg-white/15 transition-colors"
+                    >
+                        Export JSON
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleClearSharedIntelSignals}
+                        className="px-3 py-2 rounded-lg bg-zinc-100 text-zinc-700 text-[11px] font-black uppercase tracking-wider hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 transition-colors"
+                    >
+                        Clear Signals
+                    </button>
+                </div>
+
+                {sharedIntelResultMessage ? (
+                    <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">{sharedIntelResultMessage}</p>
+                ) : null}
             </div>
 
             {/* At-Rest Encryption */}

@@ -555,6 +555,12 @@ Current execution status (started 2026-03-25):
 : and bridge JSON import/export is available via
 : `window.obscurM10TrustControls.ingestSignedSharedIntelSignalsJson(...)` and
 : `window.obscurM10TrustControls.exportSignedSharedIntelSignalsJson()`.
+11. CP1 trust controls now have a user/operator settings surface in:
+: `apps/pwa/app/features/settings/components/auto-lock-settings-panel.tsx`
+: with canonical strict/standard profile toggle + signed-intel JSON import/export editor,
+: including deterministic ingest result summaries and explicit signature/replace import options.
+12. Focused CP1 trust-controls UI validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/settings/components/auto-lock-settings-panel.test.tsx`.
 
 ## Version-Bound Execution
 
