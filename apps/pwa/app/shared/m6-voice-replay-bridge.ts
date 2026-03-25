@@ -342,7 +342,8 @@ const buildReplayReadiness = (params: Readonly<{
   const digestHasIgnoredFieldCoverage = params.latestDigestSummary !== null
     && typeof params.latestDigestSummary.staleEventIgnoredCount === "number"
     && Object.prototype.hasOwnProperty.call(params.latestDigestSummary, "latestIgnoredReasonCode");
-  const riskNotHigh = params.latestDigestSummary?.riskLevel !== "high";
+  const riskNotHigh = params.latestDigestSummary !== null
+    && params.latestDigestSummary.riskLevel !== "high";
   const scenarioReady = params.scenario === "account_switch"
     ? (hasEndedTransition && hasMultiRoomEvidence && hasPostSwitchActiveTransition)
     : (hasDegradedTransition && hasRecoveredActiveTransition);
@@ -374,6 +375,7 @@ const buildCp2EvidenceGate = (
   capture: M6VoiceCaptureBundle | null,
 ): M6VoiceCp2EvidenceGate => {
   const scenario = replay?.scenario ?? "weak_network";
+  const replayDigestSummary = replay?.latestDigestSummary ?? null;
   const scenarioGateChecks = scenario === "account_switch"
     ? {
       hasDegradedTransition: true,
@@ -406,7 +408,8 @@ const buildCp2EvidenceGate = (
     hasIgnoredEventSlice: Array.isArray(capture?.voice?.ignoredEvents),
     hasDigestSummary: replay?.latestDigestSummary !== null,
     digestHasIgnoredFieldCoverage: replay?.replayReadiness?.digestHasIgnoredFieldCoverage === true,
-    replayRiskNotHigh: replay?.latestDigestSummary?.riskLevel !== "high",
+    replayRiskNotHigh: replayDigestSummary !== null
+      && replayDigestSummary.riskLevel !== "high",
     replayReadyForCp2: replay?.replayReadiness?.readyForCp2Evidence === true,
   } as const;
 
@@ -438,10 +441,14 @@ const buildReplaySuiteGate = (params: Readonly<{
     accountAsyncVoiceSummaryPresent: accountAsyncVoiceSummary !== null,
     weakDeleteSummaryPresent: weakDeleteSummary !== null,
     accountDeleteSummaryPresent: accountDeleteSummary !== null,
-    weakAsyncVoiceRiskNotHigh: weakAsyncVoiceSummary?.riskLevel !== "high",
-    accountAsyncVoiceRiskNotHigh: accountAsyncVoiceSummary?.riskLevel !== "high",
-    weakDeleteRiskNotHigh: weakDeleteSummary?.riskLevel !== "high",
-    accountDeleteRiskNotHigh: accountDeleteSummary?.riskLevel !== "high",
+    weakAsyncVoiceRiskNotHigh: weakAsyncVoiceSummary !== null
+      && weakAsyncVoiceSummary.riskLevel !== "high",
+    accountAsyncVoiceRiskNotHigh: accountAsyncVoiceSummary !== null
+      && accountAsyncVoiceSummary.riskLevel !== "high",
+    weakDeleteRiskNotHigh: weakDeleteSummary !== null
+      && weakDeleteSummary.riskLevel !== "high",
+    accountDeleteRiskNotHigh: accountDeleteSummary !== null
+      && accountDeleteSummary.riskLevel !== "high",
     weakAsyncVoiceStartFailureCountZero: (weakAsyncVoiceSummary?.recordingStartFailedCount ?? -1) === 0,
     accountAsyncVoiceStartFailureCountZero: (accountAsyncVoiceSummary?.recordingStartFailedCount ?? -1) === 0,
     weakDeleteRemoteFailureCountZero: (weakDeleteSummary?.remoteFailedCount ?? -1) === 0,

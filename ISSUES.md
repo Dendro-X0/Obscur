@@ -492,6 +492,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `app/shared/m6-voice-replay-bridge.ts` suite gate now validates unified CP2 diagnostics health on both replay paths:
       - async voice-note summary presence/risk/start-failure counters,
       - delete-convergence summary presence/risk/remote-failure counters.
+    - suite/cp2 risk checks now require summary presence so capture-missing paths fail deterministically,
+      backed by focused regression coverage in `app/shared/m6-voice-replay-bridge.test.ts`.
 
 ## v1 Readiness Status
 

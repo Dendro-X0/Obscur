@@ -202,6 +202,10 @@ describe("m6-voice-replay-bridge", () => {
     expect(suite.suiteGate.checks.accountAsyncVoiceSummaryPresent).toBe(true);
     expect(suite.suiteGate.checks.weakDeleteSummaryPresent).toBe(true);
     expect(suite.suiteGate.checks.accountDeleteSummaryPresent).toBe(true);
+    expect(suite.suiteGate.checks.weakAsyncVoiceRiskNotHigh).toBe(true);
+    expect(suite.suiteGate.checks.accountAsyncVoiceRiskNotHigh).toBe(true);
+    expect(suite.suiteGate.checks.weakDeleteRiskNotHigh).toBe(true);
+    expect(suite.suiteGate.checks.accountDeleteRiskNotHigh).toBe(true);
     expect(suite.suiteGate.checks.weakAsyncVoiceStartFailureCountZero).toBe(true);
     expect(suite.suiteGate.checks.accountAsyncVoiceStartFailureCountZero).toBe(true);
     expect(suite.suiteGate.checks.weakDeleteRemoteFailureCountZero).toBe(true);
@@ -210,6 +214,43 @@ describe("m6-voice-replay-bridge", () => {
       clearAppEvents: true,
       captureWindowSize: 300,
     }))).not.toThrow();
+  });
+
+  it("fails CP3 suite gate deterministically when capture summaries are unavailable", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runCp3ReplaySuiteCapture: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => {
+        suiteGate: {
+          pass: boolean;
+          failedChecks: readonly string[];
+          checks: Record<string, boolean>;
+        };
+      };
+    };
+
+    const suite = replayApi.runCp3ReplaySuiteCapture({
+      clearAppEvents: true,
+      captureWindowSize: 300,
+    });
+    expect(suite.suiteGate.pass).toBe(false);
+    expect(suite.suiteGate.failedChecks).toEqual(expect.arrayContaining([
+      "weakAsyncVoiceSummaryPresent",
+      "accountAsyncVoiceSummaryPresent",
+      "weakDeleteSummaryPresent",
+      "accountDeleteSummaryPresent",
+      "weakAsyncVoiceRiskNotHigh",
+      "accountAsyncVoiceRiskNotHigh",
+      "weakDeleteRiskNotHigh",
+      "accountDeleteRiskNotHigh",
+      "weakAsyncVoiceStartFailureCountZero",
+      "accountAsyncVoiceStartFailureCountZero",
+      "weakDeleteRemoteFailureCountZero",
+      "accountDeleteRemoteFailureCountZero",
+    ]));
   });
 
   it("emits unsupported transition diagnostics when started with unsupported capability", () => {

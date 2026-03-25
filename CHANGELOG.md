@@ -12,6 +12,8 @@
     - `suiteGate` now also validates unified diagnostics health across both replay paths:
       - async voice-note summary presence/risk/start-failure counters,
       - delete-convergence summary presence/risk/remote-failure counters.
+    - risk checks now require summary presence (missing summaries cannot pass as low-risk),
+      with focused regression coverage for deterministic failure on capture-unavailable runs.
   - added focused replay-suite coverage in:
     - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
 - Started `v1.1.3` (`M9` `CP3`) checkpoint documentation/runbook lane:
