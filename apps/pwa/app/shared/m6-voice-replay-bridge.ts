@@ -489,6 +489,10 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     checkpointGatePassCount: toNumber(value.checkpointGatePassCount),
     checkpointGateFailCount: toNumber(value.checkpointGateFailCount),
     unexpectedCheckpointGateFailCount: toNumber(value.unexpectedCheckpointGateFailCount),
+    releaseReadinessGateCount: toNumber(value.releaseReadinessGateCount),
+    releaseReadinessGatePassCount: toNumber(value.releaseReadinessGatePassCount),
+    releaseReadinessGateFailCount: toNumber(value.releaseReadinessGateFailCount),
+    unexpectedReleaseReadinessGateFailCount: toNumber(value.unexpectedReleaseReadinessGateFailCount),
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
@@ -496,6 +500,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
     latestCheckpointGateFailedCheckSample: toStringOrNull(value.latestCheckpointGateFailedCheckSample),
+    latestReleaseReadinessGatePass: toBooleanOrNull(value.latestReleaseReadinessGatePass),
+    latestReleaseReadinessGateFailedCheckSample: toStringOrNull(value.latestReleaseReadinessGateFailedCheckSample),
   };
 };
 
@@ -908,6 +914,39 @@ const emitCp4CheckpointGateDiagnostic = (params: Readonly<{
       digestUnexpectedLongSessionGateFailCount: params.digestSummary?.unexpectedLongSessionGateFailCount ?? null,
       cycleCount: params.longSession.replayConfig.cycleCount,
       injectRecoveryExhausted: params.longSession.replayConfig.injectRecoveryExhausted,
+    },
+  });
+};
+
+const emitCp4ReleaseReadinessGateDiagnostic = (params: Readonly<{
+  releaseReadinessGate: M6VoiceCp4ReleaseReadinessCaptureBundle["releaseReadinessGate"];
+  checkpoint: M6VoiceCp4CheckpointCaptureBundle;
+  expectedPass: boolean;
+  digestSummary: M6VoiceDigestSummary | null;
+}>): void => {
+  const failedChecks = params.releaseReadinessGate.failedChecks;
+  logAppEvent({
+    name: "messaging.realtime_voice.cp4_release_readiness_gate",
+    level: params.releaseReadinessGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      cp4ReleaseReadinessPass: params.releaseReadinessGate.pass,
+      expectedPass: params.expectedPass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      checkpointGatePass: params.checkpoint.cp4CheckpointGate.pass,
+      checkpointEventObserved: params.releaseReadinessGate.checks.checkpointGateEventObserved,
+      digestSummaryPresent: params.releaseReadinessGate.checks.digestSummaryPresent,
+      digestCheckpointGateCountObserved: params.releaseReadinessGate.checks.digestCheckpointGateCountObserved,
+      digestLatestCheckpointAligned: params.releaseReadinessGate.checks.digestLatestCheckpointAligned,
+      digestUnexpectedCheckpointFailZeroWhenExpectedPass: params.releaseReadinessGate.checks.digestUnexpectedCheckpointFailZeroWhenExpectedPass,
+      digestRiskNotHighWhenExpectedPass: params.releaseReadinessGate.checks.digestRiskNotHighWhenExpectedPass,
+      digestRiskLevel: params.digestSummary?.riskLevel ?? null,
+      digestCheckpointGateCount: params.digestSummary?.checkpointGateCount ?? null,
+      digestLatestCheckpointGatePass: params.digestSummary?.latestCheckpointGatePass ?? null,
+      digestUnexpectedCheckpointGateFailCount: params.digestSummary?.unexpectedCheckpointGateFailCount ?? null,
+      cycleCount: params.checkpoint.longSession.replayConfig.cycleCount,
+      injectRecoveryExhausted: params.checkpoint.longSession.replayConfig.injectRecoveryExhausted,
     },
   });
 };
@@ -1707,19 +1746,26 @@ export const installM6VoiceReplayBridge = (): void => {
         captureWindowSize,
       )?.at(-1)?.context ?? null;
       const digestSummary = readDigestSummary(root, captureWindowSize);
+      const releaseReadinessGate = buildCp4ReleaseReadinessGate({
+        checkpoint,
+        expectedPass,
+        latestLongSessionGateEventContext,
+        latestCheckpointGateEventContext,
+        digestSummary,
+      });
+      emitCp4ReleaseReadinessGateDiagnostic({
+        releaseReadinessGate,
+        checkpoint,
+        expectedPass,
+        digestSummary,
+      });
       return {
         generatedAtUnixMs: Date.now(),
         checkpoint,
         latestLongSessionGateEventContext,
         latestCheckpointGateEventContext,
         digestSummary,
-        releaseReadinessGate: buildCp4ReleaseReadinessGate({
-          checkpoint,
-          expectedPass,
-          latestLongSessionGateEventContext,
-          latestCheckpointGateEventContext,
-          digestSummary,
-        }),
+        releaseReadinessGate,
       };
     },
     runCp4ReleaseReadinessCaptureJson: (params) => (

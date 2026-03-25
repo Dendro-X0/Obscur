@@ -418,6 +418,15 @@ Canonical matrix:
 25. CP4 release-readiness gate probe (recommended quick pass/fail verdict):
 : `window.obscurM6VoiceReplay?.runCp4ReleaseReadinessGateProbe?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 })`
 : `copy(window.obscurM6VoiceReplay?.runCp4ReleaseReadinessGateProbeJson?.({ clearAppEvents: true, captureWindowSize: 400, cycleCount: 6 }))`
+26. CP4 release-readiness diagnostics event slice:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.realtime_voice.cp4_release_readiness_gate"]`
+27. CP4 release-readiness gate summary counters:
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.releaseReadinessGateCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.releaseReadinessGatePassCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.releaseReadinessGateFailCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.unexpectedReleaseReadinessGateFailCount`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestReleaseReadinessGatePass`
+: `window.obscurAppEvents.getCrossDeviceSyncDigest(400).summary.realtimeVoiceSession.latestReleaseReadinessGateFailedCheckSample`
 22. Delete convergence event slices:
 : `window.obscurAppEvents.getCrossDeviceSyncDigest(400).events["messaging.delete_for_everyone_remote_result"]`
 23. Voice-note diagnostics slices:

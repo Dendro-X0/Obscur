@@ -42,6 +42,19 @@
 - Extended stale replay-bridge auto-upgrade guard to require CP4 release-readiness helper APIs.
 - Added focused regression coverage for CP4 release-readiness helper pass/fail lanes in:
   - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Added canonical CP4 release-readiness diagnostics event emission from the release-readiness helper lane:
+  - `messaging.realtime_voice.cp4_release_readiness_gate`.
+- Cross-device digest realtime voice summary now surfaces release-readiness gate posture:
+  - `releaseReadinessGateCount`,
+  - `releaseReadinessGatePassCount`,
+  - `releaseReadinessGateFailCount`,
+  - `unexpectedReleaseReadinessGateFailCount`,
+  - `latestReleaseReadinessGatePass`,
+  - `latestReleaseReadinessGateFailedCheckSample`.
+- Extended digest/capture parser contracts to include release-readiness gate fields in:
+  - `apps/pwa/app/shared/log-app-event.ts`,
+  - `apps/pwa/app/shared/m6-voice-capture.ts`,
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
 
 ## [v1.1.5] - 2026-03-24
 

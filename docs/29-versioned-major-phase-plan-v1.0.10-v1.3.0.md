@@ -275,7 +275,8 @@ Current checkpoint progress (2026-03-24):
 : `runCp4ReleaseReadinessGateProbe(...)`, and `runCp4ReleaseReadinessGateProbeJson(...)` in
 : `apps/pwa/app/shared/m6-voice-replay-bridge.ts`.
 7. stale replay-bridge upgrade guard now requires CP4 release-readiness helper APIs so stale runtime bridge objects cannot shadow new CP4 surfaces.
-8. focused CP4 continuation validation is green:
+8. release-readiness helper now emits canonical `messaging.realtime_voice.cp4_release_readiness_gate` diagnostics and digest `summary.realtimeVoiceSession.releaseReadinessGate*` fields from the same canonical owner path.
+9. focused CP4 continuation validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m6-voice-capture.test.ts app/shared/log-app-event.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`
 : `pnpm docs:check`

@@ -709,6 +709,19 @@ describe("m6-voice-replay-bridge", () => {
     expect(bundle.latestCheckpointGateEventContext?.cp4CheckpointPass).toBe(true);
     expect(bundle.digestSummary?.checkpointGateCount).toBeGreaterThanOrEqual(1);
     expect(bundle.digestSummary?.latestCheckpointGatePass).toBe(true);
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const readinessEvents = diagnosticsApi.findByName("messaging.realtime_voice.cp4_release_readiness_gate", 5);
+    expect(readinessEvents.length).toBeGreaterThanOrEqual(1);
+    expect(readinessEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      cp4ReleaseReadinessPass: true,
+      expectedPass: true,
+      checkpointGatePass: true,
+      checkpointEventObserved: true,
+    }));
     expect(() => JSON.parse(replayApi.runCp4ReleaseReadinessCaptureJson({
       clearAppEvents: true,
       captureWindowSize: 300,
