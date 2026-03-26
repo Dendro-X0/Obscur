@@ -483,8 +483,8 @@ Current checkpoint progress (2026-03-25):
 23. Cross-device digest now includes CP3 suite posture in
 : `summary.m10TrustControls.cp3SuiteGate*`
 : plus latest CP3 suite expected-stable/pass/check-sample fields.
-24. `v1.2.2` release is published on GitHub (2026-03-25), and
-: `v1.2.3` is now the active `main` development lane for remaining M10 CP3/CP4 closeout slices.
+24. `v1.2.3` tag is now pushed on GitHub (2026-03-25), and
+: `v1.2.4` is now the active `main` development lane for remaining M10 CP3/CP4 closeout slices.
 25. CP4 closeout helper APIs landed on canonical M10 bridge owner:
 : `window.obscurM10TrustControls.runCp4CloseoutCapture({ eventWindowSize, expectedStable })`,
 : `window.obscurM10TrustControls.runCp4CloseoutCaptureJson({ eventWindowSize, expectedStable })`,

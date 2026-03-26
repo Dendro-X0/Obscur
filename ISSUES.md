@@ -763,8 +763,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts`,
       - `pnpm --dir apps/pwa exec vitest run app/components/page-transition-recovery.test.ts app/components/app-shell.test.tsx`,
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
-  - `v1.2.2` release is now published and verified on GitHub.
-  - `v1.2.3` development lane is now active on `main` for M10 CP3/CP4 closeout slices.
+  - `v1.2.3` tag is now pushed on GitHub.
+  - `v1.2.4` development lane is now active on `main` for M10 CP3/CP4 closeout slices.
 
 ## v1 Readiness Status
 

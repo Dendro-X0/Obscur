@@ -2,8 +2,8 @@
 
 ### Changed
 
-- Released `v1.2.2` (GitHub Release published on 2026-03-25) and opened
-  `v1.2.3` as the active development lane on `main`.
+- Released `v1.2.3` (tag pushed on 2026-03-25) and opened
+  `v1.2.4` as the active development lane on `main`.
 - Added deterministic CP3 readiness helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runCp3ReadinessCapture(...)`,
