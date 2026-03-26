@@ -283,6 +283,19 @@ type M10DemoEventSlicesPayload = Readonly<{
   recentWarnOrError: ReadonlyArray<MinimalAppEvent>;
 }>;
 
+type M10ReleaseCandidateEventSlicesPayload = Readonly<{
+  events: Readonly<{
+    cp2: ReadonlyArray<MinimalAppEvent>;
+    cp3Readiness: ReadonlyArray<MinimalAppEvent>;
+    cp3Suite: ReadonlyArray<MinimalAppEvent>;
+    cp4Closeout: ReadonlyArray<MinimalAppEvent>;
+    v130Closeout: ReadonlyArray<MinimalAppEvent>;
+    v130Evidence: ReadonlyArray<MinimalAppEvent>;
+    v130ReleaseCandidate: ReadonlyArray<MinimalAppEvent>;
+  }>;
+  recentWarnOrError: ReadonlyArray<MinimalAppEvent>;
+}>;
+
 type M10V124DemoAssetBundleCapture = Readonly<{
   generatedAtUnixMs: number;
   eventWindowSize: number;
@@ -361,6 +374,7 @@ type M10V130ReleaseCandidateGate = Readonly<{
     cp4CloseoutGateObserved: boolean;
     v130CloseoutGateObserved: boolean;
     v130EvidenceGateObserved: boolean;
+    v130ReleaseCandidateGateObserved: boolean;
     latestV130EvidenceEventMatchesGate: boolean;
     v130EvidenceUnexpectedFailCountZero: boolean;
   }>;
@@ -373,7 +387,7 @@ type M10V130ReleaseCandidateCapture = Readonly<{
   cp2TriageCapture: M10Cp2TriageCapture;
   v130EvidenceCapture: M10V130EvidenceCapture;
   digestSummaryAfterV130EvidenceEvent: M10Cp2TriageDigestSummary;
-  eventSlices: M10DemoEventSlicesPayload;
+  eventSlices: M10ReleaseCandidateEventSlicesPayload;
   releaseCandidateGate: M10V130ReleaseCandidateGate;
 }>;
 
@@ -1532,12 +1546,28 @@ const buildV124StrictGatePreview = (
   };
 };
 
+const readV130ReleaseCandidateEventSlices = (
+  root: M10TrustControlsBridgeWindow,
+  eventWindowSize: number,
+): M10ReleaseCandidateEventSlicesPayload => ({
+  events: {
+    cp2: readEventsByName(root, CP2_STABILITY_GATE_EVENT_NAME, eventWindowSize),
+    cp3Readiness: readEventsByName(root, CP3_READINESS_GATE_EVENT_NAME, eventWindowSize),
+    cp3Suite: readEventsByName(root, CP3_SUITE_GATE_EVENT_NAME, eventWindowSize),
+    cp4Closeout: readEventsByName(root, CP4_CLOSEOUT_GATE_EVENT_NAME, eventWindowSize),
+    v130Closeout: readEventsByName(root, V130_CLOSEOUT_GATE_EVENT_NAME, eventWindowSize),
+    v130Evidence: readEventsByName(root, V130_EVIDENCE_GATE_EVENT_NAME, eventWindowSize),
+    v130ReleaseCandidate: readEventsByName(root, V130_RELEASE_CANDIDATE_GATE_EVENT_NAME, eventWindowSize),
+  },
+  recentWarnOrError: readRecentWarnOrErrorEvents(root, eventWindowSize),
+});
+
 const buildV130ReleaseCandidateGate = (params: Readonly<{
   expectedStable: boolean;
   cp2TriageCapture: M10Cp2TriageCapture;
   v130EvidenceCapture: M10V130EvidenceCapture;
   digestSummaryAfterV130EvidenceEvent: M10Cp2TriageDigestSummary;
-  eventSlices: M10DemoEventSlicesPayload["events"];
+  eventSlices: M10ReleaseCandidateEventSlicesPayload["events"];
 }>): M10V130ReleaseCandidateGate => {
   const digestSummary = params.digestSummaryAfterV130EvidenceEvent;
   const latestV130EvidenceEvent = params.eventSlices.v130Evidence.at(-1);
@@ -1601,6 +1631,10 @@ const buildV130ReleaseCandidateGate = (params: Readonly<{
       !params.expectedStable
       || params.eventSlices.v130Evidence.length > 0
     ),
+    v130ReleaseCandidateGateObserved: (
+      !params.expectedStable
+      || params.eventSlices.v130ReleaseCandidate.length > 0
+    ),
     latestV130EvidenceEventMatchesGate: (
       !params.expectedStable
       || latestV130EvidenceEventMatchesGate
@@ -1641,17 +1675,7 @@ const createV130ReleaseCandidateCapture = (
 
   const eventWindowSize = v130EvidenceCapture.eventWindowSize;
   const digestSummaryAfterV130EvidenceEvent = readCp2TriageDigestSummary(root, eventWindowSize);
-  const eventSlices = {
-    events: {
-      cp2: readEventsByName(root, CP2_STABILITY_GATE_EVENT_NAME, eventWindowSize),
-      cp3Readiness: readEventsByName(root, CP3_READINESS_GATE_EVENT_NAME, eventWindowSize),
-      cp3Suite: readEventsByName(root, CP3_SUITE_GATE_EVENT_NAME, eventWindowSize),
-      cp4Closeout: readEventsByName(root, CP4_CLOSEOUT_GATE_EVENT_NAME, eventWindowSize),
-      v130Closeout: readEventsByName(root, V130_CLOSEOUT_GATE_EVENT_NAME, eventWindowSize),
-      v130Evidence: readEventsByName(root, V130_EVIDENCE_GATE_EVENT_NAME, eventWindowSize),
-    },
-    recentWarnOrError: readRecentWarnOrErrorEvents(root, eventWindowSize),
-  } as const;
+  const eventSlices = readV130ReleaseCandidateEventSlices(root, eventWindowSize);
   return {
     generatedAtUnixMs: Date.now(),
     eventWindowSize,
@@ -1703,6 +1727,7 @@ const emitV130ReleaseCandidateGateEvent = (capture: M10V130ReleaseCandidateCaptu
         digestSummary.m10TrustControls?.v130EvidenceGateUnexpectedFailCount ?? 0
       ),
       v130EvidenceEventCount: capture.eventSlices.events.v130Evidence.length,
+      v130ReleaseCandidateEventCount: capture.eventSlices.events.v130ReleaseCandidate.length,
       latestV130EvidenceEventMatchesGate: capture.releaseCandidateGate.checks.latestV130EvidenceEventMatchesGate,
     },
   });
@@ -2014,7 +2039,18 @@ export const installM10TrustControlsBridge = (): void => {
     runV130ReleaseCandidateCapture: (params) => {
       const capture = createV130ReleaseCandidateCapture(root, params);
       emitV130ReleaseCandidateGateEvent(capture);
-      return capture;
+      const eventSlices = readV130ReleaseCandidateEventSlices(root, capture.eventWindowSize);
+      return {
+        ...capture,
+        eventSlices,
+        releaseCandidateGate: buildV130ReleaseCandidateGate({
+          expectedStable: capture.expectedStable,
+          cp2TriageCapture: capture.cp2TriageCapture,
+          v130EvidenceCapture: capture.v130EvidenceCapture,
+          digestSummaryAfterV130EvidenceEvent: capture.digestSummaryAfterV130EvidenceEvent,
+          eventSlices: eventSlices.events,
+        }),
+      };
     },
     runV130ReleaseCandidateCaptureJson: (params) => (
       JSON.stringify(root.obscurM10TrustControls?.runV130ReleaseCandidateCapture(params) ?? null, null, 2)
@@ -2039,6 +2075,7 @@ export const installM10TrustControlsBridge = (): void => {
           cp4CloseoutGateObserved: false,
           v130CloseoutGateObserved: false,
           v130EvidenceGateObserved: false,
+          v130ReleaseCandidateGateObserved: false,
           latestV130EvidenceEventMatchesGate: false,
           v130EvidenceUnexpectedFailCountZero: false,
         },
@@ -2090,6 +2127,7 @@ export const m10TrustControlsBridgeInternals = {
   readResponsivenessEvents,
   readEventsByName,
   readRecentWarnOrErrorEvents,
+  readV130ReleaseCandidateEventSlices,
   buildV124StrictGatePreview,
   toGatePassPayload,
   readTrustControlEvents,

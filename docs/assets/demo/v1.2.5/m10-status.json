@@ -1,5 +1,5 @@
 {
-  "generatedAtUnixMs": 1774503935221,
+  "generatedAtUnixMs": 1774505694247,
   "structureOnly": true,
   "ready": true,
   "strictReady": false,
@@ -64,6 +64,10 @@
     {
       "name": "event_slice_strict:v130Evidence",
       "detail": "m10-event-slices.json events.v130Evidence should contain at least one event"
+    },
+    {
+      "name": "event_slice_strict:v130ReleaseCandidate",
+      "detail": "m10-event-slices.json events.v130ReleaseCandidate should contain at least one event"
     }
   ],
   "checks": [
@@ -164,6 +168,11 @@
     },
     {
       "name": "event_slice_shape:v130Evidence",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_shape:v130ReleaseCandidate",
       "pass": true,
       "detail": null
     },

@@ -563,7 +563,10 @@ Evidence:
 : `docs/35-v1.2.5-m10-release-candidate-matrix.md`,
 5. canonical output folder for this lane:
 : `docs/assets/demo/v1.2.5/`,
-6. focused validation:
+6. release-candidate strict checks now include explicit
+: `v130ReleaseCandidate` event-slice coverage so one-shot captures prove
+: canonical release-candidate gate visibility,
+7. focused validation:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 

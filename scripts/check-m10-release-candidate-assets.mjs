@@ -35,6 +35,7 @@ const eventSliceKeys = [
   "cp4Closeout",
   "v130Closeout",
   "v130Evidence",
+  "v130ReleaseCandidate",
 ];
 
 const readJson = async (filename) => {

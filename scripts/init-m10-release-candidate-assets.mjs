@@ -72,6 +72,7 @@ const fileTemplates = new Map([
         cp4Closeout: [],
         v130Closeout: [],
         v130Evidence: [],
+        v130ReleaseCandidate: [],
       },
       recentWarnOrError: [],
     },
@@ -157,6 +158,7 @@ const rawFileTemplates = new Map([
         cp4Closeout: [],
         v130Closeout: [],
         v130Evidence: [],
+        v130ReleaseCandidate: [],
       },
       recentWarnOrError: [],
     },
@@ -183,7 +185,7 @@ _Status: pending capture_
 
 ## Segment 3: Digest + Event Correlation
 1. Show \`summary.m10TrustControls\` from \`m10-digest-summary.json\`.
-2. Show event chain slices in \`m10-event-slices.json\`.
+2. Show event chain slices in \`m10-event-slices.json\` including \`v130ReleaseCandidate\`.
 `;
 
 const rawCaptureReadmeTemplate = `# Raw Capture Inputs

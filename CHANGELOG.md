@@ -13,6 +13,9 @@
 - Added canonical v1.3 release-candidate diagnostics event emission:
   - `messaging.m10.v130_release_candidate_gate`
   with explicit one-shot pass/fail posture across CP2/CP3/CP4/v130 gate evidence.
+- Extended release-candidate capture/event asset contracts so the one-shot payload and
+  `demo:m10:rc` automation now include explicit `v130ReleaseCandidate` event slices for
+  strict closeout verification.
 - Added focused regression coverage for release-candidate helper flow in:
   - `apps/pwa/app/shared/m10-trust-controls-bridge.test.ts`.
 - Added deterministic `v1.2.5` M10 release-candidate asset automation:

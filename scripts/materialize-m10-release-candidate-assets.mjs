@@ -114,6 +114,7 @@ const main = async () => {
       cp4Closeout: toArray(rawEvents.cp4Closeout),
       v130Closeout: toArray(rawEvents.v130Closeout),
       v130Evidence: toArray(rawEvents.v130Evidence),
+      v130ReleaseCandidate: toArray(rawEvents.v130ReleaseCandidate),
     },
     recentWarnOrError: toArray(capture?.eventSlices?.recentWarnOrError),
   };
@@ -157,6 +158,9 @@ const main = async () => {
   }
   if (isEmptyBucket(eventSlicesPayload.events.v130Evidence)) {
     warnings.push("events.v130Evidence is empty (strict gate will fail until v130 evidence events are captured)");
+  }
+  if (isEmptyBucket(eventSlicesPayload.events.v130ReleaseCandidate)) {
+    warnings.push("events.v130ReleaseCandidate is empty (strict gate will fail until release-candidate events are captured)");
   }
 
   console.log(`[demo:rc:materialize] wrote ${writes.length} file(s) to ${path.relative(repoRoot, targetDir)}`);

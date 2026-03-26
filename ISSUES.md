@@ -799,6 +799,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm demo:m10:rc:check:structure`,
     - `pnpm demo:m10:rc:check`,
     - `pnpm demo:m10:rc:status`.
+  - release-candidate capture and artifact checks now require explicit `v130ReleaseCandidate` event slices
+    so one-shot closeout bundles prove their own gate-event visibility.
   - release-candidate evidence matrix and output folder are now tracked:
     - matrix: `docs/35-v1.2.5-m10-release-candidate-matrix.md`,
     - artifacts: `docs/assets/demo/v1.2.5/`.
