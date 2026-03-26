@@ -11,6 +11,11 @@
   - `pnpm closeout:v130:check`
   - `pnpm closeout:v130:check:with-preflight`
   wired to `scripts/check-v130-closeout-readiness.mjs`.
+- Added deterministic release-candidate refresh automation:
+  - `pnpm demo:m10:rc:refresh`
+  wired to `scripts/refresh-m10-release-candidate-flow.mjs` to run
+  `materialize -> strict check -> status -> next` in one command,
+  with optional local closeout validation via `--with-closeout-check`.
 - Improved closeout automation determinism:
   - `closeout:v130:check` now verifies strict readiness directly from materialized
     pass/digest/event artifacts (no forced status-file rewrite),
