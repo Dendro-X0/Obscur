@@ -588,6 +588,8 @@ Remaining work snapshot (2026-03-25):
 : `docs/36-v1.3.0-closeout-matrix.md`.
 4. deterministic closeout gate automation is available:
 : `pnpm closeout:v130:check`
+: (artifact-based strict verification without status timestamp churn),
+: optional status refresh via `pnpm closeout:v130:check:refresh-status`,
 : and `pnpm closeout:v130:check:with-preflight`.
 
 Mandatory release gates:

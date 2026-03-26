@@ -11,6 +11,10 @@
   - `pnpm closeout:v130:check`
   - `pnpm closeout:v130:check:with-preflight`
   wired to `scripts/check-v130-closeout-readiness.mjs`.
+- Improved closeout automation determinism:
+  - `closeout:v130:check` now verifies strict readiness directly from materialized
+    pass/digest/event artifacts (no forced status-file rewrite),
+  - added `closeout:v130:check:refresh-status` for explicit status-file refresh.
 - Added deterministic stabilized release-candidate helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilized(...)`,

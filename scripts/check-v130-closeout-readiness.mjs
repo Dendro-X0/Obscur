@@ -45,23 +45,52 @@ const run = (cmd, commandArgs) => {
   }
 };
 
-const assertStrictReady = () => {
-  const statusPath = resolve(rootDir, "docs/assets/demo/v1.2.5/m10-status.json");
-  const status = JSON.parse(readFileSync(statusPath, "utf8"));
-  if (status?.strictReady !== true) {
-    throw new Error("m10-status strictReady is not true. Run demo:m10:rc flow first.");
+const readJson = (relativePath) => {
+  const fullPath = resolve(rootDir, relativePath);
+  return JSON.parse(readFileSync(fullPath, "utf8"));
+};
+
+const assertStrictBundleReady = () => {
+  const passPayload = readJson("docs/assets/demo/v1.2.5/m10-v130-release-candidate-pass.json");
+  if (passPayload?.releaseCandidateGate?.pass !== true) {
+    throw new Error("release-candidate pass payload is not strict-ready.");
+  }
+
+  const digestPayload = readJson("docs/assets/demo/v1.2.5/m10-digest-summary.json");
+  if (digestPayload?.summary?.m10TrustControls == null) {
+    throw new Error("digest summary is missing summary.m10TrustControls.");
+  }
+
+  const slicesPayload = readJson("docs/assets/demo/v1.2.5/m10-event-slices.json");
+  const requiredSliceKeys = [
+    "cp2",
+    "cp3Readiness",
+    "cp3Suite",
+    "cp4Closeout",
+    "v130Closeout",
+    "v130Evidence",
+    "v130ReleaseCandidate",
+  ];
+  const missingKeys = requiredSliceKeys.filter((key) => (
+    !Array.isArray(slicesPayload?.events?.[key]) || slicesPayload.events[key].length < 1
+  ));
+  if (missingKeys.length > 0) {
+    throw new Error(`missing required non-empty event slices: ${missingKeys.join(", ")}`);
   }
 };
 
 const main = () => {
   const includePreflight = hasFlag("--include-preflight");
   const allowDirty = hasFlag("--allow-dirty");
+  const refreshRcStatus = hasFlag("--refresh-rc-status");
   const preflightTag = getArgValue("--tag") ?? "v1.3.0";
 
   console.log("[v130:closeout] Running strict RC artifact verification...");
   run("pnpm", ["demo:m10:rc:check"]);
-  run("pnpm", ["demo:m10:rc:status"]);
-  assertStrictReady();
+  if (refreshRcStatus) {
+    run("pnpm", ["demo:m10:rc:status"]);
+  }
+  assertStrictBundleReady();
 
   console.log("[v130:closeout] Running documentation + version alignment checks...");
   run("pnpm", ["version:check"]);

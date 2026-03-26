@@ -788,7 +788,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - `v1.2.4` tag is now pushed on GitHub.
   - `v1.2.5` development lane is now closed out; `v1.2.6` is active on `main` for continued M10 execution toward `v1.3.0`.
   - `v1.2.6` closeout automation slice landed:
-    - `pnpm closeout:v130:check` now runs strict RC artifact verification + docs/version + focused M10 test/typecheck checks in one command,
+    - `pnpm closeout:v130:check` now runs strict RC artifact verification + docs/version + focused M10 test/typecheck checks in one command (without rewriting `m10-status.json`),
+    - `pnpm closeout:v130:check:refresh-status` runs the same gate but refreshes `m10-status.json`,
     - `pnpm closeout:v130:check:with-preflight` adds `release:preflight -- --tag v1.3.0` for release-bound runs.
   - deterministic one-shot release-candidate helper is now available on canonical M10 bridge:
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture({ eventWindowSize, expectedStable })`,
