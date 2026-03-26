@@ -586,6 +586,9 @@ Remaining work snapshot (2026-03-25):
 2. run clean-tree release gates (`version/docs/vitest/tsc/release:test-pack/release:preflight`) and publish `v1.3.0`.
 3. execute closeout runbook:
 : `docs/36-v1.3.0-closeout-matrix.md`.
+4. deterministic closeout gate automation is available:
+: `pnpm closeout:v130:check`
+: and `pnpm closeout:v130:check:with-preflight`.
 
 Mandatory release gates:
 1. `pnpm version:check`

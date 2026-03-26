@@ -7,6 +7,10 @@
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
   (added `demo:m10:rc:status:structure` for structure-only reporting) so
   `m10-status.json` reflects actual strict readiness for release decisions.
+- Added deterministic `v1.3.0` closeout readiness automation:
+  - `pnpm closeout:v130:check`
+  - `pnpm closeout:v130:check:with-preflight`
+  wired to `scripts/check-v130-closeout-readiness.mjs`.
 - Added deterministic stabilized release-candidate helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilized(...)`,
