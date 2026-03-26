@@ -72,6 +72,10 @@
   `apps/pwa/app/shared/log-app-event.ts` with:
   - `events["messaging.m10.v130_evidence_gate"]`,
   - `summary.m10TrustControls.v130EvidenceGate*` counters and latest sample fields.
+- Added `v1.2.4` M10 demo-asset matrix and fixed bundle output path:
+  - `docs/34-v1.2.4-m10-demo-asset-matrix.md`,
+  - `docs/assets/demo/v1.2.4/README.md`,
+  with copy-ready capture commands for CP3/CP4/v130 pass-lane evidence and digest event slices.
 
 ## [v1.2.2] - 2026-03-25
 

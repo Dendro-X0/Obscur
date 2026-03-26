@@ -518,6 +518,11 @@ Current checkpoint progress (2026-03-25):
 33. Cross-device digest now includes v1.3 evidence posture in
 : `summary.m10TrustControls.v130EvidenceGate*`
 : plus latest v1.3 evidence expected-stable/pass/check-sample fields.
+34. `v1.2.4` demo-asset matrix is now defined for M10 closeout handoff:
+: `docs/34-v1.2.4-m10-demo-asset-matrix.md`
+: with required pass-lane JSON captures + digest/event bundle checklist.
+35. canonical demo-asset output folder is now fixed for this lane:
+: `docs/assets/demo/v1.2.4/`.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,

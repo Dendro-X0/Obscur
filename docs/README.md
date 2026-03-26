@@ -38,6 +38,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 30. [31 v1.0.10 CP3 Community Replay Matrix](./31-v1.0.10-cp3-community-replay-matrix.md)
 31. [32 v1.1.3 CP3 Voice Suite Replay Matrix](./32-v1.1.3-cp3-voice-suite-matrix.md)
 32. [33 v1.1.4 CP4 Voice Long-Session Matrix](./33-v1.1.4-cp4-voice-long-session-matrix.md)
+33. [34 v1.2.4 M10 Demo Asset Matrix](./34-v1.2.4-m10-demo-asset-matrix.md)
 
 ## Scope Rules
 

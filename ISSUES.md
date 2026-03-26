@@ -765,6 +765,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
   - `v1.2.3` tag is now pushed on GitHub.
   - `v1.2.4` development lane is now active on `main` for M10 CP3/CP4 closeout slices.
+  - `v1.2.4` demo-asset execution pack is now defined:
+    - matrix doc: `docs/34-v1.2.4-m10-demo-asset-matrix.md`,
+    - output folder: `docs/assets/demo/v1.2.4/`,
+    - includes required CP3/CP4/v130 pass-lane JSON captures and digest/event bundle checklist.
 
 ## v1 Readiness Status
 

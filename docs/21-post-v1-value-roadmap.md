@@ -654,6 +654,9 @@ Current execution status (started 2026-03-25):
 41. Cross-device digest now includes v1.3 evidence posture under `summary.m10TrustControls`:
 : `v130EvidenceGateCount`, pass/fail/unexpected-fail counters,
 : latest v1.3 evidence expected-stable/pass/failed-check sample.
+42. `v1.2.4` demo-asset execution matrix is now documented:
+: `docs/34-v1.2.4-m10-demo-asset-matrix.md`,
+: with required CP3/CP4/v130 pass-lane captures and digest/event bundle output rules.
 
 ## Version-Bound Execution
 
