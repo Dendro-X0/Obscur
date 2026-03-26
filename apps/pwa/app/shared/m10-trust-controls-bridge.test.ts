@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { installM10TrustControlsBridge } from "./m10-trust-controls-bridge";
+import {
+  installM10TrustControlsBridge,
+  m10TrustControlsBridgeInternals,
+} from "./m10-trust-controls-bridge";
 import { resetM10SharedIntelPolicyState } from "@/app/features/messaging/services/m10-shared-intel-policy";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
@@ -42,6 +45,21 @@ describe("m10-trust-controls-bridge", () => {
 
     const exported = api?.exportSignedSharedIntelSignalsJson() ?? "[]";
     expect(exported).toContain("bridge-signal-1");
+  });
+
+  it("upgrades stale bridge objects after hot reload", () => {
+    const staleBridge = {
+      __bridgeVersion: m10TrustControlsBridgeInternals.M10_TRUST_CONTROLS_BRIDGE_VERSION - 1,
+      captureJson: () => "stale",
+    } as any;
+    (window as Window & { obscurM10TrustControls?: any }).obscurM10TrustControls = staleBridge;
+
+    installM10TrustControlsBridge();
+    const api = window.obscurM10TrustControls;
+    expect(api).toBeDefined();
+    expect(api).not.toBe(staleBridge);
+    expect(api?.__bridgeVersion).toBe(m10TrustControlsBridgeInternals.M10_TRUST_CONTROLS_BRIDGE_VERSION);
+    expect(typeof api?.runV130ReleaseCandidateCapture).toBe("function");
   });
 
   it("captures only attack-mode quarantine events", () => {

@@ -391,6 +391,7 @@ type M10V130ReleaseCandidateCapture = Readonly<{
 }>;
 
 type M10TrustControlsBridgeApi = Readonly<{
+  __bridgeVersion: number;
   getSnapshot: () => M10TrustControlsSnapshot;
   setAttackModeSafetyProfile: (profile: AttackModeSafetyProfile) => AttackModeSafetyProfile;
   replaceSignedSharedIntelSignals: (signals: ReadonlyArray<SignedSharedIntelSignal>) => number;
@@ -637,6 +638,7 @@ const CP4_CLOSEOUT_GATE_EVENT_NAME = "messaging.m10.cp4_closeout_gate";
 const V130_CLOSEOUT_GATE_EVENT_NAME = "messaging.m10.v130_closeout_gate";
 const V130_EVIDENCE_GATE_EVENT_NAME = "messaging.m10.v130_evidence_gate";
 const V130_RELEASE_CANDIDATE_GATE_EVENT_NAME = "messaging.m10.v130_release_candidate_gate";
+const M10_TRUST_CONTROLS_BRIDGE_VERSION = 2;
 
 const isPositiveFinite = (value: unknown): value is number => (
   typeof value === "number" && Number.isFinite(value) && value > 0
@@ -1817,10 +1819,12 @@ export const installM10TrustControlsBridge = (): void => {
     return;
   }
   const root = window as M10TrustControlsBridgeWindow;
-  if (root.obscurM10TrustControls) {
+  const existingBridge = root.obscurM10TrustControls as (Partial<M10TrustControlsBridgeApi> | undefined);
+  if (existingBridge?.__bridgeVersion === M10_TRUST_CONTROLS_BRIDGE_VERSION) {
     return;
   }
   root.obscurM10TrustControls = {
+    __bridgeVersion: M10_TRUST_CONTROLS_BRIDGE_VERSION,
     getSnapshot: () => createSnapshot(),
     setAttackModeSafetyProfile: (profile) => {
       setAttackModeSafetyProfile(profile);
@@ -2111,6 +2115,7 @@ export const installM10TrustControlsBridge = (): void => {
 };
 
 export const m10TrustControlsBridgeInternals = {
+  M10_TRUST_CONTROLS_BRIDGE_VERSION,
   ATTACK_MODE_REASON_PREFIX,
   CP2_STABILITY_GATE_EVENT_NAME,
   CP3_READINESS_GATE_EVENT_NAME,
