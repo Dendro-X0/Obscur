@@ -6,6 +6,7 @@ Helper commands:
 1. `pnpm demo:m10:init`
 2. `pnpm demo:m10:check:structure`
 3. `pnpm demo:m10:check`
+4. `pnpm demo:m10:status` (writes `m10-status.json`)
 
 Required files:
 1. `m10-cp3-readiness-pass.json`
@@ -21,3 +22,4 @@ Optional files:
 1. `m10-v130-closeout-expected-fail.json`
 2. `m10-v130-evidence-expected-fail.json`
 3. short capture media (`.gif` or `.mp4`) showing trust-controls interaction and evidence export flow.
+4. `m10-status.json` (generated readiness report with `strictReady` field).

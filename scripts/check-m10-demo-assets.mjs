@@ -6,6 +6,8 @@ const repoRoot = process.cwd();
 const assetDir = path.join(repoRoot, "docs", "assets", "demo", "v1.2.4");
 const args = new Set(process.argv.slice(2));
 const structureOnly = args.has("--structure-only");
+const emitReport = args.has("--report");
+const reportPath = path.join(assetDir, "m10-status.json");
 
 const requiredFiles = [
   "m10-cp3-readiness-pass.json",
@@ -49,17 +51,46 @@ const getAtPath = (value, dottedPath) => dottedPath
 
 const main = async () => {
   const errors = [];
+  const checks = [];
+  const strictViolations = [];
+
+  const addCheck = (name, pass, detail = null) => {
+    checks.push({ name, pass, detail });
+    if (!pass) {
+      errors.push(detail ? `${name}: ${detail}` : name);
+    }
+  };
+  const addStrictViolation = (name, detail) => {
+    strictViolations.push({ name, detail });
+  };
 
   for (const filename of requiredFiles) {
     const fullPath = path.join(assetDir, filename);
     try {
       await fs.access(fullPath);
+      addCheck(`required_file:${filename}`, true);
     } catch {
-      errors.push(`missing required file: docs/assets/demo/v1.2.4/${filename}`);
+      addCheck(
+        `required_file:${filename}`,
+        false,
+        `missing required file: docs/assets/demo/v1.2.4/${filename}`,
+      );
     }
   }
 
-  if (errors.length > 0) {
+  const missingRequiredFiles = checks.some((check) => !check.pass && check.name.startsWith("required_file:"));
+  if (missingRequiredFiles) {
+    if (emitReport) {
+      const report = {
+        generatedAtUnixMs: Date.now(),
+        structureOnly,
+        ready: false,
+        errors,
+        checks,
+      };
+      await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+      console.log(`[demo:check] wrote report: ${path.relative(repoRoot, reportPath)}`);
+    }
     console.error("[demo:check] failed:");
     errors.forEach((error) => console.error(`- ${error}`));
     process.exit(1);
@@ -70,12 +101,34 @@ const main = async () => {
     const gate = getAtPath(payload, spec.path);
     if (structureOnly) {
       if (gate !== true && gate !== false && gate !== null) {
-        errors.push(`${spec.file} -> ${spec.path} must be boolean or null`);
+        addCheck(
+          `gate_shape:${spec.file}:${spec.path}`,
+          false,
+          `${spec.file} -> ${spec.path} must be boolean or null`,
+        );
+      } else {
+        addCheck(`gate_shape:${spec.file}:${spec.path}`, true);
+      }
+      if (gate !== true) {
+        addStrictViolation(
+          `gate_strict:${spec.file}:${spec.path}`,
+          `${spec.file} -> ${spec.path} should be true for strict verification`,
+        );
       }
       continue;
     }
     if (gate !== true) {
-      errors.push(`${spec.file} -> ${spec.path} must be true for strict verification`);
+      addCheck(
+        `gate_strict:${spec.file}:${spec.path}`,
+        false,
+        `${spec.file} -> ${spec.path} must be true for strict verification`,
+      );
+      addStrictViolation(
+        `gate_strict:${spec.file}:${spec.path}`,
+        `${spec.file} -> ${spec.path} must be true for strict verification`,
+      );
+    } else {
+      addCheck(`gate_strict:${spec.file}:${spec.path}`, true);
     }
   }
 
@@ -83,37 +136,107 @@ const main = async () => {
   const trustControlsSummary = digestSummary?.summary?.m10TrustControls;
   if (structureOnly) {
     if (!("summary" in digestSummary)) {
-      errors.push("m10-digest-summary.json missing summary block");
+      addCheck(
+        "digest_summary_shape",
+        false,
+        "m10-digest-summary.json missing summary block",
+      );
+    } else {
+      addCheck("digest_summary_shape", true);
+    }
+    if (trustControlsSummary == null) {
+      addStrictViolation(
+        "digest_summary_strict",
+        "m10-digest-summary.json requires summary.m10TrustControls to be non-null",
+      );
     }
   } else if (trustControlsSummary == null) {
-    errors.push("m10-digest-summary.json requires summary.m10TrustControls to be non-null");
+    addCheck(
+      "digest_summary_strict",
+      false,
+      "m10-digest-summary.json requires summary.m10TrustControls to be non-null",
+    );
+  } else {
+    addCheck("digest_summary_strict", true);
   }
 
   const eventSlices = await readJson("m10-event-slices.json");
   for (const key of eventSliceKeys) {
     const bucket = eventSlices?.events?.[key];
     if (!Array.isArray(bucket)) {
-      errors.push(`m10-event-slices.json events.${key} must be an array`);
+      addCheck(
+        `event_slice_shape:${key}`,
+        false,
+        `m10-event-slices.json events.${key} must be an array`,
+      );
       continue;
     }
+    addCheck(`event_slice_shape:${key}`, true);
     if (!structureOnly && bucket.length < 1) {
-      errors.push(`m10-event-slices.json events.${key} must contain at least one event`);
+      addCheck(
+        `event_slice_strict:${key}`,
+        false,
+        `m10-event-slices.json events.${key} must contain at least one event`,
+      );
+      addStrictViolation(
+        `event_slice_strict:${key}`,
+        `m10-event-slices.json events.${key} must contain at least one event`,
+      );
+    } else if (!structureOnly) {
+      addCheck(`event_slice_strict:${key}`, true);
+    } else if (bucket.length < 1) {
+      addStrictViolation(
+        `event_slice_strict:${key}`,
+        `m10-event-slices.json events.${key} should contain at least one event`,
+      );
     }
   }
 
   if (!Array.isArray(eventSlices?.recentWarnOrError)) {
-    errors.push("m10-event-slices.json recentWarnOrError must be an array");
+    addCheck(
+      "recent_warn_or_error_shape",
+      false,
+      "m10-event-slices.json recentWarnOrError must be an array",
+    );
+  } else {
+    addCheck("recent_warn_or_error_shape", true);
   }
 
   const storyboardPath = path.join(assetDir, "m10-demo-storyboard.md");
   const storyboard = await fs.readFile(storyboardPath, "utf8");
   if (!storyboard.startsWith("# ")) {
-    errors.push("m10-demo-storyboard.md must start with a Markdown title");
+    addCheck(
+      "storyboard_title",
+      false,
+      "m10-demo-storyboard.md must start with a Markdown title",
+    );
+  } else {
+    addCheck("storyboard_title", true);
+  }
+
+  const strictReady = strictViolations.length === 0;
+  const ready = errors.length === 0 && (!structureOnly ? strictReady : true);
+  const report = {
+    generatedAtUnixMs: Date.now(),
+    structureOnly,
+    ready,
+    strictReady,
+    errors,
+    strictViolations,
+    checks,
+  };
+
+  if (emitReport) {
+    await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    console.log(`[demo:check] wrote report: ${path.relative(repoRoot, reportPath)}`);
   }
 
   if (errors.length > 0) {
     console.error("[demo:check] failed:");
     errors.forEach((error) => console.error(`- ${error}`));
+    if (!structureOnly) {
+      console.error("- action: recapture pass-lane JSON assets via docs/34 matrix commands");
+    }
     process.exit(1);
   }
 

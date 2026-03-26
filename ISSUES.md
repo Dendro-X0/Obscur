@@ -772,7 +772,11 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - deterministic demo-bundle automation is now available for this lane:
     - `pnpm demo:m10:init` (create missing template files),
     - `pnpm demo:m10:check:structure` (schema/structure gate),
-    - `pnpm demo:m10:check` (strict pass-lane gate).
+    - `pnpm demo:m10:check` (strict pass-lane gate),
+    - `pnpm demo:m10:status` (writes machine-readable readiness report).
+  - demo bundle now emits progress status file:
+    - `docs/assets/demo/v1.2.4/m10-status.json`,
+    - use `strictReady` as the phase-complete signal for demo-asset gate.
 
 ## v1 Readiness Status
 

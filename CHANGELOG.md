@@ -79,11 +79,14 @@
 - Added deterministic M10 demo-bundle automation:
   - `scripts/init-m10-demo-assets.mjs`,
   - `scripts/check-m10-demo-assets.mjs`,
-  - package scripts: `demo:m10:init`, `demo:m10:check:structure`, `demo:m10:check`.
+  - package scripts: `demo:m10:init`, `demo:m10:check:structure`, `demo:m10:check`, `demo:m10:status`.
 - Seeded `docs/assets/demo/v1.2.4/` with template demo assets:
   - CP3/CP4/v130 pass-lane JSON placeholders,
   - digest/event bundle placeholders,
   - storyboard template.
+- Added machine-readable demo readiness status output:
+  - `docs/assets/demo/v1.2.4/m10-status.json`
+  - including `strictReady` and strict-violation details for phased closeout tracking.
 
 ## [v1.2.2] - 2026-03-25
 
