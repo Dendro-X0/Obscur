@@ -600,6 +600,9 @@ Remaining work snapshot (2026-03-25):
 6. release-lane transition status:
 : `v1.2.6` tag is published on origin, and `v1.2.7` is the active `main` lane
 : for final `v1.3.0` closeout evidence execution.
+7. deterministic tag-workflow observability is available:
+: `pnpm release:workflow-status -- --tag <version-tag>`
+: to print canonical release run/job posture before escalation.
 
 Mandatory release gates:
 1. `pnpm version:check`

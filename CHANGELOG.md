@@ -16,6 +16,10 @@
   wired to `scripts/refresh-m10-release-candidate-flow.mjs` to run
   `materialize -> strict check -> status -> next` in one command,
   with optional local closeout validation via `--with-closeout-check`.
+- Added deterministic tag workflow status automation:
+  - `pnpm release:workflow-status -- --tag <version-tag>`
+  wired to `scripts/check-release-workflow-status.mjs` to print
+  run-level and job-level status for `Obscur Full Release`.
 - Improved closeout automation determinism:
   - `closeout:v130:check` now verifies strict readiness directly from materialized
     pass/digest/event artifacts (no forced status-file rewrite),

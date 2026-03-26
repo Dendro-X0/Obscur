@@ -796,6 +796,11 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm demo:m10:rc:refresh` now runs `materialize -> strict check -> status -> next` in one command,
     - optional local closeout validation path is available via:
       - `pnpm demo:m10:rc:refresh -- --with-closeout-check`.
+  - tag-workflow observability slice landed:
+    - `pnpm release:workflow-status -- --tag v1.2.6` now prints canonical
+      `Obscur Full Release` run and per-job state from GitHub API,
+    - use this command to verify whether tag lanes are still running vs completed
+      before concluding that release publishing is blocked.
   - deterministic one-shot release-candidate helper is now available on canonical M10 bridge:
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture({ eventWindowSize, expectedStable })`,
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson({ eventWindowSize, expectedStable })`,
