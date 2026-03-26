@@ -802,6 +802,9 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - release-candidate evidence matrix and output folder are now tracked:
     - matrix: `docs/35-v1.2.5-m10-release-candidate-matrix.md`,
     - artifacts: `docs/assets/demo/v1.2.5/`.
+  - latest release-candidate artifact gate result:
+    - `pnpm demo:m10:rc:check:structure` is green,
+    - `docs/assets/demo/v1.2.5/m10-status.json` currently reports `strictReady: false` until real runtime pass-lane capture is materialized.
   - focused v1.2.5 lane validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
