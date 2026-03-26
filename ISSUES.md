@@ -786,7 +786,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm demo:m10:check` is green,
     - `strictReady: true` is confirmed in `docs/assets/demo/v1.2.4/m10-status.json`.
   - `v1.2.4` tag is now pushed on GitHub.
-  - `v1.2.5` development lane is now active on `main` for M10 closeout prep toward `v1.3.0`.
+  - `v1.2.5` development lane is now closed out; `v1.2.6` is active on `main` for continued M10 execution toward `v1.3.0`.
   - deterministic one-shot release-candidate helper is now available on canonical M10 bridge:
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture({ eventWindowSize, expectedStable })`,
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson({ eventWindowSize, expectedStable })`,
@@ -805,8 +805,8 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - matrix: `docs/35-v1.2.5-m10-release-candidate-matrix.md`,
     - artifacts: `docs/assets/demo/v1.2.5/`.
   - latest release-candidate artifact gate result:
-    - `pnpm demo:m10:rc:check:structure` is green,
-    - `docs/assets/demo/v1.2.5/m10-status.json` currently reports `strictReady: false` until real runtime pass-lane capture is materialized.
+    - `pnpm demo:m10:rc:check` is green,
+    - `docs/assets/demo/v1.2.5/m10-status.json` reports `strictReady: true` on materialized runtime evidence.
   - focused v1.2.5 lane validation is green:
     - `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts`,
     - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.

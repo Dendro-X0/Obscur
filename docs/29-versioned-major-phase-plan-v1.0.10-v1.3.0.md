@@ -569,6 +569,10 @@ Evidence:
 7. focused validation:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+8. closeout status (2026-03-25):
+: `demo:m10:rc:check` is now strict green on materialized runtime evidence,
+: `docs/assets/demo/v1.2.5/m10-status.json` reports `strictReady: true`,
+: release tag `v1.2.5` is published on origin.
 
 ### v1.3.0 (M10-CP3/CP4 closeout)
 
@@ -578,14 +582,9 @@ Scope:
 3. publish stable `v1.3.0` milestone.
 
 Remaining work snapshot (2026-03-25):
-1. complete `v1.2.5` release-candidate artifact strict gate with a fresh stabilized capture:
-: `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)`
-: then `pnpm demo:m10:rc:materialize`, `pnpm demo:m10:rc:check`, and confirm
-: `docs/assets/demo/v1.2.5/m10-status.json` reports `strictReady: true`.
-: use `pnpm demo:m10:rc:next` after status export for deterministic follow-up commands.
-2. execute final closeout matrix replay and attach accepted runtime evidence bundle under `/docs/assets/demo`.
-3. run clean-tree release gates (`version/docs/vitest/tsc/release:test-pack/release:preflight`) and publish `v1.3.0`.
-4. execute closeout runbook:
+1. execute final closeout matrix replay and attach accepted runtime evidence bundle under `/docs/assets/demo`.
+2. run clean-tree release gates (`version/docs/vitest/tsc/release:test-pack/release:preflight`) and publish `v1.3.0`.
+3. execute closeout runbook:
 : `docs/36-v1.3.0-closeout-matrix.md`.
 
 Mandatory release gates:

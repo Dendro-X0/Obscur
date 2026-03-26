@@ -2,8 +2,8 @@
 
 ### Changed
 
-- Released `v1.2.4` (tag pushed on 2026-03-25) and opened
-  `v1.2.5` as the active development lane on `main`.
+- Released `v1.2.5` (tag pushed on 2026-03-25) and opened
+  `v1.2.6` as the active development lane on `main`.
 - Added deterministic stabilized release-candidate helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilized(...)`,
