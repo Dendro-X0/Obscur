@@ -15,6 +15,20 @@
   with explicit one-shot pass/fail posture across CP2/CP3/CP4/v130 gate evidence.
 - Added focused regression coverage for release-candidate helper flow in:
   - `apps/pwa/app/shared/m10-trust-controls-bridge.test.ts`.
+- Added deterministic `v1.2.5` M10 release-candidate asset automation:
+  - `scripts/init-m10-release-candidate-assets.mjs`,
+  - `scripts/materialize-m10-release-candidate-assets.mjs`,
+  - `scripts/check-m10-release-candidate-assets.mjs`,
+  - package scripts:
+    - `demo:m10:rc:init`,
+    - `demo:m10:rc:materialize`,
+    - `demo:m10:rc:check:structure`,
+    - `demo:m10:rc:check`,
+    - `demo:m10:rc:status`.
+- Added `v1.2.5` release-candidate matrix and artifact folder:
+  - `docs/35-v1.2.5-m10-release-candidate-matrix.md`,
+  - `docs/assets/demo/v1.2.5/README.md`,
+  - seeded `docs/assets/demo/v1.2.5/raw/` template captures for one-copy operator handoff.
 - Added deterministic CP3 readiness helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runCp3ReadinessCapture(...)`,

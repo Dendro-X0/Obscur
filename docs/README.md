@@ -39,6 +39,7 @@ The goal is high signal, low token waste: enough context to resume work quickly,
 31. [32 v1.1.3 CP3 Voice Suite Replay Matrix](./32-v1.1.3-cp3-voice-suite-matrix.md)
 32. [33 v1.1.4 CP4 Voice Long-Session Matrix](./33-v1.1.4-cp4-voice-long-session-matrix.md)
 33. [34 v1.2.4 M10 Demo Asset Matrix](./34-v1.2.4-m10-demo-asset-matrix.md)
+34. [35 v1.2.5 M10 Release Candidate Matrix](./35-v1.2.5-m10-release-candidate-matrix.md)
 
 ## Scope Rules
 
@@ -63,6 +64,8 @@ The goal is high signal, low token waste: enough context to resume work quickly,
   - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
 - Active execution lane (`v1.2.1-v1.3.0`) is tracked in:
   - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
+- Active M10 release-candidate evidence matrix is tracked in:
+  - `docs/35-v1.2.5-m10-release-candidate-matrix.md`.
 - Historical closeout lane (`v1.0.10-v1.1.0`) remains documented in:
   - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
 - Deterministic CP3 replay evidence matrix for the `v1.0.10` M8 lane is tracked in:

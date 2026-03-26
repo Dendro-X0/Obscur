@@ -553,7 +553,17 @@ Evidence:
 : `window.obscurM10TrustControls.runV130ReleaseCandidateGateProbeJson({ eventWindowSize, expectedStable })`,
 2. canonical compact diagnostics event:
 : `messaging.m10.v130_release_candidate_gate`,
-3. focused validation:
+3. deterministic release-candidate asset automation is now available:
+: `pnpm demo:m10:rc:init`,
+: `pnpm demo:m10:rc:materialize -- --capture docs/assets/demo/v1.2.5/raw/m10-v130-release-candidate-capture.json`,
+: `pnpm demo:m10:rc:check:structure`,
+: `pnpm demo:m10:rc:check`,
+: `pnpm demo:m10:rc:status`,
+4. release-candidate evidence matrix is now tracked in:
+: `docs/35-v1.2.5-m10-release-candidate-matrix.md`,
+5. canonical output folder for this lane:
+: `docs/assets/demo/v1.2.5/`,
+6. focused validation:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts`,
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
