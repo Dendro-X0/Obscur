@@ -769,6 +769,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - matrix doc: `docs/34-v1.2.4-m10-demo-asset-matrix.md`,
     - output folder: `docs/assets/demo/v1.2.4/`,
     - includes required CP3/CP4/v130 pass-lane JSON captures and digest/event bundle checklist.
+  - deterministic demo-bundle automation is now available for this lane:
+    - `pnpm demo:m10:init` (create missing template files),
+    - `pnpm demo:m10:check:structure` (schema/structure gate),
+    - `pnpm demo:m10:check` (strict pass-lane gate).
 
 ## v1 Readiness Status
 

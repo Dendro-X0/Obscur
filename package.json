@@ -28,6 +28,9 @@
     "probe:relay-nip": "node scripts/relay-nip-probe.mjs",
     "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
     "ci:scan:pwa:head": "node scripts/pwa-ci-scan-head.mjs",
+    "demo:m10:init": "node scripts/init-m10-demo-assets.mjs",
+    "demo:m10:check": "node scripts/check-m10-demo-assets.mjs",
+    "demo:m10:check:structure": "node scripts/check-m10-demo-assets.mjs --structure-only",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"

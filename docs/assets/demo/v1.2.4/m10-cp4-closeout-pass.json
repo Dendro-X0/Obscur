@@ -1,0 +1,10 @@
+{
+  "generatedAtUnixMs": null,
+  "eventWindowSize": 400,
+  "expectedStable": true,
+  "cp4CloseoutGate": {
+    "pass": null,
+    "failedChecks": [],
+    "failedCheckSample": null
+  }
+}

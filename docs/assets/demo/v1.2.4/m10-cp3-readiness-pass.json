@@ -1,0 +1,10 @@
+{
+  "generatedAtUnixMs": null,
+  "eventWindowSize": 400,
+  "expectedStable": true,
+  "cp3ReadinessGate": {
+    "pass": null,
+    "failedChecks": [],
+    "failedCheckSample": null
+  }
+}

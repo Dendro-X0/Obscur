@@ -76,6 +76,14 @@
   - `docs/34-v1.2.4-m10-demo-asset-matrix.md`,
   - `docs/assets/demo/v1.2.4/README.md`,
   with copy-ready capture commands for CP3/CP4/v130 pass-lane evidence and digest event slices.
+- Added deterministic M10 demo-bundle automation:
+  - `scripts/init-m10-demo-assets.mjs`,
+  - `scripts/check-m10-demo-assets.mjs`,
+  - package scripts: `demo:m10:init`, `demo:m10:check:structure`, `demo:m10:check`.
+- Seeded `docs/assets/demo/v1.2.4/` with template demo assets:
+  - CP3/CP4/v130 pass-lane JSON placeholders,
+  - digest/event bundle placeholders,
+  - storyboard template.
 
 ## [v1.2.2] - 2026-03-25
 

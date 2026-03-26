@@ -2,6 +2,11 @@
 
 Place generated demo artifacts from `docs/34-v1.2.4-m10-demo-asset-matrix.md` in this folder.
 
+Helper commands:
+1. `pnpm demo:m10:init`
+2. `pnpm demo:m10:check:structure`
+3. `pnpm demo:m10:check`
+
 Required files:
 1. `m10-cp3-readiness-pass.json`
 2. `m10-cp3-suite-pass.json`
