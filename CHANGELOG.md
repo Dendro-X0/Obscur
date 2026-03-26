@@ -2,8 +2,8 @@
 
 ### Changed
 
-- Released `v1.2.5` (tag pushed on 2026-03-25) and opened
-  `v1.2.6` as the active development lane on `main`.
+- Released `v1.2.6` (tag pushed on 2026-03-25) and opened
+  `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
   (added `demo:m10:rc:status:structure` for structure-only reporting) so
   `m10-status.json` reflects actual strict readiness for release decisions.

@@ -786,7 +786,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `pnpm demo:m10:check` is green,
     - `strictReady: true` is confirmed in `docs/assets/demo/v1.2.4/m10-status.json`.
   - `v1.2.4` tag is now pushed on GitHub.
-  - `v1.2.5` development lane is now closed out; `v1.2.6` is active on `main` for continued M10 execution toward `v1.3.0`.
+  - `v1.2.6` development lane is now closed out; `v1.2.7` is active on `main` for final M10 execution toward `v1.3.0`.
   - `v1.2.6` closeout automation slice landed:
     - `pnpm closeout:v130:check` now runs strict RC artifact verification + docs/version + focused M10 test/typecheck checks in one command (without rewriting `m10-status.json`) and enforces a clean working tree by default,
     - `--allow-dirty` is now an explicit local-only escape hatch for non-release runs,

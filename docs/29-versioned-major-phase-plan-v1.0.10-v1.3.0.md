@@ -592,6 +592,9 @@ Remaining work snapshot (2026-03-25):
 : with clean-tree enforcement by default),
 : optional status refresh via `pnpm closeout:v130:check:refresh-status`,
 : and `pnpm closeout:v130:check:with-preflight`.
+5. release-lane transition status:
+: `v1.2.6` tag is published on origin, and `v1.2.7` is the active `main` lane
+: for final `v1.3.0` closeout evidence execution.
 
 Mandatory release gates:
 1. `pnpm version:check`
