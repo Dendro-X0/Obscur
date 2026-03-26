@@ -13,6 +13,9 @@
   - `pnpm demo:m10:rc:next`
   - reads `docs/assets/demo/v1.2.5/m10-status.json` and prints exact follow-up commands
     for strict gate completion without replay-loop guesswork.
+- Added concrete `v1.3.0` closeout execution matrix:
+  - `docs/36-v1.3.0-closeout-matrix.md`
+  with entry conditions, runtime evidence steps, validation pack, and release gate checklist.
 - Added deterministic v1.3 release-candidate helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture(...)`,

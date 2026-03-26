@@ -585,6 +585,8 @@ Remaining work snapshot (2026-03-25):
 : use `pnpm demo:m10:rc:next` after status export for deterministic follow-up commands.
 2. execute final closeout matrix replay and attach accepted runtime evidence bundle under `/docs/assets/demo`.
 3. run clean-tree release gates (`version/docs/vitest/tsc/release:test-pack/release:preflight`) and publish `v1.3.0`.
+4. execute closeout runbook:
+: `docs/36-v1.3.0-closeout-matrix.md`.
 
 Mandatory release gates:
 1. `pnpm version:check`
