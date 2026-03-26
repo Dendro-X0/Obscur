@@ -4,6 +4,17 @@
 
 - Released `v1.2.4` (tag pushed on 2026-03-25) and opened
   `v1.2.5` as the active development lane on `main`.
+- Added deterministic v1.3 release-candidate helper APIs on canonical M10 bridge owner
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
+  - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture(...)`,
+  - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson(...)`,
+  - `window.obscurM10TrustControls.runV130ReleaseCandidateGateProbe(...)`,
+  - `window.obscurM10TrustControls.runV130ReleaseCandidateGateProbeJson(...)`.
+- Added canonical v1.3 release-candidate diagnostics event emission:
+  - `messaging.m10.v130_release_candidate_gate`
+  with explicit one-shot pass/fail posture across CP2/CP3/CP4/v130 gate evidence.
+- Added focused regression coverage for release-candidate helper flow in:
+  - `apps/pwa/app/shared/m10-trust-controls-bridge.test.ts`.
 - Added deterministic CP3 readiness helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runCp3ReadinessCapture(...)`,

@@ -1,6 +1,6 @@
 # 29 Versioned Major-Phase Plan (v1.0.10-v1.3.0)
 
-_Last reviewed: 2026-03-24 (baseline commit 4c869a7)._
+_Last reviewed: 2026-03-25 (baseline commit a9a2d7a)._
 
 This document defines the remaining post-`v1.0.9` release sequence as three major phases:
 1. one major phase completed before `v1.1.0`,
@@ -537,6 +537,25 @@ Current checkpoint progress (2026-03-25):
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,
 2. runbook guidance updated for incident-class triage order.
+
+### v1.2.5 (M10-CP3/CP4 closeout prep)
+
+Scope:
+1. add one-shot canonical release-candidate capture to reduce multi-command replay drift before `v1.3.0`,
+2. keep M10 gate evaluation on the existing trust-controls bridge owner (no parallel capture owners),
+3. emit a deterministic release-candidate gate event for compact operator triage.
+
+Evidence:
+1. one-shot helper APIs on canonical bridge owner:
+: `window.obscurM10TrustControls.runV130ReleaseCandidateCapture({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130ReleaseCandidateGateProbe({ eventWindowSize, expectedStable })`,
+: `window.obscurM10TrustControls.runV130ReleaseCandidateGateProbeJson({ eventWindowSize, expectedStable })`,
+2. canonical compact diagnostics event:
+: `messaging.m10.v130_release_candidate_gate`,
+3. focused validation:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts`,
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ### v1.3.0 (M10-CP3/CP4 closeout)
 

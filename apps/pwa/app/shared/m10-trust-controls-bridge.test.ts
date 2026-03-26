@@ -501,4 +501,55 @@ describe("m10-trust-controls-bridge", () => {
     expect(bundleJson).toContain("\"demoAssets\"");
     expect(bundleJson).toContain("\"strictGatePreview\"");
   });
+
+  it("exports a one-copy v1.3 release-candidate capture and emits canonical gate diagnostics", () => {
+    installM10TrustControlsBridge();
+    const capture = window.obscurM10TrustControls?.runV130ReleaseCandidateCapture({
+      eventWindowSize: 200,
+      expectedStable: false,
+    });
+
+    expect(capture).toBeDefined();
+    expect(capture?.releaseCandidateGate.pass).toBe(true);
+    expect(capture?.cp2TriageCapture.cp2TriageGate).toBeDefined();
+    expect(capture?.v130EvidenceCapture.v130EvidenceGate).toBeDefined();
+    expect(capture?.eventSlices.events.cp2.length).toBeGreaterThan(0);
+    expect(capture?.eventSlices.events.cp3Readiness.length).toBeGreaterThan(0);
+    expect(capture?.eventSlices.events.cp3Suite.length).toBeGreaterThan(0);
+    expect(capture?.eventSlices.events.cp4Closeout.length).toBeGreaterThan(0);
+    expect(capture?.eventSlices.events.v130Closeout.length).toBeGreaterThan(0);
+    expect(capture?.eventSlices.events.v130Evidence.length).toBeGreaterThan(0);
+
+    const probe = window.obscurM10TrustControls?.runV130ReleaseCandidateGateProbe({
+      eventWindowSize: 200,
+      expectedStable: false,
+    });
+    expect(probe?.pass).toBe(true);
+
+    const diagnosticsApi = (window as Window & {
+      obscurAppEvents?: Readonly<{
+        findByName?: (name: string, count?: number) => ReadonlyArray<Readonly<{
+          context?: Readonly<Record<string, string | number | boolean | null>>;
+        }>>;
+      }>;
+    }).obscurAppEvents;
+    const releaseCandidateEvents = (
+      diagnosticsApi?.findByName?.("messaging.m10.v130_release_candidate_gate", 10)
+      ?? []
+    );
+    expect(releaseCandidateEvents.length).toBeGreaterThanOrEqual(2);
+    expect(releaseCandidateEvents[0]?.context).toEqual(expect.objectContaining({
+      expectedStable: false,
+      v130ReleaseCandidatePass: true,
+      v130EvidencePass: true,
+      latestV130EvidenceEventMatchesGate: true,
+    }));
+
+    const captureJson = window.obscurM10TrustControls?.runV130ReleaseCandidateCaptureJson({
+      eventWindowSize: 200,
+      expectedStable: false,
+    });
+    expect(captureJson).toContain("\"releaseCandidateGate\"");
+    expect(captureJson).toContain("\"eventSlices\"");
+  });
 });

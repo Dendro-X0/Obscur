@@ -785,6 +785,17 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - latest M10 demo evidence gate result:
     - `pnpm demo:m10:check` is green,
     - `strictReady: true` is confirmed in `docs/assets/demo/v1.2.4/m10-status.json`.
+  - `v1.2.4` tag is now pushed on GitHub.
+  - `v1.2.5` development lane is now active on `main` for M10 closeout prep toward `v1.3.0`.
+  - deterministic one-shot release-candidate helper is now available on canonical M10 bridge:
+    - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture({ eventWindowSize, expectedStable })`,
+    - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson({ eventWindowSize, expectedStable })`,
+    - `window.obscurM10TrustControls.runV130ReleaseCandidateGateProbe({ eventWindowSize, expectedStable })`,
+    - `window.obscurM10TrustControls.runV130ReleaseCandidateGateProbeJson({ eventWindowSize, expectedStable })`,
+    - canonical release-candidate event: `messaging.m10.v130_release_candidate_gate`.
+  - focused v1.2.5 lane validation is green:
+    - `pnpm --dir apps/pwa exec vitest run app/shared/m10-trust-controls-bridge.test.ts`,
+    - `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## v1 Readiness Status
 
