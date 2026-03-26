@@ -30,6 +30,10 @@
   - `pnpm demo:v130:check:strict`
   wired to `scripts/check-v130-manual-evidence-packet.mjs` for structure
   and strict final completeness checks.
+- Tightened v1.3 closeout gate sequencing:
+  - `closeout:v130:check` now includes v1.3 packet structure validation,
+  - added `closeout:v130:check:manual` (strict manual packet required),
+  - added `closeout:v130:check:release-ready` (strict manual packet + preflight).
 - Improved closeout automation determinism:
   - `closeout:v130:check` now verifies strict readiness directly from materialized
     pass/digest/event artifacts (no forced status-file rewrite),

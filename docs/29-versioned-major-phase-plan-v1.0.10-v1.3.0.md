@@ -589,9 +589,11 @@ Remaining work snapshot (2026-03-25):
 4. deterministic closeout gate automation is available:
 : `pnpm closeout:v130:check`
 : (artifact-based strict verification without status timestamp churn,
-: with clean-tree enforcement by default),
+: with clean-tree enforcement by default and v1.3 packet structure validation),
 : optional status refresh via `pnpm closeout:v130:check:refresh-status`,
-: and `pnpm closeout:v130:check:with-preflight`.
+: strict manual packet via `pnpm closeout:v130:check:manual`,
+: strict manual packet + preflight via `pnpm closeout:v130:check:release-ready`,
+: and legacy preflight-only path via `pnpm closeout:v130:check:with-preflight`.
 5. deterministic release-candidate refresh automation is available:
 : `pnpm demo:m10:rc:refresh`
 : (materialize + strict check + status + next command synthesis in one run),

@@ -792,6 +792,10 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
     - `--allow-dirty` is now an explicit local-only escape hatch for non-release runs,
     - `pnpm closeout:v130:check:refresh-status` runs the same gate but refreshes `m10-status.json`,
     - `pnpm closeout:v130:check:with-preflight` adds `release:preflight -- --tag v1.3.0` for release-bound runs.
+  - `v1.2.7` closeout gate tightening slice landed:
+    - `closeout:v130:check` now also validates v1.3 manual packet structure,
+    - `pnpm closeout:v130:check:manual` requires strict manual packet completeness,
+    - `pnpm closeout:v130:check:release-ready` combines strict manual packet + release preflight in one command.
   - `v1.2.7` closeout-operator flow slice landed:
     - `pnpm demo:m10:rc:refresh` now runs `materialize -> strict check -> status -> next` in one command,
     - optional local closeout validation path is available via:

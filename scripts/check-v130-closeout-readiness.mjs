@@ -97,6 +97,7 @@ const main = () => {
   const includePreflight = hasFlag("--include-preflight");
   const allowDirty = hasFlag("--allow-dirty");
   const refreshRcStatus = hasFlag("--refresh-rc-status");
+  const strictManualPacket = hasFlag("--strict-manual-packet");
   const preflightTag = getArgValue("--tag") ?? "v1.3.0";
 
   if (!allowDirty) {
@@ -112,6 +113,13 @@ const main = () => {
     run("pnpm", ["demo:m10:rc:status"]);
   }
   assertStrictBundleReady();
+
+  console.log("[v130:closeout] Verifying v1.3.0 manual evidence packet...");
+  if (strictManualPacket) {
+    run("pnpm", ["demo:v130:check:strict"]);
+  } else {
+    run("pnpm", ["demo:v130:check"]);
+  }
 
   console.log("[v130:closeout] Running documentation + version alignment checks...");
   run("pnpm", ["version:check"]);
