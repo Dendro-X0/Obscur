@@ -14,6 +14,8 @@
 - Improved closeout automation determinism:
   - `closeout:v130:check` now verifies strict readiness directly from materialized
     pass/digest/event artifacts (no forced status-file rewrite),
+  - `closeout:v130:check` now enforces a clean working tree by default
+    (override only with `--allow-dirty` for local non-release runs),
   - added `closeout:v130:check:refresh-status` for explicit status-file refresh.
 - Added deterministic stabilized release-candidate helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:

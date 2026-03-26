@@ -28,21 +28,26 @@ const quoteShellArg = (value) => {
   return `"${value.replace(/"/g, '\\"')}"`;
 };
 
-const run = (cmd, commandArgs) => {
+const run = (cmd, commandArgs, options = {}) => {
   const command = resolveCommand(cmd);
+  const baseOptions = {
+    cwd: rootDir,
+    encoding: "utf8",
+    stdio: options.capture ? "pipe" : "inherit",
+  };
   const result = process.platform === "win32"
     ? spawnSync([command, ...commandArgs].map(quoteShellArg).join(" "), {
-      cwd: rootDir,
-      stdio: "inherit",
+      ...baseOptions,
       shell: true,
     })
     : spawnSync(command, commandArgs, {
-      cwd: rootDir,
-      stdio: "inherit",
+      ...baseOptions,
     });
   if (result.status !== 0) {
-    throw new Error(`${cmd} ${commandArgs.join(" ")} failed`);
+    const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+    throw new Error(output || `${cmd} ${commandArgs.join(" ")} failed`);
   }
+  return result.stdout ?? "";
 };
 
 const readJson = (relativePath) => {
@@ -79,11 +84,27 @@ const assertStrictBundleReady = () => {
   }
 };
 
+const verifyWorkingTreeClean = () => {
+  const status = run("git", ["status", "--porcelain"], { capture: true }).trim();
+  if (status.length > 0) {
+    throw new Error(
+      "Working tree is not clean. Commit/stash changes or rerun with --allow-dirty for local-only checks."
+    );
+  }
+};
+
 const main = () => {
   const includePreflight = hasFlag("--include-preflight");
   const allowDirty = hasFlag("--allow-dirty");
   const refreshRcStatus = hasFlag("--refresh-rc-status");
   const preflightTag = getArgValue("--tag") ?? "v1.3.0";
+
+  if (!allowDirty) {
+    console.log("[v130:closeout] Verifying clean working tree...");
+    verifyWorkingTreeClean();
+  } else {
+    console.log("[v130:closeout] Skipping clean-tree gate (--allow-dirty).");
+  }
 
   console.log("[v130:closeout] Running strict RC artifact verification...");
   run("pnpm", ["demo:m10:rc:check"]);
