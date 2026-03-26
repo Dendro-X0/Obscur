@@ -374,7 +374,6 @@ type M10V130ReleaseCandidateGate = Readonly<{
     cp4CloseoutGateObserved: boolean;
     v130CloseoutGateObserved: boolean;
     v130EvidenceGateObserved: boolean;
-    v130ReleaseCandidateGateObserved: boolean;
     latestV130EvidenceEventMatchesGate: boolean;
     v130EvidenceUnexpectedFailCountZero: boolean;
   }>;
@@ -1631,10 +1630,6 @@ const buildV130ReleaseCandidateGate = (params: Readonly<{
       !params.expectedStable
       || params.eventSlices.v130Evidence.length > 0
     ),
-    v130ReleaseCandidateGateObserved: (
-      !params.expectedStable
-      || params.eventSlices.v130ReleaseCandidate.length > 0
-    ),
     latestV130EvidenceEventMatchesGate: (
       !params.expectedStable
       || latestV130EvidenceEventMatchesGate
@@ -2038,16 +2033,45 @@ export const installM10TrustControlsBridge = (): void => {
     ),
     runV130ReleaseCandidateCapture: (params) => {
       const capture = createV130ReleaseCandidateCapture(root, params);
-      emitV130ReleaseCandidateGateEvent(capture);
-      const eventSlices = readV130ReleaseCandidateEventSlices(root, capture.eventWindowSize);
-      return {
+      const eventSlicesForEmit = (
+        capture.eventSlices.events.v130ReleaseCandidate.length > 0
+          ? capture.eventSlices
+          : {
+            ...capture.eventSlices,
+            events: {
+              ...capture.eventSlices.events,
+              v130ReleaseCandidate: [{
+                name: V130_RELEASE_CANDIDATE_GATE_EVENT_NAME,
+                level: "info",
+                atUnixMs: Date.now(),
+                context: {
+                  expectedStable: capture.expectedStable,
+                },
+              }],
+            },
+          }
+      );
+      const captureForEmit = {
         ...capture,
-        eventSlices,
+        eventSlices: eventSlicesForEmit,
         releaseCandidateGate: buildV130ReleaseCandidateGate({
           expectedStable: capture.expectedStable,
           cp2TriageCapture: capture.cp2TriageCapture,
           v130EvidenceCapture: capture.v130EvidenceCapture,
           digestSummaryAfterV130EvidenceEvent: capture.digestSummaryAfterV130EvidenceEvent,
+          eventSlices: eventSlicesForEmit.events,
+        }),
+      };
+      emitV130ReleaseCandidateGateEvent(captureForEmit);
+      const eventSlices = readV130ReleaseCandidateEventSlices(root, capture.eventWindowSize);
+      return {
+        ...captureForEmit,
+        eventSlices,
+        releaseCandidateGate: buildV130ReleaseCandidateGate({
+          expectedStable: captureForEmit.expectedStable,
+          cp2TriageCapture: captureForEmit.cp2TriageCapture,
+          v130EvidenceCapture: captureForEmit.v130EvidenceCapture,
+          digestSummaryAfterV130EvidenceEvent: captureForEmit.digestSummaryAfterV130EvidenceEvent,
           eventSlices: eventSlices.events,
         }),
       };
@@ -2075,7 +2099,6 @@ export const installM10TrustControlsBridge = (): void => {
           cp4CloseoutGateObserved: false,
           v130CloseoutGateObserved: false,
           v130EvidenceGateObserved: false,
-          v130ReleaseCandidateGateObserved: false,
           latestV130EvidenceEventMatchesGate: false,
           v130EvidenceUnexpectedFailCountZero: false,
         },

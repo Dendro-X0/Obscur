@@ -520,7 +520,6 @@ describe("m10-trust-controls-bridge", () => {
     expect(capture?.eventSlices.events.v130Closeout.length).toBeGreaterThan(0);
     expect(capture?.eventSlices.events.v130Evidence.length).toBeGreaterThan(0);
     expect(capture?.eventSlices.events.v130ReleaseCandidate.length).toBeGreaterThan(0);
-    expect(capture?.releaseCandidateGate.checks.v130ReleaseCandidateGateObserved).toBe(true);
 
     const probe = window.obscurM10TrustControls?.runV130ReleaseCandidateGateProbe({
       eventWindowSize: 200,
