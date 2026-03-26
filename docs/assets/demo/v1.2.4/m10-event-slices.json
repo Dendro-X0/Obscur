@@ -1,11 +1,422 @@
 {
   "events": {
-    "cp2": [],
-    "cp3Readiness": [],
-    "cp3Suite": [],
-    "cp4Closeout": [],
-    "v130Closeout": [],
-    "v130Evidence": []
+    "cp2": [
+      {
+        "name": "messaging.m10.cp2_stability_gate",
+        "level": "info",
+        "atUnixMs": 1774501125547,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp2Pass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "incomingRequestRiskLevel": "none",
+          "incomingRequestQuarantinedCount": 0,
+          "uiResponsivenessRiskLevel": "none",
+          "uiRouteStallHardFallbackCount": 0,
+          "uiPageTransitionEffectsDisabledCount": 0,
+          "uiRouteMountPerformanceGuardEnabledCount": 0,
+          "uiStartupProfileBootStallTimeoutCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp2_stability_gate",
+        "level": "info",
+        "atUnixMs": 1774501446511,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp2Pass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "incomingRequestRiskLevel": "none",
+          "incomingRequestQuarantinedCount": 0,
+          "uiResponsivenessRiskLevel": "none",
+          "uiRouteStallHardFallbackCount": 0,
+          "uiPageTransitionEffectsDisabledCount": 0,
+          "uiRouteMountPerformanceGuardEnabledCount": 0,
+          "uiStartupProfileBootStallTimeoutCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp2_stability_gate",
+        "level": "info",
+        "atUnixMs": 1774501881091,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp2Pass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "incomingRequestRiskLevel": "none",
+          "incomingRequestQuarantinedCount": 0,
+          "uiResponsivenessRiskLevel": "none",
+          "uiRouteStallHardFallbackCount": 0,
+          "uiPageTransitionEffectsDisabledCount": 0,
+          "uiRouteMountPerformanceGuardEnabledCount": 0,
+          "uiStartupProfileBootStallTimeoutCount": 0
+        }
+      }
+    ],
+    "cp3Readiness": [
+      {
+        "name": "messaging.m10.cp3_readiness_gate",
+        "level": "info",
+        "atUnixMs": 1774501125548,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp3Pass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp2TriagePass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp2StabilityGateUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp3_readiness_gate",
+        "level": "info",
+        "atUnixMs": 1774501446512,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp3Pass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp2TriagePass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp2StabilityGateUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp3_readiness_gate",
+        "level": "info",
+        "atUnixMs": 1774501881092,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp3Pass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp2TriagePass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp2StabilityGateUnexpectedFailCount": 0
+        }
+      }
+    ],
+    "cp3Suite": [
+      {
+        "name": "messaging.m10.cp3_suite_gate",
+        "level": "info",
+        "atUnixMs": 1774501125549,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp3SuitePass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp3ReadinessPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp3ReadinessGateCount": 1,
+          "cp3ReadinessUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp3_suite_gate",
+        "level": "info",
+        "atUnixMs": 1774501446513,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp3SuitePass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp3ReadinessPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp3ReadinessGateCount": 2,
+          "cp3ReadinessUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp3_suite_gate",
+        "level": "info",
+        "atUnixMs": 1774501881093,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp3SuitePass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp3ReadinessPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp3ReadinessGateCount": 3,
+          "cp3ReadinessUnexpectedFailCount": 0
+        }
+      }
+    ],
+    "cp4Closeout": [
+      {
+        "name": "messaging.m10.cp4_closeout_gate",
+        "level": "info",
+        "atUnixMs": 1774501125549,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp4CloseoutPass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp3SuitePass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp3SuiteGateCount": 1,
+          "cp3SuiteUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp4_closeout_gate",
+        "level": "info",
+        "atUnixMs": 1774501446513,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp4CloseoutPass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp3SuitePass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp3SuiteGateCount": 2,
+          "cp3SuiteUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.cp4_closeout_gate",
+        "level": "info",
+        "atUnixMs": 1774501881093,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "cp4CloseoutPass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp3SuitePass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp3SuiteGateCount": 3,
+          "cp3SuiteUnexpectedFailCount": 0
+        }
+      }
+    ],
+    "v130Closeout": [
+      {
+        "name": "messaging.m10.v130_closeout_gate",
+        "level": "info",
+        "atUnixMs": 1774501125549,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "v130CloseoutPass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp4CloseoutPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp4CloseoutGateCount": 1,
+          "cp4CloseoutUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.v130_closeout_gate",
+        "level": "info",
+        "atUnixMs": 1774501446514,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "v130CloseoutPass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp4CloseoutPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp4CloseoutGateCount": 2,
+          "cp4CloseoutUnexpectedFailCount": 0
+        }
+      },
+      {
+        "name": "messaging.m10.v130_closeout_gate",
+        "level": "info",
+        "atUnixMs": 1774501881094,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "v130CloseoutPass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "cp4CloseoutPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp4CloseoutGateCount": 3,
+          "cp4CloseoutUnexpectedFailCount": 0
+        }
+      }
+    ],
+    "v130Evidence": [
+      {
+        "name": "messaging.m10.v130_evidence_gate",
+        "level": "info",
+        "atUnixMs": 1774501125550,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "v130EvidencePass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "v130CloseoutPass": true,
+          "cp4CloseoutPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp4CloseoutGateCount": 1,
+          "v130CloseoutGateCount": 1,
+          "v130CloseoutUnexpectedFailCount": 0,
+          "v130CloseoutEventCount": 1,
+          "latestV130EventMatchesGate": true
+        }
+      },
+      {
+        "name": "messaging.m10.v130_evidence_gate",
+        "level": "info",
+        "atUnixMs": 1774501446514,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "v130EvidencePass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "v130CloseoutPass": true,
+          "cp4CloseoutPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp4CloseoutGateCount": 2,
+          "v130CloseoutGateCount": 2,
+          "v130CloseoutUnexpectedFailCount": 0,
+          "v130CloseoutEventCount": 2,
+          "latestV130EventMatchesGate": true
+        }
+      },
+      {
+        "name": "messaging.m10.v130_evidence_gate",
+        "level": "info",
+        "atUnixMs": 1774501881094,
+        "scope": {
+          "feature": "messaging",
+          "action": "m10_trust_controls"
+        },
+        "context": {
+          "expectedStable": true,
+          "v130EvidencePass": true,
+          "failedCheckCount": 0,
+          "failedCheckSample": null,
+          "v130CloseoutPass": true,
+          "cp4CloseoutPass": true,
+          "incomingRequestRiskLevel": "none",
+          "uiResponsivenessRiskLevel": "none",
+          "m10TrustControlsRiskLevel": "none",
+          "cp4CloseoutGateCount": 3,
+          "v130CloseoutGateCount": 3,
+          "v130CloseoutUnexpectedFailCount": 0,
+          "v130CloseoutEventCount": 3,
+          "latestV130EventMatchesGate": true
+        }
+      }
+    ]
   },
-  "recentWarnOrError": []
+  "recentWarnOrError": [
+    {
+      "name": "messaging.conversation_projection_merge_window_cap_applied",
+      "atUnixMs": 1774501071845,
+      "level": "warn",
+      "reasonCode": null,
+      "message": null
+    },
+    {
+      "name": "runtime.activation.transport_owner_invariant",
+      "atUnixMs": 1774501082282,
+      "level": "warn",
+      "reasonCode": null,
+      "message": null
+    }
+  ]
 }

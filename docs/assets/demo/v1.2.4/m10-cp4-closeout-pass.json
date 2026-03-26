@@ -1,10 +1,20 @@
 {
-  "generatedAtUnixMs": null,
+  "generatedAtUnixMs": 1774501881093,
   "eventWindowSize": 400,
   "expectedStable": true,
   "cp4CloseoutGate": {
-    "pass": null,
+    "pass": true,
     "failedChecks": [],
-    "failedCheckSample": null
+    "failedCheckSample": null,
+    "checks": {
+      "expectedStable": true,
+      "cp3SuitePass": true,
+      "digestSummaryPresent": true,
+      "incomingRequestRiskNotHigh": true,
+      "uiResponsivenessRiskNotHigh": true,
+      "m10TrustControlsRiskNotHigh": true,
+      "cp3SuiteGateObserved": true,
+      "cp3SuiteUnexpectedFailCountZero": true
+    }
   }
 }

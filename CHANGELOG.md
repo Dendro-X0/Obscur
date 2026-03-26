@@ -87,6 +87,23 @@
 - Added machine-readable demo readiness status output:
   - `docs/assets/demo/v1.2.4/m10-status.json`
   - including `strictReady` and strict-violation details for phased closeout tracking.
+- Added deterministic M10 demo materialization automation from canonical raw captures:
+  - `scripts/materialize-m10-demo-assets.mjs`,
+  - package script: `demo:m10:materialize`,
+  - raw capture staging doc: `docs/assets/demo/v1.2.4/raw/README.md`,
+  - matrix updated with `capture -> materialize -> strict-check` flow to reduce manual JSON drift.
+- Added one-shot M10 demo bundle export helper on canonical trust-controls bridge owner:
+  - `window.obscurM10TrustControls.runV124DemoAssetBundleCapture(...)`,
+  - `window.obscurM10TrustControls.runV124DemoAssetBundleCaptureJson(...)`,
+  - outputs CP3/CP4/v130 gate payloads + digest summary + event slices + strict gate preview in one copy-ready packet.
+- Extended demo materializer to accept one-shot bundle input:
+  - `pnpm demo:m10:materialize -- --bundle docs/assets/demo/v1.2.4/raw/m10-v124-demo-bundle.json`,
+  - split (`--v130-evidence` + `--digest-bundle`) mode remains available as fallback.
+- Applied real one-shot M10 demo evidence bundle and materialized strict pass-lane assets in:
+  - `docs/assets/demo/v1.2.4/m10-*.json`,
+  - with strict verification now green:
+    - `pnpm demo:m10:check`,
+    - `docs/assets/demo/v1.2.4/m10-status.json` (`strictReady: true`).
 
 ## [v1.2.2] - 2026-03-25
 

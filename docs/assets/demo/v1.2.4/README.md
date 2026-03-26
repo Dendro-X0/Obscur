@@ -5,8 +5,13 @@ Place generated demo artifacts from `docs/34-v1.2.4-m10-demo-asset-matrix.md` in
 Helper commands:
 1. `pnpm demo:m10:init`
 2. `pnpm demo:m10:check:structure`
-3. `pnpm demo:m10:check`
-4. `pnpm demo:m10:status` (writes `m10-status.json`)
+3. `pnpm demo:m10:materialize -- --bundle docs/assets/demo/v1.2.4/raw/m10-v124-demo-bundle.json`
+4. `pnpm demo:m10:materialize -- --v130-evidence docs/assets/demo/v1.2.4/raw/m10-v130-evidence-capture.json --digest-bundle docs/assets/demo/v1.2.4/raw/m10-digest-event-bundle.json` (fallback split mode)
+5. `pnpm demo:m10:check`
+6. `pnpm demo:m10:status` (writes `m10-status.json`)
+
+Raw capture input folder:
+1. `docs/assets/demo/v1.2.4/raw/README.md`
 
 Required files:
 1. `m10-cp3-readiness-pass.json`

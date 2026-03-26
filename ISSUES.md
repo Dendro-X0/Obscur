@@ -772,11 +772,19 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
   - deterministic demo-bundle automation is now available for this lane:
     - `pnpm demo:m10:init` (create missing template files),
     - `pnpm demo:m10:check:structure` (schema/structure gate),
+    - `pnpm demo:m10:materialize` (derive canonical pass-lane files from raw evidence captures; now supports one-shot `--bundle` input),
     - `pnpm demo:m10:check` (strict pass-lane gate),
     - `pnpm demo:m10:status` (writes machine-readable readiness report).
+  - one-shot demo evidence export helper is now available on canonical M10 bridge:
+    - `window.obscurM10TrustControls.runV124DemoAssetBundleCaptureJson({ eventWindowSize, expectedStable })`.
+  - raw capture staging folder is now tracked for one-copy operator handoff:
+    - `docs/assets/demo/v1.2.4/raw/README.md`.
   - demo bundle now emits progress status file:
     - `docs/assets/demo/v1.2.4/m10-status.json`,
     - use `strictReady` as the phase-complete signal for demo-asset gate.
+  - latest M10 demo evidence gate result:
+    - `pnpm demo:m10:check` is green,
+    - `strictReady: true` is confirmed in `docs/assets/demo/v1.2.4/m10-status.json`.
 
 ## v1 Readiness Status
 

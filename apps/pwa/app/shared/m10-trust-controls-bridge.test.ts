@@ -472,4 +472,33 @@ describe("m10-trust-controls-bridge", () => {
       latestV130EventMatchesGate: true,
     }));
   });
+
+  it("exports a one-copy v1.2.4 demo asset bundle with canonical event slices", () => {
+    installM10TrustControlsBridge();
+    const bundle = window.obscurM10TrustControls?.runV124DemoAssetBundleCapture({
+      eventWindowSize: 200,
+      expectedStable: false,
+    });
+
+    expect(bundle).toBeDefined();
+    expect(bundle?.demoAssets.cp3ReadinessPass.cp3ReadinessGate).toBeDefined();
+    expect(bundle?.demoAssets.cp3SuitePass.cp3SuiteGate).toBeDefined();
+    expect(bundle?.demoAssets.cp4CloseoutPass.cp4CloseoutGate).toBeDefined();
+    expect(bundle?.demoAssets.v130CloseoutPass.v130CloseoutGate).toBeDefined();
+    expect(bundle?.demoAssets.v130EvidencePass.v130EvidenceGate).toBeDefined();
+
+    expect(bundle?.demoAssets.eventSlices.events.cp2.length).toBeGreaterThan(0);
+    expect(bundle?.demoAssets.eventSlices.events.cp3Readiness.length).toBeGreaterThan(0);
+    expect(bundle?.demoAssets.eventSlices.events.cp3Suite.length).toBeGreaterThan(0);
+    expect(bundle?.demoAssets.eventSlices.events.cp4Closeout.length).toBeGreaterThan(0);
+    expect(bundle?.demoAssets.eventSlices.events.v130Closeout.length).toBeGreaterThan(0);
+    expect(bundle?.demoAssets.eventSlices.events.v130Evidence.length).toBeGreaterThan(0);
+
+    const bundleJson = window.obscurM10TrustControls?.runV124DemoAssetBundleCaptureJson({
+      eventWindowSize: 200,
+      expectedStable: false,
+    });
+    expect(bundleJson).toContain("\"demoAssets\"");
+    expect(bundleJson).toContain("\"strictGatePreview\"");
+  });
 });

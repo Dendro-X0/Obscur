@@ -31,6 +31,7 @@
     "demo:m10:init": "node scripts/init-m10-demo-assets.mjs",
     "demo:m10:check": "node scripts/check-m10-demo-assets.mjs",
     "demo:m10:check:structure": "node scripts/check-m10-demo-assets.mjs --structure-only",
+    "demo:m10:materialize": "node scripts/materialize-m10-demo-assets.mjs",
     "demo:m10:status": "node scripts/check-m10-demo-assets.mjs --structure-only --report",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",

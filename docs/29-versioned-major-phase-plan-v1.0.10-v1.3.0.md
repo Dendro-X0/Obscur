@@ -523,6 +523,16 @@ Current checkpoint progress (2026-03-25):
 : with required pass-lane JSON captures + digest/event bundle checklist.
 35. canonical demo-asset output folder is now fixed for this lane:
 : `docs/assets/demo/v1.2.4/`.
+36. deterministic demo-asset materialization helper is now available to reduce manual drift:
+: `pnpm demo:m10:materialize -- --v130-evidence <raw-v130-capture.json> --digest-bundle <raw-digest-bundle.json>`
+: using raw capture inputs under `docs/assets/demo/v1.2.4/raw/`.
+37. canonical one-shot demo evidence export helper is now available for CP3/CP4 closeout handoff:
+: `window.obscurM10TrustControls.runV124DemoAssetBundleCaptureJson({ eventWindowSize, expectedStable })`
+: with bundle materialization path:
+: `pnpm demo:m10:materialize -- --bundle docs/assets/demo/v1.2.4/raw/m10-v124-demo-bundle.json`.
+38. `v1.2.4` M10 demo asset strict gate is now green on canonical evidence bundle:
+: `pnpm demo:m10:check`
+: with `docs/assets/demo/v1.2.4/m10-status.json` reporting `strictReady: true`.
 
 Evidence:
 1. diagnostics bundle includes anti-abuse + responsiveness signals,

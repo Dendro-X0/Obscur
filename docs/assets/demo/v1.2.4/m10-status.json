@@ -1,59 +1,10 @@
 {
-  "generatedAtUnixMs": 1774499121565,
+  "generatedAtUnixMs": 1774501927175,
   "structureOnly": true,
   "ready": true,
-  "strictReady": false,
+  "strictReady": true,
   "errors": [],
-  "strictViolations": [
-    {
-      "name": "gate_strict:m10-cp3-readiness-pass.json:cp3ReadinessGate.pass",
-      "detail": "m10-cp3-readiness-pass.json -> cp3ReadinessGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-cp3-suite-pass.json:cp3SuiteGate.pass",
-      "detail": "m10-cp3-suite-pass.json -> cp3SuiteGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-cp4-closeout-pass.json:cp4CloseoutGate.pass",
-      "detail": "m10-cp4-closeout-pass.json -> cp4CloseoutGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-closeout-pass.json:v130CloseoutGate.pass",
-      "detail": "m10-v130-closeout-pass.json -> v130CloseoutGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-evidence-pass.json:v130EvidenceGate.pass",
-      "detail": "m10-v130-evidence-pass.json -> v130EvidenceGate.pass should be true for strict verification"
-    },
-    {
-      "name": "digest_summary_strict",
-      "detail": "m10-digest-summary.json requires summary.m10TrustControls to be non-null"
-    },
-    {
-      "name": "event_slice_strict:cp2",
-      "detail": "m10-event-slices.json events.cp2 should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:cp3Readiness",
-      "detail": "m10-event-slices.json events.cp3Readiness should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:cp3Suite",
-      "detail": "m10-event-slices.json events.cp3Suite should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:cp4Closeout",
-      "detail": "m10-event-slices.json events.cp4Closeout should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:v130Closeout",
-      "detail": "m10-event-slices.json events.v130Closeout should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:v130Evidence",
-      "detail": "m10-event-slices.json events.v130Evidence should contain at least one event"
-    }
-  ],
+  "strictViolations": [],
   "checks": [
     {
       "name": "required_file:m10-cp3-readiness-pass.json",
