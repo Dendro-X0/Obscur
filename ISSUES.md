@@ -809,6 +809,9 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       - `gif-shot-list.md`,
       - `runtime-evidence-summary.json`,
       - `raw/` capture staging templates.
+    - packet validation commands are now available:
+      - `pnpm demo:v130:check` (structure check),
+      - `pnpm demo:v130:check:strict` (final strict closeout check before tag push).
   - deterministic one-shot release-candidate helper is now available on canonical M10 bridge:
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture({ eventWindowSize, expectedStable })`,
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson({ eventWindowSize, expectedStable })`,

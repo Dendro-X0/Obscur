@@ -43,6 +43,8 @@
     "demo:m10:rc:next": "node scripts/next-m10-release-candidate-actions.mjs",
     "demo:m10:rc:refresh": "node scripts/refresh-m10-release-candidate-flow.mjs",
     "demo:v130:init": "node scripts/init-v130-closeout-assets.mjs",
+    "demo:v130:check": "node scripts/check-v130-manual-evidence-packet.mjs",
+    "demo:v130:check:strict": "node scripts/check-v130-manual-evidence-packet.mjs --strict",
     "closeout:v130:check": "node scripts/check-v130-closeout-readiness.mjs",
     "closeout:v130:check:refresh-status": "node scripts/check-v130-closeout-readiness.mjs --refresh-rc-status",
     "closeout:v130:check:with-preflight": "node scripts/check-v130-closeout-readiness.mjs --include-preflight --tag v1.3.0",

@@ -607,6 +607,9 @@ Remaining work snapshot (2026-03-25):
 : `pnpm demo:v130:init`
 : creating a structured manual checklist + GIF shot list + runtime evidence summary under
 : `docs/assets/demo/v1.3.0/` for final closeout attachment.
+9. deterministic packet validation is available:
+: `pnpm demo:v130:check` (structure),
+: `pnpm demo:v130:check:strict` (final strict completeness).
 
 Mandatory release gates:
 1. `pnpm version:check`

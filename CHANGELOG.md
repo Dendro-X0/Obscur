@@ -25,6 +25,11 @@
   wired to `scripts/init-v130-closeout-assets.mjs` to scaffold manual
   verification checklist, GIF shot list, and runtime evidence summary
   templates under `docs/assets/demo/v1.3.0/`.
+- Added deterministic manual evidence packet validation:
+  - `pnpm demo:v130:check`
+  - `pnpm demo:v130:check:strict`
+  wired to `scripts/check-v130-manual-evidence-packet.mjs` for structure
+  and strict final completeness checks.
 - Improved closeout automation determinism:
   - `closeout:v130:check` now verifies strict readiness directly from materialized
     pass/digest/event artifacts (no forced status-file rewrite),
