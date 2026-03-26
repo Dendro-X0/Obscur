@@ -582,6 +582,7 @@ Remaining work snapshot (2026-03-25):
 : `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)`
 : then `pnpm demo:m10:rc:materialize`, `pnpm demo:m10:rc:check`, and confirm
 : `docs/assets/demo/v1.2.5/m10-status.json` reports `strictReady: true`.
+: use `pnpm demo:m10:rc:next` after status export for deterministic follow-up commands.
 2. execute final closeout matrix replay and attach accepted runtime evidence bundle under `/docs/assets/demo`.
 3. run clean-tree release gates (`version/docs/vitest/tsc/release:test-pack/release:preflight`) and publish `v1.3.0`.
 

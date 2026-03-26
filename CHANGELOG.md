@@ -9,6 +9,10 @@
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilized(...)`,
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)`,
   using bounded settle passes (`settlePasses`, default `2`) to reduce first-run replay drift.
+- Added deterministic release-candidate next-step helper:
+  - `pnpm demo:m10:rc:next`
+  - reads `docs/assets/demo/v1.2.5/m10-status.json` and prints exact follow-up commands
+    for strict gate completion without replay-loop guesswork.
 - Added deterministic v1.3 release-candidate helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture(...)`,

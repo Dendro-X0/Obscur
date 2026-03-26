@@ -16,3 +16,4 @@ Automation:
 3. `pnpm demo:m10:rc:check:structure`
 4. `pnpm demo:m10:rc:check`
 5. `pnpm demo:m10:rc:status`
+6. `pnpm demo:m10:rc:next`

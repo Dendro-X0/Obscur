@@ -38,6 +38,7 @@
     "demo:m10:rc:check": "node scripts/check-m10-release-candidate-assets.mjs",
     "demo:m10:rc:check:structure": "node scripts/check-m10-release-candidate-assets.mjs --structure-only",
     "demo:m10:rc:status": "node scripts/check-m10-release-candidate-assets.mjs --structure-only --report",
+    "demo:m10:rc:next": "node scripts/next-m10-release-candidate-actions.mjs",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"
