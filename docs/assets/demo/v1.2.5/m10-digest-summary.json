@@ -1,7 +1,64 @@
 {
   "summary": {
-    "incomingRequestAntiAbuse": null,
-    "uiResponsiveness": null,
-    "m10TrustControls": null
+    "incomingRequestAntiAbuse": {
+      "riskLevel": "none",
+      "quarantinedCount": 0,
+      "latestReasonCode": null
+    },
+    "uiResponsiveness": {
+      "riskLevel": "none",
+      "routeStallHardFallbackCount": 0,
+      "routeMountProbeSlowCount": 0,
+      "routeMountPerformanceGuardEnabledCount": 0,
+      "pageTransitionWatchdogTimeoutCount": 0,
+      "pageTransitionEffectsDisabledCount": 0,
+      "startupProfileBootStallTimeoutCount": 0,
+      "latestRouteSurface": null
+    },
+    "m10TrustControls": {
+      "riskLevel": "none",
+      "cp2StabilityGateCount": 8,
+      "cp2StabilityGatePassCount": 8,
+      "cp2StabilityGateFailCount": 0,
+      "cp2StabilityGateUnexpectedFailCount": 0,
+      "cp3ReadinessGateCount": 8,
+      "cp3ReadinessGatePassCount": 8,
+      "cp3ReadinessGateFailCount": 0,
+      "cp3ReadinessGateUnexpectedFailCount": 0,
+      "cp3SuiteGateCount": 8,
+      "cp3SuiteGatePassCount": 8,
+      "cp3SuiteGateFailCount": 0,
+      "cp3SuiteGateUnexpectedFailCount": 0,
+      "cp4CloseoutGateCount": 8,
+      "cp4CloseoutGatePassCount": 8,
+      "cp4CloseoutGateFailCount": 0,
+      "cp4CloseoutGateUnexpectedFailCount": 0,
+      "v130CloseoutGateCount": 8,
+      "v130CloseoutGatePassCount": 8,
+      "v130CloseoutGateFailCount": 0,
+      "v130CloseoutGateUnexpectedFailCount": 0,
+      "v130EvidenceGateCount": 8,
+      "v130EvidenceGatePassCount": 8,
+      "v130EvidenceGateFailCount": 0,
+      "v130EvidenceGateUnexpectedFailCount": 0,
+      "latestExpectedStable": true,
+      "latestPass": true,
+      "latestFailedCheckSample": null,
+      "latestCp3ExpectedStable": true,
+      "latestCp3Pass": true,
+      "latestCp3FailedCheckSample": null,
+      "latestCp3SuiteExpectedStable": true,
+      "latestCp3SuitePass": true,
+      "latestCp3SuiteFailedCheckSample": null,
+      "latestCp4CloseoutExpectedStable": true,
+      "latestCp4CloseoutPass": true,
+      "latestCp4CloseoutFailedCheckSample": null,
+      "latestV130CloseoutExpectedStable": true,
+      "latestV130CloseoutPass": true,
+      "latestV130CloseoutFailedCheckSample": null,
+      "latestV130EvidenceExpectedStable": true,
+      "latestV130EvidencePass": true,
+      "latestV130EvidenceFailedCheckSample": null
+    }
   }
 }

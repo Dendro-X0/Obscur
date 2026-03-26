@@ -1,10 +1,28 @@
 {
-  "generatedAtUnixMs": null,
+  "generatedAtUnixMs": 1774512997968,
   "eventWindowSize": 400,
   "expectedStable": true,
   "releaseCandidateGate": {
-    "pass": null,
+    "pass": true,
     "failedChecks": [],
-    "failedCheckSample": null
+    "failedCheckSample": null,
+    "checks": {
+      "expectedStable": true,
+      "cp2StabilityPass": true,
+      "cp3ReadinessPass": true,
+      "cp3SuitePass": true,
+      "cp4CloseoutPass": true,
+      "v130CloseoutPass": true,
+      "v130EvidencePass": true,
+      "digestSummaryPresent": true,
+      "cp2GateObserved": true,
+      "cp3ReadinessGateObserved": true,
+      "cp3SuiteGateObserved": true,
+      "cp4CloseoutGateObserved": true,
+      "v130CloseoutGateObserved": true,
+      "v130EvidenceGateObserved": true,
+      "latestV130EvidenceEventMatchesGate": true,
+      "v130EvidenceUnexpectedFailCountZero": true
+    }
   }
 }

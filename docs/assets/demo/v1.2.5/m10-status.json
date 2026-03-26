@@ -1,75 +1,10 @@
 {
-  "generatedAtUnixMs": 1774505694247,
-  "structureOnly": true,
+  "generatedAtUnixMs": 1774513086885,
+  "structureOnly": false,
   "ready": true,
-  "strictReady": false,
+  "strictReady": true,
   "errors": [],
-  "strictViolations": [
-    {
-      "name": "gate_strict:m10-v130-release-candidate-pass.json:releaseCandidateGate.pass",
-      "detail": "m10-v130-release-candidate-pass.json -> releaseCandidateGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-release-candidate-capture.json:cp2TriageCapture.cp2TriageGate.pass",
-      "detail": "m10-v130-release-candidate-capture.json -> cp2TriageCapture.cp2TriageGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3ReadinessCapture.cp3ReadinessGate.pass",
-      "detail": "m10-v130-release-candidate-capture.json -> v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3ReadinessCapture.cp3ReadinessGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3SuiteGate.pass",
-      "detail": "m10-v130-release-candidate-capture.json -> v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3SuiteGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp4CloseoutGate.pass",
-      "detail": "m10-v130-release-candidate-capture.json -> v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp4CloseoutGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.v130CloseoutGate.pass",
-      "detail": "m10-v130-release-candidate-capture.json -> v130EvidenceCapture.v130CloseoutCapture.v130CloseoutGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130EvidenceGate.pass",
-      "detail": "m10-v130-release-candidate-capture.json -> v130EvidenceCapture.v130EvidenceGate.pass should be true for strict verification"
-    },
-    {
-      "name": "gate_strict:m10-v130-release-candidate-capture.json:releaseCandidateGate.pass",
-      "detail": "m10-v130-release-candidate-capture.json -> releaseCandidateGate.pass should be true for strict verification"
-    },
-    {
-      "name": "digest_summary_strict",
-      "detail": "m10-digest-summary.json requires summary.m10TrustControls to be non-null"
-    },
-    {
-      "name": "event_slice_strict:cp2",
-      "detail": "m10-event-slices.json events.cp2 should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:cp3Readiness",
-      "detail": "m10-event-slices.json events.cp3Readiness should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:cp3Suite",
-      "detail": "m10-event-slices.json events.cp3Suite should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:cp4Closeout",
-      "detail": "m10-event-slices.json events.cp4Closeout should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:v130Closeout",
-      "detail": "m10-event-slices.json events.v130Closeout should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:v130Evidence",
-      "detail": "m10-event-slices.json events.v130Evidence should contain at least one event"
-    },
-    {
-      "name": "event_slice_strict:v130ReleaseCandidate",
-      "detail": "m10-event-slices.json events.v130ReleaseCandidate should contain at least one event"
-    }
-  ],
+  "strictViolations": [],
   "checks": [
     {
       "name": "required_file:m10-v130-release-candidate-pass.json",
@@ -97,47 +32,47 @@
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-pass.json:releaseCandidateGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-pass.json:releaseCandidateGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-capture.json:cp2TriageCapture.cp2TriageGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-capture.json:cp2TriageCapture.cp2TriageGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3ReadinessCapture.cp3ReadinessGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3ReadinessCapture.cp3ReadinessGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3SuiteGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp3SuiteCapture.cp3SuiteGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp4CloseoutGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.cp4CloseoutCapture.cp4CloseoutGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.v130CloseoutGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130CloseoutCapture.v130CloseoutGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130EvidenceGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-capture.json:v130EvidenceCapture.v130EvidenceGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "gate_shape:m10-v130-release-candidate-capture.json:releaseCandidateGate.pass",
+      "name": "gate_strict:m10-v130-release-candidate-capture.json:releaseCandidateGate.pass",
       "pass": true,
       "detail": null
     },
     {
-      "name": "digest_summary_shape",
+      "name": "digest_summary_strict",
       "pass": true,
       "detail": null
     },
@@ -147,7 +82,17 @@
       "detail": null
     },
     {
+      "name": "event_slice_strict:cp2",
+      "pass": true,
+      "detail": null
+    },
+    {
       "name": "event_slice_shape:cp3Readiness",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_strict:cp3Readiness",
       "pass": true,
       "detail": null
     },
@@ -157,7 +102,17 @@
       "detail": null
     },
     {
+      "name": "event_slice_strict:cp3Suite",
+      "pass": true,
+      "detail": null
+    },
+    {
       "name": "event_slice_shape:cp4Closeout",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_strict:cp4Closeout",
       "pass": true,
       "detail": null
     },
@@ -167,12 +122,27 @@
       "detail": null
     },
     {
+      "name": "event_slice_strict:v130Closeout",
+      "pass": true,
+      "detail": null
+    },
+    {
       "name": "event_slice_shape:v130Evidence",
       "pass": true,
       "detail": null
     },
     {
+      "name": "event_slice_strict:v130Evidence",
+      "pass": true,
+      "detail": null
+    },
+    {
       "name": "event_slice_shape:v130ReleaseCandidate",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_strict:v130ReleaseCandidate",
       "pass": true,
       "detail": null
     },
