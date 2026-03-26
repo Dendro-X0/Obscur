@@ -1,0 +1,24 @@
+{
+  "generatedAtUnixMs": null,
+  "targetTag": "v1.3.0",
+  "appVersion": null,
+  "environment": {
+    "runtime": null,
+    "os": null,
+    "deviceProfile": null
+  },
+  "closeoutGates": {
+    "rcStrictReady": null,
+    "closeoutCheckPassed": null,
+    "releasePreflightPassed": null
+  },
+  "manualVerification": {
+    "pass": null,
+    "notes": []
+  },
+  "performanceUx": {
+    "pass": null,
+    "notes": []
+  },
+  "gifAssets": []
+}

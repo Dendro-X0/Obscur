@@ -1,0 +1,65 @@
+{
+  "generatedAtUnixMs": null,
+  "eventWindowSize": 400,
+  "expectedStable": true,
+  "cp2TriageCapture": {
+    "cp2TriageGate": {
+      "pass": null,
+      "failedChecks": [],
+      "failedCheckSample": null
+    }
+  },
+  "v130EvidenceCapture": {
+    "v130CloseoutCapture": {
+      "cp4CloseoutCapture": {
+        "cp3SuiteCapture": {
+          "cp3ReadinessCapture": {
+            "cp3ReadinessGate": {
+              "pass": null,
+              "failedChecks": [],
+              "failedCheckSample": null
+            }
+          },
+          "cp3SuiteGate": {
+            "pass": null,
+            "failedChecks": [],
+            "failedCheckSample": null
+          }
+        },
+        "cp4CloseoutGate": {
+          "pass": null,
+          "failedChecks": [],
+          "failedCheckSample": null
+        }
+      },
+      "v130CloseoutGate": {
+        "pass": null,
+        "failedChecks": [],
+        "failedCheckSample": null
+      }
+    },
+    "v130EvidenceGate": {
+      "pass": null,
+      "failedChecks": [],
+      "failedCheckSample": null
+    }
+  },
+  "digestSummaryAfterV130EvidenceEvent": null,
+  "eventSlices": {
+    "events": {
+      "cp2": [],
+      "cp3Readiness": [],
+      "cp3Suite": [],
+      "cp4Closeout": [],
+      "v130Closeout": [],
+      "v130Evidence": [],
+      "v130ReleaseCandidate": []
+    },
+    "recentWarnOrError": []
+  },
+  "releaseCandidateGate": {
+    "pass": null,
+    "failedChecks": [],
+    "failedCheckSample": null
+  }
+}

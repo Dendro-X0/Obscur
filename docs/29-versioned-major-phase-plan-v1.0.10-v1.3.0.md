@@ -603,6 +603,10 @@ Remaining work snapshot (2026-03-25):
 7. deterministic tag-workflow observability is available:
 : `pnpm release:workflow-status -- --tag <version-tag>`
 : to print canonical release run/job posture before escalation.
+8. deterministic v1.3.0 manual evidence packet bootstrap is available:
+: `pnpm demo:v130:init`
+: creating a structured manual checklist + GIF shot list + runtime evidence summary under
+: `docs/assets/demo/v1.3.0/` for final closeout attachment.
 
 Mandatory release gates:
 1. `pnpm version:check`

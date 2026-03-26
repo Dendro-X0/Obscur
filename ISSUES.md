@@ -801,6 +801,14 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
       `Obscur Full Release` run and per-job state from GitHub API,
     - use this command to verify whether tag lanes are still running vs completed
       before concluding that release publishing is blocked.
+  - `v1.2.7` manual evidence packet slice landed:
+    - `pnpm demo:v130:init` now scaffolds a deterministic closeout packet at
+      `docs/assets/demo/v1.3.0/` for manual QA + performance/UX verification + GIF capture,
+    - packet includes:
+      - `manual-verification-checklist.md`,
+      - `gif-shot-list.md`,
+      - `runtime-evidence-summary.json`,
+      - `raw/` capture staging templates.
   - deterministic one-shot release-candidate helper is now available on canonical M10 bridge:
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture({ eventWindowSize, expectedStable })`,
     - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson({ eventWindowSize, expectedStable })`,
