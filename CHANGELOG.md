@@ -4,6 +4,11 @@
 
 - Released `v1.2.4` (tag pushed on 2026-03-25) and opened
   `v1.2.5` as the active development lane on `main`.
+- Added deterministic stabilized release-candidate helper APIs on canonical M10 bridge owner
+  `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
+  - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilized(...)`,
+  - `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)`,
+  using bounded settle passes (`settlePasses`, default `2`) to reduce first-run replay drift.
 - Added deterministic v1.3 release-candidate helper APIs on canonical M10 bridge owner
   `apps/pwa/app/shared/m10-trust-controls-bridge.ts`:
   - `window.obscurM10TrustControls.runV130ReleaseCandidateCapture(...)`,

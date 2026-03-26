@@ -4,7 +4,7 @@ _Status: pending capture_
 
 ## Segment 1: One-Shot Candidate Capture
 1. Clear app events and run one command:
-: `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson(...)`
+: `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)`
 2. Save raw output in `docs/assets/demo/v1.2.5/raw/`.
 
 ## Segment 2: Gate Readout

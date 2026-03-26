@@ -390,6 +390,12 @@ type M10V130ReleaseCandidateCapture = Readonly<{
   releaseCandidateGate: M10V130ReleaseCandidateGate;
 }>;
 
+type M10V130ReleaseCandidateCaptureParams = Readonly<{
+  eventWindowSize?: number;
+  expectedStable?: boolean;
+  settlePasses?: number;
+}>;
+
 type M10TrustControlsBridgeApi = Readonly<{
   __bridgeVersion: number;
   getSnapshot: () => M10TrustControlsSnapshot;
@@ -513,22 +519,12 @@ type M10TrustControlsBridgeApi = Readonly<{
     eventWindowSize?: number;
     expectedStable?: boolean;
   }>) => string;
-  runV130ReleaseCandidateCapture: (params?: Readonly<{
-    eventWindowSize?: number;
-    expectedStable?: boolean;
-  }>) => M10V130ReleaseCandidateCapture;
-  runV130ReleaseCandidateCaptureJson: (params?: Readonly<{
-    eventWindowSize?: number;
-    expectedStable?: boolean;
-  }>) => string;
-  runV130ReleaseCandidateGateProbe: (params?: Readonly<{
-    eventWindowSize?: number;
-    expectedStable?: boolean;
-  }>) => M10V130ReleaseCandidateGate;
-  runV130ReleaseCandidateGateProbeJson: (params?: Readonly<{
-    eventWindowSize?: number;
-    expectedStable?: boolean;
-  }>) => string;
+  runV130ReleaseCandidateCapture: (params?: M10V130ReleaseCandidateCaptureParams) => M10V130ReleaseCandidateCapture;
+  runV130ReleaseCandidateCaptureJson: (params?: M10V130ReleaseCandidateCaptureParams) => string;
+  runV130ReleaseCandidateCaptureStabilized: (params?: M10V130ReleaseCandidateCaptureParams) => M10V130ReleaseCandidateCapture;
+  runV130ReleaseCandidateCaptureStabilizedJson: (params?: M10V130ReleaseCandidateCaptureParams) => string;
+  runV130ReleaseCandidateGateProbe: (params?: M10V130ReleaseCandidateCaptureParams) => M10V130ReleaseCandidateGate;
+  runV130ReleaseCandidateGateProbeJson: (params?: M10V130ReleaseCandidateCaptureParams) => string;
 }>;
 
 type M10TrustControlsBridgeWindow = Window & {
@@ -638,7 +634,7 @@ const CP4_CLOSEOUT_GATE_EVENT_NAME = "messaging.m10.cp4_closeout_gate";
 const V130_CLOSEOUT_GATE_EVENT_NAME = "messaging.m10.v130_closeout_gate";
 const V130_EVIDENCE_GATE_EVENT_NAME = "messaging.m10.v130_evidence_gate";
 const V130_RELEASE_CANDIDATE_GATE_EVENT_NAME = "messaging.m10.v130_release_candidate_gate";
-const M10_TRUST_CONTROLS_BRIDGE_VERSION = 2;
+const M10_TRUST_CONTROLS_BRIDGE_VERSION = 3;
 
 const isPositiveFinite = (value: unknown): value is number => (
   typeof value === "number" && Number.isFinite(value) && value > 0
@@ -1691,6 +1687,55 @@ const createV130ReleaseCandidateCapture = (
   };
 };
 
+const runV130ReleaseCandidateCaptureOnce = (
+  root: M10TrustControlsBridgeWindow,
+  params?: M10V130ReleaseCandidateCaptureParams,
+): M10V130ReleaseCandidateCapture => {
+  const capture = createV130ReleaseCandidateCapture(root, params);
+  const eventSlicesForEmit = (
+    capture.eventSlices.events.v130ReleaseCandidate.length > 0
+      ? capture.eventSlices
+      : {
+        ...capture.eventSlices,
+        events: {
+          ...capture.eventSlices.events,
+          v130ReleaseCandidate: [{
+            name: V130_RELEASE_CANDIDATE_GATE_EVENT_NAME,
+            level: "info",
+            atUnixMs: Date.now(),
+            context: {
+              expectedStable: capture.expectedStable,
+            },
+          }],
+        },
+      }
+  );
+  const captureForEmit = {
+    ...capture,
+    eventSlices: eventSlicesForEmit,
+    releaseCandidateGate: buildV130ReleaseCandidateGate({
+      expectedStable: capture.expectedStable,
+      cp2TriageCapture: capture.cp2TriageCapture,
+      v130EvidenceCapture: capture.v130EvidenceCapture,
+      digestSummaryAfterV130EvidenceEvent: capture.digestSummaryAfterV130EvidenceEvent,
+      eventSlices: eventSlicesForEmit.events,
+    }),
+  };
+  emitV130ReleaseCandidateGateEvent(captureForEmit);
+  const eventSlices = readV130ReleaseCandidateEventSlices(root, capture.eventWindowSize);
+  return {
+    ...captureForEmit,
+    eventSlices,
+    releaseCandidateGate: buildV130ReleaseCandidateGate({
+      expectedStable: captureForEmit.expectedStable,
+      cp2TriageCapture: captureForEmit.cp2TriageCapture,
+      v130EvidenceCapture: captureForEmit.v130EvidenceCapture,
+      digestSummaryAfterV130EvidenceEvent: captureForEmit.digestSummaryAfterV130EvidenceEvent,
+      eventSlices: eventSlices.events,
+    }),
+  };
+};
+
 const emitV130ReleaseCandidateGateEvent = (capture: M10V130ReleaseCandidateCapture): void => {
   const digestSummary = capture.digestSummaryAfterV130EvidenceEvent;
   logAppEvent({
@@ -2035,53 +2080,26 @@ export const installM10TrustControlsBridge = (): void => {
     runV124DemoAssetBundleCaptureJson: (params) => (
       JSON.stringify(root.obscurM10TrustControls?.runV124DemoAssetBundleCapture(params) ?? null, null, 2)
     ),
-    runV130ReleaseCandidateCapture: (params) => {
-      const capture = createV130ReleaseCandidateCapture(root, params);
-      const eventSlicesForEmit = (
-        capture.eventSlices.events.v130ReleaseCandidate.length > 0
-          ? capture.eventSlices
-          : {
-            ...capture.eventSlices,
-            events: {
-              ...capture.eventSlices.events,
-              v130ReleaseCandidate: [{
-                name: V130_RELEASE_CANDIDATE_GATE_EVENT_NAME,
-                level: "info",
-                atUnixMs: Date.now(),
-                context: {
-                  expectedStable: capture.expectedStable,
-                },
-              }],
-            },
-          }
-      );
-      const captureForEmit = {
-        ...capture,
-        eventSlices: eventSlicesForEmit,
-        releaseCandidateGate: buildV130ReleaseCandidateGate({
-          expectedStable: capture.expectedStable,
-          cp2TriageCapture: capture.cp2TriageCapture,
-          v130EvidenceCapture: capture.v130EvidenceCapture,
-          digestSummaryAfterV130EvidenceEvent: capture.digestSummaryAfterV130EvidenceEvent,
-          eventSlices: eventSlicesForEmit.events,
-        }),
-      };
-      emitV130ReleaseCandidateGateEvent(captureForEmit);
-      const eventSlices = readV130ReleaseCandidateEventSlices(root, capture.eventWindowSize);
-      return {
-        ...captureForEmit,
-        eventSlices,
-        releaseCandidateGate: buildV130ReleaseCandidateGate({
-          expectedStable: captureForEmit.expectedStable,
-          cp2TriageCapture: captureForEmit.cp2TriageCapture,
-          v130EvidenceCapture: captureForEmit.v130EvidenceCapture,
-          digestSummaryAfterV130EvidenceEvent: captureForEmit.digestSummaryAfterV130EvidenceEvent,
-          eventSlices: eventSlices.events,
-        }),
-      };
-    },
+    runV130ReleaseCandidateCapture: (params) => (
+      runV130ReleaseCandidateCaptureOnce(root, params)
+    ),
     runV130ReleaseCandidateCaptureJson: (params) => (
       JSON.stringify(root.obscurM10TrustControls?.runV130ReleaseCandidateCapture(params) ?? null, null, 2)
+    ),
+    runV130ReleaseCandidateCaptureStabilized: (params) => {
+      const settlePasses = Math.min(toWindowSize(params?.settlePasses, 2), 5);
+      const baseParams = {
+        eventWindowSize: params?.eventWindowSize,
+        expectedStable: params?.expectedStable,
+      } as const;
+      let capture = runV130ReleaseCandidateCaptureOnce(root, baseParams);
+      for (let pass = 1; pass < settlePasses; pass += 1) {
+        capture = runV130ReleaseCandidateCaptureOnce(root, baseParams);
+      }
+      return capture;
+    },
+    runV130ReleaseCandidateCaptureStabilizedJson: (params) => (
+      JSON.stringify(root.obscurM10TrustControls?.runV130ReleaseCandidateCaptureStabilized(params) ?? null, null, 2)
     ),
     runV130ReleaseCandidateGateProbe: (params) => (
       root.obscurM10TrustControls?.runV130ReleaseCandidateCapture(params).releaseCandidateGate ?? {

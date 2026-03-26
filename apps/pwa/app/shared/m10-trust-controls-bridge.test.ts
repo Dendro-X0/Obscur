@@ -60,6 +60,7 @@ describe("m10-trust-controls-bridge", () => {
     expect(api).not.toBe(staleBridge);
     expect(api?.__bridgeVersion).toBe(m10TrustControlsBridgeInternals.M10_TRUST_CONTROLS_BRIDGE_VERSION);
     expect(typeof api?.runV130ReleaseCandidateCapture).toBe("function");
+    expect(typeof api?.runV130ReleaseCandidateCaptureStabilized).toBe("function");
   });
 
   it("captures only attack-mode quarantine events", () => {
@@ -570,5 +571,26 @@ describe("m10-trust-controls-bridge", () => {
     });
     expect(captureJson).toContain("\"releaseCandidateGate\"");
     expect(captureJson).toContain("\"eventSlices\"");
+  });
+
+  it("exports a stabilized one-command v1.3 release-candidate capture", () => {
+    installM10TrustControlsBridge();
+    const capture = window.obscurM10TrustControls?.runV130ReleaseCandidateCaptureStabilized({
+      eventWindowSize: 200,
+      expectedStable: false,
+      settlePasses: 2,
+    });
+
+    expect(capture).toBeDefined();
+    expect(capture?.releaseCandidateGate.pass).toBe(true);
+    expect(capture?.eventSlices.events.v130ReleaseCandidate.length).toBeGreaterThan(0);
+
+    const captureJson = window.obscurM10TrustControls?.runV130ReleaseCandidateCaptureStabilizedJson({
+      eventWindowSize: 200,
+      expectedStable: false,
+      settlePasses: 2,
+    });
+    expect(captureJson).toContain("\"releaseCandidateGate\"");
+    expect(captureJson).toContain("\"v130ReleaseCandidate\"");
   });
 });

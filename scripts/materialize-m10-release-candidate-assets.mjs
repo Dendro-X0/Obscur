@@ -43,7 +43,7 @@ const usage = [
   "  node scripts/materialize-m10-release-candidate-assets.mjs --capture <path> [--target-dir <path>]",
   "",
   "Required:",
-  "  --capture        Path to JSON from window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson(...)",
+  "  --capture        Path to JSON from window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)",
   "",
   "Optional:",
   "  --target-dir     Output folder (default: docs/assets/demo/v1.2.5)",

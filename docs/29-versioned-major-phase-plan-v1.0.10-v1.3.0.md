@@ -577,6 +577,14 @@ Scope:
 2. release-blocker burn-down and strict stability verification,
 3. publish stable `v1.3.0` milestone.
 
+Remaining work snapshot (2026-03-25):
+1. complete `v1.2.5` release-candidate artifact strict gate with a fresh stabilized capture:
+: `window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)`
+: then `pnpm demo:m10:rc:materialize`, `pnpm demo:m10:rc:check`, and confirm
+: `docs/assets/demo/v1.2.5/m10-status.json` reports `strictReady: true`.
+2. execute final closeout matrix replay and attach accepted runtime evidence bundle under `/docs/assets/demo`.
+3. run clean-tree release gates (`version/docs/vitest/tsc/release:test-pack/release:preflight`) and publish `v1.3.0`.
+
 Mandatory release gates:
 1. `pnpm version:check`
 2. `pnpm docs:check`

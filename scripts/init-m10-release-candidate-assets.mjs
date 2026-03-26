@@ -176,7 +176,7 @@ _Status: pending capture_
 
 ## Segment 1: One-Shot Candidate Capture
 1. Clear app events and run one command:
-: \`window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson(...)\`
+: \`window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)\`
 2. Save raw output in \`docs/assets/demo/v1.2.5/raw/\`.
 
 ## Segment 2: Gate Readout
@@ -194,7 +194,7 @@ Store raw console outputs here before materializing canonical pass-lane files.
 
 Required file:
 1. \`m10-v130-release-candidate-capture.json\`
-: output from \`window.obscurM10TrustControls.runV130ReleaseCandidateCaptureJson(...)\`.
+: output from \`window.obscurM10TrustControls.runV130ReleaseCandidateCaptureStabilizedJson(...)\`.
 
 Materialize command:
 \`pnpm demo:m10:rc:materialize -- --capture docs/assets/demo/v1.2.5/raw/m10-v130-release-candidate-capture.json\`
