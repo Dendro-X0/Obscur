@@ -159,7 +159,7 @@ export function ChatView(props: ChatViewProps) {
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
     const resolvedName = metadata?.displayName || props.conversation.displayName;
     const isDeletedRecipient = props.conversation.kind === "dm" && metadata?.isDeleted === true;
-    const resolvedNowMs = props.nowMs ?? Date.now();
+    const resolvedNowMs = props.nowMs;
     const normalizedHistorySearchQuery = historySearchQuery.trim().toLowerCase();
     const canSearchHistory = normalizedHistorySearchQuery.length >= 2;
     const voiceNoteSearchResultCount = React.useMemo(() => (

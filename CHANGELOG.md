@@ -53,6 +53,15 @@
   - normalized immutable test fixture state ownership in
     `apps/pwa/app/features/messaging/services/request-transport-deterministic.integration.test.ts`
     and `apps/pwa/app/features/relays/lib/relay-publish-chaos.test.ts`.
+- Hardened chat-history search rendering in
+  `apps/pwa/app/features/messaging/components/chat-view.tsx`
+  by removing render-time `Date.now()` fallback for relative timestamps when
+  `nowMs` is intentionally `null` (keeps initial render deterministic and avoids
+  hydration drift from client/server clock skew).
+- Added focused regression coverage in
+  `apps/pwa/app/features/messaging/components/chat-view.test.tsx`
+  asserting search results do not render synthetic "Just now" labels when
+  runtime `nowMs` is unavailable.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

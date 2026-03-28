@@ -292,6 +292,32 @@ describe("ChatView history search", () => {
         });
         expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(9_000);
     });
+
+    it("does not render relative time labels when nowMs is null", async () => {
+        searchMessagesMock.mockResolvedValue([
+            {
+                conversationId: "conv-a",
+                message: { id: "m-fresh", content: "fresh message", timestampMs: Date.now() },
+            },
+        ]);
+
+        const props = createBaseProps();
+        props.nowMs = null;
+
+        render(<ChatView {...props} />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Search Messages" }));
+        fireEvent.change(screen.getByPlaceholderText("Search message history in this chat..."), {
+            target: { value: "fresh" },
+        });
+
+        await waitFor(() => {
+            expect(searchMessagesMock).toHaveBeenCalledWith("fresh", 120);
+        });
+
+        expect(screen.getByRole("button", { name: /fresh message/i })).toBeInTheDocument();
+        expect(screen.queryByText("Just now")).not.toBeInTheDocument();
+    });
 });
 
 describe("ChatView batch delete", () => {

@@ -278,6 +278,11 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa vitest run app/features/auth/components/auth-screen.test.tsx app/features/crypto/__tests__/crypto-service-runtime-selection.test.ts app/features/messaging/services/request-transport-deterministic.integration.test.ts app/features/relays/lib/relay-publish-chaos.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit`
 : `pnpm release:test-pack -- --skip-preflight`.
+30. Chat-history search hydration determinism hardening landed on canonical chat owner (2026-03-28):
+: `apps/pwa/app/features/messaging/components/chat-view.tsx` now respects `nowMs === null` (no render-time `Date.now()` fallback), preventing synthetic relative-time labels during pre-hydration render.
+31. Focused regression validation is green:
+: `pnpm --dir apps/pwa vitest run app/features/messaging/components/chat-view.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/messaging/components/chat-view.tsx app/features/messaging/components/chat-view.test.tsx --quiet`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
