@@ -12,6 +12,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   unsupportedCount: number;
   recoveryExhaustedCount: number;
   staleEventIgnoredCount: number;
+  connectTimeoutDiagnosticsCount: number;
+  connectTimeoutNoOpenRelayCount: number;
   longSessionGateCount: number;
   longSessionGatePassCount: number;
   longSessionGateFailCount: number;
@@ -35,6 +37,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestToPhase: string | null;
   latestReasonCode: string | null;
   latestIgnoredReasonCode: string | null;
+  latestConnectTimeoutRtcConnectionState: string | null;
+  latestConnectTimeoutOpenRelayCount: number | null;
   latestLongSessionGatePass: boolean | null;
   latestLongSessionGateFailedCheckSample: string | null;
   latestCheckpointGatePass: boolean | null;
@@ -111,6 +115,7 @@ export type M6VoiceCaptureBundle = Readonly<{
     deleteConvergenceSummary: DeleteConvergenceSummary | null;
     transitions: ReadonlyArray<MinimalAppEvent>;
     ignoredEvents: ReadonlyArray<MinimalAppEvent>;
+    connectTimeoutEvents: ReadonlyArray<MinimalAppEvent>;
     longSessionGateEvents: ReadonlyArray<MinimalAppEvent>;
     checkpointGateEvents: ReadonlyArray<MinimalAppEvent>;
     releaseReadinessGateEvents: ReadonlyArray<MinimalAppEvent>;
@@ -164,6 +169,10 @@ const toNumber = (value: unknown): number => (
   typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0
 );
 
+const toNumberOrNull = (value: unknown): number | null => (
+  typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : null
+);
+
 const toNumericWindowSize = (value: unknown): number => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.max(1, Math.floor(value));
@@ -186,6 +195,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     unsupportedCount: toNumber(value.unsupportedCount),
     recoveryExhaustedCount: toNumber(value.recoveryExhaustedCount),
     staleEventIgnoredCount: toNumber(value.staleEventIgnoredCount),
+    connectTimeoutDiagnosticsCount: toNumber(value.connectTimeoutDiagnosticsCount),
+    connectTimeoutNoOpenRelayCount: toNumber(value.connectTimeoutNoOpenRelayCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -209,6 +220,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
+    latestConnectTimeoutRtcConnectionState: toStringOrNull(value.latestConnectTimeoutRtcConnectionState),
+    latestConnectTimeoutOpenRelayCount: toNumberOrNull(value.latestConnectTimeoutOpenRelayCount),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -341,6 +354,19 @@ const readRecentIgnoredEvents = (
   }
 };
 
+const readRecentConnectTimeoutEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return appEventsApi.findByName("messaging.realtime_voice.connect_timeout_diagnostics", EVENT_CAPTURE_LIMIT) ?? [];
+  } catch {
+    return [];
+  }
+};
+
 const readRecentCp4GateEvents = (
   appEventsApi: MinimalAppEventsApi | undefined,
   eventName: string,
@@ -435,6 +461,7 @@ const createBundle = (
       deleteConvergenceSummary: digest.deleteConvergenceSummary,
       transitions: readRecentTransitions(appEventsApi),
       ignoredEvents: readRecentIgnoredEvents(appEventsApi),
+      connectTimeoutEvents: readRecentConnectTimeoutEvents(appEventsApi),
       longSessionGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.long_session_gate"),
       checkpointGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_checkpoint_gate"),
       releaseReadinessGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_release_readiness_gate"),

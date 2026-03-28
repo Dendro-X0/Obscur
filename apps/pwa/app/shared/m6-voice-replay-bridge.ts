@@ -73,6 +73,12 @@ type M6Cp4ReleaseEvidenceParams = M6Cp4CheckpointCaptureParams & Readonly<{
 
 type M6V120CloseoutParams = M6Cp4ReleaseEvidenceParams;
 
+type M6ConnectingWatchdogCaptureParams = Readonly<{
+  captureWindowSize?: number;
+  clearAppEvents?: boolean;
+  expectedNoOpenRelay?: boolean;
+}>;
+
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
 type M6VoiceReplayScenario = "weak_network" | "account_switch";
 
@@ -333,6 +339,28 @@ type M6VoiceV120CloseoutCaptureBundle = Readonly<{
   }>>;
 }>;
 
+type M6VoiceConnectingWatchdogGate = M6VoiceReplayProbeGate<Readonly<{
+  hasCaptureBundle: boolean;
+  digestSummaryPresent: boolean;
+  digestConnectTimeoutCoverage: boolean;
+  connectTimeoutSlicePresent: boolean;
+  connectTimeoutEventsObserved: boolean;
+  noOpenRelayEvidenceObserved: boolean;
+  latestTimeoutOpenRelayAligned: boolean;
+  latestTimeoutRtcStateAligned: boolean;
+}>>;
+
+type M6VoiceConnectingWatchdogCaptureBundle = Readonly<{
+  generatedAtUnixMs: number;
+  captureWindowSize: number;
+  expectedNoOpenRelay: boolean;
+  capture: M6VoiceCaptureBundle | null;
+  digestSummary: M6VoiceDigestSummary | null;
+  connectTimeoutEvents: M6VoiceCaptureBundle["voice"]["connectTimeoutEvents"];
+  latestConnectTimeoutEventContext: Readonly<Record<string, unknown>> | null;
+  watchdogGate: M6VoiceConnectingWatchdogGate;
+}>;
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -363,6 +391,10 @@ type M6VoiceReplayApi = Readonly<{
   runLongSessionReplay: (params?: M6LongSessionReplayParams) => RealtimeVoiceSessionState;
   runLongSessionReplayCapture: (params?: M6LongSessionReplayParams) => M6VoiceLongSessionReplayCaptureBundle;
   runLongSessionReplayCaptureJson: (params?: M6LongSessionReplayParams) => string;
+  runConnectingWatchdogCapture: (params?: M6ConnectingWatchdogCaptureParams) => M6VoiceConnectingWatchdogCaptureBundle;
+  runConnectingWatchdogCaptureJson: (params?: M6ConnectingWatchdogCaptureParams) => string;
+  runConnectingWatchdogGateProbe: (params?: M6ConnectingWatchdogCaptureParams) => M6VoiceConnectingWatchdogGate;
+  runConnectingWatchdogGateProbeJson: (params?: M6ConnectingWatchdogCaptureParams) => string;
   runCp4LongSessionGateProbe: (params?: M6Cp4LongSessionGateProbeParams) => M6VoiceLongSessionGateProbe;
   runCp4LongSessionGateProbeJson: (params?: M6Cp4LongSessionGateProbeParams) => string;
   runCp4LongSessionSelfTest: (params?: M6Cp4LongSessionSelfTestParams) => M6VoiceLongSessionSelfTestReport;
@@ -518,6 +550,16 @@ const EMPTY_V120_CLOSEOUT_GATE_CHECKS: M6VoiceV120CloseoutCaptureBundle["closeou
   digestRiskNotHighWhenExpectedPass: false,
   digestUnexpectedReleaseEvidenceFailZeroWhenExpectedPass: false,
 };
+const EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS: M6VoiceConnectingWatchdogGate["checks"] = {
+  hasCaptureBundle: false,
+  digestSummaryPresent: false,
+  digestConnectTimeoutCoverage: false,
+  connectTimeoutSlicePresent: false,
+  connectTimeoutEventsObserved: false,
+  noOpenRelayEvidenceObserved: false,
+  latestTimeoutOpenRelayAligned: false,
+  latestTimeoutRtcStateAligned: false,
+};
 const SUPPORTED_UNSUPPORTED_REASON_CODES = new Set<string>([
   "webrtc_unavailable",
   "insecure_context",
@@ -540,6 +582,10 @@ const toPositiveInteger = (value: unknown, fallback: number): number => {
 
 const toNumber = (value: unknown): number => (
   typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0
+);
+
+const toNumberOrNull = (value: unknown): number | null => (
+  typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : null
 );
 
 const toStringOrNull = (value: unknown): string | null => (
@@ -575,6 +621,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     unsupportedCount: toNumber(value.unsupportedCount),
     recoveryExhaustedCount: toNumber(value.recoveryExhaustedCount),
     staleEventIgnoredCount: toNumber(value.staleEventIgnoredCount),
+    connectTimeoutDiagnosticsCount: toNumber(value.connectTimeoutDiagnosticsCount),
+    connectTimeoutNoOpenRelayCount: toNumber(value.connectTimeoutNoOpenRelayCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -598,6 +646,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestToPhase: toStringOrNull(value.latestToPhase),
     latestReasonCode: toStringOrNull(value.latestReasonCode),
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
+    latestConnectTimeoutRtcConnectionState: toStringOrNull(value.latestConnectTimeoutRtcConnectionState),
+    latestConnectTimeoutOpenRelayCount: toNumberOrNull(value.latestConnectTimeoutOpenRelayCount),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -932,6 +982,56 @@ const buildCp4LongSessionGateProbe = (params: Readonly<{
     digestRecoveryExhaustedAlignedWithExpectedPass: params.expectedPass
       ? (typeof digestRecoveryExhaustedCount === "number" && digestRecoveryExhaustedCount === 0)
       : true,
+  } as const;
+  return buildBooleanGate(checks);
+};
+
+const buildConnectingWatchdogGate = (params: Readonly<{
+  capture: M6VoiceCaptureBundle | null;
+  digestSummary: M6VoiceDigestSummary | null;
+  connectTimeoutEvents: M6VoiceCaptureBundle["voice"]["connectTimeoutEvents"];
+  latestConnectTimeoutEventContext: Readonly<Record<string, unknown>> | null;
+  expectedNoOpenRelay: boolean;
+}>): M6VoiceConnectingWatchdogGate => {
+  const latestEventOpenRelayCount = toNumberOrNull(params.latestConnectTimeoutEventContext?.openRelayCount);
+  const latestEventRtcState = toStringOrNull(params.latestConnectTimeoutEventContext?.rtcConnectionState);
+  const digestSummary = params.digestSummary;
+  const digestConnectTimeoutCoverage = digestSummary !== null
+    && typeof digestSummary.connectTimeoutDiagnosticsCount === "number"
+    && typeof digestSummary.connectTimeoutNoOpenRelayCount === "number"
+    && Object.prototype.hasOwnProperty.call(digestSummary, "latestConnectTimeoutRtcConnectionState")
+    && Object.prototype.hasOwnProperty.call(digestSummary, "latestConnectTimeoutOpenRelayCount");
+  const connectTimeoutEventsObserved = (
+    params.connectTimeoutEvents.length >= 1
+    || (digestSummary?.connectTimeoutDiagnosticsCount ?? 0) >= 1
+  );
+  const digestLatestOpenRelayCount = digestSummary?.latestConnectTimeoutOpenRelayCount ?? null;
+  const digestLatestRtcState = digestSummary?.latestConnectTimeoutRtcConnectionState ?? null;
+  const noOpenRelayEvidenceObserved = params.expectedNoOpenRelay
+    ? (
+      (digestSummary?.connectTimeoutNoOpenRelayCount ?? 0) >= 1
+      || (latestEventOpenRelayCount !== null && latestEventOpenRelayCount <= 0)
+    )
+    : true;
+  const latestTimeoutOpenRelayAligned = (
+    digestLatestOpenRelayCount === null
+    || latestEventOpenRelayCount === null
+    || digestLatestOpenRelayCount === latestEventOpenRelayCount
+  );
+  const latestTimeoutRtcStateAligned = (
+    digestLatestRtcState === null
+    || latestEventRtcState === null
+    || digestLatestRtcState === latestEventRtcState
+  );
+  const checks = {
+    hasCaptureBundle: params.capture !== null,
+    digestSummaryPresent: digestSummary !== null,
+    digestConnectTimeoutCoverage,
+    connectTimeoutSlicePresent: Array.isArray(params.capture?.voice.connectTimeoutEvents),
+    connectTimeoutEventsObserved,
+    noOpenRelayEvidenceObserved,
+    latestTimeoutOpenRelayAligned,
+    latestTimeoutRtcStateAligned,
   } as const;
   return buildBooleanGate(checks);
 };
@@ -1394,6 +1494,10 @@ export const installM6VoiceReplayBridge = (): void => {
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionGateProbeJson === "function"
     && typeof root.obscurM6VoiceReplay.runCp4LongSessionSelfTest === "function"
     && typeof root.obscurM6VoiceReplay.runLongSessionReplayCapture === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogCapture === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogCaptureJson === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogGateProbe === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogGateProbeJson === "function"
   ) {
     return;
   }
@@ -1747,6 +1851,55 @@ export const installM6VoiceReplayBridge = (): void => {
     runLongSessionReplayCaptureJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runLongSessionReplayCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runConnectingWatchdogCapture: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      if (params?.clearAppEvents === true) {
+        root.obscurAppEvents?.clear?.();
+      }
+      const capture = root.obscurM6VoiceCapture?.capture?.(captureWindowSize) ?? null;
+      const digestSummary = capture?.voice.summary ?? readDigestSummary(root, captureWindowSize);
+      const connectTimeoutEvents = capture?.voice.connectTimeoutEvents ?? [];
+      const latestConnectTimeoutEventContext = connectTimeoutEvents.at(-1)?.context ?? null;
+      const expectedNoOpenRelay = params?.expectedNoOpenRelay === true;
+      const watchdogGate = buildConnectingWatchdogGate({
+        capture,
+        digestSummary,
+        connectTimeoutEvents,
+        latestConnectTimeoutEventContext,
+        expectedNoOpenRelay,
+      });
+      return {
+        generatedAtUnixMs: Date.now(),
+        captureWindowSize,
+        expectedNoOpenRelay,
+        capture,
+        digestSummary,
+        connectTimeoutEvents,
+        latestConnectTimeoutEventContext,
+        watchdogGate,
+      };
+    },
+    runConnectingWatchdogCaptureJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runConnectingWatchdogCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runConnectingWatchdogGateProbe: (params) => (
+      root.obscurM6VoiceReplay?.runConnectingWatchdogCapture(params)?.watchdogGate ?? {
+        pass: false,
+        failedChecks: ["connecting_watchdog_capture_unavailable"],
+        checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+      }
+    ),
+    runConnectingWatchdogGateProbeJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runConnectingWatchdogGateProbe(params) ?? null,
         null,
         2,
       )

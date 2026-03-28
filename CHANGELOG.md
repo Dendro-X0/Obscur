@@ -151,6 +151,20 @@
 - Added focused diagnostics/triage regression coverage in:
   - `apps/pwa/app/shared/log-app-event.test.ts`
   - `apps/pwa/app/shared/m0-triage-capture.test.ts`.
+- Extended M6 voice capture/replay watchdog diagnostics surfaces:
+  - `apps/pwa/app/shared/m6-voice-capture.ts` now captures
+    `connectTimeoutEvents` and the latest connect-timeout digest summary
+    fields (`connectTimeoutDiagnosticsCount`,
+    `connectTimeoutNoOpenRelayCount`,
+    `latestConnectTimeoutRtcConnectionState`,
+    `latestConnectTimeoutOpenRelayCount`),
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.ts` now exposes one-command
+    watchdog helpers (`runConnectingWatchdogCapture`,
+    `runConnectingWatchdogGateProbe` and JSON variants) with stale-bridge
+    upgrade gating.
+- Added focused M6 watchdog coverage in:
+  - `apps/pwa/app/shared/m6-voice-capture.test.ts`
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

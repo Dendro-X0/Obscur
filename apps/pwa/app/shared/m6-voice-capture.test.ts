@@ -26,6 +26,8 @@ describe("m6-voice-capture", () => {
             unsupportedCount: 0,
             recoveryExhaustedCount: 0,
             staleEventIgnoredCount: 1,
+            connectTimeoutDiagnosticsCount: 2,
+            connectTimeoutNoOpenRelayCount: 1,
             longSessionGateCount: 2,
             longSessionGatePassCount: 1,
             longSessionGateFailCount: 1,
@@ -49,6 +51,8 @@ describe("m6-voice-capture", () => {
             latestToPhase: "degraded",
             latestReasonCode: "network_degraded",
             latestIgnoredReasonCode: "stale_event",
+            latestConnectTimeoutRtcConnectionState: "connecting",
+            latestConnectTimeoutOpenRelayCount: 0,
             latestLongSessionGatePass: false,
             latestLongSessionGateFailedCheckSample: "finalPhaseActive",
             latestCheckpointGatePass: true,
@@ -124,6 +128,7 @@ describe("m6-voice-capture", () => {
         deleteConvergenceSummary: Record<string, unknown> | null;
         transitions: Array<{ name: string }>;
         ignoredEvents: Array<{ name: string }>;
+        connectTimeoutEvents: Array<{ name: string }>;
         longSessionGateEvents: Array<{ name: string }>;
         checkpointGateEvents: Array<{ name: string }>;
         releaseReadinessGateEvents: Array<{ name: string }>;
@@ -143,6 +148,8 @@ describe("m6-voice-capture", () => {
       transitionCount: 4,
       degradedCount: 2,
       staleEventIgnoredCount: 1,
+      connectTimeoutDiagnosticsCount: 2,
+      connectTimeoutNoOpenRelayCount: 1,
       longSessionGateCount: 2,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 1,
@@ -165,6 +172,8 @@ describe("m6-voice-capture", () => {
       unexpectedCloseoutGateFailCount: 0,
       latestReasonCode: "network_degraded",
       latestIgnoredReasonCode: "stale_event",
+      latestConnectTimeoutRtcConnectionState: "connecting",
+      latestConnectTimeoutOpenRelayCount: 0,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "finalPhaseActive",
       latestCheckpointGatePass: true,
@@ -196,6 +205,7 @@ describe("m6-voice-capture", () => {
     }));
     expect(bundle.voice.transitions[0]?.name).toBe("messaging.realtime_voice.session_transition");
     expect(bundle.voice.ignoredEvents[0]?.name).toBe("messaging.realtime_voice.session_event_ignored");
+    expect(bundle.voice.connectTimeoutEvents[0]?.name).toBe("messaging.realtime_voice.connect_timeout_diagnostics");
     expect(bundle.voice.longSessionGateEvents[0]?.name).toBe("messaging.realtime_voice.long_session_gate");
     expect(bundle.voice.checkpointGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_checkpoint_gate");
     expect(bundle.voice.releaseReadinessGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_readiness_gate");
@@ -223,6 +233,7 @@ describe("m6-voice-capture", () => {
         deleteConvergenceSummary: unknown;
         transitions: unknown[];
         ignoredEvents: unknown[];
+        connectTimeoutEvents: unknown[];
         longSessionGateEvents: unknown[];
         checkpointGateEvents: unknown[];
         releaseReadinessGateEvents: unknown[];
@@ -242,6 +253,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.deleteConvergenceSummary).toBeNull();
     expect(bundle.voice.transitions).toEqual([]);
     expect(bundle.voice.ignoredEvents).toEqual([]);
+    expect(bundle.voice.connectTimeoutEvents).toEqual([]);
     expect(bundle.voice.longSessionGateEvents).toEqual([]);
     expect(bundle.voice.checkpointGateEvents).toEqual([]);
     expect(bundle.voice.releaseReadinessGateEvents).toEqual([]);
@@ -263,6 +275,8 @@ describe("m6-voice-capture", () => {
       unsupportedCount: 1,
       recoveryExhaustedCount: 1,
       staleEventIgnoredCount: 2,
+      connectTimeoutDiagnosticsCount: 3,
+      connectTimeoutNoOpenRelayCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -286,6 +300,8 @@ describe("m6-voice-capture", () => {
       latestToPhase: "ended",
       latestReasonCode: "recovery_exhausted",
       latestIgnoredReasonCode: "stale_event",
+      latestConnectTimeoutRtcConnectionState: "connecting",
+      latestConnectTimeoutOpenRelayCount: 0,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,
@@ -301,6 +317,8 @@ describe("m6-voice-capture", () => {
       transitionCount: 5,
       recoveryExhaustedCount: 1,
       staleEventIgnoredCount: 2,
+      connectTimeoutDiagnosticsCount: 3,
+      connectTimeoutNoOpenRelayCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -323,6 +341,8 @@ describe("m6-voice-capture", () => {
       unexpectedCloseoutGateFailCount: 1,
       latestReasonCode: "recovery_exhausted",
       latestIgnoredReasonCode: "stale_event",
+      latestConnectTimeoutRtcConnectionState: "connecting",
+      latestConnectTimeoutOpenRelayCount: 0,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,

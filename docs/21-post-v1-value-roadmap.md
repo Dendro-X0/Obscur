@@ -559,6 +559,16 @@ Current execution status:
 : strict clean-tree release preflight passed and release handoff is complete:
 : `pnpm release:preflight -- --tag v1.0.8`
 : `main` and tag `v1.0.8` are published on origin.
+13. M6 connecting-timeout watchdog capture slice landed on canonical bridge/capture owners (2026-03-27):
+: `apps/pwa/app/shared/m6-voice-capture.ts` now includes timeout-event slices and digest timeout summary fields in one-copy capture output,
+: `apps/pwa/app/shared/m6-voice-replay-bridge.ts` now exposes deterministic watchdog helpers:
+: `window.obscurM6VoiceReplay.runConnectingWatchdogCapture(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogGateProbe(...)`
+: plus JSON variants for copy/paste triage bundles.
+14. Focused M6 watchdog validation is green in this checkpoint:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts app/shared/m6-voice-replay-bridge.test.ts`
+: `pnpm --dir apps/pwa exec eslint app/shared/m6-voice-capture.ts app/shared/m6-voice-capture.test.ts app/shared/m6-voice-replay-bridge.ts app/shared/m6-voice-replay-bridge.test.ts --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 
