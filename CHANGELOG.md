@@ -239,6 +239,12 @@
   - regression coverage in `log-app-event.test.ts`,
     `m6-voice-capture.test.ts`, `m0-triage-capture.test.ts`, and
     `m6-voice-replay-bridge.test.ts`.
+- Added convenience incident-gate probe helpers in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `runConnectingWatchdogIncidentGateProbe(...)`
+  - `runConnectingWatchdogIncidentGateProbeJson(...)`
+  and wired stale-bridge upgrade assertions in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

@@ -650,6 +650,20 @@ describe("m6-voice-replay-bridge", () => {
           checks: Record<string, boolean>;
         };
       };
+      runConnectingWatchdogIncidentGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        expectedNoOpenRelay?: boolean;
+      }) => {
+        pass: boolean;
+        failedChecks: ReadonlyArray<string>;
+        checks: Record<string, boolean>;
+      };
+      runConnectingWatchdogIncidentGateProbeJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        expectedNoOpenRelay?: boolean;
+      }) => string;
       runConnectingWatchdogIncidentBundleJson: (params?: {
         clearAppEvents?: boolean;
         captureWindowSize?: number;
@@ -674,6 +688,19 @@ describe("m6-voice-replay-bridge", () => {
     expect(bundle.incidentGate.checks.watchdogCapturePass).toBe(true);
     expect(bundle.incidentGate.checks.selfTestPass).toBe(true);
     expect(bundle.incidentGate.checks.m0TriageCapturedWhenRequested).toBe(true);
+    const incidentGateProbe = replayApi.runConnectingWatchdogIncidentGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      expectedNoOpenRelay: true,
+    });
+    expect(incidentGateProbe.pass).toBe(true);
+    expect(incidentGateProbe.failedChecks).toEqual([]);
+    expect(incidentGateProbe.checks.watchdogCapturePass).toBe(true);
+    expect(() => JSON.parse(replayApi.runConnectingWatchdogIncidentGateProbeJson({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      expectedNoOpenRelay: true,
+    }))).not.toThrow();
     const diagnosticsApi = root.obscurAppEvents as {
       findByName: (name: string, count?: number) => ReadonlyArray<{
         context?: Record<string, unknown>;
@@ -1458,5 +1485,7 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runConnectingWatchdogSelfTestJson).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentBundle).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentBundleJson).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateProbe).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateProbeJson).toBe("function");
   });
 });

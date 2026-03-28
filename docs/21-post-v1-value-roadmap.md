@@ -610,6 +610,10 @@ Current execution status:
 : `summary.realtimeVoiceSession`,
 : and one-copy capture bundles include
 : `voice.connectingWatchdogIncidentBundleEvents`.
+23. Incident-gate probe helpers landed for direct pass/fail verification (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbe(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbeJson(...)`
+: now expose just the typed incident gate verdict without requiring manual extraction from the full incident bundle.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

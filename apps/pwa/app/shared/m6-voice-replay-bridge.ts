@@ -441,6 +441,8 @@ type M6VoiceReplayApi = Readonly<{
   runConnectingWatchdogSelfTestJson: (params?: M6ConnectingWatchdogSelfTestParams) => string;
   runConnectingWatchdogIncidentBundle: (params?: M6ConnectingWatchdogIncidentBundleParams) => M6VoiceConnectingWatchdogIncidentBundle;
   runConnectingWatchdogIncidentBundleJson: (params?: M6ConnectingWatchdogIncidentBundleParams) => string;
+  runConnectingWatchdogIncidentGateProbe: (params?: M6ConnectingWatchdogIncidentBundleParams) => M6VoiceConnectingWatchdogIncidentBundle["incidentGate"];
+  runConnectingWatchdogIncidentGateProbeJson: (params?: M6ConnectingWatchdogIncidentBundleParams) => string;
   runCp4LongSessionGateProbe: (params?: M6Cp4LongSessionGateProbeParams) => M6VoiceLongSessionGateProbe;
   runCp4LongSessionGateProbeJson: (params?: M6Cp4LongSessionGateProbeParams) => string;
   runCp4LongSessionSelfTest: (params?: M6Cp4LongSessionSelfTestParams) => M6VoiceLongSessionSelfTestReport;
@@ -1718,6 +1720,8 @@ export const installM6VoiceReplayBridge = (): void => {
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogSelfTestJson === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundle === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundleJson === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbe === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbeJson === "function"
   ) {
     return;
   }
@@ -2298,6 +2302,27 @@ export const installM6VoiceReplayBridge = (): void => {
     runConnectingWatchdogIncidentBundleJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentBundle(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runConnectingWatchdogIncidentGateProbe: (params) => (
+      root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentBundle(params)?.incidentGate ?? {
+        pass: false,
+        failedChecks: ["connecting_watchdog_incident_bundle_unavailable"],
+        checks: {
+          watchdogCapturePass: false,
+          selfTestPass: false,
+          captureAndSelfTestAligned: false,
+          connectTimeoutEventsObserved: false,
+          selfTestTimeoutEvidenceObserved: false,
+          m0TriageCapturedWhenRequested: false,
+        },
+      }
+    ),
+    runConnectingWatchdogIncidentGateProbeJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentGateProbe(params) ?? null,
         null,
         2,
       )
