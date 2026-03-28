@@ -42,6 +42,17 @@
 - Hardened relay runtime owner initialization in
   `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
   by replacing render-time ref runtime access with stable lazy `useState` ownership.
+- Cleared remaining `apps/pwa` lint gate blockers to keep stability slices CI-safe:
+  - named mocked `forwardRef` UI component in
+    `apps/pwa/app/features/auth/components/auth-screen.test.tsx`,
+  - removed forbidden `module` variable shadowing in
+    `apps/pwa/app/features/crypto/__tests__/crypto-service-runtime-selection.test.ts`,
+  - replaced mutable timeout/interval/unsubscribe placeholders with explicit
+    ref-owned handles in canonical DM sync owner
+    `apps/pwa/app/features/messaging/controllers/dm-sync-orchestrator.ts`,
+  - normalized immutable test fixture state ownership in
+    `apps/pwa/app/features/messaging/services/request-transport-deterministic.integration.test.ts`
+    and `apps/pwa/app/features/relays/lib/relay-publish-chaos.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

@@ -25,7 +25,7 @@ const USER_A = "a".repeat(64) as PublicKeyHex;
 const USER_B = "b".repeat(64) as PublicKeyHex;
 
 const createInMemoryEvidenceStore = (seed?: EvidenceStoreSnapshot) => {
-  let state: Record<string, RequestFlowEvidence> = seed ? { ...seed } : {};
+  const state: Record<string, RequestFlowEvidence> = seed ? { ...seed } : {};
   return {
     get: (peerPublicKeyHex: string): RequestFlowEvidence => state[peerPublicKeyHex] ?? { receiptAckSeen: false, acceptSeen: false },
     markRequestPublished: ({ peerPublicKeyHex, requestEventId }: Readonly<{ peerPublicKeyHex: string; requestEventId?: string }>) => {
@@ -74,7 +74,7 @@ const createInMemoryEvidenceStore = (seed?: EvidenceStoreSnapshot) => {
 };
 
 const createStatusAccess = (seed?: StatusSnapshot) => {
-  let state: Record<string, RequestStatusRecord> = seed ? { ...seed } : {};
+  const state: Record<string, RequestStatusRecord> = seed ? { ...seed } : {};
   return {
     getRequestStatus: ({ peerPublicKeyHex }: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => {
       return state[peerPublicKeyHex] ?? null;

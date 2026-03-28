@@ -43,9 +43,9 @@ describe("crypto-service runtime selection", () => {
   it("prefers native crypto service when runtime is native", async () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
 
-    const module = await import("../crypto-service");
+    const cryptoServiceModule = await import("../crypto-service");
 
-    expect(module.cryptoServiceInternals.initializeCryptoService()).toBe(serviceMocks.nativeInstance);
+    expect(cryptoServiceModule.cryptoServiceInternals.initializeCryptoService()).toBe(serviceMocks.nativeInstance);
   });
 
   it("falls back to main-thread crypto service when worker is unavailable", async () => {
@@ -54,9 +54,9 @@ describe("crypto-service runtime selection", () => {
     const originalWorker = globalThis.Worker;
     vi.stubGlobal("Worker", undefined);
 
-    const module = await import("../crypto-service");
+    const cryptoServiceModule = await import("../crypto-service");
 
-    expect(module.cryptoServiceInternals.initializeCryptoService()).toBe(serviceMocks.browserInstance);
+    expect(cryptoServiceModule.cryptoServiceInternals.initializeCryptoService()).toBe(serviceMocks.browserInstance);
 
     vi.stubGlobal("Worker", originalWorker);
   });

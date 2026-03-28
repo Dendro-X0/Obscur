@@ -47,33 +47,37 @@ vi.mock("framer-motion", () => ({
   }),
 }));
 
-vi.mock("@dweb/ui-kit", () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...props}>{children}</button>
-  ),
-  Input: React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => (
-    <input ref={ref} {...props} />
-  )),
-  Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
-  Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => <label {...props}>{children}</label>,
-  Checkbox: ({ checked, onCheckedChange, ...props }: {
-    checked?: boolean;
-    onCheckedChange?: (checked: boolean) => void;
-  } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange">) => (
-    <input
-      {...props}
-      type="checkbox"
-      checked={Boolean(checked)}
-      onChange={(event) => onCheckedChange?.(event.target.checked)}
-    />
-  ),
-  toast: {
-    success: vi.fn(),
-    info: vi.fn(),
-    error: vi.fn(),
-  },
-  cn: (...parts: Array<string | null | undefined | false>) => parts.filter(Boolean).join(" "),
-}));
+vi.mock("@dweb/ui-kit", () => {
+  const MockInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function MockInput(props, ref) {
+    return <input ref={ref} {...props} />;
+  });
+
+  return {
+    Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+      <button {...props}>{children}</button>
+    ),
+    Input: MockInput,
+    Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+    Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => <label {...props}>{children}</label>,
+    Checkbox: ({ checked, onCheckedChange, ...props }: {
+      checked?: boolean;
+      onCheckedChange?: (checked: boolean) => void;
+    } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange">) => (
+      <input
+        {...props}
+        type="checkbox"
+        checked={Boolean(checked)}
+        onChange={(event) => onCheckedChange?.(event.target.checked)}
+      />
+    ),
+    toast: {
+      success: vi.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+    },
+    cn: (...parts: Array<string | null | undefined | false>) => parts.filter(Boolean).join(" "),
+  };
+});
 
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   useIdentity: () => ({

@@ -270,6 +270,14 @@ Current execution status (started 2026-03-23):
 27. Focused runtime-owner validation is green:
 : `pnpm --dir apps/pwa exec vitest run app/features/relays/hooks/enhanced-relay-pool.reliability.test.ts app/features/auth/components/auth-gateway.test.tsx app/features/network/hooks/use-realtime-presence.deleted-profile.test.ts app/features/messaging/providers/messaging-provider.visibility.test.tsx`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+28. Lint gate hardening slice landed to keep M2 stabilization CI-safe (2026-03-28):
+: resolved remaining `apps/pwa` lint blockers across auth/crypto/messaging/relay owners,
+: including named forwardRef test mocks, forbidden `module` shadow removal, and explicit ref-owned timeout/interval/unsubscribe handles in canonical DM sync owner.
+29. Focused validation replay is green for this hardening slice:
+: `pnpm --dir apps/pwa exec eslint . --quiet`
+: `pnpm --dir apps/pwa vitest run app/features/auth/components/auth-screen.test.tsx app/features/crypto/__tests__/crypto-service-runtime-selection.test.ts app/features/messaging/services/request-transport-deterministic.integration.test.ts app/features/relays/lib/relay-publish-chaos.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit`
+: `pnpm release:test-pack -- --skip-preflight`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

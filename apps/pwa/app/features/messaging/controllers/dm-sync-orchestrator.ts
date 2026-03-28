@@ -339,9 +339,9 @@ export const syncMissedMessages = async (
       let passMinSeenCreatedAtUnixSeconds: number | undefined;
       let firstEventSeenAtUnixMs: number | undefined;
       let firstEoseSeenAtUnixMs: number | undefined;
-      let syncTimeout: ReturnType<typeof setTimeout> | undefined;
-      let progressInterval: ReturnType<typeof setInterval> | undefined;
-      let unsubscribe: (() => void) | undefined;
+      const syncTimeoutRef: { current?: ReturnType<typeof setTimeout> } = {};
+      const progressIntervalRef: { current?: ReturnType<typeof setInterval> } = {};
+      const unsubscribeRef: { current?: () => void } = {};
 
       const completePass = (passParams: Readonly<{
         status: "completed" | "timed_out" | "failed";
@@ -353,13 +353,13 @@ export const syncMissedMessages = async (
         }
         passCompleted = true;
 
-        if (syncTimeout) {
-          clearTimeout(syncTimeout);
+        if (syncTimeoutRef.current) {
+          clearTimeout(syncTimeoutRef.current);
         }
-        if (progressInterval) {
-          clearInterval(progressInterval);
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
         }
-        unsubscribe?.();
+        unsubscribeRef.current?.();
         pool.sendToOpen(JSON.stringify(["CLOSE", syncSubId]));
 
         totalSyncedCount += passSyncedCount;
@@ -454,7 +454,7 @@ export const syncMissedMessages = async (
 
       pool.sendToOpen(JSON.stringify(["REQ", syncSubId, ...syncFilters]));
 
-      unsubscribe = pool.subscribeToMessages(({ url, message }) => {
+      unsubscribeRef.current = pool.subscribeToMessages(({ url, message }) => {
         try {
           const parsed = JSON.parse(message);
           if (!Array.isArray(parsed) || parsed.length < 2) {
@@ -508,7 +508,7 @@ export const syncMissedMessages = async (
         }
       });
 
-      syncTimeout = setTimeout(() => {
+      syncTimeoutRef.current = setTimeout(() => {
         completePass({
           status: "timed_out",
           reason: "Sync timed out before all relays reached EOSE.",
@@ -516,7 +516,7 @@ export const syncMissedMessages = async (
         });
       }, 10_000);
 
-      progressInterval = setInterval(() => {
+      progressIntervalRef.current = setInterval(() => {
         updateSyncProgress(totalSyncedCount + passSyncedCount, totalErrorCount + passErrorCount);
       }, 500);
     };

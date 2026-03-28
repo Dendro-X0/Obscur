@@ -18,7 +18,7 @@ const createScriptedPool = (params: Readonly<{
   onWaitForConnection?: () => void | Promise<void>;
   publishResults: ReadonlyArray<ScriptedPublishResult>;
 }>): RelayPoolLike => {
-  let connections = params.initialConnections.map((entry) => ({ ...entry }));
+  const connections = params.initialConnections.map((entry) => ({ ...entry }));
   let publishIndex = 0;
 
   return {
