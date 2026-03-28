@@ -1409,6 +1409,7 @@ function NostrMessengerContent() {
     message: Message;
   }>): Promise<void> => {
     const { signal, message } = params;
+    const liveVoiceCallUiStatus = voiceCallUiStatusRef.current;
     const peerPubkey = (message.senderPubkey ?? signal.fromPubkey).trim();
     if (!peerPubkey) {
       return;
@@ -1426,14 +1427,14 @@ function NostrMessengerContent() {
 
     if (signal.signalType === "join-request") {
       const hasLiveOutgoingCallContext = Boolean(
-        voiceCallUiStatus
-        && voiceCallUiStatus.role === "host"
-        && voiceCallUiStatus.roomId === signal.roomId
-        && voiceCallUiStatus.peerPubkey === peerPubkey
+        liveVoiceCallUiStatus
+        && liveVoiceCallUiStatus.role === "host"
+        && liveVoiceCallUiStatus.roomId === signal.roomId
+        && liveVoiceCallUiStatus.peerPubkey === peerPubkey
         && (
-          voiceCallUiStatus.phase === "ringing_outgoing"
-          || voiceCallUiStatus.phase === "connecting"
-          || voiceCallUiStatus.phase === "connected"
+          liveVoiceCallUiStatus.phase === "ringing_outgoing"
+          || liveVoiceCallUiStatus.phase === "connecting"
+          || liveVoiceCallUiStatus.phase === "connected"
         )
       );
       const hasInviteEvidence =
@@ -1463,8 +1464,8 @@ function NostrMessengerContent() {
             peerPubkeySuffix: peerPubkey.slice(-8),
             hasLiveOutgoingCallContext,
             hasOutgoingRoomEvidence: outgoingVoiceInviteRoomIdsRef.current.has(signal.roomId),
-            activeVoicePhase: voiceCallUiStatus?.phase ?? null,
-            activeVoiceRole: voiceCallUiStatus?.role ?? null,
+            activeVoicePhase: liveVoiceCallUiStatus?.phase ?? null,
+            activeVoiceRole: liveVoiceCallUiStatus?.role ?? null,
           },
         });
         return;
@@ -1609,12 +1610,12 @@ function NostrMessengerContent() {
         && incomingVoiceInvite.invite.roomId === signal.roomId
       );
       const pendingStatusMatches = (
-        voiceCallUiStatus?.peerPubkey === peerPubkey
-        && voiceCallUiStatus.roomId === signal.roomId
+        liveVoiceCallUiStatus?.peerPubkey === peerPubkey
+        && liveVoiceCallUiStatus.roomId === signal.roomId
         && (
-          voiceCallUiStatus.phase === "ringing_incoming"
-          || voiceCallUiStatus.phase === "ringing_outgoing"
-          || voiceCallUiStatus.phase === "connecting"
+          liveVoiceCallUiStatus.phase === "ringing_incoming"
+          || liveVoiceCallUiStatus.phase === "ringing_outgoing"
+          || liveVoiceCallUiStatus.phase === "connecting"
         )
       );
       if (pendingInviteMatches) {
@@ -1822,7 +1823,6 @@ function NostrMessengerContent() {
     sendVoiceSignal,
     t,
     tearDownVoicePeerConnection,
-    voiceCallUiStatus,
   ]);
 
   const handleLeaveVoiceCall = useCallback((): void => {

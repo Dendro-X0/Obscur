@@ -348,6 +348,15 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-invite-tombstone.test.ts app/features/main-shell/main-shell.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/messaging/services/realtime-voice-invite-tombstone.ts app/features/messaging/services/realtime-voice-invite-tombstone.test.ts app/features/main-shell/main-shell.tsx --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+48. Incoming voice-signal callback owner convergence hardening landed (2026-03-28):
+: canonical incoming signal owner in
+: `apps/pwa/app/features/main-shell/main-shell.tsx`
+: now reads live voice status through `voiceCallUiStatusRef.current` instead of closure-captured state,
+: reducing callback dependency churn and keeping replay routing decisions aligned with latest status snapshots.
+49. Focused validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

@@ -127,6 +127,11 @@
 - Added focused tombstone contract coverage in
   `apps/pwa/app/features/messaging/services/realtime-voice-invite-tombstone.test.ts`
   to guard invite/leave grace-window behavior and reduce duplicated logic drift.
+- Hardened incoming voice-signal callback ownership in
+  `apps/pwa/app/features/main-shell/main-shell.tsx` by switching join/leave
+  decision reads from closure-captured `voiceCallUiStatus` to
+  `voiceCallUiStatusRef.current`, reducing callback identity churn and
+  avoiding status-drift reads during replay processing.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
