@@ -80,6 +80,14 @@
   `apps/pwa/app/features/runtime/components/startup-experience-overlay.test.tsx`
   asserting prolonged startup transitions still surface the bypass action after
   the configured threshold with the new effect-owned clock state.
+- Hardened messaging surface clock ownership to avoid render-time clock
+  initialization in:
+  - `apps/pwa/app/features/messaging/components/sidebar.tsx`,
+  - `apps/pwa/app/features/messaging/components/voice-call-dock.tsx`,
+  with effect-owned clock updates and deterministic `null`-safe fallbacks.
+- Updated request inbox clock contract to accept deterministic `null` snapshots
+  in `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`,
+  so initial render does not require synthetic wall-clock fallback values.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

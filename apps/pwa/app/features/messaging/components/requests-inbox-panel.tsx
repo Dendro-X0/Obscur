@@ -31,7 +31,7 @@ type RequestItem = Readonly<{
 
 interface RequestsInboxPanelProps {
     requests: ReadonlyArray<RequestItem>;
-    nowMs: number;
+    nowMs: number | null;
     onAccept: (pubkey: PublicKeyHex) => void;
     onIgnore: (pubkey: PublicKeyHex) => void;
     onBlock: (pubkey: PublicKeyHex) => void;
@@ -191,7 +191,7 @@ interface RequestItemRowProps {
             | "incoming_connection_request_attack_mode_contract_violation";
         lastAtUnixMs: number;
     }> | null;
-    nowMs: number;
+    nowMs: number | null;
     onAccept: (pubkey: PublicKeyHex) => void;
     onIgnore: (pubkey: PublicKeyHex) => void;
     onBlock: (pubkey: PublicKeyHex) => void;

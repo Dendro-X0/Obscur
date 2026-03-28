@@ -63,12 +63,14 @@ export function VoiceCallDock({
 }: VoiceCallDockProps): React.JSX.Element {
   const { t } = useTranslation();
   const waveBarHeights = React.useMemo(() => [10, 14, 18, 24, 18, 14, 10], []);
-  const [clockNowMs, setClockNowMs] = React.useState<number>(() => Date.now());
+  const [clockNowMs, setClockNowMs] = React.useState<number | null>(null);
   const [waveAudioLevel, setWaveAudioLevel] = React.useState(0);
   React.useEffect(() => {
     if (status?.phase !== "connected") {
+      setClockNowMs(null);
       return;
     }
+    setClockNowMs(Date.now());
     const intervalId = window.setInterval(() => {
       setClockNowMs(Date.now());
     }, 1000);
@@ -104,7 +106,8 @@ export function VoiceCallDock({
     if (!status || status.phase !== "connected") {
       return null;
     }
-    const elapsedMs = Math.max(0, clockNowMs - status.sinceUnixMs);
+    const effectiveNowMs = clockNowMs ?? status.sinceUnixMs;
+    const elapsedMs = Math.max(0, effectiveNowMs - status.sinceUnixMs);
     const totalSeconds = Math.floor(elapsedMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;

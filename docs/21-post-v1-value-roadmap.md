@@ -295,6 +295,16 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa vitest run app/features/runtime/components/startup-experience-overlay.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/runtime/components/startup-experience-overlay.tsx app/features/runtime/components/startup-experience-overlay.test.tsx --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+36. Messaging clock-owner render-purity hardening landed (2026-03-28):
+: `apps/pwa/app/features/messaging/components/sidebar.tsx` and
+: `apps/pwa/app/features/messaging/components/voice-call-dock.tsx`
+: now initialize/update local clock snapshots from effects (no render-time `Date.now()` initialization),
+: and `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`
+: now accepts deterministic `null` `nowMs` snapshots at initial render.
+37. Focused validation replay is green:
+: `pnpm --dir apps/pwa vitest run app/features/messaging/components/sidebar.test.tsx app/features/messaging/components/chat-header.test.tsx app/features/messaging/components/chat-view.test.tsx app/features/runtime/components/startup-experience-overlay.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/messaging/components/voice-call-dock.tsx app/features/messaging/components/sidebar.tsx app/features/messaging/components/requests-inbox-panel.tsx --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
