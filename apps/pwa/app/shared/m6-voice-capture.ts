@@ -38,6 +38,10 @@ type RealtimeVoiceSessionSummary = Readonly<{
   connectingWatchdogIncidentGateSelfTestPassCount: number;
   connectingWatchdogIncidentGateSelfTestFailCount: number;
   unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: number;
+  connectingWatchdogIncidentGateCloseoutCount: number;
+  connectingWatchdogIncidentGateCloseoutPassCount: number;
+  connectingWatchdogIncidentGateCloseoutFailCount: number;
+  unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: number;
   longSessionGateCount: number;
   longSessionGatePassCount: number;
   longSessionGateFailCount: number;
@@ -75,6 +79,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: string | null;
   latestConnectingWatchdogIncidentGateSelfTestPass: boolean | null;
   latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: string | null;
+  latestConnectingWatchdogIncidentGateCloseoutPass: boolean | null;
+  latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: string | null;
   latestLongSessionGatePass: boolean | null;
   latestLongSessionGateFailedCheckSample: string | null;
   latestCheckpointGatePass: boolean | null;
@@ -158,6 +164,7 @@ export type M6VoiceCaptureBundle = Readonly<{
     connectingWatchdogIncidentGateEvents: ReadonlyArray<MinimalAppEvent>;
     connectingWatchdogIncidentGateEvidenceEvents: ReadonlyArray<MinimalAppEvent>;
     connectingWatchdogIncidentGateSelfTestEvents: ReadonlyArray<MinimalAppEvent>;
+    connectingWatchdogIncidentGateCloseoutEvents: ReadonlyArray<MinimalAppEvent>;
     longSessionGateEvents: ReadonlyArray<MinimalAppEvent>;
     checkpointGateEvents: ReadonlyArray<MinimalAppEvent>;
     releaseReadinessGateEvents: ReadonlyArray<MinimalAppEvent>;
@@ -263,6 +270,10 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     connectingWatchdogIncidentGateSelfTestPassCount: toNumber(value.connectingWatchdogIncidentGateSelfTestPassCount),
     connectingWatchdogIncidentGateSelfTestFailCount: toNumber(value.connectingWatchdogIncidentGateSelfTestFailCount),
     unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentGateSelfTestFailCount),
+    connectingWatchdogIncidentGateCloseoutCount: toNumber(value.connectingWatchdogIncidentGateCloseoutCount),
+    connectingWatchdogIncidentGateCloseoutPassCount: toNumber(value.connectingWatchdogIncidentGateCloseoutPassCount),
+    connectingWatchdogIncidentGateCloseoutFailCount: toNumber(value.connectingWatchdogIncidentGateCloseoutFailCount),
+    unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentGateCloseoutFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -300,6 +311,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample),
     latestConnectingWatchdogIncidentGateSelfTestPass: toBooleanOrNull(value.latestConnectingWatchdogIncidentGateSelfTestPass),
     latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample),
+    latestConnectingWatchdogIncidentGateCloseoutPass: toBooleanOrNull(value.latestConnectingWatchdogIncidentGateCloseoutPass),
+    latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -523,6 +536,19 @@ const readRecentConnectingWatchdogIncidentGateSelfTestEvents = (
   }
 };
 
+const readRecentConnectingWatchdogIncidentGateCloseoutEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return appEventsApi.findByName("messaging.realtime_voice.connecting_watchdog_incident_gate_closeout", EVENT_CAPTURE_LIMIT) ?? [];
+  } catch {
+    return [];
+  }
+};
+
 const readRecentCp4GateEvents = (
   appEventsApi: MinimalAppEventsApi | undefined,
   eventName: string,
@@ -624,6 +650,7 @@ const createBundle = (
       connectingWatchdogIncidentGateEvents: readRecentConnectingWatchdogIncidentGateEvents(appEventsApi),
       connectingWatchdogIncidentGateEvidenceEvents: readRecentConnectingWatchdogIncidentGateEvidenceEvents(appEventsApi),
       connectingWatchdogIncidentGateSelfTestEvents: readRecentConnectingWatchdogIncidentGateSelfTestEvents(appEventsApi),
+      connectingWatchdogIncidentGateCloseoutEvents: readRecentConnectingWatchdogIncidentGateCloseoutEvents(appEventsApi),
       longSessionGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.long_session_gate"),
       checkpointGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_checkpoint_gate"),
       releaseReadinessGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_release_readiness_gate"),

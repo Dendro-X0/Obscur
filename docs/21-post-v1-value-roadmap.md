@@ -636,6 +636,22 @@ Current execution status:
 : `messaging.realtime_voice.connecting_watchdog_incident_gate_self_test`,
 : with digest summary counters/latest fields under `summary.realtimeVoiceSession` and one-copy capture slices in
 : `voice.connectingWatchdogIncidentGateSelfTestEvents`.
+27. Deterministic incident-gate closeout helpers landed on canonical bridge owner (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutCapture(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutCaptureJson(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutGateProbe(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutGateProbeJson(...)`
+: now provide one-command incident-evidence + self-test + digest closeout verification and emit
+: `messaging.realtime_voice.connecting_watchdog_incident_gate_closeout`.
+28. Closeout diagnostics are now digest/capture/triage-visible from canonical owners (2026-03-27):
+: `summary.realtimeVoiceSession` tracks closeout counters/latest samples under
+: `connectingWatchdogIncidentGateCloseout*` in
+: `apps/pwa/app/shared/log-app-event.ts`,
+: one-copy capture includes
+: `voice.connectingWatchdogIncidentGateCloseoutEvents` in
+: `apps/pwa/app/shared/m6-voice-capture.ts`,
+: and M0 voice focus includes this event in
+: `apps/pwa/app/shared/m0-triage-capture.ts`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

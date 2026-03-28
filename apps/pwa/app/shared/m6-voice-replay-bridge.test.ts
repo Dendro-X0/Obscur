@@ -927,6 +927,131 @@ describe("m6-voice-replay-bridge", () => {
     }));
   });
 
+  it("exports deterministic connecting watchdog incident-gate closeout capture and gate probe", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runConnectingWatchdogIncidentGateCloseoutCapture: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+        expectedNoOpenRelay?: boolean;
+        expectedPass?: boolean;
+        includeM0Triage?: boolean;
+      }) => {
+        expectedPass: boolean;
+        incidentGateCapture: { evidenceGate: { pass: boolean } };
+        selfTest: { selfTestGate: { pass: boolean } };
+        closeoutGate: { pass: boolean; failedChecks: ReadonlyArray<string>; checks: Record<string, boolean> };
+      };
+      runConnectingWatchdogIncidentGateCloseoutCaptureJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+        expectedNoOpenRelay?: boolean;
+        expectedPass?: boolean;
+        includeM0Triage?: boolean;
+      }) => string;
+      runConnectingWatchdogIncidentGateCloseoutGateProbe: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+        expectedNoOpenRelay?: boolean;
+        expectedPass?: boolean;
+        includeM0Triage?: boolean;
+      }) => {
+        pass: boolean;
+        failedChecks: ReadonlyArray<string>;
+        checks: Record<string, boolean>;
+      };
+      runConnectingWatchdogIncidentGateCloseoutGateProbeJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+        expectedNoOpenRelay?: boolean;
+        expectedPass?: boolean;
+        includeM0Triage?: boolean;
+      }) => string;
+    };
+
+    const closeout = replayApi.runConnectingWatchdogIncidentGateCloseoutCapture({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+      expectedNoOpenRelay: true,
+      expectedPass: true,
+      includeM0Triage: true,
+    });
+    expect(closeout.expectedPass).toBe(true);
+    expect(closeout.incidentGateCapture.evidenceGate.pass).toBe(true);
+    expect(closeout.selfTest.selfTestGate.pass).toBe(true);
+    expect(closeout.closeoutGate.pass).toBe(true);
+    expect(closeout.closeoutGate.failedChecks).toEqual([]);
+    expect(closeout.closeoutGate.checks.incidentGateEvidencePass).toBe(true);
+    expect(closeout.closeoutGate.checks.incidentGateEvidenceMatchesExpected).toBe(true);
+    expect(closeout.closeoutGate.checks.selfTestPass).toBe(true);
+    expect(closeout.closeoutGate.checks.selfTestNominalPass).toBe(true);
+    expect(closeout.closeoutGate.checks.selfTestFailureRejected).toBe(true);
+    expect(closeout.closeoutGate.checks.digestSummaryPresent).toBe(true);
+    expect(closeout.closeoutGate.checks.digestRiskNotHighWhenExpectedPass).toBe(true);
+    expect(closeout.closeoutGate.checks.digestUnexpectedIncidentGateEvidenceFailZeroWhenExpectedPass).toBe(true);
+    expect(closeout.closeoutGate.checks.digestUnexpectedIncidentGateSelfTestFailZero).toBe(true);
+
+    const probe = replayApi.runConnectingWatchdogIncidentGateCloseoutGateProbe({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+      expectedNoOpenRelay: true,
+      expectedPass: true,
+      includeM0Triage: true,
+    });
+    expect(probe.pass).toBe(true);
+    expect(probe.failedChecks).toEqual([]);
+    expect(probe.checks.incidentGateEvidencePass).toBe(true);
+    expect(() => JSON.parse(replayApi.runConnectingWatchdogIncidentGateCloseoutCaptureJson({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+      expectedNoOpenRelay: true,
+      expectedPass: true,
+      includeM0Triage: true,
+    }))).not.toThrow();
+    expect(() => JSON.parse(replayApi.runConnectingWatchdogIncidentGateCloseoutGateProbeJson({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+      expectedNoOpenRelay: true,
+      expectedPass: true,
+      includeM0Triage: true,
+    }))).not.toThrow();
+
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const closeoutEvents = diagnosticsApi.findByName("messaging.realtime_voice.connecting_watchdog_incident_gate_closeout", 5);
+    expect(closeoutEvents.length).toBeGreaterThanOrEqual(1);
+    expect(closeoutEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      expectedPass: true,
+      closeoutPass: true,
+      incidentGateEvidencePass: true,
+      incidentGateEvidenceMatchesExpected: true,
+      selfTestPass: true,
+      selfTestNominalPass: true,
+      selfTestFailureRejected: true,
+      digestSummaryPresent: true,
+      digestRiskNotHighWhenExpectedPass: true,
+      digestUnexpectedIncidentGateEvidenceFailZeroWhenExpectedPass: true,
+      digestUnexpectedIncidentGateSelfTestFailZero: true,
+      expectedNoOpenRelay: true,
+    }));
+  });
+
   it("passes CP4 long-session gate probe when failure-injection replay is expected to fail", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1655,5 +1780,9 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateEvidenceProbeJson).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateSelfTest).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateSelfTestJson).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutCapture).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutCaptureJson).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutGateProbe).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutGateProbeJson).toBe("function");
   });
 });

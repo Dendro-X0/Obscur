@@ -52,6 +52,10 @@ describe("m6-voice-capture", () => {
             connectingWatchdogIncidentGateSelfTestPassCount: 1,
             connectingWatchdogIncidentGateSelfTestFailCount: 0,
             unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: 0,
+            connectingWatchdogIncidentGateCloseoutCount: 1,
+            connectingWatchdogIncidentGateCloseoutPassCount: 1,
+            connectingWatchdogIncidentGateCloseoutFailCount: 0,
+            unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: 0,
             longSessionGateCount: 2,
             longSessionGatePassCount: 1,
             longSessionGateFailCount: 1,
@@ -89,6 +93,8 @@ describe("m6-voice-capture", () => {
             latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: null,
             latestConnectingWatchdogIncidentGateSelfTestPass: true,
             latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: null,
+            latestConnectingWatchdogIncidentGateCloseoutPass: true,
+            latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: null,
             latestLongSessionGatePass: false,
             latestLongSessionGateFailedCheckSample: "finalPhaseActive",
             latestCheckpointGatePass: true,
@@ -171,6 +177,7 @@ describe("m6-voice-capture", () => {
         connectingWatchdogIncidentGateEvents: Array<{ name: string }>;
         connectingWatchdogIncidentGateEvidenceEvents: Array<{ name: string }>;
         connectingWatchdogIncidentGateSelfTestEvents: Array<{ name: string }>;
+        connectingWatchdogIncidentGateCloseoutEvents: Array<{ name: string }>;
         longSessionGateEvents: Array<{ name: string }>;
         checkpointGateEvents: Array<{ name: string }>;
         releaseReadinessGateEvents: Array<{ name: string }>;
@@ -216,6 +223,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogIncidentGateSelfTestPassCount: 1,
       connectingWatchdogIncidentGateSelfTestFailCount: 0,
       unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: 0,
+      connectingWatchdogIncidentGateCloseoutCount: 1,
+      connectingWatchdogIncidentGateCloseoutPassCount: 1,
+      connectingWatchdogIncidentGateCloseoutFailCount: 0,
+      unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: 0,
       longSessionGateCount: 2,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 1,
@@ -252,6 +263,8 @@ describe("m6-voice-capture", () => {
       latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: null,
       latestConnectingWatchdogIncidentGateSelfTestPass: true,
       latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: null,
+      latestConnectingWatchdogIncidentGateCloseoutPass: true,
+      latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: null,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "finalPhaseActive",
       latestCheckpointGatePass: true,
@@ -290,6 +303,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.connectingWatchdogIncidentGateEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_incident_gate");
     expect(bundle.voice.connectingWatchdogIncidentGateEvidenceEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_incident_gate_evidence");
     expect(bundle.voice.connectingWatchdogIncidentGateSelfTestEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_incident_gate_self_test");
+    expect(bundle.voice.connectingWatchdogIncidentGateCloseoutEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_incident_gate_closeout");
     expect(bundle.voice.longSessionGateEvents[0]?.name).toBe("messaging.realtime_voice.long_session_gate");
     expect(bundle.voice.checkpointGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_checkpoint_gate");
     expect(bundle.voice.releaseReadinessGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_readiness_gate");
@@ -324,6 +338,7 @@ describe("m6-voice-capture", () => {
         connectingWatchdogIncidentGateEvents: unknown[];
         connectingWatchdogIncidentGateEvidenceEvents: unknown[];
         connectingWatchdogIncidentGateSelfTestEvents: unknown[];
+        connectingWatchdogIncidentGateCloseoutEvents: unknown[];
         longSessionGateEvents: unknown[];
         checkpointGateEvents: unknown[];
         releaseReadinessGateEvents: unknown[];
@@ -350,6 +365,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.connectingWatchdogIncidentGateEvents).toEqual([]);
     expect(bundle.voice.connectingWatchdogIncidentGateEvidenceEvents).toEqual([]);
     expect(bundle.voice.connectingWatchdogIncidentGateSelfTestEvents).toEqual([]);
+    expect(bundle.voice.connectingWatchdogIncidentGateCloseoutEvents).toEqual([]);
     expect(bundle.voice.longSessionGateEvents).toEqual([]);
     expect(bundle.voice.checkpointGateEvents).toEqual([]);
     expect(bundle.voice.releaseReadinessGateEvents).toEqual([]);
@@ -397,6 +413,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogIncidentGateSelfTestPassCount: 1,
       connectingWatchdogIncidentGateSelfTestFailCount: 1,
       unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: 1,
+      connectingWatchdogIncidentGateCloseoutCount: 2,
+      connectingWatchdogIncidentGateCloseoutPassCount: 1,
+      connectingWatchdogIncidentGateCloseoutFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -434,6 +454,8 @@ describe("m6-voice-capture", () => {
       latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: "incidentGateMatchesExpected",
       latestConnectingWatchdogIncidentGateSelfTestPass: false,
       latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: "failureRejected",
+      latestConnectingWatchdogIncidentGateCloseoutPass: false,
+      latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: "digestSummaryPresent",
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,
@@ -475,6 +497,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogIncidentGateSelfTestPassCount: 1,
       connectingWatchdogIncidentGateSelfTestFailCount: 1,
       unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: 1,
+      connectingWatchdogIncidentGateCloseoutCount: 2,
+      connectingWatchdogIncidentGateCloseoutPassCount: 1,
+      connectingWatchdogIncidentGateCloseoutFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -511,6 +537,8 @@ describe("m6-voice-capture", () => {
       latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: "incidentGateMatchesExpected",
       latestConnectingWatchdogIncidentGateSelfTestPass: false,
       latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: "failureRejected",
+      latestConnectingWatchdogIncidentGateCloseoutPass: false,
+      latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: "digestSummaryPresent",
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,
