@@ -124,6 +124,8 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
     const [lastViewedByConversationId, setLastViewedByConversationId] = useState<Readonly<Record<string, number>>>({});
     const [connectionOverridesByConnectionId, setConnectionOverridesByConnectionId] = useState<ConnectionOverridesByConnectionId>({});
+    const [pinnedChatIds, setPinnedChatIds] = useState<ReadonlyArray<string>>([]);
+    const [hiddenChatIds, setHiddenChatIds] = useState<ReadonlyArray<string>>([]);
     // Removed: const [messagesByConversationId, setMessagesByConversationId] = useState<MessagesByConversationId>({});
     const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] = useState<Readonly<Record<string, number>>>({});
     const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
@@ -132,14 +134,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const setSelectedConversation = React.useCallback((conv: Conversation | null) => {
         if (conv?.kind === "dm") {
-            const nextHiddenChatIds = removeConversationIdFromHidden(hiddenChatIdsRef.current, conv.id);
-            if (nextHiddenChatIds !== hiddenChatIdsRef.current) {
-                hiddenChatIdsRef.current = nextHiddenChatIds;
-                setHiddenChatIds(nextHiddenChatIds);
-                if (publicKeyHex) {
-                    chatStateStoreService.updateHiddenChats(publicKeyHex, nextHiddenChatIds);
-                }
-            }
+            setHiddenChatIds((previous) => removeConversationIdFromHidden(previous, conv.id));
         }
         setSelectedConversationState(conv);
         if (publicKeyHex) {
@@ -178,14 +173,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [messageMenu, setMessageMenu] = useState<Readonly<{ messageId: string; x: number; y: number }> | null>(null);
     const [reactionPicker, setReactionPicker] = useState<Readonly<{ messageId: string; x: number; y: number }> | null>(null);
 
-    const [pinnedChatIds, setPinnedChatIds] = useState<ReadonlyArray<string>>([]);
-    const [hiddenChatIds, setHiddenChatIds] = useState<ReadonlyArray<string>>([]);
     const createdConnectionsRef = React.useRef(createdConnections);
     const unreadByConversationIdRef = React.useRef(unreadByConversationId);
     const lastSeenByConversationIdRef = React.useRef<Readonly<Record<string, number>>>({});
     const connectionOverridesByConnectionIdRef = React.useRef(connectionOverridesByConnectionId);
-    const pinnedChatIdsRef = React.useRef(pinnedChatIds);
-    const hiddenChatIdsRef = React.useRef(hiddenChatIds);
 
     // Initialize persistence service
     useEffect(() => {
@@ -199,28 +190,21 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, [publicKeyHex]);
 
     const togglePin = (conversationId: string) => {
-        const previous = pinnedChatIdsRef.current;
-        const next = previous.includes(conversationId)
-            ? previous.filter(id => id !== conversationId)
-            : [...previous, conversationId];
-        pinnedChatIdsRef.current = next;
-        setPinnedChatIds(next);
-        if (publicKeyHex) chatStateStoreService.updatePinnedChats(publicKeyHex, next);
+        setPinnedChatIds((previous) => (
+            previous.includes(conversationId)
+                ? previous.filter((id) => id !== conversationId)
+                : [...previous, conversationId]
+        ));
     };
 
     const hideConversation = (conversationId: string) => {
-        const previous = hiddenChatIdsRef.current;
-        const next = previous.includes(conversationId) ? previous : [...previous, conversationId];
-        hiddenChatIdsRef.current = next;
-        setHiddenChatIds(next);
-        if (publicKeyHex) chatStateStoreService.updateHiddenChats(publicKeyHex, next);
+        setHiddenChatIds((previous) => (
+            previous.includes(conversationId) ? previous : [...previous, conversationId]
+        ));
     };
 
     const unhideConversation = (conversationId: string) => {
-        const next = hiddenChatIdsRef.current.filter(id => id !== conversationId);
-        hiddenChatIdsRef.current = next;
-        setHiddenChatIds(next);
-        if (publicKeyHex) chatStateStoreService.updateHiddenChats(publicKeyHex, next);
+        setHiddenChatIds((previous) => previous.filter((id) => id !== conversationId));
     };
 
     const clearHistory = (conversationId: string) => {
@@ -436,12 +420,18 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, [connectionOverridesByConnectionId]);
 
     useEffect(() => {
-        pinnedChatIdsRef.current = pinnedChatIds;
-    }, [pinnedChatIds]);
+        if (!publicKeyHex) {
+            return;
+        }
+        chatStateStoreService.updatePinnedChats(publicKeyHex, pinnedChatIds);
+    }, [pinnedChatIds, publicKeyHex]);
 
     useEffect(() => {
-        hiddenChatIdsRef.current = hiddenChatIds;
-    }, [hiddenChatIds]);
+        if (!publicKeyHex) {
+            return;
+        }
+        chatStateStoreService.updateHiddenChats(publicKeyHex, hiddenChatIds);
+    }, [hiddenChatIds, publicKeyHex]);
 
     // Removed: const updateMessagesByConversationId ...
 

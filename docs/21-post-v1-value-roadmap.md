@@ -258,6 +258,11 @@ Current execution status (started 2026-03-23):
 23. Focused hardening validation added and passing:
 : `pnpm --dir apps/pwa exec vitest run app/features/auth/components/auth-gateway.test.tsx app/features/network/hooks/use-realtime-presence.deleted-profile.test.ts`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+24. Canonical messaging visibility-owner hardening landed (2026-03-28):
+: `apps/pwa/app/features/messaging/providers/messaging-provider.tsx` now uses functional hidden/pinned chat state updates and explicit persistence effects (removed hidden/pinned mutable-ref mutation path).
+25. Focused regression coverage added and passing:
+: `apps/pwa/app/features/messaging/providers/messaging-provider.visibility.test.tsx`
+: validating hide -> select-DM unhide convergence for sidebar restoration behavior.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
