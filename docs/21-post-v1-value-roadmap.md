@@ -357,6 +357,17 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+50. Voice-call retry-churn hardening landed on canonical call owner (2026-03-28):
+: `apps/pwa/app/features/main-shell/main-shell.tsx`
+: now skips join-request/offer retry dispatch while `relayStatus.openCount === 0`
+: to prevent repeated doomed signal writes during full relay outage windows.
+51. Connect-timeout attribution diagnostics landed on the same canonical owner:
+: `messaging.realtime_voice.connect_timeout_diagnostics` now emits once per connect-timeout
+: with relay-open counts, retry-attempt counters, active-session posture, and RTC description/state evidence.
+52. Focused validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

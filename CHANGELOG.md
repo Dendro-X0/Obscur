@@ -132,6 +132,14 @@
   decision reads from closure-captured `voiceCallUiStatus` to
   `voiceCallUiStatusRef.current`, reducing callback identity churn and
   avoiding status-drift reads during replay processing.
+- Reduced voice-call retry churn in
+  `apps/pwa/app/features/main-shell/main-shell.tsx` by gating join-request and
+  offer retry dispatch when `relayStatus.openCount === 0`, keeping retry
+  intervals alive without repeatedly dispatching doomed signal writes.
+- Added explicit connect-timeout attribution diagnostics in
+  `apps/pwa/app/features/main-shell/main-shell.tsx` via
+  `messaging.realtime_voice.connect_timeout_diagnostics`, capturing relay,
+  retry-attempt, active-session, and RTC description/state evidence at timeout.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

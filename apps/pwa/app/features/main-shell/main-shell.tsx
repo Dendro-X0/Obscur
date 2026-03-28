@@ -508,6 +508,7 @@ function NostrMessengerContent() {
   const voiceCallConnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCallInterruptionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveCallOnUnmountRef = useRef<() => void>(() => {});
+  const relayStatusRef = useRef(relayStatus);
   const sendVoiceSignalRef = useRef<((params: Readonly<{
     peerPubkey: string;
     payload: VoiceCallSignalPayload;
@@ -636,6 +637,10 @@ function NostrMessengerContent() {
   useEffect(() => {
     sendVoiceSignalRef.current = sendVoiceSignal;
   }, [sendVoiceSignal]);
+
+  useEffect(() => {
+    relayStatusRef.current = relayStatus;
+  }, [relayStatus]);
 
   const pruneVoiceCallLeaveTombstones = useCallback((): void => {
     const nowUnixMs = Date.now();
@@ -2337,6 +2342,10 @@ function NostrMessengerContent() {
         clearVoiceJoinRequestRetryInterval();
         return;
       }
+      const openRelayCount = relayStatusRef.current.openCount;
+      if (openRelayCount <= 0) {
+        return;
+      }
       const liveStatus = voiceCallUiStatusRef.current;
       const liveSession = activeVoiceCallSessionRef.current;
       if (
@@ -2448,6 +2457,10 @@ function NostrMessengerContent() {
         clearVoiceOfferRetryInterval();
         return;
       }
+      const openRelayCount = relayStatusRef.current.openCount;
+      if (openRelayCount <= 0) {
+        return;
+      }
       const liveStatus = voiceCallUiStatusRef.current;
       const liveSession = activeVoiceCallSessionRef.current;
       const liveConnection = voicePeerConnectionRef.current;
@@ -2539,6 +2552,27 @@ function NostrMessengerContent() {
       const statusSnapshot = voiceCallUiStatus;
       voiceCallConnectTimeoutRef.current = setTimeout(() => {
         const active = activeVoiceCallSessionRef.current;
+        const connection = voicePeerConnectionRef.current;
+        logAppEvent({
+          name: "messaging.realtime_voice.connect_timeout_diagnostics",
+          level: "warn",
+          scope: { feature: "messaging", action: "realtime_voice_signal" },
+          context: {
+            roomIdHint: toRoomIdHint(statusSnapshot.roomId),
+            peerPubkeySuffix: statusSnapshot.peerPubkey.slice(-8),
+            role: statusSnapshot.role,
+            phase: statusSnapshot.phase,
+            openRelayCount: relayStatusRef.current.openCount,
+            configuredRelayCount: relayStatusRef.current.total,
+            joinRequestRetryAttempts: voiceJoinRequestRetryAttemptRef.current,
+            offerRetryAttempts: voiceOfferRetryAttemptRef.current,
+            hasActiveSession: Boolean(active),
+            activeSessionRole: active?.role ?? null,
+            rtcConnectionState: connection?.connectionState ?? "none",
+            hasLocalDescription: Boolean(connection?.localDescription),
+            hasRemoteDescription: Boolean(connection?.remoteDescription),
+          },
+        });
         if (
           active
           && active.roomId === statusSnapshot.roomId
