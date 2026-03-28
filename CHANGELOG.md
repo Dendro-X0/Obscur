@@ -200,6 +200,22 @@
   `apps/pwa/app/shared/m6-voice-capture.ts` under
   `voice.connectingWatchdogGateEvents`, with focused coverage updates in
   `apps/pwa/app/shared/m6-voice-capture.test.ts`.
+- Added canonical watchdog self-test diagnostics event emission in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  `runConnectingWatchdogSelfTest(...)` now emits
+  `messaging.realtime_voice.connecting_watchdog_self_test` with deterministic
+  nominal/failure scenario checks.
+- Extended digest, M6 capture, and triage contracts for self-test diagnostics:
+  - compact context allowlist + realtime voice summary counters/latest fields
+    in `apps/pwa/app/shared/log-app-event.ts`,
+  - M6 voice capture parser and event slices in
+    `apps/pwa/app/shared/m6-voice-capture.ts` (`connectingWatchdogSelfTestEvents`),
+  - voice triage focus list in `apps/pwa/app/shared/m0-triage-capture.ts`.
+- Added focused regression coverage for self-test diagnostics in:
+  - `apps/pwa/app/shared/log-app-event.test.ts`
+  - `apps/pwa/app/shared/m6-voice-capture.test.ts`
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
+  - `apps/pwa/app/shared/m0-triage-capture.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

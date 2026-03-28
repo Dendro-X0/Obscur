@@ -639,6 +639,18 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "latestEventOpenRelayCount",
     "latestEventRtcConnectionState",
   ],
+  "messaging.realtime_voice.connecting_watchdog_self_test": [
+    "selfTestPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "nominalPass",
+    "nominalNoOpenRelayEvidenceObserved",
+    "failureRejected",
+    "failureFlagsNoOpenRelayEvidence",
+    "timeoutEventsObservedInBothScenarios",
+    "nominalWatchdogGatePass",
+    "failureWatchdogGatePass",
+  ],
   "messaging.realtime_voice.long_session_gate": [
     "cp4Pass",
     "failedCheckCount",
@@ -1489,6 +1501,19 @@ const installDiagnosticsApi = (): void => {
       const voiceUnexpectedConnectingWatchdogGateFailCount = voiceConnectingWatchdogGateEvents.filter((event) => (
         event.context?.watchdogPass === false
       )).length;
+      const voiceConnectingWatchdogSelfTestEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_self_test"
+      ));
+      const voiceConnectingWatchdogSelfTestCount = voiceConnectingWatchdogSelfTestEvents.length;
+      const voiceConnectingWatchdogSelfTestPassCount = voiceConnectingWatchdogSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === true
+      )).length;
+      const voiceConnectingWatchdogSelfTestFailCount = voiceConnectingWatchdogSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogSelfTestFailCount = voiceConnectingWatchdogSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
       const voiceLongSessionGateEvents = recent.filter((event) => (
         event.name === "messaging.realtime_voice.long_session_gate"
       ));
@@ -1582,6 +1607,13 @@ const installDiagnosticsApi = (): void => {
       );
       const latestVoiceConnectingWatchdogFailedCheckSample = toStringOrNull(
         latestVoiceConnectingWatchdogGate?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogSelfTest = voiceConnectingWatchdogSelfTestEvents.at(-1);
+      const latestVoiceConnectingWatchdogSelfTestPass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogSelfTest?.context?.selfTestPass,
+      );
+      const latestVoiceConnectingWatchdogSelfTestFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogSelfTest?.context?.failedCheckSample,
       );
       const latestVoiceLongSessionGate = voiceLongSessionGateEvents.at(-1);
       const latestVoiceLongSessionGatePass = toBooleanOrNull(
@@ -1790,6 +1822,7 @@ const installDiagnosticsApi = (): void => {
           || voiceSessionStaleIgnoredCount > 0
           || voiceConnectTimeoutDiagnosticsCount > 0
           || voiceConnectingWatchdogGateFailCount > 0
+          || voiceConnectingWatchdogSelfTestFailCount > 0
           || voiceLongSessionGateFailCount > 0
           || voiceCheckpointGateFailCount > 0
           || voiceReleaseReadinessGateFailCount > 0
@@ -1800,6 +1833,7 @@ const installDiagnosticsApi = (): void => {
           voiceSessionRecoveryExhaustedCount > 0
           || voiceConnectTimeoutDiagnosticsCount >= 3
           || voiceUnexpectedConnectingWatchdogGateFailCount > 0
+          || voiceUnexpectedConnectingWatchdogSelfTestFailCount > 0
           || voiceUnexpectedLongSessionGateFailCount > 0
           || voiceUnexpectedCheckpointGateFailCount > 0
           || voiceUnexpectedReleaseReadinessGateFailCount > 0
@@ -1994,6 +2028,10 @@ const installDiagnosticsApi = (): void => {
             connectingWatchdogGatePassCount: voiceConnectingWatchdogGatePassCount,
             connectingWatchdogGateFailCount: voiceConnectingWatchdogGateFailCount,
             unexpectedConnectingWatchdogGateFailCount: voiceUnexpectedConnectingWatchdogGateFailCount,
+            connectingWatchdogSelfTestCount: voiceConnectingWatchdogSelfTestCount,
+            connectingWatchdogSelfTestPassCount: voiceConnectingWatchdogSelfTestPassCount,
+            connectingWatchdogSelfTestFailCount: voiceConnectingWatchdogSelfTestFailCount,
+            unexpectedConnectingWatchdogSelfTestFailCount: voiceUnexpectedConnectingWatchdogSelfTestFailCount,
             longSessionGateCount: voiceLongSessionGateCount,
             longSessionGatePassCount: voiceLongSessionGatePassCount,
             longSessionGateFailCount: voiceLongSessionGateFailCount,
@@ -2021,6 +2059,8 @@ const installDiagnosticsApi = (): void => {
             latestConnectTimeoutOpenRelayCount: latestVoiceConnectTimeoutOpenRelayCount,
             latestConnectingWatchdogGatePass: latestVoiceConnectingWatchdogGatePass,
             latestConnectingWatchdogGateFailedCheckSample: latestVoiceConnectingWatchdogFailedCheckSample,
+            latestConnectingWatchdogSelfTestPass: latestVoiceConnectingWatchdogSelfTestPass,
+            latestConnectingWatchdogSelfTestFailedCheckSample: latestVoiceConnectingWatchdogSelfTestFailedCheckSample,
             latestLongSessionGatePass: latestVoiceLongSessionGatePass,
             latestLongSessionGateFailedCheckSample: latestVoiceLongSessionFailedCheckSample,
             latestCheckpointGatePass: latestVoiceCheckpointGatePass,

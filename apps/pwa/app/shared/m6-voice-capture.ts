@@ -18,6 +18,10 @@ type RealtimeVoiceSessionSummary = Readonly<{
   connectingWatchdogGatePassCount: number;
   connectingWatchdogGateFailCount: number;
   unexpectedConnectingWatchdogGateFailCount: number;
+  connectingWatchdogSelfTestCount: number;
+  connectingWatchdogSelfTestPassCount: number;
+  connectingWatchdogSelfTestFailCount: number;
+  unexpectedConnectingWatchdogSelfTestFailCount: number;
   longSessionGateCount: number;
   longSessionGatePassCount: number;
   longSessionGateFailCount: number;
@@ -45,6 +49,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestConnectTimeoutOpenRelayCount: number | null;
   latestConnectingWatchdogGatePass: boolean | null;
   latestConnectingWatchdogGateFailedCheckSample: string | null;
+  latestConnectingWatchdogSelfTestPass: boolean | null;
+  latestConnectingWatchdogSelfTestFailedCheckSample: string | null;
   latestLongSessionGatePass: boolean | null;
   latestLongSessionGateFailedCheckSample: string | null;
   latestCheckpointGatePass: boolean | null;
@@ -123,6 +129,7 @@ export type M6VoiceCaptureBundle = Readonly<{
     ignoredEvents: ReadonlyArray<MinimalAppEvent>;
     connectTimeoutEvents: ReadonlyArray<MinimalAppEvent>;
     connectingWatchdogGateEvents: ReadonlyArray<MinimalAppEvent>;
+    connectingWatchdogSelfTestEvents: ReadonlyArray<MinimalAppEvent>;
     longSessionGateEvents: ReadonlyArray<MinimalAppEvent>;
     checkpointGateEvents: ReadonlyArray<MinimalAppEvent>;
     releaseReadinessGateEvents: ReadonlyArray<MinimalAppEvent>;
@@ -208,6 +215,10 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     connectingWatchdogGatePassCount: toNumber(value.connectingWatchdogGatePassCount),
     connectingWatchdogGateFailCount: toNumber(value.connectingWatchdogGateFailCount),
     unexpectedConnectingWatchdogGateFailCount: toNumber(value.unexpectedConnectingWatchdogGateFailCount),
+    connectingWatchdogSelfTestCount: toNumber(value.connectingWatchdogSelfTestCount),
+    connectingWatchdogSelfTestPassCount: toNumber(value.connectingWatchdogSelfTestPassCount),
+    connectingWatchdogSelfTestFailCount: toNumber(value.connectingWatchdogSelfTestFailCount),
+    unexpectedConnectingWatchdogSelfTestFailCount: toNumber(value.unexpectedConnectingWatchdogSelfTestFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -235,6 +246,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     latestConnectTimeoutOpenRelayCount: toNumberOrNull(value.latestConnectTimeoutOpenRelayCount),
     latestConnectingWatchdogGatePass: toBooleanOrNull(value.latestConnectingWatchdogGatePass),
     latestConnectingWatchdogGateFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogGateFailedCheckSample),
+    latestConnectingWatchdogSelfTestPass: toBooleanOrNull(value.latestConnectingWatchdogSelfTestPass),
+    latestConnectingWatchdogSelfTestFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogSelfTestFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -393,6 +406,19 @@ const readRecentConnectingWatchdogGateEvents = (
   }
 };
 
+const readRecentConnectingWatchdogSelfTestEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return appEventsApi.findByName("messaging.realtime_voice.connecting_watchdog_self_test", EVENT_CAPTURE_LIMIT) ?? [];
+  } catch {
+    return [];
+  }
+};
+
 const readRecentCp4GateEvents = (
   appEventsApi: MinimalAppEventsApi | undefined,
   eventName: string,
@@ -489,6 +515,7 @@ const createBundle = (
       ignoredEvents: readRecentIgnoredEvents(appEventsApi),
       connectTimeoutEvents: readRecentConnectTimeoutEvents(appEventsApi),
       connectingWatchdogGateEvents: readRecentConnectingWatchdogGateEvents(appEventsApi),
+      connectingWatchdogSelfTestEvents: readRecentConnectingWatchdogSelfTestEvents(appEventsApi),
       longSessionGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.long_session_gate"),
       checkpointGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_checkpoint_gate"),
       releaseReadinessGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_release_readiness_gate"),

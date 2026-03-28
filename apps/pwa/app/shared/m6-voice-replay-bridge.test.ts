@@ -594,6 +594,22 @@ describe("m6-voice-replay-bridge", () => {
     expect(report.selfTestGate.pass).toBe(true);
     expect(report.selfTestGate.failedChecks).toEqual([]);
     expect(report.selfTestGate.checks.failureFlagsNoOpenRelayEvidence).toBe(true);
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const selfTestEvents = diagnosticsApi.findByName("messaging.realtime_voice.connecting_watchdog_self_test", 5);
+    expect(selfTestEvents.length).toBeGreaterThanOrEqual(1);
+    expect(selfTestEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      selfTestPass: true,
+      nominalPass: true,
+      failureRejected: true,
+      failureFlagsNoOpenRelayEvidence: true,
+      timeoutEventsObservedInBothScenarios: true,
+      nominalWatchdogGatePass: true,
+      failureWatchdogGatePass: false,
+    }));
     expect(() => JSON.parse(replayApi.runConnectingWatchdogSelfTestJson({
       clearAppEvents: true,
       captureWindowSize: 260,

@@ -32,6 +32,10 @@ describe("m6-voice-capture", () => {
             connectingWatchdogGatePassCount: 1,
             connectingWatchdogGateFailCount: 0,
             unexpectedConnectingWatchdogGateFailCount: 0,
+            connectingWatchdogSelfTestCount: 1,
+            connectingWatchdogSelfTestPassCount: 1,
+            connectingWatchdogSelfTestFailCount: 0,
+            unexpectedConnectingWatchdogSelfTestFailCount: 0,
             longSessionGateCount: 2,
             longSessionGatePassCount: 1,
             longSessionGateFailCount: 1,
@@ -59,6 +63,8 @@ describe("m6-voice-capture", () => {
             latestConnectTimeoutOpenRelayCount: 0,
             latestConnectingWatchdogGatePass: true,
             latestConnectingWatchdogGateFailedCheckSample: null,
+            latestConnectingWatchdogSelfTestPass: true,
+            latestConnectingWatchdogSelfTestFailedCheckSample: null,
             latestLongSessionGatePass: false,
             latestLongSessionGateFailedCheckSample: "finalPhaseActive",
             latestCheckpointGatePass: true,
@@ -136,6 +142,7 @@ describe("m6-voice-capture", () => {
         ignoredEvents: Array<{ name: string }>;
         connectTimeoutEvents: Array<{ name: string }>;
         connectingWatchdogGateEvents: Array<{ name: string }>;
+        connectingWatchdogSelfTestEvents: Array<{ name: string }>;
         longSessionGateEvents: Array<{ name: string }>;
         checkpointGateEvents: Array<{ name: string }>;
         releaseReadinessGateEvents: Array<{ name: string }>;
@@ -161,6 +168,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogGatePassCount: 1,
       connectingWatchdogGateFailCount: 0,
       unexpectedConnectingWatchdogGateFailCount: 0,
+      connectingWatchdogSelfTestCount: 1,
+      connectingWatchdogSelfTestPassCount: 1,
+      connectingWatchdogSelfTestFailCount: 0,
+      unexpectedConnectingWatchdogSelfTestFailCount: 0,
       longSessionGateCount: 2,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 1,
@@ -187,6 +198,8 @@ describe("m6-voice-capture", () => {
       latestConnectTimeoutOpenRelayCount: 0,
       latestConnectingWatchdogGatePass: true,
       latestConnectingWatchdogGateFailedCheckSample: null,
+      latestConnectingWatchdogSelfTestPass: true,
+      latestConnectingWatchdogSelfTestFailedCheckSample: null,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "finalPhaseActive",
       latestCheckpointGatePass: true,
@@ -220,6 +233,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.ignoredEvents[0]?.name).toBe("messaging.realtime_voice.session_event_ignored");
     expect(bundle.voice.connectTimeoutEvents[0]?.name).toBe("messaging.realtime_voice.connect_timeout_diagnostics");
     expect(bundle.voice.connectingWatchdogGateEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_gate");
+    expect(bundle.voice.connectingWatchdogSelfTestEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_self_test");
     expect(bundle.voice.longSessionGateEvents[0]?.name).toBe("messaging.realtime_voice.long_session_gate");
     expect(bundle.voice.checkpointGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_checkpoint_gate");
     expect(bundle.voice.releaseReadinessGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_readiness_gate");
@@ -249,6 +263,7 @@ describe("m6-voice-capture", () => {
         ignoredEvents: unknown[];
         connectTimeoutEvents: unknown[];
         connectingWatchdogGateEvents: unknown[];
+        connectingWatchdogSelfTestEvents: unknown[];
         longSessionGateEvents: unknown[];
         checkpointGateEvents: unknown[];
         releaseReadinessGateEvents: unknown[];
@@ -270,6 +285,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.ignoredEvents).toEqual([]);
     expect(bundle.voice.connectTimeoutEvents).toEqual([]);
     expect(bundle.voice.connectingWatchdogGateEvents).toEqual([]);
+    expect(bundle.voice.connectingWatchdogSelfTestEvents).toEqual([]);
     expect(bundle.voice.longSessionGateEvents).toEqual([]);
     expect(bundle.voice.checkpointGateEvents).toEqual([]);
     expect(bundle.voice.releaseReadinessGateEvents).toEqual([]);
@@ -297,6 +313,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogGatePassCount: 1,
       connectingWatchdogGateFailCount: 1,
       unexpectedConnectingWatchdogGateFailCount: 1,
+      connectingWatchdogSelfTestCount: 1,
+      connectingWatchdogSelfTestPassCount: 0,
+      connectingWatchdogSelfTestFailCount: 1,
+      unexpectedConnectingWatchdogSelfTestFailCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -324,6 +344,8 @@ describe("m6-voice-capture", () => {
       latestConnectTimeoutOpenRelayCount: 0,
       latestConnectingWatchdogGatePass: false,
       latestConnectingWatchdogGateFailedCheckSample: "noOpenRelayEvidenceObserved",
+      latestConnectingWatchdogSelfTestPass: false,
+      latestConnectingWatchdogSelfTestFailedCheckSample: "failureRejected",
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,
@@ -345,6 +367,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogGatePassCount: 1,
       connectingWatchdogGateFailCount: 1,
       unexpectedConnectingWatchdogGateFailCount: 1,
+      connectingWatchdogSelfTestCount: 1,
+      connectingWatchdogSelfTestPassCount: 0,
+      connectingWatchdogSelfTestFailCount: 1,
+      unexpectedConnectingWatchdogSelfTestFailCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -371,6 +397,8 @@ describe("m6-voice-capture", () => {
       latestConnectTimeoutOpenRelayCount: 0,
       latestConnectingWatchdogGatePass: false,
       latestConnectingWatchdogGateFailedCheckSample: "noOpenRelayEvidenceObserved",
+      latestConnectingWatchdogSelfTestPass: false,
+      latestConnectingWatchdogSelfTestFailedCheckSample: "failureRejected",
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,

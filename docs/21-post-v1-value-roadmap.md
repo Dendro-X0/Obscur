@@ -594,6 +594,12 @@ Current execution status:
 : `window.obscurM6VoiceCapture.captureJson(400)` now includes
 : `voice.connectingWatchdogGateEvents` so timeout evidence and gate verdict
 : events can be exported together without separate event API queries.
+20. Watchdog self-test diagnostics are now first-class replay evidence (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogSelfTest(...)` now emits
+: `messaging.realtime_voice.connecting_watchdog_self_test`,
+: cross-device digest summary tracks self-test counters/latest fields under
+: `summary.realtimeVoiceSession`, and one-copy capture includes
+: `voice.connectingWatchdogSelfTestEvents` for export-ready triage bundles.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

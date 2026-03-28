@@ -647,6 +647,10 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     connectingWatchdogGatePassCount: toNumber(value.connectingWatchdogGatePassCount),
     connectingWatchdogGateFailCount: toNumber(value.connectingWatchdogGateFailCount),
     unexpectedConnectingWatchdogGateFailCount: toNumber(value.unexpectedConnectingWatchdogGateFailCount),
+    connectingWatchdogSelfTestCount: toNumber(value.connectingWatchdogSelfTestCount),
+    connectingWatchdogSelfTestPassCount: toNumber(value.connectingWatchdogSelfTestPassCount),
+    connectingWatchdogSelfTestFailCount: toNumber(value.connectingWatchdogSelfTestFailCount),
+    unexpectedConnectingWatchdogSelfTestFailCount: toNumber(value.unexpectedConnectingWatchdogSelfTestFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -674,6 +678,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestConnectTimeoutOpenRelayCount: toNumberOrNull(value.latestConnectTimeoutOpenRelayCount),
     latestConnectingWatchdogGatePass: toBooleanOrNull(value.latestConnectingWatchdogGatePass),
     latestConnectingWatchdogGateFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogGateFailedCheckSample),
+    latestConnectingWatchdogSelfTestPass: toBooleanOrNull(value.latestConnectingWatchdogSelfTestPass),
+    latestConnectingWatchdogSelfTestFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogSelfTestFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -1309,6 +1315,29 @@ const emitSyntheticConnectTimeoutDiagnostics = (params: Readonly<{
       rtcConnectionState: params.rtcConnectionState,
       hasLocalDescription: false,
       hasRemoteDescription: false,
+    },
+  });
+};
+
+const emitConnectingWatchdogSelfTestDiagnostic = (params: Readonly<{
+  report: M6VoiceConnectingWatchdogSelfTestReport;
+}>): void => {
+  const failedChecks = params.report.selfTestGate.failedChecks;
+  logAppEvent({
+    name: "messaging.realtime_voice.connecting_watchdog_self_test",
+    level: params.report.selfTestGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      selfTestPass: params.report.selfTestGate.pass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      nominalPass: params.report.selfTestGate.checks.nominalPass,
+      nominalNoOpenRelayEvidenceObserved: params.report.selfTestGate.checks.nominalNoOpenRelayEvidenceObserved,
+      failureRejected: params.report.selfTestGate.checks.failureRejected,
+      failureFlagsNoOpenRelayEvidence: params.report.selfTestGate.checks.failureFlagsNoOpenRelayEvidence,
+      timeoutEventsObservedInBothScenarios: params.report.selfTestGate.checks.timeoutEventsObservedInBothScenarios,
+      nominalWatchdogGatePass: params.report.noOpenRelayExpected.watchdogGate.pass,
+      failureWatchdogGatePass: params.report.openRelayUnexpected.watchdogGate.pass,
     },
   });
 };
@@ -2065,7 +2094,7 @@ export const installM6VoiceReplayBridge = (): void => {
         },
       };
 
-      return {
+      const report = {
         generatedAtUnixMs: Date.now(),
         noOpenRelayExpected,
         openRelayUnexpected,
@@ -2074,6 +2103,8 @@ export const installM6VoiceReplayBridge = (): void => {
           openRelayUnexpected,
         }),
       };
+      emitConnectingWatchdogSelfTestDiagnostic({ report });
+      return report;
     },
     runConnectingWatchdogSelfTestJson: (params) => (
       JSON.stringify(
