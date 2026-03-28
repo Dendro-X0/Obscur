@@ -555,6 +555,51 @@ describe("m6-voice-replay-bridge", () => {
     }))).not.toThrow();
   });
 
+  it("exports deterministic connecting watchdog self-test report", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runConnectingWatchdogSelfTest: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => {
+        noOpenRelayExpected: {
+          watchdogGate: { pass: boolean; checks: Record<string, boolean> };
+          connectTimeoutEvents: ReadonlyArray<{ name: string }>;
+        };
+        openRelayUnexpected: {
+          watchdogGate: { pass: boolean; failedChecks: ReadonlyArray<string> };
+          connectTimeoutEvents: ReadonlyArray<{ name: string }>;
+        };
+        selfTestGate: {
+          pass: boolean;
+          failedChecks: ReadonlyArray<string>;
+          checks: Record<string, boolean>;
+        };
+      };
+      runConnectingWatchdogSelfTestJson: (params?: { clearAppEvents?: boolean; captureWindowSize?: number }) => string;
+    };
+
+    const report = replayApi.runConnectingWatchdogSelfTest({
+      clearAppEvents: true,
+      captureWindowSize: 260,
+    });
+    expect(report.noOpenRelayExpected.watchdogGate.pass).toBe(true);
+    expect(report.noOpenRelayExpected.watchdogGate.checks.noOpenRelayEvidenceObserved).toBe(true);
+    expect(report.noOpenRelayExpected.connectTimeoutEvents[0]?.name).toBe("messaging.realtime_voice.connect_timeout_diagnostics");
+    expect(report.openRelayUnexpected.watchdogGate.pass).toBe(false);
+    expect(report.openRelayUnexpected.watchdogGate.failedChecks).toContain("noOpenRelayEvidenceObserved");
+    expect(report.openRelayUnexpected.connectTimeoutEvents[0]?.name).toBe("messaging.realtime_voice.connect_timeout_diagnostics");
+    expect(report.selfTestGate.pass).toBe(true);
+    expect(report.selfTestGate.failedChecks).toEqual([]);
+    expect(report.selfTestGate.checks.failureFlagsNoOpenRelayEvidence).toBe(true);
+    expect(() => JSON.parse(replayApi.runConnectingWatchdogSelfTestJson({
+      clearAppEvents: true,
+      captureWindowSize: 260,
+    }))).not.toThrow();
+  });
+
   it("exports deterministic CP4 long-session gate probe with nominal pass", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1312,5 +1357,7 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runConnectingWatchdogCaptureJson).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogGateProbe).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogGateProbeJson).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogSelfTest).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogSelfTestJson).toBe("function");
   });
 });

@@ -187,6 +187,15 @@
   - focused regression coverage added in
     `apps/pwa/app/shared/m6-voice-capture.test.ts` and
     `apps/pwa/app/shared/log-app-event.test.ts`.
+- Added deterministic connecting-timeout watchdog self-test helpers in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `runConnectingWatchdogSelfTest(...)`
+  - `runConnectingWatchdogSelfTestJson(...)`
+  which execute explicit no-open-relay pass + open-relay fail scenarios for
+  one-command gate validation.
+- Added focused replay-bridge self-test coverage in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts` and stale-upgrade
+  availability assertions for the new self-test helper methods.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

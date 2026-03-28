@@ -586,6 +586,10 @@ Current execution status:
 : `connectingWatchdogGateFailCount`,
 : `unexpectedConnectingWatchdogGateFailCount`,
 : and latest gate snapshot fields for fast triage alignment with timeout-event slices.
+18. Deterministic watchdog self-test helpers landed on the same canonical bridge owner (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogSelfTest(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogSelfTestJson(...)`
+: now execute two explicit scenarios (no-open-relay expected pass, open-relay expected fail) and return a typed self-test gate for one-command timeout watchdog validation.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 
