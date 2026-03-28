@@ -603,6 +603,13 @@ Current execution status:
 21. One-command watchdog incident bundle helper landed on canonical bridge owner (2026-03-27):
 : `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundle(...)`
 : now returns deterministic watchdog capture + self-test + optional M0 triage snapshot with a typed incident gate (`watchdogCapturePass`, `selfTestPass`, `captureAndSelfTestAligned`, `m0TriageCapturedWhenRequested`).
+22. Incident bundle diagnostics are now first-class replay evidence (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundle(...)` now emits
+: `messaging.realtime_voice.connecting_watchdog_incident_bundle`,
+: cross-device digest summary tracks incident-bundle counters/latest fields under
+: `summary.realtimeVoiceSession`,
+: and one-copy capture bundles include
+: `voice.connectingWatchdogIncidentBundleEvents`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

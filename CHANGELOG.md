@@ -224,6 +224,21 @@
   triage snapshot with a typed incident gate verdict.
 - Extended stale-bridge upgrade coverage and focused incident-bundle tests in
   `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Added canonical watchdog incident-bundle diagnostics emission:
+  `runConnectingWatchdogIncidentBundle(...)` now emits
+  `messaging.realtime_voice.connecting_watchdog_incident_bundle` with
+  pass/fail gate verdict and bundle context (`expectedNoOpenRelay`,
+  `includeM0Triage`, capture/self-test alignment checks).
+- Extended compact digest + summary + triage/capture convergence for incident
+  bundle diagnostics:
+  - compact allowlist and `summary.realtimeVoiceSession` counters/latest fields
+    in `apps/pwa/app/shared/log-app-event.ts`,
+  - event slices in `apps/pwa/app/shared/m6-voice-capture.ts`,
+  - focused voice realtime capture list in
+    `apps/pwa/app/shared/m0-triage-capture.ts`,
+  - regression coverage in `log-app-event.test.ts`,
+    `m6-voice-capture.test.ts`, `m0-triage-capture.test.ts`, and
+    `m6-voice-replay-bridge.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

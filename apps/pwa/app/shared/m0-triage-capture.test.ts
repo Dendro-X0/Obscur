@@ -104,6 +104,7 @@ describe("m0-triage-capture", () => {
         || name === "messaging.realtime_voice.connect_timeout_diagnostics"
         || name === "messaging.realtime_voice.connecting_watchdog_gate"
         || name === "messaging.realtime_voice.connecting_watchdog_self_test"
+        || name === "messaging.realtime_voice.connecting_watchdog_incident_bundle"
         || name === "messaging.voice_note.recording_complete"
         || name === "messaging.delete_for_everyone_remote_result"
       ) {
@@ -156,6 +157,7 @@ describe("m0-triage-capture", () => {
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.connect_timeout_diagnostics")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.connecting_watchdog_gate")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.connecting_watchdog_self_test")).toBe(true);
+    expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.connecting_watchdog_incident_bundle")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.voice_note.recording_complete")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.delete_for_everyone_remote_result")).toBe(true);
     expect(findByName).toHaveBeenCalled();

@@ -22,6 +22,10 @@ type RealtimeVoiceSessionSummary = Readonly<{
   connectingWatchdogSelfTestPassCount: number;
   connectingWatchdogSelfTestFailCount: number;
   unexpectedConnectingWatchdogSelfTestFailCount: number;
+  connectingWatchdogIncidentBundleCount: number;
+  connectingWatchdogIncidentBundlePassCount: number;
+  connectingWatchdogIncidentBundleFailCount: number;
+  unexpectedConnectingWatchdogIncidentBundleFailCount: number;
   longSessionGateCount: number;
   longSessionGatePassCount: number;
   longSessionGateFailCount: number;
@@ -51,6 +55,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestConnectingWatchdogGateFailedCheckSample: string | null;
   latestConnectingWatchdogSelfTestPass: boolean | null;
   latestConnectingWatchdogSelfTestFailedCheckSample: string | null;
+  latestConnectingWatchdogIncidentBundlePass: boolean | null;
+  latestConnectingWatchdogIncidentBundleFailedCheckSample: string | null;
   latestLongSessionGatePass: boolean | null;
   latestLongSessionGateFailedCheckSample: string | null;
   latestCheckpointGatePass: boolean | null;
@@ -130,6 +136,7 @@ export type M6VoiceCaptureBundle = Readonly<{
     connectTimeoutEvents: ReadonlyArray<MinimalAppEvent>;
     connectingWatchdogGateEvents: ReadonlyArray<MinimalAppEvent>;
     connectingWatchdogSelfTestEvents: ReadonlyArray<MinimalAppEvent>;
+    connectingWatchdogIncidentBundleEvents: ReadonlyArray<MinimalAppEvent>;
     longSessionGateEvents: ReadonlyArray<MinimalAppEvent>;
     checkpointGateEvents: ReadonlyArray<MinimalAppEvent>;
     releaseReadinessGateEvents: ReadonlyArray<MinimalAppEvent>;
@@ -219,6 +226,10 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     connectingWatchdogSelfTestPassCount: toNumber(value.connectingWatchdogSelfTestPassCount),
     connectingWatchdogSelfTestFailCount: toNumber(value.connectingWatchdogSelfTestFailCount),
     unexpectedConnectingWatchdogSelfTestFailCount: toNumber(value.unexpectedConnectingWatchdogSelfTestFailCount),
+    connectingWatchdogIncidentBundleCount: toNumber(value.connectingWatchdogIncidentBundleCount),
+    connectingWatchdogIncidentBundlePassCount: toNumber(value.connectingWatchdogIncidentBundlePassCount),
+    connectingWatchdogIncidentBundleFailCount: toNumber(value.connectingWatchdogIncidentBundleFailCount),
+    unexpectedConnectingWatchdogIncidentBundleFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentBundleFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -248,6 +259,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     latestConnectingWatchdogGateFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogGateFailedCheckSample),
     latestConnectingWatchdogSelfTestPass: toBooleanOrNull(value.latestConnectingWatchdogSelfTestPass),
     latestConnectingWatchdogSelfTestFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogSelfTestFailedCheckSample),
+    latestConnectingWatchdogIncidentBundlePass: toBooleanOrNull(value.latestConnectingWatchdogIncidentBundlePass),
+    latestConnectingWatchdogIncidentBundleFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentBundleFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -419,6 +432,19 @@ const readRecentConnectingWatchdogSelfTestEvents = (
   }
 };
 
+const readRecentConnectingWatchdogIncidentBundleEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return appEventsApi.findByName("messaging.realtime_voice.connecting_watchdog_incident_bundle", EVENT_CAPTURE_LIMIT) ?? [];
+  } catch {
+    return [];
+  }
+};
+
 const readRecentCp4GateEvents = (
   appEventsApi: MinimalAppEventsApi | undefined,
   eventName: string,
@@ -516,6 +542,7 @@ const createBundle = (
       connectTimeoutEvents: readRecentConnectTimeoutEvents(appEventsApi),
       connectingWatchdogGateEvents: readRecentConnectingWatchdogGateEvents(appEventsApi),
       connectingWatchdogSelfTestEvents: readRecentConnectingWatchdogSelfTestEvents(appEventsApi),
+      connectingWatchdogIncidentBundleEvents: readRecentConnectingWatchdogIncidentBundleEvents(appEventsApi),
       longSessionGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.long_session_gate"),
       checkpointGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_checkpoint_gate"),
       releaseReadinessGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_release_readiness_gate"),

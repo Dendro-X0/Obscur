@@ -680,6 +680,10 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     connectingWatchdogSelfTestPassCount: toNumber(value.connectingWatchdogSelfTestPassCount),
     connectingWatchdogSelfTestFailCount: toNumber(value.connectingWatchdogSelfTestFailCount),
     unexpectedConnectingWatchdogSelfTestFailCount: toNumber(value.unexpectedConnectingWatchdogSelfTestFailCount),
+    connectingWatchdogIncidentBundleCount: toNumber(value.connectingWatchdogIncidentBundleCount),
+    connectingWatchdogIncidentBundlePassCount: toNumber(value.connectingWatchdogIncidentBundlePassCount),
+    connectingWatchdogIncidentBundleFailCount: toNumber(value.connectingWatchdogIncidentBundleFailCount),
+    unexpectedConnectingWatchdogIncidentBundleFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentBundleFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -709,6 +713,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestConnectingWatchdogGateFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogGateFailedCheckSample),
     latestConnectingWatchdogSelfTestPass: toBooleanOrNull(value.latestConnectingWatchdogSelfTestPass),
     latestConnectingWatchdogSelfTestFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogSelfTestFailedCheckSample),
+    latestConnectingWatchdogIncidentBundlePass: toBooleanOrNull(value.latestConnectingWatchdogIncidentBundlePass),
+    latestConnectingWatchdogIncidentBundleFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentBundleFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -1394,6 +1400,31 @@ const emitConnectingWatchdogSelfTestDiagnostic = (params: Readonly<{
       timeoutEventsObservedInBothScenarios: params.report.selfTestGate.checks.timeoutEventsObservedInBothScenarios,
       nominalWatchdogGatePass: params.report.noOpenRelayExpected.watchdogGate.pass,
       failureWatchdogGatePass: params.report.openRelayUnexpected.watchdogGate.pass,
+    },
+  });
+};
+
+const emitConnectingWatchdogIncidentBundleDiagnostic = (params: Readonly<{
+  incident: M6VoiceConnectingWatchdogIncidentBundle;
+  includeM0Triage: boolean;
+}>): void => {
+  const failedChecks = params.incident.incidentGate.failedChecks;
+  logAppEvent({
+    name: "messaging.realtime_voice.connecting_watchdog_incident_bundle",
+    level: params.incident.incidentGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      incidentPass: params.incident.incidentGate.pass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      watchdogCapturePass: params.incident.incidentGate.checks.watchdogCapturePass,
+      selfTestPass: params.incident.incidentGate.checks.selfTestPass,
+      captureAndSelfTestAligned: params.incident.incidentGate.checks.captureAndSelfTestAligned,
+      connectTimeoutEventsObserved: params.incident.incidentGate.checks.connectTimeoutEventsObserved,
+      selfTestTimeoutEvidenceObserved: params.incident.incidentGate.checks.selfTestTimeoutEvidenceObserved,
+      m0TriageCapturedWhenRequested: params.incident.incidentGate.checks.m0TriageCapturedWhenRequested,
+      expectedNoOpenRelay: params.incident.expectedNoOpenRelay,
+      includeM0Triage: params.includeM0Triage,
     },
   });
 };
@@ -2244,7 +2275,7 @@ export const installM6VoiceReplayBridge = (): void => {
       const m0Triage = includeM0Triage
         ? (root.obscurM0Triage?.capture?.(captureWindowSize) ?? null)
         : null;
-      return {
+      const incident = {
         generatedAtUnixMs: Date.now(),
         captureWindowSize,
         expectedNoOpenRelay,
@@ -2258,6 +2289,11 @@ export const installM6VoiceReplayBridge = (): void => {
           m0Triage,
         }),
       };
+      emitConnectingWatchdogIncidentBundleDiagnostic({
+        incident,
+        includeM0Triage,
+      });
+      return incident;
     },
     runConnectingWatchdogIncidentBundleJson: (params) => (
       JSON.stringify(
