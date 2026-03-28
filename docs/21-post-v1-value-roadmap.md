@@ -579,6 +579,13 @@ Current execution status:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m0-triage-capture.test.ts app/shared/log-app-event.test.ts`
 : `pnpm --dir apps/pwa exec eslint app/shared/m6-voice-replay-bridge.ts app/shared/m6-voice-replay-bridge.test.ts app/shared/m0-triage-capture.ts app/shared/m0-triage-capture.test.ts app/shared/log-app-event.ts app/shared/log-app-event.test.ts --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+17. Realtime-voice digest summary now includes watchdog gate convergence counters (2026-03-27):
+: `summary.realtimeVoiceSession` now tracks
+: `connectingWatchdogGateCount`,
+: `connectingWatchdogGatePassCount`,
+: `connectingWatchdogGateFailCount`,
+: `unexpectedConnectingWatchdogGateFailCount`,
+: and latest gate snapshot fields for fast triage alignment with timeout-event slices.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

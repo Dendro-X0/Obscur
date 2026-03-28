@@ -1476,6 +1476,19 @@ const installDiagnosticsApi = (): void => {
         typeof event.context?.openRelayCount === "number"
         && event.context.openRelayCount <= 0
       )).length;
+      const voiceConnectingWatchdogGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_gate"
+      ));
+      const voiceConnectingWatchdogGateCount = voiceConnectingWatchdogGateEvents.length;
+      const voiceConnectingWatchdogGatePassCount = voiceConnectingWatchdogGateEvents.filter((event) => (
+        event.context?.watchdogPass === true
+      )).length;
+      const voiceConnectingWatchdogGateFailCount = voiceConnectingWatchdogGateEvents.filter((event) => (
+        event.context?.watchdogPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogGateFailCount = voiceConnectingWatchdogGateEvents.filter((event) => (
+        event.context?.watchdogPass === false
+      )).length;
       const voiceLongSessionGateEvents = recent.filter((event) => (
         event.name === "messaging.realtime_voice.long_session_gate"
       ));
@@ -1562,6 +1575,13 @@ const installDiagnosticsApi = (): void => {
       );
       const latestVoiceConnectTimeoutOpenRelayCount = toNumberOrNull(
         latestVoiceConnectTimeoutDiagnostics?.context?.openRelayCount,
+      );
+      const latestVoiceConnectingWatchdogGate = voiceConnectingWatchdogGateEvents.at(-1);
+      const latestVoiceConnectingWatchdogGatePass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogGate?.context?.watchdogPass,
+      );
+      const latestVoiceConnectingWatchdogFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogGate?.context?.failedCheckSample,
       );
       const latestVoiceLongSessionGate = voiceLongSessionGateEvents.at(-1);
       const latestVoiceLongSessionGatePass = toBooleanOrNull(
@@ -1769,6 +1789,7 @@ const installDiagnosticsApi = (): void => {
           || voiceSessionUnsupportedCount > 0
           || voiceSessionStaleIgnoredCount > 0
           || voiceConnectTimeoutDiagnosticsCount > 0
+          || voiceConnectingWatchdogGateFailCount > 0
           || voiceLongSessionGateFailCount > 0
           || voiceCheckpointGateFailCount > 0
           || voiceReleaseReadinessGateFailCount > 0
@@ -1778,6 +1799,7 @@ const installDiagnosticsApi = (): void => {
         high: (
           voiceSessionRecoveryExhaustedCount > 0
           || voiceConnectTimeoutDiagnosticsCount >= 3
+          || voiceUnexpectedConnectingWatchdogGateFailCount > 0
           || voiceUnexpectedLongSessionGateFailCount > 0
           || voiceUnexpectedCheckpointGateFailCount > 0
           || voiceUnexpectedReleaseReadinessGateFailCount > 0
@@ -1968,6 +1990,10 @@ const installDiagnosticsApi = (): void => {
             staleEventIgnoredCount: voiceSessionStaleIgnoredCount,
             connectTimeoutDiagnosticsCount: voiceConnectTimeoutDiagnosticsCount,
             connectTimeoutNoOpenRelayCount: voiceConnectTimeoutNoOpenRelayCount,
+            connectingWatchdogGateCount: voiceConnectingWatchdogGateCount,
+            connectingWatchdogGatePassCount: voiceConnectingWatchdogGatePassCount,
+            connectingWatchdogGateFailCount: voiceConnectingWatchdogGateFailCount,
+            unexpectedConnectingWatchdogGateFailCount: voiceUnexpectedConnectingWatchdogGateFailCount,
             longSessionGateCount: voiceLongSessionGateCount,
             longSessionGatePassCount: voiceLongSessionGatePassCount,
             longSessionGateFailCount: voiceLongSessionGateFailCount,
@@ -1993,6 +2019,8 @@ const installDiagnosticsApi = (): void => {
             latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
             latestConnectTimeoutRtcConnectionState: latestVoiceConnectTimeoutRtcConnectionState,
             latestConnectTimeoutOpenRelayCount: latestVoiceConnectTimeoutOpenRelayCount,
+            latestConnectingWatchdogGatePass: latestVoiceConnectingWatchdogGatePass,
+            latestConnectingWatchdogGateFailedCheckSample: latestVoiceConnectingWatchdogFailedCheckSample,
             latestLongSessionGatePass: latestVoiceLongSessionGatePass,
             latestLongSessionGateFailedCheckSample: latestVoiceLongSessionFailedCheckSample,
             latestCheckpointGatePass: latestVoiceCheckpointGatePass,

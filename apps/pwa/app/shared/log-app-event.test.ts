@@ -2312,6 +2312,46 @@ describe("logAppEvent", () => {
     expect(digest.events["messaging.realtime_voice.connecting_watchdog_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
 
+  it("tracks realtime voice connecting-watchdog gate summary counters", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_gate",
+      level: "warn",
+      context: {
+        watchdogPass: false,
+        expectedNoOpenRelay: true,
+        failedCheckSample: "noOpenRelayEvidenceObserved",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            connectingWatchdogGateCount: number;
+            connectingWatchdogGatePassCount: number;
+            connectingWatchdogGateFailCount: number;
+            unexpectedConnectingWatchdogGateFailCount: number;
+            latestConnectingWatchdogGatePass: boolean | null;
+            latestConnectingWatchdogGateFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      connectingWatchdogGateCount: 1,
+      connectingWatchdogGatePassCount: 0,
+      connectingWatchdogGateFailCount: 1,
+      unexpectedConnectingWatchdogGateFailCount: 1,
+      latestConnectingWatchdogGatePass: false,
+      latestConnectingWatchdogGateFailedCheckSample: "noOpenRelayEvidenceObserved",
+    }));
+  });
+
   it("marks ui responsiveness as watch when navigation/startup probes degrade without hard fallback", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 

@@ -177,6 +177,16 @@
     `apps/pwa/app/shared/log-app-event.test.ts`,
     `apps/pwa/app/shared/m0-triage-capture.test.ts`,
     and `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Extended realtime-voice digest convergence for watchdog diagnostics:
+  - `summary.realtimeVoiceSession` in `apps/pwa/app/shared/log-app-event.ts`
+    now tracks watchdog gate counters and latest gate snapshot fields
+    (`connectingWatchdogGate*`, `latestConnectingWatchdogGate*`),
+  - M6 capture/bridge summary parsers were aligned in
+    `apps/pwa/app/shared/m6-voice-capture.ts` and
+    `apps/pwa/app/shared/m6-voice-replay-bridge.ts`,
+  - focused regression coverage added in
+    `apps/pwa/app/shared/m6-voice-capture.test.ts` and
+    `apps/pwa/app/shared/log-app-event.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

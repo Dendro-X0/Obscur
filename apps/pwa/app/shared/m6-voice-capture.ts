@@ -14,6 +14,10 @@ type RealtimeVoiceSessionSummary = Readonly<{
   staleEventIgnoredCount: number;
   connectTimeoutDiagnosticsCount: number;
   connectTimeoutNoOpenRelayCount: number;
+  connectingWatchdogGateCount: number;
+  connectingWatchdogGatePassCount: number;
+  connectingWatchdogGateFailCount: number;
+  unexpectedConnectingWatchdogGateFailCount: number;
   longSessionGateCount: number;
   longSessionGatePassCount: number;
   longSessionGateFailCount: number;
@@ -39,6 +43,8 @@ type RealtimeVoiceSessionSummary = Readonly<{
   latestIgnoredReasonCode: string | null;
   latestConnectTimeoutRtcConnectionState: string | null;
   latestConnectTimeoutOpenRelayCount: number | null;
+  latestConnectingWatchdogGatePass: boolean | null;
+  latestConnectingWatchdogGateFailedCheckSample: string | null;
   latestLongSessionGatePass: boolean | null;
   latestLongSessionGateFailedCheckSample: string | null;
   latestCheckpointGatePass: boolean | null;
@@ -197,6 +203,10 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     staleEventIgnoredCount: toNumber(value.staleEventIgnoredCount),
     connectTimeoutDiagnosticsCount: toNumber(value.connectTimeoutDiagnosticsCount),
     connectTimeoutNoOpenRelayCount: toNumber(value.connectTimeoutNoOpenRelayCount),
+    connectingWatchdogGateCount: toNumber(value.connectingWatchdogGateCount),
+    connectingWatchdogGatePassCount: toNumber(value.connectingWatchdogGatePassCount),
+    connectingWatchdogGateFailCount: toNumber(value.connectingWatchdogGateFailCount),
+    unexpectedConnectingWatchdogGateFailCount: toNumber(value.unexpectedConnectingWatchdogGateFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -222,6 +232,8 @@ const parseRealtimeVoiceSummary = (value: unknown): RealtimeVoiceSessionSummary 
     latestIgnoredReasonCode: toStringOrNull(value.latestIgnoredReasonCode),
     latestConnectTimeoutRtcConnectionState: toStringOrNull(value.latestConnectTimeoutRtcConnectionState),
     latestConnectTimeoutOpenRelayCount: toNumberOrNull(value.latestConnectTimeoutOpenRelayCount),
+    latestConnectingWatchdogGatePass: toBooleanOrNull(value.latestConnectingWatchdogGatePass),
+    latestConnectingWatchdogGateFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogGateFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
