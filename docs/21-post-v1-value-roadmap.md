@@ -311,6 +311,16 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa vitest run app/features/messaging/utils/time.test.ts`
 : `pnpm --dir apps/pwa exec eslint app/features/messaging/utils/time.ts app/features/messaging/utils/time.test.ts --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+40. Shared clock + sidebar owner convergence hardening landed (2026-03-28):
+: canonical now-clock subscribe path now emits immediate microtask listener notification in
+: `apps/pwa/app/features/messaging/utils/time.ts`,
+: and duplicate sidebar-local interval ownership was removed from
+: `apps/pwa/app/features/messaging/components/sidebar.tsx`
+: to keep one clock owner for chat/request timestamp refresh.
+41. Focused validation replay is green:
+: `pnpm --dir apps/pwa vitest run app/features/messaging/utils/time.test.ts app/features/messaging/components/sidebar.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/messaging/utils/time.ts app/features/messaging/utils/time.test.ts app/features/messaging/components/sidebar.tsx --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

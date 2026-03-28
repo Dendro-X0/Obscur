@@ -31,6 +31,17 @@ describe("messaging time clock ownership", () => {
         unsubscribe();
     });
 
+    it("notifies newly subscribed listeners on microtask tick", async () => {
+        const listener = vi.fn();
+        const unsubscribe = subscribeNowMs(listener);
+
+        expect(listener).toHaveBeenCalledTimes(0);
+        await Promise.resolve();
+        expect(listener).toHaveBeenCalledTimes(1);
+
+        unsubscribe();
+    });
+
     it("ticks subscribers and stops interval when unused", () => {
         const listener = vi.fn();
         const unsubscribe = subscribeNowMs(listener);

@@ -49,10 +49,25 @@ const stopClockIfUnused = (state: NowMsClockState): void => {
     state.snapshot = null;
 };
 
+const enqueueListenerNotification = (listener: NowMsListener, state: NowMsClockState): void => {
+    const notify = (): void => {
+        if (!state.listeners.has(listener)) {
+            return;
+        }
+        listener();
+    };
+    if (typeof queueMicrotask === "function") {
+        queueMicrotask(notify);
+        return;
+    }
+    Promise.resolve().then(notify);
+};
+
 export const subscribeNowMs = (listener: NowMsListener): (() => void) => {
     const state = readClockState();
     state.listeners.add(listener);
     startClockIfNeeded(state);
+    enqueueListenerNotification(listener, state);
     return (): void => {
         const current = readClockState();
         current.listeners.delete(listener);

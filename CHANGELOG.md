@@ -97,6 +97,15 @@
   `apps/pwa/app/features/messaging/utils/time.test.ts`
   validating start/stop lifecycle, snapshot seeding, tick delivery, and
   deterministic server snapshot behavior.
+- Improved shared clock convergence in
+  `apps/pwa/app/features/messaging/utils/time.ts`
+  by scheduling an immediate microtask listener notification after subscribe,
+  so first post-mount renders can hydrate timestamp labels without waiting for
+  the 30s interval tick.
+- Removed duplicate sidebar-local clock interval owner from
+  `apps/pwa/app/features/messaging/components/sidebar.tsx`;
+  sidebar timestamps now consume the canonical `nowMs` snapshot from the
+  shared messaging clock owner.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

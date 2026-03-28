@@ -92,15 +92,7 @@ export function Sidebar({
     , isPeerOnline
 }: SidebarProps) {
     const { t } = useTranslation();
-    const [localNowMs, setLocalNowMs] = React.useState<number | null>(null);
-
-    React.useEffect(() => {
-        setLocalNowMs(Date.now());
-        const interval = setInterval(() => setLocalNowMs(Date.now()), 30000); // 30s update
-        return () => clearInterval(interval);
-    }, []);
-
-    const resolvedNowMs = nowMs ?? localNowMs;
+    const resolvedNowMs = nowMs;
 
     const hiddenChatIdSet = React.useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
     const pinnedChatIdSet = React.useMemo(() => new Set(pinnedChatIds), [pinnedChatIds]);
