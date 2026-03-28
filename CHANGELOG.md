@@ -88,6 +88,15 @@
 - Updated request inbox clock contract to accept deterministic `null` snapshots
   in `apps/pwa/app/features/messaging/components/requests-inbox-panel.tsx`,
   so initial render does not require synthetic wall-clock fallback values.
+- Hardened shared messaging clock utility ownership in
+  `apps/pwa/app/features/messaging/utils/time.ts`:
+  - moved state into a global singleton to avoid duplicate interval owners,
+  - started ticking only when listeners are present,
+  - stopped and reset snapshot when the last listener unsubscribes.
+- Added focused utility coverage in
+  `apps/pwa/app/features/messaging/utils/time.test.ts`
+  validating start/stop lifecycle, snapshot seeding, tick delivery, and
+  deterministic server snapshot behavior.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

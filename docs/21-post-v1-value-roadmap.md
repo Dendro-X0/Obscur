@@ -305,6 +305,12 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa vitest run app/features/messaging/components/sidebar.test.tsx app/features/messaging/components/chat-header.test.tsx app/features/messaging/components/chat-view.test.tsx app/features/runtime/components/startup-experience-overlay.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/messaging/components/voice-call-dock.tsx app/features/messaging/components/sidebar.tsx app/features/messaging/components/requests-inbox-panel.tsx --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+38. Shared now-clock owner hardening landed for messaging runtime snapshots (2026-03-28):
+: `apps/pwa/app/features/messaging/utils/time.ts` now uses a single global clock owner with listener-scoped interval lifecycle (start on first listener, stop/reset on last unsubscribe) to reduce long-session timer drift and duplicate-owner risk.
+39. Focused utility validation is green:
+: `pnpm --dir apps/pwa vitest run app/features/messaging/utils/time.test.ts`
+: `pnpm --dir apps/pwa exec eslint app/features/messaging/utils/time.ts app/features/messaging/utils/time.test.ts --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
