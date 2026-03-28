@@ -140,6 +140,17 @@
   `apps/pwa/app/features/main-shell/main-shell.tsx` via
   `messaging.realtime_voice.connect_timeout_diagnostics`, capturing relay,
   retry-attempt, active-session, and RTC description/state evidence at timeout.
+- Extended cross-device digest + compact event mapping in
+  `apps/pwa/app/shared/log-app-event.ts` for
+  `messaging.realtime_voice.connect_timeout_diagnostics` so one-copy
+  diagnostics now include timeout counters, no-open-relay counts, and latest
+  RTC/open-relay timeout snapshot fields under `summary.realtimeVoiceSession`.
+- Extended M0 triage focused voice event coverage in
+  `apps/pwa/app/shared/m0-triage-capture.ts` to include
+  `messaging.realtime_voice.connect_timeout_diagnostics`.
+- Added focused diagnostics/triage regression coverage in:
+  - `apps/pwa/app/shared/log-app-event.test.ts`
+  - `apps/pwa/app/shared/m0-triage-capture.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

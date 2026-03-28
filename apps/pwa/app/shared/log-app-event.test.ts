@@ -2182,6 +2182,91 @@ describe("logAppEvent", () => {
     expect(digest.events["messaging.realtime_voice.session_event_ignored"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
 
+  it("marks realtime voice session summary as watch when connect-timeout diagnostics are present", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connect_timeout_diagnostics",
+      level: "warn",
+      context: {
+        roomIdHint: "room:timeout",
+        openRelayCount: 0,
+        rtcConnectionState: "connecting",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            connectTimeoutDiagnosticsCount: number;
+            connectTimeoutNoOpenRelayCount: number;
+            latestConnectTimeoutRtcConnectionState: string | null;
+            latestConnectTimeoutOpenRelayCount: number | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "watch",
+      connectTimeoutDiagnosticsCount: 1,
+      connectTimeoutNoOpenRelayCount: 1,
+      latestConnectTimeoutRtcConnectionState: "connecting",
+      latestConnectTimeoutOpenRelayCount: 0,
+    }));
+  });
+
+  it("captures realtime voice connect-timeout diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connect_timeout_diagnostics",
+      level: "warn",
+      context: {
+        roomIdHint: "room:timeout",
+        peerPubkeySuffix: "deadbeef",
+        role: "joiner",
+        phase: "connecting",
+        openRelayCount: 1,
+        configuredRelayCount: 2,
+        joinRequestRetryAttempts: 2,
+        offerRetryAttempts: 0,
+        hasActiveSession: true,
+        activeSessionRole: "joiner",
+        rtcConnectionState: "connecting",
+        hasLocalDescription: true,
+        hasRemoteDescription: false,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.connect_timeout_diagnostics"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.connect_timeout_diagnostics"]?.[0]?.context).toEqual(expect.objectContaining({
+      roomIdHint: "room:timeout",
+      peerPubkeySuffix: "deadbeef",
+      role: "joiner",
+      phase: "connecting",
+      openRelayCount: 1,
+      configuredRelayCount: 2,
+      joinRequestRetryAttempts: 2,
+      offerRetryAttempts: 0,
+      hasActiveSession: true,
+      activeSessionRole: "joiner",
+      rtcConnectionState: "connecting",
+      hasLocalDescription: true,
+      hasRemoteDescription: false,
+    }));
+    expect(digest.events["messaging.realtime_voice.connect_timeout_diagnostics"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
   it("marks ui responsiveness as watch when navigation/startup probes degrade without hard fallback", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 

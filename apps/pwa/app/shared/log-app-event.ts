@@ -180,6 +180,8 @@ type AppEventDiagnosticsApi = Readonly<{
         unsupportedCount: number;
         recoveryExhaustedCount: number;
         staleEventIgnoredCount: number;
+        connectTimeoutDiagnosticsCount: number;
+        connectTimeoutNoOpenRelayCount: number;
         longSessionGateCount: number;
         longSessionGatePassCount: number;
         longSessionGateFailCount: number;
@@ -203,6 +205,8 @@ type AppEventDiagnosticsApi = Readonly<{
         latestToPhase: string | null;
         latestReasonCode: string | null;
         latestIgnoredReasonCode: string | null;
+        latestConnectTimeoutRtcConnectionState: string | null;
+        latestConnectTimeoutOpenRelayCount: number | null;
         latestLongSessionGatePass: boolean | null;
         latestLongSessionGateFailedCheckSample: string | null;
         latestCheckpointGatePass: boolean | null;
@@ -606,6 +610,21 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "mode",
     "eventUnixMs",
     "lastTransitionAtUnixMs",
+  ],
+  "messaging.realtime_voice.connect_timeout_diagnostics": [
+    "roomIdHint",
+    "peerPubkeySuffix",
+    "role",
+    "phase",
+    "openRelayCount",
+    "configuredRelayCount",
+    "joinRequestRetryAttempts",
+    "offerRetryAttempts",
+    "hasActiveSession",
+    "activeSessionRole",
+    "rtcConnectionState",
+    "hasLocalDescription",
+    "hasRemoteDescription",
   ],
   "messaging.realtime_voice.long_session_gate": [
     "cp4Pass",
@@ -1436,6 +1455,14 @@ const installDiagnosticsApi = (): void => {
       const voiceSessionStaleIgnoredCount = voiceSessionIgnoredEvents.filter((event) => (
         event.context?.reasonCode === "stale_event"
       )).length;
+      const voiceConnectTimeoutDiagnosticsEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connect_timeout_diagnostics"
+      ));
+      const voiceConnectTimeoutDiagnosticsCount = voiceConnectTimeoutDiagnosticsEvents.length;
+      const voiceConnectTimeoutNoOpenRelayCount = voiceConnectTimeoutDiagnosticsEvents.filter((event) => (
+        typeof event.context?.openRelayCount === "number"
+        && event.context.openRelayCount <= 0
+      )).length;
       const voiceLongSessionGateEvents = recent.filter((event) => (
         event.name === "messaging.realtime_voice.long_session_gate"
       ));
@@ -1515,6 +1542,13 @@ const installDiagnosticsApi = (): void => {
       );
       const latestVoiceSessionIgnoredReasonCode = toStringOrNull(
         voiceSessionIgnoredEvents.at(-1)?.context?.reasonCode,
+      );
+      const latestVoiceConnectTimeoutDiagnostics = voiceConnectTimeoutDiagnosticsEvents.at(-1);
+      const latestVoiceConnectTimeoutRtcConnectionState = toStringOrNull(
+        latestVoiceConnectTimeoutDiagnostics?.context?.rtcConnectionState,
+      );
+      const latestVoiceConnectTimeoutOpenRelayCount = toNumberOrNull(
+        latestVoiceConnectTimeoutDiagnostics?.context?.openRelayCount,
       );
       const latestVoiceLongSessionGate = voiceLongSessionGateEvents.at(-1);
       const latestVoiceLongSessionGatePass = toBooleanOrNull(
@@ -1721,6 +1755,7 @@ const installDiagnosticsApi = (): void => {
           voiceSessionDegradedCount > 0
           || voiceSessionUnsupportedCount > 0
           || voiceSessionStaleIgnoredCount > 0
+          || voiceConnectTimeoutDiagnosticsCount > 0
           || voiceLongSessionGateFailCount > 0
           || voiceCheckpointGateFailCount > 0
           || voiceReleaseReadinessGateFailCount > 0
@@ -1729,6 +1764,7 @@ const installDiagnosticsApi = (): void => {
         ),
         high: (
           voiceSessionRecoveryExhaustedCount > 0
+          || voiceConnectTimeoutDiagnosticsCount >= 3
           || voiceUnexpectedLongSessionGateFailCount > 0
           || voiceUnexpectedCheckpointGateFailCount > 0
           || voiceUnexpectedReleaseReadinessGateFailCount > 0
@@ -1917,6 +1953,8 @@ const installDiagnosticsApi = (): void => {
             unsupportedCount: voiceSessionUnsupportedCount,
             recoveryExhaustedCount: voiceSessionRecoveryExhaustedCount,
             staleEventIgnoredCount: voiceSessionStaleIgnoredCount,
+            connectTimeoutDiagnosticsCount: voiceConnectTimeoutDiagnosticsCount,
+            connectTimeoutNoOpenRelayCount: voiceConnectTimeoutNoOpenRelayCount,
             longSessionGateCount: voiceLongSessionGateCount,
             longSessionGatePassCount: voiceLongSessionGatePassCount,
             longSessionGateFailCount: voiceLongSessionGateFailCount,
@@ -1940,6 +1978,8 @@ const installDiagnosticsApi = (): void => {
             latestToPhase: latestVoiceSessionToPhase,
             latestReasonCode: latestVoiceSessionReasonCode,
             latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
+            latestConnectTimeoutRtcConnectionState: latestVoiceConnectTimeoutRtcConnectionState,
+            latestConnectTimeoutOpenRelayCount: latestVoiceConnectTimeoutOpenRelayCount,
             latestLongSessionGatePass: latestVoiceLongSessionGatePass,
             latestLongSessionGateFailedCheckSample: latestVoiceLongSessionFailedCheckSample,
             latestCheckpointGatePass: latestVoiceCheckpointGatePass,

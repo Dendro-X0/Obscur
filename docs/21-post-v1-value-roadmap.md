@@ -368,6 +368,18 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+53. Voice timeout triage digest convergence landed on canonical app-event owner (2026-03-28):
+: `apps/pwa/app/shared/log-app-event.ts` now compacts
+: `messaging.realtime_voice.connect_timeout_diagnostics`
+: and exposes timeout counters + latest timeout transport snapshot fields under
+: `summary.realtimeVoiceSession`.
+54. M0 focused triage capture now includes voice timeout diagnostics:
+: `apps/pwa/app/shared/m0-triage-capture.ts`
+: adds `messaging.realtime_voice.connect_timeout_diagnostics` in `voice_realtime` focused events.
+55. Focused validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/log-app-event.test.ts app/shared/m0-triage-capture.test.ts`
+: `pnpm --dir apps/pwa exec eslint app/shared/log-app-event.ts app/shared/log-app-event.test.ts app/shared/m0-triage-capture.ts app/shared/m0-triage-capture.test.ts --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
