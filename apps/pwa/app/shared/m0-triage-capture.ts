@@ -111,6 +111,7 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
     "messaging.realtime_voice.connecting_watchdog_incident_bundle",
     "messaging.realtime_voice.connecting_watchdog_incident_gate",
     "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence",
+    "messaging.realtime_voice.connecting_watchdog_incident_gate_self_test",
     "messaging.voice_note.recording_complete",
     "messaging.voice_note.recording_unsupported",
     "messaging.voice_note.recording_start_failed",

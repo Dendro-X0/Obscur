@@ -629,6 +629,13 @@ Current execution status:
 : cross-device digest summary tracks incident-gate-evidence counters/latest fields under
 : `summary.realtimeVoiceSession`, and one-copy capture includes
 : `voice.connectingWatchdogIncidentGateEvidenceEvents`.
+26. Deterministic incident-gate evidence self-test helpers landed on canonical bridge owner (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateSelfTest(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateSelfTestJson(...)`
+: now execute explicit nominal-pass + induced-fail scenarios over incident-gate-evidence capture and emit
+: `messaging.realtime_voice.connecting_watchdog_incident_gate_self_test`,
+: with digest summary counters/latest fields under `summary.realtimeVoiceSession` and one-copy capture slices in
+: `voice.connectingWatchdogIncidentGateSelfTestEvents`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

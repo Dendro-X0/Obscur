@@ -863,6 +863,70 @@ describe("m6-voice-replay-bridge", () => {
     }))).not.toThrow();
   });
 
+  it("exports deterministic connecting watchdog incident-gate evidence self-test report", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runConnectingWatchdogIncidentGateSelfTest: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+      }) => {
+        nominal: { evidenceGate: { pass: boolean; checks: Record<string, boolean> } };
+        failureInjection: { evidenceGate: { pass: boolean; failedChecks: ReadonlyArray<string> } };
+        selfTestGate: { pass: boolean; failedChecks: ReadonlyArray<string>; checks: Record<string, boolean> };
+      };
+      runConnectingWatchdogIncidentGateSelfTestJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+      }) => string;
+    };
+
+    const report = replayApi.runConnectingWatchdogIncidentGateSelfTest({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+    });
+    expect(report.nominal.evidenceGate.pass).toBe(true);
+    expect(report.nominal.evidenceGate.checks.incidentGateMatchesExpected).toBe(true);
+    expect(report.failureInjection.evidenceGate.pass).toBe(false);
+    expect(report.failureInjection.evidenceGate.failedChecks).toContain("incidentGateMatchesExpected");
+    expect(report.selfTestGate.pass).toBe(true);
+    expect(report.selfTestGate.failedChecks).toEqual([]);
+    expect(report.selfTestGate.checks.nominalPass).toBe(true);
+    expect(report.selfTestGate.checks.failureRejected).toBe(true);
+    expect(report.selfTestGate.checks.failureFlagsExpectedMismatch).toBe(true);
+    expect(report.selfTestGate.checks.incidentGateEvidenceObservedInBoth).toBe(true);
+    expect(() => JSON.parse(replayApi.runConnectingWatchdogIncidentGateSelfTestJson({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+    }))).not.toThrow();
+
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const selfTestEvents = diagnosticsApi.findByName("messaging.realtime_voice.connecting_watchdog_incident_gate_self_test", 5);
+    expect(selfTestEvents.length).toBeGreaterThanOrEqual(1);
+    expect(selfTestEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      selfTestPass: true,
+      nominalPass: true,
+      nominalMatchesExpected: true,
+      failureRejected: true,
+      failureFlagsExpectedMismatch: true,
+      incidentGateEvidenceObservedInBoth: true,
+      nominalEvidenceGatePass: true,
+      failureEvidenceGatePass: false,
+    }));
+  });
+
   it("passes CP4 long-session gate probe when failure-injection replay is expected to fail", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1589,5 +1653,7 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateCaptureJson).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateEvidenceProbe).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateEvidenceProbeJson).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateSelfTest).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateSelfTestJson).toBe("function");
   });
 });

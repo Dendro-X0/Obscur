@@ -289,6 +289,28 @@
   - `apps/pwa/app/shared/log-app-event.test.ts`
   - `apps/pwa/app/shared/m6-voice-capture.test.ts`
   - `apps/pwa/app/shared/m0-triage-capture.test.ts`.
+- Added deterministic incident-gate-evidence self-test helpers in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `runConnectingWatchdogIncidentGateSelfTest(...)`
+  - `runConnectingWatchdogIncidentGateSelfTestJson(...)`
+  with stale-bridge auto-upgrade guards so runtime bridge objects expose the
+  self-test lane consistently.
+- Added canonical incident-gate-evidence self-test diagnostics emission:
+  `messaging.realtime_voice.connecting_watchdog_incident_gate_self_test` now
+  emits compact nominal/failure scenario verdicts from the same bridge owner.
+- Extended digest/capture/triage convergence for self-test diagnostics:
+  - compact allowlist + `summary.realtimeVoiceSession` counters/latest fields
+    in `apps/pwa/app/shared/log-app-event.ts`,
+  - one-copy M6 capture event slices in
+    `apps/pwa/app/shared/m6-voice-capture.ts`
+    (`voice.connectingWatchdogIncidentGateSelfTestEvents`),
+  - focused voice triage event list in
+    `apps/pwa/app/shared/m0-triage-capture.ts`.
+- Added focused regression coverage for self-test diagnostics in:
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
+  - `apps/pwa/app/shared/log-app-event.test.ts`
+  - `apps/pwa/app/shared/m6-voice-capture.test.ts`
+  - `apps/pwa/app/shared/m0-triage-capture.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
