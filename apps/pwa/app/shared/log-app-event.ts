@@ -547,6 +547,46 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "renderResolveAttemptCount",
     "messageWindowCount",
   ],
+  "messaging.realtime_voice.invite_send_attempt": [
+    "conversationKind",
+    "roomIdHint",
+  ],
+  "messaging.realtime_voice.invite_send_result": [
+    "status",
+    "roomIdHint",
+    "relayResultCount",
+    "hasError",
+  ],
+  "messaging.realtime_voice.invite_join_attempt": [
+    "conversationKind",
+    "roomIdHint",
+    "capabilitySupported",
+    "capabilityReasonCode",
+  ],
+  "messaging.realtime_voice.invite_join_result": [
+    "status",
+    "roomIdHint",
+    "phase",
+    "reasonCode",
+  ],
+  "messaging.realtime_voice.signal_send_result": [
+    "status",
+    "signalType",
+    "roomIdHint",
+    "relayResultCount",
+  ],
+  "messaging.realtime_voice.signal_received": [
+    "signalType",
+    "roomIdHint",
+  ],
+  "messaging.realtime_voice.rtc_state": [
+    "roomIdHint",
+    "connectionState",
+    "role",
+  ],
+  "messaging.realtime_voice.media_access_failed": [
+    "reasonCode",
+  ],
   "messaging.realtime_voice.session_transition": [
     "roomIdHint",
     "mode",

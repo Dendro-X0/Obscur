@@ -16,7 +16,8 @@ import {
     Plus,
     UserPlus,
     Loader2,
-    Clock
+    Clock,
+    PhoneCall,
 } from "lucide-react";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Button } from "@dweb/ui-kit";
@@ -32,7 +33,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import { cn } from "@dweb/ui-kit";
-import type { GroupConversation } from "@/app/features/messaging/types";
+import type { DmConversation, GroupConversation } from "@/app/features/messaging/types";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { GroupMetadata } from "@/app/features/groups/types";
@@ -45,12 +46,16 @@ import { createDmConversation } from "@/app/features/messaging/utils/create-dm-c
 import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { deriveRequestProjection } from "@/app/features/messaging/services/request-status-projection";
+import { writePendingVoiceCallRequest } from "@/app/features/messaging/services/realtime-voice-pending-request";
 import {
     buildInvitationRequestMessage,
     DEFAULT_INVITATION_INTRO,
     type InvitationComposerValues,
 } from "@/app/features/messaging/services/invitation-composer";
 import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/invitation-presentation";
+
+const PRIVATE_CONTACT_LABEL = "Unknown contact";
+const PRIVATE_CONTACT_HANDLE = "@unknown";
 
 export default function ConnectionProfileView() {
     const { pubkey } = useParams();
@@ -93,6 +98,7 @@ export default function ConnectionProfileView() {
     const queryPubkey = searchParams.get("pubkey");
     const pk = (Array.isArray(pubkey) ? pubkey[0] : pubkey) || queryPubkey || "";
     const metadata = useResolvedProfileMetadata(pk);
+    const isDeletedContact = metadata?.isDeleted === true;
     const isCurrentAccountProfile = Boolean(myPublicKeyHex && pk && myPublicKeyHex === pk);
 
     React.useEffect(() => {
@@ -115,8 +121,8 @@ export default function ConnectionProfileView() {
     });
     const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
 
-    const resolvedName = metadata?.displayName || connection?.displayName || pk.slice(0, 8);
-    const displayHandle = resolvedName ? `@${resolvedName}` : `@${pk.slice(0, 8)}...${pk.slice(-8)}`;
+    const resolvedName = metadata?.displayName || connection?.displayName || PRIVATE_CONTACT_LABEL;
+    const displayHandle = resolvedName ? `@${resolvedName}` : PRIVATE_CONTACT_HANDLE;
     const publicProfileUrl = toAbsoluteAppUrl(getPublicProfileHref(pk));
 
     const handleShareProfile = async () => {
@@ -151,7 +157,9 @@ export default function ConnectionProfileView() {
         setIsConnectDialogOpen(true);
     };
 
-    const primaryActionLabel = isTrusted
+    const primaryActionLabel = isDeletedContact
+        ? t("network.actions.openChat", "Open Chat")
+        : isTrusted
         ? t("network.actions.message", "Message")
         : requestProjection.state === "recipient_seen"
             ? t("network.actions.resend", "Resend Invitation")
@@ -159,11 +167,13 @@ export default function ConnectionProfileView() {
                     ? t("network.actions.resend", "Resend Invitation")
                     : t("network.actions.connect", "Connect");
 
-    const primaryActionIcon = isTrusted
+    const primaryActionIcon = (isTrusted || isDeletedContact)
         ? <MessageSquare className="h-6 w-6" />
         : <UserPlus className="h-6 w-6" />;
 
-    const connectionStatusTitle = isTrusted
+    const connectionStatusTitle = isDeletedContact
+        ? "Account removed"
+        : isTrusted
         ? (isPeerOnline ? "Trusted connection - online" : "Trusted connection - offline")
         : requestProjection.state === "recipient_seen"
             ? "Recipient saw prior invitation"
@@ -175,7 +185,9 @@ export default function ConnectionProfileView() {
                         ? "Blocked"
                         : "Not connected yet";
 
-    const connectionStatusBody = isTrusted
+    const connectionStatusBody = isDeletedContact
+        ? "This contact deleted their account. You can still browse local chat history, but new messages and calls cannot be delivered."
+        : isTrusted
         ? (isPeerOnline
             ? "This trusted contact is currently online."
             : "This trusted contact is currently offline. You can still message and invite them.")
@@ -235,29 +247,58 @@ export default function ConnectionProfileView() {
         }
     };
 
-    const handleMessage = () => {
+    const openChatWithProfile = (): DmConversation | null => {
         const myPk = identity.state.publicKeyHex || "";
         const cid = toDmConversationId({ myPublicKeyHex: myPk, peerPublicKeyHex: pk });
         if (!cid) {
             toast.error("Invalid conversation identity for this profile.");
-            return;
+            return null;
         }
         const existing = createdConnections.find(c => c.id === cid);
 
         if (existing) {
             setSelectedConversation(existing);
+            return existing;
         } else {
             const newConv = createDmConversation({
                 myPublicKeyHex: myPk,
                 peerPublicKeyHex: pk as PublicKeyHex,
-                displayName: resolvedName || pk.slice(0, 8),
+                displayName: resolvedName || PRIVATE_CONTACT_LABEL,
             });
             if (!newConv) {
                 toast.error("Invalid conversation identity for this profile.");
-                return;
+                return null;
             }
             setSelectedConversation(newConv);
+            return newConv;
         }
+    };
+
+    const handleMessage = () => {
+        const opened = openChatWithProfile();
+        if (!opened) {
+            return;
+        }
+        router.push("/");
+    };
+
+    const handleVoiceCall = () => {
+        if (isDeletedContact) {
+            toast.warning("This account has been removed. Voice calls are unavailable.");
+            return;
+        }
+        if (!isTrusted) {
+            toast.warning(t("network.notifications.alreadyPending", "You can place a voice call after a trusted connection is established."));
+            return;
+        }
+        const opened = openChatWithProfile();
+        if (!opened || opened.kind !== "dm") {
+            return;
+        }
+        writePendingVoiceCallRequest({
+            peerPubkey: opened.pubkey,
+            requestedAtUnixMs: Date.now(),
+        });
         router.push("/");
     };
 
@@ -289,6 +330,10 @@ export default function ConnectionProfileView() {
     };
 
     const handleInviteToGroup = async (group: GroupConversation) => {
+        if (isDeletedContact) {
+            toast.warning("This account has been removed. Group invitations are unavailable.");
+            return;
+        }
         if (!myPublicKeyHex || !myPrivateKeyHex) {
             toast.error(t("network.notifications.identityError", "Identity not found"));
             return;
@@ -477,6 +522,12 @@ export default function ConnectionProfileView() {
                                     transition={{ delay: 0.4 }}
                                     className="flex flex-wrap items-center justify-center gap-3"
                                 >
+                                    {isDeletedContact ? (
+                                        <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                                            <UserMinus className="h-3.5 w-3.5" />
+                                            Account Removed
+                                        </div>
+                                    ) : null}
                                     {isTrusted ? (
                                         <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">
                                             <Shield className="h-3.5 w-3.5" />
@@ -502,15 +553,25 @@ export default function ConnectionProfileView() {
 
                             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
                                 <Button
-                                    onClick={isTrusted ? handleMessage : handleConnect}
-                                    disabled={!isTrusted && (requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")}
+                                    onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect}
+                                    disabled={!isDeletedContact && !isTrusted && (requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")}
                                     className="h-14 gap-3 rounded-2xl bg-indigo-600 px-8 text-base font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:scale-[1.02] hover:bg-indigo-500 active:scale-95"
                                 >
                                     {primaryActionIcon}
                                     {primaryActionLabel}
                                 </Button>
 
-                                {isTrusted && (
+                                {isTrusted && !isDeletedContact && (
+                                    <Button
+                                        onClick={handleVoiceCall}
+                                        className="h-14 gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 px-8 font-black text-emerald-700 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-emerald-500/18 active:scale-95 dark:text-emerald-200"
+                                    >
+                                        <PhoneCall className="h-6 w-6" />
+                                        {t("messaging.voiceCall", "Voice Call")}
+                                    </Button>
+                                )}
+
+                                {isTrusted && !isDeletedContact && (
                                     <Button
                                         onClick={() => setIsInviteDialogOpen(true)}
                                         className="h-14 gap-3 rounded-2xl border border-zinc-200/70 bg-white/70 px-8 font-black text-zinc-900 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-white active:scale-95 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/[0.08]"

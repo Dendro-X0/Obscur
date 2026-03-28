@@ -67,6 +67,7 @@ describe("message-list render meta cache", () => {
         expect(mediaMeta?.hasAttachmentRelayUrlsInContent).toBe(true);
         expect(mediaMeta?.textContentResult.hasHiddenAttachmentRelayUrls).toBe(true);
         expect(mediaMeta?.textContentResult.content).toBe("See this media");
+        expect(caches.voiceCallRoomSummaryByRoomId.size).toBe(0);
     });
 
     it("preserves relay URLs in message content when expanded", () => {
@@ -93,5 +94,84 @@ describe("message-list render meta cache", () => {
         expect(meta?.attachmentUrlsExpanded).toBe(true);
         expect(meta?.textContentResult.hasHiddenAttachmentRelayUrls).toBe(false);
         expect(meta?.textContentResult.content).toBe(`proof ${relayUrl}`);
+    });
+
+    it("keeps voice-note relay urls hidden even when expanded is requested", () => {
+        const relayUrl = "https://relay.example.com/media/voice-note-1774249000000-d4.webm";
+        const message = createMessage({
+            id: "msg-voice-note-relay-hidden",
+            content: `[voice-note-1774249000000-d4.webm](${relayUrl})`,
+            attachments: [
+                createAttachment({
+                    kind: "voice_note",
+                    contentType: "audio/webm",
+                    fileName: "voice-note-1774249000000-d4.webm",
+                    url: relayUrl,
+                }),
+            ],
+        });
+
+        const caches = buildMessageRenderCaches({
+            messages: [message],
+            expandedRelayUrlsByMessageId: new Set<string>(["msg-voice-note-relay-hidden"]),
+        });
+
+        const meta = caches.renderMetaByMessageId.get("msg-voice-note-relay-hidden");
+        expect(meta?.attachmentUrlsExpanded).toBe(false);
+        expect(meta?.hasAttachmentRelayUrlsInContent).toBe(false);
+        expect(meta?.textContentResult.hasHiddenAttachmentRelayUrls).toBe(true);
+        expect(meta?.textContentResult.content).toBe("");
+    });
+
+    it("builds room lifecycle summary with ended timestamp and duration", () => {
+        const roomId = "dm-voice-room-z";
+        const messages: ReadonlyArray<Message> = [
+            createMessage({
+                id: "msg-invite",
+                timestamp: new Date(1_000),
+                content: JSON.stringify({
+                    type: "voice-call-invite",
+                    roomId,
+                    invitedAtUnixMs: 1_000,
+                    expiresAtUnixMs: 31_000,
+                }),
+            }),
+            createMessage({
+                id: "msg-answer",
+                timestamp: new Date(5_000),
+                content: JSON.stringify({
+                    type: "voice-call-signal",
+                    roomId,
+                    signalType: "answer",
+                    sentAtUnixMs: 5_000,
+                }),
+            }),
+            createMessage({
+                id: "msg-leave",
+                timestamp: new Date(16_500),
+                content: JSON.stringify({
+                    type: "voice-call-signal",
+                    roomId,
+                    signalType: "leave",
+                    sentAtUnixMs: 16_500,
+                }),
+            }),
+        ];
+
+        const caches = buildMessageRenderCaches({
+            messages,
+            expandedRelayUrlsByMessageId: new Set<string>(),
+        });
+
+        const summary = caches.voiceCallRoomSummaryByRoomId.get(roomId);
+        expect(summary).toMatchObject({
+            roomId,
+            invitedAtUnixMs: 1_000,
+            expiresAtUnixMs: 31_000,
+            connectedAtUnixMs: 5_000,
+            endedAtUnixMs: 16_500,
+            endedNormally: true,
+            durationSeconds: 11,
+        });
     });
 });

@@ -222,12 +222,26 @@ const getDurableRelaySuccessMinimum = (targetRelayCount: number): number => (
   targetRelayCount >= 3 ? 2 : 1
 );
 
+const resolveRequiredRelaySuccessMinimum = (
+  targetRelayCount: number,
+  override?: number
+): number => {
+  if (typeof override === "number" && Number.isFinite(override)) {
+    return Math.max(1, Math.floor(override));
+  }
+  return getDurableRelaySuccessMinimum(targetRelayCount);
+};
+
 const applyDurableRelayEvidenceGate = (
   result: MultiRelayPublishResult,
-  targetRelayCount: number
+  targetRelayCount: number,
+  requiredRelaySuccessMinimumOverride?: number
 ): MultiRelayPublishResult => {
-  const durableMinimum = getDurableRelaySuccessMinimum(targetRelayCount);
-  const quorumRequired = Math.max(result.quorumRequired ?? 1, durableMinimum);
+  const requiredMinimum = resolveRequiredRelaySuccessMinimum(
+    targetRelayCount,
+    requiredRelaySuccessMinimumOverride
+  );
+  const quorumRequired = Math.max(result.quorumRequired ?? 1, requiredMinimum);
   const metQuorum = (result.metQuorum ?? result.success) && result.successCount >= quorumRequired;
   const failures = result.results.filter((entry) => !entry.success);
   const status = metQuorum
@@ -257,10 +271,14 @@ const applyDurableRelayEvidenceGate = (
 
 const applyDurableRelayEvidenceGateToMappedResult = (
   result: RelayPublishResult,
-  targetRelayCount: number
+  targetRelayCount: number,
+  requiredRelaySuccessMinimumOverride?: number
 ): RelayPublishResult => {
-  const durableMinimum = getDurableRelaySuccessMinimum(targetRelayCount);
-  const quorumRequired = Math.max(result.quorumRequired, durableMinimum);
+  const requiredMinimum = resolveRequiredRelaySuccessMinimum(
+    targetRelayCount,
+    requiredRelaySuccessMinimumOverride
+  );
+  const quorumRequired = Math.max(result.quorumRequired, requiredMinimum);
   const metQuorum = result.metQuorum && result.successCount >= quorumRequired;
   const failures = result.results.filter((entry) => !entry.success);
   const status = metQuorum
@@ -418,6 +436,7 @@ export const publishOutgoingDm = async (params: Readonly<{
   senderPrivateKeyHex: PrivateKeyHex;
   createdAtUnixSeconds: number;
   tags: ReadonlyArray<ReadonlyArray<string>>;
+  requiredRelaySuccessMinimum?: number;
 }>): Promise<Readonly<{
   finalMessage: Message;
   publishResult: MultiRelayPublishResult;
@@ -493,7 +512,8 @@ export const publishOutgoingDm = async (params: Readonly<{
 
   let publishResult: MultiRelayPublishResult = applyDurableRelayEvidenceGate(
     await publishOnce(params.build.signedEvent),
-    relayScopeUrls.length
+    relayScopeUrls.length,
+    params.requiredRelaySuccessMinimum
   );
   let finalMessage: Message = params.initialMessage;
   const hasDurableRelayEvidence = (): boolean => publishResult.success;
@@ -557,7 +577,8 @@ export const publishOutgoingDm = async (params: Readonly<{
 
     publishResult = applyDurableRelayEvidenceGate(
       await publishOnce(fallbackBuild.signedEvent),
-      relayScopeUrls.length
+      relayScopeUrls.length,
+      params.requiredRelaySuccessMinimum
     );
 
     finalMessage = {
@@ -727,7 +748,16 @@ export const publishQueuedOutgoingMessage = async (params: Readonly<{
   };
 
   if (!params.message.signedEvent) {
-    console.error("Queued message missing signed event");
+    logAppEvent({
+      name: "messaging.transport.queue_retry_missing_signed_event",
+      level: "warn",
+      scope: { feature: "messaging", action: "queue_processing" },
+      context: {
+        messageIdHint: params.message.id.slice(0, 16),
+        recipientPubkey: params.message.recipientPubkey.slice(0, 16),
+        retryCount: params.message.retryCount,
+      },
+    });
     return {
       status: "terminal_failed",
       reasonCode: "missing_signed_event",

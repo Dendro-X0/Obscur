@@ -8,6 +8,7 @@ import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { fetchLatestEventFromRelayUrls } from "@/app/features/account-sync/services/direct-relay-query";
+import { isDeletedAccountProfile } from "@/app/features/profile/utils/deleted-profile";
 
 export interface ProfileMetadata {
     pubkey: PublicKeyHex;
@@ -27,13 +28,21 @@ const directFetchState = new Map<string, Promise<void>>();
 const mergeMetadata = (
     existing: ProfileMetadata | null | undefined,
     incoming: ProfileMetadata
-): ProfileMetadata => ({
-    pubkey: incoming.pubkey,
-    displayName: incoming.displayName || existing?.displayName,
-    avatarUrl: normalizePublicUrl(incoming.avatarUrl) || existing?.avatarUrl,
-    nip05: incoming.nip05 || existing?.nip05,
-    about: incoming.about || existing?.about,
-});
+): ProfileMetadata => {
+    const deletedIncoming = isDeletedAccountProfile({
+        displayName: incoming.displayName,
+        about: incoming.about,
+    });
+    return {
+        pubkey: incoming.pubkey,
+        displayName: incoming.displayName || existing?.displayName,
+        avatarUrl: deletedIncoming
+            ? undefined
+            : (normalizePublicUrl(incoming.avatarUrl) || existing?.avatarUrl),
+        nip05: incoming.nip05 || existing?.nip05,
+        about: incoming.about || existing?.about,
+    };
+};
 
 const persistMetadata = (metadata: ProfileMetadata): ProfileMetadata => {
     const normalized = {

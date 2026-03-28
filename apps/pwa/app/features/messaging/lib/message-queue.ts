@@ -134,6 +134,7 @@ export class MessageQueue implements IMessageQueue {
   private db: IDBDatabase | null = null;
   private encryptionKeyMaterial: string;
   private decryptFailures: Set<string> = new Set();
+  private queueSanitizationWarnings: Set<string> = new Set();
 
   constructor(identityPubkey: PublicKeyHex) {
     this.identityPubkey = identityPubkey;
@@ -431,6 +432,35 @@ export class MessageQueue implements IMessageQueue {
     });
   }
 
+  private hasValidSignedEvent(value: unknown): value is NostrEvent {
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+    const candidate = value as Record<string, unknown>;
+    return typeof candidate.id === "string"
+      && candidate.id.length > 0
+      && typeof candidate.pubkey === "string"
+      && candidate.pubkey.length > 0
+      && typeof candidate.sig === "string"
+      && candidate.sig.length > 0;
+  }
+
+  private async purgeInvalidQueuedEntries(messageIds: ReadonlyArray<string>): Promise<void> {
+    if (messageIds.length === 0) {
+      return;
+    }
+    const db = await this.getDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("queue", "readwrite");
+      const queueStore = tx.objectStore("queue");
+      messageIds.forEach((messageId) => {
+        queueStore.delete(messageId);
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
   async getQueuedMessages(): Promise<OutgoingMessage[]> {
     const db = await this.getDb();
     const now = Date.now();
@@ -442,14 +472,40 @@ export class MessageQueue implements IMessageQueue {
 
       request.onsuccess = () => {
         const results = request.result as any[];
-        resolve(results
+        const invalidEntryIds: Array<string> = [];
+        const queuedMessages = results
           .filter((stored) => this.isOwnedQueuedRecord(stored))
-          .filter(m => m.nextRetryAt <= now && m.retryCount < MAX_OUTGOING_QUEUE_RETRY_ATTEMPTS)
-          .map(m => ({
-          ...m,
-          createdAt: new Date(m.createdAt),
-          nextRetryAt: new Date(m.nextRetryAt)
-        })));
+          .filter((stored) => {
+            const isValidSignedEvent = this.hasValidSignedEvent(stored.signedEvent);
+            if (!isValidSignedEvent) {
+              if (typeof stored.id === "string" && stored.id.length > 0) {
+                invalidEntryIds.push(stored.id);
+              }
+              return false;
+            }
+            return true;
+          })
+          .filter((stored) => stored.nextRetryAt <= now && stored.retryCount < MAX_OUTGOING_QUEUE_RETRY_ATTEMPTS)
+          .map((stored) => ({
+            ...stored,
+            createdAt: new Date(stored.createdAt),
+            nextRetryAt: new Date(stored.nextRetryAt),
+          }));
+
+        if (invalidEntryIds.length > 0) {
+          const warningKey = `invalid-queue-entry:${this.identityPubkey}`;
+          if (!this.queueSanitizationWarnings.has(warningKey)) {
+            this.queueSanitizationWarnings.add(warningKey);
+            console.warn(
+              `[MessageQueue] Purging ${invalidEntryIds.length} queued entries missing signed events for ${this.identityPubkey.slice(0, 12)}...`
+            );
+          }
+          void this.purgeInvalidQueuedEntries(Array.from(new Set(invalidEntryIds))).catch((error) => {
+            console.warn("[MessageQueue] Failed to purge invalid queued entries", error);
+          });
+        }
+
+        resolve(queuedMessages);
       };
       request.onerror = () => reject(request.error);
     });

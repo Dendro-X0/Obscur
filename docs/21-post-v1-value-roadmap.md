@@ -232,6 +232,26 @@ Current execution status (started 2026-03-23):
 : search-jump now carries timestamp context from search results and can resolve via timestamp fallback when canonical message-id matching is unavailable in the current timeline window,
 : jump flow now emits reason-coded diagnostics (`messaging.search_jump_requested`, `messaging.search_jump_resolved`, `messaging.search_jump_unresolved`) with attempt counters and resolution mode for triage replay,
 : cross-device digest and M0 triage capture now include search-jump diagnostic events for manual verification bundles.
+17. Local history reset hardening slice landed (2026-03-27):
+: canonical "Reset Local History (Keep Identity)" service now clears local history/sync artifacts and caches without removing identity/session ownership in
+: `apps/pwa/app/features/messaging/services/local-history-reset-service.ts`,
+: wired to Settings storage maintenance action in
+: `apps/pwa/app/settings/page.tsx`.
+18. Deleted-account consistency sweep landed on canonical presence owner (2026-03-27):
+: `apps/pwa/app/features/network/hooks/use-realtime-presence.ts` now gates deleted peers to offline/null-last-seen even when stale presence records exist.
+19. Focused regression coverage added and passing:
+: `apps/pwa/app/features/messaging/services/local-history-reset-service.test.ts`
+: `apps/pwa/app/features/network/hooks/use-realtime-presence.deleted-profile.test.ts`
+: plus `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+20. Deleted-account consistency sweep extended to community member surfaces (2026-03-27):
+: canonical member visibility helper landed in
+: `apps/pwa/app/features/groups/services/community-visible-members.ts`
+: and is now used by both group home/member sync and management registry UI in
+: `apps/pwa/app/groups/[...id]/group-home-page-client.tsx`
+: and `apps/pwa/app/features/groups/components/group-management-dialog.tsx`
+: so deleted-account profiles are excluded from member counts/online metrics/list rows.
+21. Focused community visibility regression coverage added and passing:
+: `apps/pwa/app/features/groups/services/community-visible-members.test.ts`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

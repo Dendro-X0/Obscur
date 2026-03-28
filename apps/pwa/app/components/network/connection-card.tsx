@@ -73,8 +73,8 @@ export const ConnectionCard = ({ contact, groups, onSelect }: ConnectionCardProp
                         {contact.bio}
                     </p>
                 ) : (
-                    <p className="truncate font-mono text-[10px] text-zinc-400">
-                        {contact.publicKey.slice(0, 16)}...
+                    <p className="truncate text-[10px] uppercase tracking-[0.14em] text-zinc-400">
+                        Identity hidden
                     </p>
                 )}
 

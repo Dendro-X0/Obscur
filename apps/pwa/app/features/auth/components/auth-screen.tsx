@@ -28,6 +28,8 @@ import { useIdentity } from "../hooks/use-identity";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import type { Passphrase } from "@dweb/crypto/passphrase";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import { decodePrivateKey } from "../utils/decode-private-key";
 import { LanguageSelector } from "@/app/components/language-selector";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
@@ -42,6 +44,7 @@ import {
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { isRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
 
 const generateSecurePassword = (): string => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
@@ -78,6 +81,7 @@ export function AuthScreen() {
         || identityDiagnostics?.message?.toLowerCase().includes("does not match stored identity") === true
         || authError?.toLowerCase().includes("does not match stored identity") === true;
     const [acknowledged, setAcknowledged] = useState(false);
+    const [retiredKeyReuseAcknowledged, setRetiredKeyReuseAcknowledged] = useState(false);
     const keyOwnershipReminder = "You own your private key. Obscur cannot recover accounts for lost keys or forgotten passwords.";
     const keyRecoveryReminder = "Back up your private key now and verify export in Settings > Identity after login.";
 
@@ -86,6 +90,20 @@ export function AuthScreen() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [privateKey, setPrivateKey] = useState("");
+    const decodedImportPrivateKey = React.useMemo(() => decodePrivateKey(privateKey), [privateKey]);
+    const importCandidatePublicKeyHex = React.useMemo(() => {
+        if (!decodedImportPrivateKey) {
+            return null;
+        }
+        try {
+            return derivePublicKeyHex(decodedImportPrivateKey as PrivateKeyHex);
+        } catch {
+            return null;
+        }
+    }, [decodedImportPrivateKey]);
+    const isRetiredImportKey = importCandidatePublicKeyHex
+        ? isRetiredIdentityPublicKey(importCandidatePublicKeyHex)
+        : false;
     const hasAppliedInitialEntryRouteRef = useRef(false);
 
     const rememberProfileId = runtime.snapshot.session.profileId;
@@ -216,13 +234,18 @@ export function AuthScreen() {
         setPrivateKey("");
         setAuthError(null);
         setAcknowledged(false);
+        setRetiredKeyReuseAcknowledged(false);
     };
 
     const handleContinueImportKey = (): void => {
         setAuthError(null);
-        const keyToUse = decodePrivateKey(privateKey);
+        const keyToUse = decodedImportPrivateKey;
         if (!keyToUse) {
             setAuthError("Invalid private key. Enter a valid `nsec` or 64-character hex key.");
+            return;
+        }
+        if (isRetiredImportKey && !retiredKeyReuseAcknowledged) {
+            setAuthError("This private key was previously retired on this device. Confirm reactivation before continuing.");
             return;
         }
         setStep(2);
@@ -328,6 +351,13 @@ export function AuthScreen() {
             const keyToUse = decodePrivateKey(privateKey);
             if (!keyToUse) {
                 setAuthError("Invalid key format");
+                setIsLoading(false);
+                return;
+            }
+            const importPublicKeyHex = derivePublicKeyHex(keyToUse as PrivateKeyHex);
+            if (isRetiredIdentityPublicKey(importPublicKeyHex) && !retiredKeyReuseAcknowledged) {
+                setAuthError("This private key was previously retired on this device. Confirm reactivation before importing.");
+                setStep(1);
                 setIsLoading(false);
                 return;
             }
@@ -772,7 +802,10 @@ export function AuthScreen() {
                                                             type="password"
                                                             placeholder="nsec1..."
                                                             value={privateKey}
-                                                            onChange={e => setPrivateKey(e.target.value)}
+                                                            onChange={e => {
+                                                                setPrivateKey(e.target.value);
+                                                                setRetiredKeyReuseAcknowledged(false);
+                                                            }}
                                                             className="flex h-16 w-full rounded-[24px] border border-black/5 bg-white/50 px-12 py-2 text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/10 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/5 dark:bg-zinc-900/50 transition-all"
                                                         />
                                                     </div>
@@ -788,8 +821,31 @@ export function AuthScreen() {
                                                         {t("auth.rememberMe", "Keep me logged in on this device")}
                                                     </label>
                                                 </div>
+                                                {isRetiredImportKey ? (
+                                                    <div className="rounded-3xl border border-amber-500/25 bg-amber-500/10 p-4">
+                                                        <div className="flex gap-3">
+                                                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                                                            <div className="space-y-3">
+                                                                <p className="text-xs font-semibold leading-relaxed text-amber-700 dark:text-amber-300">
+                                                                    This key was previously marked as retired on this device. Reactivating it can restore prior identity links from relays.
+                                                                </p>
+                                                                <div className="flex items-start space-x-3">
+                                                                    <Checkbox
+                                                                        id="acknowledge-retired-import"
+                                                                        checked={retiredKeyReuseAcknowledged}
+                                                                        onCheckedChange={(checked) => setRetiredKeyReuseAcknowledged(Boolean(checked))}
+                                                                        className="mt-0.5 h-4 w-4 rounded border-amber-500/50 data-[state=checked]:bg-amber-500"
+                                                                    />
+                                                                    <label htmlFor="acknowledge-retired-import" className="cursor-pointer text-[11px] font-black uppercase tracking-wider text-amber-700/90 dark:text-amber-300/90">
+                                                                        I understand and want to reactivate this identity on this device
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
                                                 <Button
-                                                    disabled={privateKey.length < 10}
+                                                    disabled={privateKey.length < 10 || (isRetiredImportKey && !retiredKeyReuseAcknowledged)}
                                                     onClick={handleContinueImportKey}
                                                     className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
                                                 >

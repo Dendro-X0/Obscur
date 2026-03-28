@@ -79,4 +79,22 @@ describe("privacy-settings-service", () => {
       suggestionsV1: false,
     });
   });
+
+  it("defaults local retention and public-key visibility privacy controls", () => {
+    const settings = PrivacySettingsService.getSettings();
+    expect(settings.localMessageRetentionDays).toBe(0);
+    expect(settings.showPublicKeyControlsInChat).toBe(false);
+  });
+
+  it("persists local retention and public-key visibility privacy controls", () => {
+    const next = {
+      ...defaultPrivacySettings,
+      localMessageRetentionDays: 30 as const,
+      showPublicKeyControlsInChat: true,
+    };
+    PrivacySettingsService.saveSettings(next);
+    const loaded = PrivacySettingsService.getSettings();
+    expect(loaded.localMessageRetentionDays).toBe(30);
+    expect(loaded.showPublicKeyControlsInChat).toBe(true);
+  });
 });

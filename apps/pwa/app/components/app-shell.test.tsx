@@ -161,6 +161,31 @@ describe("AppShell navigation", () => {
     expect(routeRequestLogged).toBe(true);
   });
 
+  it("closes mobile navigation drawer after route change", async () => {
+    const { rerender } = render(
+      <AppShell hideSidebar={false}>
+        <div>Content</div>
+      </AppShell>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+    });
+    expect(screen.getByLabelText("Close navigation")).toBeInTheDocument();
+
+    appShellMocks.pathname = "/network";
+    rerender(
+      <AppShell hideSidebar={false}>
+        <div>Content</div>
+      </AppShell>,
+    );
+
+    expect(screen.queryByLabelText("Close navigation")).not.toBeInTheDocument();
+  });
+
   it("uses escape key to navigate back when no dismissable layer is open", async () => {
     appShellMocks.pathname = "/network";
     window.history.pushState({}, "", "/");
@@ -210,6 +235,57 @@ describe("AppShell navigation", () => {
       ));
       expect(slowProbeLogged).toBe(true);
     } finally {
+      requestAnimationFrameSpy.mockRestore();
+      cancelAnimationFrameSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("enters fail-open navigation mode after repeated transition watchdog timeouts", async () => {
+    vi.useFakeTimers();
+    const requestAnimationFrameSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
+    const cancelAnimationFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    const hardNavigateSpy = vi.spyOn(pageTransitionRecovery, "hardNavigate").mockImplementation(() => undefined);
+    try {
+      const { rerender } = render(
+        <AppShell hideSidebar={false}>
+          <div>Content</div>
+        </AppShell>,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const advanceToWatchdog = () => {
+        act(() => {
+          vi.advanceTimersByTime(pageTransitionRecovery.PAGE_TRANSITION_WATCHDOG_MS + 20);
+        });
+      };
+
+      advanceToWatchdog();
+
+      appShellMocks.pathname = "/network";
+      rerender(
+        <AppShell hideSidebar={false}>
+          <div>Content</div>
+        </AppShell>,
+      );
+      advanceToWatchdog();
+
+      appShellMocks.pathname = "/settings";
+      rerender(
+        <AppShell hideSidebar={false}>
+          <div>Content</div>
+        </AppShell>,
+      );
+      advanceToWatchdog();
+
+      act(() => {
+        fireEvent.click(screen.getByRole("link", { name: "nav.vault" }));
+      });
+      expect(hardNavigateSpy).toHaveBeenCalledWith("/vault");
+    } finally {
+      hardNavigateSpy.mockRestore();
       requestAnimationFrameSpy.mockRestore();
       cancelAnimationFrameSpy.mockRestore();
       vi.useRealTimers();

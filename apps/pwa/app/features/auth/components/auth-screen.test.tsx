@@ -1,7 +1,10 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { AuthScreen } from "./auth-screen";
+import { markRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
 
 const authScreenMocks = vi.hoisted(() => ({
   identityDiagnostics: {
@@ -166,6 +169,25 @@ describe("AuthScreen mismatch recovery UX", () => {
     const token = localStorage.getItem("obscur_auth_token::default");
     expect(typeof token).toBe("string");
     expect((token ?? "").length).toBeGreaterThan(0);
+  });
+
+  it("surfaces retired-key warning before import continues", async () => {
+    const privateKeyHex = "a".repeat(64) as PrivateKeyHex;
+    const publicKeyHex = derivePublicKeyHex(privateKeyHex);
+    markRetiredIdentityPublicKey({ publicKeyHex, profileId: "default" });
+
+    render(<AuthScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
+      target: { value: privateKeyHex },
+    });
+
+    expect(screen.getByText(/previously marked as retired/i)).toBeInTheDocument();
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    expect(continueButton).toBeDisabled();
+
+    expect(screen.getByText(/reactivating it can restore prior identity links/i)).toBeInTheDocument();
+    expect(authScreenMocks.runtime.importIdentityForBoundProfile).not.toHaveBeenCalled();
   });
 
 });

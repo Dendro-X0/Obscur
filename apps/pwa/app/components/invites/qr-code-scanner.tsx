@@ -149,7 +149,7 @@ export const QRCodeScanner = () => {
                 <div>
                   <span className="font-medium">From:</span>{" "}
                   {state.connectionRequest.profile.displayName ||
-                    `User ${state.connectionRequest.senderPublicKey.slice(0, 8)}...`}
+                    "Unknown contact"}
                 </div>
                 {state.connectionRequest.message && (
                   <div>

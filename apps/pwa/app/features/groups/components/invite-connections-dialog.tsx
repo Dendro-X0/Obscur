@@ -21,6 +21,7 @@ import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-pro
 import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 import { discoveryCache } from "../../search/services/discovery-cache";
 import {
+    INVITE_CONNECTION_FALLBACK_NAME,
     resolveInviteConnectionDisplayName,
     toInviteConnectionSearchText
 } from "./invite-connection-display";
@@ -319,8 +320,7 @@ function ConnectionRow({
         connectionDisplayName,
         metadataDisplayName: metadata?.displayName || cachedMetadataDisplayName
     });
-    const keyPreview = `${pubkey.slice(0, 12)}...${pubkey.slice(-8)}`;
-    const hasResolvedName = displayName !== `${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
+    const hasResolvedName = displayName !== INVITE_CONNECTION_FALLBACK_NAME;
 
     return (
         <div
@@ -349,7 +349,7 @@ function ConnectionRow({
                     <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
                         {hasResolvedName ? "Trusted connection" : "Unnamed connection"}
                     </p>
-                    <p className="mt-1 font-mono text-[10px] text-zinc-500 dark:text-zinc-600">{keyPreview}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-600">Identity hidden</p>
                 </div>
             </div>
             {isAlreadyMember ? (

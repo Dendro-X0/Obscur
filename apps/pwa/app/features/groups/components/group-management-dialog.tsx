@@ -58,6 +58,8 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { filterVisibleGroupMembers } from "../services/community-visible-members";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -220,24 +222,28 @@ export function GroupManagementDialog({
         }
     }, [state.metadata, group.displayName]);
 
-    const memberRegistry = React.useMemo(
-        () => (members.length > 0 ? members : group.memberPubkeys),
+    const memberRegistry = React.useMemo<ReadonlyArray<PublicKeyHex>>(
+        () => (members.length > 0 ? members : group.memberPubkeys) as ReadonlyArray<PublicKeyHex>,
         [group.memberPubkeys, members]
     );
+    const visibleMemberRegistry = React.useMemo(
+        () => filterVisibleGroupMembers(memberRegistry, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [memberRegistry]
+    );
     const onlineMemberCount = React.useMemo(
-        () => memberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey as PublicKeyHex)).length,
-        [memberRegistry, presence]
+        () => visibleMemberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey)).length,
+        [visibleMemberRegistry, presence]
     );
     const operatorHealth = React.useMemo(
         () => summarizeCommunityOperatorHealth({
-            activeMembers: memberRegistry as ReadonlyArray<PublicKeyHex>,
+            activeMembers: visibleMemberRegistry,
             leftMembers: state.leftMembers,
             expelledMembers: state.expelledMembers,
             onlineMemberCount,
             kickVotes: state.kickVotes,
             disbandedAt: state.disbandedAt
         }),
-        [memberRegistry, onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers]
+        [onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers, visibleMemberRegistry]
     );
 
     // Background Sync: Replace persisted members with live truth
@@ -551,7 +557,7 @@ export function GroupManagementDialog({
                                             <Users className="h-5 w-5 text-indigo-400" />
                                         </div>
                                         <div>
-                                            <p className="text-white font-black text-lg">{memberRegistry.length} Registered Members</p>
+                                            <p className="text-white font-black text-lg">{visibleMemberRegistry.length} Registered Members</p>
                                             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">
                                                 Global Group Registry - {onlineMemberCount} Online
                                             </p>
@@ -646,7 +652,7 @@ export function GroupManagementDialog({
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {memberRegistry
+                                    {visibleMemberRegistry
                                         .filter(pk => {
                                             const q = memberSearchQuery.toLowerCase();
                                             const name = (resolvedNames[pk] || "").toLowerCase();
@@ -676,7 +682,7 @@ export function GroupManagementDialog({
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-sm font-black text-white truncate">
-                                                                {resolvedNames[pk] || `${pk.slice(0, 8)}...${pk.slice(-4)}`}
+                                                                {resolvedNames[pk] || "Unknown member"}
                                                             </p>
                                                             {isMe && <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/5">ME</span>}
                                                             {isMuted && <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase">MUTED</span>}
@@ -693,7 +699,7 @@ export function GroupManagementDialog({
                                                             </span>
                                                             {(state.kickVotes[pk]?.length || 0) > 0 && (
                                                                 <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">
-                                                                    ⚠️ {(state.kickVotes[pk]?.length || 0)}/{(Math.floor((members?.length || 0) / 2) + 1)} Votes to Kick
+                                                                    ⚠️ {(state.kickVotes[pk]?.length || 0)}/{(Math.floor((visibleMemberRegistry.length || 0) / 2) + 1)} Votes to Kick
                                                                 </span>
                                                             )}
                                                             {state.expelledMembers.includes(pk as PublicKeyHex) && (

@@ -1,9 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { IMessageQueue, Message } from "../lib/message-queue";
 import type { MessageStatus } from "../lib/message-queue";
 import { retryManager } from "../lib/retry-manager";
 import { parseRelayOkMessage } from "./relay-utils";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 export const handleRelayOkMessage = (params: Readonly<{
   evt: Readonly<{ url: string; message: string }>;
@@ -49,33 +49,21 @@ export const handleRelayOkMessage = (params: Readonly<{
     newStatus = "rejected";
     retryManager.recordRelayFailure(params.evt.url, ok.message);
 
+    // Queue retries are owned by the canonical publish pipeline where signed events
+    // are always available. This relay-OK path does not carry signed events.
+    // Never enqueue from here to avoid malformed queue entries.
     if (params.messageQueue && updatedMessage.retryCount !== undefined) {
-      const retryResult = retryManager.shouldRetry({
-        id: updatedMessage.id,
-        conversationId: updatedMessage.conversationId,
-        content: updatedMessage.content,
-        recipientPubkey: updatedMessage.recipientPubkey as PublicKeyHex,
-        createdAt: updatedMessage.timestamp,
-        retryCount: updatedMessage.retryCount,
-        nextRetryAt: new Date()
+      newStatus = "failed";
+      logAppEvent({
+        name: "messaging.transport.relay_ok_retry_path_disabled_missing_signed_event",
+        level: "warn",
+        scope: { feature: "messaging", action: "send_dm" },
+        context: {
+          messageIdHint: updatedMessage.id.slice(0, 16),
+          eventIdHint: ok.eventId.slice(0, 16),
+          relayUrl: params.evt.url.slice(0, 64),
+        },
       });
-
-      if (retryResult.shouldRetry && retryResult.nextRetryAt) {
-        newStatus = "queued";
-        updatedMessage.retryCount = (updatedMessage.retryCount || 0) + 1;
-
-        void params.messageQueue.queueOutgoingMessage({
-          id: updatedMessage.id,
-          conversationId: updatedMessage.conversationId,
-          content: updatedMessage.content,
-          recipientPubkey: updatedMessage.recipientPubkey as PublicKeyHex,
-          createdAt: updatedMessage.timestamp,
-          retryCount: updatedMessage.retryCount,
-          nextRetryAt: retryResult.nextRetryAt
-        });
-      } else {
-        newStatus = "failed";
-      }
     }
   }
 

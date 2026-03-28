@@ -7,6 +7,7 @@ import { cn } from "@/app/lib/utils";
 import type { Conversation } from "../types";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { MoreVertical, Pin, PinOff, Trash2 } from "lucide-react";
+import { stripVoiceCallControlPreview } from "@/app/features/messaging/services/realtime-voice-signaling";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -44,6 +45,9 @@ export const ConversationRow = React.memo(function ConversationRow({
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null, { live: false });
     const resolvedName = metadata?.displayName || conversation.displayName;
+    const isDeletedConversationRecipient = conversation.kind === "dm" && metadata?.isDeleted === true;
+    const effectiveIsOnline = Boolean(isOnline) && !isDeletedConversationRecipient;
+    const previewMessage = stripVoiceCallControlPreview(conversation.lastMessage).trim();
 
     return (
         <div
@@ -71,7 +75,7 @@ export const ConversationRow = React.memo(function ConversationRow({
                     <span
                         className={cn(
                             "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-black",
-                            isOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"
+                            effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"
                         )}
                     />
                 ) : null}
@@ -93,7 +97,7 @@ export const ConversationRow = React.memo(function ConversationRow({
                         <Pin className="h-3 w-3 shrink-0 text-purple-500 fill-purple-500/20 rotate-45 mr-1" />
                     )}
                     <p className="truncate text-xs text-zinc-600 dark:text-zinc-400 leading-normal flex-1 font-medium">
-                        {conversation.lastMessage || t("messaging.noMessagesYet")}
+                        {previewMessage || t("messaging.noMessagesYet")}
                     </p>
                     {unreadCount > 0 ? (
                         <span className="shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-black">
@@ -125,15 +129,15 @@ export const ConversationRow = React.memo(function ConversationRow({
                 {conversation.kind === "dm" ? (
                     <div className="mt-1 flex items-center gap-2 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
                         <span className="inline-flex items-center gap-1.5">
-                            <span className={cn("h-1.5 w-1.5 rounded-full", isOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
-                            <span className={cn("font-bold uppercase tracking-wider", isOnline ? "text-emerald-500" : "text-zinc-500")}>
-                                {isOnline ? "Online" : "Offline"}
+                            <span className={cn("h-1.5 w-1.5 rounded-full", effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
+                            <span className={cn("font-bold uppercase tracking-wider", effectiveIsOnline ? "text-emerald-500" : "text-zinc-500")}>
+                                {isDeletedConversationRecipient ? t("common.unavailable", "Unavailable") : (effectiveIsOnline ? "Online" : "Offline")}
                             </span>
                         </span>
-                        {lastActiveLabel ? (
+                        {!isDeletedConversationRecipient && lastActiveLabel ? (
                             <span className="truncate">Active {lastActiveLabel}</span>
                         ) : null}
-                        {lastViewedLabel ? (
+                        {!isDeletedConversationRecipient && lastViewedLabel ? (
                             <span className="truncate">Viewed {lastViewedLabel}</span>
                         ) : null}
                     </div>

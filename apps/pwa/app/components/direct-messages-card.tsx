@@ -301,7 +301,7 @@ export const DirectMessagesCard = () => {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-zinc-600 dark:text-zinc-400 font-mono wrap-break-word">
-                  {message.isOutgoing ? 'You' : message.senderPubkey.slice(0, 16) + '...'}
+                  {message.isOutgoing ? 'You' : 'Unknown sender'}
                 </div>
                 <div className="flex items-center gap-2">
                   {message.isOutgoing && (

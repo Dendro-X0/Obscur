@@ -5,7 +5,14 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 import { windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { relayTransportJournal } from "@/app/features/relays/services/relay-transport-journal";
 
-export type OutboundTransportKind = "request" | "request_accept" | "request_decline" | "request_cancel" | "dm";
+export type OutboundTransportKind =
+  | "request"
+  | "request_accept"
+  | "request_decline"
+  | "request_cancel"
+  | "voice_invite"
+  | "voice_signal"
+  | "dm";
 export type OutboundTransportQueueState = "queued" | "publishing" | "partial" | "published" | "terminal_failed";
 
 export type OutboundTransportQueueItem = Readonly<{

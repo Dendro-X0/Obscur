@@ -131,7 +131,7 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                                 <div className="mt-2 space-y-1">
                                     {quarantineSummary.recent.slice(0, 3).map((entry, index) => (
                                         <p key={`${entry.atUnixMs}-${index}`} className="text-[10px] leading-relaxed opacity-90">
-                                            {(entry.peerPrefix ?? "unknown sender").slice(0, 8)}... {quarantineReasonLabel(entry.reasonCode)} · {formatTime(new Date(entry.atUnixMs), nowMs)}
+                                            Identity hidden - {quarantineReasonLabel(entry.reasonCode)} - {formatTime(new Date(entry.atUnixMs), nowMs)}
                                         </p>
                                     ))}
                                 </div>
@@ -287,8 +287,8 @@ function RequestItemRow({ request, quarantinePeerSignal, nowMs, onAccept, onIgno
                     <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                         {preview || "No note was included with this invitation."}
                     </p>
-                    <p className="text-[10px] text-zinc-400 mt-1 font-mono opacity-50">
-                        {request.peerPublicKeyHex.slice(0, 8)}...
+                    <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-[0.14em] opacity-70">
+                        Identity hidden
                     </p>
                 </div>
 
@@ -356,3 +356,4 @@ function RequestItemRow({ request, quarantinePeerSignal, nowMs, onAccept, onIgno
         </Card>
     );
 }
+

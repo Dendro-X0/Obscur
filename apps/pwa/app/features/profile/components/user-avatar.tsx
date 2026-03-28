@@ -7,6 +7,7 @@ import { cn } from "@/app/lib/utils";
 import { useRouter } from "next/navigation";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
+import { User } from "lucide-react";
 
 interface UserAvatarProps {
     pubkey: string;
@@ -37,6 +38,8 @@ export const UserAvatar = ({
 
     const { state: identityState } = useIdentity();
     const myPubkey = identityState.publicKeyHex ?? identityState.stored?.publicKeyHex;
+    const showDeletedFallback = metadata?.isDeleted === true;
+    const fallbackSeed = showDeletedFallback ? "?" : (metadata?.displayName || pubkey || "??");
 
     const handleClick = () => {
         if (!showProfileOnClick) return;
@@ -57,11 +60,19 @@ export const UserAvatar = ({
             )}
             onClick={handleClick}
         >
-            {metadata?.avatarUrl && (
+            {metadata?.avatarUrl && !showDeletedFallback && (
                 <AvatarImage src={metadata.avatarUrl} alt={metadata.displayName || pubkey} />
             )}
-            <AvatarFallback className={cn("font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 uppercase", fallbackClassName)}>
-                {(metadata?.displayName || pubkey || "??").slice(0, 2).toUpperCase()}
+            <AvatarFallback
+                className={cn(
+                    "font-bold uppercase",
+                    showDeletedFallback
+                        ? "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                        : "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+                    fallbackClassName
+                )}
+            >
+                {showDeletedFallback ? <User className="h-4 w-4" /> : fallbackSeed.slice(0, 2).toUpperCase()}
             </AvatarFallback>
         </Avatar>
     );

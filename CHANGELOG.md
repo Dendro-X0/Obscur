@@ -2,6 +2,27 @@
 
 ### Changed
 
+- Added canonical local-history reset flow (keep identity/session) in
+  `apps/pwa/app/features/messaging/services/local-history-reset-service.ts` and
+  wired Settings storage maintenance action
+  "Reset Local History (Keep Identity)" in `apps/pwa/app/settings/page.tsx`.
+- Added focused regression coverage for local-history reset scope/preservation
+  behavior in
+  `apps/pwa/app/features/messaging/services/local-history-reset-service.test.ts`.
+- Added deleted-account presence consistency guard in canonical presence owner
+  `apps/pwa/app/features/network/hooks/use-realtime-presence.ts` so deleted
+  contacts never resolve as online from stale presence records.
+- Added focused deleted-account presence coverage in
+  `apps/pwa/app/features/network/hooks/use-realtime-presence.deleted-profile.test.ts`.
+- Added canonical community member-visibility helper
+  `apps/pwa/app/features/groups/services/community-visible-members.ts` and
+  wired deleted-account filtering into both:
+  - `apps/pwa/app/features/groups/components/group-management-dialog.tsx`
+  - `apps/pwa/app/groups/[...id]/group-home-page-client.tsx`
+  so member counts/online state/member lists exclude deleted-account profiles
+  consistently.
+- Added focused deleted-account community visibility coverage in
+  `apps/pwa/app/features/groups/services/community-visible-members.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

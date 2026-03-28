@@ -72,6 +72,15 @@ export type MediaItem = Readonly<{
     timestamp: Date;
 }>;
 
+export type VoiceCallInvitePayload = Readonly<{
+    type: "voice-call-invite";
+    version?: number;
+    roomId?: string;
+    invitedAtUnixMs?: number;
+    expiresAtUnixMs?: number;
+    fromPubkey?: string | null;
+}>;
+
 export type LastSeenByConversationId = Readonly<Record<string, number>>;
 
 export type ReactionEmoji = "👍" | "❤️" | "😂" | "🔥" | "👏";

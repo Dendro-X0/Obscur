@@ -476,14 +476,31 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
     localCacheWriteBlocked = false;
     localCacheBlockedWarningEmitted = false;
     const cfg = getLocalMediaStorageConfig();
+    const indexSnapshot = loadIndex();
+    let removedByRoot = false;
     try {
         if (cfg.customRootPath.trim().length > 0) {
             await nativeLocalMediaAdapter.removePath({ path: await resolveStorageAbsolutePath(), recursive: true });
         } else {
             await nativeLocalMediaAdapter.removePath({ path: cfg.subdir, appDataRelative: true, recursive: true });
         }
+        removedByRoot = true;
     } catch {
-        // ignore
+        removedByRoot = false;
+    }
+    if (!removedByRoot) {
+        const entries = Object.values(indexSnapshot);
+        await Promise.all(entries.map(async (entry) => {
+            try {
+                if (cfg.customRootPath.trim().length > 0) {
+                    await nativeLocalMediaAdapter.removePath({ path: entry.relativePath });
+                } else {
+                    await nativeLocalMediaAdapter.removePath({ path: entry.relativePath, appDataRelative: true });
+                }
+            } catch {
+                // Best-effort per-item deletion fallback.
+            }
+        }));
     }
     if (isBrowser()) {
         localStorage.removeItem(scopedIndexKey());

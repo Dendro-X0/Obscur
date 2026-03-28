@@ -11,9 +11,19 @@ import { MessageLinkPreview } from "../../../components/message-link-preview";
 import { AudioPlayer } from "./audio-player";
 import { VideoPlayer } from "./video-player";
 import { VoiceNoteCard } from "./voice-note-card";
+import { VoiceCallInviteCard } from "./voice-call-invite-card";
 import { cn } from "../../../lib/cn";
 import { formatTime } from "../utils/formatting";
-import type { Message, ReactionEmoji, MessageStatus, StatusUi, SendDirectMessageParams, SendDirectMessageResult, Attachment } from "../types";
+import type {
+    Message,
+    ReactionEmoji,
+    MessageStatus,
+    StatusUi,
+    SendDirectMessageParams,
+    SendDirectMessageResult,
+    Attachment,
+    VoiceCallInvitePayload
+} from "../types";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { UserAvatar } from "../../profile/components/user-avatar";
@@ -31,12 +41,14 @@ import {
     buildMessageRenderCaches,
     type ParsedMessagePayload,
     type InviteResponseStatus,
+    type VoiceCallRoomRenderSummary,
 } from "./message-list-render-meta";
 
 interface MessageListProps {
     conversationId?: string;
     hasHydrated: boolean;
     messages: ReadonlyArray<Message>;
+    renderMetaMessages?: ReadonlyArray<Message>;
     rawMessagesCount: number; // to check if empty
     hasEarlierMessages: boolean;
     onLoadEarlier: () => void;
@@ -48,6 +60,9 @@ interface MessageListProps {
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
     openMessageMenuMessageId?: string | null;
     openReactionPickerMessageId?: string | null;
+    batchDeleteMode?: boolean;
+    selectedMessageIds?: ReadonlySet<string>;
+    onToggleSelectMessage?: (messageId: string) => void;
     onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
@@ -59,10 +74,19 @@ interface MessageListProps {
     admins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
     pendingEventCount?: number;
     onSendDirectMessage?: (params: SendDirectMessageParams) => Promise<SendDirectMessageResult>;
+    onJoinVoiceCallInvite?: (params: Readonly<{ invite: VoiceCallInvitePayload; messageId: string }>) => void;
+    onRequestVoiceCallCallback?: () => void;
+    joiningVoiceCallInviteMessageId?: string | null;
+    voiceCallStatus?: Readonly<{
+        roomId: string;
+        peerPubkey: string;
+        phase: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended";
+    }> | null;
     onRefresh?: () => Promise<void>;
 }
 
 type MessageListScrollBehavior = "auto" | "smooth";
+const EMPTY_SELECTED_MESSAGE_IDS: ReadonlySet<string> = new Set<string>();
 
 const toIdHint = (value: string): string => {
     const trimmed = value.trim();
@@ -79,6 +103,7 @@ function MessageListImpl({
     conversationId,
     hasHydrated,
     messages,
+    renderMetaMessages,
     rawMessagesCount,
     hasEarlierMessages,
     onLoadEarlier,
@@ -90,6 +115,9 @@ function MessageListImpl({
     onOpenMessageMenu,
     openMessageMenuMessageId,
     openReactionPickerMessageId,
+    batchDeleteMode = false,
+    selectedMessageIds = EMPTY_SELECTED_MESSAGE_IDS,
+    onToggleSelectMessage,
     onMessageMenuAnchorHoverChange,
     onOpenReactionPicker,
     onToggleReaction,
@@ -100,7 +128,11 @@ function MessageListImpl({
     admins,
     pendingEventCount = 0,
     onSendDirectMessage,
-    onRefresh
+    onJoinVoiceCallInvite,
+    onRequestVoiceCallCallback,
+    joiningVoiceCallInviteMessageId,
+    voiceCallStatus,
+    onRefresh,
 }: MessageListProps) {
     const { t } = useTranslation();
 
@@ -580,6 +612,7 @@ function MessageListImpl({
         };
     }, [messages]);
     const [expandedRelayUrlsByMessageId, setExpandedRelayUrlsByMessageId] = React.useState<ReadonlySet<string>>(new Set());
+    const [usedVoiceCallCallbackRoomIds, setUsedVoiceCallCallbackRoomIds] = React.useState<ReadonlySet<string>>(new Set());
 
     React.useEffect(() => {
         return () => {
@@ -620,10 +653,31 @@ function MessageListImpl({
     const {
         inviteResponseStatusByMessageId,
         renderMetaByMessageId,
+        voiceCallRoomSummaryByRoomId,
     } = React.useMemo(() => buildMessageRenderCaches({
-        messages,
+        messages: renderMetaMessages ?? messages,
         expandedRelayUrlsByMessageId,
-    }), [expandedRelayUrlsByMessageId, messages]);
+    }), [expandedRelayUrlsByMessageId, messages, renderMetaMessages]);
+
+    const handleRequestVoiceCallCallback = React.useCallback((roomId: string | null): void => {
+        if (typeof onRequestVoiceCallCallback !== "function") {
+            return;
+        }
+        if (roomId && usedVoiceCallCallbackRoomIds.has(roomId)) {
+            return;
+        }
+        onRequestVoiceCallCallback();
+        if (roomId) {
+            setUsedVoiceCallCallbackRoomIds((prev) => {
+                if (prev.has(roomId)) {
+                    return prev;
+                }
+                const next = new Set(prev);
+                next.add(roomId);
+                return next;
+            });
+        }
+    }, [onRequestVoiceCallCallback, usedVoiceCallCallbackRoomIds]);
 
     return (
         <div className="flex-1 min-h-0 relative flex flex-col pt-1">
@@ -708,6 +762,11 @@ function MessageListImpl({
                                 const hasAttachmentRelayUrlsInContent = renderMeta?.hasAttachmentRelayUrlsInContent ?? false;
                                 const textContentResult = renderMeta?.textContentResult ?? { content: message.content, hasHiddenAttachmentRelayUrls: false };
                                 const parsedPayload = renderMeta?.parsedPayload ?? null;
+                                const voiceCallRoomSummary = (
+                                    parsedPayload?.type === "voice-call-invite" && typeof parsedPayload.roomId === "string"
+                                )
+                                    ? (voiceCallRoomSummaryByRoomId.get(parsedPayload.roomId) ?? null)
+                                    : null;
                                 const timeLabel = formatTime(message.timestamp, nowMs);
 
                                 return (
@@ -719,6 +778,7 @@ function MessageListImpl({
                                         message={message}
                                         admins={admins}
                                         timeLabel={timeLabel}
+                                        nowUnixMs={nowMs}
                                         isGroupStart={isGroupStart}
                                         isGroupEnd={isGroupEnd}
                                         isMiddle={isMiddle}
@@ -730,6 +790,7 @@ function MessageListImpl({
                                         hasAttachmentRelayUrlsInContent={hasAttachmentRelayUrlsInContent}
                                         textContent={textContentResult.content}
                                         parsedPayload={parsedPayload}
+                                        voiceCallRoomSummary={voiceCallRoomSummary}
                                         localAttachmentUrlSet={localAttachmentUrlSet}
                                         localAttachmentFileNameByUrl={localAttachmentFileNameByUrl}
                                         inviteResponseStatus={inviteResponseStatusByMessageId.get(message.id)}
@@ -737,6 +798,9 @@ function MessageListImpl({
                                         onOpenMessageMenu={onOpenMessageMenu}
                                         isMessageMenuAnchored={openMessageMenuMessageId === message.id}
                                         isReactionPickerAnchored={openReactionPickerMessageId === message.id}
+                                        batchDeleteMode={batchDeleteMode}
+                                        isBatchSelected={selectedMessageIds.has(message.id)}
+                                        onToggleSelectMessage={onToggleSelectMessage}
                                         onMessageMenuAnchorHoverChange={onMessageMenuAnchorHoverChange}
                                         onToggleReaction={onToggleReaction}
                                         onRetryMessage={onRetryMessage}
@@ -744,6 +808,11 @@ function MessageListImpl({
                                         onImageClick={onImageClick}
                                         onToggleAttachmentRelayUrls={toggleAttachmentRelayUrls}
                                         onSendDirectMessage={onSendDirectMessage}
+                                        onJoinVoiceCallInvite={onJoinVoiceCallInvite}
+                                        onRequestVoiceCallCallback={handleRequestVoiceCallCallback}
+                                        usedVoiceCallCallbackRoomIds={usedVoiceCallCallbackRoomIds}
+                                        joiningVoiceCallInviteMessageId={joiningVoiceCallInviteMessageId}
+                                        voiceCallStatus={voiceCallStatus}
                                     />
                                 );
                             })}
@@ -781,6 +850,7 @@ const messageListPropsAreEqual = (prev: MessageListProps, next: MessageListProps
         prev.conversationId === next.conversationId &&
         prev.hasHydrated === next.hasHydrated &&
         prev.messages === next.messages &&
+        prev.renderMetaMessages === next.renderMetaMessages &&
         prev.rawMessagesCount === next.rawMessagesCount &&
         prev.hasEarlierMessages === next.hasEarlierMessages &&
         prev.onLoadEarlier === next.onLoadEarlier &&
@@ -792,6 +862,9 @@ const messageListPropsAreEqual = (prev: MessageListProps, next: MessageListProps
         prev.onOpenMessageMenu === next.onOpenMessageMenu &&
         prev.openMessageMenuMessageId === next.openMessageMenuMessageId &&
         prev.openReactionPickerMessageId === next.openReactionPickerMessageId &&
+        prev.batchDeleteMode === next.batchDeleteMode &&
+        prev.selectedMessageIds === next.selectedMessageIds &&
+        prev.onToggleSelectMessage === next.onToggleSelectMessage &&
         prev.onMessageMenuAnchorHoverChange === next.onMessageMenuAnchorHoverChange &&
         prev.onOpenReactionPicker === next.onOpenReactionPicker &&
         prev.onToggleReaction === next.onToggleReaction &&
@@ -803,6 +876,10 @@ const messageListPropsAreEqual = (prev: MessageListProps, next: MessageListProps
         prev.admins === next.admins &&
         prev.pendingEventCount === next.pendingEventCount &&
         prev.onSendDirectMessage === next.onSendDirectMessage &&
+        prev.onJoinVoiceCallInvite === next.onJoinVoiceCallInvite &&
+        prev.onRequestVoiceCallCallback === next.onRequestVoiceCallCallback &&
+        prev.joiningVoiceCallInviteMessageId === next.joiningVoiceCallInviteMessageId &&
+        prev.voiceCallStatus === next.voiceCallStatus &&
         prev.onRefresh === next.onRefresh
     );
 };
@@ -817,6 +894,7 @@ type MessageRowProps = Readonly<{
     message: Message;
     admins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
     timeLabel: string;
+    nowUnixMs: number | null;
     isGroupStart: boolean;
     isGroupEnd: boolean;
     isMiddle: boolean;
@@ -828,12 +906,16 @@ type MessageRowProps = Readonly<{
     hasAttachmentRelayUrlsInContent: boolean;
     textContent: string;
     parsedPayload: ParsedMessagePayload | null;
+    voiceCallRoomSummary: VoiceCallRoomRenderSummary | null;
     localAttachmentUrlSet: ReadonlySet<string>;
     localAttachmentFileNameByUrl: Readonly<Record<string, string>>;
     inviteResponseStatus?: InviteResponseStatus;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
     isMessageMenuAnchored: boolean;
     isReactionPickerAnchored: boolean;
+    batchDeleteMode: boolean;
+    isBatchSelected: boolean;
+    onToggleSelectMessage?: (messageId: string) => void;
     onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
@@ -842,6 +924,15 @@ type MessageRowProps = Readonly<{
     onImageClick?: (url: string) => void;
     onToggleAttachmentRelayUrls: (messageId: string) => void;
     onSendDirectMessage?: (params: SendDirectMessageParams) => Promise<SendDirectMessageResult>;
+    onJoinVoiceCallInvite?: (params: Readonly<{ invite: VoiceCallInvitePayload; messageId: string }>) => void;
+    onRequestVoiceCallCallback?: (roomId: string | null) => void;
+    usedVoiceCallCallbackRoomIds: ReadonlySet<string>;
+    joiningVoiceCallInviteMessageId?: string | null;
+    voiceCallStatus?: Readonly<{
+        roomId: string;
+        peerPubkey: string;
+        phase: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended";
+    }> | null;
 }>;
 
 const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps): React.JSX.Element {
@@ -853,6 +944,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         message,
         admins,
         timeLabel,
+        nowUnixMs,
         isGroupStart,
         isGroupEnd,
         isMiddle,
@@ -864,12 +956,16 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         hasAttachmentRelayUrlsInContent,
         textContent,
         parsedPayload,
+        voiceCallRoomSummary,
         localAttachmentUrlSet,
         localAttachmentFileNameByUrl,
         inviteResponseStatus,
         onOpenMessageMenu,
         isMessageMenuAnchored,
         isReactionPickerAnchored,
+        batchDeleteMode,
+        isBatchSelected,
+        onToggleSelectMessage,
         onMessageMenuAnchorHoverChange,
         onOpenReactionPicker,
         onToggleReaction,
@@ -878,19 +974,51 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         onImageClick,
         onToggleAttachmentRelayUrls,
         onSendDirectMessage,
+        onJoinVoiceCallInvite,
+        onRequestVoiceCallCallback,
+        usedVoiceCallCallbackRoomIds,
+        joiningVoiceCallInviteMessageId,
+        voiceCallStatus,
     } = props;
     const menuAnchoredToThisMessage = isMessageMenuAnchored;
     const reactionAnchoredToThisMessage = isReactionPickerAnchored;
-    const actionDockPinned = menuAnchoredToThisMessage || reactionAnchoredToThisMessage;
+    const actionDockPinned = !batchDeleteMode && (menuAnchoredToThisMessage || reactionAnchoredToThisMessage);
+    const voiceCallInvitePayload = parsedPayload?.type === "voice-call-invite"
+        ? (parsedPayload as VoiceCallInvitePayload)
+        : null;
+    const voiceCallInviteRoomId = typeof voiceCallInvitePayload?.roomId === "string"
+        ? voiceCallInvitePayload.roomId
+        : null;
 
     const markMenuAnchorHover = React.useCallback((isHovered: boolean): void => {
         onMessageMenuAnchorHoverChange?.({ messageId: message.id, isHovered });
     }, [message.id, onMessageMenuAnchorHoverChange]);
 
     const handleOpenMessageMenu = React.useCallback((clientX: number, clientY: number): void => {
+        if (batchDeleteMode) {
+            return;
+        }
         markMenuAnchorHover(true);
         onOpenMessageMenu({ messageId: message.id, x: clientX, y: clientY });
-    }, [markMenuAnchorHover, message.id, onOpenMessageMenu]);
+    }, [batchDeleteMode, markMenuAnchorHover, message.id, onOpenMessageMenu]);
+
+    if (parsedPayload?.type === "voice-call-signal") {
+        return (
+            <div
+                data-index={virtualIndex}
+                ref={measureElement}
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualStart}px)`,
+                }}
+                className="hidden"
+                aria-hidden="true"
+            />
+        );
+    }
 
     return (
         <div
@@ -920,11 +1048,29 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                 )}
             </div>
 
+            {batchDeleteMode ? (
+                <div className="w-8 flex-shrink-0 flex items-center justify-center">
+                    <button
+                        type="button"
+                        onClick={() => onToggleSelectMessage?.(message.id)}
+                        className={cn(
+                            "flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
+                            isBatchSelected
+                                ? "border-purple-500 bg-purple-500 text-white dark:border-purple-300 dark:bg-purple-300 dark:text-zinc-900"
+                                : "border-zinc-300 bg-white text-transparent hover:border-purple-400 hover:text-purple-400 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-purple-300 dark:hover:text-purple-300",
+                        )}
+                        aria-label={isBatchSelected ? t("common.deselect", "Deselect") : t("common.select", "Select")}
+                    >
+                        <Check className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            ) : null}
+
             <SwipeReplyWrapper
                 message={message}
                 onReply={onReply}
                 isOutgoing={message.isOutgoing}
-                enableSwipeReply={!highLoadMode}
+                enableSwipeReply={!highLoadMode && !batchDeleteMode}
             >
                 <div className={cn("flex flex-col w-full", message.isOutgoing ? "items-end" : "items-start")}>
                     {isGroupStart && (
@@ -943,15 +1089,26 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                         id={`msg-${message.id}`}
                         onContextMenu={(e) => {
                             e.preventDefault();
+                            if (batchDeleteMode) {
+                                return;
+                            }
                             handleOpenMessageMenu(e.clientX, e.clientY);
                         }}
+                        onClickCapture={(event) => {
+                            if (!batchDeleteMode) {
+                                return;
+                            }
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onToggleSelectMessage?.(message.id);
+                        }}
                         onMouseEnter={() => {
-                            if (menuAnchoredToThisMessage) {
+                            if (!batchDeleteMode && menuAnchoredToThisMessage) {
                                 markMenuAnchorHover(true);
                             }
                         }}
                         onMouseLeave={() => {
-                            if (menuAnchoredToThisMessage) {
+                            if (!batchDeleteMode && menuAnchoredToThisMessage) {
                                 markMenuAnchorHover(false);
                             }
                         }}
@@ -977,41 +1134,44 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                     !isGroupStart && isGroupEnd ? "rounded-tl-md rounded-bl-md" : "",
                                     isMiddle ? "rounded-tl-md rounded-bl-md" : ""
                                 ),
+                            isBatchSelected && "ring-2 ring-purple-400/45 dark:ring-purple-300/45",
                             isFlashing && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse"
                         )}
                     >
-                        <div
-                            className={cn(
-                                "absolute z-20 top-1 flex flex-col gap-1.5 transition-all duration-150",
-                                actionDockPinned
-                                    ? "opacity-100 translate-y-0"
-                                    : "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0",
-                                message.isOutgoing ? "-left-12" : "-right-12",
-                            )}
-                        >
-                            <Button
-                                variant="ghost"
-                                size="icon"
+                        {!batchDeleteMode ? (
+                            <div
                                 className={cn(
-                                    "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
-                                    reactionAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
+                                    "absolute z-20 top-1 flex flex-col gap-1.5 transition-all duration-150",
+                                    actionDockPinned
+                                        ? "opacity-100 translate-y-0"
+                                        : "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0",
+                                    message.isOutgoing ? "-left-12" : "-right-12",
                                 )}
-                                onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
                             >
-                                <Smile className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                    "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
-                                    menuAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
-                                )}
-                                onClick={(e) => handleOpenMessageMenu(e.clientX, e.clientY)}
-                            >
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                        "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
+                                        reactionAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
+                                    )}
+                                    onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
+                                >
+                                    <Smile className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                        "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
+                                        menuAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
+                                    )}
+                                    onClick={(e) => handleOpenMessageMenu(e.clientX, e.clientY)}
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ) : null}
 
                         <div className="px-4 py-2.5">
                             {message.deletedAt ? (
@@ -1086,6 +1246,25 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                             <CommunityInviteResponseCard
                                                 response={parsedPayload as any}
                                                 isOutgoing={message.isOutgoing}
+                                            />
+                                        ) : parsedPayload?.type === "voice-call-invite" ? (
+                                            <VoiceCallInviteCard
+                                                invite={voiceCallInvitePayload as VoiceCallInvitePayload}
+                                                isOutgoing={message.isOutgoing}
+                                                isJoining={joiningVoiceCallInviteMessageId === message.id}
+                                                callSummary={voiceCallRoomSummary}
+                                                nowUnixMs={nowUnixMs}
+                                                liveStatusPhase={(
+                                                    voiceCallStatus
+                                                    && voiceCallInviteRoomId !== null
+                                                    && voiceCallInviteRoomId === voiceCallStatus.roomId
+                                                ) ? voiceCallStatus.phase : null}
+                                                onJoinCall={(invite) => onJoinVoiceCallInvite?.({
+                                                    invite,
+                                                    messageId: message.id,
+                                                })}
+                                                onRequestCallback={() => onRequestVoiceCallCallback?.(voiceCallInviteRoomId)}
+                                                callbackConsumed={voiceCallInviteRoomId !== null && usedVoiceCallCallbackRoomIds.has(voiceCallInviteRoomId)}
                                             />
                                         ) : (
                                             <>
@@ -1165,6 +1344,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.measureElement === next.measureElement &&
         prev.message === next.message &&
         prev.timeLabel === next.timeLabel &&
+        prev.nowUnixMs === next.nowUnixMs &&
         prev.isGroupStart === next.isGroupStart &&
         prev.isGroupEnd === next.isGroupEnd &&
         prev.isMiddle === next.isMiddle &&
@@ -1176,11 +1356,16 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.hasAttachmentRelayUrlsInContent === next.hasAttachmentRelayUrlsInContent &&
         prev.textContent === next.textContent &&
         prev.parsedPayload === next.parsedPayload &&
+        prev.voiceCallRoomSummary === next.voiceCallRoomSummary &&
         prev.inviteResponseStatus === next.inviteResponseStatus &&
         prev.localAttachmentUrlSet === next.localAttachmentUrlSet &&
         prev.localAttachmentFileNameByUrl === next.localAttachmentFileNameByUrl &&
         prev.isMessageMenuAnchored === next.isMessageMenuAnchored &&
         prev.isReactionPickerAnchored === next.isReactionPickerAnchored &&
+        prev.batchDeleteMode === next.batchDeleteMode &&
+        prev.isBatchSelected === next.isBatchSelected &&
+        prev.onToggleSelectMessage === next.onToggleSelectMessage &&
+        prev.usedVoiceCallCallbackRoomIds === next.usedVoiceCallCallbackRoomIds &&
         prev.admins === next.admins
     );
 });
@@ -1425,10 +1610,7 @@ function MessageAttachmentLayout({
                                         key={`voice-note-${attachment.url}-${index}`}
                                         src={attachment.url}
                                         isOutgoing={isOutgoing}
-                                        fileName={deriveDisplayFileName(attachment)}
-                                        sourceLabel={hostByUrl[attachment.url] ?? attachment.url}
                                         voiceNoteMetadata={voiceMetadata}
-                                        isLocalCached={localAttachmentUrlSet.has(attachment.url)}
                                     />
                                 );
                             }
@@ -1541,7 +1723,7 @@ function SenderName({ pubkey, admins }: { pubkey: string, admins?: MessageListPr
     return (
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
-                {metadata?.displayName || (pubkey ? pubkey.slice(0, 8) : "???")}
+                {metadata?.displayName || "Unknown sender"}
             </span>
             {(isOwner || isMod) && (
                 <span className={cn(

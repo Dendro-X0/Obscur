@@ -103,8 +103,8 @@ export function SearchResultsList({ results, onSelect, isAccepted, showSuggestio
                                     {profile.about}
                                 </p>
                             )}
-                            <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">
-                                {profile.pubkey.slice(0, 12)}...{profile.pubkey.slice(-8)}
+                            <p className="text-[9px] text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.14em]">
+                                Identity hidden
                             </p>
                         </div>
                         <div className="self-center">

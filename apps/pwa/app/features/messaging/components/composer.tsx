@@ -37,6 +37,7 @@ interface ComposerProps {
     onSendVoiceNote?: (file: File) => void;
     isProcessingMedia: boolean;
     mediaProcessingProgress: number;
+    recipientRemoved?: boolean;
 }
 
 export function Composer({
@@ -61,10 +62,12 @@ export function Composer({
     isInitiator = false,
     onSendVoiceNote,
     isProcessingMedia,
-    mediaProcessingProgress
+    mediaProcessingProgress,
+    recipientRemoved = false,
 }: ComposerProps) {
     const { t } = useTranslation();
     const isGated: boolean = isPeerAccepted === false && isInitiator === false;
+    const disableCompose = isGated || recipientRemoved;
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const emojiPickerRef = React.useRef<HTMLDivElement>(null);
     const emojiButtonRef = React.useRef<HTMLDivElement>(null);
@@ -204,6 +207,15 @@ export function Composer({
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                     </div>
                     <p>{t("messaging.recipientNotFound")}</p>
+                </div>
+            )}
+
+            {recipientRemoved && (
+                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-50/60 p-4 text-[11px] font-medium text-amber-800 dark:border-amber-500/35 dark:bg-amber-900/20 dark:text-amber-200 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="mt-0.5 h-4 w-4 shrink-0 text-amber-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                    </div>
+                    <p>{t("This contact account has been removed. New messages and calls cannot be delivered.")}</p>
                 </div>
             )}
 
@@ -394,7 +406,7 @@ export function Composer({
             <div className={cn(
                 "relative flex items-end gap-2 p-1.5 bg-black/5 dark:bg-black/40 rounded-[28px] ring-1 ring-black/[0.03] dark:ring-white/[0.05] transition-all duration-300 backdrop-blur-sm",
                 "focus-within:bg-white/80 dark:focus-within:bg-zinc-950 focus-within:ring-purple-500/30 focus-within:shadow-2xl focus-within:shadow-purple-500/10",
-                isGated && "opacity-50 grayscale pointer-events-none"
+                disableCompose && "opacity-50 grayscale pointer-events-none"
             )}>
                 <input
                     type="file"
@@ -409,7 +421,7 @@ export function Composer({
                     variant="ghost"
                     size="icon"
                     className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 flex items-center justify-center p-0"
-                    disabled={isUploadingAttachment || isGated}
+                    disabled={isUploadingAttachment || disableCompose}
                     onClick={onSelectFiles}
                     aria-label={t("messaging.media")}
                 >
@@ -417,19 +429,21 @@ export function Composer({
                 </Button>
 
                 <Textarea
-                    placeholder={isGated ? t("messaging.connectionPendingPlaceholder") : t("messaging.typeAMessage")}
+                    placeholder={recipientRemoved
+                        ? t("Account removed. Messaging disabled.")
+                        : (isGated ? t("messaging.connectionPendingPlaceholder") : t("messaging.typeAMessage"))}
                     ref={textareaRef}
                     value={messageInput}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageInput(e.target.value)}
                     onPaste={handlePaste}
                     onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                        if (isGated) return;
+                        if (disableCompose) return;
                         if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
                             handleSendMessage();
                         }
                     }}
-                    disabled={isGated}
+                    disabled={disableCompose}
                     className="min-h-[40px] flex-1 resize-none border-0 bg-transparent dark:bg-transparent py-2.5 text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 overflow-y-auto"
                     rows={1}
                 />
@@ -444,7 +458,7 @@ export function Composer({
                             showEmojiPicker && "bg-black/5 dark:bg-white/5 text-purple-600"
                         )}
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        disabled={isGated}
+                        disabled={disableCompose}
                         aria-label={t("messaging.searchEmojis")}
                     >
                         <Smile className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
@@ -473,14 +487,14 @@ export function Composer({
                     <VoiceRecorder
                         onRecordingComplete={onSendVoiceNote}
                         isUploading={isUploadingAttachment}
-                        disabled={isGated}
+                        disabled={disableCompose}
                     />
                 )}
 
                 <Button
                     type="button"
                     onClick={handleSendMessage}
-                    disabled={isGated || (!messageInput.trim() && pendingAttachments.length === 0) || isUploadingAttachment}
+                    disabled={disableCompose || (!messageInput.trim() && pendingAttachments.length === 0) || isUploadingAttachment}
                     size="icon"
                     className={cn(
                         "h-11 w-11 rounded-full shrink-0 transition-all duration-300 active:scale-95 flex items-center justify-center p-0",

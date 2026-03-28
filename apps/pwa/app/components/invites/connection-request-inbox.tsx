@@ -10,6 +10,7 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 
 export const ConnectionRequestInbox = () => {
+  const DEFAULT_REQUEST_SENDER_LABEL = "Unknown contact";
   const identity = useIdentity();
   const { peerTrust, requestsInbox, blocklist } = useNetwork();
   const { relayPool } = useRelay();
@@ -96,7 +97,7 @@ export const ConnectionRequestInbox = () => {
       ) : (
         <div className="space-y-3">
           {requests.map((request) => {
-            const displayName = `User ${request.peerPublicKeyHex.slice(0, 8)}`;
+            const displayName = DEFAULT_REQUEST_SENDER_LABEL;
             return (
               <div
                 key={request.peerPublicKeyHex}
@@ -114,8 +115,8 @@ export const ConnectionRequestInbox = () => {
                       <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
                         {displayName}
                       </div>
-                      <div className="mt-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 truncate">
-                        {request.peerPublicKeyHex}
+                      <div className="mt-1 text-xs uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 truncate">
+                        Identity hidden
                       </div>
                     </div>
                   </div>

@@ -264,7 +264,7 @@ const mapResolvedIdentityToPublicDiscoveryProfile = (identity: ResolvedIdentity)
   return {
     id: `resolved:${identity.pubkey}`,
     kind: "person",
-    title: identity.display || identity.pubkey.slice(0, 16),
+    title: identity.display || "Unknown contact",
     subtitle: identity.source.replace("_", " "),
     pubkey: identity.pubkey,
     npub,
@@ -367,7 +367,7 @@ export default function SearchPage() {
 
     return {
       ...base,
-      title: resolvedMetadata?.displayName || identity.display || (isSelf ? localUsername : "") || identity.pubkey.slice(0, 16),
+      title: resolvedMetadata?.displayName || identity.display || (isSelf ? localUsername : "") || "Unknown contact",
       subtitle: resolvedMetadata?.nip05 || (isSelf ? localNip05 : "") || identity.source.replace("_", " "),
       description: resolvedMetadata?.about || (isSelf ? localAbout : "") || undefined,
       picture: resolvedMetadata?.avatarUrl || (isSelf ? localAvatar : "") || undefined,
@@ -1071,12 +1071,12 @@ export default function SearchPage() {
                             className="object-cover"
                           />
                           <AvatarFallback className="font-black">
-                            {getProfileInitials(resolvedMetadata?.displayName || resolvedIdentity.display || resolvedIdentity.pubkey.slice(0, 8))}
+                            {getProfileInitials(resolvedMetadata?.displayName || resolvedIdentity.display || "Unknown contact")}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <p className="truncate text-lg font-black text-foreground">
-                            {resolvedMetadata?.displayName || resolvedIdentity.display || resolvedIdentity.pubkey.slice(0, 16)}
+                            {resolvedMetadata?.displayName || resolvedIdentity.display || "Unknown contact"}
                           </p>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                             {resolvedMetadata?.nip05 || resolvedIdentity.source.replace("_", " ")}
@@ -1262,7 +1262,7 @@ export default function SearchPage() {
                           </Avatar>
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-foreground">{suggestion.displayName}</p>
-                            <p className="truncate text-xs text-muted-foreground">{suggestion.subtitle || suggestion.pubkey}</p>
+                            <p className="truncate text-xs text-muted-foreground">{suggestion.subtitle || "Identity hidden"}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1603,7 +1603,7 @@ export default function SearchPage() {
         isOpen={Boolean(invitationDialogTarget)}
         recipientName={
           invitationDialogTarget
-            ? (resolvedMetadata?.displayName || invitationDialogTarget.display || compactKey(invitationDialogTarget.pubkey, 12, 10))
+            ? (resolvedMetadata?.displayName || invitationDialogTarget.display || "Unknown contact")
             : "this person"
         }
         recipientPubkey={invitationDialogTarget?.pubkey || ""}

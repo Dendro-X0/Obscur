@@ -5,9 +5,11 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useProfileMetadata, type UseProfileMetadataOptions } from "./use-profile-metadata";
 import { normalizePublicUrl } from "@/app/shared/public-url";
+import { isDeletedAccountProfile } from "@/app/features/profile/utils/deleted-profile";
 
 export type ResolvedProfileMetadata = Readonly<{
   isSelf: boolean;
+  isDeleted: boolean;
   displayName?: string;
   avatarUrl?: string;
   about?: string;
@@ -30,11 +32,18 @@ export const useResolvedProfileMetadata = (
     const localAvatar = normalizePublicUrl(profile.state.profile.avatarUrl);
     const localAbout = (profile.state.profile.about || "").trim();
     const localNip05 = (profile.state.profile.nip05 || "").trim();
+    const deleted = isDeletedAccountProfile({
+      displayName: metadata?.displayName,
+      about: metadata?.about,
+    });
 
     return {
       isSelf,
+      isDeleted: deleted,
       displayName: metadata?.displayName || (isSelf ? localName || undefined : undefined),
-      avatarUrl: normalizePublicUrl(metadata?.avatarUrl) || (isSelf ? localAvatar || undefined : undefined),
+      avatarUrl: deleted
+        ? undefined
+        : (normalizePublicUrl(metadata?.avatarUrl) || (isSelf ? localAvatar || undefined : undefined)),
       about: metadata?.about || (isSelf ? localAbout || undefined : undefined),
       nip05: metadata?.nip05 || (isSelf ? localNip05 || undefined : undefined),
     };

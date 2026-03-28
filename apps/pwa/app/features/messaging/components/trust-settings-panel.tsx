@@ -16,6 +16,9 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
 
+const PRIVATE_PEER_LABEL = "Unknown contact";
+const PRIVATE_PEER_IDENTITY_HINT = "Identity hidden";
+
 export function TrustSettingsPanel() {
     const { t } = useTranslation();
     const { identity, peerTrust, blocklist, requestsInbox } = useNetwork();
@@ -170,10 +173,10 @@ function AcceptedPeerRow({ pk, t, onMute, onUntrust }: { pk: string; t: any; onM
                 <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} />
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-zinc-900 dark:text-zinc-100">
-                        {metadata?.displayName || `${pk.slice(0, 8)}...${pk.slice(-8)}`}
+                        {metadata?.displayName || PRIVATE_PEER_LABEL}
                     </p>
-                    <p className="text-[10px] font-mono truncate text-zinc-500">
-                        {pk}
+                    <p className="text-[10px] uppercase tracking-[0.14em] truncate text-zinc-500">
+                        {PRIVATE_PEER_IDENTITY_HINT}
                     </p>
                 </div>
             </div>
@@ -209,10 +212,10 @@ function MutedPeerRow({ pk, t, onUnmute }: { pk: string; t: any; onUnmute: () =>
                 <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} className="grayscale" />
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-zinc-500">
-                        {metadata?.displayName || `${pk.slice(0, 8)}...${pk.slice(-8)}`}
+                        {metadata?.displayName || PRIVATE_PEER_LABEL}
                     </p>
-                    <p className="text-[10px] font-mono truncate text-zinc-400">
-                        {pk}
+                    <p className="text-[10px] uppercase tracking-[0.14em] truncate text-zinc-400">
+                        {PRIVATE_PEER_IDENTITY_HINT}
                     </p>
                 </div>
             </div>
@@ -241,10 +244,10 @@ function BlockedPeerRow({ pk, t, onUnblock }: { pk: string; t: any; onUnblock: (
                 </div>
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-red-700 dark:text-red-400">
-                        {metadata?.displayName || `${pk.slice(0, 8)}...${pk.slice(-8)}`}
+                        {metadata?.displayName || PRIVATE_PEER_LABEL}
                     </p>
-                    <p className="text-[10px] font-mono truncate text-red-700/50 dark:text-red-400/50">
-                        {pk}
+                    <p className="text-[10px] uppercase tracking-[0.14em] truncate text-red-700/50 dark:text-red-400/50">
+                        {PRIVATE_PEER_IDENTITY_HINT}
                     </p>
                 </div>
             </div>

@@ -202,7 +202,7 @@ export const SidebarUserSearch = ({ query, onQueryChange, inputRef, onUserSelect
                                             ) : null}
                                         </div>
                                         <div className="flex items-center gap-2 text-[10px] text-zinc-500 truncate">
-                                            <span className="font-mono">{user.pubkey.slice(0, 8)}</span>
+                                            <span>{t("messaging.identityHidden", "Identity hidden")}</span>
                                             {user.mutuals && user.mutuals.length > 0 ? (
                                                 <span className="flex items-center gap-0.5 text-purple-500 font-bold">
                                                     + {user.mutuals.length} {t("common.mutuals")}

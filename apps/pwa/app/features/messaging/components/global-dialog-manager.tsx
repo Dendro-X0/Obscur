@@ -23,6 +23,8 @@ import { deriveCommunityId } from "@/app/features/groups/utils/community-identit
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 
+const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
+
 export function GlobalDialogManager() {
     const { t } = useTranslation();
     const identity = useIdentity();
@@ -94,7 +96,7 @@ export function GlobalDialogManager() {
             const newConv = createDmConversation({
                 myPublicKeyHex: myPublicKeyHex || "",
                 peerPublicKeyHex: targetPubkey as PublicKeyHex,
-                displayName: newChatDisplayName || targetPubkey.slice(0, 8),
+                displayName: newChatDisplayName || DEFAULT_DM_DISPLAY_NAME,
             });
             if (!newConv) {
                 toast.error("Invalid conversation identity. Please verify the target public key.");

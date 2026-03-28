@@ -82,10 +82,10 @@ export const OutgoingConnectionRequests = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      To: {request.peerPublicKeyHex.slice(0, 16)}...
+                      To: Unknown contact
                     </div>
-                    <div className="mt-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 truncate">
-                      {request.peerPublicKeyHex}
+                    <div className="mt-1 text-xs uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-400 truncate">
+                      Identity hidden
                     </div>
                   </div>
                   <div className="rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">

@@ -35,6 +35,7 @@ const LOAD_EARLIER_BATCH_SIZE_PERF_V2 = MESSAGE_PAGE_SIZE;
 const LIVE_WINDOW_SOFT_LIMIT = MESSAGE_PAGE_SIZE;
 const PROJECTION_CONVERSATION_SOFT_LIMIT = MESSAGE_PAGE_SIZE * 3;
 const DELETE_TOMBSTONE_TTL_MS = 2 * 60 * 1000;
+const MESSAGE_RETENTION_DAY_MS = 24 * 60 * 60 * 1000;
 type DeleteTombstones = Map<string, number>;
 const EMPTY_PROJECTION_MESSAGES: ReadonlyArray<Message> = [];
 
@@ -210,7 +211,32 @@ const areMessagesEquivalentById = (
             return false;
         }
     }
-    return true;
+  return true;
+};
+
+const normalizeLocalRetentionDays = (value: number | undefined): 0 | 30 | 90 => {
+    if (value === 30 || value === 90) {
+        return value;
+    }
+    return 0;
+};
+
+export const filterMessagesByLocalRetention = (
+    messages: ReadonlyArray<Message>,
+    retentionDays: number | undefined,
+    nowMs: number = Date.now(),
+): ReadonlyArray<Message> => {
+    const normalizedRetentionDays = normalizeLocalRetentionDays(retentionDays);
+    if (normalizedRetentionDays <= 0) {
+        return messages;
+    }
+    const cutoffUnixMs = nowMs - (normalizedRetentionDays * MESSAGE_RETENTION_DAY_MS);
+    return messages.filter((message) => {
+        const timestampUnixMs = message.timestamp instanceof Date
+            ? message.timestamp.getTime()
+            : Number.NaN;
+        return Number.isFinite(timestampUnixMs) && timestampUnixMs >= cutoffUnixMs;
+    });
 };
 
 const loadConversationWindow = async (params: Readonly<{
@@ -320,6 +346,9 @@ export function useConversationMessages(
     const [hasEarlier, setHasEarlier] = useState(false);
     const [pendingEventCount, setPendingEventCount] = useState(0);
     const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
+    const [localMessageRetentionDays, setLocalMessageRetentionDays] = useState<0 | 30 | 90>(() => (
+        normalizeLocalRetentionDays(PrivacySettingsService.getSettings().localMessageRetentionDays)
+    ));
 
     const eventQueueRef = useRef<MessageBusEvent[]>([]);
     const rafFlushRef = useRef<number | null>(null);
@@ -338,27 +367,45 @@ export function useConversationMessages(
             myPublicKeyHex: publicKeyHex as PublicKeyHex,
             limit: PROJECTION_CONVERSATION_SOFT_LIMIT,
         });
-        return selected.map((entry) => normalizeMessage(entry, {
+        const normalized = selected.map((entry) => normalizeMessage(entry, {
             conversationId,
             myPublicKeyHex: publicKeyHex,
         })).filter((message) => (
             !persistedDeletedIdsRef.current.has(message.id)
             && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
         ));
+        return filterMessagesByLocalRetention(normalized, localMessageRetentionDays);
     }, [
         accountProjectionSnapshot.projection,
         conversationId,
+        localMessageRetentionDays,
         projectionReadAuthority.useProjectionReads,
         publicKeyHex,
     ]);
+    const projectionMessagesRef = useRef<ReadonlyArray<Message>>(EMPTY_PROJECTION_MESSAGES);
+    const projectionReadAuthorityRef = useRef(projectionReadAuthority);
+
+    useEffect(() => {
+        projectionMessagesRef.current = projectionMessages;
+    }, [projectionMessages]);
+
+    useEffect(() => {
+        projectionReadAuthorityRef.current = projectionReadAuthority;
+    }, [projectionReadAuthority]);
 
     useEffect(() => {
         messagesRef.current = messages;
     }, [messages]);
 
     useEffect(() => {
+        setMessages((previousMessages) => filterMessagesByLocalRetention(previousMessages, localMessageRetentionDays));
+    }, [localMessageRetentionDays]);
+
+    useEffect(() => {
         const onPrivacySettingsChanged = () => {
-            setChatPerformanceV2Enabled(PrivacySettingsService.getSettings().chatPerformanceV2);
+            const settings = PrivacySettingsService.getSettings();
+            setChatPerformanceV2Enabled(settings.chatPerformanceV2);
+            setLocalMessageRetentionDays(normalizeLocalRetentionDays(settings.localMessageRetentionDays));
         };
         if (typeof window !== "undefined") {
             window.addEventListener("privacy-settings-changed", onPrivacySettingsChanged);
@@ -384,18 +431,21 @@ export function useConversationMessages(
                 !persistedDeletedIdsRef.current.has(message.id)
                 && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
             ));
+            const retentionFilteredMapped = filterMessagesByLocalRetention(mapped, localMessageRetentionDays);
+            const projectionMessagesSnapshot = projectionMessagesRef.current;
+            const projectionReadAuthoritySnapshot = projectionReadAuthorityRef.current;
 
             const shouldUseProjectionFallback = (
                 mapped.length === 0
-                && projectionReadAuthority.useProjectionReads
-                && projectionMessages.length > 0
+                && projectionReadAuthoritySnapshot.useProjectionReads
+                && projectionMessagesSnapshot.length > 0
             );
             const hydrated = shouldUseProjectionFallback
-                ? projectionMessages
-                : mapped.filter(isDisplayableMessage);
+                ? projectionMessagesSnapshot
+                : retentionFilteredMapped.filter(isDisplayableMessage);
             const normalizedPublicKeyHex = normalizePublicKeyHex(publicKeyHex);
             const mappedDirectionCounts = getMessageDirectionCounts(mapped, normalizedPublicKeyHex);
-            const projectionDirectionCounts = getMessageDirectionCounts(projectionMessages, normalizedPublicKeyHex);
+            const projectionDirectionCounts = getMessageDirectionCounts(projectionMessagesSnapshot, normalizedPublicKeyHex);
 
             if (shouldUseProjectionFallback || (mappedDirectionCounts.outgoing === 0 && mappedDirectionCounts.incoming > 0)) {
                 logAppEvent({
@@ -407,12 +457,12 @@ export function useConversationMessages(
                         indexedMessageCount: mapped.length,
                         indexedOutgoingCount: mappedDirectionCounts.outgoing,
                         indexedIncomingCount: mappedDirectionCounts.incoming,
-                        projectionMessageCount: projectionMessages.length,
+                        projectionMessageCount: projectionMessagesSnapshot.length,
                         projectionOutgoingCount: projectionDirectionCounts.outgoing,
                         projectionIncomingCount: projectionDirectionCounts.incoming,
                         shouldUseProjectionFallback,
-                        projectionReadAuthorityReason: projectionReadAuthority.reason,
-                        criticalDriftCount: projectionReadAuthority.criticalDriftCount,
+                        projectionReadAuthorityReason: projectionReadAuthoritySnapshot.reason,
+                        criticalDriftCount: projectionReadAuthoritySnapshot.criticalDriftCount,
                     },
                 });
             }
@@ -469,15 +519,19 @@ export function useConversationMessages(
                             siblingOutgoingCount,
                             siblingIncomingCount,
                             siblingSample: siblingSamples.join(",") || null,
-                            projectionReadAuthorityReason: projectionReadAuthority.reason,
-                            criticalDriftCount: projectionReadAuthority.criticalDriftCount,
+                            projectionReadAuthorityReason: projectionReadAuthoritySnapshot.reason,
+                            criticalDriftCount: projectionReadAuthoritySnapshot.criticalDriftCount,
                         },
                     });
                 }
             }
 
             setMessages(hydrated);
-            setHasEarlier(shouldUseProjectionFallback ? false : mapped.length >= initialBatchSize);
+            setHasEarlier(
+                shouldUseProjectionFallback
+                    ? false
+                    : (mapped.length >= initialBatchSize && retentionFilteredMapped.length >= initialBatchSize)
+            );
             projectionFallbackHydrationRef.current = shouldUseProjectionFallback;
             expandedHistoryRef.current = false;
         } catch (e) {
@@ -487,10 +541,7 @@ export function useConversationMessages(
         }
     }, [
         chatPerformanceV2Enabled,
-        projectionMessages,
-        projectionReadAuthority.useProjectionReads,
-        projectionReadAuthority.reason,
-        projectionReadAuthority.criticalDriftCount,
+        localMessageRetentionDays,
         publicKeyHex,
     ]);
 
@@ -537,6 +588,7 @@ export function useConversationMessages(
         const nextMessages = shouldCapToLiveWindow
             ? merged.slice(-LIVE_WINDOW_SOFT_LIMIT)
             : merged;
+        const retentionFilteredNextMessages = filterMessagesByLocalRetention(nextMessages, localMessageRetentionDays);
 
         if (shouldCapToLiveWindow) {
             logAppEvent({
@@ -553,19 +605,19 @@ export function useConversationMessages(
             });
         }
 
-        if (areMessagesEquivalentById(previousMessages, nextMessages)) {
+        if (areMessagesEquivalentById(previousMessages, retentionFilteredNextMessages)) {
             return;
         }
 
-        setMessages(nextMessages);
-        messagesRef.current = nextMessages;
+        setMessages(retentionFilteredNextMessages);
+        messagesRef.current = retentionFilteredNextMessages;
 
         if (projectionFallbackHydrationRef.current) {
             setHasEarlier(false);
         } else if (shouldCapToLiveWindow) {
             setHasEarlier(true);
         }
-    }, [conversationId, projectionMessages, projectionReadAuthority.useProjectionReads]);
+    }, [conversationId, localMessageRetentionDays, projectionMessages, projectionReadAuthority.useProjectionReads]);
 
     // Handle incoming real-time messages
     useEffect(() => {
@@ -587,15 +639,18 @@ export function useConversationMessages(
                     dedupeProbe.add(`m:${event.message.id}`);
                 }
             });
-            setMessages((prev) => applyBufferedEvents(
-                prev,
-                queue,
-                chatPerformanceV2Enabled,
-                expandedHistoryRef.current,
-                deletedTombstonesRef.current,
-                Date.now(),
-                publicKeyHex,
-                persistedDeletedIdsRef.current,
+            setMessages((prev) => filterMessagesByLocalRetention(
+                applyBufferedEvents(
+                    prev,
+                    queue,
+                    chatPerformanceV2Enabled,
+                    expandedHistoryRef.current,
+                    deletedTombstonesRef.current,
+                    Date.now(),
+                    publicKeyHex,
+                    persistedDeletedIdsRef.current,
+                ),
+                localMessageRetentionDays,
             ));
             if (performanceMonitor.isEnabled()) {
                 const mergedOrDroppedCount = Math.max(0, queue.length - dedupeProbe.size);
@@ -632,15 +687,18 @@ export function useConversationMessages(
             }
 
             if (!chatPerformanceV2Enabled) {
-                setMessages((prev) => applyBufferedEvents(
-                    prev,
-                    [event],
-                    false,
-                    true,
-                    deletedTombstonesRef.current,
-                    Date.now(),
-                    publicKeyHex,
-                    persistedDeletedIdsRef.current,
+                setMessages((prev) => filterMessagesByLocalRetention(
+                    applyBufferedEvents(
+                        prev,
+                        [event],
+                        false,
+                        true,
+                        deletedTombstonesRef.current,
+                        Date.now(),
+                        publicKeyHex,
+                        persistedDeletedIdsRef.current,
+                    ),
+                    localMessageRetentionDays,
                 ));
                 return;
             }
@@ -662,7 +720,7 @@ export function useConversationMessages(
             eventQueueRef.current = [];
             setPendingEventCount(0);
         };
-    }, [conversationId, chatPerformanceV2Enabled]);
+    }, [conversationId, chatPerformanceV2Enabled, localMessageRetentionDays, publicKeyHex]);
 
     const loadEarlier = useCallback(async () => {
         if (!conversationId || messages.length === 0) return;
@@ -689,9 +747,13 @@ export function useConversationMessages(
                     && !persistedDeletedIdsRef.current.has(message.id)
                     && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
                 ));
-
-                setMessages(prev => [...mapped, ...prev]);
-                setHasEarlier(mapped.length >= loadEarlierBatchSize);
+                const retentionFilteredMapped = filterMessagesByLocalRetention(mapped, localMessageRetentionDays);
+                if (retentionFilteredMapped.length === 0) {
+                    setHasEarlier(false);
+                    return;
+                }
+                setMessages(prev => [...retentionFilteredMapped, ...prev]);
+                setHasEarlier(retentionFilteredMapped.length >= loadEarlierBatchSize);
                 expandedHistoryRef.current = true;
             } else {
                 setHasEarlier(false);
@@ -699,7 +761,7 @@ export function useConversationMessages(
         } catch (e) {
             console.error("[useConversationMessages] Failed to load earlier messages:", e);
         }
-    }, [chatPerformanceV2Enabled, conversationId, messages]);
+    }, [chatPerformanceV2Enabled, conversationId, localMessageRetentionDays, messages, publicKeyHex]);
 
     return {
         messages,

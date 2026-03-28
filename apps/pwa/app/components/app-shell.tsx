@@ -99,6 +99,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const routeMountProbeAnimationFrameTwoIdRef = useRef<number | null>(null);
   const routeMountProbeStartedAtUnixMsRef = useRef<number>(0);
   const arePageTransitionsEnabledRef = useRef<boolean>(true);
+  const routeStallHardFallbackCountRef = useRef<number>(0);
+  const navigationFailOpenEnabledRef = useRef<boolean>(false);
   const isDesktop = useIsDesktop();
   useDesktopLayout();
 
@@ -155,6 +157,43 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     routePendingTargetRef.current = null;
     routePendingStartedAtUnixMsRef.current = 0;
   }, []);
+
+  const enableNavigationFailOpen = useCallback((disableReason: string): void => {
+    const wasFailOpenEnabled = navigationFailOpenEnabledRef.current;
+    navigationFailOpenEnabledRef.current = true;
+    setIsPageTransitionActive(false);
+    setMobileSidebarOpen(false);
+    pageTransitionSequenceRef.current += 1;
+    routeMountProbeSequenceRef.current += 1;
+    clearPageTransitionTimers();
+    clearRouteMountProbeTimers();
+    clearRouteFallback();
+    if (arePageTransitionsEnabledRef.current) {
+      arePageTransitionsEnabledRef.current = false;
+      setArePageTransitionsEnabled(false);
+    }
+    if (!wasFailOpenEnabled) {
+      logAppEvent({
+        name: "navigation.page_transition_effects_disabled",
+        level: "warn",
+        scope: { feature: "navigation", action: "page_transition" },
+        context: {
+          pathname,
+          routeSurface: activeRouteSurface,
+          timeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
+          disableReason,
+          consecutiveSlowSampleCount: routeMountDiagnosticsRef.current.consecutiveSlowSampleCount,
+          disableThreshold: ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
+        },
+      });
+    }
+  }, [
+    activeRouteSurface,
+    clearPageTransitionTimers,
+    clearRouteFallback,
+    clearRouteMountProbeTimers,
+    pathname,
+  ]);
 
   useEffect((): (() => void) => {
     const root = window as AppShellWindow;
@@ -219,10 +258,14 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           hardFallbackAfterMs: ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
         },
       });
+      routeStallHardFallbackCountRef.current += 1;
+      if (routeStallHardFallbackCountRef.current >= 2) {
+        enableNavigationFailOpen("route_stall_hard_fallback");
+      }
       clearRouteFallback();
       hardNavigate(targetHref);
     }, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS);
-  }, [activeRouteSurface, clearRouteFallback, pathname]);
+  }, [activeRouteSurface, clearRouteFallback, enableNavigationFailOpen, pathname]);
 
   useEffect((): (() => void) => {
     pageTransitionSequenceRef.current += 1;
@@ -301,22 +344,18 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       });
 
       if (nextRecoveryState.transitionsDisabled) {
-        setArePageTransitionsEnabled(false);
-        logAppEvent({
-          name: "navigation.page_transition_effects_disabled",
-          level: "warn",
-          scope: { feature: "navigation", action: "page_transition" },
-          context: {
-            pathname,
-            routeSurface: activeRouteSurface,
-            timeoutCount: nextRecoveryState.timeoutCount,
-          },
-        });
+        enableNavigationFailOpen("page_transition_watchdog_threshold");
       }
     }, PAGE_TRANSITION_WATCHDOG_MS);
 
     return clearPageTransitionTimers;
-  }, [activeRouteSurface, arePageTransitionsEnabled, clearPageTransitionTimers, pathname]);
+  }, [
+    activeRouteSurface,
+    arePageTransitionsEnabled,
+    clearPageTransitionTimers,
+    enableNavigationFailOpen,
+    pathname,
+  ]);
 
   useEffect((): (() => void) => {
     return (): void => {
@@ -424,7 +463,6 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           && latestRouteMountDiagnostics.consecutiveSlowSampleCount >= ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD
         );
         if (shouldEnablePerformanceGuard) {
-          setArePageTransitionsEnabled(false);
           logAppEvent({
             name: "navigation.route_mount_performance_guard_enabled",
             level: "warn",
@@ -439,25 +477,13 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
               warnThresholdMs: ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
             },
           });
-          logAppEvent({
-            name: "navigation.page_transition_effects_disabled",
-            level: "warn",
-            scope: { feature: "navigation", action: "page_transition" },
-            context: {
-              pathname,
-              routeSurface: activeRouteSurface,
-              timeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
-              disableReason: "route_mount_consecutive_slow",
-              consecutiveSlowSampleCount: latestRouteMountDiagnostics.consecutiveSlowSampleCount,
-              disableThreshold: ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
-            },
-          });
+          enableNavigationFailOpen("route_mount_consecutive_slow");
         }
       });
     });
 
     return clearRouteMountProbeTimers;
-  }, [activeRouteSurface, clearRouteMountProbeTimers, pathname]);
+  }, [activeRouteSurface, clearRouteMountProbeTimers, enableNavigationFailOpen, pathname]);
 
   useEffect((): void => {
     const pendingTarget = routePendingTargetRef.current;
@@ -475,8 +501,13 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         elapsedMs: Math.max(0, Date.now() - routePendingStartedAtUnixMsRef.current),
       },
     });
+    routeStallHardFallbackCountRef.current = 0;
     clearRouteFallback();
   }, [activeRouteSurface, clearRouteFallback, pathname]);
+
+  useEffect((): void => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
 
   useEffect((): (() => void) => {
     return (): void => {
@@ -624,6 +655,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                         return;
                       }
                       if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
+                        return;
+                      }
+                      if (navigationFailOpenEnabledRef.current) {
+                        event.preventDefault();
+                        hardNavigate(item.href);
                         return;
                       }
                       armRouteHardFallback(item.href);

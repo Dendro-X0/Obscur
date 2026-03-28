@@ -234,7 +234,7 @@ export function InviteMemberDialog({
                                         </Avatar>
                                         <div>
                                             <p className="text-white font-black text-sm">{user.displayName || user.name || 'Unknown'}</p>
-                                            <p className="text-zinc-600 text-[10px] font-mono mt-0.5">{user.pubkey.slice(0, 16)}...</p>
+                                            <p className="text-zinc-600 text-[10px] uppercase tracking-[0.14em] mt-0.5">Identity hidden</p>
                                         </div>
                                     </div>
                                     <Button

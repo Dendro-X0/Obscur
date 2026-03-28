@@ -8,11 +8,11 @@ import { MediaGallery } from "./media-gallery";
 import { Lightbox } from "./lightbox";
 import { MessageMenu } from "./message-menu";
 import { ReactionPicker } from "./reaction-picker";
-import { Loader2, Lock, Mic, Search, UploadCloud, X } from "lucide-react";
+import { Loader2, Lock, Mic, Search, Trash2, UploadCloud, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
     Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary,
-    SendDirectMessageParams, SendDirectMessageResult
+    SendDirectMessageParams, SendDirectMessageResult, VoiceCallInvitePayload
 } from "../types";
 import { chatStateStoreService } from "../services/chat-state-store";
 import { formatTime, highlightText } from "../utils/formatting";
@@ -46,6 +46,7 @@ export interface ChatViewProps {
     isPeerOnline?: boolean;
     interactionStatus?: Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>;
     messages: ReadonlyArray<Message>;
+    renderMetaMessages?: ReadonlyArray<Message>;
     rawMessagesCount: number;
     hasHydrated: boolean;
     hasEarlierMessages: boolean;
@@ -57,6 +58,29 @@ export interface ChatViewProps {
     onCopyPubkey: (pubkey: string) => void;
     onOpenMedia: () => void;
     onOpenInfo?: () => void;
+    onSendVoiceCallInvite?: () => void;
+    canSendVoiceCallInvite?: boolean;
+    isSendingVoiceCallInvite?: boolean;
+    onJoinVoiceCallInvite?: (params: Readonly<{ invite: VoiceCallInvitePayload; messageId: string }>) => void;
+    onRequestVoiceCallCallback?: () => void;
+    joiningVoiceCallInviteMessageId?: string | null;
+    activeVoiceCallState?: Readonly<{
+        roomId: string;
+        peerPubkey: string;
+        role: "host" | "joiner";
+        connectionState: "new" | "connecting" | "connected" | "disconnected" | "failed" | "closed";
+    }> | null;
+    voiceCallStatus?: Readonly<{
+        roomId: string;
+        peerPubkey: string;
+        phase: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended";
+        role: "host" | "joiner";
+        sinceUnixMs: number;
+        reasonCode?: "left_by_user" | "remote_left" | "network_interrupted" | "session_closed";
+    }> | null;
+    onLeaveVoiceCall?: () => void;
+    onAcceptIncomingVoiceCall?: () => void;
+    onDeclineIncomingVoiceCall?: () => void;
 
     // Message Menu & Interactions
     messageMenu: { messageId: string; x: number; y: number } | null;
@@ -118,6 +142,9 @@ export interface ChatViewProps {
 export function ChatView(props: ChatViewProps) {
     const { t } = useTranslation();
     const [isDragging, setIsDragging] = useState(false);
+    const [isBatchDeleteMode, setIsBatchDeleteMode] = useState(false);
+    const [selectedMessageIds, setSelectedMessageIds] = useState<ReadonlySet<string>>(new Set());
+    const [isBatchDeleteInFlight, setIsBatchDeleteInFlight] = useState(false);
     const [isHistorySearchOpen, setIsHistorySearchOpen] = useState(false);
     const [historySearchQuery, setHistorySearchQuery] = useState("");
     const [historySearchFilter, setHistorySearchFilter] = useState<"all" | "voice_note">("all");
@@ -131,6 +158,7 @@ export function ChatView(props: ChatViewProps) {
     const [isMessageMenuHovered, setIsMessageMenuHovered] = useState(false);
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
     const resolvedName = metadata?.displayName || props.conversation.displayName;
+    const isDeletedRecipient = props.conversation.kind === "dm" && metadata?.isDeleted === true;
     const resolvedNowMs = props.nowMs ?? Date.now();
     const normalizedHistorySearchQuery = historySearchQuery.trim().toLowerCase();
     const canSearchHistory = normalizedHistorySearchQuery.length >= 2;
@@ -142,6 +170,14 @@ export function ChatView(props: ChatViewProps) {
             ? historySearchResults.filter((result) => result.resultKind === "voice_note")
             : historySearchResults
     ), [historySearchFilter, historySearchResults]);
+    const selectedMessages = React.useMemo(() => (
+        props.messages.filter((message) => selectedMessageIds.has(message.id))
+    ), [props.messages, selectedMessageIds]);
+    const selectedOutgoingMessages = React.useMemo(() => (
+        selectedMessages.filter((message) => message.isOutgoing)
+    ), [selectedMessages]);
+    const selectedMessageCount = selectedMessages.length;
+    const selectedOutgoingMessageCount = selectedOutgoingMessages.length;
     const effectiveFlashMessageId = searchFlashMessageId ?? props.flashMessageId;
     const {
         isMediaGalleryOpen,
@@ -151,6 +187,8 @@ export function ChatView(props: ChatViewProps) {
         setLightboxIndex,
         setMessageMenu,
         setReactionPicker,
+        onDeleteMessageForMe,
+        onDeleteMessageForEveryone,
     } = props;
 
     const getMessageById = (messageId: string): Message | undefined => {
@@ -183,7 +221,32 @@ export function ChatView(props: ChatViewProps) {
         setSearchFlashMessageId(null);
         setIsHistorySearchOpen(false);
         setHistorySearchFilter("all");
+        setSelectedMessageIds(new Set());
+        setIsBatchDeleteMode(false);
+        setIsBatchDeleteInFlight(false);
     }, [props.conversation.id]);
+
+    React.useEffect(() => {
+        setSelectedMessageIds((current) => {
+            if (current.size === 0) {
+                return current;
+            }
+            const currentMessageIds = new Set(props.messages.map((message) => message.id));
+            let changed = false;
+            const next = new Set<string>();
+            current.forEach((messageId) => {
+                if (currentMessageIds.has(messageId)) {
+                    next.add(messageId);
+                    return;
+                }
+                changed = true;
+            });
+            if (!changed && next.size === current.size) {
+                return current;
+            }
+            return next;
+        });
+    }, [props.messages]);
 
     React.useEffect(() => {
         if (!canSearchHistory) {
@@ -276,12 +339,78 @@ export function ChatView(props: ChatViewProps) {
             }
         };
     }, []);
+    const handleCancelBatchDeleteMode = React.useCallback((): void => {
+        setIsBatchDeleteMode(false);
+        setSelectedMessageIds(new Set());
+        setMessageMenu(null);
+        setReactionPicker(null);
+        setMessageMenuAnchorHoverId(null);
+        setIsMessageMenuHovered(false);
+    }, [setMessageMenu, setReactionPicker]);
+    const handleStartBatchDeleteModeForMessage = React.useCallback((messageId: string): void => {
+        setIsBatchDeleteMode(true);
+        setSelectedMessageIds(new Set([messageId]));
+        setMessageMenu(null);
+        setReactionPicker(null);
+        setMessageMenuAnchorHoverId(null);
+        setIsMessageMenuHovered(false);
+    }, [setMessageMenu, setReactionPicker]);
+    const handleToggleBatchMessageSelection = React.useCallback((messageId: string): void => {
+        if (!isBatchDeleteMode) {
+            return;
+        }
+        setSelectedMessageIds((current) => {
+            const next = new Set(current);
+            if (next.has(messageId)) {
+                next.delete(messageId);
+            } else {
+                next.add(messageId);
+            }
+            return next;
+        });
+    }, [isBatchDeleteMode]);
+    const handleBatchDeleteForMe = React.useCallback((): void => {
+        if (selectedMessageCount === 0 || isBatchDeleteInFlight) {
+            return;
+        }
+        setIsBatchDeleteInFlight(true);
+        try {
+            selectedMessages.forEach((message) => {
+                onDeleteMessageForMe(message);
+            });
+        } finally {
+            setSelectedMessageIds(new Set());
+            setIsBatchDeleteMode(false);
+            setIsBatchDeleteInFlight(false);
+        }
+    }, [isBatchDeleteInFlight, onDeleteMessageForMe, selectedMessageCount, selectedMessages]);
+    const handleBatchDeleteForEveryone = React.useCallback((): void => {
+        if (selectedOutgoingMessageCount === 0 || isBatchDeleteInFlight) {
+            return;
+        }
+        setIsBatchDeleteInFlight(true);
+        try {
+            selectedOutgoingMessages.forEach((message) => {
+                onDeleteMessageForEveryone(message);
+            });
+        } finally {
+            setSelectedMessageIds(new Set());
+            setIsBatchDeleteMode(false);
+            setIsBatchDeleteInFlight(false);
+        }
+    }, [isBatchDeleteInFlight, onDeleteMessageForEveryone, selectedOutgoingMessageCount, selectedOutgoingMessages]);
     const handleOpenMessageMenu = React.useCallback((params: { messageId: string; x: number; y: number }): void => {
+        if (isBatchDeleteMode) {
+            return;
+        }
         setMessageMenu(params);
-    }, [setMessageMenu]);
+    }, [isBatchDeleteMode, setMessageMenu]);
     const handleOpenReactionPicker = React.useCallback((params: { messageId: string; x: number; y: number }): void => {
+        if (isBatchDeleteMode) {
+            return;
+        }
         setReactionPicker(params);
-    }, [setReactionPicker]);
+    }, [isBatchDeleteMode, setReactionPicker]);
     const handleImageClick = React.useCallback((url: string): void => {
         const index = selectedConversationMediaItems.findIndex(item => item.attachment.url === url);
         if (index !== -1) {
@@ -385,6 +514,10 @@ export function ChatView(props: ChatViewProps) {
             } else if (reactionPicker) {
                 setReactionPicker(null);
                 handled = true;
+            } else if (isBatchDeleteMode) {
+                setIsBatchDeleteMode(false);
+                setSelectedMessageIds(new Set());
+                handled = true;
             } else if (isHistorySearchOpen) {
                 setIsHistorySearchOpen(false);
                 handled = true;
@@ -404,6 +537,7 @@ export function ChatView(props: ChatViewProps) {
         };
     }, [
         isHistorySearchOpen,
+        isBatchDeleteMode,
         isMediaGalleryOpen,
         lightboxIndex,
         messageMenu,
@@ -433,6 +567,14 @@ export function ChatView(props: ChatViewProps) {
                 onCopyPubkey={props.onCopyPubkey}
                 onOpenMedia={props.onOpenMedia}
                 onOpenInfo={props.onOpenInfo}
+                onSendVoiceCallInvite={props.onSendVoiceCallInvite}
+                canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite}
+                isSendingVoiceCallInvite={props.isSendingVoiceCallInvite}
+                activeVoiceCallState={props.activeVoiceCallState}
+                voiceCallStatus={props.voiceCallStatus}
+                onLeaveVoiceCall={props.onLeaveVoiceCall}
+                onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall}
+                onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall}
             />
 
             {props.conversation.kind === 'dm' && props.isPeerAccepted === false && (
@@ -449,6 +591,11 @@ export function ChatView(props: ChatViewProps) {
                     onBlock={() => props.onBlockPeer?.()}
                 />
             )}
+            {isDeletedRecipient && (
+                <div className="mx-4 mt-3 rounded-2xl border border-amber-500/25 bg-amber-50/65 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-500/35 dark:bg-amber-900/20 dark:text-amber-200">
+                    This contact account has been removed. You can still browse this chat, but new messages and calls cannot be delivered.
+                </div>
+            )}
 
             <div className="pointer-events-none absolute bottom-[108px] right-4 z-40 flex w-[min(24rem,calc(100%-2rem))] flex-col items-end gap-2">
                 <button
@@ -464,6 +611,59 @@ export function ChatView(props: ChatViewProps) {
                     <Search className="h-3.5 w-3.5" />
                     {t("messaging.searchMessagesInChat", "Search Messages")}
                 </button>
+
+                {isBatchDeleteMode ? (
+                    <div
+                        data-escape-layer="open"
+                        className="pointer-events-auto w-full rounded-2xl border border-rose-400/20 bg-white/85 p-3 shadow-lg backdrop-blur dark:border-rose-300/20 dark:bg-zinc-950/85"
+                    >
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                                {selectedMessageCount > 0
+                                    ? t("messaging.selectedMessagesCount", "{{count}} selected", { count: selectedMessageCount })
+                                    : t("messaging.selectMessagesPrompt", "Select messages to delete")}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleCancelBatchDeleteMode}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white/70 text-zinc-500 transition-colors hover:text-zinc-800 dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-400 dark:hover:text-zinc-100"
+                                aria-label={t("common.close", "Close")}
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleBatchDeleteForMe}
+                                disabled={selectedMessageCount === 0 || isBatchDeleteInFlight}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                {t("messaging.deleteForMeWithCount", "Delete for me ({{count}})", { count: selectedMessageCount })}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleBatchDeleteForEveryone}
+                                disabled={selectedOutgoingMessageCount === 0 || isBatchDeleteInFlight}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-200 dark:hover:bg-rose-400/25"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                {t("messaging.deleteForEveryoneWithCount", "Delete for everyone ({{count}})", { count: selectedOutgoingMessageCount })}
+                            </button>
+                        </div>
+
+                        {selectedMessageCount > 0 && selectedOutgoingMessageCount !== selectedMessageCount ? (
+                            <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                {t(
+                                    "messaging.deleteForEveryoneOutgoingOnlyHint",
+                                    "Only messages sent by you can be deleted for everyone.",
+                                )}
+                            </p>
+                        ) : null}
+                    </div>
+                ) : null}
 
                 {isHistorySearchOpen ? (
                     <div
@@ -616,6 +816,7 @@ export function ChatView(props: ChatViewProps) {
                     key={props.conversation.id}
                     hasHydrated={props.hasHydrated}
                     messages={props.messages}
+                    renderMetaMessages={props.renderMetaMessages ?? props.messages}
                     rawMessagesCount={props.rawMessagesCount}
                     hasEarlierMessages={props.hasEarlierMessages}
                     onLoadEarlier={props.onLoadEarlier}
@@ -627,6 +828,9 @@ export function ChatView(props: ChatViewProps) {
                     onOpenMessageMenu={handleOpenMessageMenu}
                     openMessageMenuMessageId={props.messageMenu?.messageId ?? null}
                     openReactionPickerMessageId={props.reactionPicker?.messageId ?? null}
+                    batchDeleteMode={isBatchDeleteMode}
+                    selectedMessageIds={selectedMessageIds}
+                    onToggleSelectMessage={handleToggleBatchMessageSelection}
                     onMessageMenuAnchorHoverChange={handleMessageMenuAnchorHoverChange}
                     onOpenReactionPicker={handleOpenReactionPicker}
                     onToggleReaction={props.onToggleReaction}
@@ -637,6 +841,10 @@ export function ChatView(props: ChatViewProps) {
                     isGroup={props.conversation.kind === "group"}
                     admins={props.groupAdmins}
                     onSendDirectMessage={props.onSendDirectMessage}
+                    onJoinVoiceCallInvite={props.onJoinVoiceCallInvite}
+                    onRequestVoiceCallCallback={props.onRequestVoiceCallCallback}
+                    joiningVoiceCallInviteMessageId={props.joiningVoiceCallInviteMessageId}
+                    voiceCallStatus={props.voiceCallStatus}
                     pendingEventCount={props.pendingEventCount ?? 0}
                 />
             )}
@@ -661,12 +869,13 @@ export function ChatView(props: ChatViewProps) {
                 recipientStatus={props.recipientStatus}
                 isPeerAccepted={props.isPeerAccepted}
                 isInitiator={props.isInitiator}
+                recipientRemoved={isDeletedRecipient}
                 onSendVoiceNote={props.onSendVoiceNote}
                 isProcessingMedia={props.isProcessingMedia}
                 mediaProcessingProgress={props.mediaProcessingProgress}
             />
 
-            {props.messageMenu && activeMessage && (
+            {!isBatchDeleteMode && props.messageMenu && activeMessage && (
                 <MessageMenu
                     x={props.messageMenu.x}
                     y={props.messageMenu.y}
@@ -686,6 +895,9 @@ export function ChatView(props: ChatViewProps) {
                         props.onReferenceMessage(activeMessage);
                         props.setMessageMenu(null);
                     }}
+                    onStartMultiSelect={() => {
+                        handleStartBatchDeleteModeForMessage(activeMessage.id);
+                    }}
                     onDeleteForMe={() => {
                         props.onDeleteMessageForMe(activeMessage);
                         props.setMessageMenu(null);
@@ -704,7 +916,7 @@ export function ChatView(props: ChatViewProps) {
                 />
             )}
 
-            {props.reactionPicker && (
+            {!isBatchDeleteMode && props.reactionPicker && (
                 <ReactionPicker
                     messageId={props.reactionPicker.messageId}
                     isOutgoing={activeReactionMessage?.isOutgoing ?? false}

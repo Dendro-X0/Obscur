@@ -42,7 +42,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
-import { useProfileMetadata } from "@/app/features/profile/hooks/use-profile-metadata";
+import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
@@ -51,6 +51,7 @@ import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { filterVisibleGroupMembers } from "@/app/features/groups/services/community-visible-members";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -204,14 +205,18 @@ export default function GroupHomePage() {
         }
         return fallbackCommunityIdFromRoute || undefined;
     }, [fallbackCommunityIdFromRoute, group?.communityId]);
-    const displayMemberCount = allKnownMembers.length;
+    const visibleMembers = React.useMemo(
+        () => filterVisibleGroupMembers(allKnownMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [allKnownMembers]
+    );
+    const displayMemberCount = visibleMembers.length;
     const onlineMembers = React.useMemo(
-        () => allKnownMembers.filter((pk) => presence.isPeerOnline(pk as PublicKeyHex)),
-        [allKnownMembers, presence]
+        () => visibleMembers.filter((pk) => presence.isPeerOnline(pk as PublicKeyHex)),
+        [presence, visibleMembers]
     );
     const offlineMembers = React.useMemo(
-        () => allKnownMembers.filter((pk) => !presence.isPeerOnline(pk as PublicKeyHex)),
-        [allKnownMembers, presence]
+        () => visibleMembers.filter((pk) => !presence.isPeerOnline(pk as PublicKeyHex)),
+        [presence, visibleMembers]
     );
 
     const normalizedMemberSearch = memberSearchQuery.trim().toLowerCase();
@@ -273,9 +278,9 @@ export default function GroupHomePage() {
         if (!group || discoveredMembers.length === 0) return;
         const current = group.memberPubkeys ?? [];
         const merged = Array.from(new Set([...current, ...discoveredMembers]));
-        const nextMembers = merged.filter((pubkey) => (
+        const nextMembers = filterVisibleGroupMembers(merged.filter((pubkey) => (
             !groupState.leftMembers.includes(pubkey) && !groupState.expelledMembers.includes(pubkey)
-        ));
+        )), (pubkey) => discoveryCache.getProfile(pubkey));
         const same = current.length === nextMembers.length &&
             nextMembers.every(pk => current.includes(pk));
         if (!same) {
@@ -1082,9 +1087,12 @@ function MemberProfileRow({
     pubkey: string;
     status: "online" | "offline";
     onOpenProfile: (pubkey: string) => void;
-}>): React.JSX.Element {
-    const metadata = useProfileMetadata(pubkey);
-    const displayName = metadata?.displayName || `${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
+}>): React.JSX.Element | null {
+    const metadata = useResolvedProfileMetadata(pubkey);
+    if (metadata.isDeleted) {
+        return null;
+    }
+    const displayName = metadata?.displayName || "Unknown member";
     const statusLabel = status === "online" ? "Online" : "Offline";
 
     return (
@@ -1119,8 +1127,8 @@ function MemberProfileRow({
                             {statusLabel}
                         </span>
                     </div>
-                    <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-600 dark:text-zinc-400">
-                        {pubkey.slice(0, 12)}...{pubkey.slice(-8)}
+                    <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-400">
+                        Identity hidden
                     </p>
                 </div>
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-black/[0.05] text-zinc-500 transition-colors group-hover:border-black/20 group-hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:border-white/20 dark:group-hover:text-white">
@@ -1130,4 +1138,5 @@ function MemberProfileRow({
         </button>
     );
 }
+
 

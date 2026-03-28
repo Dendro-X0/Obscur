@@ -140,6 +140,14 @@ const resolveOutgoingMessageKind = (customTags?: ReadonlyArray<ReadonlyArray<str
     return lifecycleTag === "message-delete" ? "command" : "user";
 };
 
+const getTransportTag = (customTags?: ReadonlyArray<ReadonlyArray<string>>): string | null => (
+    customTags?.find((tag) => tag[0] === "t")?.[1] ?? null
+);
+
+const isRealtimeVoiceTransportTag = (transportTag: string | null): boolean => (
+    transportTag === "voice-call-signal" || transportTag === "voice-call-invite"
+);
+
 const dedupeRelayUrls = (relayUrls: ReadonlyArray<string>): ReadonlyArray<string> => (
     Array.from(new Set(relayUrls.map((url) => url.trim()).filter((url) => url.length > 0)))
 );
@@ -481,11 +489,15 @@ export const orchestrateOutgoingDm = async (
         const scopedTargetRelayCount = targetRelayUrls.length > 0
             ? targetRelayUrls.length
             : relaySendSnapshot.writableRelayUrls.length;
-        const durableRelayMinimum = getDurableRelaySuccessMinimum(Math.max(1, scopedTargetRelayCount));
+        const transportTag = getTransportTag(customTags);
+        const realtimeVoiceTransport = isRealtimeVoiceTransportTag(transportTag);
+        const requiredRelaySuccessMinimum = realtimeVoiceTransport
+            ? 1
+            : getDurableRelaySuccessMinimum(Math.max(1, scopedTargetRelayCount));
         const relayPreflightDecision = resolveRelayPreflightDecision({
             openRelayCount: relaySendSnapshot.openRelayCount,
             scopedWritableRelayCount: scopedWritableRelayUrls.length,
-            durableRelayMinimum,
+            durableRelayMinimum: requiredRelaySuccessMinimum,
         });
 
         if (relayPreflightDecision === "queue_no_writable_relays") {
@@ -542,7 +554,8 @@ export const orchestrateOutgoingDm = async (
                     peerPubkey: recipientPubkey.slice(0, 16),
                     targetRelayCount: scopedTargetRelayCount,
                     writableRelayCount: scopedWritableRelayUrls.length,
-                    durableRelayMinimum,
+                    durableRelayMinimum: requiredRelaySuccessMinimum,
+                    transportTag,
                 },
             });
         }
@@ -554,7 +567,10 @@ export const orchestrateOutgoingDm = async (
             messageQueue,
             initialMessage: prepared.initialMessage,
             build, plaintext: cleanedPlaintext, recipientPubkey, senderPubkey: myPublicKeyHex,
-            senderPrivateKeyHex: myPrivateKeyHex, createdAtUnixSeconds: usedCreatedAt, tags: combinedTags
+            senderPrivateKeyHex: myPrivateKeyHex,
+            createdAtUnixSeconds: usedCreatedAt,
+            tags: combinedTags,
+            requiredRelaySuccessMinimum,
         });
 
         if (updatedSignedEvent) {

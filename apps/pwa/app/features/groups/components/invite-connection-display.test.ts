@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  INVITE_CONNECTION_FALLBACK_NAME,
   isPubkeyPlaceholderName,
   resolveInviteConnectionDisplayName,
   toInviteConnectionSearchText,
@@ -27,14 +28,14 @@ describe("invite-connection-display", () => {
     expect(displayName).toBe("MusicLab");
   });
 
-  it("falls back to stable key preview when both names are placeholders", () => {
+  it("falls back to privacy-safe default when both names are placeholders", () => {
     const displayName = resolveInviteConnectionDisplayName({
       pubkey,
       connectionDisplayName: pubkey.slice(0, 8),
       metadataDisplayName: `npub1${"q".repeat(20)}`,
     });
 
-    expect(displayName).toBe(`${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`);
+    expect(displayName).toBe(INVITE_CONNECTION_FALLBACK_NAME);
   });
 
   it("detects common pubkey preview placeholders", () => {

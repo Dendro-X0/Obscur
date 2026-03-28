@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Shield, User, Fingerprint } from 'lucide-react';
 
+const LOCKED_IDENTITY_LABEL = "Locked profile";
+
 interface LockScreenProps {
     onUnlock: (passphrase: string) => Promise<boolean>;
     onForget?: () => Promise<void>;
@@ -79,7 +81,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                     {(username || publicKeyHex) && (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-zinc-300 text-[10px] uppercase tracking-wider font-bold">
                             <User className="w-3 h-3" />
-                            <span>{username || (publicKeyHex ? `${publicKeyHex.slice(0, 8)}...${publicKeyHex.slice(-8)}` : "")}</span>
+                            <span>{username || LOCKED_IDENTITY_LABEL}</span>
                         </div>
                     )}
 

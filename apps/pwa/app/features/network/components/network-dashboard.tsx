@@ -507,7 +507,7 @@ export function NetworkDashboard() {
 
                                             <div className="text-center w-full space-y-1 mb-6">
                                                 <h4 className="font-black text-sm text-foreground truncate w-full px-4">
-                                                    {pk.slice(0, 12)}...{pk.slice(-12)}
+                                                    Blocked contact
                                                 </h4>
                                                 <p className="text-[10px] text-red-500/60 font-black uppercase tracking-widest">
                                                     {t("contacts.status.blocked", "Blocked")}
@@ -726,7 +726,7 @@ function PendingRequestCard({
 }) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
-    const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 8)}...`;
+    const displayName = metadata?.displayName || "Unknown contact";
 
     return (
         <Card className="p-4 border-amber-500/10 bg-amber-500/5 backdrop-blur-sm rounded-[24px]">
@@ -783,7 +783,7 @@ function InvitationCard({ req, isRevealed, onReveal, onAccept, onBlock, onMute }
 }) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
-    const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 10)}...`;
+    const displayName = metadata?.displayName || "Unknown contact";
 
     return (
         <Card className="p-6 border-border bg-card/40 backdrop-blur-xl rounded-[32px] hover:border-primary/40 transition-all duration-500 group relative overflow-hidden">
@@ -870,7 +870,7 @@ function InvitationCard({ req, isRevealed, onReveal, onAccept, onBlock, onMute }
 function DeclinedRequestRow({ req, onRestore, onRemove }: { req: RequestsInboxItem, onRestore: (pk: PublicKeyHex) => void, onRemove: (pk: PublicKeyHex) => void }) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
-    const displayName = metadata?.displayName || `${req.peerPublicKeyHex.slice(0, 8)}...${req.peerPublicKeyHex.slice(-8)}`;
+    const displayName = metadata?.displayName || "Unknown contact";
 
     return (
         <div key={req.peerPublicKeyHex} className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded-[24px]">

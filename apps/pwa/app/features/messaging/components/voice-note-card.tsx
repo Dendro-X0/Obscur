@@ -13,10 +13,7 @@ import {
 type VoiceNoteCardProps = Readonly<{
     src: string;
     isOutgoing: boolean;
-    fileName: string;
-    sourceLabel: string;
     voiceNoteMetadata?: VoiceNoteAttachmentMetadata | null;
-    isLocalCached?: boolean;
     className?: string;
 }>;
 
@@ -30,9 +27,7 @@ const formatTime = (secondsInput: number): string => {
 export function VoiceNoteCard({
     src,
     isOutgoing,
-    sourceLabel,
     voiceNoteMetadata = null,
-    isLocalCached = false,
     className,
 }: VoiceNoteCardProps) {
     const audioRef = React.useRef<HTMLAudioElement>(null);
@@ -181,11 +176,6 @@ export function VoiceNoteCard({
                             {voiceNoteMetadata.durationLabel}
                         </span>
                     ) : null}
-                    {isLocalCached ? (
-                        <span className="rounded-md bg-emerald-500/90 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-black">
-                            Vault
-                        </span>
-                    ) : null}
                 </div>
                 <span className="truncate text-[10px] font-bold uppercase tracking-[0.12em] opacity-65">
                     {recordedAtLabel ?? "Recorded recently"}
@@ -194,7 +184,6 @@ export function VoiceNoteCard({
 
             <div className="mb-2 min-w-0">
                 <div className="truncate text-xs font-bold">Voice Notes</div>
-                <div className="truncate text-[10px] opacity-65">{sourceLabel}</div>
             </div>
 
             {hasError ? (
@@ -242,7 +231,6 @@ export function VoiceNoteCard({
                         <div className="mt-1 flex items-center gap-[3px]">
                             {Array.from({ length: 18 }).map((_, index) => (
                                 <span
-                                    // eslint-disable-next-line react/no-array-index-key
                                     key={`voice-wave-${index}`}
                                     className={cn(
                                         "inline-block w-[2px] rounded-full",

@@ -58,6 +58,12 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
+import { GroupService } from "@/app/features/groups/services/group-service";
+import {
+  loadCommunityMembershipLedger,
+  selectJoinedCommunityMembershipLedgerEntries,
+  setCommunityMembershipStatus,
+} from "@/app/features/groups/services/community-membership-ledger";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
 import { showDesktopNotification } from "@/app/features/notifications/utils/show-desktop-notification";
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
@@ -105,11 +111,17 @@ import {
   runStorageRecovery,
   type StorageHealthState,
 } from "@/app/features/messaging/services/storage-health-service";
+import { resetLocalHistoryKeepingIdentity } from "@/app/features/messaging/services/local-history-reset-service";
 import { getReliabilityMetricsSnapshot, getReliabilityRuntimeSnapshot } from "@/app/shared/reliability-observability";
 import { useSearchParams } from "next/navigation";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
+import {
+  captureRetiredIdentityRegistrySnapshot,
+  markRetiredIdentityPublicKey,
+  restoreRetiredIdentityRegistrySnapshot,
+} from "@/app/features/auth/utils/retired-identity-registry";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
@@ -117,6 +129,7 @@ import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
 import { isSupportedPublicUrl, normalizePublicUrl } from "@/app/shared/public-url";
 import { relayResilienceObservability } from "@/app/features/relays/services/relay-resilience-observability";
+import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 
 const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 const ENABLE_API_HEALTH_PROBE =
@@ -176,6 +189,17 @@ const TEXT_SCALE_OPTIONS: ReadonlyArray<TextScale> = [90, 100, 110, 120];
 const PRIVATE_KEY_REVEAL_WINDOW_MS = 20_000;
 const PROFILE_PUBLISH_UI_TIMEOUT_MS = 20_000;
 const DELETE_ACCOUNT_CONFIRM_TEXT = "WIPE ACCOUNT";
+const ACCOUNT_DELETE_UNKNOWN_RELAY_SENTINELS = new Set(["unknown", "null", "undefined", "n/a", "none"]);
+
+const normalizeScopedRelayUrlForDelete = (relayUrl: string): string => relayUrl.trim().toLowerCase();
+
+const toScopedRelayUrlForDelete = (relayUrl: string): string | null => {
+  const normalized = normalizeScopedRelayUrlForDelete(relayUrl);
+  if (normalized.length === 0 || ACCOUNT_DELETE_UNKNOWN_RELAY_SENTINELS.has(normalized)) {
+    return null;
+  }
+  return /^wss?:\/\/.+/.test(normalized) ? normalized : null;
+};
 
 type IdentityStorageMode = "native" | "encrypted_local" | "session_only" | "unknown";
 type IdentityIntegrityState = "ok" | "mismatch" | "unknown";
@@ -627,6 +651,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const [inviteCodeAvailabilityStatus, setInviteCodeAvailabilityStatus] = useState<InviteCodeAvailabilityStatus>("idle");
   const [inviteCodeAvailabilityMessage, setInviteCodeAvailabilityMessage] = useState<string>("");
   const [isClearDataDialogOpen, setIsClearDataDialogOpen] = useState(false);
+  const [isResetLocalHistoryDialogOpen, setIsResetLocalHistoryDialogOpen] = useState(false);
   const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
   const [isPortableBundleExporting, setIsPortableBundleExporting] = useState(false);
   const [isPortableBundleImporting, setIsPortableBundleImporting] = useState(false);
@@ -815,15 +840,190 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileValidation.isValid, profile.state.profile.username, profile.state.profile.about, profile.state.profile.nip05, profile.state.profile.avatarUrl, inviteCodeDraft]);
 
+  const clearIndexedDbDatabases = async (): Promise<void> => {
+    if (typeof indexedDB === "undefined") {
+      return;
+    }
+    const listDatabases = (indexedDB as IDBFactory & {
+      databases?: () => Promise<ReadonlyArray<{ name?: string }>>;
+    }).databases;
+    if (typeof listDatabases !== "function") {
+      return;
+    }
+    const dbs = await listDatabases.call(indexedDB);
+    await Promise.all((dbs ?? [])
+      .map((db) => (typeof db?.name === "string" ? db.name : null))
+      .filter((name): name is string => Boolean(name))
+      .map((name) => new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase(name);
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+        req.onblocked = () => resolve();
+      })));
+  };
+
+  const clearRuntimeCaches = async (): Promise<void> => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if ("caches" in window) {
+      try {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
+      } catch {
+        // Best-effort cache cleanup
+      }
+    }
+    if ("serviceWorker" in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      } catch {
+        // Best-effort service worker cleanup
+      }
+    }
+  };
+
+  const publishScopedGroupEvent = useCallback(async (
+    params: Readonly<{
+      relayUrl: string;
+      event: unknown;
+    }>
+  ): Promise<boolean> => {
+    const payload = JSON.stringify(["EVENT", params.event]);
+    const scopedRelayUrl = toScopedRelayUrlForDelete(params.relayUrl);
+    if (!scopedRelayUrl) {
+      const fallbackResult = await pool.publishToAll(payload);
+      return fallbackResult.success;
+    }
+    if (typeof pool.publishToUrls === "function") {
+      const scopedResult = await pool.publishToUrls([scopedRelayUrl], payload);
+      return scopedResult.success;
+    }
+    if (typeof pool.publishToUrl === "function") {
+      const scopedResult = await pool.publishToUrl(scopedRelayUrl, payload);
+      return scopedResult.success;
+    }
+    if (typeof pool.publishToRelay === "function") {
+      const scopedResult = await pool.publishToRelay(scopedRelayUrl, payload);
+      return scopedResult.success;
+    }
+    const fallbackResult = await pool.publishToAll(payload);
+    return fallbackResult.success;
+  }, [pool]);
+
+  const leaveJoinedCommunitiesBeforeAccountDeletion = useCallback(async (): Promise<Readonly<{
+    joinedCount: number;
+    leftPublishedCount: number;
+    leftPublishFailureCount: number;
+  }>> => {
+    if (!publicKeyHex || !identity.state.privateKeyHex) {
+      return {
+        joinedCount: 0,
+        leftPublishedCount: 0,
+        leftPublishFailureCount: 0,
+      };
+    }
+
+    const ledgerEntries = loadCommunityMembershipLedger(publicKeyHex);
+    const joinedEntries = selectJoinedCommunityMembershipLedgerEntries(ledgerEntries);
+    if (joinedEntries.length === 0) {
+      return {
+        joinedCount: 0,
+        leftPublishedCount: 0,
+        leftPublishFailureCount: 0,
+      };
+    }
+
+    const groupService = new GroupService(publicKeyHex, identity.state.privateKeyHex as PrivateKeyHex);
+    let leftPublishedCount = 0;
+    let leftPublishFailureCount = 0;
+
+    for (const entry of joinedEntries) {
+      const groupId = entry.groupId.trim();
+      const relayUrl = entry.relayUrl.trim();
+      if (groupId.length === 0 || relayUrl.length === 0) {
+        leftPublishFailureCount += 1;
+        continue;
+      }
+
+      let nip29LeavePublished = false;
+      let sealedLeavePublished = true;
+
+      try {
+        const nip29Leave = await groupService.sendNip29Leave({ groupId });
+        nip29LeavePublished = await publishScopedGroupEvent({
+          relayUrl,
+          event: nip29Leave,
+        });
+      } catch {
+        nip29LeavePublished = false;
+      }
+
+      try {
+        const roomKeyHex = await roomKeyStore.getRoomKey(groupId);
+        if (roomKeyHex) {
+          const sealedLeave = await groupService.sendSealedLeave({
+            groupId,
+            roomKeyHex,
+          });
+          sealedLeavePublished = await publishScopedGroupEvent({
+            relayUrl,
+            event: sealedLeave,
+          });
+        }
+      } catch {
+        sealedLeavePublished = false;
+      }
+
+      if (nip29LeavePublished && sealedLeavePublished) {
+        leftPublishedCount += 1;
+      } else {
+        leftPublishFailureCount += 1;
+      }
+
+      setCommunityMembershipStatus(publicKeyHex, {
+        groupId,
+        relayUrl,
+        communityId: entry.communityId,
+        status: "left",
+        updatedAtUnixMs: Date.now(),
+        displayName: entry.displayName,
+        avatar: entry.avatar,
+        lastEvidenceEventId: entry.lastEvidenceEventId,
+      });
+    }
+
+    return {
+      joinedCount: joinedEntries.length,
+      leftPublishedCount,
+      leftPublishFailureCount,
+    };
+  }, [identity.state.privateKeyHex, publicKeyHex, publishScopedGroupEvent]);
+
+  const wipeLocalRuntimeData = async (): Promise<void> => {
+    const retiredIdentitySnapshot = captureRetiredIdentityRegistrySnapshot();
+    try {
+      await purgeLocalMediaCache();
+    } catch {
+      // Best-effort; continue with core wipe.
+    }
+    sessionStorage.clear();
+    localStorage.clear();
+    restoreRetiredIdentityRegistrySnapshot(retiredIdentitySnapshot);
+    await Promise.all([
+      clearIndexedDbDatabases(),
+      clearRuntimeCaches(),
+    ]);
+  };
+
   const handleClearData = async () => {
     try {
       setSecurityActionPhase("working");
       setSecurityActionMessage("Clearing local data...");
-      localStorage.clear();
-      const dbs = await indexedDB.databases();
-      for (const db of dbs) {
-        if (db.name) indexedDB.deleteDatabase(db.name);
-      }
+      await wipeLocalRuntimeData();
+      setSecurityActionPhase("success");
+      setSecurityActionMessage("Local account data purged.");
       if (typeof window !== "undefined") window.location.reload();
     } catch (e) {
       console.error(e);
@@ -833,10 +1033,47 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     }
   };
 
+  const handleResetLocalHistory = async (): Promise<void> => {
+    try {
+      setStorageActionPhase("working");
+      setStorageActionMessage("Resetting local history and sync snapshots...");
+      const report = await resetLocalHistoryKeepingIdentity({
+        profileId: getActiveProfileIdSafe(),
+        publicKeyHex,
+      });
+      const warningCount = report.warnings.length;
+      const summary = `Local history reset. Removed ${report.removedLocalStorageKeyCount} storage key(s), cleared ${report.clearedIndexedDbStoreCount} IndexedDB store(s).`;
+      setStorageActionPhase(warningCount > 0 ? "error" : "success");
+      setStorageActionMessage(warningCount > 0 ? `${summary} Completed with ${warningCount} warning(s).` : summary);
+      if (warningCount > 0) {
+        toast.warning(`Local history reset completed with ${warningCount} warning(s).`);
+      } else {
+        toast.success("Local history reset completed.");
+      }
+      setIsResetLocalHistoryDialogOpen(false);
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error(error);
+      setStorageActionPhase("error");
+      setStorageActionMessage("Failed to reset local history.");
+      toast.error("Failed to reset local history.");
+      setIsResetLocalHistoryDialogOpen(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     try {
-      // 1. Wipe the public profile on the Nostr network
-      await publishProfile({
+      setSecurityActionPhase("working");
+      setSecurityActionMessage("Wiping profile, leaving communities, and clearing local account data...");
+      if (publicKeyHex) {
+        markRetiredIdentityPublicKey({
+          publicKeyHex,
+          profileId: getActiveProfileIdSafe(),
+        });
+      }
+      const publishResult = await publishProfile({
         username: "Deleted Account",
         about: "This account has been deleted.",
         avatarUrl: "",
@@ -845,20 +1082,29 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
         inviteCode: ""
       });
 
-      // 2. Clear local identity
-      await identity.forgetIdentity();
+      const leaveResult = await leaveJoinedCommunitiesBeforeAccountDeletion();
 
-      // 3. Clear all browser storage
-      localStorage.clear();
-      const dbs = await indexedDB.databases();
-      for (const db of dbs) {
-        if (db.name) indexedDB.deleteDatabase(db.name);
+      try {
+        await identity.forgetIdentity();
+      } catch (identityError) {
+        console.error("Identity forget failed during delete account:", identityError);
       }
 
-      // 4. Reload to reset state
+      await wipeLocalRuntimeData();
+
+      if (!publishResult) {
+        toast.warning("Local account data is purged, but profile overwrite could not be confirmed on relays.");
+      }
+      if (leaveResult.leftPublishFailureCount > 0) {
+        toast.warning(`Local account data is purged, but ${leaveResult.leftPublishFailureCount} community leave event(s) could not be confirmed on relays.`);
+      }
+      setSecurityActionPhase("success");
+      setSecurityActionMessage("Account wipe completed.");
       if (typeof window !== "undefined") window.location.reload();
     } catch (e) {
       console.error(e);
+      setSecurityActionPhase("error");
+      setSecurityActionMessage("Account wipe did not complete cleanly.");
       if (typeof window !== "undefined") window.location.reload();
     } finally {
       setDeleteAccountConfirmInput("");
@@ -2548,7 +2794,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                 {t("settings.deleteAccountDesc", "This will permanently remove your account key from this device and wipe your public profile.")}
               </p>
               <p className="mt-2 text-[10px] text-red-600/80 dark:text-red-400/80 leading-relaxed italic">
-                Note on Decentralized Identity: Your cryptographic private key is a mathematical concept and cannot be "destroyed." While this action will overwrite your public profile with a "Deleted Account" status and erase all local data, anyone possessing the exact private key string could technically log in again.
+                Note on Decentralized Identity: This action performs a device-local wipe and publishes a deleted-account marker. The private key itself cannot be destroyed on a decentralized network. Anyone who still has the exact same private key can reactivate the identity on another device.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="delete-confirm-input" className="text-xs text-red-900 dark:text-red-200">Type "{DELETE_ACCOUNT_CONFIRM_TEXT}" to continue</Label>
@@ -3186,10 +3432,52 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                     onChange={(checked) => handleSavePrivacy({ ...privacySettings, useModernDMs: checked })}
                   />
                 </div>
+                <div className="rounded-2xl border border-black/5 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <Label className="text-sm font-semibold tracking-wide">Local Message Retention</Label>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Limits chat history rendered on this device. Relay history remains recoverable if re-synced.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {([
+                      { label: "Off", days: 0 as const },
+                      { label: "30 Days", days: 30 as const },
+                      { label: "90 Days", days: 90 as const },
+                    ]).map((option) => (
+                      <Button
+                        key={option.days}
+                        type="button"
+                        variant={privacySettings.localMessageRetentionDays === option.days ? "secondary" : "outline"}
+                        onClick={() => handleSavePrivacy({
+                          ...privacySettings,
+                          localMessageRetentionDays: option.days,
+                        })}
+                        className="justify-start"
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
+                  <div className="flex-1">
+                    <Label className="text-sm font-semibold tracking-wide">Show Public Key Controls In Chat</Label>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Keeps the chat header focused on usernames unless you explicitly enable Share ID controls.
+                    </p>
+                  </div>
+                  <SettingsToggle
+                    checked={privacySettings.showPublicKeyControlsInChat === true}
+                    onChange={(checked) => handleSavePrivacy({ ...privacySettings, showPublicKeyControlsInChat: checked })}
+                  />
+                </div>
                 <SettingsActionStatus
                   title="Privacy Summary"
                   phase="idle"
-                  summary={`DM policy: ${privacySettings.dmPrivacy} · Modern DMs: ${privacySettings.useModernDMs ? "enabled" : "disabled"}`}
+                  summary={`DM policy: ${privacySettings.dmPrivacy} · Modern DMs: ${privacySettings.useModernDMs ? "enabled" : "disabled"} · Retention: ${privacySettings.localMessageRetentionDays || 0}d · Public key controls: ${privacySettings.showPublicKeyControlsInChat ? "shown" : "hidden"}`}
                 />
               </div>
             </Card>
@@ -3792,21 +4080,31 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                         <Label className="text-sm font-semibold text-red-600 dark:text-red-400">Maintenance</Label>
                         <p className="text-xs text-zinc-500 mt-1">Free up disk space safely without deleting messages.</p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30"
-                        onClick={async () => {
-                          await purgeLocalMediaCache();
-                          toast.success(t("settings.storage.cacheCleared", "Local media cache cleared."));
-                          setStorageStatsTick((prev) => prev + 1);
-                          setStorageActionPhase("success");
-                          setStorageActionMessage("Local cache cleared.");
-                          void refreshLocalMediaAbsolutePath();
-                        }}
-                      >
-                        {t("settings.storage.clearCache", "Clear Local Cache")}
-                      </Button>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30"
+                          onClick={async () => {
+                            await purgeLocalMediaCache();
+                            toast.success(t("settings.storage.cacheCleared", "Local media cache cleared."));
+                            setStorageStatsTick((prev) => prev + 1);
+                            setStorageActionPhase("success");
+                            setStorageActionMessage("Local cache cleared.");
+                            void refreshLocalMediaAbsolutePath();
+                          }}
+                        >
+                          {t("settings.storage.clearCache", "Clear Local Cache")}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/20"
+                          onClick={() => setIsResetLocalHistoryDialogOpen(true)}
+                        >
+                          Reset Local History
+                        </Button>
+                      </div>
                     </div>
                     <div className="mt-3 flex justify-end">
                       <Button type="button" variant="ghost" size="sm" onClick={() => void handleResetStorageSection()} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
@@ -3838,11 +4136,21 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       />
 
       <ConfirmDialog
+        isOpen={isResetLocalHistoryDialogOpen}
+        onClose={() => setIsResetLocalHistoryDialogOpen(false)}
+        onConfirm={handleResetLocalHistory}
+        title="Reset Local History (Keep Identity)"
+        description="This clears local chat history, sync checkpoints, and cached media on this device, but keeps your identity/session and remember-me credentials."
+        confirmLabel="Reset Local History"
+        variant="danger"
+      />
+
+      <ConfirmDialog
         isOpen={isDeleteAccountDialogOpen}
         onClose={() => setIsDeleteAccountDialogOpen(false)}
         onConfirm={handleDeleteAccount}
         title={t("settings.dialogs.deleteAccountTitle", "Wipe Profile & Delete Account")}
-        description={t("settings.dialogs.deleteAccountDesc", "Are you sure you want to completely erase your network profile and local data? This action will overwrite your public profile and remove your key from this device.")}
+        description={t("settings.dialogs.deleteAccountDesc", "Are you sure you want to wipe local account data on this device and publish a deleted-account marker? This does not destroy the private key itself.")}
         confirmLabel={t("settings.actions.delete", "Wipe & Delete Account")}
         variant="danger"
       />

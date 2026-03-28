@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Message, MessagesByConversationId, UnreadByConversationId } from "@/app/features/messaging/types";
+import type { Message, UnreadByConversationId } from "@/app/features/messaging/types";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 
 /**

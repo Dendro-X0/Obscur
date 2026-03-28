@@ -190,6 +190,87 @@ describe("useConversationMessages integration (perf mode)", () => {
         unmount();
     });
 
+    it("does not rehydrate indexed history when projection updates for the same conversation", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([
+            {
+                id: "idx-1",
+                conversationId,
+                senderPubkey: myPublicKeyHex,
+                recipientPubkey: peerPublicKeyHex,
+                content: "indexed-one",
+                timestampMs: 10_000,
+                isOutgoing: true,
+                status: "delivered",
+            },
+        ] as any);
+
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                [conversationId]: [
+                    {
+                        messageId: "projection-1",
+                        conversationId,
+                        peerPublicKeyHex,
+                        direction: "incoming",
+                        eventCreatedAtUnixSeconds: 11,
+                        plaintextPreview: "projection-one",
+                        observedAtUnixMs: 11_000,
+                    },
+                ],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 11,
+            updatedAtUnixMs: 11_000,
+        };
+
+        const { result, rerender, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.some((message) => message.id === "idx-1")).toBe(true));
+        expect(messagingDB.getAllByIndex).toHaveBeenCalledTimes(1);
+
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                [conversationId]: [
+                    {
+                        messageId: "projection-2",
+                        conversationId,
+                        peerPublicKeyHex,
+                        direction: "incoming",
+                        eventCreatedAtUnixSeconds: 12,
+                        plaintextPreview: "projection-two",
+                        observedAtUnixMs: 12_000,
+                    },
+                ],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 12,
+            updatedAtUnixMs: 12_000,
+        };
+
+        rerender();
+        await waitFor(() => expect(result.current.messages.some((message) => message.id === "projection-2")).toBe(true));
+        expect(messagingDB.getAllByIndex).toHaveBeenCalledTimes(1);
+        unmount();
+    });
+
     it("does not resurrect projection-backed messages after local delete and remount", async () => {
         accountProjectionSnapshot.projection = {
             profileId: "default",

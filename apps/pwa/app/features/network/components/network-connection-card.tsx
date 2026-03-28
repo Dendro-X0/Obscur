@@ -7,6 +7,9 @@ import { cn } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 
+const PRIVATE_CONTACT_LABEL = "Unknown contact";
+const PRIVATE_CONTACT_IDENTITY_HINT = "Identity hidden";
+
 interface ConnectionCardProps {
     pubkey: string;
     displayName?: string;
@@ -20,7 +23,7 @@ export const ConnectionCard = ({ pubkey, displayName, online = false, onClick, c
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(pubkey);
     const resolvedName = metadata?.displayName || displayName;
-    const handle = resolvedName ?? `${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
+    const handle = resolvedName ?? PRIVATE_CONTACT_LABEL;
     const statusLabel = online ? t("network.online", "Online") : t("network.offline", "Offline");
     const statusTone = online
         ? "bg-emerald-500 text-emerald-50 border-emerald-300/50"
@@ -52,12 +55,12 @@ export const ConnectionCard = ({ pubkey, displayName, online = false, onClick, c
                     <div className="flex-1 min-w-0 pr-4">
                         <div className="flex items-center gap-2 mb-0.5">
                             <h4 className="font-bold text-sm text-foreground truncate">
-                                {resolvedName || "Unknown"}
+                                {resolvedName || PRIVATE_CONTACT_LABEL}
                             </h4>
                             <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                         </div>
-                        <p className="text-[10px] sm:text-[11px] text-muted-foreground font-mono truncate">
-                            {pubkey.slice(0, 16)}...{pubkey.slice(-8)}
+                        <p className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-[0.14em] truncate">
+                            {PRIVATE_CONTACT_IDENTITY_HINT}
                         </p>
                     </div>
                 </div>
@@ -108,8 +111,8 @@ export const ConnectionCard = ({ pubkey, displayName, online = false, onClick, c
                     </h4>
                     <ShieldCheck className="h-4 w-4 text-emerald-500" />
                 </div>
-                <p className="text-[10px] text-muted-foreground font-mono truncate max-w-full px-4">
-                    {pubkey}
+                <p className="text-[10px] text-muted-foreground uppercase tracking-[0.14em] truncate max-w-full px-4">
+                    {PRIVATE_CONTACT_IDENTITY_HINT}
                 </p>
             </div>
 

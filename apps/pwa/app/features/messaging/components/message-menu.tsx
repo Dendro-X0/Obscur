@@ -18,6 +18,7 @@ interface MessageMenuProps {
     onCopyText: () => void;
     onCopyAttachmentUrl: () => void;
     onReply: () => void;
+    onStartMultiSelect: () => void;
     onDeleteForMe: () => void;
     onDeleteForEveryone: () => void;
     menuRef: React.RefObject<HTMLDivElement | null>;
@@ -37,6 +38,7 @@ export function MessageMenu({
     onCopyText,
     onCopyAttachmentUrl,
     onReply,
+    onStartMultiSelect,
     onDeleteForMe,
     onDeleteForEveryone,
     menuRef,
@@ -170,6 +172,13 @@ export function MessageMenu({
                     onClick={onReply}
                 >
                     {t("common.reply")}
+                </button>
+                <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
+                    onClick={onStartMultiSelect}
+                >
+                    {t("messaging.selectMessages", "Select messages")}
                 </button>
                 <button
                     type="button"

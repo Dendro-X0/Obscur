@@ -91,6 +91,15 @@ describe('MessageQueue Property Tests', () => {
     createdAt: new Date(),
     retryCount: 0,
     nextRetryAt: new Date(Date.now() + 1000),
+    signedEvent: {
+      id: `evt_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      pubkey: testPubkey1,
+      kind: 4,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [],
+      content: 'encrypted-content',
+      sig: '00'.repeat(64),
+    },
     ...overrides
   });
 
@@ -356,6 +365,40 @@ describe('MessageQueue Property Tests', () => {
       expect((await restartedQueueForIdentity1.getQueuedMessages()).map((message) => message.id)).toContain('legacy-ownerless-queued');
       expect((await restartedQueueForIdentity2.getQueuedMessages()).map((message) => message.id)).not.toContain('legacy-ownerless-queued');
       expect((await unrelatedIdentity.getQueuedMessages()).map((message) => message.id)).not.toContain('legacy-ownerless-queued');
+    });
+
+    it('filters and purges legacy queued entries missing signed events', async () => {
+      const db = await openMessageDb();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction("queue", "readwrite");
+        tx.objectStore("queue").put({
+          id: "legacy-missing-signed-event",
+          conversationId: [testPubkey1, testPubkey2].sort().join(':'),
+          content: "legacy-queued-message",
+          recipientPubkey: testPubkey2,
+          createdAt: Date.now() - 5_000,
+          retryCount: 1,
+          nextRetryAt: Date.now() - 1_000,
+          ownerPubkey: testPubkey1,
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+
+      const restartedQueue = new MessageQueue(testPubkey1);
+      const firstPass = await restartedQueue.getQueuedMessages();
+      expect(firstPass.map((message) => message.id)).not.toContain("legacy-missing-signed-event");
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      const verifyDb = await openMessageDb();
+      const persisted = await new Promise<Record<string, unknown> | undefined>((resolve, reject) => {
+        const tx = verifyDb.transaction("queue", "readonly");
+        const request = tx.objectStore("queue").get("legacy-missing-signed-event");
+        request.onsuccess = () => resolve(request.result as Record<string, unknown> | undefined);
+        request.onerror = () => reject(request.error);
+      });
+      expect(persisted ?? null).toBeNull();
     });
   });
 

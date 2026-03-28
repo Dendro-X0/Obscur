@@ -352,6 +352,58 @@ describe("outgoing-dm-publisher protocol routing", () => {
     }));
   });
 
+  it("accepts realtime transport delivery when one relay succeeds and minimum is overridden to 1", async () => {
+    const updateMessageStatus = vi.fn(async () => undefined);
+    const queueOutgoingMessage = vi.fn(async () => undefined);
+    const publishToUrls = vi.fn(async () => ({
+      success: true,
+      successCount: 1,
+      totalRelays: 3,
+      metQuorum: true,
+      quorumRequired: 1,
+      results: [
+        { relayUrl: "wss://recipient-1.example", success: true },
+        { relayUrl: "wss://recipient-2.example", success: false, error: "timeout" },
+        { relayUrl: "wss://recipient-3.example", success: false, error: "timeout" },
+      ],
+    }));
+
+    const result = await publishOutgoingDm({
+      pool: {
+        sendToOpen: vi.fn(),
+        publishToUrls,
+        publishToAll: vi.fn(),
+      },
+      openRelays: [{ url: "wss://sender-1.example" }],
+      targetRelayUrls: [
+        "wss://recipient-1.example",
+        "wss://recipient-2.example",
+        "wss://recipient-3.example",
+      ],
+      messageQueue: { updateMessageStatus, queueOutgoingMessage } as any,
+      initialMessage: initialMessage(),
+      build: {
+        format: "nip04",
+        signedEvent: buildSignedEvent("evt-realtime-threshold"),
+        encryptedContent: "ciphertext",
+      },
+      plaintext: "hello",
+      recipientPubkey,
+      senderPubkey,
+      senderPrivateKeyHex,
+      createdAtUnixSeconds: 123,
+      tags: [["p", recipientPubkey], ["t", "voice-call-signal"]],
+      requiredRelaySuccessMinimum: 1,
+    });
+
+    expect(publishToUrls).toHaveBeenCalledTimes(1);
+    expect(result.publishResult.success).toBe(true);
+    expect(result.publishResult.successCount).toBe(1);
+    expect(result.finalMessage.status).toBe("accepted");
+    expect(queueOutgoingMessage).not.toHaveBeenCalled();
+    expect(updateMessageStatus).toHaveBeenCalledWith("msg-1", "accepted");
+  });
+
   it("does not claim success when only non-deterministic sendToOpen exists", async () => {
     const logSpy = vi.spyOn(appEventLogger, "logAppEvent");
     const updateMessageStatus = vi.fn(async () => undefined);

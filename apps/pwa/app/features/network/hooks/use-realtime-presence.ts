@@ -6,6 +6,8 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { isDeletedAccountProfile } from "@/app/features/profile/utils/deleted-profile";
 import {
   buildPresenceUnsignedEvent,
   isPresenceRecordOnline,
@@ -71,6 +73,17 @@ const isRecordNewerThan = (incoming: PresenceRecord, existing: PresenceRecord | 
     return incoming.startedAtMs > existing.startedAtMs;
   }
   return incoming.sessionId > existing.sessionId;
+};
+
+const isPeerDeletedByCachedProfile = (publicKeyHex: string): boolean => {
+  const cached = discoveryCache.getProfile(publicKeyHex);
+  if (!cached) {
+    return false;
+  }
+  return isDeletedAccountProfile({
+    displayName: cached.displayName ?? cached.name,
+    about: cached.about,
+  });
 };
 
 export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealtimePresenceResult => {
@@ -230,10 +243,16 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
   }, []);
 
   const isPeerOnline = useCallback((publicKeyHex: PublicKeyHex): boolean => {
+    if (isPeerDeletedByCachedProfile(publicKeyHex)) {
+      return false;
+    }
     return isPresenceRecordOnline(presenceByPubkey[publicKeyHex], clockNowMs);
   }, [clockNowMs, presenceByPubkey]);
 
   const getLastSeenAtMs = useCallback((publicKeyHex: PublicKeyHex): number | null => {
+    if (isPeerDeletedByCachedProfile(publicKeyHex)) {
+      return null;
+    }
     const record = presenceByPubkey[publicKeyHex];
     if (!record) {
       return null;
@@ -248,4 +267,8 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
     selfSessionId,
     selfStartedAtMs,
   }), [getLastSeenAtMs, isPeerOnline, presenceByPubkey, selfSessionId, selfStartedAtMs]);
+};
+
+export const realtimePresenceHookInternals = {
+  isPeerDeletedByCachedProfile,
 };

@@ -2,6 +2,7 @@ import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-pu
 
 const PLACEHOLDER_PREFIX_LENGTHS = [8, 10, 12, 16] as const;
 const PLACEHOLDER_SUFFIX_LENGTHS = [8, 10] as const;
+export const INVITE_CONNECTION_FALLBACK_NAME = "Unknown contact";
 
 const toLower = (value: string): string => value.trim().toLowerCase();
 
@@ -19,10 +20,8 @@ const addUnique = (parts: Array<string>, value: string | null | undefined): void
 };
 
 const buildFallback = (pubkey: string): string => {
-  if (pubkey.length < 20) {
-    return pubkey;
-  }
-  return `${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
+  void pubkey;
+  return INVITE_CONNECTION_FALLBACK_NAME;
 };
 
 const isPreviewFromPubkey = (displayName: string, normalizedPubkey: string): boolean => {

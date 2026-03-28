@@ -65,7 +65,7 @@ export const DesktopNotificationHandler = () => {
             const senderName = (
                 senderProfile?.displayName
                 || senderProfile?.name
-                || (senderPubkey ? senderPubkey.slice(0, 8) : "Unknown")
+                || "Unknown sender"
             );
             const preview = event.message.content.trim();
             const normalizedPreview = preview.length > 0 ? preview : "Sent a message";

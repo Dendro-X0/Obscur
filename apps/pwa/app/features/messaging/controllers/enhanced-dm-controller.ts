@@ -371,6 +371,8 @@ const resolveTransportKind = (customTags?: ReadonlyArray<ReadonlyArray<string>>)
   if (requestTag === "connection-accept") return "request_accept";
   if (requestTag === "connection-decline") return "request_decline";
   if (requestTag === "connection-cancel") return "request_cancel";
+  if (requestTag === "voice-call-invite") return "voice_invite";
+  if (requestTag === "voice-call-signal") return "voice_signal";
   return "dm";
 };
 

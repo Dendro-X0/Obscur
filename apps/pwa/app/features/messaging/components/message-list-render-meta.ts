@@ -17,10 +17,21 @@ export type MessageRenderMeta = Readonly<{
     parsedPayload: ParsedMessagePayload | null;
 }>;
 
+export type VoiceCallRoomRenderSummary = Readonly<{
+    roomId: string;
+    invitedAtUnixMs: number | null;
+    expiresAtUnixMs: number | null;
+    connectedAtUnixMs: number | null;
+    endedAtUnixMs: number | null;
+    endedNormally: boolean;
+    durationSeconds: number | null;
+}>;
+
 export type MessageRenderCaches = Readonly<{
     parsedPayloadByMessageId: ReadonlyMap<string, ParsedMessagePayload | null>;
     inviteResponseStatusByMessageId: ReadonlyMap<string, InviteResponseStatus>;
     renderMetaByMessageId: ReadonlyMap<string, MessageRenderMeta>;
+    voiceCallRoomSummaryByRoomId: ReadonlyMap<string, VoiceCallRoomRenderSummary>;
 }>;
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -37,6 +48,13 @@ const messageHasAttachmentRelayUrls = (params: Readonly<{
         const url = attachment.url?.trim();
         return !!url && content.includes(url);
     });
+};
+
+const messageHasOnlyVoiceNoteAttachments = (attachments?: ReadonlyArray<Attachment>): boolean => {
+    if (!attachments || attachments.length === 0) {
+        return false;
+    }
+    return attachments.every((attachment) => inferAttachmentKind(attachment) === "voice_note");
 };
 
 const removeAttachmentRelayUrlsFromContent = (params: Readonly<{
@@ -113,6 +131,29 @@ const isInviteResponseStatus = (status: unknown): status is InviteResponseStatus
         || status === "canceled";
 };
 
+type MutableVoiceCallRoomAccumulator = {
+    roomId: string;
+    invitedAtUnixMs: number | null;
+    expiresAtUnixMs: number | null;
+    connectedAtUnixMs: number | null;
+    endedAtUnixMs: number | null;
+};
+
+const toFiniteUnixMsOrNull = (value: unknown): number | null => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return null;
+    }
+    return Math.floor(value);
+};
+
+const toMessageUnixMs = (message: Message): number => {
+    const eventCreatedAtUnixMs = message.eventCreatedAt?.getTime();
+    if (typeof eventCreatedAtUnixMs === "number" && Number.isFinite(eventCreatedAtUnixMs)) {
+        return eventCreatedAtUnixMs;
+    }
+    return message.timestamp.getTime();
+};
+
 export const buildMessageRenderCaches = (params: Readonly<{
     messages: ReadonlyArray<Message>;
     expandedRelayUrlsByMessageId: ReadonlySet<string>;
@@ -120,6 +161,7 @@ export const buildMessageRenderCaches = (params: Readonly<{
     const parsedPayloadByMessageId = new Map<string, ParsedMessagePayload | null>();
     const inviteResponseStatusByMessageId = new Map<string, InviteResponseStatus>();
     const renderMetaByMessageId = new Map<string, MessageRenderMeta>();
+    const voiceCallRoomAccumulatorByRoomId = new Map<string, MutableVoiceCallRoomAccumulator>();
 
     params.messages.forEach((message) => {
         const parsedPayload = parsePayload(message.content);
@@ -134,26 +176,97 @@ export const buildMessageRenderCaches = (params: Readonly<{
         }
 
         const attachmentUrlsExpanded = params.expandedRelayUrlsByMessageId.has(message.id);
+        const hasOnlyVoiceNoteAttachments = messageHasOnlyVoiceNoteAttachments(message.attachments);
         const hasVisualAttachments = (message.attachments ?? []).some((attachment) => {
             const kind = inferAttachmentKind(attachment);
             return kind === "image" || kind === "video";
         });
-        const hasAttachmentRelayUrlsInContent = messageHasAttachmentRelayUrls({
+        const hasAttachmentRelayUrlsInContent = !hasOnlyVoiceNoteAttachments && messageHasAttachmentRelayUrls({
             content: message.content,
             attachments: message.attachments,
         });
-        const textContentResult = getMessageContentForDisplay({
-            content: message.content,
-            attachments: message.attachments,
-            showAttachmentRelayUrls: attachmentUrlsExpanded,
-        });
+        const textContentResult = hasOnlyVoiceNoteAttachments
+            ? removeAttachmentRelayUrlsFromContent({
+                content: message.content,
+                attachments: message.attachments,
+            })
+            : getMessageContentForDisplay({
+                content: message.content,
+                attachments: message.attachments,
+                showAttachmentRelayUrls: attachmentUrlsExpanded,
+            });
 
         renderMetaByMessageId.set(message.id, {
-            attachmentUrlsExpanded,
+            attachmentUrlsExpanded: hasOnlyVoiceNoteAttachments ? false : attachmentUrlsExpanded,
             hasVisualAttachments,
             hasAttachmentRelayUrlsInContent,
             textContentResult,
             parsedPayload,
+        });
+
+        if (!parsedPayload || typeof parsedPayload.roomId !== "string" || !parsedPayload.roomId.trim()) {
+            return;
+        }
+
+        const roomId = parsedPayload.roomId.trim();
+        const messageUnixMs = toMessageUnixMs(message);
+        const accumulator = voiceCallRoomAccumulatorByRoomId.get(roomId) ?? {
+            roomId,
+            invitedAtUnixMs: null,
+            expiresAtUnixMs: null,
+            connectedAtUnixMs: null,
+            endedAtUnixMs: null,
+        };
+
+        if (parsedPayload.type === "voice-call-invite") {
+            const invitedAtUnixMs = toFiniteUnixMsOrNull(parsedPayload.invitedAtUnixMs) ?? messageUnixMs;
+            const expiresAtUnixMs = toFiniteUnixMsOrNull(parsedPayload.expiresAtUnixMs);
+            accumulator.invitedAtUnixMs = accumulator.invitedAtUnixMs === null
+                ? invitedAtUnixMs
+                : Math.min(accumulator.invitedAtUnixMs, invitedAtUnixMs);
+            if (expiresAtUnixMs !== null) {
+                accumulator.expiresAtUnixMs = accumulator.expiresAtUnixMs === null
+                    ? expiresAtUnixMs
+                    : Math.max(accumulator.expiresAtUnixMs, expiresAtUnixMs);
+            }
+            voiceCallRoomAccumulatorByRoomId.set(roomId, accumulator);
+            return;
+        }
+
+        if (parsedPayload.type === "voice-call-signal") {
+            const signalType = typeof parsedPayload.signalType === "string" ? parsedPayload.signalType : null;
+            const signalUnixMs = toFiniteUnixMsOrNull(parsedPayload.sentAtUnixMs) ?? messageUnixMs;
+            if (signalType === "answer") {
+                accumulator.connectedAtUnixMs = accumulator.connectedAtUnixMs === null
+                    ? signalUnixMs
+                    : Math.min(accumulator.connectedAtUnixMs, signalUnixMs);
+            } else if (signalType === "leave") {
+                accumulator.endedAtUnixMs = accumulator.endedAtUnixMs === null
+                    ? signalUnixMs
+                    : Math.max(accumulator.endedAtUnixMs, signalUnixMs);
+            }
+            voiceCallRoomAccumulatorByRoomId.set(roomId, accumulator);
+        }
+    });
+
+    const voiceCallRoomSummaryByRoomId = new Map<string, VoiceCallRoomRenderSummary>();
+    voiceCallRoomAccumulatorByRoomId.forEach((accumulator, roomId) => {
+        const connectedAtUnixMs = accumulator.connectedAtUnixMs;
+        const endedAtUnixMs = accumulator.endedAtUnixMs;
+        const hasConnectedAt = connectedAtUnixMs !== null;
+        const hasEndedAt = endedAtUnixMs !== null;
+        const endedNormally = hasConnectedAt && hasEndedAt;
+        const durationSeconds = (hasConnectedAt && hasEndedAt)
+            ? Math.max(0, Math.floor((endedAtUnixMs - connectedAtUnixMs) / 1000))
+            : null;
+        voiceCallRoomSummaryByRoomId.set(roomId, {
+            roomId,
+            invitedAtUnixMs: accumulator.invitedAtUnixMs,
+            expiresAtUnixMs: accumulator.expiresAtUnixMs,
+            connectedAtUnixMs,
+            endedAtUnixMs,
+            endedNormally,
+            durationSeconds,
         });
     });
 
@@ -161,5 +274,6 @@ export const buildMessageRenderCaches = (params: Readonly<{
         parsedPayloadByMessageId,
         inviteResponseStatusByMessageId,
         renderMetaByMessageId,
+        voiceCallRoomSummaryByRoomId,
     };
 };

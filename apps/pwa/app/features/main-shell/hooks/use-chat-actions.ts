@@ -18,6 +18,7 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../../messaging/utils/commands";
+import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 
 type MultiRelayPublishResult = Readonly<{
     success: boolean;
@@ -205,6 +206,11 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
     const uploadService = useUploadService();
     const { peerTrust, requestsInbox } = useNetwork();
     const { relayPool } = useRelay();
+    const recipientMetadata = useResolvedProfileMetadata(
+        selectedConversation?.kind === "dm" ? selectedConversation.pubkey : null,
+        { live: false }
+    );
+    const isDeletedRecipient = selectedConversation?.kind === "dm" && recipientMetadata.isDeleted;
 
     const publishGroupEvent = useCallback(async (params: Readonly<{ relayUrl: string; event: Readonly<{ id: string }> }>): Promise<void> => {
         const payload = JSON.stringify(["EVENT", params.event]);
@@ -242,6 +248,10 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
 
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;
+        if (isDeletedRecipient) {
+            toast.warning("This contact account has been removed. New messages cannot be delivered.");
+            return;
+        }
 
         // 1. Upload Attachments if any
         let finalContent = messageInput;
@@ -438,7 +448,8 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         uploadService,
         peerTrust,
         requestsInbox,
-        publishGroupEvent
+        publishGroupEvent,
+        isDeletedRecipient
     ]);
 
     const deleteMessageForMe = useCallback((params: { conversationId: string; message: Message }) => {

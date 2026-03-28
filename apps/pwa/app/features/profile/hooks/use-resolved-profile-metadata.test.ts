@@ -53,6 +53,7 @@ describe("useResolvedProfileMetadata", () => {
     expect(result.current.avatarUrl).toBe(`${window.location.origin}/uploads/self-avatar.png`);
     expect(result.current.about).toBe("Local about");
     expect(result.current.nip05).toBe("self@example.com");
+    expect(result.current.isDeleted).toBe(false);
   });
 
   it("prefers resolved metadata for remote peers", () => {
@@ -71,5 +72,23 @@ describe("useResolvedProfileMetadata", () => {
     expect(result.current.avatarUrl).toBe("https://cdn.example.com/peer.png");
     expect(result.current.about).toBe("Remote about");
     expect(result.current.nip05).toBe("peer@example.com");
+    expect(result.current.isDeleted).toBe(false);
+  });
+
+  it("treats deleted profiles as deleted and suppresses avatar", () => {
+    mocks.useProfileMetadata.mockReturnValue({
+      pubkey: "peer-pubkey",
+      displayName: "Deleted Account",
+      avatarUrl: "https://cdn.example.com/old-avatar.png",
+      about: "This account has been deleted.",
+      nip05: "peer@example.com",
+    });
+
+    const { result } = renderHook(() => useResolvedProfileMetadata("peer-pubkey"));
+
+    expect(result.current.isSelf).toBe(false);
+    expect(result.current.isDeleted).toBe(true);
+    expect(result.current.displayName).toBe("Deleted Account");
+    expect(result.current.avatarUrl).toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatViewProps } from "./chat-view";
 import { ChatView } from "./chat-view";
@@ -7,6 +7,9 @@ import type { Conversation, Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 const messageListPropsRef = vi.hoisted(() => ({
+    current: null as Record<string, unknown> | null,
+}));
+const messageMenuPropsRef = vi.hoisted(() => ({
     current: null as Record<string, unknown> | null,
 }));
 
@@ -53,7 +56,10 @@ vi.mock("./lightbox", () => ({
 }));
 
 vi.mock("./message-menu", () => ({
-    MessageMenu: () => null,
+    MessageMenu: (props: Record<string, unknown>) => {
+        messageMenuPropsRef.current = props;
+        return <div data-testid="message-menu" />;
+    },
 }));
 
 vi.mock("./reaction-picker", () => ({
@@ -77,7 +83,7 @@ const createConversation = (): Conversation => ({
     lastMessageTime: new Date(1_000),
 });
 
-const createMessage = (): Message => ({
+const createMessage = (overrides: Partial<Message> = {}): Message => ({
     id: "m-visible",
     kind: "user",
     content: "visible message",
@@ -85,6 +91,7 @@ const createMessage = (): Message => ({
     isOutgoing: false,
     status: "delivered",
     conversationId: "conv-a",
+    ...overrides,
 });
 
 const createBaseProps = (): ChatViewProps => ({
@@ -284,5 +291,81 @@ describe("ChatView history search", () => {
             expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-voice-b");
         });
         expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(9_000);
+    });
+});
+
+describe("ChatView batch delete", () => {
+    it("deletes all selected messages for me through existing delete handler", async () => {
+        const outgoingMessage = createMessage({ id: "m-outgoing", isOutgoing: true, content: "sent" });
+        const incomingMessage = createMessage({ id: "m-incoming", isOutgoing: false, content: "received", timestamp: new Date(3_000) });
+        const props = createBaseProps();
+        props.messages = [outgoingMessage, incomingMessage];
+        props.rawMessagesCount = 2;
+        props.messageMenu = { messageId: outgoingMessage.id, x: 0, y: 0 };
+
+        render(<ChatView {...props} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("message-menu")).toBeInTheDocument();
+        });
+        await act(async () => {
+            const startMultiSelect = messageMenuPropsRef.current?.onStartMultiSelect as (() => void) | undefined;
+            startMultiSelect?.();
+        });
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.batchDeleteMode).toBe(true);
+        });
+
+        await act(async () => {
+            const toggle = messageListPropsRef.current?.onToggleSelectMessage as ((messageId: string) => void) | undefined;
+            toggle?.(incomingMessage.id);
+        });
+
+        const deleteForMeButton = await screen.findByRole("button", { name: /Delete for me/i });
+        fireEvent.click(deleteForMeButton);
+
+        expect(props.onDeleteMessageForMe).toHaveBeenCalledTimes(2);
+        expect(props.onDeleteMessageForMe).toHaveBeenNthCalledWith(1, outgoingMessage);
+        expect(props.onDeleteMessageForMe).toHaveBeenNthCalledWith(2, incomingMessage);
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.batchDeleteMode).toBe(false);
+        });
+    });
+
+    it("deletes only outgoing messages for everyone", async () => {
+        const outgoingMessage = createMessage({ id: "m-outgoing", isOutgoing: true, content: "sent" });
+        const incomingMessage = createMessage({ id: "m-incoming", isOutgoing: false, content: "received", timestamp: new Date(3_000) });
+        const props = createBaseProps();
+        props.messages = [outgoingMessage, incomingMessage];
+        props.rawMessagesCount = 2;
+        props.messageMenu = { messageId: outgoingMessage.id, x: 0, y: 0 };
+
+        render(<ChatView {...props} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("message-menu")).toBeInTheDocument();
+        });
+        await act(async () => {
+            const startMultiSelect = messageMenuPropsRef.current?.onStartMultiSelect as (() => void) | undefined;
+            startMultiSelect?.();
+        });
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.batchDeleteMode).toBe(true);
+        });
+
+        await act(async () => {
+            const toggle = messageListPropsRef.current?.onToggleSelectMessage as ((messageId: string) => void) | undefined;
+            toggle?.(incomingMessage.id);
+        });
+
+        const deleteForEveryoneButton = await screen.findByRole("button", { name: /Delete for everyone/i });
+        fireEvent.click(deleteForEveryoneButton);
+
+        expect(props.onDeleteMessageForEveryone).toHaveBeenCalledTimes(1);
+        expect(props.onDeleteMessageForEveryone).toHaveBeenCalledWith(outgoingMessage);
+        expect(props.onDeleteMessageForMe).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.batchDeleteMode).toBe(false);
+        });
     });
 });
