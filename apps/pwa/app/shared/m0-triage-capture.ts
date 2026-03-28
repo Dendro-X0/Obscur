@@ -106,6 +106,7 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
     "messaging.realtime_voice.session_transition",
     "messaging.realtime_voice.session_event_ignored",
     "messaging.realtime_voice.connect_timeout_diagnostics",
+    "messaging.realtime_voice.connecting_watchdog_gate",
     "messaging.voice_note.recording_complete",
     "messaging.voice_note.recording_unsupported",
     "messaging.voice_note.recording_start_failed",

@@ -1213,6 +1213,36 @@ const emitCp4LongSessionGateDiagnostic = (params: Readonly<{
   });
 };
 
+const emitConnectingWatchdogGateDiagnostic = (params: Readonly<{
+  watchdogGate: M6VoiceConnectingWatchdogGate;
+  expectedNoOpenRelay: boolean;
+  connectTimeoutEvents: M6VoiceCaptureBundle["voice"]["connectTimeoutEvents"];
+  digestSummary: M6VoiceDigestSummary | null;
+  latestConnectTimeoutEventContext: Readonly<Record<string, unknown>> | null;
+}>): void => {
+  const failedChecks = params.watchdogGate.failedChecks;
+  const latestEventOpenRelayCount = toNumberOrNull(params.latestConnectTimeoutEventContext?.openRelayCount);
+  const latestEventRtcConnectionState = toStringOrNull(params.latestConnectTimeoutEventContext?.rtcConnectionState);
+  logAppEvent({
+    name: "messaging.realtime_voice.connecting_watchdog_gate",
+    level: params.watchdogGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      watchdogPass: params.watchdogGate.pass,
+      expectedNoOpenRelay: params.expectedNoOpenRelay,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      connectTimeoutEventCount: params.connectTimeoutEvents.length,
+      digestConnectTimeoutDiagnosticsCount: params.digestSummary?.connectTimeoutDiagnosticsCount ?? null,
+      digestConnectTimeoutNoOpenRelayCount: params.digestSummary?.connectTimeoutNoOpenRelayCount ?? null,
+      latestTimeoutOpenRelayCount: params.digestSummary?.latestConnectTimeoutOpenRelayCount ?? null,
+      latestTimeoutRtcConnectionState: params.digestSummary?.latestConnectTimeoutRtcConnectionState ?? null,
+      latestEventOpenRelayCount,
+      latestEventRtcConnectionState,
+    },
+  });
+};
+
 const emitCp4CheckpointGateDiagnostic = (params: Readonly<{
   cp4CheckpointGate: M6VoiceCp4CheckpointCaptureBundle["cp4CheckpointGate"];
   expectedPass: boolean;
@@ -1871,6 +1901,13 @@ export const installM6VoiceReplayBridge = (): void => {
         connectTimeoutEvents,
         latestConnectTimeoutEventContext,
         expectedNoOpenRelay,
+      });
+      emitConnectingWatchdogGateDiagnostic({
+        watchdogGate,
+        expectedNoOpenRelay,
+        connectTimeoutEvents,
+        digestSummary,
+        latestConnectTimeoutEventContext,
       });
       return {
         generatedAtUnixMs: Date.now(),

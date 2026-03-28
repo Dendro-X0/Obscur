@@ -2267,6 +2267,51 @@ describe("logAppEvent", () => {
     expect(digest.events["messaging.realtime_voice.connect_timeout_diagnostics"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
   });
 
+  it("captures realtime voice connecting-watchdog gate diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_gate",
+      level: "warn",
+      context: {
+        watchdogPass: false,
+        expectedNoOpenRelay: true,
+        failedCheckCount: 2,
+        failedCheckSample: "noOpenRelayEvidenceObserved|latestTimeoutOpenRelayAligned",
+        connectTimeoutEventCount: 1,
+        digestConnectTimeoutDiagnosticsCount: 1,
+        digestConnectTimeoutNoOpenRelayCount: 0,
+        latestTimeoutOpenRelayCount: 1,
+        latestTimeoutRtcConnectionState: "new",
+        latestEventOpenRelayCount: 0,
+        latestEventRtcConnectionState: "connecting",
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_gate"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      watchdogPass: false,
+      expectedNoOpenRelay: true,
+      failedCheckCount: 2,
+      failedCheckSample: "noOpenRelayEvidenceObserved|latestTimeoutOpenRelayAligned",
+      connectTimeoutEventCount: 1,
+      digestConnectTimeoutDiagnosticsCount: 1,
+      digestConnectTimeoutNoOpenRelayCount: 0,
+      latestTimeoutOpenRelayCount: 1,
+      latestTimeoutRtcConnectionState: "new",
+      latestEventOpenRelayCount: 0,
+      latestEventRtcConnectionState: "connecting",
+    }));
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
   it("marks ui responsiveness as watch when navigation/startup probes degrade without hard fallback", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 

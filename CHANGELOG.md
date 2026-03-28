@@ -165,6 +165,18 @@
 - Added focused M6 watchdog coverage in:
   - `apps/pwa/app/shared/m6-voice-capture.test.ts`
   - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Added canonical M6 watchdog gate diagnostics emission in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  `runConnectingWatchdogCapture(...)` now emits
+  `messaging.realtime_voice.connecting_watchdog_gate` with deterministic
+  pass/fail checks and timeout evidence snapshots.
+- Extended compact diagnostics and M0 triage coverage for watchdog-gate events:
+  - compact context allowlist in `apps/pwa/app/shared/log-app-event.ts`
+  - voice realtime focus event list in `apps/pwa/app/shared/m0-triage-capture.ts`
+  - focused regression coverage in
+    `apps/pwa/app/shared/log-app-event.test.ts`,
+    `apps/pwa/app/shared/m0-triage-capture.test.ts`,
+    and `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

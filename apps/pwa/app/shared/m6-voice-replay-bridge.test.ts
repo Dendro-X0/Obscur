@@ -521,6 +521,24 @@ describe("m6-voice-replay-bridge", () => {
     expect(bundle.watchdogGate.checks.noOpenRelayEvidenceObserved).toBe(true);
     expect(bundle.watchdogGate.checks.latestTimeoutOpenRelayAligned).toBe(true);
     expect(bundle.watchdogGate.checks.latestTimeoutRtcStateAligned).toBe(true);
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const gateEvents = diagnosticsApi.findByName("messaging.realtime_voice.connecting_watchdog_gate", 5);
+    expect(gateEvents.length).toBeGreaterThanOrEqual(1);
+    expect(gateEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      watchdogPass: true,
+      expectedNoOpenRelay: true,
+      connectTimeoutEventCount: 1,
+      digestConnectTimeoutDiagnosticsCount: 1,
+      digestConnectTimeoutNoOpenRelayCount: 1,
+      latestTimeoutOpenRelayCount: 0,
+      latestTimeoutRtcConnectionState: "connecting",
+      latestEventOpenRelayCount: 0,
+      latestEventRtcConnectionState: "connecting",
+    }));
     expect(() => JSON.parse(replayApi.runConnectingWatchdogCaptureJson({
       captureWindowSize: 280,
       expectedNoOpenRelay: true,

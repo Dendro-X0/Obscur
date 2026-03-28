@@ -569,6 +569,16 @@ Current execution status:
 : `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-capture.test.ts app/shared/m6-voice-replay-bridge.test.ts`
 : `pnpm --dir apps/pwa exec eslint app/shared/m6-voice-capture.ts app/shared/m6-voice-capture.test.ts app/shared/m6-voice-replay-bridge.ts app/shared/m6-voice-replay-bridge.test.ts --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
+15. Watchdog gate diagnostics are now emitted and triage-visible from canonical owner paths (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogCapture(...)` now emits
+: `messaging.realtime_voice.connecting_watchdog_gate` with deterministic pass/fail samples and latest timeout evidence snapshot alignment,
+: compact event context is wired in `apps/pwa/app/shared/log-app-event.ts`,
+: and M0 focused voice-realtime capture includes this event in
+: `apps/pwa/app/shared/m0-triage-capture.ts`.
+16. Focused watchdog gate + triage contract validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/shared/m6-voice-replay-bridge.test.ts app/shared/m0-triage-capture.test.ts app/shared/log-app-event.test.ts`
+: `pnpm --dir apps/pwa exec eslint app/shared/m6-voice-replay-bridge.ts app/shared/m6-voice-replay-bridge.test.ts app/shared/m0-triage-capture.ts app/shared/m0-triage-capture.test.ts app/shared/log-app-event.ts app/shared/log-app-event.test.ts --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 
