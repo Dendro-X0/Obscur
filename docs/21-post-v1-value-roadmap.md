@@ -321,6 +321,15 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa vitest run app/features/messaging/utils/time.test.ts app/features/messaging/components/sidebar.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/messaging/utils/time.ts app/features/messaging/utils/time.test.ts app/features/messaging/components/sidebar.tsx --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+42. Voice-call timer owner convergence hardening landed on canonical call lifecycle owner (2026-03-28):
+: `apps/pwa/app/features/main-shell/main-shell.tsx` now routes join-request/offer retry dispatch through ref-backed sender ownership (`sendVoiceSignalRef`)
+: so retry timers stay stable while `voiceCallUiStatus` is connecting and are no longer reset by callback identity churn.
+43. Voice-call timeout teardown convergence is validated:
+: connect/interruption timeout callbacks now route through canonical leave owner ref (`leaveCallOnUnmountRef`) to avoid stale callback capture during prolonged connect windows.
+: Focused validation replay is green:
+: `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
+: `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

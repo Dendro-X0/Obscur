@@ -106,6 +106,15 @@
   `apps/pwa/app/features/messaging/components/sidebar.tsx`;
   sidebar timestamps now consume the canonical `nowMs` snapshot from the
   shared messaging clock owner.
+- Hardened voice-call timer/retry owner stability in
+  `apps/pwa/app/features/main-shell/main-shell.tsx` by converging
+  join-request and offer retry loops onto a ref-backed signal sender
+  (`sendVoiceSignalRef`) so retry lifecycle no longer resets on callback
+  identity churn.
+- Hardened voice-call timeout teardown path in
+  `apps/pwa/app/features/main-shell/main-shell.tsx` so connect/interruption
+  timers invoke the canonical leave owner via `leaveCallOnUnmountRef`,
+  preventing stale timeout closures from holding old leave callbacks.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

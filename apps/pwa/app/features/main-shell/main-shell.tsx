@@ -507,6 +507,10 @@ function NostrMessengerContent() {
   const voiceCallConnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCallInterruptionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveCallOnUnmountRef = useRef<() => void>(() => {});
+  const sendVoiceSignalRef = useRef<((params: Readonly<{
+    peerPubkey: string;
+    payload: VoiceCallSignalPayload;
+  }>) => Promise<boolean>) | null>(null);
 
   useEffect(() => {
     voiceCallUiStatusRef.current = voiceCallUiStatus;
@@ -627,6 +631,10 @@ function NostrMessengerContent() {
       return false;
     }
   }, [dmController]);
+
+  useEffect(() => {
+    sendVoiceSignalRef.current = sendVoiceSignal;
+  }, [sendVoiceSignal]);
 
   const pruneVoiceCallLeaveTombstones = useCallback((): void => {
     const nowUnixMs = Date.now();
@@ -2288,6 +2296,11 @@ function NostrMessengerContent() {
       return;
     }
     voiceJoinRequestRetryIntervalRef.current = setInterval(() => {
+      const sendSignal = sendVoiceSignalRef.current;
+      if (!sendSignal) {
+        clearVoiceJoinRequestRetryInterval();
+        return;
+      }
       const liveStatus = voiceCallUiStatusRef.current;
       const liveSession = activeVoiceCallSessionRef.current;
       if (
@@ -2321,7 +2334,7 @@ function NostrMessengerContent() {
 
       voiceJoinRequestRetryAttemptRef.current += 1;
       const attemptNumber = voiceJoinRequestRetryAttemptRef.current;
-      void sendVoiceSignal({
+      void sendSignal({
         peerPubkey,
         payload: createVoiceCallSignalPayload({
           roomId,
@@ -2349,7 +2362,6 @@ function NostrMessengerContent() {
   }, [
     clearVoiceJoinRequestRetryInterval,
     myPublicKeyHex,
-    sendVoiceSignal,
     voiceCallUiStatus?.peerPubkey,
     voiceCallUiStatus?.phase,
     voiceCallUiStatus?.role,
@@ -2395,6 +2407,11 @@ function NostrMessengerContent() {
       return;
     }
     voiceOfferRetryIntervalRef.current = setInterval(() => {
+      const sendSignal = sendVoiceSignalRef.current;
+      if (!sendSignal) {
+        clearVoiceOfferRetryInterval();
+        return;
+      }
       const liveStatus = voiceCallUiStatusRef.current;
       const liveSession = activeVoiceCallSessionRef.current;
       const liveConnection = voicePeerConnectionRef.current;
@@ -2434,7 +2451,7 @@ function NostrMessengerContent() {
       voiceOfferRetryAttemptRef.current += 1;
       const attemptNumber = voiceOfferRetryAttemptRef.current;
       const offerDescription = liveConnection.localDescription;
-      void sendVoiceSignal({
+      void sendSignal({
         peerPubkey: status.peerPubkey,
         payload: createVoiceCallSignalPayload({
           roomId: status.roomId,
@@ -2466,7 +2483,6 @@ function NostrMessengerContent() {
   }, [
     clearVoiceOfferRetryInterval,
     myPublicKeyHex,
-    sendVoiceSignal,
     voiceCallUiStatus?.peerPubkey,
     voiceCallUiStatus?.phase,
     voiceCallUiStatus?.role,
@@ -2492,7 +2508,7 @@ function NostrMessengerContent() {
           && active.roomId === statusSnapshot.roomId
           && active.peerPubkey === statusSnapshot.peerPubkey
         ) {
-          handleLeaveVoiceCall();
+          leaveCallOnUnmountRef.current();
           toast.warning(t("messaging.voiceCallWaitTimeout", "Call setup timed out after 30 seconds."));
           return;
         }
@@ -2525,7 +2541,7 @@ function NostrMessengerContent() {
           && active.roomId === statusSnapshot.roomId
           && active.peerPubkey === statusSnapshot.peerPubkey
         ) {
-          handleLeaveVoiceCall();
+          leaveCallOnUnmountRef.current();
         }
       }, VOICE_CALL_INTERRUPTION_GRACE_MS);
     }
@@ -2533,7 +2549,7 @@ function NostrMessengerContent() {
     return () => {
       clearVoiceCallTimers();
     };
-  }, [clearVoiceCallTimers, handleLeaveVoiceCall, t, voiceCallUiStatus]);
+  }, [clearVoiceCallTimers, t, voiceCallUiStatus]);
 
   useEffect(() => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
