@@ -58,12 +58,8 @@ export const TanstackQueryRuntimeProvider = (props: Readonly<{ children: React.R
   const runtimeSnapshot = useWindowRuntimeSnapshot();
   const identity = useIdentity();
   const rolloutEnabled = useTanstackQueryEnabledFlag();
-  const queryClientRef = useRef<QueryClient | null>(null);
+  const [queryClient] = useState<QueryClient>(() => createRuntimeQueryClient());
   const previousScopeKeyRef = useRef<string | null>(null);
-
-  if (queryClientRef.current === null) {
-    queryClientRef.current = createRuntimeQueryClient();
-  }
 
   const scope = useMemo(() => {
     return createQueryScope({
@@ -77,11 +73,11 @@ export const TanstackQueryRuntimeProvider = (props: Readonly<{ children: React.R
   useEffect(() => {
     const previousScopeKey = previousScopeKeyRef.current;
     if (previousScopeKey && previousScopeKey !== cacheScopeKey) {
-      void queryClientRef.current?.cancelQueries();
-      queryClientRef.current?.clear();
+      void queryClient.cancelQueries();
+      queryClient.clear();
     }
     previousScopeKeyRef.current = cacheScopeKey;
-  }, [cacheScopeKey]);
+  }, [cacheScopeKey, queryClient]);
 
   useEffect(() => {
     updateTanstackQueryDiagnostics({
@@ -93,10 +89,10 @@ export const TanstackQueryRuntimeProvider = (props: Readonly<{ children: React.R
   }, [cacheScopeKey, rolloutEnabled, scope.profileId, scope.publicKeyHex]);
 
   const runtime = useMemo<TanstackQueryRuntime>(() => ({
-    queryClient: queryClientRef.current as QueryClient,
+    queryClient,
     scope,
     enabled: rolloutEnabled,
-  }), [rolloutEnabled, scope]);
+  }), [queryClient, rolloutEnabled, scope]);
 
   return (
     <TanstackQueryRuntimeContext.Provider value={runtime}>
@@ -110,4 +106,3 @@ export const TanstackQueryRuntimeProvider = (props: Readonly<{ children: React.R
 export const useTanstackQueryRuntime = (): TanstackQueryRuntime | null => {
   return useContext(TanstackQueryRuntimeContext);
 };
-

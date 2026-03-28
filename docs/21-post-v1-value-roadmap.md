@@ -263,6 +263,13 @@ Current execution status (started 2026-03-23):
 25. Focused regression coverage added and passing:
 : `apps/pwa/app/features/messaging/providers/messaging-provider.visibility.test.tsx`
 : validating hide -> select-DM unhide convergence for sidebar restoration behavior.
+26. Query/relay runtime owner render-purity hardening landed (2026-03-28):
+: `apps/pwa/app/features/query/providers/tanstack-query-runtime-provider.tsx`
+: and `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
+: now use stable lazy `useState` owner initialization (no render-time ref-current runtime reads).
+27. Focused runtime-owner validation is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/relays/hooks/enhanced-relay-pool.reliability.test.ts app/features/auth/components/auth-gateway.test.tsx app/features/network/hooks/use-realtime-presence.deleted-profile.test.ts app/features/messaging/providers/messaging-provider.visibility.test.tsx`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

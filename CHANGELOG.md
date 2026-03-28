@@ -36,6 +36,12 @@
   - persisted hidden/pinned state via explicit state-owned effects.
 - Added focused regression coverage for hidden-chat convergence in
   `apps/pwa/app/features/messaging/providers/messaging-provider.visibility.test.tsx`.
+- Hardened query runtime owner initialization in
+  `apps/pwa/app/features/query/providers/tanstack-query-runtime-provider.tsx`
+  by replacing render-time ref access with stable lazy `useState` query-client ownership.
+- Hardened relay runtime owner initialization in
+  `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
+  by replacing render-time ref runtime access with stable lazy `useState` ownership.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

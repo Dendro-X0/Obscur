@@ -10,7 +10,7 @@
  * Requirements: 4.2, 4.3, 4.6, 7.7, 1.4, 1.5, 4.8
  */
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { createRelayWebSocket } from "./create-relay-websocket";
 import type { RelayConnection } from "./relay-connection";
@@ -2157,11 +2157,7 @@ const serverSnapshot: RelayPoolState = { connections: [], healthMetrics: [] };
  * Enhanced Relay Pool Hook
  */
 export const useEnhancedRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResult => {
-  const runtimeRef = useRef<EnhancedRelayPoolRuntime | null>(null);
-  if (!runtimeRef.current) {
-    runtimeRef.current = createEnhancedRelayPoolRuntime();
-  }
-  const runtime = runtimeRef.current;
+  const [runtime] = useState<EnhancedRelayPoolRuntime>(() => createEnhancedRelayPoolRuntime());
   const urlsKey: string = urls.join("|");
   const urlsFromKey: ReadonlyArray<string> = useMemo(() => (urlsKey ? urlsKey.split("|") : []), [urlsKey]);
 
