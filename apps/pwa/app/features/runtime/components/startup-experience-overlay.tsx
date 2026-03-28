@@ -50,7 +50,7 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
   const [isVisible, setIsVisible] = useState(false);
   const [manuallyDismissed, setManuallyDismissed] = useState(false);
   const [startedAtUnixMs, setStartedAtUnixMs] = useState<number | null>(null);
-  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  const [nowMs, setNowMs] = useState<number | null>(null);
 
   useEffect(() => {
     if (!overlayEligibleThisSession) {
@@ -79,13 +79,16 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
       setIsVisible(false);
       setManuallyDismissed(false);
       setStartedAtUnixMs(null);
+      setNowMs(null);
       return;
     }
 
     if (shouldShow) {
       if (!isVisible) {
+        const startedAt = Date.now();
         setIsVisible(true);
-        setStartedAtUnixMs(Date.now());
+        setStartedAtUnixMs(startedAt);
+        setNowMs(startedAt);
       }
       return;
     }
@@ -94,7 +97,9 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
       return;
     }
 
-    const visibleForMs = Date.now() - (startedAtUnixMs ?? Date.now());
+    const nowReferenceUnixMs = nowMs ?? Date.now();
+    const startedAt = startedAtUnixMs ?? nowReferenceUnixMs;
+    const visibleForMs = nowReferenceUnixMs - startedAt;
     const remainingMs = Math.max(0, STARTUP_OVERLAY_MIN_VISIBLE_MS - visibleForMs);
     const timeoutId = window.setTimeout(() => {
       setIsVisible(false);
@@ -102,12 +107,13 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [isVisible, shouldParticipate, shouldShow, startedAtUnixMs]);
+  }, [isVisible, nowMs, shouldParticipate, shouldShow, startedAtUnixMs]);
 
   useEffect(() => {
     if (!isVisible) {
       return;
     }
+    setNowMs(Date.now());
     const intervalId = window.setInterval(() => {
       setNowMs(Date.now());
     }, 250);
@@ -195,7 +201,9 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
     return Math.min(100, Math.max(8, Math.round((total / steps.length) * 100)));
   }, [steps]);
 
-  const elapsedMs = startedAtUnixMs ? Math.max(0, nowMs - startedAtUnixMs) : 0;
+  const elapsedMs = (startedAtUnixMs !== null && nowMs !== null)
+    ? Math.max(0, nowMs - startedAtUnixMs)
+    : 0;
   const canBypass = elapsedMs >= STARTUP_OVERLAY_BYPASS_THRESHOLD_MS;
 
   if (!isVisible) {

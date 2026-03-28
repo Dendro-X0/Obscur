@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StartupExperienceOverlay } from "./startup-experience-overlay";
 
@@ -107,5 +107,18 @@ describe("StartupExperienceOverlay", () => {
     render(<StartupExperienceOverlay />);
 
     expect(screen.queryByText("Preparing your workspace")).not.toBeInTheDocument();
+  });
+
+  it("shows bypass button after prolonged startup transition", () => {
+    vi.useFakeTimers();
+
+    render(<StartupExperienceOverlay />);
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(10_500);
+    });
+
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
   });
 });

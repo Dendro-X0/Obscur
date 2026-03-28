@@ -289,6 +289,12 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa vitest run app/features/messaging/components/chat-header.test.tsx app/features/messaging/components/chat-view.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/messaging/components/chat-header.tsx app/features/messaging/components/chat-header.test.tsx app/features/messaging/components/chat-view.tsx app/features/messaging/components/chat-view.test.tsx --quiet`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+34. Startup overlay timing-owner hardening landed on canonical runtime startup UI owner (2026-03-28):
+: `apps/pwa/app/features/runtime/components/startup-experience-overlay.tsx` now initializes/refreshes overlay clock state in effects and computes bypass elapsed time from explicit state snapshots (no render-time clock assumptions).
+35. Focused validation replay is green:
+: `pnpm --dir apps/pwa vitest run app/features/runtime/components/startup-experience-overlay.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/runtime/components/startup-experience-overlay.tsx app/features/runtime/components/startup-experience-overlay.test.tsx --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

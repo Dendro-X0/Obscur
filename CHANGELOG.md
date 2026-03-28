@@ -72,6 +72,14 @@
   `apps/pwa/app/features/messaging/components/chat-header.test.tsx`
   asserting DM header presence labels remain deterministic (`No recent activity`)
   when `nowMs` is unavailable.
+- Hardened startup overlay timing ownership in
+  `apps/pwa/app/features/runtime/components/startup-experience-overlay.tsx`
+  by moving overlay clock initialization/refresh fully into effects and
+  removing render-time clock assumptions from elapsed/bypass computation.
+- Added focused regression coverage in
+  `apps/pwa/app/features/runtime/components/startup-experience-overlay.test.tsx`
+  asserting prolonged startup transitions still surface the bypass action after
+  the configured threshold with the new effect-owned clock state.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
