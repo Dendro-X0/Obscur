@@ -616,6 +616,71 @@ describe("m6-voice-replay-bridge", () => {
     }))).not.toThrow();
   });
 
+  it("exports deterministic connecting watchdog incident bundle with gate verdict", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    (root as unknown as {
+      obscurM0Triage: { capture: (eventWindowSize?: number) => unknown };
+    }).obscurM0Triage = {
+      capture: () => ({ tag: "m0-triage" }),
+    };
+    const replayApi = root.obscurM6VoiceReplay as {
+      runConnectingWatchdogIncidentBundle: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        expectedNoOpenRelay?: boolean;
+      }) => {
+        captureWindowSize: number;
+        expectedNoOpenRelay: boolean;
+        watchdogCapture: {
+          watchdogGate: { pass: boolean };
+          connectTimeoutEvents: ReadonlyArray<{ name: string }>;
+        };
+        selfTest: {
+          selfTestGate: { pass: boolean; checks: Record<string, boolean> };
+        };
+        m0Triage: unknown;
+        incidentGate: {
+          pass: boolean;
+          failedChecks: ReadonlyArray<string>;
+          checks: Record<string, boolean>;
+        };
+      };
+      runConnectingWatchdogIncidentBundleJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        expectedNoOpenRelay?: boolean;
+      }) => string;
+    };
+
+    const bundle = replayApi.runConnectingWatchdogIncidentBundle({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      expectedNoOpenRelay: true,
+    });
+    expect(bundle.captureWindowSize).toBe(280);
+    expect(bundle.expectedNoOpenRelay).toBe(true);
+    expect(bundle.watchdogCapture.watchdogGate.pass).toBe(true);
+    expect(bundle.watchdogCapture.connectTimeoutEvents[0]?.name).toBe("messaging.realtime_voice.connect_timeout_diagnostics");
+    expect(bundle.selfTest.selfTestGate.pass).toBe(true);
+    expect(bundle.selfTest.selfTestGate.checks.failureFlagsNoOpenRelayEvidence).toBe(true);
+    expect(bundle.m0Triage).toEqual({ tag: "m0-triage" });
+    expect(bundle.incidentGate.pass).toBe(true);
+    expect(bundle.incidentGate.failedChecks).toEqual([]);
+    expect(bundle.incidentGate.checks.watchdogCapturePass).toBe(true);
+    expect(bundle.incidentGate.checks.selfTestPass).toBe(true);
+    expect(bundle.incidentGate.checks.m0TriageCapturedWhenRequested).toBe(true);
+    expect(() => JSON.parse(replayApi.runConnectingWatchdogIncidentBundleJson({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      expectedNoOpenRelay: true,
+    }))).not.toThrow();
+  });
+
   it("exports deterministic CP4 long-session gate probe with nominal pass", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1375,5 +1440,7 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runConnectingWatchdogGateProbeJson).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogSelfTest).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogSelfTestJson).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentBundle).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentBundleJson).toBe("function");
   });
 });

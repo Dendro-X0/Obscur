@@ -84,6 +84,13 @@ type M6ConnectingWatchdogSelfTestParams = Readonly<{
   clearAppEvents?: boolean;
 }>;
 
+type M6ConnectingWatchdogIncidentBundleParams = Readonly<{
+  captureWindowSize?: number;
+  clearAppEvents?: boolean;
+  expectedNoOpenRelay?: boolean;
+  includeM0Triage?: boolean;
+}>;
+
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
 type M6VoiceReplayScenario = "weak_network" | "account_switch";
 
@@ -379,6 +386,23 @@ type M6VoiceConnectingWatchdogSelfTestReport = Readonly<{
   }>>;
 }>;
 
+type M6VoiceConnectingWatchdogIncidentBundle = Readonly<{
+  generatedAtUnixMs: number;
+  captureWindowSize: number;
+  expectedNoOpenRelay: boolean;
+  watchdogCapture: M6VoiceConnectingWatchdogCaptureBundle;
+  selfTest: M6VoiceConnectingWatchdogSelfTestReport;
+  m0Triage: unknown | null;
+  incidentGate: M6VoiceReplayProbeGate<Readonly<{
+    watchdogCapturePass: boolean;
+    selfTestPass: boolean;
+    captureAndSelfTestAligned: boolean;
+    connectTimeoutEventsObserved: boolean;
+    selfTestTimeoutEvidenceObserved: boolean;
+    m0TriageCapturedWhenRequested: boolean;
+  }>>;
+}>;
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -415,6 +439,8 @@ type M6VoiceReplayApi = Readonly<{
   runConnectingWatchdogGateProbeJson: (params?: M6ConnectingWatchdogCaptureParams) => string;
   runConnectingWatchdogSelfTest: (params?: M6ConnectingWatchdogSelfTestParams) => M6VoiceConnectingWatchdogSelfTestReport;
   runConnectingWatchdogSelfTestJson: (params?: M6ConnectingWatchdogSelfTestParams) => string;
+  runConnectingWatchdogIncidentBundle: (params?: M6ConnectingWatchdogIncidentBundleParams) => M6VoiceConnectingWatchdogIncidentBundle;
+  runConnectingWatchdogIncidentBundleJson: (params?: M6ConnectingWatchdogIncidentBundleParams) => string;
   runCp4LongSessionGateProbe: (params?: M6Cp4LongSessionGateProbeParams) => M6VoiceLongSessionGateProbe;
   runCp4LongSessionGateProbeJson: (params?: M6Cp4LongSessionGateProbeParams) => string;
   runCp4LongSessionSelfTest: (params?: M6Cp4LongSessionSelfTestParams) => M6VoiceLongSessionSelfTestReport;
@@ -477,6 +503,9 @@ type M6VoiceReplayWindow = Window & {
   obscurM6VoiceReplay?: M6VoiceReplayApi;
   obscurM6VoiceCapture?: Readonly<{
     capture?: (eventWindowSize?: number) => M6VoiceCaptureBundle;
+  }>;
+  obscurM0Triage?: Readonly<{
+    capture?: (eventWindowSize?: number) => unknown;
   }>;
   obscurAppEvents?: Readonly<{
     clear?: () => void;
@@ -1086,6 +1115,33 @@ const buildConnectingWatchdogSelfTestGate = (params: Readonly<{
   return buildBooleanGate(checks);
 };
 
+const buildConnectingWatchdogIncidentGate = (params: Readonly<{
+  watchdogCapture: M6VoiceConnectingWatchdogCaptureBundle;
+  selfTest: M6VoiceConnectingWatchdogSelfTestReport;
+  includeM0Triage: boolean;
+  m0Triage: unknown | null;
+}>): M6VoiceConnectingWatchdogIncidentBundle["incidentGate"] => {
+  const checks = {
+    watchdogCapturePass: params.watchdogCapture.watchdogGate.pass,
+    selfTestPass: params.selfTest.selfTestGate.pass,
+    captureAndSelfTestAligned: params.watchdogCapture.expectedNoOpenRelay
+      ? (
+        params.watchdogCapture.watchdogGate.pass
+        === params.selfTest.noOpenRelayExpected.watchdogGate.pass
+      )
+      : (
+        params.watchdogCapture.watchdogGate.pass
+        === params.selfTest.openRelayUnexpected.watchdogGate.pass
+      ),
+    connectTimeoutEventsObserved: params.watchdogCapture.connectTimeoutEvents.length >= 1,
+    selfTestTimeoutEvidenceObserved: params.selfTest.selfTestGate.checks.timeoutEventsObservedInBothScenarios,
+    m0TriageCapturedWhenRequested: params.includeM0Triage
+      ? params.m0Triage !== null
+      : true,
+  } as const;
+  return buildBooleanGate(checks);
+};
+
 const buildCp4CheckpointGate = (params: Readonly<{
   longSession: M6VoiceLongSessionReplayCaptureBundle;
   gateProbe: M6VoiceLongSessionGateProbe;
@@ -1629,6 +1685,8 @@ export const installM6VoiceReplayBridge = (): void => {
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogGateProbeJson === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogSelfTest === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogSelfTestJson === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundle === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundleJson === "function"
   ) {
     return;
   }
@@ -2109,6 +2167,101 @@ export const installM6VoiceReplayBridge = (): void => {
     runConnectingWatchdogSelfTestJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runConnectingWatchdogSelfTest(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runConnectingWatchdogIncidentBundle: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      if (params?.clearAppEvents === true) {
+        root.obscurAppEvents?.clear?.();
+      }
+      const expectedNoOpenRelay = params?.expectedNoOpenRelay !== false;
+      const selfTest = root.obscurM6VoiceReplay?.runConnectingWatchdogSelfTest({
+        captureWindowSize,
+        clearAppEvents: false,
+      }) ?? {
+        generatedAtUnixMs: Date.now(),
+        noOpenRelayExpected: {
+          generatedAtUnixMs: Date.now(),
+          captureWindowSize,
+          expectedNoOpenRelay: true,
+          capture: null,
+          digestSummary: null,
+          connectTimeoutEvents: [],
+          latestConnectTimeoutEventContext: null,
+          watchdogGate: {
+            pass: false,
+            failedChecks: ["connecting_watchdog_capture_unavailable"],
+            checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+          },
+        },
+        openRelayUnexpected: {
+          generatedAtUnixMs: Date.now(),
+          captureWindowSize,
+          expectedNoOpenRelay: true,
+          capture: null,
+          digestSummary: null,
+          connectTimeoutEvents: [],
+          latestConnectTimeoutEventContext: null,
+          watchdogGate: {
+            pass: false,
+            failedChecks: ["connecting_watchdog_capture_unavailable"],
+            checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+          },
+        },
+        selfTestGate: buildBooleanGate({
+          nominalPass: false,
+          nominalNoOpenRelayEvidenceObserved: false,
+          failureRejected: false,
+          failureFlagsNoOpenRelayEvidence: false,
+          timeoutEventsObservedInBothScenarios: false,
+        }),
+      };
+      root.obscurAppEvents?.clear?.();
+      emitSyntheticConnectTimeoutDiagnostics({
+        openRelayCount: expectedNoOpenRelay ? 0 : 2,
+        rtcConnectionState: expectedNoOpenRelay ? "connecting" : "new",
+      });
+      const watchdogCapture = root.obscurM6VoiceReplay?.runConnectingWatchdogCapture({
+        captureWindowSize,
+        expectedNoOpenRelay,
+      }) ?? {
+        generatedAtUnixMs: Date.now(),
+        captureWindowSize,
+        expectedNoOpenRelay,
+        capture: null,
+        digestSummary: null,
+        connectTimeoutEvents: [],
+        latestConnectTimeoutEventContext: null,
+        watchdogGate: {
+          pass: false,
+          failedChecks: ["connecting_watchdog_capture_unavailable"],
+          checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+        },
+      };
+      const includeM0Triage = params?.includeM0Triage !== false;
+      const m0Triage = includeM0Triage
+        ? (root.obscurM0Triage?.capture?.(captureWindowSize) ?? null)
+        : null;
+      return {
+        generatedAtUnixMs: Date.now(),
+        captureWindowSize,
+        expectedNoOpenRelay,
+        watchdogCapture,
+        selfTest,
+        m0Triage,
+        incidentGate: buildConnectingWatchdogIncidentGate({
+          watchdogCapture,
+          selfTest,
+          includeM0Triage,
+          m0Triage,
+        }),
+      };
+    },
+    runConnectingWatchdogIncidentBundleJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentBundle(params) ?? null,
         null,
         2,
       )

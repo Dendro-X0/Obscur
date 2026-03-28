@@ -600,6 +600,9 @@ Current execution status:
 : cross-device digest summary tracks self-test counters/latest fields under
 : `summary.realtimeVoiceSession`, and one-copy capture includes
 : `voice.connectingWatchdogSelfTestEvents` for export-ready triage bundles.
+21. One-command watchdog incident bundle helper landed on canonical bridge owner (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundle(...)`
+: now returns deterministic watchdog capture + self-test + optional M0 triage snapshot with a typed incident gate (`watchdogCapturePass`, `selfTestPass`, `captureAndSelfTestAligned`, `m0TriageCapturedWhenRequested`).
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

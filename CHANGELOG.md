@@ -216,6 +216,14 @@
   - `apps/pwa/app/shared/m6-voice-capture.test.ts`
   - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
   - `apps/pwa/app/shared/m0-triage-capture.test.ts`.
+- Added one-command watchdog incident bundle helper in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  - `runConnectingWatchdogIncidentBundle(...)`
+  - `runConnectingWatchdogIncidentBundleJson(...)`
+  returning current watchdog capture + deterministic self-test + optional M0
+  triage snapshot with a typed incident gate verdict.
+- Extended stale-bridge upgrade coverage and focused incident-bundle tests in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
