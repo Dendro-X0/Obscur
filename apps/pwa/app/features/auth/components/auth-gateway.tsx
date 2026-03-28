@@ -24,6 +24,7 @@ const AUTH_TOKEN_BASE_KEY = "obscur_auth_token";
 type TransientRetryState = Readonly<{
   count: number;
   nextRetryAtUnixMs: number;
+  wakeNonceRequired: number;
 }>;
 
 const collectScopedStorageValues = (baseKey: string): ReadonlyArray<string> => {
@@ -97,12 +98,11 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   const activeProfileId = runtime.snapshot.session.profileId;
   const hasAttemptedForActiveProfile = attemptedAutoUnlockProfileIds.includes(activeProfileId);
   const transientRetryState = transientRetryStateByProfileId[activeProfileId];
-  const transientRetryCount = transientRetryState?.count ?? 0;
   const isTransientRetryDue = Boolean(
     transientRetryState
     && transientRetryState.count > 0
     && transientRetryState.count < AUTO_UNLOCK_MAX_TRANSIENT_RETRIES
-    && Date.now() >= transientRetryState.nextRetryAtUnixMs,
+    && retryWakeNonce >= transientRetryState.wakeNonceRequired,
   );
   const shouldResolveStoredSession = (
     runtime.snapshot.phase === "auth_required"
@@ -246,6 +246,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
               [profileId]: {
                 count: nextRetryCount,
                 nextRetryAtUnixMs,
+                wakeNonceRequired: retryWakeNonce + 1,
               },
             }));
             retryTimerId = window.setTimeout(() => {

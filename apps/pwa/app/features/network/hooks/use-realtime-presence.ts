@@ -95,7 +95,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
   const unsubscribeFn = params.relayPool.unsubscribe;
   const publishToAll = params.relayPool.publishToAll;
   const selfSessionId = useMemo(() => createSessionId(), []);
-  const selfStartedAtMs = useMemo(() => Date.now(), []);
+  const [selfStartedAtMs] = useState<number>(() => Date.now());
 
   const subscribedAuthors = useMemo(
     () => toSortedUniqueAuthors(params.publicKeyHex, params.acceptedPeers),

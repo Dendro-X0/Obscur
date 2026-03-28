@@ -252,6 +252,12 @@ Current execution status (started 2026-03-23):
 : so deleted-account profiles are excluded from member counts/online metrics/list rows.
 21. Focused community visibility regression coverage added and passing:
 : `apps/pwa/app/features/groups/services/community-visible-members.test.ts`.
+22. Auth/presence render-purity hardening landed on canonical owners (2026-03-28):
+: `apps/pwa/app/features/auth/components/auth-gateway.tsx` now gates transient auto-unlock retries by deterministic wake-nonce timers (no render-time clock reads),
+: `apps/pwa/app/features/network/hooks/use-realtime-presence.ts` now initializes `selfStartedAtMs` via stable state initialization instead of render-time clock memoization.
+23. Focused hardening validation added and passing:
+: `pnpm --dir apps/pwa exec vitest run app/features/auth/components/auth-gateway.test.tsx app/features/network/hooks/use-realtime-presence.deleted-profile.test.ts`
+: `pnpm --dir apps/pwa exec tsc --noEmit --pretty false`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

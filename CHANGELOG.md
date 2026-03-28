@@ -23,6 +23,12 @@
   consistently.
 - Added focused deleted-account community visibility coverage in
   `apps/pwa/app/features/groups/services/community-visible-members.test.ts`.
+- Hardened auto-unlock transient retry gating in
+  `apps/pwa/app/features/auth/components/auth-gateway.tsx` to use
+  deterministic timer wake-nonce convergence instead of render-time clock reads.
+- Hardened realtime presence self-session start timestamp initialization in
+  `apps/pwa/app/features/network/hooks/use-realtime-presence.ts` to avoid
+  render-time impure clock memoization.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
