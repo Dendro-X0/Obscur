@@ -652,6 +652,20 @@ Current execution status:
 : `apps/pwa/app/shared/m6-voice-capture.ts`,
 : and M0 voice focus includes this event in
 : `apps/pwa/app/shared/m0-triage-capture.ts`.
+29. Deterministic incident-gate closeout self-test helpers landed on canonical bridge owner (2026-03-28):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutSelfTest(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutSelfTestJson(...)`
+: now execute explicit nominal-pass + induced-fail closeout scenarios and emit
+: `messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test`.
+30. Closeout self-test diagnostics are now digest/capture/triage-visible from canonical owners (2026-03-28):
+: `summary.realtimeVoiceSession` tracks closeout self-test counters/latest samples under
+: `connectingWatchdogIncidentGateCloseoutSelfTest*` in
+: `apps/pwa/app/shared/log-app-event.ts`,
+: one-copy capture includes
+: `voice.connectingWatchdogIncidentGateCloseoutSelfTestEvents` in
+: `apps/pwa/app/shared/m6-voice-capture.ts`,
+: and M0 voice focus includes this event in
+: `apps/pwa/app/shared/m0-triage-capture.ts`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

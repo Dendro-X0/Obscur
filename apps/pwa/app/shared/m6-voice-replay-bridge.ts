@@ -107,6 +107,7 @@ type M6ConnectingWatchdogIncidentGateCloseoutParams = M6ConnectingWatchdogIncide
   expectedPass?: boolean;
   expectedNoOpenRelay?: boolean;
 }>;
+type M6ConnectingWatchdogIncidentGateCloseoutSelfTestParams = M6ConnectingWatchdogIncidentGateSelfTestParams;
 
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
 type M6VoiceReplayScenario = "weak_network" | "account_switch";
@@ -481,6 +482,19 @@ type M6VoiceConnectingWatchdogIncidentGateCloseoutBundle = Readonly<{
   }>>;
 }>;
 
+type M6VoiceConnectingWatchdogIncidentGateCloseoutSelfTestReport = Readonly<{
+  generatedAtUnixMs: number;
+  nominal: M6VoiceConnectingWatchdogIncidentGateCloseoutBundle;
+  failureInjection: M6VoiceConnectingWatchdogIncidentGateCloseoutBundle;
+  selfTestGate: M6VoiceReplayProbeGate<Readonly<{
+    nominalPass: boolean;
+    nominalMatchesExpected: boolean;
+    failureRejected: boolean;
+    failureFlagsExpectedMismatch: boolean;
+    closeoutEvidenceObservedInBoth: boolean;
+  }>>;
+}>;
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -531,6 +545,8 @@ type M6VoiceReplayApi = Readonly<{
   runConnectingWatchdogIncidentGateCloseoutCaptureJson: (params?: M6ConnectingWatchdogIncidentGateCloseoutParams) => string;
   runConnectingWatchdogIncidentGateCloseoutGateProbe: (params?: M6ConnectingWatchdogIncidentGateCloseoutParams) => M6VoiceConnectingWatchdogIncidentGateCloseoutBundle["closeoutGate"];
   runConnectingWatchdogIncidentGateCloseoutGateProbeJson: (params?: M6ConnectingWatchdogIncidentGateCloseoutParams) => string;
+  runConnectingWatchdogIncidentGateCloseoutSelfTest: (params?: M6ConnectingWatchdogIncidentGateCloseoutSelfTestParams) => M6VoiceConnectingWatchdogIncidentGateCloseoutSelfTestReport;
+  runConnectingWatchdogIncidentGateCloseoutSelfTestJson: (params?: M6ConnectingWatchdogIncidentGateCloseoutSelfTestParams) => string;
   runCp4LongSessionGateProbe: (params?: M6Cp4LongSessionGateProbeParams) => M6VoiceLongSessionGateProbe;
   runCp4LongSessionGateProbeJson: (params?: M6Cp4LongSessionGateProbeParams) => string;
   runCp4LongSessionSelfTest: (params?: M6Cp4LongSessionSelfTestParams) => M6VoiceLongSessionSelfTestReport;
@@ -710,6 +726,13 @@ const EMPTY_CONNECTING_WATCHDOG_INCIDENT_GATE_CLOSEOUT_CHECKS: M6VoiceConnecting
   digestUnexpectedIncidentGateEvidenceFailZeroWhenExpectedPass: false,
   digestUnexpectedIncidentGateSelfTestFailZero: false,
 };
+const EMPTY_CONNECTING_WATCHDOG_INCIDENT_GATE_CLOSEOUT_SELF_TEST_CHECKS: M6VoiceConnectingWatchdogIncidentGateCloseoutSelfTestReport["selfTestGate"]["checks"] = {
+  nominalPass: false,
+  nominalMatchesExpected: false,
+  failureRejected: false,
+  failureFlagsExpectedMismatch: false,
+  closeoutEvidenceObservedInBoth: false,
+};
 const SUPPORTED_UNSUPPORTED_REASON_CODES = new Set<string>([
   "webrtc_unavailable",
   "insecure_context",
@@ -801,6 +824,10 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     connectingWatchdogIncidentGateCloseoutPassCount: toNumber(value.connectingWatchdogIncidentGateCloseoutPassCount),
     connectingWatchdogIncidentGateCloseoutFailCount: toNumber(value.connectingWatchdogIncidentGateCloseoutFailCount),
     unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentGateCloseoutFailCount),
+    connectingWatchdogIncidentGateCloseoutSelfTestCount: toNumber(value.connectingWatchdogIncidentGateCloseoutSelfTestCount),
+    connectingWatchdogIncidentGateCloseoutSelfTestPassCount: toNumber(value.connectingWatchdogIncidentGateCloseoutSelfTestPassCount),
+    connectingWatchdogIncidentGateCloseoutSelfTestFailCount: toNumber(value.connectingWatchdogIncidentGateCloseoutSelfTestFailCount),
+    unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -840,6 +867,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample),
     latestConnectingWatchdogIncidentGateCloseoutPass: toBooleanOrNull(value.latestConnectingWatchdogIncidentGateCloseoutPass),
     latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample),
+    latestConnectingWatchdogIncidentGateCloseoutSelfTestPass: toBooleanOrNull(value.latestConnectingWatchdogIncidentGateCloseoutSelfTestPass),
+    latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -1361,6 +1390,25 @@ const buildConnectingWatchdogIncidentGateCloseoutGate = (params: Readonly<{
   return buildBooleanGate(checks);
 };
 
+const buildConnectingWatchdogIncidentGateCloseoutSelfTestGate = (params: Readonly<{
+  nominal: M6VoiceConnectingWatchdogIncidentGateCloseoutBundle;
+  failureInjection: M6VoiceConnectingWatchdogIncidentGateCloseoutBundle;
+}>): M6VoiceConnectingWatchdogIncidentGateCloseoutSelfTestReport["selfTestGate"] => {
+  const checks = {
+    nominalPass: params.nominal.closeoutGate.pass,
+    nominalMatchesExpected: (
+      params.nominal.closeoutGate.pass === params.nominal.expectedPass
+    ),
+    failureRejected: !params.failureInjection.closeoutGate.pass,
+    failureFlagsExpectedMismatch: !params.failureInjection.closeoutGate.checks.incidentGateEvidenceMatchesExpected,
+    closeoutEvidenceObservedInBoth: (
+      params.nominal.incidentGateCapture.evidenceGate.checks.incidentGateEventObserved
+      && params.failureInjection.incidentGateCapture.evidenceGate.checks.incidentGateEventObserved
+    ),
+  } as const;
+  return buildBooleanGate(checks);
+};
+
 const buildCp4CheckpointGate = (params: Readonly<{
   longSession: M6VoiceLongSessionReplayCaptureBundle;
   gateProbe: M6VoiceLongSessionGateProbe;
@@ -1748,6 +1796,29 @@ const emitConnectingWatchdogIncidentGateCloseoutDiagnostic = (params: Readonly<{
   });
 };
 
+const emitConnectingWatchdogIncidentGateCloseoutSelfTestDiagnostic = (params: Readonly<{
+  report: M6VoiceConnectingWatchdogIncidentGateCloseoutSelfTestReport;
+}>): void => {
+  const failedChecks = params.report.selfTestGate.failedChecks;
+  logAppEvent({
+    name: "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test",
+    level: params.report.selfTestGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      selfTestPass: params.report.selfTestGate.pass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      nominalPass: params.report.selfTestGate.checks.nominalPass,
+      nominalMatchesExpected: params.report.selfTestGate.checks.nominalMatchesExpected,
+      failureRejected: params.report.selfTestGate.checks.failureRejected,
+      failureFlagsExpectedMismatch: params.report.selfTestGate.checks.failureFlagsExpectedMismatch,
+      closeoutEvidenceObservedInBoth: params.report.selfTestGate.checks.closeoutEvidenceObservedInBoth,
+      nominalCloseoutGatePass: params.report.nominal.closeoutGate.pass,
+      failureCloseoutGatePass: params.report.failureInjection.closeoutGate.pass,
+    },
+  });
+};
+
 const emitCp4CheckpointGateDiagnostic = (params: Readonly<{
   cp4CheckpointGate: M6VoiceCp4CheckpointCaptureBundle["cp4CheckpointGate"];
   expectedPass: boolean;
@@ -2049,6 +2120,8 @@ export const installM6VoiceReplayBridge = (): void => {
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutCaptureJson === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutGateProbe === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutGateProbeJson === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutSelfTest === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCloseoutSelfTestJson === "function"
   ) {
     return;
   }
@@ -3107,6 +3180,340 @@ export const installM6VoiceReplayBridge = (): void => {
     runConnectingWatchdogIncidentGateCloseoutGateProbeJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentGateCloseoutGateProbe(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runConnectingWatchdogIncidentGateCloseoutSelfTest: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const eventSliceLimit = toPositiveInteger(params?.eventSliceLimit, 6);
+      const includeM0Triage = params?.includeM0Triage !== false;
+      const replayApi = root.obscurM6VoiceReplay;
+      if (!replayApi) {
+        const unavailableCloseout: M6VoiceConnectingWatchdogIncidentGateCloseoutBundle = {
+          generatedAtUnixMs: Date.now(),
+          captureWindowSize,
+          expectedNoOpenRelay: true,
+          expectedPass: true,
+          incidentGateCapture: {
+            generatedAtUnixMs: Date.now(),
+            captureWindowSize,
+            expectedNoOpenRelay: true,
+            expectedPass: true,
+            incidentBundle: {
+              generatedAtUnixMs: Date.now(),
+              captureWindowSize,
+              expectedNoOpenRelay: true,
+              watchdogCapture: {
+                generatedAtUnixMs: Date.now(),
+                captureWindowSize,
+                expectedNoOpenRelay: true,
+                capture: null,
+                digestSummary: null,
+                connectTimeoutEvents: [],
+                latestConnectTimeoutEventContext: null,
+                watchdogGate: {
+                  pass: false,
+                  failedChecks: ["connecting_watchdog_capture_unavailable"],
+                  checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                },
+              },
+              selfTest: {
+                generatedAtUnixMs: Date.now(),
+                noOpenRelayExpected: {
+                  generatedAtUnixMs: Date.now(),
+                  captureWindowSize,
+                  expectedNoOpenRelay: true,
+                  capture: null,
+                  digestSummary: null,
+                  connectTimeoutEvents: [],
+                  latestConnectTimeoutEventContext: null,
+                  watchdogGate: {
+                    pass: false,
+                    failedChecks: ["connecting_watchdog_capture_unavailable"],
+                    checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                  },
+                },
+                openRelayUnexpected: {
+                  generatedAtUnixMs: Date.now(),
+                  captureWindowSize,
+                  expectedNoOpenRelay: true,
+                  capture: null,
+                  digestSummary: null,
+                  connectTimeoutEvents: [],
+                  latestConnectTimeoutEventContext: null,
+                  watchdogGate: {
+                    pass: false,
+                    failedChecks: ["connecting_watchdog_capture_unavailable"],
+                    checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                  },
+                },
+                selfTestGate: buildBooleanGate({
+                  nominalPass: false,
+                  nominalNoOpenRelayEvidenceObserved: false,
+                  failureRejected: false,
+                  failureFlagsNoOpenRelayEvidence: false,
+                  timeoutEventsObservedInBothScenarios: false,
+                }),
+              },
+              m0Triage: null,
+              incidentGate: buildBooleanGate({
+                watchdogCapturePass: false,
+                selfTestPass: false,
+                captureAndSelfTestAligned: false,
+                connectTimeoutEventsObserved: false,
+                selfTestTimeoutEvidenceObserved: false,
+                m0TriageCapturedWhenRequested: false,
+              }),
+            },
+            incidentGateEventContexts: [],
+            latestIncidentGateEventContext: null,
+            digestSummary: null,
+            evidenceGate: buildBooleanGate({
+              incidentGateMatchesExpected: false,
+              incidentGateEventObserved: false,
+              latestIncidentGateEventMatchesGate: false,
+              latestIncidentGateEventFailureSampleAligned: false,
+              digestSummaryPresent: false,
+              digestIncidentGateCountObserved: false,
+              digestLatestIncidentGateAligned: false,
+              digestUnexpectedIncidentGateFailZeroWhenExpectedPass: false,
+              digestRiskNotHighWhenExpectedPass: false,
+            }),
+          },
+          selfTest: {
+            generatedAtUnixMs: Date.now(),
+            nominal: {
+              generatedAtUnixMs: Date.now(),
+              captureWindowSize,
+              expectedNoOpenRelay: true,
+              expectedPass: true,
+              incidentBundle: {
+                generatedAtUnixMs: Date.now(),
+                captureWindowSize,
+                expectedNoOpenRelay: true,
+                watchdogCapture: {
+                  generatedAtUnixMs: Date.now(),
+                  captureWindowSize,
+                  expectedNoOpenRelay: true,
+                  capture: null,
+                  digestSummary: null,
+                  connectTimeoutEvents: [],
+                  latestConnectTimeoutEventContext: null,
+                  watchdogGate: {
+                    pass: false,
+                    failedChecks: ["connecting_watchdog_capture_unavailable"],
+                    checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                  },
+                },
+                selfTest: {
+                  generatedAtUnixMs: Date.now(),
+                  noOpenRelayExpected: {
+                    generatedAtUnixMs: Date.now(),
+                    captureWindowSize,
+                    expectedNoOpenRelay: true,
+                    capture: null,
+                    digestSummary: null,
+                    connectTimeoutEvents: [],
+                    latestConnectTimeoutEventContext: null,
+                    watchdogGate: {
+                      pass: false,
+                      failedChecks: ["connecting_watchdog_capture_unavailable"],
+                      checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                    },
+                  },
+                  openRelayUnexpected: {
+                    generatedAtUnixMs: Date.now(),
+                    captureWindowSize,
+                    expectedNoOpenRelay: true,
+                    capture: null,
+                    digestSummary: null,
+                    connectTimeoutEvents: [],
+                    latestConnectTimeoutEventContext: null,
+                    watchdogGate: {
+                      pass: false,
+                      failedChecks: ["connecting_watchdog_capture_unavailable"],
+                      checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                    },
+                  },
+                  selfTestGate: buildBooleanGate({
+                    nominalPass: false,
+                    nominalNoOpenRelayEvidenceObserved: false,
+                    failureRejected: false,
+                    failureFlagsNoOpenRelayEvidence: false,
+                    timeoutEventsObservedInBothScenarios: false,
+                  }),
+                },
+                m0Triage: null,
+                incidentGate: buildBooleanGate({
+                  watchdogCapturePass: false,
+                  selfTestPass: false,
+                  captureAndSelfTestAligned: false,
+                  connectTimeoutEventsObserved: false,
+                  selfTestTimeoutEvidenceObserved: false,
+                  m0TriageCapturedWhenRequested: false,
+                }),
+              },
+              incidentGateEventContexts: [],
+              latestIncidentGateEventContext: null,
+              digestSummary: null,
+              evidenceGate: buildBooleanGate({
+                incidentGateMatchesExpected: false,
+                incidentGateEventObserved: false,
+                latestIncidentGateEventMatchesGate: false,
+                latestIncidentGateEventFailureSampleAligned: false,
+                digestSummaryPresent: false,
+                digestIncidentGateCountObserved: false,
+                digestLatestIncidentGateAligned: false,
+                digestUnexpectedIncidentGateFailZeroWhenExpectedPass: false,
+                digestRiskNotHighWhenExpectedPass: false,
+              }),
+            },
+            failureInjection: {
+              generatedAtUnixMs: Date.now(),
+              captureWindowSize,
+              expectedNoOpenRelay: false,
+              expectedPass: true,
+              incidentBundle: {
+                generatedAtUnixMs: Date.now(),
+                captureWindowSize,
+                expectedNoOpenRelay: false,
+                watchdogCapture: {
+                  generatedAtUnixMs: Date.now(),
+                  captureWindowSize,
+                  expectedNoOpenRelay: false,
+                  capture: null,
+                  digestSummary: null,
+                  connectTimeoutEvents: [],
+                  latestConnectTimeoutEventContext: null,
+                  watchdogGate: {
+                    pass: false,
+                    failedChecks: ["connecting_watchdog_capture_unavailable"],
+                    checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                  },
+                },
+                selfTest: {
+                  generatedAtUnixMs: Date.now(),
+                  noOpenRelayExpected: {
+                    generatedAtUnixMs: Date.now(),
+                    captureWindowSize,
+                    expectedNoOpenRelay: true,
+                    capture: null,
+                    digestSummary: null,
+                    connectTimeoutEvents: [],
+                    latestConnectTimeoutEventContext: null,
+                    watchdogGate: {
+                      pass: false,
+                      failedChecks: ["connecting_watchdog_capture_unavailable"],
+                      checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                    },
+                  },
+                  openRelayUnexpected: {
+                    generatedAtUnixMs: Date.now(),
+                    captureWindowSize,
+                    expectedNoOpenRelay: true,
+                    capture: null,
+                    digestSummary: null,
+                    connectTimeoutEvents: [],
+                    latestConnectTimeoutEventContext: null,
+                    watchdogGate: {
+                      pass: false,
+                      failedChecks: ["connecting_watchdog_capture_unavailable"],
+                      checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+                    },
+                  },
+                  selfTestGate: buildBooleanGate({
+                    nominalPass: false,
+                    nominalNoOpenRelayEvidenceObserved: false,
+                    failureRejected: false,
+                    failureFlagsNoOpenRelayEvidence: false,
+                    timeoutEventsObservedInBothScenarios: false,
+                  }),
+                },
+                m0Triage: null,
+                incidentGate: buildBooleanGate({
+                  watchdogCapturePass: false,
+                  selfTestPass: false,
+                  captureAndSelfTestAligned: false,
+                  connectTimeoutEventsObserved: false,
+                  selfTestTimeoutEvidenceObserved: false,
+                  m0TriageCapturedWhenRequested: false,
+                }),
+              },
+              incidentGateEventContexts: [],
+              latestIncidentGateEventContext: null,
+              digestSummary: null,
+              evidenceGate: buildBooleanGate({
+                incidentGateMatchesExpected: false,
+                incidentGateEventObserved: false,
+                latestIncidentGateEventMatchesGate: false,
+                latestIncidentGateEventFailureSampleAligned: false,
+                digestSummaryPresent: false,
+                digestIncidentGateCountObserved: false,
+                digestLatestIncidentGateAligned: false,
+                digestUnexpectedIncidentGateFailZeroWhenExpectedPass: false,
+                digestRiskNotHighWhenExpectedPass: false,
+              }),
+            },
+            selfTestGate: buildBooleanGate({
+              nominalPass: false,
+              nominalMatchesExpected: false,
+              failureRejected: false,
+              failureFlagsExpectedMismatch: false,
+              incidentGateEvidenceObservedInBoth: false,
+            }),
+          },
+          recentWarnOrError: [],
+          closeoutGate: {
+            pass: false,
+            failedChecks: ["connecting_watchdog_incident_gate_closeout_capture_unavailable"],
+            checks: EMPTY_CONNECTING_WATCHDOG_INCIDENT_GATE_CLOSEOUT_CHECKS,
+          },
+        };
+        const unavailableReport: M6VoiceConnectingWatchdogIncidentGateCloseoutSelfTestReport = {
+          generatedAtUnixMs: Date.now(),
+          nominal: unavailableCloseout,
+          failureInjection: unavailableCloseout,
+          selfTestGate: {
+            pass: false,
+            failedChecks: ["connecting_watchdog_incident_gate_closeout_self_test_unavailable"],
+            checks: EMPTY_CONNECTING_WATCHDOG_INCIDENT_GATE_CLOSEOUT_SELF_TEST_CHECKS,
+          },
+        };
+        emitConnectingWatchdogIncidentGateCloseoutSelfTestDiagnostic({ report: unavailableReport });
+        return unavailableReport;
+      }
+      const nominal = replayApi.runConnectingWatchdogIncidentGateCloseoutCapture({
+        clearAppEvents: params?.clearAppEvents,
+        captureWindowSize,
+        eventSliceLimit,
+        includeM0Triage,
+        expectedNoOpenRelay: true,
+        expectedPass: true,
+      });
+      const failureInjection = replayApi.runConnectingWatchdogIncidentGateCloseoutCapture({
+        clearAppEvents: true,
+        captureWindowSize,
+        eventSliceLimit,
+        includeM0Triage,
+        expectedNoOpenRelay: false,
+        expectedPass: true,
+      });
+      const report = {
+        generatedAtUnixMs: Date.now(),
+        nominal,
+        failureInjection,
+        selfTestGate: buildConnectingWatchdogIncidentGateCloseoutSelfTestGate({
+          nominal,
+          failureInjection,
+        }),
+      };
+      emitConnectingWatchdogIncidentGateCloseoutSelfTestDiagnostic({ report });
+      return report;
+    },
+    runConnectingWatchdogIncidentGateCloseoutSelfTestJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentGateCloseoutSelfTest(params) ?? null,
         null,
         2,
       )

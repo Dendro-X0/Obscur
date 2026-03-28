@@ -1052,6 +1052,75 @@ describe("m6-voice-replay-bridge", () => {
     }));
   });
 
+  it("exports deterministic connecting watchdog incident-gate closeout self-test report", () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    installM6VoiceCapture();
+    installM6VoiceReplayBridge();
+
+    const root = getMutableWindow();
+    const replayApi = root.obscurM6VoiceReplay as {
+      runConnectingWatchdogIncidentGateCloseoutSelfTest: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+        includeM0Triage?: boolean;
+      }) => {
+        nominal: { closeoutGate: { pass: boolean; checks: Record<string, boolean> } };
+        failureInjection: { closeoutGate: { pass: boolean; failedChecks: ReadonlyArray<string> } };
+        selfTestGate: { pass: boolean; failedChecks: ReadonlyArray<string>; checks: Record<string, boolean> };
+      };
+      runConnectingWatchdogIncidentGateCloseoutSelfTestJson: (params?: {
+        clearAppEvents?: boolean;
+        captureWindowSize?: number;
+        eventSliceLimit?: number;
+        includeM0Triage?: boolean;
+      }) => string;
+    };
+
+    const report = replayApi.runConnectingWatchdogIncidentGateCloseoutSelfTest({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+      includeM0Triage: true,
+    });
+    expect(report.nominal.closeoutGate.pass).toBe(true);
+    expect(report.nominal.closeoutGate.checks.incidentGateEvidenceMatchesExpected).toBe(true);
+    expect(report.failureInjection.closeoutGate.pass).toBe(false);
+    expect(report.failureInjection.closeoutGate.failedChecks).toContain("incidentGateEvidenceMatchesExpected");
+    expect(report.selfTestGate.pass).toBe(true);
+    expect(report.selfTestGate.failedChecks).toEqual([]);
+    expect(report.selfTestGate.checks.nominalPass).toBe(true);
+    expect(report.selfTestGate.checks.nominalMatchesExpected).toBe(true);
+    expect(report.selfTestGate.checks.failureRejected).toBe(true);
+    expect(report.selfTestGate.checks.failureFlagsExpectedMismatch).toBe(true);
+    expect(report.selfTestGate.checks.closeoutEvidenceObservedInBoth).toBe(true);
+    expect(() => JSON.parse(replayApi.runConnectingWatchdogIncidentGateCloseoutSelfTestJson({
+      clearAppEvents: true,
+      captureWindowSize: 280,
+      eventSliceLimit: 4,
+      includeM0Triage: true,
+    }))).not.toThrow();
+
+    const diagnosticsApi = root.obscurAppEvents as {
+      findByName: (name: string, count?: number) => ReadonlyArray<{
+        context?: Record<string, unknown>;
+      }>;
+    };
+    const selfTestEvents = diagnosticsApi.findByName("messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test", 5);
+    expect(selfTestEvents.length).toBeGreaterThanOrEqual(1);
+    expect(selfTestEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      selfTestPass: true,
+      nominalPass: true,
+      nominalMatchesExpected: true,
+      failureRejected: true,
+      failureFlagsExpectedMismatch: true,
+      closeoutEvidenceObservedInBoth: true,
+      nominalCloseoutGatePass: true,
+      failureCloseoutGatePass: false,
+    }));
+  });
+
   it("passes CP4 long-session gate probe when failure-injection replay is expected to fail", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1784,5 +1853,7 @@ describe("m6-voice-replay-bridge", () => {
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutCaptureJson).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutGateProbe).toBe("function");
     expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutGateProbeJson).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutSelfTest).toBe("function");
+    expect(typeof upgraded?.runConnectingWatchdogIncidentGateCloseoutSelfTestJson).toBe("function");
   });
 });

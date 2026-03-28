@@ -2895,6 +2895,88 @@ describe("logAppEvent", () => {
     }));
   });
 
+  it("captures realtime voice connecting-watchdog incident-gate-closeout-self-test diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test",
+      level: "warn",
+      context: {
+        selfTestPass: false,
+        failedCheckCount: 2,
+        failedCheckSample: "failureRejected|closeoutEvidenceObservedInBoth",
+        nominalPass: true,
+        nominalMatchesExpected: true,
+        failureRejected: false,
+        failureFlagsExpectedMismatch: true,
+        closeoutEvidenceObservedInBoth: false,
+        nominalCloseoutGatePass: true,
+        failureCloseoutGatePass: true,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test"]?.[0]?.context).toEqual(expect.objectContaining({
+      selfTestPass: false,
+      failedCheckCount: 2,
+      failedCheckSample: "failureRejected|closeoutEvidenceObservedInBoth",
+      nominalPass: true,
+      nominalMatchesExpected: true,
+      failureRejected: false,
+      failureFlagsExpectedMismatch: true,
+      closeoutEvidenceObservedInBoth: false,
+      nominalCloseoutGatePass: true,
+      failureCloseoutGatePass: true,
+    }));
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
+  it("tracks realtime voice connecting-watchdog incident-gate-closeout-self-test summary counters", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test",
+      level: "warn",
+      context: {
+        selfTestPass: false,
+        failedCheckSample: "failureRejected",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            connectingWatchdogIncidentGateCloseoutSelfTestCount: number;
+            connectingWatchdogIncidentGateCloseoutSelfTestPassCount: number;
+            connectingWatchdogIncidentGateCloseoutSelfTestFailCount: number;
+            unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount: number;
+            latestConnectingWatchdogIncidentGateCloseoutSelfTestPass: boolean | null;
+            latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      connectingWatchdogIncidentGateCloseoutSelfTestCount: 1,
+      connectingWatchdogIncidentGateCloseoutSelfTestPassCount: 0,
+      connectingWatchdogIncidentGateCloseoutSelfTestFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount: 1,
+      latestConnectingWatchdogIncidentGateCloseoutSelfTestPass: false,
+      latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample: "failureRejected",
+    }));
+  });
+
   it("marks ui responsiveness as watch when navigation/startup probes degrade without hard fallback", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
