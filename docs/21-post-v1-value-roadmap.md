@@ -283,6 +283,12 @@ Current execution status (started 2026-03-23):
 31. Focused regression validation is green:
 : `pnpm --dir apps/pwa vitest run app/features/messaging/components/chat-view.test.tsx`
 : `pnpm --dir apps/pwa exec eslint app/features/messaging/components/chat-view.tsx app/features/messaging/components/chat-view.test.tsx --quiet`.
+32. DM header presence-label determinism hardening landed (2026-03-28):
+: `apps/pwa/app/features/messaging/components/chat-header.tsx` no longer falls back to render-time `Date.now()` for non-connected last-active labels when `nowMs` is unavailable; connected-call clock ownership now initializes in effect.
+33. Focused regression validation is green:
+: `pnpm --dir apps/pwa vitest run app/features/messaging/components/chat-header.test.tsx app/features/messaging/components/chat-view.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/messaging/components/chat-header.tsx app/features/messaging/components/chat-header.test.tsx app/features/messaging/components/chat-view.tsx app/features/messaging/components/chat-view.test.tsx --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

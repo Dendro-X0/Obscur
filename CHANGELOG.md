@@ -62,6 +62,16 @@
   `apps/pwa/app/features/messaging/components/chat-view.test.tsx`
   asserting search results do not render synthetic "Just now" labels when
   runtime `nowMs` is unavailable.
+- Hardened `apps/pwa/app/features/messaging/components/chat-header.tsx`
+  to avoid render-time clock fallbacks when `nowMs` is unavailable:
+  - connected-call clock now initializes in effect and never from render-time
+    `Date.now()` fallback,
+  - non-connected "last active/last viewed" labels now remain deterministic
+    until a real runtime `nowMs` snapshot arrives.
+- Added focused regression coverage in
+  `apps/pwa/app/features/messaging/components/chat-header.test.tsx`
+  asserting DM header presence labels remain deterministic (`No recent activity`)
+  when `nowMs` is unavailable.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

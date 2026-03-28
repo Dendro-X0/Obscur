@@ -64,7 +64,7 @@ export function ChatHeader({
         PrivacySettingsService.getSettings().showPublicKeyControlsInChat === true
     ));
     const [isPubkeyPanelVisible, setIsPubkeyPanelVisible] = React.useState(false);
-    const [clockNowMs, setClockNowMs] = React.useState<number>(() => Date.now());
+    const [clockNowMs, setClockNowMs] = React.useState<number | null>(null);
     React.useEffect(() => {
         setIsPubkeyPanelVisible(false);
     }, [conversation.id]);
@@ -84,8 +84,10 @@ export function ChatHeader({
     }, []);
     React.useEffect(() => {
         if (voiceCallStatus?.phase !== "connected") {
+            setClockNowMs(null);
             return;
         }
+        setClockNowMs(Date.now());
         const intervalId = window.setInterval(() => {
             setClockNowMs(Date.now());
         }, 1000);
@@ -93,7 +95,9 @@ export function ChatHeader({
             window.clearInterval(intervalId);
         };
     }, [voiceCallStatus?.phase]);
-    const resolvedNowMs = voiceCallStatus?.phase === "connected" ? clockNowMs : (nowMs ?? clockNowMs);
+    const resolvedNowMs = voiceCallStatus?.phase === "connected"
+        ? (clockNowMs ?? nowMs ?? voiceCallStatus.sinceUnixMs)
+        : (nowMs ?? null);
     const lastActiveLabel = (
         interactionStatus?.lastActiveAtMs
             ? formatTime(new Date(interactionStatus.lastActiveAtMs), resolvedNowMs)
@@ -148,7 +152,8 @@ export function ChatHeader({
     const connectedDurationLabel = (
         voiceCallStatus?.phase === "connected" && Number.isFinite(voiceCallStatus.sinceUnixMs)
             ? (() => {
-                const elapsedMs = Math.max(0, resolvedNowMs - voiceCallStatus.sinceUnixMs);
+                const effectiveNowMs = resolvedNowMs ?? voiceCallStatus.sinceUnixMs;
+                const elapsedMs = Math.max(0, effectiveNowMs - voiceCallStatus.sinceUnixMs);
                 const totalSeconds = Math.floor(elapsedMs / 1000);
                 const minutes = Math.floor(totalSeconds / 60);
                 const seconds = totalSeconds % 60;
