@@ -620,6 +620,15 @@ Current execution status:
 : cross-device digest summary tracks incident-gate counters/latest fields under
 : `summary.realtimeVoiceSession`, and one-copy bundles include
 : `voice.connectingWatchdogIncidentGateEvents`.
+25. Incident-gate evidence capture helpers now provide one-command gate/event/digest alignment output (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCapture(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCaptureJson(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateEvidenceProbe(...)`
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateEvidenceProbeJson(...)`
+: now emit canonical `messaging.realtime_voice.connecting_watchdog_incident_gate_evidence`,
+: cross-device digest summary tracks incident-gate-evidence counters/latest fields under
+: `summary.realtimeVoiceSession`, and one-copy capture includes
+: `voice.connectingWatchdogIncidentGateEvidenceEvents`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

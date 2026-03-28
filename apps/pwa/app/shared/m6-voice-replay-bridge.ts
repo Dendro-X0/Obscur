@@ -91,6 +91,11 @@ type M6ConnectingWatchdogIncidentBundleParams = Readonly<{
   includeM0Triage?: boolean;
 }>;
 
+type M6ConnectingWatchdogIncidentGateCaptureParams = M6ConnectingWatchdogIncidentBundleParams & Readonly<{
+  eventSliceLimit?: number;
+  expectedPass?: boolean;
+}>;
+
 type M6VoiceDigestSummary = NonNullable<M6VoiceCaptureBundle["voice"]["summary"]>;
 type M6VoiceReplayScenario = "weak_network" | "account_switch";
 
@@ -403,6 +408,28 @@ type M6VoiceConnectingWatchdogIncidentBundle = Readonly<{
   }>>;
 }>;
 
+type M6VoiceConnectingWatchdogIncidentGateCaptureBundle = Readonly<{
+  generatedAtUnixMs: number;
+  captureWindowSize: number;
+  expectedNoOpenRelay: boolean;
+  expectedPass: boolean;
+  incidentBundle: M6VoiceConnectingWatchdogIncidentBundle;
+  incidentGateEventContexts: ReadonlyArray<Readonly<Record<string, unknown>>>;
+  latestIncidentGateEventContext: Readonly<Record<string, unknown>> | null;
+  digestSummary: M6VoiceDigestSummary | null;
+  evidenceGate: M6VoiceReplayProbeGate<Readonly<{
+    incidentGateMatchesExpected: boolean;
+    incidentGateEventObserved: boolean;
+    latestIncidentGateEventMatchesGate: boolean;
+    latestIncidentGateEventFailureSampleAligned: boolean;
+    digestSummaryPresent: boolean;
+    digestIncidentGateCountObserved: boolean;
+    digestLatestIncidentGateAligned: boolean;
+    digestUnexpectedIncidentGateFailZeroWhenExpectedPass: boolean;
+    digestRiskNotHighWhenExpectedPass: boolean;
+  }>>;
+}>;
+
 type M6VoiceReplayApi = Readonly<{
   reset: (options?: Readonly<{ maxRecoveryAttempts?: number }>) => RealtimeVoiceSessionState;
   getState: () => RealtimeVoiceSessionState;
@@ -443,6 +470,10 @@ type M6VoiceReplayApi = Readonly<{
   runConnectingWatchdogIncidentBundleJson: (params?: M6ConnectingWatchdogIncidentBundleParams) => string;
   runConnectingWatchdogIncidentGateProbe: (params?: M6ConnectingWatchdogIncidentBundleParams) => M6VoiceConnectingWatchdogIncidentBundle["incidentGate"];
   runConnectingWatchdogIncidentGateProbeJson: (params?: M6ConnectingWatchdogIncidentBundleParams) => string;
+  runConnectingWatchdogIncidentGateCapture: (params?: M6ConnectingWatchdogIncidentGateCaptureParams) => M6VoiceConnectingWatchdogIncidentGateCaptureBundle;
+  runConnectingWatchdogIncidentGateCaptureJson: (params?: M6ConnectingWatchdogIncidentGateCaptureParams) => string;
+  runConnectingWatchdogIncidentGateEvidenceProbe: (params?: M6ConnectingWatchdogIncidentGateCaptureParams) => M6VoiceConnectingWatchdogIncidentGateCaptureBundle["evidenceGate"];
+  runConnectingWatchdogIncidentGateEvidenceProbeJson: (params?: M6ConnectingWatchdogIncidentGateCaptureParams) => string;
   runCp4LongSessionGateProbe: (params?: M6Cp4LongSessionGateProbeParams) => M6VoiceLongSessionGateProbe;
   runCp4LongSessionGateProbeJson: (params?: M6Cp4LongSessionGateProbeParams) => string;
   runCp4LongSessionSelfTest: (params?: M6Cp4LongSessionSelfTestParams) => M6VoiceLongSessionSelfTestReport;
@@ -690,6 +721,10 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     connectingWatchdogIncidentGatePassCount: toNumber(value.connectingWatchdogIncidentGatePassCount),
     connectingWatchdogIncidentGateFailCount: toNumber(value.connectingWatchdogIncidentGateFailCount),
     unexpectedConnectingWatchdogIncidentGateFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentGateFailCount),
+    connectingWatchdogIncidentGateEvidenceCount: toNumber(value.connectingWatchdogIncidentGateEvidenceCount),
+    connectingWatchdogIncidentGateEvidencePassCount: toNumber(value.connectingWatchdogIncidentGateEvidencePassCount),
+    connectingWatchdogIncidentGateEvidenceFailCount: toNumber(value.connectingWatchdogIncidentGateEvidenceFailCount),
+    unexpectedConnectingWatchdogIncidentGateEvidenceFailCount: toNumber(value.unexpectedConnectingWatchdogIncidentGateEvidenceFailCount),
     longSessionGateCount: toNumber(value.longSessionGateCount),
     longSessionGatePassCount: toNumber(value.longSessionGatePassCount),
     longSessionGateFailCount: toNumber(value.longSessionGateFailCount),
@@ -723,6 +758,8 @@ const parseDigestSummary = (value: unknown): M6VoiceDigestSummary | null => {
     latestConnectingWatchdogIncidentBundleFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentBundleFailedCheckSample),
     latestConnectingWatchdogIncidentGatePass: toBooleanOrNull(value.latestConnectingWatchdogIncidentGatePass),
     latestConnectingWatchdogIncidentGateFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateFailedCheckSample),
+    latestConnectingWatchdogIncidentGateEvidencePass: toBooleanOrNull(value.latestConnectingWatchdogIncidentGateEvidencePass),
+    latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: toStringOrNull(value.latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample),
     latestLongSessionGatePass: toBooleanOrNull(value.latestLongSessionGatePass),
     latestLongSessionGateFailedCheckSample: toStringOrNull(value.latestLongSessionGateFailedCheckSample),
     latestCheckpointGatePass: toBooleanOrNull(value.latestCheckpointGatePass),
@@ -1156,6 +1193,50 @@ const buildConnectingWatchdogIncidentGate = (params: Readonly<{
   return buildBooleanGate(checks);
 };
 
+const buildConnectingWatchdogIncidentGateEvidenceGate = (params: Readonly<{
+  capture: M6VoiceConnectingWatchdogIncidentGateCaptureBundle;
+}>): M6VoiceConnectingWatchdogIncidentGateCaptureBundle["evidenceGate"] => {
+  const latestEventPass = toBooleanOrNull(
+    params.capture.latestIncidentGateEventContext?.incidentGatePass,
+  );
+  const latestEventFailedCheckSample = toStringOrNull(
+    params.capture.latestIncidentGateEventContext?.failedCheckSample,
+  );
+  const gateFailedCheckSample = params.capture.incidentBundle.incidentGate.failedChecks.length > 0
+    ? params.capture.incidentBundle.incidentGate.failedChecks.slice(0, 5).join("|")
+    : null;
+  const digestSummary = params.capture.digestSummary;
+  const digestLatestIncidentGatePass = digestSummary?.latestConnectingWatchdogIncidentGatePass ?? null;
+  const checks = {
+    incidentGateMatchesExpected: (
+      params.capture.incidentBundle.incidentGate.pass === params.capture.expectedPass
+    ),
+    incidentGateEventObserved: params.capture.incidentGateEventContexts.length >= 1,
+    latestIncidentGateEventMatchesGate: (
+      latestEventPass === params.capture.incidentBundle.incidentGate.pass
+    ),
+    latestIncidentGateEventFailureSampleAligned: (
+      gateFailedCheckSample === null
+        ? latestEventFailedCheckSample === null
+        : latestEventFailedCheckSample === gateFailedCheckSample
+    ),
+    digestSummaryPresent: digestSummary !== null,
+    digestIncidentGateCountObserved: (digestSummary?.connectingWatchdogIncidentGateCount ?? 0) >= 1,
+    digestLatestIncidentGateAligned: (
+      digestLatestIncidentGatePass === null
+        ? latestEventPass === params.capture.incidentBundle.incidentGate.pass
+        : digestLatestIncidentGatePass === params.capture.incidentBundle.incidentGate.pass
+    ),
+    digestUnexpectedIncidentGateFailZeroWhenExpectedPass: params.capture.expectedPass
+      ? (digestSummary?.unexpectedConnectingWatchdogIncidentGateFailCount ?? -1) === 0
+      : true,
+    digestRiskNotHighWhenExpectedPass: params.capture.expectedPass
+      ? digestSummary !== null && digestSummary.riskLevel !== "high"
+      : true,
+  } as const;
+  return buildBooleanGate(checks);
+};
+
 const buildCp4CheckpointGate = (params: Readonly<{
   longSession: M6VoiceLongSessionReplayCaptureBundle;
   gateProbe: M6VoiceLongSessionGateProbe;
@@ -1463,6 +1544,35 @@ const emitConnectingWatchdogIncidentGateDiagnostic = (params: Readonly<{
   });
 };
 
+const emitConnectingWatchdogIncidentGateEvidenceDiagnostic = (params: Readonly<{
+  capture: M6VoiceConnectingWatchdogIncidentGateCaptureBundle;
+}>): void => {
+  const failedChecks = params.capture.evidenceGate.failedChecks;
+  logAppEvent({
+    name: "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence",
+    level: params.capture.evidenceGate.pass ? "info" : "warn",
+    scope: { feature: "messaging", action: "realtime_voice_session" },
+    context: {
+      expectedPass: params.capture.expectedPass,
+      incidentGateEvidencePass: params.capture.evidenceGate.pass,
+      failedCheckCount: failedChecks.length,
+      failedCheckSample: failedChecks.length > 0 ? failedChecks.slice(0, 5).join("|") : null,
+      incidentGatePass: params.capture.incidentBundle.incidentGate.pass,
+      incidentGateMatchesExpected: params.capture.evidenceGate.checks.incidentGateMatchesExpected,
+      incidentGateEventObserved: params.capture.evidenceGate.checks.incidentGateEventObserved,
+      latestIncidentGateEventMatchesGate: params.capture.evidenceGate.checks.latestIncidentGateEventMatchesGate,
+      digestSummaryPresent: params.capture.evidenceGate.checks.digestSummaryPresent,
+      digestIncidentGateCountObserved: params.capture.evidenceGate.checks.digestIncidentGateCountObserved,
+      digestLatestIncidentGateAligned: params.capture.evidenceGate.checks.digestLatestIncidentGateAligned,
+      digestUnexpectedIncidentGateFailZeroWhenExpectedPass: params.capture.evidenceGate.checks.digestUnexpectedIncidentGateFailZeroWhenExpectedPass,
+      digestRiskNotHighWhenExpectedPass: params.capture.evidenceGate.checks.digestRiskNotHighWhenExpectedPass,
+      incidentGateEventCount: params.capture.incidentGateEventContexts.length,
+      expectedNoOpenRelay: params.capture.expectedNoOpenRelay,
+      m0TriageCapturedWhenRequested: params.capture.incidentBundle.incidentGate.checks.m0TriageCapturedWhenRequested,
+    },
+  });
+};
+
 const emitCp4CheckpointGateDiagnostic = (params: Readonly<{
   cp4CheckpointGate: M6VoiceCp4CheckpointCaptureBundle["cp4CheckpointGate"];
   expectedPass: boolean;
@@ -1754,6 +1864,10 @@ export const installM6VoiceReplayBridge = (): void => {
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentBundleJson === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbe === "function"
     && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbeJson === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCapture === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateCaptureJson === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateEvidenceProbe === "function"
+    && typeof root.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateEvidenceProbeJson === "function"
   ) {
     return;
   }
@@ -2365,6 +2479,163 @@ export const installM6VoiceReplayBridge = (): void => {
     runConnectingWatchdogIncidentGateProbeJson: (params) => (
       JSON.stringify(
         root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentGateProbe(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runConnectingWatchdogIncidentGateCapture: (params) => {
+      const captureWindowSize = toPositiveInteger(params?.captureWindowSize, DEFAULT_CAPTURE_WINDOW_SIZE);
+      const expectedNoOpenRelay = params?.expectedNoOpenRelay !== false;
+      const includeM0Triage = params?.includeM0Triage !== false;
+      const expectedPass = typeof params?.expectedPass === "boolean"
+        ? params.expectedPass
+        : expectedNoOpenRelay;
+      const eventSliceLimit = toPositiveInteger(params?.eventSliceLimit, 6);
+      const incidentBundle = root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentBundle({
+        clearAppEvents: params?.clearAppEvents,
+        captureWindowSize,
+        expectedNoOpenRelay,
+        includeM0Triage,
+      }) ?? {
+        generatedAtUnixMs: Date.now(),
+        captureWindowSize,
+        expectedNoOpenRelay,
+        watchdogCapture: {
+          generatedAtUnixMs: Date.now(),
+          captureWindowSize,
+          expectedNoOpenRelay,
+          capture: null,
+          digestSummary: null,
+          connectTimeoutEvents: [],
+          latestConnectTimeoutEventContext: null,
+          watchdogGate: {
+            pass: false,
+            failedChecks: ["connecting_watchdog_capture_unavailable"],
+            checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+          },
+        },
+        selfTest: {
+          generatedAtUnixMs: Date.now(),
+          noOpenRelayExpected: {
+            generatedAtUnixMs: Date.now(),
+            captureWindowSize,
+            expectedNoOpenRelay: true,
+            capture: null,
+            digestSummary: null,
+            connectTimeoutEvents: [],
+            latestConnectTimeoutEventContext: null,
+            watchdogGate: {
+              pass: false,
+              failedChecks: ["connecting_watchdog_capture_unavailable"],
+              checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+            },
+          },
+          openRelayUnexpected: {
+            generatedAtUnixMs: Date.now(),
+            captureWindowSize,
+            expectedNoOpenRelay: true,
+            capture: null,
+            digestSummary: null,
+            connectTimeoutEvents: [],
+            latestConnectTimeoutEventContext: null,
+            watchdogGate: {
+              pass: false,
+              failedChecks: ["connecting_watchdog_capture_unavailable"],
+              checks: EMPTY_CONNECTING_WATCHDOG_GATE_CHECKS,
+            },
+          },
+          selfTestGate: buildBooleanGate({
+            nominalPass: false,
+            nominalNoOpenRelayEvidenceObserved: false,
+            failureRejected: false,
+            failureFlagsNoOpenRelayEvidence: false,
+            timeoutEventsObservedInBothScenarios: false,
+          }),
+        },
+        m0Triage: null,
+        incidentGate: {
+          pass: false,
+          failedChecks: ["connecting_watchdog_incident_bundle_unavailable"],
+          checks: {
+            watchdogCapturePass: false,
+            selfTestPass: false,
+            captureAndSelfTestAligned: false,
+            connectTimeoutEventsObserved: false,
+            selfTestTimeoutEvidenceObserved: false,
+            m0TriageCapturedWhenRequested: false,
+          },
+        },
+      };
+      emitConnectingWatchdogIncidentGateDiagnostic({
+        incidentGate: incidentBundle.incidentGate,
+        expectedNoOpenRelay,
+        includeM0Triage,
+      });
+      const incidentGateEventContexts = readEventsByName(
+        root,
+        "messaging.realtime_voice.connecting_watchdog_incident_gate",
+        captureWindowSize,
+      )
+        .map((event) => event.context ?? null)
+        .filter((context): context is Readonly<Record<string, unknown>> => context !== null)
+        .slice(-eventSliceLimit);
+      const capture: M6VoiceConnectingWatchdogIncidentGateCaptureBundle = {
+        generatedAtUnixMs: Date.now(),
+        captureWindowSize,
+        expectedNoOpenRelay,
+        expectedPass,
+        incidentBundle,
+        incidentGateEventContexts,
+        latestIncidentGateEventContext: incidentGateEventContexts.at(-1) ?? null,
+        digestSummary: readDigestSummary(root, captureWindowSize),
+        evidenceGate: buildBooleanGate({
+          incidentGateMatchesExpected: false,
+          incidentGateEventObserved: false,
+          latestIncidentGateEventMatchesGate: false,
+          latestIncidentGateEventFailureSampleAligned: false,
+          digestSummaryPresent: false,
+          digestIncidentGateCountObserved: false,
+          digestLatestIncidentGateAligned: false,
+          digestUnexpectedIncidentGateFailZeroWhenExpectedPass: false,
+          digestRiskNotHighWhenExpectedPass: false,
+        }),
+      };
+      const finalizedCapture = {
+        ...capture,
+        evidenceGate: buildConnectingWatchdogIncidentGateEvidenceGate({ capture }),
+      };
+      emitConnectingWatchdogIncidentGateEvidenceDiagnostic({
+        capture: finalizedCapture,
+      });
+      return finalizedCapture;
+    },
+    runConnectingWatchdogIncidentGateCaptureJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentGateCapture(params) ?? null,
+        null,
+        2,
+      )
+    ),
+    runConnectingWatchdogIncidentGateEvidenceProbe: (params) => (
+      root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentGateCapture(params)?.evidenceGate ?? {
+        pass: false,
+        failedChecks: ["connecting_watchdog_incident_gate_capture_unavailable"],
+        checks: {
+          incidentGateMatchesExpected: false,
+          incidentGateEventObserved: false,
+          latestIncidentGateEventMatchesGate: false,
+          latestIncidentGateEventFailureSampleAligned: false,
+          digestSummaryPresent: false,
+          digestIncidentGateCountObserved: false,
+          digestLatestIncidentGateAligned: false,
+          digestUnexpectedIncidentGateFailZeroWhenExpectedPass: false,
+          digestRiskNotHighWhenExpectedPass: false,
+        },
+      }
+    ),
+    runConnectingWatchdogIncidentGateEvidenceProbeJson: (params) => (
+      JSON.stringify(
+        root.obscurM6VoiceReplay?.runConnectingWatchdogIncidentGateEvidenceProbe(params) ?? null,
         null,
         2,
       )

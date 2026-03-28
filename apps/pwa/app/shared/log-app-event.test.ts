@@ -2602,6 +2602,101 @@ describe("logAppEvent", () => {
     }));
   });
 
+  it("captures realtime voice connecting-watchdog incident-gate-evidence diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence",
+      level: "warn",
+      context: {
+        expectedPass: true,
+        incidentGateEvidencePass: false,
+        failedCheckCount: 2,
+        failedCheckSample: "incidentGateMatchesExpected|digestRiskNotHighWhenExpectedPass",
+        incidentGatePass: false,
+        incidentGateMatchesExpected: false,
+        incidentGateEventObserved: true,
+        latestIncidentGateEventMatchesGate: true,
+        digestSummaryPresent: true,
+        digestIncidentGateCountObserved: true,
+        digestLatestIncidentGateAligned: true,
+        digestUnexpectedIncidentGateFailZeroWhenExpectedPass: false,
+        digestRiskNotHighWhenExpectedPass: false,
+        incidentGateEventCount: 1,
+        expectedNoOpenRelay: true,
+        m0TriageCapturedWhenRequested: true,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate_evidence"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate_evidence"]?.[0]?.context).toEqual(expect.objectContaining({
+      expectedPass: true,
+      incidentGateEvidencePass: false,
+      failedCheckCount: 2,
+      failedCheckSample: "incidentGateMatchesExpected|digestRiskNotHighWhenExpectedPass",
+      incidentGatePass: false,
+      incidentGateMatchesExpected: false,
+      incidentGateEventObserved: true,
+      latestIncidentGateEventMatchesGate: true,
+      digestSummaryPresent: true,
+      digestIncidentGateCountObserved: true,
+      digestLatestIncidentGateAligned: true,
+      digestUnexpectedIncidentGateFailZeroWhenExpectedPass: false,
+      digestRiskNotHighWhenExpectedPass: false,
+      incidentGateEventCount: 1,
+      expectedNoOpenRelay: true,
+      m0TriageCapturedWhenRequested: true,
+    }));
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate_evidence"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
+  it("tracks realtime voice connecting-watchdog incident-gate-evidence summary counters", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence",
+      level: "warn",
+      context: {
+        expectedPass: true,
+        incidentGateEvidencePass: false,
+        failedCheckSample: "incidentGateMatchesExpected",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            connectingWatchdogIncidentGateEvidenceCount: number;
+            connectingWatchdogIncidentGateEvidencePassCount: number;
+            connectingWatchdogIncidentGateEvidenceFailCount: number;
+            unexpectedConnectingWatchdogIncidentGateEvidenceFailCount: number;
+            latestConnectingWatchdogIncidentGateEvidencePass: boolean | null;
+            latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      connectingWatchdogIncidentGateEvidenceCount: 1,
+      connectingWatchdogIncidentGateEvidencePassCount: 0,
+      connectingWatchdogIncidentGateEvidenceFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateEvidenceFailCount: 1,
+      latestConnectingWatchdogIncidentGateEvidencePass: false,
+      latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: "incidentGateMatchesExpected",
+    }));
+  });
+
   it("marks ui responsiveness as watch when navigation/startup probes degrade without hard fallback", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
