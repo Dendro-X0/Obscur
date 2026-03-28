@@ -2518,6 +2518,90 @@ describe("logAppEvent", () => {
     }));
   });
 
+  it("captures realtime voice connecting-watchdog incident-gate diagnostics in compact digest events", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_incident_gate",
+      level: "warn",
+      context: {
+        incidentGatePass: false,
+        failedCheckCount: 2,
+        failedCheckSample: "selfTestPass|captureAndSelfTestAligned",
+        watchdogCapturePass: true,
+        selfTestPass: false,
+        captureAndSelfTestAligned: false,
+        connectTimeoutEventsObserved: true,
+        selfTestTimeoutEvidenceObserved: true,
+        m0TriageCapturedWhenRequested: true,
+        expectedNoOpenRelay: true,
+        includeM0Triage: true,
+        extraFieldShouldBeDropped: "yes",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        events: Record<string, Array<{ context: Record<string, unknown> }>>;
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate"]).toHaveLength(1);
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate"]?.[0]?.context).toEqual(expect.objectContaining({
+      incidentGatePass: false,
+      failedCheckCount: 2,
+      failedCheckSample: "selfTestPass|captureAndSelfTestAligned",
+      watchdogCapturePass: true,
+      selfTestPass: false,
+      captureAndSelfTestAligned: false,
+      connectTimeoutEventsObserved: true,
+      selfTestTimeoutEvidenceObserved: true,
+      m0TriageCapturedWhenRequested: true,
+      expectedNoOpenRelay: true,
+      includeM0Triage: true,
+    }));
+    expect(digest.events["messaging.realtime_voice.connecting_watchdog_incident_gate"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+  });
+
+  it("tracks realtime voice connecting-watchdog incident-gate summary counters", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "messaging.realtime_voice.connecting_watchdog_incident_gate",
+      level: "warn",
+      context: {
+        incidentGatePass: false,
+        failedCheckSample: "selfTestPass",
+      },
+    });
+
+    const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
+      getCrossDeviceSyncDigest: (count?: number) => {
+        summary: {
+          realtimeVoiceSession: {
+            riskLevel: "none" | "watch" | "high";
+            connectingWatchdogIncidentGateCount: number;
+            connectingWatchdogIncidentGatePassCount: number;
+            connectingWatchdogIncidentGateFailCount: number;
+            unexpectedConnectingWatchdogIncidentGateFailCount: number;
+            latestConnectingWatchdogIncidentGatePass: boolean | null;
+            latestConnectingWatchdogIncidentGateFailedCheckSample: string | null;
+          };
+        };
+      };
+    };
+    const digest = diagnosticsApi.getCrossDeviceSyncDigest(50);
+    expect(digest.summary.realtimeVoiceSession).toEqual(expect.objectContaining({
+      riskLevel: "high",
+      connectingWatchdogIncidentGateCount: 1,
+      connectingWatchdogIncidentGatePassCount: 0,
+      connectingWatchdogIncidentGateFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateFailCount: 1,
+      latestConnectingWatchdogIncidentGatePass: false,
+      latestConnectingWatchdogIncidentGateFailedCheckSample: "selfTestPass",
+    }));
+  });
+
   it("marks ui responsiveness as watch when navigation/startup probes degrade without hard fallback", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 

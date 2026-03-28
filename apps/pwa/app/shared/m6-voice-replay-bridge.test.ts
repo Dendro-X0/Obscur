@@ -717,6 +717,17 @@ describe("m6-voice-replay-bridge", () => {
       expectedNoOpenRelay: true,
       includeM0Triage: true,
     }));
+    const incidentGateEvents = diagnosticsApi.findByName("messaging.realtime_voice.connecting_watchdog_incident_gate", 5);
+    expect(incidentGateEvents.length).toBeGreaterThanOrEqual(1);
+    expect(incidentGateEvents.at(-1)?.context).toEqual(expect.objectContaining({
+      incidentGatePass: true,
+      watchdogCapturePass: true,
+      selfTestPass: true,
+      captureAndSelfTestAligned: true,
+      m0TriageCapturedWhenRequested: true,
+      expectedNoOpenRelay: true,
+      includeM0Triage: true,
+    }));
     expect(() => JSON.parse(replayApi.runConnectingWatchdogIncidentBundleJson({
       clearAppEvents: true,
       captureWindowSize: 280,

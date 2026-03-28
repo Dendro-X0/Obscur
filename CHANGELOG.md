@@ -245,6 +245,24 @@
   - `runConnectingWatchdogIncidentGateProbeJson(...)`
   and wired stale-bridge upgrade assertions in
   `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`.
+- Added canonical incident-gate probe diagnostics emission in
+  `apps/pwa/app/shared/m6-voice-replay-bridge.ts`:
+  `runConnectingWatchdogIncidentGateProbe(...)` now emits
+  `messaging.realtime_voice.connecting_watchdog_incident_gate` with explicit
+  pass/fail checks and compact context for direct triage handoff.
+- Extended digest/capture/triage convergence for incident-gate probe evidence:
+  - compact allowlist + `summary.realtimeVoiceSession` counters/latest fields
+    in `apps/pwa/app/shared/log-app-event.ts`,
+  - one-copy M6 capture event slices in
+    `apps/pwa/app/shared/m6-voice-capture.ts`
+    (`voice.connectingWatchdogIncidentGateEvents`),
+  - focused voice triage event list in
+    `apps/pwa/app/shared/m0-triage-capture.ts`.
+- Added focused regression coverage for incident-gate diagnostics in:
+  - `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts`
+  - `apps/pwa/app/shared/log-app-event.test.ts`
+  - `apps/pwa/app/shared/m6-voice-capture.test.ts`
+  - `apps/pwa/app/shared/m0-triage-capture.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

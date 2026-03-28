@@ -40,6 +40,10 @@ describe("m6-voice-capture", () => {
             connectingWatchdogIncidentBundlePassCount: 1,
             connectingWatchdogIncidentBundleFailCount: 0,
             unexpectedConnectingWatchdogIncidentBundleFailCount: 0,
+            connectingWatchdogIncidentGateCount: 1,
+            connectingWatchdogIncidentGatePassCount: 0,
+            connectingWatchdogIncidentGateFailCount: 1,
+            unexpectedConnectingWatchdogIncidentGateFailCount: 1,
             longSessionGateCount: 2,
             longSessionGatePassCount: 1,
             longSessionGateFailCount: 1,
@@ -71,6 +75,8 @@ describe("m6-voice-capture", () => {
             latestConnectingWatchdogSelfTestFailedCheckSample: null,
             latestConnectingWatchdogIncidentBundlePass: true,
             latestConnectingWatchdogIncidentBundleFailedCheckSample: null,
+            latestConnectingWatchdogIncidentGatePass: false,
+            latestConnectingWatchdogIncidentGateFailedCheckSample: null,
             latestLongSessionGatePass: false,
             latestLongSessionGateFailedCheckSample: "finalPhaseActive",
             latestCheckpointGatePass: true,
@@ -150,6 +156,7 @@ describe("m6-voice-capture", () => {
         connectingWatchdogGateEvents: Array<{ name: string }>;
         connectingWatchdogSelfTestEvents: Array<{ name: string }>;
         connectingWatchdogIncidentBundleEvents: Array<{ name: string }>;
+        connectingWatchdogIncidentGateEvents: Array<{ name: string }>;
         longSessionGateEvents: Array<{ name: string }>;
         checkpointGateEvents: Array<{ name: string }>;
         releaseReadinessGateEvents: Array<{ name: string }>;
@@ -183,6 +190,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogIncidentBundlePassCount: 1,
       connectingWatchdogIncidentBundleFailCount: 0,
       unexpectedConnectingWatchdogIncidentBundleFailCount: 0,
+      connectingWatchdogIncidentGateCount: 1,
+      connectingWatchdogIncidentGatePassCount: 0,
+      connectingWatchdogIncidentGateFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateFailCount: 1,
       longSessionGateCount: 2,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 1,
@@ -213,6 +224,8 @@ describe("m6-voice-capture", () => {
       latestConnectingWatchdogSelfTestFailedCheckSample: null,
       latestConnectingWatchdogIncidentBundlePass: true,
       latestConnectingWatchdogIncidentBundleFailedCheckSample: null,
+      latestConnectingWatchdogIncidentGatePass: false,
+      latestConnectingWatchdogIncidentGateFailedCheckSample: null,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "finalPhaseActive",
       latestCheckpointGatePass: true,
@@ -248,6 +261,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.connectingWatchdogGateEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_gate");
     expect(bundle.voice.connectingWatchdogSelfTestEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_self_test");
     expect(bundle.voice.connectingWatchdogIncidentBundleEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_incident_bundle");
+    expect(bundle.voice.connectingWatchdogIncidentGateEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_incident_gate");
     expect(bundle.voice.longSessionGateEvents[0]?.name).toBe("messaging.realtime_voice.long_session_gate");
     expect(bundle.voice.checkpointGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_checkpoint_gate");
     expect(bundle.voice.releaseReadinessGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_readiness_gate");
@@ -279,6 +293,7 @@ describe("m6-voice-capture", () => {
         connectingWatchdogGateEvents: unknown[];
         connectingWatchdogSelfTestEvents: unknown[];
         connectingWatchdogIncidentBundleEvents: unknown[];
+        connectingWatchdogIncidentGateEvents: unknown[];
         longSessionGateEvents: unknown[];
         checkpointGateEvents: unknown[];
         releaseReadinessGateEvents: unknown[];
@@ -302,6 +317,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.connectingWatchdogGateEvents).toEqual([]);
     expect(bundle.voice.connectingWatchdogSelfTestEvents).toEqual([]);
     expect(bundle.voice.connectingWatchdogIncidentBundleEvents).toEqual([]);
+    expect(bundle.voice.connectingWatchdogIncidentGateEvents).toEqual([]);
     expect(bundle.voice.longSessionGateEvents).toEqual([]);
     expect(bundle.voice.checkpointGateEvents).toEqual([]);
     expect(bundle.voice.releaseReadinessGateEvents).toEqual([]);
@@ -337,6 +353,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogIncidentBundlePassCount: 0,
       connectingWatchdogIncidentBundleFailCount: 1,
       unexpectedConnectingWatchdogIncidentBundleFailCount: 1,
+      connectingWatchdogIncidentGateCount: 2,
+      connectingWatchdogIncidentGatePassCount: 1,
+      connectingWatchdogIncidentGateFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateFailCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -368,6 +388,8 @@ describe("m6-voice-capture", () => {
       latestConnectingWatchdogSelfTestFailedCheckSample: "failureRejected",
       latestConnectingWatchdogIncidentBundlePass: false,
       latestConnectingWatchdogIncidentBundleFailedCheckSample: "selfTestPass",
+      latestConnectingWatchdogIncidentGatePass: true,
+      latestConnectingWatchdogIncidentGateFailedCheckSample: null,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,
@@ -397,6 +419,10 @@ describe("m6-voice-capture", () => {
       connectingWatchdogIncidentBundlePassCount: 0,
       connectingWatchdogIncidentBundleFailCount: 1,
       unexpectedConnectingWatchdogIncidentBundleFailCount: 1,
+      connectingWatchdogIncidentGateCount: 2,
+      connectingWatchdogIncidentGatePassCount: 1,
+      connectingWatchdogIncidentGateFailCount: 1,
+      unexpectedConnectingWatchdogIncidentGateFailCount: 1,
       longSessionGateCount: 3,
       longSessionGatePassCount: 1,
       longSessionGateFailCount: 2,
@@ -427,6 +453,8 @@ describe("m6-voice-capture", () => {
       latestConnectingWatchdogSelfTestFailedCheckSample: "failureRejected",
       latestConnectingWatchdogIncidentBundlePass: false,
       latestConnectingWatchdogIncidentBundleFailedCheckSample: "selfTestPass",
+      latestConnectingWatchdogIncidentGatePass: true,
+      latestConnectingWatchdogIncidentGateFailedCheckSample: null,
       latestLongSessionGatePass: false,
       latestLongSessionGateFailedCheckSample: "digestRecoveryExhaustedZero",
       latestCheckpointGatePass: false,

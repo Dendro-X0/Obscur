@@ -194,6 +194,10 @@ type AppEventDiagnosticsApi = Readonly<{
         connectingWatchdogIncidentBundlePassCount: number;
         connectingWatchdogIncidentBundleFailCount: number;
         unexpectedConnectingWatchdogIncidentBundleFailCount: number;
+        connectingWatchdogIncidentGateCount: number;
+        connectingWatchdogIncidentGatePassCount: number;
+        connectingWatchdogIncidentGateFailCount: number;
+        unexpectedConnectingWatchdogIncidentGateFailCount: number;
         longSessionGateCount: number;
         longSessionGatePassCount: number;
         longSessionGateFailCount: number;
@@ -225,6 +229,8 @@ type AppEventDiagnosticsApi = Readonly<{
         latestConnectingWatchdogSelfTestFailedCheckSample: string | null;
         latestConnectingWatchdogIncidentBundlePass: boolean | null;
         latestConnectingWatchdogIncidentBundleFailedCheckSample: string | null;
+        latestConnectingWatchdogIncidentGatePass: boolean | null;
+        latestConnectingWatchdogIncidentGateFailedCheckSample: string | null;
         latestLongSessionGatePass: boolean | null;
         latestLongSessionGateFailedCheckSample: string | null;
         latestCheckpointGatePass: boolean | null;
@@ -671,6 +677,19 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
   ],
   "messaging.realtime_voice.connecting_watchdog_incident_bundle": [
     "incidentPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "watchdogCapturePass",
+    "selfTestPass",
+    "captureAndSelfTestAligned",
+    "connectTimeoutEventsObserved",
+    "selfTestTimeoutEvidenceObserved",
+    "m0TriageCapturedWhenRequested",
+    "expectedNoOpenRelay",
+    "includeM0Triage",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_incident_gate": [
+    "incidentGatePass",
     "failedCheckCount",
     "failedCheckSample",
     "watchdogCapturePass",
@@ -1558,6 +1577,19 @@ const installDiagnosticsApi = (): void => {
       const voiceUnexpectedConnectingWatchdogIncidentBundleFailCount = voiceConnectingWatchdogIncidentBundleEvents.filter((event) => (
         event.context?.incidentPass === false
       )).length;
+      const voiceConnectingWatchdogIncidentGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_incident_gate"
+      ));
+      const voiceConnectingWatchdogIncidentGateCount = voiceConnectingWatchdogIncidentGateEvents.length;
+      const voiceConnectingWatchdogIncidentGatePassCount = voiceConnectingWatchdogIncidentGateEvents.filter((event) => (
+        event.context?.incidentGatePass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateFailCount = voiceConnectingWatchdogIncidentGateEvents.filter((event) => (
+        event.context?.incidentGatePass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogIncidentGateFailCount = voiceConnectingWatchdogIncidentGateEvents.filter((event) => (
+        event.context?.incidentGatePass === false
+      )).length;
       const voiceLongSessionGateEvents = recent.filter((event) => (
         event.name === "messaging.realtime_voice.long_session_gate"
       ));
@@ -1665,6 +1697,13 @@ const installDiagnosticsApi = (): void => {
       );
       const latestVoiceConnectingWatchdogIncidentBundleFailedCheckSample = toStringOrNull(
         latestVoiceConnectingWatchdogIncidentBundle?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogIncidentGate = voiceConnectingWatchdogIncidentGateEvents.at(-1);
+      const latestVoiceConnectingWatchdogIncidentGatePass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogIncidentGate?.context?.incidentGatePass,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogIncidentGate?.context?.failedCheckSample,
       );
       const latestVoiceLongSessionGate = voiceLongSessionGateEvents.at(-1);
       const latestVoiceLongSessionGatePass = toBooleanOrNull(
@@ -1875,6 +1914,7 @@ const installDiagnosticsApi = (): void => {
           || voiceConnectingWatchdogGateFailCount > 0
           || voiceConnectingWatchdogSelfTestFailCount > 0
           || voiceConnectingWatchdogIncidentBundleFailCount > 0
+          || voiceConnectingWatchdogIncidentGateFailCount > 0
           || voiceLongSessionGateFailCount > 0
           || voiceCheckpointGateFailCount > 0
           || voiceReleaseReadinessGateFailCount > 0
@@ -1887,6 +1927,7 @@ const installDiagnosticsApi = (): void => {
           || voiceUnexpectedConnectingWatchdogGateFailCount > 0
           || voiceUnexpectedConnectingWatchdogSelfTestFailCount > 0
           || voiceUnexpectedConnectingWatchdogIncidentBundleFailCount > 0
+          || voiceUnexpectedConnectingWatchdogIncidentGateFailCount > 0
           || voiceUnexpectedLongSessionGateFailCount > 0
           || voiceUnexpectedCheckpointGateFailCount > 0
           || voiceUnexpectedReleaseReadinessGateFailCount > 0
@@ -2089,6 +2130,10 @@ const installDiagnosticsApi = (): void => {
             connectingWatchdogIncidentBundlePassCount: voiceConnectingWatchdogIncidentBundlePassCount,
             connectingWatchdogIncidentBundleFailCount: voiceConnectingWatchdogIncidentBundleFailCount,
             unexpectedConnectingWatchdogIncidentBundleFailCount: voiceUnexpectedConnectingWatchdogIncidentBundleFailCount,
+            connectingWatchdogIncidentGateCount: voiceConnectingWatchdogIncidentGateCount,
+            connectingWatchdogIncidentGatePassCount: voiceConnectingWatchdogIncidentGatePassCount,
+            connectingWatchdogIncidentGateFailCount: voiceConnectingWatchdogIncidentGateFailCount,
+            unexpectedConnectingWatchdogIncidentGateFailCount: voiceUnexpectedConnectingWatchdogIncidentGateFailCount,
             longSessionGateCount: voiceLongSessionGateCount,
             longSessionGatePassCount: voiceLongSessionGatePassCount,
             longSessionGateFailCount: voiceLongSessionGateFailCount,
@@ -2120,6 +2165,8 @@ const installDiagnosticsApi = (): void => {
             latestConnectingWatchdogSelfTestFailedCheckSample: latestVoiceConnectingWatchdogSelfTestFailedCheckSample,
             latestConnectingWatchdogIncidentBundlePass: latestVoiceConnectingWatchdogIncidentBundlePass,
             latestConnectingWatchdogIncidentBundleFailedCheckSample: latestVoiceConnectingWatchdogIncidentBundleFailedCheckSample,
+            latestConnectingWatchdogIncidentGatePass: latestVoiceConnectingWatchdogIncidentGatePass,
+            latestConnectingWatchdogIncidentGateFailedCheckSample: latestVoiceConnectingWatchdogIncidentGateFailedCheckSample,
             latestLongSessionGatePass: latestVoiceLongSessionGatePass,
             latestLongSessionGateFailedCheckSample: latestVoiceLongSessionFailedCheckSample,
             latestCheckpointGatePass: latestVoiceCheckpointGatePass,

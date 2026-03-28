@@ -614,6 +614,12 @@ Current execution status:
 : `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbe(...)`
 : `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbeJson(...)`
 : now expose just the typed incident gate verdict without requiring manual extraction from the full incident bundle.
+24. Incident-gate probe diagnostics are now first-class replay evidence (2026-03-27):
+: `window.obscurM6VoiceReplay.runConnectingWatchdogIncidentGateProbe(...)` now emits
+: `messaging.realtime_voice.connecting_watchdog_incident_gate`,
+: cross-device digest summary tracks incident-gate counters/latest fields under
+: `summary.realtimeVoiceSession`, and one-copy bundles include
+: `voice.connectingWatchdogIncidentGateEvents`.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 
