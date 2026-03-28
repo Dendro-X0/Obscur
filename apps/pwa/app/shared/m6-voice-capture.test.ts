@@ -135,6 +135,7 @@ describe("m6-voice-capture", () => {
         transitions: Array<{ name: string }>;
         ignoredEvents: Array<{ name: string }>;
         connectTimeoutEvents: Array<{ name: string }>;
+        connectingWatchdogGateEvents: Array<{ name: string }>;
         longSessionGateEvents: Array<{ name: string }>;
         checkpointGateEvents: Array<{ name: string }>;
         releaseReadinessGateEvents: Array<{ name: string }>;
@@ -218,6 +219,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.transitions[0]?.name).toBe("messaging.realtime_voice.session_transition");
     expect(bundle.voice.ignoredEvents[0]?.name).toBe("messaging.realtime_voice.session_event_ignored");
     expect(bundle.voice.connectTimeoutEvents[0]?.name).toBe("messaging.realtime_voice.connect_timeout_diagnostics");
+    expect(bundle.voice.connectingWatchdogGateEvents[0]?.name).toBe("messaging.realtime_voice.connecting_watchdog_gate");
     expect(bundle.voice.longSessionGateEvents[0]?.name).toBe("messaging.realtime_voice.long_session_gate");
     expect(bundle.voice.checkpointGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_checkpoint_gate");
     expect(bundle.voice.releaseReadinessGateEvents[0]?.name).toBe("messaging.realtime_voice.cp4_release_readiness_gate");
@@ -246,6 +248,7 @@ describe("m6-voice-capture", () => {
         transitions: unknown[];
         ignoredEvents: unknown[];
         connectTimeoutEvents: unknown[];
+        connectingWatchdogGateEvents: unknown[];
         longSessionGateEvents: unknown[];
         checkpointGateEvents: unknown[];
         releaseReadinessGateEvents: unknown[];
@@ -266,6 +269,7 @@ describe("m6-voice-capture", () => {
     expect(bundle.voice.transitions).toEqual([]);
     expect(bundle.voice.ignoredEvents).toEqual([]);
     expect(bundle.voice.connectTimeoutEvents).toEqual([]);
+    expect(bundle.voice.connectingWatchdogGateEvents).toEqual([]);
     expect(bundle.voice.longSessionGateEvents).toEqual([]);
     expect(bundle.voice.checkpointGateEvents).toEqual([]);
     expect(bundle.voice.releaseReadinessGateEvents).toEqual([]);

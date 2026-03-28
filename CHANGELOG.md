@@ -196,6 +196,10 @@
 - Added focused replay-bridge self-test coverage in
   `apps/pwa/app/shared/m6-voice-replay-bridge.test.ts` and stale-upgrade
   availability assertions for the new self-test helper methods.
+- Extended M6 capture bundles to include watchdog gate event slices in
+  `apps/pwa/app/shared/m6-voice-capture.ts` under
+  `voice.connectingWatchdogGateEvents`, with focused coverage updates in
+  `apps/pwa/app/shared/m6-voice-capture.test.ts`.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

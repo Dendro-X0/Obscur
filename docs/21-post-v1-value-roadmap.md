@@ -590,6 +590,10 @@ Current execution status:
 : `window.obscurM6VoiceReplay.runConnectingWatchdogSelfTest(...)`
 : `window.obscurM6VoiceReplay.runConnectingWatchdogSelfTestJson(...)`
 : now execute two explicit scenarios (no-open-relay expected pass, open-relay expected fail) and return a typed self-test gate for one-command timeout watchdog validation.
+19. M6 one-copy capture bundles now include watchdog gate event slices (2026-03-27):
+: `window.obscurM6VoiceCapture.captureJson(400)` now includes
+: `voice.connectingWatchdogGateEvents` so timeout evidence and gate verdict
+: events can be exported together without separate event API queries.
 
 ## M7 - Anti-Abuse Intelligence and UX/Performance Reliability Hardening
 

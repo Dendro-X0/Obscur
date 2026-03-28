@@ -122,6 +122,7 @@ export type M6VoiceCaptureBundle = Readonly<{
     transitions: ReadonlyArray<MinimalAppEvent>;
     ignoredEvents: ReadonlyArray<MinimalAppEvent>;
     connectTimeoutEvents: ReadonlyArray<MinimalAppEvent>;
+    connectingWatchdogGateEvents: ReadonlyArray<MinimalAppEvent>;
     longSessionGateEvents: ReadonlyArray<MinimalAppEvent>;
     checkpointGateEvents: ReadonlyArray<MinimalAppEvent>;
     releaseReadinessGateEvents: ReadonlyArray<MinimalAppEvent>;
@@ -379,6 +380,19 @@ const readRecentConnectTimeoutEvents = (
   }
 };
 
+const readRecentConnectingWatchdogGateEvents = (
+  appEventsApi: MinimalAppEventsApi | undefined,
+): ReadonlyArray<MinimalAppEvent> => {
+  try {
+    if (typeof appEventsApi?.findByName !== "function") {
+      return [];
+    }
+    return appEventsApi.findByName("messaging.realtime_voice.connecting_watchdog_gate", EVENT_CAPTURE_LIMIT) ?? [];
+  } catch {
+    return [];
+  }
+};
+
 const readRecentCp4GateEvents = (
   appEventsApi: MinimalAppEventsApi | undefined,
   eventName: string,
@@ -474,6 +488,7 @@ const createBundle = (
       transitions: readRecentTransitions(appEventsApi),
       ignoredEvents: readRecentIgnoredEvents(appEventsApi),
       connectTimeoutEvents: readRecentConnectTimeoutEvents(appEventsApi),
+      connectingWatchdogGateEvents: readRecentConnectingWatchdogGateEvents(appEventsApi),
       longSessionGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.long_session_gate"),
       checkpointGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_checkpoint_gate"),
       releaseReadinessGateEvents: readRecentCp4GateEvents(appEventsApi, "messaging.realtime_voice.cp4_release_readiness_gate"),
