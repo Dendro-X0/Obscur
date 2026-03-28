@@ -1888,6 +1888,49 @@ function NostrMessengerContent() {
     if (!pendingInvite) {
       return;
     }
+    pruneVoiceCallLeaveTombstones();
+    const inviteRoomId = pendingInvite.invite.roomId;
+    if (inviteRoomId) {
+      const tombstoneKey = toVoiceCallTombstoneKey({
+        peerPubkey: pendingInvite.peerPubkey,
+        roomId: inviteRoomId,
+      });
+      const leftAtUnixMs = voiceCallLeaveTombstonesRef.current.get(tombstoneKey) ?? null;
+      const invitedAtUnixMs = (
+        typeof pendingInvite.invite.invitedAtUnixMs === "number"
+        && Number.isFinite(pendingInvite.invite.invitedAtUnixMs)
+      )
+        ? Math.floor(pendingInvite.invite.invitedAtUnixMs)
+        : null;
+      const inviteTombstoned = (
+        leftAtUnixMs !== null
+        && (invitedAtUnixMs === null || leftAtUnixMs >= invitedAtUnixMs - 1000)
+      );
+      if (inviteTombstoned) {
+        setIncomingVoiceInvite(null);
+        setVoiceCallUiStatus({
+          roomId: inviteRoomId,
+          peerPubkey: pendingInvite.peerPubkey,
+          phase: "ended",
+          role: "joiner",
+          sinceUnixMs: Date.now(),
+          reasonCode: "remote_left",
+        });
+        logAppEvent({
+          name: "messaging.realtime_voice.invite_accept_blocked_tombstoned",
+          level: "info",
+          scope: { feature: "messaging", action: "realtime_voice_invite" },
+          context: {
+            roomIdHint: toRoomIdHint(inviteRoomId),
+            peerPubkeySuffix: pendingInvite.peerPubkey.slice(-8),
+            leftAtUnixMs,
+            invitedAtUnixMs,
+          },
+        });
+        toast.info(t("messaging.voiceCallRemoteLeft", "The other participant left the voice call."));
+        return;
+      }
+    }
     const myPubkey = myPublicKeyHex ?? "";
     const conversationId = toDmConversationId({
       myPublicKeyHex: myPubkey,
@@ -1934,6 +1977,7 @@ function NostrMessengerContent() {
     handleJoinVoiceCallInvite,
     incomingVoiceInvite,
     myPublicKeyHex,
+    pruneVoiceCallLeaveTombstones,
     setSelectedConversation,
     t,
     unhideConversation,

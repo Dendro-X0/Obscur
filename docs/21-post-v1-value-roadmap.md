@@ -330,6 +330,14 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
 : `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+44. Incoming voice-invite stale-acceptance guard landed (2026-03-28):
+: canonical invite accept owner in `apps/pwa/app/features/main-shell/main-shell.tsx`
+: now checks leave tombstones before join initialization and blocks stale canceled rooms
+: with explicit diagnostics event `messaging.realtime_voice.invite_accept_blocked_tombstoned`.
+45. Focused validation replay is green:
+: `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
+: `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 

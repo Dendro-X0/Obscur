@@ -115,6 +115,11 @@
   `apps/pwa/app/features/main-shell/main-shell.tsx` so connect/interruption
   timers invoke the canonical leave owner via `leaveCallOnUnmountRef`,
   preventing stale timeout closures from holding old leave callbacks.
+- Added stale-invite acceptance guard in
+  `apps/pwa/app/features/main-shell/main-shell.tsx`:
+  accepting an incoming invite now checks leave tombstones first and blocks
+  join flow for already-ended rooms (`messaging.realtime_voice.invite_accept_blocked_tombstoned`),
+  avoiding prolonged connecting waits against canceled calls.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default
