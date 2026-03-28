@@ -120,6 +120,13 @@
   accepting an incoming invite now checks leave tombstones first and blocks
   join flow for already-ended rooms (`messaging.realtime_voice.invite_accept_blocked_tombstoned`),
   avoiding prolonged connecting waits against canceled calls.
+- Converged voice-invite tombstone decisions to one typed helper in
+  `apps/pwa/app/features/messaging/services/realtime-voice-invite-tombstone.ts`
+  and rewired canonical invite ingestion + invite-accept paths in
+  `apps/pwa/app/features/main-shell/main-shell.tsx` to use this single rule.
+- Added focused tombstone contract coverage in
+  `apps/pwa/app/features/messaging/services/realtime-voice-invite-tombstone.test.ts`
+  to guard invite/leave grace-window behavior and reduce duplicated logic drift.
 - Released `v1.2.6` (tag pushed on 2026-03-25) and opened
   `v1.2.7` as the active development lane on `main`.
 - Fixed `demo:m10:rc:status` to emit strict report mode by default

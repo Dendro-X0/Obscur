@@ -28,6 +28,7 @@ import {
 } from "@/app/features/messaging/utils/logic";
 import { createRealtimeVoiceSessionOwner } from "@/app/features/messaging/services/realtime-voice-session-owner";
 import { getRealtimeVoiceCapability } from "@/app/features/messaging/services/realtime-voice-capability";
+import { resolveVoiceInviteTombstoneVerdict } from "@/app/features/messaging/services/realtime-voice-invite-tombstone";
 import {
   createVoiceCallSignalPayload,
   parseVoiceCallInvitePayload,
@@ -1895,18 +1896,11 @@ function NostrMessengerContent() {
         peerPubkey: pendingInvite.peerPubkey,
         roomId: inviteRoomId,
       });
-      const leftAtUnixMs = voiceCallLeaveTombstonesRef.current.get(tombstoneKey) ?? null;
-      const invitedAtUnixMs = (
-        typeof pendingInvite.invite.invitedAtUnixMs === "number"
-        && Number.isFinite(pendingInvite.invite.invitedAtUnixMs)
-      )
-        ? Math.floor(pendingInvite.invite.invitedAtUnixMs)
-        : null;
-      const inviteTombstoned = (
-        leftAtUnixMs !== null
-        && (invitedAtUnixMs === null || leftAtUnixMs >= invitedAtUnixMs - 1000)
-      );
-      if (inviteTombstoned) {
+      const tombstoneVerdict = resolveVoiceInviteTombstoneVerdict({
+        leftAtUnixMs: voiceCallLeaveTombstonesRef.current.get(tombstoneKey) ?? null,
+        invitedAtUnixMs: pendingInvite.invite.invitedAtUnixMs,
+      });
+      if (tombstoneVerdict.tombstoned) {
         setIncomingVoiceInvite(null);
         setVoiceCallUiStatus({
           roomId: inviteRoomId,
@@ -1923,8 +1917,8 @@ function NostrMessengerContent() {
           context: {
             roomIdHint: toRoomIdHint(inviteRoomId),
             peerPubkeySuffix: pendingInvite.peerPubkey.slice(-8),
-            leftAtUnixMs,
-            invitedAtUnixMs,
+            leftAtUnixMs: tombstoneVerdict.leftAtUnixMs,
+            invitedAtUnixMs: tombstoneVerdict.invitedAtUnixMs,
           },
         });
         toast.info(t("messaging.voiceCallRemoteLeft", "The other participant left the voice call."));
@@ -2152,13 +2146,11 @@ function NostrMessengerContent() {
         peerPubkey,
         roomId: invite.roomId,
       });
-      const leftAtUnixMs = voiceCallLeaveTombstonesRef.current.get(tombstoneKey) ?? null;
-      const invitedAtUnixMs = (
-        typeof invite.invitedAtUnixMs === "number" && Number.isFinite(invite.invitedAtUnixMs)
-      )
-        ? Math.floor(invite.invitedAtUnixMs)
-        : null;
-      if (leftAtUnixMs !== null && (invitedAtUnixMs === null || leftAtUnixMs >= invitedAtUnixMs - 1000)) {
+      const tombstoneVerdict = resolveVoiceInviteTombstoneVerdict({
+        leftAtUnixMs: voiceCallLeaveTombstonesRef.current.get(tombstoneKey) ?? null,
+        invitedAtUnixMs: invite.invitedAtUnixMs,
+      });
+      if (tombstoneVerdict.tombstoned) {
         processed.add(message.id);
         logAppEvent({
           name: "messaging.realtime_voice.invite_ignored_tombstoned_room",
@@ -2167,8 +2159,8 @@ function NostrMessengerContent() {
           context: {
             roomIdHint: toRoomIdHint(invite.roomId),
             peerPubkeySuffix: peerPubkey.slice(-8),
-            leftAtUnixMs,
-            invitedAtUnixMs,
+            leftAtUnixMs: tombstoneVerdict.leftAtUnixMs,
+            invitedAtUnixMs: tombstoneVerdict.invitedAtUnixMs,
           },
         });
         return;

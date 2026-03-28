@@ -338,6 +338,16 @@ Current execution status (started 2026-03-23):
 : `pnpm --dir apps/pwa exec eslint app/features/main-shell/main-shell.tsx --quiet`
 : `pnpm --dir apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx`
 : `pnpm --dir apps/pwa exec tsc --noEmit`.
+46. Voice-invite tombstone rule convergence landed (2026-03-28):
+: canonical invite ingestion + invite-accept paths in
+: `apps/pwa/app/features/main-shell/main-shell.tsx`
+: now use a single typed verdict helper in
+: `apps/pwa/app/features/messaging/services/realtime-voice-invite-tombstone.ts`
+: to prevent rule drift between "ignore invite" and "accept invite" flows.
+47. Focused validation replay is green:
+: `pnpm --dir apps/pwa exec vitest run app/features/messaging/services/realtime-voice-invite-tombstone.test.ts app/features/main-shell/main-shell.test.tsx`
+: `pnpm --dir apps/pwa exec eslint app/features/messaging/services/realtime-voice-invite-tombstone.ts app/features/messaging/services/realtime-voice-invite-tombstone.test.ts app/features/main-shell/main-shell.tsx --quiet`
+: `pnpm --dir apps/pwa exec tsc --noEmit`.
 
 ## M3 - Real-Time Voice Beta + Community Operator Tools
 
