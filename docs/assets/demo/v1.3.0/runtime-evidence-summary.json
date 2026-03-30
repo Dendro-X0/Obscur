@@ -1,7 +1,7 @@
 {
   "generatedAtUnixMs": 1774867512936,
   "targetTag": "v1.3.0",
-  "appVersion": "1.2.7",
+  "appVersion": "1.3.0",
   "environment": {
     "runtime": "local-workspace",
     "os": "windows",
