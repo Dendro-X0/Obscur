@@ -20,8 +20,8 @@ use nostr::hashes::{sha256, Hash};
 #[cfg(not(target_os = "android"))]
 use std::borrow::Cow;
 
-const BUILD_VERSION: &str = "2026-03-07-OPTION-C-V3-UPLOAD-HARDEN";
-const REQUEST_TIMEOUT_SECS: u64 = 12;
+const BUILD_VERSION: &str = "2026-03-30-OPTION-C-V4-UPLOAD-TIMEOUT-HARDEN";
+const REQUEST_TIMEOUT_SECS: u64 = 45;
 // const APP_SERVICE: &str = "app.obscur.desktop";
 // const KEY_NAME: &str = "nsec";
 

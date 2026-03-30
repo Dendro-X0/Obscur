@@ -923,16 +923,67 @@ function NostrMessengerContent() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       voiceLocalStreamRef.current = stream;
       return stream;
-    } catch {
+    } catch (error) {
+      const errorName = (
+        error instanceof DOMException
+          ? error.name
+          : (error && typeof error === "object" && "name" in error
+            ? String((error as { name?: unknown }).name ?? "")
+            : "")
+      ).trim();
+      const errorMessage = (
+        error instanceof Error
+          ? error.message
+          : (error === null || error === undefined ? "" : String(error))
+      ).trim();
+      let reasonCode = "microphone_access_failed";
+      if (errorName === "NotAllowedError" || errorName === "SecurityError") {
+        reasonCode = "microphone_permission_denied";
+      } else if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
+        reasonCode = "microphone_not_found";
+      } else if (errorName === "NotReadableError" || errorName === "TrackStartError") {
+        reasonCode = "microphone_unavailable";
+      }
+
+      let permissionState: string | null = null;
+      if (typeof navigator.permissions?.query === "function") {
+        try {
+          const status = await navigator.permissions.query({ name: "microphone" as PermissionName });
+          permissionState = status.state;
+        } catch {
+          permissionState = null;
+        }
+      }
+
+      let hasAudioInput: boolean | null = null;
+      if (typeof navigator.mediaDevices?.enumerateDevices === "function") {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          hasAudioInput = devices.some((device) => device.kind === "audioinput");
+        } catch {
+          hasAudioInput = null;
+        }
+      }
+
       logAppEvent({
         name: "messaging.realtime_voice.media_access_failed",
         level: "warn",
         scope: { feature: "messaging", action: "realtime_voice_signal" },
         context: {
-          reasonCode: "microphone_permission_denied",
+          reasonCode,
+          errorName: errorName || null,
+          errorMessage: errorMessage || null,
+          permissionState,
+          hasAudioInput,
         },
       });
-      toast.error(t("messaging.microphoneAccessDenied", "Microphone access denied"));
+      if (reasonCode === "microphone_not_found") {
+        toast.error(t("messaging.microphoneNotDetected", "No microphone was detected on this device."));
+      } else if (reasonCode === "microphone_unavailable") {
+        toast.error(t("messaging.microphoneUnavailable", "Microphone is unavailable. Check whether another app is using it."));
+      } else {
+        toast.error(t("messaging.microphoneAccessDenied", "Microphone access denied"));
+      }
       return null;
     }
   }, [t]);
@@ -1485,6 +1536,12 @@ function NostrMessengerContent() {
 
         const connection = await ensureVoicePeerConnection(session);
         if (!connection) {
+          if (joinSignalSent && myPublicKeyHex) {
+            dispatchVoiceLeaveSignalWithRetry({
+              roomId,
+              peerPubkey: targetPeerPubkey,
+            });
+          }
           activeVoiceCallSessionRef.current = null;
           setActiveVoiceCallUiState(null);
           voiceCallJoinAcceptedAtByRoomRef.current.delete(roomId);
@@ -1511,6 +1568,7 @@ function NostrMessengerContent() {
       }
     })();
   }, [
+    dispatchVoiceLeaveSignalWithRetry,
     ensureVoicePeerConnection,
     joiningVoiceCallInviteMessageId,
     myPublicKeyHex,

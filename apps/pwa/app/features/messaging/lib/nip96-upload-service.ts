@@ -36,6 +36,7 @@ const BROWSER_PROVIDER_TIMEOUT_MS = 60_000;
 const DEV_BROWSER_PROVIDER_TIMEOUT_MS = 20_000;
 const DEV_TAURI_PROVIDER_TIMEOUT_MS = 30_000;
 const TAURI_PROVIDER_TIMEOUT_MS = 45_000;
+const WELL_KNOWN_DISCOVERY_TIMEOUT_MS = 7_500;
 const HEX_PRIVATE_KEY_REGEX = /^[0-9a-f]{64}$/i;
 const DEV_UPLOAD_BROWSER_FIRST =
     process.env.NEXT_PUBLIC_UPLOAD_DEV_BROWSER_FIRST === "1"
@@ -221,15 +222,38 @@ export class Nip96UploadService implements UploadService {
     private async resolveApiUrlFromWellKnown(originUrl: string): Promise<string | null> {
         const origin = originUrl.replace(/\/+$/, "");
         const endpoint = `${origin}/.well-known/nostr/nip96.json`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), WELL_KNOWN_DISCOVERY_TIMEOUT_MS);
         try {
-            const response = await fetch(endpoint, { method: "GET" });
+            const response = await fetch(endpoint, {
+                method: "GET",
+                signal: controller.signal,
+            });
             if (!response.ok) return null;
             const data = await response.json() as Readonly<Record<string, unknown>>;
             const apiUrl = typeof data.api_url === "string" ? data.api_url.trim() : "";
             if (!apiUrl) return null;
             return Nip96UploadService.normalizeUploadTarget(apiUrl);
-        } catch {
+        } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") {
+                reportDevRuntimeIssue({
+                    domain: "upload",
+                    operation: "provider_discovery",
+                    severity: "warn",
+                    reasonCode: "upload_provider_discovery_timeout",
+                    message: `NIP-96 provider discovery timed out after ${WELL_KNOWN_DISCOVERY_TIMEOUT_MS}ms`,
+                    retryable: true,
+                    source: "nip96-upload-service",
+                    context: {
+                        endpoint,
+                        timeoutMs: WELL_KNOWN_DISCOVERY_TIMEOUT_MS,
+                    },
+                    fingerprint: `upload|provider_discovery|${origin}`,
+                });
+            }
             return null;
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
@@ -852,4 +876,5 @@ export class Nip96UploadService implements UploadService {
 export const nip96UploadInternals = {
     classifyUploadError,
     toRootUploadVariants: Nip96UploadService.toRootUploadVariants,
+    wellKnownDiscoveryTimeoutMs: WELL_KNOWN_DISCOVERY_TIMEOUT_MS,
 };

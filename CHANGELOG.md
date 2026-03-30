@@ -2,6 +2,22 @@
 
 ### Changed
 
+- Hardened NIP-96 media upload timeout behavior across web/desktop:
+  - added bounded `.well-known/nostr/nip96.json` discovery timeout and
+    diagnostics in
+    `apps/pwa/app/features/messaging/lib/nip96-upload-service.ts`,
+  - raised desktop native upload request timeout from 12s to 45s in
+    `apps/desktop/src-tauri/src/upload.rs`,
+  - added focused discovery-timeout regression coverage in
+    `apps/pwa/app/features/messaging/lib/nip96-upload-service.test.ts`.
+- Improved realtime voice join failure convergence in
+  `apps/pwa/app/features/main-shell/main-shell.tsx`:
+  - expanded microphone-failure diagnostics (permission/device/availability),
+  - dispatches canonical leave signal when local join setup fails after request
+    dispatch to reduce remote-side prolonged waiting states.
+- Added dual-theme invitation composer styling for Discover invite flow in
+  `apps/pwa/app/features/messaging/components/invitation-composer-dialog.tsx`
+  with explicit light-gradient + dark-gradient variants and improved contrast.
 - Added canonical local-history reset flow (keep identity/session) in
   `apps/pwa/app/features/messaging/services/local-history-reset-service.ts` and
   wired Settings storage maintenance action
