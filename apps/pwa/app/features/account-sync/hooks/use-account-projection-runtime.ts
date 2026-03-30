@@ -35,6 +35,11 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
       snapshot.profileId === profileId
       && snapshot.accountPublicKeyHex === params.publicKeyHex
     );
+    const snapshotHasAccountScope = Boolean(snapshot.profileId || snapshot.accountPublicKeyHex);
+    if (!snapshotBoundToActiveAccount && snapshotHasAccountScope) {
+      accountProjectionRuntime.reset();
+      return;
+    }
     const alreadyReadyForActiveAccount = (
       snapshotBoundToActiveAccount
       && snapshot.status === "ready"

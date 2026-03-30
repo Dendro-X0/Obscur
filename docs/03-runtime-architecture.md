@@ -1,6 +1,6 @@
 # 03 Runtime Architecture
 
-_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
+_Last reviewed: 2026-03-29 (baseline commit cad5779e)._
 
 Cross-reference:
 - Core contract and anti-drift checklist live in `docs/12-core-architecture-truth-map.md`.
@@ -97,6 +97,9 @@ Phase 3 owner contract (mobile native adapters):
 - Sync/checkpoint progress is evidence-backed; timeout-only advancement is disallowed.
 - Startup must fail open into explicit runtime phase truth (`ready` / `degraded`) without a second overlay owner.
 - Relay runtime and window runtime are separate truth surfaces; do not collapse them into one inferred UI state.
+- Duplicate active-session detection for the same identity is fail-closed:
+  - local session is locked on conflict signal instead of continuing in fail-open telemetry mode.
+  - owner path: `apps/pwa/app/features/network/providers/network-provider.tsx`
 
 ## Failure Patterns to Avoid
 

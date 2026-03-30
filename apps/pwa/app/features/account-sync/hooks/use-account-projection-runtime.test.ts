@@ -140,4 +140,24 @@ describe("useAccountProjectionRuntime", () => {
       }),
     });
   });
+
+  it("resets stale snapshot ownership before re-bootstrapping a different account", () => {
+    mocks.snapshot = makeSnapshot({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: "c".repeat(64),
+      phase: "ready",
+      status: "ready",
+      accountProjectionReady: true,
+      driftStatus: "clean",
+    });
+
+    renderHook(() => useAccountProjectionRuntime({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: createPoolStub(),
+    }));
+
+    expect(mocks.reset).toHaveBeenCalledTimes(1);
+    expect(mocks.bootstrapAndReplay).not.toHaveBeenCalled();
+  });
 });

@@ -34,16 +34,15 @@ Obscur is a local-first, decentralized, end-to-end encrypted communication app f
 - Desktop updater and release-tag awareness.
 - Performance mode improvements for large timelines and burst traffic.
 
-## Current Status (v1.1.3 Active)
+## Current Status
 
-- Latest released tag: `v1.1.2` (`2026-03-24`).
-- Active execution lane: `v1.1.3-v1.2.0` (`M9` secure voice communication rollout) with one-milestone-per-version discipline.
-- Post-v1 roadmap and milestone status are tracked in:
-  - [`docs/21-post-v1-value-roadmap.md`](docs/21-post-v1-value-roadmap.md).
-- Active major-phase sequence (`v1.1.2-v1.2.0`) is tracked in:
-  - [`docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`](docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md).
-- Previous sequence (`v1.0.4-v1.0.6`) remains documented as historical execution context:
-  - [`docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`](docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md).
+- Active lane: stabilization and v1.3.0 closeout preparation.
+- Canonical active roadmap:
+  - [`docs/roadmap/current-roadmap.md`](docs/roadmap/current-roadmap.md)
+- Canonical release closeout runbook:
+  - [`docs/releases/release-closeout-guide.md`](docs/releases/release-closeout-guide.md)
+- Historical version/matrix execution docs:
+  - [`docs/archive/versioned/`](docs/archive/versioned)
 - Canonical runtime monitoring baseline:
   - [`ISSUES.md`](ISSUES.md)
   - [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)

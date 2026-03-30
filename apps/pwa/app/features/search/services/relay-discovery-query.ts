@@ -2,6 +2,7 @@
 
 import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
 import { INVITE_CODE_PREFIX } from "@/app/features/invites/utils/invite-code-format";
+import { GLOBAL_DISCOVERY_RELAY_URLS } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache, type DiscoveryProfileRecord } from "./discovery-cache";
 
 type RelayMessageHandler = (params: Readonly<{ url: string; message: string }>) => void;
@@ -11,6 +12,8 @@ export type RelayQueryPool = Readonly<{
     sendToOpen: (payload: string) => void;
     subscribeToMessages: (handler: RelayMessageHandler) => () => void;
     waitForConnection: (timeoutMs: number) => Promise<boolean>;
+    waitForScopedConnection?: (relayUrls: ReadonlyArray<string>, timeoutMs: number) => Promise<boolean>;
+    addTransientRelay?: (url: string) => void;
 }>;
 
 export type RelayDiscoveryMode = "invite" | "text" | "author";
@@ -147,11 +150,23 @@ const buildFilters = (mode: RelayDiscoveryMode, query: string): ReadonlyArray<No
     ];
 };
 
+const primeInviteLookupRelays = async (pool: RelayQueryPool): Promise<void> => {
+    for (const relayUrl of GLOBAL_DISCOVERY_RELAY_URLS) {
+        pool.addTransientRelay?.(relayUrl);
+    }
+    if (typeof pool.waitForScopedConnection === "function") {
+        await pool.waitForScopedConnection(GLOBAL_DISCOVERY_RELAY_URLS, 2_500);
+        return;
+    }
+    await pool.waitForConnection(2_500);
+};
+
 export const relayDiscoveryQueryInternals = {
     profileFromEvent,
     recordMatchesTextQuery,
     recordMatchesInviteQuery,
     buildFilters,
+    primeInviteLookupRelays,
 };
 
 export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Promise<ReadonlyArray<DiscoveryProfileRecord>> => {
@@ -162,7 +177,11 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
         return [];
     }
 
-    await params.pool.waitForConnection(2_500);
+    if (params.mode === "invite") {
+        await primeInviteLookupRelays(params.pool);
+    } else {
+        await params.pool.waitForConnection(2_500);
+    }
 
     const subId = `discover-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const filters = buildFilters(params.mode, query);

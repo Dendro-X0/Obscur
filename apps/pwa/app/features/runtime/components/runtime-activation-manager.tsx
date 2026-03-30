@@ -582,7 +582,12 @@ export function RuntimeActivationManager(): null {
     }
     const readAuthority = resolveProjectionReadAuthority({
       projectionSnapshot: accountProjection.snapshot,
+      expectedProfileId: runtime.snapshot.session.profileId,
+      expectedAccountPublicKeyHex: publicKeyHex,
     });
+    if (readAuthority.reason === "projection_scope_mismatch") {
+      return;
+    }
     const relayCounts = getRelayCounts(relayPool.connections);
     const relayRuntimeSnapshot = runtime.snapshot.relayRuntime;
     if (
@@ -751,6 +756,7 @@ export function RuntimeActivationManager(): null {
     runtimePhase,
     runtime.snapshot.degradedReason,
     runtime.snapshot.lastError,
+    runtime.snapshot.session.profileId,
     runtime.snapshot.relayRuntime?.enabledRelayUrls,
     runtime.snapshot.relayRuntime?.lastFailureReason,
     runtime.snapshot.relayRuntime?.phase,

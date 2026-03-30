@@ -50,6 +50,7 @@
     "closeout:v130:check:manual": "node scripts/check-v130-closeout-readiness.mjs --strict-manual-packet",
     "closeout:v130:check:with-preflight": "node scripts/check-v130-closeout-readiness.mjs --include-preflight --tag v1.3.0",
     "closeout:v130:check:release-ready": "node scripts/check-v130-closeout-readiness.mjs --strict-manual-packet --include-preflight --tag v1.3.0",
+    "stability:core": "node scripts/check-core-stability.mjs",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"

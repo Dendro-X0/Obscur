@@ -73,7 +73,7 @@ Key files:
 - Do not mark delivery successful from optimistic UI state.
 - Keep profile/account scope explicit in every storage access.
 
-## Startup Fail-Open Model (v0.9.2)
+## Startup Fail-Open Model
 
 Warm-up supervisor ownership is removed in the active runtime path.
 Startup now uses bounded fail-open gates:
@@ -91,12 +91,15 @@ Startup now uses bounded fail-open gates:
 : `apps/pwa/app/features/runtime/components/runtime-activation-manager.tsx`
 : activation can degrade fail-open instead of blocking forever.
 
-## v0.9.2 Sync Priorities
+## Current Sync Priorities
 
 1. Preserve joined-community state across logout/login and new-device restore for both inviter and invitee identities.
 2. Ensure account projection replay restores canonical DM and community views without identity-target navigation drift.
 3. Keep unread state scoped by canonical conversation target so group unread and DM unread cannot cross-trigger.
 4. Keep backup publish, mutation signals, and projection replay convergent under startup relay churn.
+
+Historical milestone chronology for these priorities lives in:
+- `docs/11-program-milestones-and-stability-history.md`
 
 ## Relay Foundation Phase 1 Baseline
 

@@ -23,7 +23,7 @@ describe("VoiceNoteCard", () => {
         );
 
         expect(screen.getByText("Voice Note")).toBeInTheDocument();
-        expect(screen.getByText("Voice Notes")).toBeInTheDocument();
+        expect(screen.queryByText("Voice Notes")).not.toBeInTheDocument();
         expect(screen.queryByText("voice-note-1774262057407-d2.webm")).not.toBeInTheDocument();
         expect(screen.queryByText("video.nostr.build")).not.toBeInTheDocument();
         expect(screen.getAllByText("0:02").length).toBeGreaterThanOrEqual(1);

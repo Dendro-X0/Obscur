@@ -7,6 +7,7 @@ import { AuthScreen } from "./auth-screen";
 import { markRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
 
 const authScreenMocks = vi.hoisted(() => ({
+  hasStoredIdentity: true,
   identityDiagnostics: {
     status: "locked" as const,
     mismatchReason: undefined as "stored_public_key_invalid" | "native_mismatch" | "private_key_mismatch" | undefined,
@@ -83,9 +84,11 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: {
       status: "locked",
-      stored: {
-        publicKeyHex: "a".repeat(64),
-      },
+      stored: authScreenMocks.hasStoredIdentity
+        ? {
+            publicKeyHex: "a".repeat(64),
+          }
+        : null,
     },
     getIdentityDiagnostics: () => authScreenMocks.identityDiagnostics,
     resetNativeSecureStorage: authScreenMocks.resetNativeSecureStorage,
@@ -125,6 +128,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     localStorage.clear();
     authScreenMocks.identityDiagnostics.mismatchReason = undefined;
     authScreenMocks.identityDiagnostics.message = undefined;
+    authScreenMocks.hasStoredIdentity = true;
     authScreenMocks.resetNativeSecureStorage.mockClear();
     authScreenMocks.runtime.snapshot.phase = "auth_required";
     authScreenMocks.runtime.snapshot.session.profileId = "default";

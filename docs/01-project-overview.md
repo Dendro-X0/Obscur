@@ -1,37 +1,48 @@
 # 01 Project Overview
 
-_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
+_Last reviewed: 2026-03-29 (baseline commit cad5779e)._
 
-Obscur is a privacy-first, local-first messenger built on Nostr relays. The project ships as Web/PWA and Tauri Desktop, with mobile builds produced from the desktop/Tauri stack.
+Obscur is a privacy-first, local-first messenger built on relay transport and self-custody identity.  
+It ships as Web/PWA and Tauri Desktop, with mobile builds produced from the desktop/Tauri stack.
 
 ## Product Intent
 
-- End-to-end encrypted messaging with self-custody identity.
-- Relay-based transport with no single backend dependency.
-- Cross-platform behavior consistency across PWA and native shells.
-- Deterministic runtime behavior: explicit ownership, explicit scope, evidence-backed sync and delivery states.
+1. End-to-end encrypted communication with user-controlled identity material.
+2. Relay-based delivery without a single mandatory backend.
+3. Cross-runtime behavior consistency across PWA and native shells.
+4. Deterministic runtime behavior:
+: explicit owners,
+: explicit scope,
+: evidence-backed sync and delivery states.
+
+## Current Health Snapshot
+
+As of 2026-03-29:
+1. project health is stable,
+2. no unresolved severe blocker is currently identified in active tracking,
+3. architecture remains fragile under uncontrolled changes, so owner and evidence contracts stay mandatory.
 
 ## Platform Surfaces
 
-- `apps/pwa`: primary product surface and most feature logic.
-- `apps/desktop`: Tauri shell, native runtime bridge, updater, mobile build path.
-- `apps/website`: web-facing product/landing surface.
-- `apps/relay-gateway`: optional relay edge proxy (PoW gate + upstream forwarder) used in some local/dev topologies.
-- `apps/coordination`: Cloudflare Worker for invite coordination (`/invites/create`, `/invites/redeem`) and NIP-98/96 upload endpoints.
+1. `apps/pwa`: primary product surface and most feature logic.
+2. `apps/desktop`: Tauri shell, native runtime bridge, updater, and mobile build path.
+3. `apps/website`: web-facing product/landing surface.
+4. `apps/relay-gateway`: optional relay edge proxy (PoW gate + upstream forwarder).
+5. `apps/coordination`: Cloudflare Worker for invite coordination and upload endpoints.
 
-## Current Engineering Priorities
+## Active Engineering Focus
 
-- Runtime/transport determinism (single owner per window, no duplicate lifecycle owners).
-- Account sync convergence and profile-scoped persistence.
-- Relay resilience and scoped publish/subscribe correctness.
-- Cross-device identity/session consistency.
-- Docs as architecture contract: one canonical owner per lifecycle and explicit diagnostics for every degraded boundary.
+1. Runtime and transport determinism (single owner per window, no duplicate lifecycle owners).
+2. Account-sync convergence with explicit profile scope.
+3. Relay resilience and scoped publish/subscribe correctness.
+4. Community and realtime-voice reliability without introducing parallel owner paths.
+5. Documentation as architecture contract.
 
 ## Non-Goals
 
-- Maintaining old roadmap narratives inside active docs.
-- Treating optimistic local state as network truth.
-- Mixing legacy and modern execution paths for the same user action.
+1. Treating optimistic local UI state as network truth.
+2. Mixing legacy and modern execution paths for the same user action.
+3. Keeping version-specific planning in canonical docs.
 
 ## Quick Start
 
@@ -46,11 +57,14 @@ Desktop shell:
 pnpm dev:desktop
 ```
 
-## Entry Points
+## Key Runtime Entry Points
 
-- Web app shell: `apps/pwa/app/layout.tsx`, `apps/pwa/app/components/providers.tsx`
-- Runtime supervisor: `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
-- Auth gateway: `apps/pwa/app/features/auth/components/auth-gateway.tsx`
-- Desktop runtime bridge: `apps/desktop/src-tauri/src/lib.rs`
-- Relay gateway runtime: `apps/relay-gateway/src/index.ts`
-- Coordination worker runtime: `apps/coordination/src/index.ts`
+1. Web app shell:
+: `apps/pwa/app/layout.tsx`
+: `apps/pwa/app/components/providers.tsx`
+2. Runtime supervisor:
+: `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
+3. Auth gateway:
+: `apps/pwa/app/features/auth/components/auth-gateway.tsx`
+4. Desktop native runtime bridge:
+: `apps/desktop/src-tauri/src/lib.rs`

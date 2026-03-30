@@ -14,6 +14,7 @@ import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { extractAttachmentsFromContent } from "../utils/logic";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import {
     loadSuppressedMessageDeleteIds,
     suppressMessageDeleteTombstone,
@@ -336,11 +337,14 @@ export function useConversationMessages(
     publicKeyHex: string | null
 ): UseConversationMessagesResult {
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
+    const activeProfileId = getActiveProfileIdSafe();
     const projectionReadAuthority = useMemo(() => (
         resolveProjectionReadAuthority({
             projectionSnapshot: accountProjectionSnapshot,
+            expectedProfileId: activeProfileId,
+            expectedAccountPublicKeyHex: publicKeyHex,
         })
-    ), [accountProjectionSnapshot]);
+    ), [accountProjectionSnapshot, activeProfileId, publicKeyHex]);
     const [messages, setMessages] = useState<ReadonlyArray<Message>>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasEarlier, setHasEarlier] = useState(false);

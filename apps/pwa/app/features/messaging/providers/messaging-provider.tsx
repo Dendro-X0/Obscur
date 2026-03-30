@@ -18,7 +18,7 @@ import type {
 } from "../types";
 import { chatStateStoreService } from "../services/chat-state-store";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionDmConversations } from "@/app/features/account-sync/services/account-projection-selectors";
@@ -115,10 +115,16 @@ const MessagingContext = createContext<MessagingContextType | null>(null);
 
 export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
+    const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
+    const activeProfileId = getActiveProfileIdSafe();
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const projectionReadAuthority = useMemo(() => (
-        resolveProjectionReadAuthority({ projectionSnapshot: accountProjectionSnapshot })
-    ), [accountProjectionSnapshot]);
+        resolveProjectionReadAuthority({
+            projectionSnapshot: accountProjectionSnapshot,
+            expectedProfileId: activeProfileId,
+            expectedAccountPublicKeyHex: publicKeyHex,
+        })
+    ), [accountProjectionSnapshot, activeProfileId, publicKeyHex]);
     const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [selectedConversationState, setSelectedConversationState] = useState<Conversation | null>(null);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
@@ -129,8 +135,6 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Removed: const [messagesByConversationId, setMessagesByConversationId] = useState<MessagesByConversationId>({});
     const [visibleMessageCountByConversationId, setVisibleMessageCountByConversationId] = useState<Readonly<Record<string, number>>>({});
     const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
-
-    const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
 
     const setSelectedConversation = React.useCallback((conv: Conversation | null) => {
         if (conv?.kind === "dm") {

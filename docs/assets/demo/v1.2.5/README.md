@@ -1,7 +1,8 @@
 # M10 Release Candidate Assets (v1.2.5)
 
-Canonical matrix:
-- `docs/35-v1.2.5-m10-release-candidate-matrix.md`
+Canonical context:
+- `docs/11-program-milestones-and-stability-history.md`
+- `docs/history/version-context.md`
 
 Canonical output files:
 1. `m10-v130-release-candidate-pass.json`

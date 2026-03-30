@@ -49,6 +49,23 @@ struct WindowState {
     maximized: bool,
 }
 
+#[cfg(desktop)]
+const MAIN_WINDOW_LABEL: &str = "main";
+#[cfg(desktop)]
+const DEFAULT_WINDOW_WIDTH: u32 = 1200;
+#[cfg(desktop)]
+const DEFAULT_WINDOW_HEIGHT: u32 = 800;
+#[cfg(desktop)]
+const MIN_WINDOW_WIDTH: u32 = 800;
+#[cfg(desktop)]
+const MIN_WINDOW_HEIGHT: u32 = 600;
+#[cfg(desktop)]
+const MAX_REASONABLE_WINDOW_WIDTH: u32 = 8192;
+#[cfg(desktop)]
+const MAX_REASONABLE_WINDOW_HEIGHT: u32 = 8192;
+#[cfg(desktop)]
+const MAX_REASONABLE_POSITION_ABS: i32 = 20_000;
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct TorSettings {
     enable_tor: bool,
@@ -146,13 +163,21 @@ async fn window_unmaximize(window: Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn window_close(window: Window) -> Result<(), String> {
+async fn window_close(window: Window, app: tauri::AppHandle) -> Result<(), String> {
     // For background mode, we might want this to just hide the window
     #[cfg(desktop)]
-    return window.hide().map_err(|e| e.to_string());
+    {
+        if let Some(webview_window) = app.get_webview_window(window.label()) {
+            if let Ok(state) = capture_window_state(&webview_window) {
+                let _ = write_window_state(&app, webview_window.label(), &state);
+            }
+        }
+        return window.hide().map_err(|e| e.to_string());
+    }
     #[cfg(mobile)]
     {
         let _ = window;
+        let _ = app;
         Ok(())
     }
 }
@@ -697,26 +722,8 @@ async fn desktop_remove_profile(
 async fn save_window_state(window: WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(desktop)]
     {
-        let position = window.outer_position().map_err(|e| e.to_string())?;
-        let size = window.outer_size().map_err(|e| e.to_string())?;
-        let maximized = window.is_maximized().map_err(|e| e.to_string())?;
-
-        let state = WindowState {
-            x: position.x,
-            y: position.y,
-            width: size.width,
-            height: size.height,
-            maximized,
-        };
-
-        let state_json = serde_json::to_string(&state).map_err(|e| e.to_string())?;
-
-        // Store in app data directory
-        if let Some(app_dir) = app.path().app_data_dir().ok() {
-            std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
-            let state_path = app_dir.join("window_state.json");
-            std::fs::write(state_path, state_json).map_err(|e| e.to_string())?;
-        }
+        let state = capture_window_state(&window)?;
+        write_window_state(&app, window.label(), &state)?;
     }
     #[cfg(mobile)]
     {
@@ -733,18 +740,83 @@ fn load_window_state(app: &tauri::AppHandle) -> Option<WindowState> {
     let app_dir = app.path().app_data_dir().ok()?;
     let state_path = app_dir.join("window_state.json");
     let state_json = std::fs::read_to_string(state_path).ok()?;
-    serde_json::from_str(&state_json).ok()
+    let raw = serde_json::from_str::<WindowState>(&state_json).ok()?;
+    Some(sanitize_window_state(raw))
 }
 
 // Apply saved window state
 #[cfg(desktop)]
 fn apply_window_state(window: &WebviewWindow, state: WindowState) {
+    let _ = window.set_resizable(true);
     if state.maximized {
         let _ = window.maximize();
     } else {
-        let _ = window.set_position(PhysicalPosition::new(state.x, state.y));
+        if is_reasonable_window_position(state.x, state.y) {
+            let _ = window.set_position(PhysicalPosition::new(state.x, state.y));
+        }
         let _ = window.set_size(PhysicalSize::new(state.width, state.height));
     }
+}
+
+#[cfg(desktop)]
+fn sanitize_window_state(state: WindowState) -> WindowState {
+    let width = state
+        .width
+        .clamp(MIN_WINDOW_WIDTH, MAX_REASONABLE_WINDOW_WIDTH);
+    let height = state
+        .height
+        .clamp(MIN_WINDOW_HEIGHT, MAX_REASONABLE_WINDOW_HEIGHT);
+    let x = state.x.clamp(-MAX_REASONABLE_POSITION_ABS, MAX_REASONABLE_POSITION_ABS);
+    let y = state.y.clamp(-MAX_REASONABLE_POSITION_ABS, MAX_REASONABLE_POSITION_ABS);
+
+    let width = if width == 0 { DEFAULT_WINDOW_WIDTH } else { width };
+    let height = if height == 0 { DEFAULT_WINDOW_HEIGHT } else { height };
+
+    WindowState {
+        x,
+        y,
+        width,
+        height,
+        maximized: state.maximized,
+    }
+}
+
+#[cfg(desktop)]
+fn is_reasonable_window_position(x: i32, y: i32) -> bool {
+    x.abs() <= MAX_REASONABLE_POSITION_ABS && y.abs() <= MAX_REASONABLE_POSITION_ABS
+}
+
+#[cfg(desktop)]
+fn capture_window_state(window: &WebviewWindow) -> Result<WindowState, String> {
+    let position = window.outer_position().map_err(|e| e.to_string())?;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let maximized = window.is_maximized().map_err(|e| e.to_string())?;
+    Ok(sanitize_window_state(WindowState {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+        maximized,
+    }))
+}
+
+#[cfg(desktop)]
+fn write_window_state(
+    app: &tauri::AppHandle,
+    window_label: &str,
+    state: &WindowState,
+) -> Result<(), String> {
+    if window_label != MAIN_WINDOW_LABEL {
+        return Ok(());
+    }
+
+    let state_json = serde_json::to_string(state).map_err(|e| e.to_string())?;
+    if let Ok(app_dir) = app.path().app_data_dir() {
+        std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
+        let state_path = app_dir.join("window_state.json");
+        std::fs::write(state_path, state_json).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -889,16 +961,12 @@ pub fn run() {
                 _window.on_window_event(move |event| {
                     match event {
                         tauri::WindowEvent::CloseRequested { api, .. } => {
+                            if let Ok(state) = capture_window_state(&window_clone) {
+                                let _ = write_window_state(&app_handle, window_clone.label(), &state);
+                            }
                             // Prevent the window from closing and hide it instead
                             api.prevent_close();
                             let _ = window_clone.hide();
-
-                            // Save state asynchronously
-                            let wh = window_clone.clone();
-                            let ah = app_handle.clone();
-                            tauri::async_runtime::spawn(async move {
-                                let _ = save_window_state(wh, ah).await;
-                            });
                         }
                         tauri::WindowEvent::Destroyed => {
                             let state = app_handle.state::<TorState>();

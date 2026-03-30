@@ -74,10 +74,10 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
             onKeyDown={(e) => {
                 if (e.key === 'Enter') handleClick();
             }}
-            className="group relative flex items-center gap-4 rounded-[28px] border border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_24px_60px_rgba(79,70,229,0.12)] active:scale-[0.995] dark:bg-[linear-gradient(180deg,rgba(10,16,34,0.92),rgba(7,12,24,0.94))]"
+            className="group relative flex items-center gap-3 rounded-2xl border border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] p-3 shadow-[0_14px_36px_rgba(15,23,42,0.08)] transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_24px_60px_rgba(79,70,229,0.12)] active:scale-[0.995] sm:gap-4 sm:rounded-[28px] sm:p-4 dark:bg-[linear-gradient(180deg,rgba(10,16,34,0.92),rgba(7,12,24,0.94))]"
         >
             <div className="relative">
-                <Avatar className="h-14 w-14 border border-border/70 bg-muted shadow-sm transition-colors group-hover:border-primary/40">
+                <Avatar className="h-12 w-12 border border-border/70 bg-muted shadow-sm transition-colors group-hover:border-primary/40 sm:h-14 sm:w-14">
                     {resolvedPicture ? (
                         <Image
                             src={resolvedPicture}
@@ -102,7 +102,7 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
 
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <h4 className="truncate text-base font-black text-foreground transition-colors group-hover:text-primary">
+                    <h4 className="truncate text-sm font-black text-foreground transition-colors group-hover:text-primary sm:text-base">
                         {resolvedTitle}
                     </h4>
                     {result.confidence === "direct" && (
@@ -129,18 +129,18 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
                 )}
             </div>
 
-            <div className="flex items-center gap-2 opacity-0 translate-x-2 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
+            <div className="flex translate-x-0 items-center gap-2 opacity-100 transition-all duration-300 sm:translate-x-2 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100">
                 {(result.kind === "person" || result.kind === "invite" || result.kind === "contact_card") && (
                     <Button
                         size="icon"
                         variant="ghost"
                         onClick={handleAdd}
-                        className="h-9 w-9 rounded-xl bg-primary/10 text-primary transition-all hover:bg-primary hover:text-primary-foreground"
+                        className="h-8 w-8 rounded-xl bg-primary/10 text-primary transition-all hover:bg-primary hover:text-primary-foreground sm:h-9 sm:w-9"
                     >
                         <UserPlus className="h-4 w-4" />
                     </Button>
                 )}
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground transition-all group-hover:bg-primary/10 group-hover:text-primary">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground transition-all group-hover:bg-primary/10 group-hover:text-primary sm:h-9 sm:w-9">
                     <ChevronRight className="h-5 w-5" />
                 </div>
             </div>

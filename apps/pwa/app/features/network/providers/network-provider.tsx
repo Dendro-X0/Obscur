@@ -11,6 +11,7 @@ import { runIdentityIntegrityMigrationV085 } from "../services/identity-integrit
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRealtimePresence } from "../hooks/use-realtime-presence";
+import { toast } from "@dweb/ui-kit";
 
 interface NetworkContextType {
     identity: ReturnType<typeof useIdentity>;
@@ -48,7 +49,7 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
             "identity.session_conflict.detected",
             "actionable",
             [
-                "A different active session is already online for this identity. Keeping current session active and recording diagnostics.",
+                "A different active session is already online for this identity. Locking the local session to enforce single-active-session ownership.",
                 {
                     publicKeyHex,
                     incomingSessionId: record.sessionId,
@@ -56,21 +57,8 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 },
             ],
         );
-        // Cross-device account usage is a valid product path.
-        // Presence conflict is telemetry, not proof that local identity must be revoked.
-        logRuntimeEvent(
-            "identity.session_conflict.fail_open",
-            "degraded",
-            [
-                "Duplicate-session signal observed; skipped automatic lock to preserve session continuity.",
-                {
-                    publicKeyHex,
-                    incomingSessionId: record.sessionId,
-                    incomingStartedAtMs: record.startedAtMs,
-                },
-            ],
-            { maxPerWindow: 1, windowMs: 60_000 }
-        );
+        toast.error("Another active session is already online for this account. This device was locked.");
+        identity.lockIdentity();
     }, [identity, publicKeyHex]);
 
     const presence = useRealtimePresence({

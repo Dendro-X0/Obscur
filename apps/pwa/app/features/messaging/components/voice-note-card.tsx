@@ -182,10 +182,6 @@ export function VoiceNoteCard({
                 </span>
             </div>
 
-            <div className="mb-2 min-w-0">
-                <div className="truncate text-xs font-bold">Voice Notes</div>
-            </div>
-
             {hasError ? (
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-rose-700 dark:text-rose-300">
                     <span className="truncate">Playback unavailable</span>

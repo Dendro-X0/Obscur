@@ -10,6 +10,7 @@ export type ProjectionReadAuthorityReason =
   | "shadow_mode"
   | "drift_gate_not_promoted"
   | "projection_not_ready"
+  | "projection_scope_mismatch"
   | "rollback_on_critical_drift"
   | "read_cutover_enabled";
 
@@ -32,6 +33,8 @@ const resolveMigrationScope = (snapshot: AccountProjectionRuntimeSnapshot) => ({
 export const resolveProjectionReadAuthority = (params: Readonly<{
   projectionSnapshot: AccountProjectionRuntimeSnapshot;
   policy?: AccountSyncMigrationPolicy;
+  expectedProfileId?: string | null;
+  expectedAccountPublicKeyHex?: string | null;
 }>): ProjectionReadAuthority => {
   const policy = params.policy ?? getAccountSyncMigrationPolicy(resolveMigrationScope(params.projectionSnapshot));
   const criticalDriftCount = getCriticalDriftCount(params.projectionSnapshot);
@@ -44,6 +47,25 @@ export const resolveProjectionReadAuthority = (params: Readonly<{
     return {
       useProjectionReads: false,
       reason: "projection_not_ready",
+      policy,
+      criticalDriftCount,
+    };
+  }
+
+  const expectedProfileId = params.expectedProfileId?.trim() ?? "";
+  const snapshotProfileId = params.projectionSnapshot.profileId?.trim() ?? "";
+  const expectedAccountPublicKeyHex = params.expectedAccountPublicKeyHex?.trim().toLowerCase() ?? "";
+  const snapshotAccountPublicKeyHex = params.projectionSnapshot.accountPublicKeyHex?.trim().toLowerCase() ?? "";
+  const hasProfileScopeMismatch = expectedProfileId.length > 0
+    && snapshotProfileId.length > 0
+    && expectedProfileId !== snapshotProfileId;
+  const hasAccountScopeMismatch = expectedAccountPublicKeyHex.length > 0
+    && snapshotAccountPublicKeyHex.length > 0
+    && expectedAccountPublicKeyHex !== snapshotAccountPublicKeyHex;
+  if (hasProfileScopeMismatch || hasAccountScopeMismatch) {
+    return {
+      useProjectionReads: false,
+      reason: "projection_scope_mismatch",
       policy,
       criticalDriftCount,
     };

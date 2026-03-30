@@ -5,7 +5,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService as chatStateStore } from "@/app/features/messaging/services/chat-state-store";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { appendCanonicalContactEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
@@ -41,6 +41,15 @@ type StoredPeerTrust = Readonly<{
 const createDefaultState = (): StoredPeerTrust => {
   return { acceptedPeers: [], mutedPeers: [] };
 };
+
+const createContactMutationIdempotencySuffix = (params: Readonly<{
+  action: "accept" | "unaccept";
+  peerPublicKeyHex: PublicKeyHex;
+  atUnixMs: number;
+  nonce: number;
+}>): string => (
+  `${params.action}:${params.peerPublicKeyHex}:${params.atUnixMs}:${params.nonce}`
+);
 
 const getStorageKey = (publicKeyHex: PublicKeyHex): string => {
   return `obscur.peer_trust.v1.${publicKeyHex}`;
@@ -130,9 +139,14 @@ const extractAcceptedPeersFromPersistedChatState = (
 
 export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => {
   const projectionSnapshot = useAccountProjectionSnapshot();
+  const activeProfileId = getActiveProfileIdSafe();
   const projectionReadAuthority = useMemo(() => (
-    resolveProjectionReadAuthority({ projectionSnapshot })
-  ), [projectionSnapshot]);
+    resolveProjectionReadAuthority({
+      projectionSnapshot,
+      expectedProfileId: activeProfileId,
+      expectedAccountPublicKeyHex: params.publicKeyHex,
+    })
+  ), [activeProfileId, params.publicKeyHex, projectionSnapshot]);
   const projectionAcceptedPeers = useMemo(
     () => selectProjectionAcceptedPeers(projectionSnapshot.projection),
     [projectionSnapshot.projection]
@@ -153,6 +167,20 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   });
   const didLoadRef = useRef(false);
   const [hasHydrated, setHasHydrated] = useState(false);
+  const contactMutationNonceRef = useRef(0);
+
+  const nextContactMutationSuffix = useCallback((params: Readonly<{
+    action: "accept" | "unaccept";
+    peerPublicKeyHex: PublicKeyHex;
+  }>): string => {
+    contactMutationNonceRef.current += 1;
+    return createContactMutationIdempotencySuffix({
+      action: params.action,
+      peerPublicKeyHex: params.peerPublicKeyHex,
+      atUnixMs: Date.now(),
+      nonce: contactMutationNonceRef.current,
+    });
+  }, []);
 
   useEffect((): void => {
     queueMicrotask((): void => {
@@ -291,11 +319,14 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
         peerPublicKeyHex: normalized,
         type: "CONTACT_ACCEPTED",
         direction: "unknown",
-        idempotencySuffix: `accept:${normalized}`,
+        idempotencySuffix: nextContactMutationSuffix({
+          action: "accept",
+          peerPublicKeyHex: normalized,
+        }),
         source: "legacy_bridge",
       });
     }
-  }, [shouldWriteLegacyContacts]);
+  }, [nextContactMutationSuffix, shouldWriteLegacyContacts]);
   const unacceptPeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
     const normalized = normalizePublicKeyHex(p.publicKeyHex);
     if (!normalized) return;
@@ -321,11 +352,14 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
         peerPublicKeyHex: normalized,
         type: "CONTACT_REMOVED",
         direction: "unknown",
-        idempotencySuffix: `unaccept:${normalized}`,
+        idempotencySuffix: nextContactMutationSuffix({
+          action: "unaccept",
+          peerPublicKeyHex: normalized,
+        }),
         source: "legacy_bridge",
       });
     }
-  }, [shouldWriteLegacyContacts]);
+  }, [nextContactMutationSuffix, shouldWriteLegacyContacts]);
   const state: PeerTrustState = useMemo((): PeerTrustState => {
     return {
       acceptedPeers: acceptedPeersForRead,
@@ -340,6 +374,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
 
 export const peerTrustInternals = {
   createDefaultState,
+  createContactMutationIdempotencySuffix,
   getStorageKey,
   loadFromStorage,
   saveToStorage,

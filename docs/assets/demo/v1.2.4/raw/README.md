@@ -8,7 +8,7 @@ Recommended files:
 2. `m10-v130-evidence-capture.json`
 : output from `window.obscurM10TrustControls.runV130EvidenceCaptureJson(...)`.
 3. `m10-digest-event-bundle.json`
-: output from the digest/event bundle command in `docs/34-v1.2.4-m10-demo-asset-matrix.md`.
+: output from the digest/event bundle command in the M10 demo asset flow scripts.
 
 Materialize command (preferred, one-shot bundle):
 `pnpm demo:m10:materialize -- --bundle docs/assets/demo/v1.2.4/raw/m10-v124-demo-bundle.json`

@@ -14,6 +14,7 @@ import { appendCanonicalContactEvent } from "@/app/features/account-sync/service
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionRequestsInboxItems } from "@/app/features/account-sync/services/account-projection-selectors";
 import { shouldWriteLegacyContactsDm } from "@/app/features/account-sync/services/account-sync-migration-policy";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import { clearRequestCooldown, setRequestCooldown } from "../services/request-anti-abuse";
 import { requestFlowEvidenceStore } from "../services/request-flow-evidence-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
@@ -255,9 +256,14 @@ const shouldApplyStatusUpdate = (params: Readonly<{
 
 export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInboxResult => {
   const projectionSnapshot = useAccountProjectionSnapshot();
+  const activeProfileId = getActiveProfileIdSafe();
   const projectionReadAuthority = useMemo(() => (
-    resolveProjectionReadAuthority({ projectionSnapshot })
-  ), [projectionSnapshot]);
+    resolveProjectionReadAuthority({
+      projectionSnapshot,
+      expectedProfileId: activeProfileId,
+      expectedAccountPublicKeyHex: params.publicKeyHex,
+    })
+  ), [activeProfileId, params.publicKeyHex, projectionSnapshot]);
   const projectionItems = useMemo(
     () => selectProjectionRequestsInboxItems(projectionSnapshot.projection),
     [projectionSnapshot.projection]

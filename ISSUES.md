@@ -15,11 +15,11 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
 ## Post-v1 Roadmap Status
 
 - Canonical roadmap:
-  - `docs/21-post-v1-value-roadmap.md`.
+  - `docs/roadmap/current-roadmap.md`.
 - Canonical version-bound execution cadence:
-  - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
-  - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
-  - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
+  - `docs/archive/versioned/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
+  - `docs/archive/versioned/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
+  - `docs/archive/versioned/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
 - M0 status (completed 2026-03-22):
   - post-v1 pillar scope + acceptance lock is documented,
   - maintainer runbook now includes post-v1 baseline/diagnostics checklist,
@@ -845,7 +845,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
 - Pre-v1 hardening plan is tracked at:
   - `docs/19-v1-readiness-stability-plan.md`.
 - Official `v1.0.0` launch sequencing is tracked at:
-  - `docs/20-v1-official-release-execution.md`.
+  - `docs/releases/release-closeout-guide.md`.
 - Current execution focus:
   - preserve stability and sync confidence while avoiding architectural churn,
   - close only reproducible high-risk regressions before `v1.0.0`.
@@ -871,7 +871,7 @@ This file tracks runtime issue status for post-v1 release continuation and stabi
 - M3 strict preflight replay is green on clean `main`:
   - `pnpm release:preflight -- --tag v1.0.0`.
 - Remaining pre-v1 gate:
-  - complete R1-R3 launch execution in `docs/20-v1-official-release-execution.md` on the final clean-tree release commit.
+  - complete launch execution checklist in `docs/releases/release-closeout-guide.md` on the final clean-tree release commit.
 
 ## v0.9.5 M0 Status
 

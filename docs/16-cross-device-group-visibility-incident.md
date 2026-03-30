@@ -2,7 +2,7 @@
 
 _Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
 
-Status: Mitigated in active `v0.9.2` lane, monitor for regressions.
+Status: Mitigated in current baseline; monitor for regressions.
 
 ## Incident Summary
 

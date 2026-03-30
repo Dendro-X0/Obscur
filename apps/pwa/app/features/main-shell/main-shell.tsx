@@ -101,6 +101,8 @@ const VOICE_CALL_JOIN_REQUEST_RETRY_INTERVAL_MS = 3_000;
 const VOICE_CALL_JOIN_REQUEST_RETRY_MAX_ATTEMPTS = 6;
 const VOICE_CALL_OFFER_RETRY_INTERVAL_MS = 3_000;
 const VOICE_CALL_OFFER_RETRY_MAX_ATTEMPTS = 6;
+const VOICE_CALL_LEAVE_SIGNAL_RETRY_INTERVAL_MS = 1_500;
+const VOICE_CALL_LEAVE_SIGNAL_RETRY_MAX_ATTEMPTS = 3;
 const VOICE_SIGNAL_BOOTSTRAP_REPLAY_WINDOW_MS = 2 * 60 * 1000;
 const VOICE_INVITE_BOOTSTRAP_REPLAY_WINDOW_MS = 5 * 60 * 1000;
 const REALTIME_VOICE_CALLS_ENABLED = isRealtimeVoiceCallsEnabled();
@@ -507,6 +509,9 @@ function NostrMessengerContent() {
   const voiceOfferRetryAttemptRef = useRef(0);
   const voiceCallConnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCallInterruptionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voicePeerConnectionCreationRef = useRef<Promise<RTCPeerConnection | null> | null>(null);
+  const voicePeerConnectionCreationKeyRef = useRef<string | null>(null);
+  const voiceLeaveSignalRetryTimeoutsRef = useRef<Set<number>>(new Set());
   const leaveCallOnUnmountRef = useRef<() => void>(() => {});
   const relayStatusRef = useRef(relayStatus);
   const sendVoiceSignalRef = useRef<((params: Readonly<{
@@ -814,6 +819,14 @@ function NostrMessengerContent() {
     }
   }, []);
 
+  const clearVoiceLeaveSignalRetryTimers = useCallback((): void => {
+    const timeouts = voiceLeaveSignalRetryTimeoutsRef.current;
+    timeouts.forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    timeouts.clear();
+  }, []);
+
   const clearVoiceJoinRequestRetryInterval = useCallback((): void => {
     if (voiceJoinRequestRetryIntervalRef.current) {
       clearInterval(voiceJoinRequestRetryIntervalRef.current);
@@ -859,8 +872,11 @@ function NostrMessengerContent() {
   const tearDownVoicePeerConnection = useCallback((params?: Readonly<{ reasonCode?: "left_by_user" | "session_closed" }>): void => {
     const previousSession = activeVoiceCallSessionRef.current;
     clearVoiceCallTimers();
+    clearVoiceLeaveSignalRetryTimers();
     clearVoiceJoinRequestRetryInterval();
     clearVoiceOfferRetryInterval();
+    voicePeerConnectionCreationRef.current = null;
+    voicePeerConnectionCreationKeyRef.current = null;
     const connection = voicePeerConnectionRef.current;
     if (connection) {
       connection.onicecandidate = null;
@@ -894,7 +910,7 @@ function NostrMessengerContent() {
         reasonCode: params?.reasonCode ?? "session_closed",
       });
     }
-  }, [clearVoiceCallTimers, clearVoiceJoinRequestRetryInterval, clearVoiceOfferRetryInterval, clearVoiceRemoteStream, stopVoiceLocalStream]);
+  }, [clearVoiceCallTimers, clearVoiceLeaveSignalRetryTimers, clearVoiceJoinRequestRetryInterval, clearVoiceOfferRetryInterval, clearVoiceRemoteStream, stopVoiceLocalStream]);
 
   const ensureVoiceLocalStream = useCallback(async (): Promise<MediaStream | null> => {
     if (voiceLocalStreamRef.current) {
@@ -929,157 +945,267 @@ function NostrMessengerContent() {
     ) {
       return voicePeerConnectionRef.current;
     }
+    const sessionKey = `${session.roomId}|${session.peerPubkey}|${session.role}`;
+    if (
+      voicePeerConnectionCreationRef.current
+      && voicePeerConnectionCreationKeyRef.current === sessionKey
+    ) {
+      return await voicePeerConnectionCreationRef.current;
+    }
 
     const previous = activeVoiceCallSessionRef.current;
     if (previous && (previous.roomId !== session.roomId || previous.peerPubkey !== session.peerPubkey)) {
       tearDownVoicePeerConnection({ reasonCode: "session_closed" });
     }
 
-    const stream = await ensureVoiceLocalStream();
-    if (!stream) {
-      return null;
-    }
-
-    if (typeof RTCPeerConnection !== "function") {
-      return null;
-    }
-
-    const connection = new RTCPeerConnection({
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:global.stun.twilio.com:3478" },
-      ],
-    });
-
-    stream.getTracks().forEach((track) => {
-      try {
-        connection.addTrack(track, stream);
-      } catch {
-        // best effort
+    voicePeerConnectionCreationKeyRef.current = sessionKey;
+    const createConnectionPromise = (async (): Promise<RTCPeerConnection | null> => {
+      const stream = await ensureVoiceLocalStream();
+      if (!stream) {
+        return null;
       }
-    });
 
-    connection.onicecandidate = (event): void => {
-      const candidate = event.candidate;
-      if (!candidate || !myPublicKeyHex) {
+      if (typeof RTCPeerConnection !== "function") {
+        return null;
+      }
+
+      const connection = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:global.stun.twilio.com:3478" },
+        ],
+      });
+
+      stream.getTracks().forEach((track) => {
+        try {
+          connection.addTrack(track, stream);
+        } catch {
+          // best effort
+        }
+      });
+
+      connection.onicecandidate = (event): void => {
+        const liveSession = activeVoiceCallSessionRef.current;
+        if (
+          voicePeerConnectionRef.current !== connection
+          || !liveSession
+          || liveSession.roomId !== session.roomId
+          || liveSession.peerPubkey !== session.peerPubkey
+        ) {
+          return;
+        }
+        const candidate = event.candidate;
+        if (!candidate || !myPublicKeyHex) {
+          return;
+        }
+        const payload = createVoiceCallSignalPayload({
+          roomId: session.roomId,
+          signalType: "ice-candidate",
+          fromPubkey: myPublicKeyHex,
+          toPubkey: session.peerPubkey,
+          candidate: {
+            candidate: candidate.candidate,
+            sdpMid: candidate.sdpMid,
+            sdpMLineIndex: candidate.sdpMLineIndex,
+            usernameFragment: candidate.usernameFragment,
+          },
+        });
+        void sendVoiceSignal({
+          peerPubkey: session.peerPubkey,
+          payload,
+        });
+      };
+
+      connection.ontrack = (event): void => {
+        const liveSession = activeVoiceCallSessionRef.current;
+        if (
+          voicePeerConnectionRef.current !== connection
+          || !liveSession
+          || liveSession.roomId !== session.roomId
+          || liveSession.peerPubkey !== session.peerPubkey
+        ) {
+          return;
+        }
+        const remoteStream = event.streams[0] ?? new MediaStream([event.track]);
+        voiceRemoteStreamRef.current = remoteStream;
+        const audioElement = voiceRemoteAudioElementRef.current;
+        if (audioElement) {
+          audioElement.srcObject = remoteStream;
+          void audioElement.play().catch(() => {
+            // autoplay might be blocked until user gesture.
+          });
+        }
+      };
+
+      connection.onconnectionstatechange = (): void => {
+        const liveSession = activeVoiceCallSessionRef.current;
+        if (
+          voicePeerConnectionRef.current !== connection
+          || !liveSession
+          || liveSession.roomId !== session.roomId
+          || liveSession.peerPubkey !== session.peerPubkey
+          || liveSession.role !== session.role
+        ) {
+          return;
+        }
+        const state = connection.connectionState;
+        setActiveVoiceCallUiState((current) => {
+          if (!current || current.roomId !== session.roomId || current.peerPubkey !== session.peerPubkey) {
+            return current;
+          }
+          return {
+            ...current,
+            connectionState: state,
+          };
+        });
+        logAppEvent({
+          name: "messaging.realtime_voice.rtc_state",
+          level: state === "failed" || state === "disconnected" ? "warn" : "info",
+          scope: { feature: "messaging", action: "realtime_voice_signal" },
+          context: {
+            roomIdHint: toRoomIdHint(session.roomId),
+            connectionState: state,
+            role: session.role,
+          },
+        });
+
+        if (state === "connected") {
+          if (session.role === "joiner") {
+            const acceptedAtUnixMs = voiceCallJoinAcceptedAtByRoomRef.current.get(session.roomId) ?? null;
+            if (acceptedAtUnixMs !== null) {
+              logAppEvent({
+                name: "messaging.realtime_voice.join_connected",
+                level: "info",
+                scope: { feature: "messaging", action: "realtime_voice_signal" },
+                context: {
+                  roomIdHint: toRoomIdHint(session.roomId),
+                  peerPubkeySuffix: session.peerPubkey.slice(-8),
+                  acceptToConnectedElapsedMs: Math.max(0, Date.now() - acceptedAtUnixMs),
+                },
+              });
+            }
+            voiceCallJoinAcceptedAtByRoomRef.current.delete(session.roomId);
+          }
+          setVoiceCallUiStatus({
+            roomId: session.roomId,
+            peerPubkey: session.peerPubkey,
+            phase: "connected",
+            role: session.role,
+            sinceUnixMs: Date.now(),
+          });
+          realtimeVoiceSessionOwnerRef.current.connected({
+            participantCount: 2,
+            hasPeerSessionEvidence: true,
+            eventUnixMs: Date.now(),
+          });
+        } else if (state === "disconnected" || state === "failed") {
+          setVoiceCallUiStatus({
+            roomId: session.roomId,
+            peerPubkey: session.peerPubkey,
+            phase: "interrupted",
+            role: session.role,
+            sinceUnixMs: Date.now(),
+            reasonCode: "network_interrupted",
+          });
+          realtimeVoiceSessionOwnerRef.current.transportDegraded({
+            reasonCode: "network_degraded",
+            eventUnixMs: Date.now(),
+          });
+        } else if (state === "closed") {
+          realtimeVoiceSessionOwnerRef.current.closed({ eventUnixMs: Date.now() });
+        }
+      };
+
+      if (voicePeerConnectionCreationKeyRef.current !== sessionKey) {
+        try {
+          connection.close();
+        } catch {
+          // best effort
+        }
+        const liveSession = activeVoiceCallSessionRef.current;
+        if (
+          voicePeerConnectionRef.current
+          && liveSession
+          && liveSession.roomId === session.roomId
+          && liveSession.peerPubkey === session.peerPubkey
+          && liveSession.role === session.role
+        ) {
+          return voicePeerConnectionRef.current;
+        }
+        return null;
+      }
+
+      voicePeerConnectionRef.current = connection;
+      activeVoiceCallSessionRef.current = session;
+      setActiveVoiceCallUiState({
+        roomId: session.roomId,
+        peerPubkey: session.peerPubkey,
+        role: session.role,
+        connectionState: connection.connectionState,
+      });
+      setVoiceCallUiStatus({
+        roomId: session.roomId,
+        peerPubkey: session.peerPubkey,
+        phase: "connecting",
+        role: session.role,
+        sinceUnixMs: Date.now(),
+      });
+      return connection;
+    })();
+
+    voicePeerConnectionCreationRef.current = createConnectionPromise;
+    try {
+      return await createConnectionPromise;
+    } finally {
+      if (voicePeerConnectionCreationKeyRef.current === sessionKey) {
+        voicePeerConnectionCreationRef.current = null;
+        voicePeerConnectionCreationKeyRef.current = null;
+      }
+    }
+  }, [ensureVoiceLocalStream, myPublicKeyHex, sendVoiceSignal, tearDownVoicePeerConnection]);
+
+  const dispatchVoiceLeaveSignalWithRetry = useCallback((params: Readonly<{
+    roomId: string;
+    peerPubkey: string;
+  }>): void => {
+    const roomId = params.roomId.trim();
+    const peerPubkey = params.peerPubkey.trim();
+    if (!REALTIME_VOICE_CALLS_ENABLED || !myPublicKeyHex || !roomId || !peerPubkey) {
+      return;
+    }
+    clearVoiceLeaveSignalRetryTimers();
+    const sendSignal = sendVoiceSignalRef.current;
+    if (!sendSignal) {
+      return;
+    }
+    let attempt = 0;
+    const dispatch = (): void => {
+      attempt += 1;
+      const liveSendSignal = sendVoiceSignalRef.current;
+      if (!liveSendSignal) {
         return;
       }
-      const payload = createVoiceCallSignalPayload({
-        roomId: session.roomId,
-        signalType: "ice-candidate",
-        fromPubkey: myPublicKeyHex,
-        toPubkey: session.peerPubkey,
-        candidate: {
-          candidate: candidate.candidate,
-          sdpMid: candidate.sdpMid,
-          sdpMLineIndex: candidate.sdpMLineIndex,
-          usernameFragment: candidate.usernameFragment,
-        },
-      });
-      void sendVoiceSignal({
-        peerPubkey: session.peerPubkey,
-        payload,
-      });
-    };
-
-    connection.ontrack = (event): void => {
-      const remoteStream = event.streams[0] ?? new MediaStream([event.track]);
-      voiceRemoteStreamRef.current = remoteStream;
-      const audioElement = voiceRemoteAudioElementRef.current;
-      if (audioElement) {
-        audioElement.srcObject = remoteStream;
-        void audioElement.play().catch(() => {
-          // autoplay might be blocked until user gesture.
-        });
-      }
-    };
-
-    connection.onconnectionstatechange = (): void => {
-      const state = connection.connectionState;
-      setActiveVoiceCallUiState((current) => {
-        if (!current || current.roomId !== session.roomId || current.peerPubkey !== session.peerPubkey) {
-          return current;
+      void liveSendSignal({
+        peerPubkey,
+        payload: createVoiceCallSignalPayload({
+          roomId,
+          signalType: "leave",
+          fromPubkey: myPublicKeyHex,
+          toPubkey: peerPubkey,
+        }),
+      }).then((sent) => {
+        if (sent || attempt >= VOICE_CALL_LEAVE_SIGNAL_RETRY_MAX_ATTEMPTS) {
+          return;
         }
-        return {
-          ...current,
-          connectionState: state,
-        };
+        const timeoutId = window.setTimeout(() => {
+          voiceLeaveSignalRetryTimeoutsRef.current.delete(timeoutId);
+          dispatch();
+        }, VOICE_CALL_LEAVE_SIGNAL_RETRY_INTERVAL_MS);
+        voiceLeaveSignalRetryTimeoutsRef.current.add(timeoutId);
       });
-      logAppEvent({
-        name: "messaging.realtime_voice.rtc_state",
-        level: state === "failed" || state === "disconnected" ? "warn" : "info",
-        scope: { feature: "messaging", action: "realtime_voice_signal" },
-        context: {
-          roomIdHint: toRoomIdHint(session.roomId),
-          connectionState: state,
-          role: session.role,
-        },
-      });
-
-      if (state === "connected") {
-        if (session.role === "joiner") {
-          const acceptedAtUnixMs = voiceCallJoinAcceptedAtByRoomRef.current.get(session.roomId) ?? null;
-          if (acceptedAtUnixMs !== null) {
-            logAppEvent({
-              name: "messaging.realtime_voice.join_connected",
-              level: "info",
-              scope: { feature: "messaging", action: "realtime_voice_signal" },
-              context: {
-                roomIdHint: toRoomIdHint(session.roomId),
-                peerPubkeySuffix: session.peerPubkey.slice(-8),
-                acceptToConnectedElapsedMs: Math.max(0, Date.now() - acceptedAtUnixMs),
-              },
-            });
-          }
-          voiceCallJoinAcceptedAtByRoomRef.current.delete(session.roomId);
-        }
-        setVoiceCallUiStatus({
-          roomId: session.roomId,
-          peerPubkey: session.peerPubkey,
-          phase: "connected",
-          role: session.role,
-          sinceUnixMs: Date.now(),
-        });
-        realtimeVoiceSessionOwnerRef.current.connected({
-          participantCount: 2,
-          hasPeerSessionEvidence: true,
-          eventUnixMs: Date.now(),
-        });
-      } else if (state === "disconnected" || state === "failed") {
-        setVoiceCallUiStatus({
-          roomId: session.roomId,
-          peerPubkey: session.peerPubkey,
-          phase: "interrupted",
-          role: session.role,
-          sinceUnixMs: Date.now(),
-          reasonCode: "network_interrupted",
-        });
-        realtimeVoiceSessionOwnerRef.current.transportDegraded({
-          reasonCode: "network_degraded",
-          eventUnixMs: Date.now(),
-        });
-      } else if (state === "closed") {
-        realtimeVoiceSessionOwnerRef.current.closed({ eventUnixMs: Date.now() });
-      }
     };
-
-    voicePeerConnectionRef.current = connection;
-    activeVoiceCallSessionRef.current = session;
-    setActiveVoiceCallUiState({
-      roomId: session.roomId,
-      peerPubkey: session.peerPubkey,
-      role: session.role,
-      connectionState: connection.connectionState,
-    });
-    setVoiceCallUiStatus({
-      roomId: session.roomId,
-      peerPubkey: session.peerPubkey,
-      phase: "connecting",
-      role: session.role,
-      sinceUnixMs: Date.now(),
-    });
-    return connection;
-  }, [ensureVoiceLocalStream, myPublicKeyHex, sendVoiceSignal, tearDownVoicePeerConnection]);
+    dispatch();
+  }, [clearVoiceLeaveSignalRetryTimers, myPublicKeyHex]);
 
   const handleSendVoiceCallInvite = useCallback(async (): Promise<void> => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
@@ -1840,14 +1966,9 @@ function NostrMessengerContent() {
     const active = activeVoiceCallSessionRef.current;
     const status = voiceCallUiStatus;
     if (myPublicKeyHex && active) {
-      void sendVoiceSignal({
+      dispatchVoiceLeaveSignalWithRetry({
+        roomId: active.roomId,
         peerPubkey: active.peerPubkey,
-        payload: createVoiceCallSignalPayload({
-          roomId: active.roomId,
-          signalType: "leave",
-          fromPubkey: myPublicKeyHex,
-          toPubkey: active.peerPubkey,
-        }),
       });
       setVoiceCallUiStatus({
         roomId: active.roomId,
@@ -1865,14 +1986,9 @@ function NostrMessengerContent() {
       && status
       && (status.phase === "ringing_outgoing" || status.phase === "ringing_incoming" || status.phase === "connecting")
     ) {
-      void sendVoiceSignal({
+      dispatchVoiceLeaveSignalWithRetry({
+        roomId: status.roomId,
         peerPubkey: status.peerPubkey,
-        payload: createVoiceCallSignalPayload({
-          roomId: status.roomId,
-          signalType: "leave",
-          fromPubkey: myPublicKeyHex,
-          toPubkey: status.peerPubkey,
-        }),
       });
       setVoiceCallUiStatus({
         ...status,
@@ -1883,7 +1999,7 @@ function NostrMessengerContent() {
       setIncomingVoiceInvite(null);
     }
     tearDownVoicePeerConnection({ reasonCode: "left_by_user" });
-  }, [myPublicKeyHex, sendVoiceSignal, tearDownVoicePeerConnection, voiceCallUiStatus]);
+  }, [dispatchVoiceLeaveSignalWithRetry, myPublicKeyHex, tearDownVoicePeerConnection, voiceCallUiStatus]);
 
   const handleAcceptIncomingVoiceInvite = useCallback((): void => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
@@ -2003,16 +2119,11 @@ function NostrMessengerContent() {
       sinceUnixMs: Date.now(),
       reasonCode: "left_by_user",
     });
-    void sendVoiceSignal({
+    dispatchVoiceLeaveSignalWithRetry({
+      roomId: pendingInvite.invite.roomId,
       peerPubkey: pendingInvite.peerPubkey,
-      payload: createVoiceCallSignalPayload({
-        roomId: pendingInvite.invite.roomId,
-        signalType: "leave",
-        fromPubkey: myPublicKeyHex,
-        toPubkey: pendingInvite.peerPubkey,
-      }),
     });
-  }, [incomingVoiceInvite, myPublicKeyHex, sendVoiceSignal]);
+  }, [dispatchVoiceLeaveSignalWithRetry, incomingVoiceInvite, myPublicKeyHex]);
 
   const handleDismissIncomingVoiceInvite = useCallback((): void => {
     const pendingInvite = incomingVoiceInvite;
@@ -2541,6 +2652,7 @@ function NostrMessengerContent() {
   useEffect(() => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
       clearVoiceCallTimers();
+      clearVoiceLeaveSignalRetryTimers();
       return;
     }
     clearVoiceCallTimers();
@@ -2582,6 +2694,12 @@ function NostrMessengerContent() {
           toast.warning(t("messaging.voiceCallWaitTimeout", "Call setup timed out after 30 seconds."));
           return;
         }
+        if (myPublicKeyHex) {
+          dispatchVoiceLeaveSignalWithRetry({
+            roomId: statusSnapshot.roomId,
+            peerPubkey: statusSnapshot.peerPubkey,
+          });
+        }
 
         setVoiceCallUiStatus((current) => {
           if (
@@ -2618,8 +2736,9 @@ function NostrMessengerContent() {
 
     return () => {
       clearVoiceCallTimers();
+      clearVoiceLeaveSignalRetryTimers();
     };
-  }, [clearVoiceCallTimers, t, voiceCallUiStatus]);
+  }, [clearVoiceCallTimers, clearVoiceLeaveSignalRetryTimers, dispatchVoiceLeaveSignalWithRetry, myPublicKeyHex, t, voiceCallUiStatus]);
 
   useEffect(() => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
@@ -2661,9 +2780,10 @@ function NostrMessengerContent() {
     setVoiceCallUiStatus(null);
     clearVoiceJoinRequestRetryInterval();
     clearVoiceOfferRetryInterval();
+    clearVoiceLeaveSignalRetryTimers();
     voiceWaveAudioLevelRef.current = { local: 0, remote: 0 };
     tearDownVoicePeerConnection({ reasonCode: "session_closed" });
-  }, [clearVoiceJoinRequestRetryInterval, clearVoiceOfferRetryInterval, myPublicKeyHex, tearDownVoicePeerConnection]);
+  }, [clearVoiceJoinRequestRetryInterval, clearVoiceLeaveSignalRetryTimers, clearVoiceOfferRetryInterval, myPublicKeyHex, tearDownVoicePeerConnection]);
 
   useEffect(() => {
     leaveCallOnUnmountRef.current = handleLeaveVoiceCall;
@@ -2671,9 +2791,10 @@ function NostrMessengerContent() {
 
   useEffect(() => {
     return () => {
+      clearVoiceLeaveSignalRetryTimers();
       leaveCallOnUnmountRef.current();
     };
-  }, []);
+  }, [clearVoiceLeaveSignalRetryTimers]);
 
   const nowMs = useSyncExternalStore(subscribeNowMs, getNowMsSnapshot, getNowMsServerSnapshot);
   const handleOpenVoiceCallConversation = useCallback((): void => {

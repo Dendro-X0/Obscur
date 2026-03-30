@@ -1,24 +1,28 @@
 {
-  "generatedAtUnixMs": null,
+  "generatedAtUnixMs": 1774867512936,
   "targetTag": "v1.3.0",
-  "appVersion": null,
+  "appVersion": "1.2.7",
   "environment": {
-    "runtime": null,
-    "os": null,
-    "deviceProfile": null
+    "runtime": "local-workspace",
+    "os": "windows",
+    "deviceProfile": "dev-check"
   },
   "closeoutGates": {
-    "rcStrictReady": null,
-    "closeoutCheckPassed": null,
-    "releasePreflightPassed": null
+    "rcStrictReady": true,
+    "closeoutCheckPassed": true,
+    "releasePreflightPassed": true
   },
   "manualVerification": {
     "pass": null,
-    "notes": []
+    "notes": [
+      "Automated closeout gates are green; manual checklist is pending final two-device replay evidence."
+    ]
   },
   "performanceUx": {
     "pass": null,
-    "notes": []
+    "notes": [
+      "Performance/UX verdict remains pending manual stress replay for v1.3.0 closeout."
+    ]
   },
   "gifAssets": []
 }

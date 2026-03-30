@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { nip19 } from "nostr-tools";
 import {
-  ArrowLeft,
   AlertTriangle,
   X,
   Copy,
@@ -820,70 +819,65 @@ export default function SearchPage() {
   return (
     <PageShell title={t("search.title", "Discovery")} navBadgeCounts={navBadges.navBadgeCounts} hideHeader>
       <div className="flex h-full flex-col bg-background">
-        <div className="sticky top-0 z-30 border-b border-border/50 bg-background/90 px-4 py-4 backdrop-blur-xl">
-          <div className="mx-auto w-full max-w-5xl">
-            <div className="flex items-start justify-between gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.back()}
-                className="h-10 w-10 rounded-full"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex-1">
-                <div className="rounded-[36px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.24),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,247,255,0.9))] px-5 py-6 shadow-[0_28px_80px_rgba(15,23,42,0.16)] dark:border-border/60 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_48%),linear-gradient(180deg,rgba(10,16,34,0.76),rgba(6,10,22,0.92))] dark:shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
-                  <div className="mx-auto max-w-3xl text-center">
+        <div className="sticky top-0 z-30 border-b border-border/50 bg-background/90 px-3 py-3 backdrop-blur-xl sm:px-4 sm:py-4">
+          <div className="mx-auto w-full max-w-6xl">
+            <div>
+                <div className="relative overflow-hidden rounded-[26px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.24),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,247,255,0.9))] px-4 py-4 shadow-[0_28px_80px_rgba(15,23,42,0.16)] sm:rounded-[36px] sm:px-6 sm:py-6 dark:border-border/60 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_48%),linear-gradient(180deg,rgba(10,16,34,0.76),rgba(6,10,22,0.92))] dark:shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
+                  <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full bg-indigo-500/20 blur-3xl dark:bg-indigo-400/20" />
+                  <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-400/15" />
+                  <div className="relative mx-auto max-w-4xl text-center">
                     <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600 dark:text-zinc-400">Discovery</p>
-                    <h1 className="mt-3 text-3xl font-black tracking-tight text-zinc-950 dark:text-zinc-100 sm:text-4xl">One search box for your network</h1>
-                    <p className="mt-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 sm:text-base">
+                    <h1 className="mx-auto mt-2.5 max-w-[16ch] text-[1.55rem] font-black leading-[1.06] tracking-tight text-zinc-950 dark:text-zinc-100 sm:mt-3 sm:max-w-none sm:text-4xl">One search box for your network</h1>
+                    <p className="mx-auto mt-2.5 max-w-[30ch] text-[0.95rem] leading-relaxed text-zinc-700 dark:text-zinc-300 sm:mt-3 sm:max-w-3xl sm:text-base">
                       Find people and communities, then open their public profile or switch to direct add when you already have a private contact token.
                     </p>
                   </div>
 
-                  <form onSubmit={handleSearch} className="mx-auto mt-6 flex w-full max-w-3xl items-center gap-3 rounded-[28px] border border-black/10 bg-white/85 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.14)] dark:border-border/60 dark:bg-background/80 dark:shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
-                    <SearchIcon className="h-4 w-4 text-zinc-500 dark:text-muted-foreground" />
-                    <Input
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder={
-                        surface === "add_friend"
-                          ? (
-                            deterministicDiscoveryEnabled
-                              ? (
-                                  allowLegacyInviteCode
-                                    ? "Paste a contact card, short code, invite code, npub, or pubkey"
-                                    : "Paste a contact card, short code, npub, or pubkey"
-                                )
-                              : (
-                                  allowLegacyInviteCode
-                                    ? "Paste a contact card, invite code, npub, or pubkey"
-                                    : "Paste a contact card, npub, or pubkey"
-                                )
-                          )
-                          : surface === "communities"
-                            ? "Search communities by name or relay'group"
-                            : "Search people, communities, npubs, nip-05 handles, or public keys"
-                      }
-                      className="h-12 flex-1 border-none bg-transparent p-0 text-base focus-visible:ring-0"
-                    />
+                  <form onSubmit={handleSearch} className="mx-auto mt-4 grid w-full max-w-4xl grid-cols-[1fr_auto] items-center gap-2 rounded-[20px] border border-black/10 bg-white/85 p-2 shadow-[0_12px_40px_rgba(15,23,42,0.14)] ring-1 ring-white/35 sm:mt-6 sm:gap-3 sm:rounded-[28px] sm:p-3 dark:border-border/60 dark:bg-background/80 dark:ring-white/10 dark:shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+                    <div className="flex items-center gap-2 rounded-xl bg-background/55 px-3 py-2 sm:rounded-2xl sm:bg-transparent sm:px-1 sm:py-0">
+                      <SearchIcon className="h-4 w-4 text-zinc-500 dark:text-muted-foreground" />
+                      <Input
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder={
+                          surface === "add_friend"
+                            ? (
+                              deterministicDiscoveryEnabled
+                                ? (
+                                    allowLegacyInviteCode
+                                      ? "Paste a contact card, short code, invite code, npub, or pubkey"
+                                      : "Paste a contact card, short code, npub, or pubkey"
+                                  )
+                                : (
+                                    allowLegacyInviteCode
+                                      ? "Paste a contact card, invite code, npub, or pubkey"
+                                      : "Paste a contact card, npub, or pubkey"
+                                  )
+                            )
+                            : surface === "communities"
+                              ? "Search communities by name or relay'group"
+                              : "Search people, communities, npubs, nip-05 handles, or public keys"
+                        }
+                        className="h-9 flex-1 border-none bg-transparent p-0 text-[0.95rem] sm:h-12 sm:text-base focus-visible:ring-0"
+                      />
+                      {query ? (
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full sm:h-10 sm:w-10" onClick={clearSearch}>
+                          <SearchX className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                     <Button
                       type="submit"
                       disabled={isSearching || !query.trim()}
-                      className="h-11 rounded-2xl px-5 font-bold"
+                      className="h-9 rounded-xl px-3 text-xs font-bold sm:h-11 sm:rounded-2xl sm:px-5 sm:text-sm"
                     >
                       {surface === "add_friend" && deterministicDiscoveryEnabled
                         ? (identityResolver.phase === "resolving" ? "Resolving..." : "Resolve")
                         : (isSearching ? "Searching..." : "Search")}
                     </Button>
-                    {query && (
-                      <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={clearSearch}>
-                        <SearchX className="h-4 w-4" />
-                      </Button>
-                    )}
                   </form>
 
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2 overflow-x-auto">
+                  <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:flex sm:flex-wrap sm:justify-center sm:gap-2">
             {(["global", "add_friend", "communities"] as DiscoverySurface[]).map((target) => (
               <button
                 key={target}
@@ -916,37 +910,36 @@ export default function SearchPage() {
                   }
                 }}
                 className={cn(
-                  "h-10 rounded-full border px-4 text-[11px] font-black uppercase tracking-[0.16em] transition-colors",
+                  "h-10 rounded-full border px-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors sm:h-10 sm:px-4 sm:text-[11px] sm:tracking-[0.16em]",
                   surface === target
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
                 )}
               >
-                {target === "global" ? "Everything" : target === "add_friend" ? "Add Friend" : "Communities"}
+                  {target === "global" ? "Everything" : target === "add_friend" ? "Add Friend" : "Communities"}
               </button>
             ))}
                   </div>
 
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600 dark:text-muted-foreground">
-                    <span className="rounded-full border border-border/60 px-3 py-1">
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600 sm:mt-5 sm:gap-2 sm:text-[10px] sm:tracking-[0.18em] dark:text-muted-foreground">
+                    <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">
                       {surface === "add_friend"
                         ? (stabilityModeEnabled ? "Safe mode" : (deterministicDiscoveryEnabled ? "Deterministic add" : "Direct resolve"))
                         : `Search ${queryState.phase}`}
                     </span>
                     {surface === "global" && (
                       <>
-                        <span className="rounded-full border border-border/60 px-3 py-1">People</span>
-                        <span className="rounded-full border border-border/60 px-3 py-1">Communities</span>
+                        <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">People</span>
+                        <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">Communities</span>
                       </>
                     )}
                   </div>
                 </div>
-              </div>
             </div>
           </div>
         </div>
 
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-y-auto px-4 py-6 pb-24">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 overflow-y-auto px-3 py-5 pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-4 sm:py-6 sm:pb-24">
           {surface === "add_friend" && (
             <div className="space-y-4">
               <div className="rounded-3xl border border-border/60 bg-card/70 p-5">
@@ -1337,13 +1330,14 @@ export default function SearchPage() {
           )}
 
           {surface !== "add_friend" && (
-            <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Source Status</span>
+            <div className="rounded-2xl border border-surface-contrast bg-gradient-surface-contrast p-3">
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+            <span className="col-span-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground sm:col-auto">Source Status</span>
             {(["local", "relay", "index"] as const).map((source) => (
               <span
                 key={source}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest",
+                  "text-center rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-widest sm:px-3 sm:text-[10px]",
                   queryState.sourceStatusMap[source].state === "success" ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-300" :
                     queryState.sourceStatusMap[source].state === "running" ? "border-blue-500/30 text-blue-600 dark:text-blue-300" :
                       queryState.sourceStatusMap[source].state === "error" ? "border-rose-500/30 text-rose-600 dark:text-rose-300" :
@@ -1353,6 +1347,7 @@ export default function SearchPage() {
                 {source}:{sourceStatusLabel(queryState.sourceStatusMap[source].state)}
               </span>
             ))}
+            </div>
             </div>
           )}
 
@@ -1418,20 +1413,20 @@ export default function SearchPage() {
           )}
 
           {surface !== "add_friend" && query && !isSearching && filteredResults.length === 0 && (
-            <div className="flex min-h-[35vh] flex-col items-center justify-center rounded-3xl border border-dashed border-border/70 bg-card/40 p-8 text-center">
+            <div className="flex min-h-[28vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-border/70 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.1),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.65),rgba(255,255,255,0.25))] p-6 text-center sm:min-h-[35vh] sm:p-8 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_52%),linear-gradient(180deg,rgba(10,16,34,0.55),rgba(6,10,22,0.45))]">
               <SearchX className="mb-4 h-9 w-9 text-muted-foreground/60" />
-              <h4 className="text-lg font-black">No Results</h4>
-              <p className="mt-2 max-w-md text-sm text-muted-foreground">
+              <h4 className="text-lg font-black sm:text-xl">No Results</h4>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
                 Try a name, a nip-05 handle, an npub, a public key, or a community identifier like <code>relay.example'group</code>.
               </p>
             </div>
           )}
 
           {surface !== "add_friend" && !query && recentSearches.length === 0 && (
-            <div className="flex min-h-[35vh] flex-col items-center justify-center rounded-3xl border border-border/60 bg-card/40 p-8 text-center">
+            <div className="flex min-h-[28vh] flex-col items-center justify-center rounded-[28px] border border-border/60 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.1),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.65),rgba(255,255,255,0.25))] p-6 text-center sm:min-h-[35vh] sm:p-8 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_52%),linear-gradient(180deg,rgba(10,16,34,0.55),rgba(6,10,22,0.45))]">
               <UserPlus className="mb-4 h-10 w-10 text-primary/70" />
-              <h4 className="text-xl font-black">Start with a global search</h4>
-              <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+              <h4 className="text-xl font-black sm:text-2xl">Start with a global search</h4>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
                 Look up people and communities from one place, then open a profile, send an invitation, or switch to direct add when someone shares a private contact token.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">

@@ -4,18 +4,66 @@ import React, { useEffect, useState } from "react";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { AppLoadingScreen } from "@/app/components/app-loading-screen";
 
 const PROFILE_REFRESH_RETRY_MS = 30_000;
 const PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS = 8_000;
+const PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS = PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS + 4_000;
+
+const markBootReady = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const globalRoot = window as Window & {
+    __obscurBootReady?: boolean;
+  };
+  if (globalRoot.__obscurBootReady === true) {
+    return;
+  }
+  globalRoot.__obscurBootReady = true;
+  window.dispatchEvent(new Event("obscur:boot-ready"));
+};
 
 export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element | null {
   // Keep first render deterministic between server and client to avoid hydration drift.
   const [bootstrapSettled, setBootstrapSettled] = useState<boolean>(false);
 
   useEffect(() => {
+    let failsafeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleFailsafe = (): void => {
+      if (failsafeTimer) {
+        clearTimeout(failsafeTimer);
+      }
+      failsafeTimer = setTimeout(() => {
+        setBootstrapSettled((previous) => {
+          if (previous) {
+            return previous;
+          }
+          logAppEvent({
+            name: "runtime.profile_binding_bootstrap_failsafe_released",
+            level: "warn",
+            scope: { feature: "runtime", action: "profile_boot" },
+            context: {
+              reasonCode: "bootstrap_failsafe_timeout",
+              timeoutMs: PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS,
+            },
+          });
+          return true;
+        });
+      }, PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS);
+    };
+
+    scheduleFailsafe();
+
     if (!hasNativeRuntime()) {
       setBootstrapSettled(true);
-      return;
+      return () => {
+        if (failsafeTimer) {
+          clearTimeout(failsafeTimer);
+          failsafeTimer = null;
+        }
+      };
     }
     let disposed = false;
     let firstAttemptSettled = false;
@@ -108,6 +156,10 @@ export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactN
 
     return () => {
       disposed = true;
+      if (failsafeTimer) {
+        clearTimeout(failsafeTimer);
+        failsafeTimer = null;
+      }
       if (retryTimer) {
         clearTimeout(retryTimer);
         retryTimer = null;
@@ -116,8 +168,20 @@ export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactN
     };
   }, []);
 
+  useEffect(() => {
+    if (!bootstrapSettled) {
+      return;
+    }
+    markBootReady();
+  }, [bootstrapSettled]);
+
   if (!bootstrapSettled) {
-    return null;
+    return (
+      <AppLoadingScreen
+        title="Starting Obscur"
+        detail="Preparing profile workspace and startup services..."
+      />
+    );
   }
 
   return <>{props.children}</>;
@@ -125,5 +189,6 @@ export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactN
 
 export const desktopProfileBootstrapInternals = {
   PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS,
+  PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS,
   PROFILE_REFRESH_RETRY_MS,
 };

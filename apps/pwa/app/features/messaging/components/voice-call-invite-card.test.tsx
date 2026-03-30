@@ -20,9 +20,9 @@ describe("VoiceCallInviteCard", () => {
 
     expect(screen.getByText("Voice Call Invite")).toBeInTheDocument();
     expect(screen.getByText("Incoming invitation")).toBeInTheDocument();
-    expect(screen.getByText(/^Room:/)).toBeInTheDocument();
-    expect(screen.getByText(/^Invited:/)).toBeInTheDocument();
-    expect(screen.getByText(/^Expires:/)).toBeInTheDocument();
+    expect(screen.getByText("Room")).toBeInTheDocument();
+    expect(screen.getByText("Invited")).toBeInTheDocument();
+    expect(screen.getByText("Expires")).toBeInTheDocument();
   });
 
   it("triggers join callback for incoming invite", () => {
@@ -66,8 +66,11 @@ describe("VoiceCallInviteCard", () => {
       />
     );
 
-    expect(screen.getByText(/^Ended:/)).toBeInTheDocument();
-    expect(screen.getByText(/^Duration:/)).toBeInTheDocument();
+    expect(screen.getByText("Ended normally")).toBeInTheDocument();
+    expect(screen.getByText("Call completed")).toBeInTheDocument();
+    expect(screen.getByText("Ended")).toBeInTheDocument();
+    expect(screen.getByText("Duration")).toBeInTheDocument();
+    expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-emerald-500/35");
     expect(screen.queryByRole("button", { name: "Call Back" })).not.toBeInTheDocument();
   });
 
@@ -86,7 +89,31 @@ describe("VoiceCallInviteCard", () => {
       />
     );
 
+    expect(screen.getByText("Timed out before connection")).toBeInTheDocument();
+    expect(screen.getByText("No answer (timed out)")).toBeInTheDocument();
+    expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-amber-500/35");
     fireEvent.click(screen.getByRole("button", { name: "Call Back" }));
     expect(onRequestCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders declined state for rejected unconnected calls", () => {
+    render(
+      <VoiceCallInviteCard
+        isOutgoing={false}
+        onRequestCallback={vi.fn()}
+        liveStatusPhase="interrupted"
+        nowUnixMs={100_000}
+        invite={{
+          type: "voice-call-invite",
+          roomId: "dm-voice-room-d",
+          expiresAtUnixMs: 120_000,
+        }}
+      />
+    );
+
+    expect(screen.getByText("Declined before connection")).toBeInTheDocument();
+    expect(screen.getByText("Call declined")).toBeInTheDocument();
+    expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-rose-500/40");
+    expect(screen.queryByRole("button", { name: "Call Back" })).not.toBeInTheDocument();
   });
 });

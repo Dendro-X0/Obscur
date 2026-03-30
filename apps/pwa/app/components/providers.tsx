@@ -21,13 +21,6 @@ const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery
 
 export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
-        if (typeof window === "undefined") {
-            return;
-        }
-        const globalRoot = window as Window & {
-            __obscurBootReady?: boolean;
-        };
-        globalRoot.__obscurBootReady = true;
         installM0TriageCapture();
         installM4StabilizationCapture();
         installM6VoiceCapture();
@@ -37,7 +30,6 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
         installM8CommunityCapture();
         installM8CommunityReplayBridge();
         installM10TrustControlsBridge();
-        window.dispatchEvent(new Event("obscur:boot-ready"));
     }, []);
 
     useEffect(() => {

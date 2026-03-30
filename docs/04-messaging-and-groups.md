@@ -1,6 +1,6 @@
 # 04 Feature Modules
 
-_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
+_Last reviewed: 2026-03-29 (baseline commit cad5779e)._
 
 This document is the short module map for day-to-day implementation and triage.
 
@@ -47,6 +47,21 @@ This document is the short module map for day-to-day implementation and triage.
   - `apps/pwa/app/features/messaging/services/delivery-diagnostics-store.ts`
   - `apps/pwa/app/features/messaging/services/request-flow-evidence-store.ts`
   - `apps/pwa/app/features/messaging/services/request-status-projection.ts`
+
+### Realtime Voice and Voice Notes (Current)
+
+- Realtime voice call invitation and call-status UI is surfaced from chat header flows:
+  - `apps/pwa/app/features/messaging/components/chat-header.tsx`
+  - `apps/pwa/app/features/main-shell/main-shell.tsx`
+- Voice-call feature gate is enabled by default and can be explicitly disabled with:
+  - `NEXT_PUBLIC_ENABLE_REALTIME_VOICE_CALLS=off|false|0|disabled`
+  - gate owner: `apps/pwa/app/features/messaging/services/realtime-voice-feature-gate.ts`
+- Voice note card is minimalist (single title label) and intentionally avoids filename/url noise:
+  - `apps/pwa/app/features/messaging/components/voice-note-card.tsx`
+  - metadata contract: `apps/pwa/app/features/messaging/services/voice-note-metadata.ts`
+
+Operational note:
+- Realtime voice reliability remains an active hardening surface (invite/cancel/rejoin convergence), but invitation from chat is now a shipped default behavior.
 
 ## Network and Communities (Groups)
 

@@ -40,6 +40,30 @@ describe("resolveProjectionReadAuthority", () => {
     expect(authority.reason).toBe("drift_gate_not_promoted");
   });
 
+  it("keeps reads on legacy when projection profile scope mismatches active profile", () => {
+    const authority = resolveProjectionReadAuthority({
+      projectionSnapshot: createProjectionSnapshot({
+        profileId: "profile-a",
+      }),
+      policy: createPolicy("read_cutover"),
+      expectedProfileId: "profile-b",
+    });
+    expect(authority.useProjectionReads).toBe(false);
+    expect(authority.reason).toBe("projection_scope_mismatch");
+  });
+
+  it("keeps reads on legacy when projection account scope mismatches active identity", () => {
+    const authority = resolveProjectionReadAuthority({
+      projectionSnapshot: createProjectionSnapshot({
+        accountPublicKeyHex: "a".repeat(64) as any,
+      }),
+      policy: createPolicy("read_cutover"),
+      expectedAccountPublicKeyHex: "b".repeat(64),
+    });
+    expect(authority.useProjectionReads).toBe(false);
+    expect(authority.reason).toBe("projection_scope_mismatch");
+  });
+
   it("enables projection reads at cutover when drift is clean", () => {
     const authority = resolveProjectionReadAuthority({
       projectionSnapshot: createProjectionSnapshot({

@@ -74,16 +74,27 @@ export function VoiceCallInviteCard({
   const hasTerminalLivePhase = liveStatusPhase === "interrupted" || liveStatusPhase === "ended";
   const endedAtLabel = toTimestampLabel(callSummary?.endedAtUnixMs ?? null);
   const durationLabel = toDurationLabel(callSummary?.durationSeconds ?? null);
+  const hasConnected = (callSummary?.connectedAtUnixMs ?? null) !== null;
   const resolvedNowUnixMs = typeof nowUnixMs === "number" && Number.isFinite(nowUnixMs)
     ? nowUnixMs
     : null;
-  const timedOutUnconnected = !callSummary?.endedNormally && (
-    (typeof invite.expiresAtUnixMs === "number" && resolvedNowUnixMs !== null && invite.expiresAtUnixMs <= resolvedNowUnixMs)
-    || ((callSummary?.endedAtUnixMs ?? null) !== null && (callSummary?.connectedAtUnixMs ?? null) === null)
-    || (hasTerminalLivePhase && (callSummary?.connectedAtUnixMs ?? null) === null)
+  const inviteExpiredByNow = typeof invite.expiresAtUnixMs === "number"
+    && resolvedNowUnixMs !== null
+    && invite.expiresAtUnixMs <= resolvedNowUnixMs;
+  const endedWithoutConnection = (callSummary?.endedAtUnixMs ?? null) !== null && !hasConnected;
+  const unconnectedRejected = !callSummary?.endedNormally && !hasConnected && liveStatusPhase === "interrupted";
+  const unconnectedTimeout = !callSummary?.endedNormally && !unconnectedRejected && !hasConnected && (
+    inviteExpiredByNow || endedWithoutConnection || liveStatusPhase === "ended"
   );
-  const showCallbackAction = timedOutUnconnected && typeof onRequestCallback === "function" && !callbackConsumed;
-  const showJoinAction = canJoin && !callSummary?.endedNormally && !timedOutUnconnected && !hasTerminalLivePhase;
+  const cardState = callSummary?.endedNormally
+    ? "ended_normal"
+    : unconnectedRejected
+      ? "unconnected_rejected"
+      : unconnectedTimeout
+        ? "unconnected_timeout"
+        : "active";
+  const showCallbackAction = cardState === "unconnected_timeout" && typeof onRequestCallback === "function" && !callbackConsumed;
+  const showJoinAction = canJoin && !callSummary?.endedNormally && cardState === "active" && !hasTerminalLivePhase;
   const liveStatusLabel = (() => {
     switch (liveStatusPhase) {
       case "ringing_outgoing":
@@ -102,69 +113,193 @@ export function VoiceCallInviteCard({
         return null;
     }
   })();
+  const stateSubtitle = (() => {
+    switch (cardState) {
+      case "ended_normal":
+        return t("messaging.voiceCallEndedNormally", "Ended normally");
+      case "unconnected_timeout":
+        return t("messaging.voiceCallTimedOutBeforeConnect", "Timed out before connection");
+      case "unconnected_rejected":
+        return t("messaging.voiceCallDeclinedBeforeConnect", "Declined before connection");
+      default:
+        return isOutgoing
+          ? t("messaging.voiceCallInviteSent", "Invitation sent")
+          : t("messaging.voiceCallInviteReceived", "Incoming invitation");
+    }
+  })();
+  const statusBadgeLabel = (() => {
+    switch (cardState) {
+      case "ended_normal":
+        return t("messaging.voiceCallCompleted", "Call completed");
+      case "unconnected_timeout":
+        return t("messaging.voiceCallNoAnswer", "No answer (timed out)");
+      case "unconnected_rejected":
+        return t("messaging.voiceCallDeclined", "Call declined");
+      default:
+        return liveStatusLabel;
+    }
+  })();
+  const containerToneClass = (() => {
+    switch (cardState) {
+      case "ended_normal":
+        return "ring-1 ring-emerald-500/35";
+      case "unconnected_timeout":
+        return "ring-1 ring-amber-500/35";
+      case "unconnected_rejected":
+        return "ring-1 ring-rose-500/40";
+      default:
+        return isOutgoing
+          ? "ring-1 ring-purple-500/30"
+          : "ring-1 ring-sky-500/25";
+    }
+  })();
+  const accentScrimClass = (() => {
+    switch (cardState) {
+      case "ended_normal":
+        return "from-emerald-500/24 to-transparent dark:from-emerald-400/28";
+      case "unconnected_timeout":
+        return "from-amber-500/24 to-transparent dark:from-amber-400/30";
+      case "unconnected_rejected":
+        return "from-rose-500/24 to-transparent dark:from-rose-400/30";
+      default:
+        return isOutgoing
+          ? "from-purple-500/18 to-transparent dark:from-purple-400/24"
+          : "from-sky-500/16 to-transparent dark:from-sky-400/24";
+    }
+  })();
+  const iconToneClass = (() => {
+    switch (cardState) {
+      case "ended_normal":
+        return "bg-emerald-500/18 text-emerald-700 dark:bg-emerald-400/22 dark:text-emerald-200";
+      case "unconnected_timeout":
+        return "bg-amber-500/18 text-amber-700 dark:bg-amber-400/24 dark:text-amber-200";
+      case "unconnected_rejected":
+        return "bg-rose-500/18 text-rose-700 dark:bg-rose-400/24 dark:text-rose-200";
+      default:
+        return isOutgoing
+          ? "bg-purple-500/18 text-purple-700 dark:bg-purple-400/22 dark:text-purple-200"
+          : "bg-sky-500/15 text-sky-700 dark:bg-sky-400/22 dark:text-sky-200";
+    }
+  })();
+  const titleToneClass = (() => {
+    switch (cardState) {
+      case "ended_normal":
+        return "text-emerald-700 dark:text-emerald-300";
+      case "unconnected_timeout":
+        return "text-amber-700 dark:text-amber-300";
+      case "unconnected_rejected":
+        return "text-rose-700 dark:text-rose-300";
+      default:
+        return isOutgoing ? "text-purple-700 dark:text-purple-300" : "text-sky-700 dark:text-sky-300";
+    }
+  })();
+  const badgeToneClass = (() => {
+    switch (cardState) {
+      case "ended_normal":
+        return "border-emerald-500/35 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-200";
+      case "unconnected_timeout":
+        return "border-amber-500/35 bg-amber-500/15 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200";
+      case "unconnected_rejected":
+        return "border-rose-500/40 bg-rose-500/15 text-rose-800 dark:bg-rose-400/22 dark:text-rose-200";
+      default:
+        return "border-sky-500/35 bg-sky-500/14 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200";
+    }
+  })();
 
   return (
     <div
+      data-testid="voice-call-invite-card"
       className={cn(
-        "max-w-[320px] rounded-2xl border p-3 shadow-sm",
-        isOutgoing
-          ? "border-white/15 bg-white/10 text-white dark:border-zinc-300/40 dark:bg-zinc-100/90 dark:text-zinc-900"
-          : "border-black/10 bg-white/80 text-zinc-900 dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-100"
+        "relative max-w-[420px] overflow-hidden rounded-2xl border border-surface-contrast px-3.5 py-2.5 text-surface-contrast-primary",
+        "bg-gradient-surface-contrast shadow-[0_12px_30px_rgba(15,23,42,0.14)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.46)]",
+        containerToneClass
       )}
     >
-      <div className="flex items-center gap-2">
+      <div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b",
+          accentScrimClass
+        )}
+      />
+      <div className="relative flex items-center gap-2.5">
         <div
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-full",
-            isOutgoing ? "bg-white/20 dark:bg-zinc-800/60" : "bg-zinc-200 dark:bg-zinc-800"
+            "inline-flex h-6 w-6 items-center justify-center rounded-full",
+            iconToneClass
           )}
         >
-          <PhoneCall className="h-4 w-4" />
+          <PhoneCall className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0">
-          <div className="text-[11px] font-black uppercase tracking-widest opacity-80">
+          <div className={cn("text-[11px] font-black uppercase tracking-[0.14em]", titleToneClass)}>
             {t("messaging.voiceCallInvite", "Voice Call Invite")}
           </div>
-          <div className="text-xs font-medium opacity-90">
-            {isOutgoing
-              ? t("messaging.voiceCallInviteSent", "Invitation sent")
-              : t("messaging.voiceCallInviteReceived", "Incoming invitation")}
+          <div className="text-[12px] font-semibold leading-4 text-surface-contrast-secondary">
+            {stateSubtitle}
           </div>
         </div>
       </div>
 
-      <div className="mt-3 space-y-1 text-[11px]">
-        <div className="font-mono opacity-90">
-          {t("messaging.voiceCallRoom", "Room")}: {roomIdHint}
-        </div>
+      <div className="relative mt-2.5 grid grid-cols-[62px,1fr] items-center gap-x-2 gap-y-1 text-[12px] leading-4.5">
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
+            {t("messaging.voiceCallRoom", "Room")}
+        </span>
+        <span className="inline-flex min-w-0 items-center rounded-md border border-surface-contrast bg-black/5 px-2 py-0.5 font-mono text-[11px] text-surface-contrast-primary dark:bg-white/5">
+          <span className="truncate">{roomIdHint}</span>
+        </span>
         {invitedAtLabel ? (
-          <div className="inline-flex items-center gap-1 opacity-75">
-            <Clock3 className="h-3 w-3" />
-            {t("messaging.voiceCallInvitedAt", "Invited")}: {invitedAtLabel}
-          </div>
+          <>
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
+              <Clock3 className="h-3 w-3" />
+              {t("messaging.voiceCallInvitedAt", "Invited")}
+            </span>
+            <span className="truncate tabular-nums text-[12px] text-surface-contrast-primary">
+              {invitedAtLabel}
+            </span>
+          </>
         ) : null}
         {expiresAtLabel ? (
-          <div className="opacity-70">
-            {t("messaging.voiceCallExpiresAt", "Expires")}: {expiresAtLabel}
-          </div>
+          <>
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
+              {t("messaging.voiceCallExpiresAt", "Expires")}
+            </span>
+            <span className="truncate tabular-nums text-[12px] text-surface-contrast-primary">
+              {expiresAtLabel}
+            </span>
+          </>
         ) : null}
         {callSummary?.endedNormally ? (
           <>
             {endedAtLabel ? (
-              <div className="opacity-75">
-                {t("messaging.voiceCallEndedAt", "Ended")}: {endedAtLabel}
-              </div>
+              <>
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
+                  {t("messaging.voiceCallEndedAt", "Ended")}
+                </span>
+                <span className="truncate tabular-nums text-[12px] text-surface-contrast-primary">
+                  {endedAtLabel}
+                </span>
+              </>
             ) : null}
-            <div className="opacity-75">
-              {t("messaging.voiceCallDuration", "Duration")}: {durationLabel ?? "0:00"}
-            </div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
+                {t("messaging.voiceCallDuration", "Duration")}
+            </span>
+            <span className="tabular-nums text-[13px] font-bold text-surface-contrast-primary">
+              {durationLabel ?? "0:00"}
+            </span>
           </>
         ) : null}
       </div>
-      <div className="mt-3 flex justify-end">
-        {liveStatusLabel ? (
-          <span className="mr-auto inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
-            {liveStatusLabel}
+      <div className="relative mt-2.5 flex justify-end">
+        {statusBadgeLabel ? (
+          <span
+            data-testid="voice-call-status-badge"
+            className={cn(
+              "mr-auto inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-widest",
+              badgeToneClass
+            )}
+          >
+            {statusBadgeLabel}
           </span>
         ) : null}
         {showJoinAction ? (
@@ -190,8 +325,8 @@ export function VoiceCallInviteCard({
             {t("messaging.voiceCallCallback", "Call Back")}
           </Button>
         ) : null}
-        {timedOutUnconnected && callbackConsumed ? (
-          <span className="inline-flex items-center rounded-full border border-zinc-400/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest opacity-80">
+        {cardState === "unconnected_timeout" && callbackConsumed ? (
+          <span className="inline-flex items-center rounded-full border border-surface-contrast bg-black/5 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-surface-contrast-secondary dark:bg-white/5">
             {t("messaging.voiceCallCallbackUsed", "Callback used")}
           </span>
         ) : null}

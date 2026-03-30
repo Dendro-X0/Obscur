@@ -264,9 +264,10 @@ export function AuthScreen() {
 
         setIsLoading(true);
         try {
+            const normalizedUsername = username.trim();
             await runtime.createIdentityForBoundProfile({
                 passphrase: password as Passphrase,
-                username
+                username: normalizedUsername
             });
             // Generate local profile defaults immediately. Relay publish happens after auth.
             const inviteCode = generateRandomInviteCode();
@@ -275,7 +276,7 @@ export function AuthScreen() {
             persistRememberMe({ remember: rememberMe, token: password });
 
             // Persist profile locally
-            profile.setUsername({ username });
+            profile.setUsername({ username: normalizedUsername });
             profile.setInviteCode({ inviteCode });
             profile.save();
 

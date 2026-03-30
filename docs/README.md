@@ -1,104 +1,60 @@
 # Obscur Documentation
 
-Use this folder as the single source of truth for both human contributors and language-model agents.
+Use this folder as the canonical engineering contract for architecture, roadmap, release operations, and recovery triage.
 
-The goal is high signal, low token waste: enough context to resume work quickly, without historical roadmap noise.
+## Canonical Entry Set
 
-## Canonical Docs
+### Core Architecture (Root)
 
 1. [01 Project Overview](./01-project-overview.md)
 2. [02 Repository Map](./02-repository-map.md)
 3. [03 Runtime Architecture](./03-runtime-architecture.md)
-4. [04 Feature Modules](./04-messaging-and-groups.md)
-5. [05 Data, State, and Sync Flows](./05-performance-and-load-testing.md)
+4. [04 Messaging and Groups](./04-messaging-and-groups.md)
+5. [05 Performance and Load Testing](./05-performance-and-load-testing.md)
 6. [06 Testing and Quality Gates](./06-testing-and-quality-gates.md)
 7. [07 Operations and Release Flow](./07-operations-and-release-flow.md)
-8. [08 Maintainer Playbook and Continuation Handoff](./08-maintainer-playbook.md)
+8. [08 Maintainer Playbook](./08-maintainer-playbook.md)
 9. [09 Mobile Native Parity Matrix](./09-mobile-native-parity-matrix.md)
-10. [10 Community and Groups Overhaul Roadmap](./10-community-and-groups-overhaul.md)
-11. [12 Core Architecture Truth Map](./12-core-architecture-truth-map.md)
-12. [13 Relay and Startup Failure Atlas](./13-relay-and-startup-failure-atlas.md)
-13. [14 Module Owner Index](./14-module-owner-index.md)
-14. [15 Relay Foundation Hardening Spec](./15-relay-foundation-hardening-spec.md)
-15. [16 Cross-Device Group Visibility Incident](./16-cross-device-group-visibility-incident.md)
-16. [17 v0.9.2 Expansion Context](./17-v0.9.2-expansion-context.md)
-17. [18 v0.9.3 Execution Plan](./18-v0.9.3-execution-plan.md)
-18. [19 v1 Readiness Stability Plan](./19-v1-readiness-stability-plan.md)
-19. [20 v1 Official Release Execution](./20-v1-official-release-execution.md)
-20. [21 Post-v1 Value Roadmap](./21-post-v1-value-roadmap.md)
-21. [22 Theme Contrast Guidelines](./22-theme-contrast-guidelines.md)
-22. [23 Versioned Phase Plan (v1.0.4-v1.0.6)](./23-versioned-phase-plan-v1.0.4-v1.0.6.md)
-23. [24 v1.0.6 CP3 Soak Matrix](./24-v1.0.6-cp3-soak-matrix.md)
-24. [25 Versioned Phase Plan (v1.0.7-v1.0.9)](./25-versioned-phase-plan-v1.0.7-v1.0.9.md)
-25. [26 v1.0.7 CP3 Community Convergence Matrix](./26-v1.0.7-cp3-community-convergence-matrix.md)
-26. [27 v1.0.8 CP3 Voice Replay Matrix](./27-v1.0.8-cp3-voice-replay-matrix.md)
-27. [28 v1.0.9 CP3 Anti-Abuse Replay Matrix](./28-v1.0.9-cp3-anti-abuse-replay-matrix.md)
-28. [29 Versioned Major-Phase Plan (v1.0.10-v1.3.0)](./29-versioned-major-phase-plan-v1.0.10-v1.3.0.md)
-29. [30 Versioned Phase Plan (v1.0.10-v1.1.0)](./30-versioned-phase-plan-v1.0.10-v1.1.0.md)
-30. [31 v1.0.10 CP3 Community Replay Matrix](./31-v1.0.10-cp3-community-replay-matrix.md)
-31. [32 v1.1.3 CP3 Voice Suite Replay Matrix](./32-v1.1.3-cp3-voice-suite-matrix.md)
-32. [33 v1.1.4 CP4 Voice Long-Session Matrix](./33-v1.1.4-cp4-voice-long-session-matrix.md)
-33. [34 v1.2.4 M10 Demo Asset Matrix](./34-v1.2.4-m10-demo-asset-matrix.md)
-34. [35 v1.2.5 M10 Release Candidate Matrix](./35-v1.2.5-m10-release-candidate-matrix.md)
-35. [36 v1.3.0 Closeout Matrix](./36-v1.3.0-closeout-matrix.md)
+10. [10 Community and Groups Overhaul](./10-community-and-groups-overhaul.md)
+11. [11 Program Milestones and Stability History](./11-program-milestones-and-stability-history.md)
+12. [12 Core Architecture Truth Map](./12-core-architecture-truth-map.md)
+13. [13 Relay and Startup Failure Atlas](./13-relay-and-startup-failure-atlas.md)
+14. [14 Module Owner Index](./14-module-owner-index.md)
+15. [15 Relay Foundation Hardening Spec](./15-relay-foundation-hardening-spec.md)
+16. [16 Cross-Device Group Visibility Incident](./16-cross-device-group-visibility-incident.md)
 
-## Scope Rules
+### Roadmap and Release
 
-- `/docs` should describe current architecture, canonical owners, key workflows, and known risks.
-- Historical roadmaps and superseded plans are intentionally removed.
-- Root planning artifacts (`PHASE0_SPECS.md` .. `PHASE4_SPECS.md`, `ROADMAP_v0.9.0-beta.md`, `ROADMAP_v0.9.2.md`) were retired on 2026-03-20.
-- v0.9.5 execution details are consolidated into:
-  - `docs/07-operations-and-release-flow.md`,
-  - `docs/08-maintainer-playbook.md`,
-  - `ISSUES.md` and `CHANGELOG.md`.
-- v1 pre-release hardening milestones are tracked in:
-  - `docs/19-v1-readiness-stability-plan.md`.
-- v1 launch execution steps are tracked in:
-  - `docs/20-v1-official-release-execution.md`.
-- Post-v1 long-term value milestones are tracked in:
-  - `docs/21-post-v1-value-roadmap.md`.
-- Version-bound execution cadence (`one milestone per version`) is tracked in:
-  - `docs/23-versioned-phase-plan-v1.0.4-v1.0.6.md`.
-- Historical execution cadence (`v1.0.7-v1.0.9`) is tracked in:
-  - `docs/25-versioned-phase-plan-v1.0.7-v1.0.9.md`.
-- Next major-phase execution cadence (`v1.0.10-v1.3.0`) is tracked in:
-  - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
-- Active execution lane (`v1.2.1-v1.3.0`) is tracked in:
-  - `docs/29-versioned-major-phase-plan-v1.0.10-v1.3.0.md`.
-- Active M10 release-candidate evidence matrix is tracked in:
-  - `docs/35-v1.2.5-m10-release-candidate-matrix.md`.
-- v1.3.0 closeout runbook and release gate checklist are tracked in:
-  - `docs/36-v1.3.0-closeout-matrix.md`.
-- Historical closeout lane (`v1.0.10-v1.1.0`) remains documented in:
-  - `docs/30-versioned-phase-plan-v1.0.10-v1.1.0.md`.
-- Deterministic CP3 replay evidence matrix for the `v1.0.10` M8 lane is tracked in:
-  - `docs/31-v1.0.10-cp3-community-replay-matrix.md`.
-- Keep docs aligned with code paths under `apps/`, `packages/`, and `scripts/`.
-- For runtime or relay regressions, consult `12 -> 13 -> 08 -> 07 -> 19 -> 20 -> 21 -> 17 -> 18` in that order before implementation work.
-- Warm-up supervisor docs from earlier iterations are superseded by the active fail-open startup model (`DesktopProfileBootstrap` + `ProfileBoundAuthShell` + runtime activation gates).
+1. [Current Roadmap](./roadmap/current-roadmap.md)
+2. [Release Closeout Guide](./releases/release-closeout-guide.md)
 
-## Mandatory Checks
+### History and Design
+
+1. [Version Context](./history/version-context.md)
+2. [Theme Contrast Guidelines](./design/theme-contrast-guidelines.md)
+
+## Consolidation Policy
+
+Version-specific planning and checkpoint docs were consolidated into general canonical docs. Durable outcomes now live in:
+
+1. `docs/11-program-milestones-and-stability-history.md`
+2. `docs/history/version-context.md`
+3. `docs/roadmap/current-roadmap.md`
+4. `docs/07-operations-and-release-flow.md`
+5. `docs/08-maintainer-playbook.md`
+
+Legacy version docs can remain in `docs/archive/versioned/` for audit history, but they are no longer required planning entrypoints.
+
+## Maintenance Rules
+
+1. Keep canonical docs synchronized with owner boundaries and release gates.
+2. Keep runtime evidence bundles under `docs/assets/demo/`.
+3. Keep archive docs read-only unless doing historical correction.
+4. When architecture meaningfully changes, update:
+: `core doc` + `roadmap/release doc` + `CHANGELOG.md` in the same change set.
+
+## Mandatory Check
 
 ```bash
 pnpm docs:check
 ```
-
-## Release Prep Shortlist
-
-```bash
-pnpm version:sync
-pnpm version:check
-pnpm release:integrity-check
-pnpm docs:check
-pnpm release:test-pack -- --skip-preflight
-pnpm ci:scan:pwa:head
-pnpm release:artifact-version-contract-check
-pnpm release:preflight -- --allow-dirty 1
-```
-
-For strict preflight, run without `--allow-dirty` on a clean `main` working tree.
-
-Release workflow policy:
-- tag pushes run build and verification lanes,
-- GitHub Release publish now runs automatically on `v*` tag pushes (manual `workflow_dispatch` with `publish_release=true` remains available as fallback),
-- Android lane result/signing state is surfaced explicitly and no longer blocks desktop/web release publication.

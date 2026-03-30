@@ -12,6 +12,7 @@ import { PrivacySettingsService } from "@/app/features/settings/services/privacy
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { publishViaRelayCore } from "@/app/features/relays/lib/nostr-core-relay";
+import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { seedProfileMetadataCache } from "./use-profile-metadata";
 import { encryptedAccountBackupService } from "@/app/features/account-sync/services/encrypted-account-backup-service";
@@ -141,6 +142,27 @@ const refreshEncryptedAccountBackup = (
         scopedRelayUrls: enabledRelayUrls,
     }).catch(() => {
         // Best-effort backup refresh after canonical profile save.
+    });
+};
+
+const mirrorProfileToGlobalDiscoveryRelays = (
+    params: Readonly<{
+        pool: ReturnType<typeof useRelay>["relayPool"];
+        payload: string;
+        primaryRelayUrls: ReadonlyArray<string>;
+    }>
+): void => {
+    const scopedRelayUrls = mergeRelaySets(params.primaryRelayUrls, GLOBAL_DISCOVERY_RELAY_URLS);
+    for (const relayUrl of GLOBAL_DISCOVERY_RELAY_URLS) {
+        params.pool.addTransientRelay?.(relayUrl);
+    }
+    void publishViaRelayCore({
+        pool: params.pool,
+        payload: params.payload,
+        scopedRelayUrls,
+        waitForConnectionMs: 3_500,
+    }).catch(() => {
+        // Best-effort global mirror for friend-code discoverability.
     });
 };
 
@@ -331,6 +353,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 if (isPartialRelaySuccess(report.successCount, report.totalRelays)) {
                                     toast.warning(`Profile saved with degraded relay coverage (${report.successCount}/${report.totalRelays}).`);
                                 }
+                                mirrorProfileToGlobalDiscoveryRelays({
+                                    pool,
+                                    payload,
+                                    primaryRelayUrls: enabledRelayUrls,
+                                });
                                 refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
                                 return true;
                             }
@@ -378,6 +405,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                             if (relayCorePublish.status === "partial" || isPartialRelaySuccess(successCount, totalRelays)) {
                                 toast.warning(`Profile saved with degraded relay coverage (${successCount}/${totalRelays}).`);
                             }
+                            mirrorProfileToGlobalDiscoveryRelays({
+                                pool,
+                                payload,
+                                primaryRelayUrls: enabledRelayUrls,
+                            });
                             refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
                             return true;
                         }
@@ -423,6 +455,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                             if (isPartialRelaySuccess(result.successCount, result.totalRelays)) {
                                 toast.warning(`Profile saved with degraded relay coverage (${result.successCount}/${result.totalRelays}).`);
                             }
+                            mirrorProfileToGlobalDiscoveryRelays({
+                                pool,
+                                payload,
+                                primaryRelayUrls: enabledRelayUrls,
+                            });
                             refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
                             return true;
                         }

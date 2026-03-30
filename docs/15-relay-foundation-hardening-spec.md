@@ -3,12 +3,12 @@
 _Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
 
 Status note (2026-03-19):
-- This spec contains historical warm-up references from earlier v0.9.2 rollout experiments.
+- This spec contains historical warm-up references from earlier relay rollout experiments.
 - `warm-up-supervisor` is not part of the active startup owner chain in the current workspace.
 - Treat warm-up sections as archived design context only, and use active owner truth from:
   - `docs/12-core-architecture-truth-map.md`
   - `docs/13-relay-and-startup-failure-atlas.md`
-  - `docs/17-v0.9.2-expansion-context.md`
+  - `docs/history/version-context.md`
 
 Status: Active (Phase 1 through Phase 4 landed)
 Scope: web/PWA + desktop relay runtime reliability foundation
@@ -141,7 +141,6 @@ Landed outcomes:
 6. New-device restore with relay lag
 
 Capture for each scenario:
-- `window.obscurWarmup.getSnapshot()`
 - `window.obscurWindowRuntime.getSnapshot()`
 - `window.obscurRelayRuntime.getSnapshot()`
 - `window.obscurRelayTransportJournal.getSnapshot()`
@@ -153,7 +152,7 @@ Capture for each scenario:
 
 ```bash
 pnpm.cmd -C apps/pwa exec tsc --noEmit
-pnpm.cmd -C apps/pwa exec vitest run app/features/relays/services/relay-recovery-policy.test.ts app/features/relays/services/relay-runtime-supervisor.test.ts app/features/relays/services/relay-resilience-observability.test.ts app/features/runtime/components/runtime-activation-manager.test.tsx app/features/runtime/services/warm-up-supervisor.test.ts
+pnpm.cmd -C apps/pwa exec vitest run app/features/relays/services/relay-recovery-policy.test.ts app/features/relays/services/relay-runtime-supervisor.test.ts app/features/relays/services/relay-resilience-observability.test.ts app/features/runtime/components/runtime-activation-manager.test.tsx
 pnpm.cmd docs:check
 ```
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { peerTrustInternals } from "./use-peer-trust";
 
@@ -17,6 +18,26 @@ const createPersistedChatState = (overrides?: Partial<PersistedChatState>): Pers
 });
 
 describe("use-peer-trust internals", () => {
+  it("builds unique contact mutation suffixes across repeated actions for the same peer", () => {
+    const peerPublicKeyHex = "e".repeat(64) as PublicKeyHex;
+    const first = peerTrustInternals.createContactMutationIdempotencySuffix({
+      action: "unaccept",
+      peerPublicKeyHex,
+      atUnixMs: 1000,
+      nonce: 1,
+    });
+    const second = peerTrustInternals.createContactMutationIdempotencySuffix({
+      action: "unaccept",
+      peerPublicKeyHex,
+      atUnixMs: 1000,
+      nonce: 2,
+    });
+
+    expect(first).toBe(`unaccept:${peerPublicKeyHex}:1000:1`);
+    expect(second).toBe(`unaccept:${peerPublicKeyHex}:1000:2`);
+    expect(second).not.toBe(first);
+  });
+
   it("hydrates accepted peers from accepted requests and existing DM connections", () => {
     const acceptedRequestPeer = "a".repeat(64).toUpperCase();
     const acceptedConnectionPeer = "b".repeat(64).toUpperCase();

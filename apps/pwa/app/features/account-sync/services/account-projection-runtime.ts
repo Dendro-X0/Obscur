@@ -48,6 +48,12 @@ const createDefaultSnapshot = (): AccountProjectionRuntimeSnapshot => ({
 });
 
 let currentSnapshot: AccountProjectionRuntimeSnapshot = createDefaultSnapshot();
+let currentRuntimeEpoch = 0;
+
+const claimRuntimeEpoch = (): number => {
+  currentRuntimeEpoch += 1;
+  return currentRuntimeEpoch;
+};
 
 const emit = (): void => {
   listeners.forEach((listener) => listener(currentSnapshot));
@@ -193,6 +199,7 @@ export const accountProjectionRuntime = {
     return currentSnapshot;
   },
   reset(): void {
+    claimRuntimeEpoch();
     replayQueue.forEach((entry) => {
       if (entry.timer) {
         clearTimeout(entry.timer);
@@ -200,6 +207,7 @@ export const accountProjectionRuntime = {
       entry.reject(new Error("Projection runtime reset"));
     });
     replayQueue.clear();
+    inflightBootstraps.clear();
     setSnapshot(createDefaultSnapshot());
   },
   async appendCanonicalEvents(params: Readonly<{
@@ -244,7 +252,12 @@ export const accountProjectionRuntime = {
   async replay(params: Readonly<{
     profileId: string;
     accountPublicKeyHex: PublicKeyHex;
+    expectedRuntimeEpoch?: number;
   }>): Promise<AccountProjectionRuntimeSnapshot> {
+    const expectedRuntimeEpoch = params.expectedRuntimeEpoch ?? currentRuntimeEpoch;
+    if (expectedRuntimeEpoch !== currentRuntimeEpoch) {
+      return currentSnapshot;
+    }
     patchSnapshot({
       profileId: params.profileId,
       accountPublicKeyHex: params.accountPublicKeyHex,
@@ -265,6 +278,9 @@ export const accountProjectionRuntime = {
         projection,
       })
       : null;
+    if (expectedRuntimeEpoch !== currentRuntimeEpoch) {
+      return currentSnapshot;
+    }
     const readySnapshot: AccountProjectionRuntimeSnapshot = {
       profileId: params.profileId,
       accountPublicKeyHex: params.accountPublicKeyHex,
@@ -307,6 +323,7 @@ export const accountProjectionRuntime = {
       return existing;
     }
     const run = (async () => {
+      const expectedRuntimeEpoch = claimRuntimeEpoch();
       patchSnapshot({
         profileId,
         accountPublicKeyHex: params.accountPublicKeyHex,
@@ -358,7 +375,11 @@ export const accountProjectionRuntime = {
         const replaySnapshot = await this.replay({
           profileId,
           accountPublicKeyHex: params.accountPublicKeyHex,
+          expectedRuntimeEpoch,
         });
+        if (expectedRuntimeEpoch !== currentRuntimeEpoch) {
+          return currentSnapshot;
+        }
         const next = {
           ...replaySnapshot,
           bootstrapReport: bootstrapReport ?? replaySnapshot.bootstrapReport,
@@ -368,6 +389,9 @@ export const accountProjectionRuntime = {
         setSnapshot(next);
         return next;
       } catch (error) {
+        if (expectedRuntimeEpoch !== currentRuntimeEpoch) {
+          return currentSnapshot;
+        }
         const degradedSnapshot: AccountProjectionRuntimeSnapshot = {
           ...createDefaultSnapshot(),
           profileId,

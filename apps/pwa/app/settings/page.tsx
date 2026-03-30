@@ -1733,25 +1733,62 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     }
     setProfileSaveActionPhase("working");
     setProfileSaveActionMessage("Saving profile and publishing it to relays...");
-    const success = await withActionTimeout(
-      publishProfile({
-        username: profile.state.profile.username.trim(),
-        about: profile.state.profile.about,
-        avatarUrl: profile.state.profile.avatarUrl?.trim(),
-        nip05: profile.state.profile.nip05?.trim(),
-        inviteCode: normalizedInviteCode
-      }),
+    const timedOutMessage = "Save finished on this device, but relay publishing timed out. Obscur will keep your saved profile.";
+    const publishOperation = publishProfile({
+      username: profile.state.profile.username.trim(),
+      about: profile.state.profile.about,
+      avatarUrl: profile.state.profile.avatarUrl?.trim(),
+      nip05: profile.state.profile.nip05?.trim(),
+      inviteCode: normalizedInviteCode
+    });
+    const publishResult = await withActionTimeout(
+      publishOperation,
       PROFILE_PUBLISH_UI_TIMEOUT_MS,
-      "Save finished on this device, but relay publishing timed out. Obscur will keep your saved profile."
+      timedOutMessage
     ).catch((error) => {
       const message = error instanceof Error ? error.message : "Failed to publish profile.";
+      if (message === timedOutMessage) {
+        setProfileSaveActionPhase("working");
+        setProfileSaveActionMessage("Profile saved locally. Global publish is still running in the background.");
+        toast.info("Profile saved locally. Relay publish is still in progress.");
+        return "timed_out" as const;
+      }
       setProfileSaveActionPhase("error");
       setProfileSaveActionMessage(message);
       toast.error(message);
       return false;
     });
 
-    if (success) {
+    if (publishResult === "timed_out") {
+      void publishOperation.then((finalSuccess) => {
+        if (finalSuccess) {
+          setProfileSaveActionPhase("success");
+          setProfileSaveActionMessage("Profile saved and published to the network.");
+          toast.success(t("settings.profileSaved"));
+          return;
+        }
+        const latestPublishReport = getProfilePublishReportSnapshot();
+        if (latestPublishReport?.deliveryStatus === "queued") {
+          const message = latestPublishReport.message || "Profile is saved on this device, but relay publishing needs a healthier connection.";
+          setProfileSaveActionPhase("error");
+          setProfileSaveActionMessage(message);
+          toast.warning(message);
+          return;
+        }
+        const message = profilePublishError || "Profile publish failed.";
+        setProfileSaveActionPhase("error");
+        setProfileSaveActionMessage(message);
+        toast.error(t("settings.profilePublishFailed"));
+      }).catch((error) => {
+        const message = error instanceof Error ? error.message : "Failed to publish profile.";
+        setProfileSaveActionPhase("error");
+        setProfileSaveActionMessage(message);
+        toast.error(message);
+      });
+      return;
+    }
+
+    if (publishResult) {
       setProfileSaveActionPhase("success");
       setProfileSaveActionMessage("Profile saved and published to the network.");
       toast.success(t("settings.profileSaved"));

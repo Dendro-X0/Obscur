@@ -1,510 +1,103 @@
-# 10 Community and Groups Overhaul Roadmap
+# 10 Community and Groups Operating Model
 
-_Last reviewed: 2026-03-17 (baseline commit 0e19909)._
+_Last reviewed: 2026-03-29 (baseline commit cad5779e)._
 
-This roadmap restores the missing community plan with a strict v0.9.1+ focus:
-- no tag churn for CI-only patch loops,
-- one major user-facing upgrade before v1,
-- security and UX upgraded together.
+This document is the canonical, version-agnostic operating contract for Obscur communities/groups.
 
-## Product Direction
+Historical version-by-version milestone details are maintained in:
+- `docs/11-program-milestones-and-stability-history.md`
+- `docs/history/version-context.md`
 
-Primary major-upgrade lane before v1:
-- **Community/Groups overhaul** as the default flagship.
+## Current Health Snapshot
 
-Secondary/stretch lane:
-- Voice communication pilot only after community ownership and moderation flows are stable.
+- Community create/join/leave/recover flows are stable in current baseline.
+- Membership visibility uses deterministic recovery precedence and is no longer driven by optimistic local snapshots.
+- Group messaging send permission remains evidence-gated by membership plus room-key availability.
+- No severe open community blocker is currently recorded; monitor with diagnostics listed below.
 
-Reason:
-- group/community surface already exists and is closer to production than voice stack,
-- several community actions are still partially implemented and can unlock large UX gains quickly.
+## Canonical Owners (Locked)
 
-## Canonical Owners (Community Path)
-
-1. Network identity/trust/request owner
+1. Network identity and trust owner
 : `apps/pwa/app/features/network/providers/network-provider.tsx`
 
-2. Group lifecycle/persistence owner
+2. Group lifecycle and persistence owner
 : `apps/pwa/app/features/groups/providers/group-provider.tsx`
 
 3. Community runtime owner (sealed event ingest/publish)
 : `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
 
-4. Membership truth reducer
+4. Membership truth reducer owner
 : `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
 
-5. Group event constructor/signing service
+5. Group event construction/signing owner
 : `apps/pwa/app/features/groups/services/group-service.ts`
 
-No parallel owner should be introduced for the same lifecycle.
-
-## Governance Model Lock (v0.9.1)
-
-- Communities are decentralized and adminless: there is no privileged administrator role.
-- All participants are members under the same governance contract.
-- User-level safety remains local-first: members can mute each other in their own client.
-- Removal of a member is vote-based and must reach configured quorum before expulsion is applied.
-- Community avatar changes are also vote-based and should resolve through signed governance events.
-- Governance truth must come from sealed event ingest + ledger reduction, not local optimistic state.
-
-## Current State (Reality Snapshot)
-
-Current functional coverage:
-- create/join/leave community flows,
-- invite members via room-key distribution,
-- sealed community timeline ingest/publish (`kind 10105` path),
-- local mute controls,
-- vote-to-kick flow scaffolding,
-- metadata updates with relay-scoped publish.
-
-Current technology map:
-- community runtime/state owner: `use-sealed-community.ts`,
-- persistence/projection owner: `group-provider.tsx`,
-- canonical membership/governance reducer: `community-ledger-reducer.ts`,
-- event construction/signing: `group-service.ts`,
-- relay transport layer: enhanced relay pool and scoped publish paths.
-
-What is already strong:
-- relay-scoped group publish path exists,
-- sealed community message flow exists (`kind 10105`),
-- room-key rotation and distribution exist,
-- membership ledger reducer exists,
-- group tombstone and migration guardrails exist.
-
-Gaps blocking "excellent" community UX:
-- several governance handlers are still placeholders in `use-sealed-community.ts`,
-- vote lifecycle UX (propose, tally, resolve) is fragmented across surfaces,
-- group discovery, join queue, and moderation queue UX are fragmented,
-- diagnostics are present but not yet exposed as operator-friendly community health views.
-
-## Competitive Bar (Telegram/Discord-Inspired, Not Cloned)
-
-We should match the outcome quality of mainstream community products in these areas:
-- fast onboarding into a niche community,
-- predictable moderation outcomes,
-- trustworthy role/permission boundaries,
-- clear delivery/readiness status under weak network conditions,
-- polished interaction flows (join, invite, leave, recover).
-
-Must remain Obscur-specific:
-- evidence-based state transitions,
-- strict E2EE-by-default for group content,
-- deterministic fallback behavior (no silent optimistic success).
-
-## Phase Plan
-
-### Phase A: Cross-Device Membership Sync Foundation (Landed)
-
-Objective:
-- keep community presence durable across logout/login and new-device restore.
-
-Scope landed:
-- added profile-scoped durable membership ledger:
-  - `apps/pwa/app/features/groups/services/community-membership-ledger.ts`
-- wired group lifecycle owner (`group-provider`) to:
-  - persist `joined` on add/revive/update paths,
-  - persist `left` on leave/remove paths,
-  - hydrate groups from `chatState + joined-ledger` with tombstone filtering,
-  - react to scoped ledger-update events so mounted views refresh immediately after restore.
-- extended encrypted account backup payload to include optional community membership ledger snapshots and deterministic merge-on-restore behavior:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- hardened community navigation token resolution so explicit group tokens do not silently downgrade into DM routing:
-  - `apps/pwa/app/features/messaging/utils/conversation-target.ts`
-  - `apps/pwa/app/features/groups/utils/group-route-token.ts`
-- hardened account-sync mutation signaling for cross-device durability:
-  - startup flow now attempts encrypted backup restore before first startup backup publish, even on identity-only rehydrate status,
-  - late account-sync subscribers now replay the latest private-state mutation signal,
-  - membership-ledger writes emit `community_membership_changed` mutation signals,
-  - `community_membership_changed` backup publishes bypass normal mutation cooldown to reduce logout-before-publish loss windows.
-
-Behavior contract:
-- community membership persistence is explicit and scoped per profile/account.
-- backup payload remains `version: 1`; ledger field is optional for backward compatibility.
-- ledger-only hydration keeps communities visible even when room keys are not yet present on that device.
-- explicit group navigation tokens (`community:*`, `group:*`, or canonical encoded group ids) resolve group-only; unresolved group tokens do not fallback to DM.
-- private-state mutation evidence should not be dropped due to account-sync subscription timing.
-- community membership mutations should trigger immediate encrypted backup publish attempts.
-
-### Phase A.1: Room-Key Portability for Cross-Device Group Send (Landed)
-
-Objective:
-- prevent cross-device state where community membership is restored but sending fails because the room key never arrived on the new device.
-
-Scope landed:
-- extended encrypted account backup payload with optional room-key snapshots:
-  - `apps/pwa/app/features/account-sync/account-sync-contracts.ts`
-- added room-key snapshot read/upsert APIs to the canonical key owner:
-  - `apps/pwa/app/features/crypto/room-key-store.ts`
-- wired backup publish/export + restore merge/apply paths to carry room keys deterministically:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- added supplemental room-key reconstruction from restored `community-invite` DM payloads when explicit room-key snapshots are missing:
-  - `apps/pwa/app/features/groups/services/community-membership-reconstruction.ts`
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- added restore diagnostics for room-key counts and explicit send-block logging when key is absent:
-  - `account_sync.backup_restore_merge_diagnostics` (`incomingRoomKeyCount`, `localRoomKeyCount`, `mergedRoomKeyCount`)
-  - `account_sync.backup_restore_apply_diagnostics` (`appliedRoomKeyCount`)
-  - `groups.room_key_missing_send_blocked`
-
-Behavior contract:
-- membership ledger and room keys are separate domains, but both are now portable in encrypted backup snapshots.
-- new-device restore should converge to a send-capable community state when backup room-key evidence exists.
-- if membership restores but no room-key evidence exists, send is deterministically blocked with explicit key-missing diagnostics (not implicit kick inference).
-
-### Phase B: Presence and Session Exclusivity Baseline (Landed)
-
-Objective:
-- add evidence-based contact presence and enforce one active account session per identity.
-
-Scope landed:
-- added relay-backed realtime presence contract:
-  - `apps/pwa/app/features/network/services/realtime-presence.ts`
-  - replaceable presence event (`kind 30315`, `d=obscur.presence.v1`) with heartbeat + stale timeout semantics.
-- added runtime presence owner hook:
-  - `apps/pwa/app/features/network/hooks/use-realtime-presence.ts`
-  - subscribes to accepted peers + self, publishes online heartbeat, emits offline best-effort on teardown.
-- wired canonical network owner to presence state + duplicate-session guard:
-  - `apps/pwa/app/features/network/providers/network-provider.tsx`
-  - when an older active self-session is observed, current runtime is deterministically locked.
-- wired Network contact cards to actual online/offline status:
-  - `apps/pwa/app/features/network/components/network-dashboard.tsx`
-  - `apps/pwa/app/features/network/components/network-connection-card.tsx`
-- added focused contract tests:
-  - `apps/pwa/app/features/network/services/realtime-presence.test.ts`
-
-Behavior contract:
-- contact status is derived from relay evidence, not local optimistic UI state.
-- online requires a fresh heartbeat; stale/missing heartbeat resolves to offline.
-- single-login guard is deterministic:
-  - if another active session for the same pubkey is older, current session locks,
-  - tie timestamps are resolved by stable session-id ordering.
-
-### Phase C1: Security and Ownership Completion
-
-Objective:
-- eliminate placeholder actions and complete canonical group owner behavior.
-
-Scope:
-- implement non-noop versions of:
-  - `updateMetadata`
-  - `setGroupStatus`
-  - `approveJoin` / `denyJoin`
-  - `putUser` / `removeUser`
-  - vote-tally and resolution paths for `sendVoteKick`
-  - vote-tally and resolution paths for community avatar updates
-- make all moderation outcomes evidence-backed and relay-scoped,
-- ensure membership reducer remains the single truth for effective status.
-
-Exit criteria:
-- no placeholder governance paths in community runtime,
-- deterministic tests for success/failure classes (denied, cooldown, scoped relay mismatch, timeout).
-
-### Phase C2: Community UX Rebuild
-
-Objective:
-- improve “small community operator” workflow quality.
-
-Scope:
-- unified community dashboard:
-  - members, pending joins, moderation actions, relay scope health,
-- better create/join/invite flows:
-  - less modal churn, clearer state explanations, safer defaults,
-- structured group metadata UX:
-  - purpose/about/access clearly visible and editable with audit-friendly hints.
-
-Exit criteria:
-- first-time join/create flow is understandable in one pass,
-- operator can approve/deny/remove members without ambiguous outcomes.
-
-### Phase C3: Trust, Safety, and Abuse Resistance
-
-Objective:
-- protect niche communities without destroying usability.
-
-Scope:
-- harden vote/policy checks for member-driven governance actions (kick + avatar updates),
-- stronger anti-spam/join-request throttling and abuse telemetry surfaces,
-- clear user-facing reason codes for blocked or denied actions.
-
-Exit criteria:
-- moderation behavior is transparent and reproducible,
-- abuse events surface meaningful diagnostics for maintainers.
-
-### Phase C4 (Optional Stretch): Voice Pilot
-
-Objective:
-- evaluate one major synchronous feature after community core stability.
-
-Scope:
-- small-group encrypted voice room pilot (invite-only communities first),
-- strict capability detection and explicit unsupported paths for web/native parity.
-
-Exit criteria:
-- prototype quality acceptable for staged rollout decision (ship/hold).
-
-## v0.9.1 Execution Rules
-
-1. No release-tag churn while fixing CI.
-2. Use workflow dispatch / rehearsal runs before release tags.
-3. Keep community feature lane and CI hardening lane separate in commits/changelogs.
-4. Mark version tags only when product-value milestones (not just build fixes) are complete.
-
-## v0.9.2 Sync Continuation
-
-After v0.9.1 push, continue with account data synchronization as top priority:
-- cross-device community membership durability,
-- canonical projection replay for DM + community surfaces,
-- unread and navigation target consistency between DM and group conversations.
-
-Fallback policy (v0.9.2):
-- keep automatic relay restore as best-effort.
-- provide deterministic manual portability import/export for encrypted account bundles when relay-backed convergence is unavailable.
-
-### v0.9.2 Milestone A1 (Landed 2026-03-18)
-
-Objective:
-- prevent encrypted account backup snapshot rollback under rapid consecutive publishes.
-
-Scope landed:
-- hardened encrypted backup event ordering in:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- added deterministic monotonic `created_at` generation per account pubkey for backup events, so back-to-back publishes do not share the same replaceable timestamp.
-- added explicit backup payload timestamp tag (`obscur_backup_created_at_ms`) on backup events.
-- updated backup-event selection path to use deterministic comparator (`payload-tag timestamp -> created_at -> event id`) instead of `created_at`-only tie handling.
-- added focused regression coverage:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
-  - rapid consecutive backup publishes now assert strictly increasing `created_at` and tag presence.
-
-Behavior contract:
-- backup snapshots should converge newest-wins even during high-frequency mutation bursts.
-- group membership ledger durability no longer depends on relay-specific equal-second replaceable tie behavior.
-
-### v0.9.2 Milestone A2 (Landed 2026-03-18)
-
-Objective:
-- harden encrypted backup restore selection when relay candidates return at different speeds.
-
-Scope landed:
-- updated encrypted backup fetch selection in:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- changed pool-based backup fetch behavior to settle only after `EOSE` is observed from all currently open relay candidates (or timeout), instead of settling on the first `EOSE`.
-- kept deterministic newest-wins selection using backup payload timestamp tag and fallback tie-breakers.
-- added focused regression coverage:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
-  - mixed-speed relay responses now assert that older fast-relay snapshots cannot override newer slow-relay snapshots.
-
-Behavior contract:
-- restore selection should not lock onto stale backup candidates solely because one relay completes first.
-- backup restore remains bounded by existing fetch timeout and still degrades deterministically when evidence is unavailable.
-
-### v0.9.2 Milestone A3 (Landed 2026-03-18)
-
-Objective:
-- surface explicit account-sync ordering diagnostics for cross-device backup triage.
-
-Scope landed:
-- added backup ordering diagnostics in:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- publish path now emits `account_sync.backup_publish_ordering` with:
-  - payload timestamp (`createdAtUnixMs`),
-  - reserved event `created_at`,
-  - monotonic bump/adjustment metadata,
-  - relay scope/open counts.
-- restore selection path now emits `account_sync.backup_restore_selection` with:
-  - selection source (`pool` / `direct` / `none`),
-  - pool EOSE expected/received counts,
-  - candidate event count,
-  - timeout state,
-  - selected backup event metadata.
-- added focused diagnostics assertions:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
-
-Behavior contract:
-- account-sync backup ordering decisions are now evidence-visible in runtime logs at canonical publish/restore boundaries.
-- cross-device triage should no longer require inference from scattered logs when backup snapshot ordering diverges.
-
-### v0.9.2 Milestone B1 (Landed 2026-03-18)
-
-Objective:
-- finalize deterministic recovery source precedence for community membership visibility.
-
-Scope landed:
-- added a dedicated precedence resolver contract:
-  - `apps/pwa/app/features/groups/services/community-membership-recovery.ts`
-- locked precedence order used during hydration:
-  - `tombstone -> membership ledger -> persisted chat state`.
-- updated canonical group hydration owner (`GroupProvider`) to consume the resolver:
-  - `apps/pwa/app/features/groups/providers/group-provider.tsx`
-- changed hydration backfill behavior:
-  - joined membership ledger rows are backfilled only when persisted groups have no ledger coverage,
-  - hydration no longer re-promotes groups to `joined` when ledger status is explicitly `left` or `expelled`.
-- added focused regression coverage:
-  - `apps/pwa/app/features/groups/services/community-membership-recovery.test.ts`
-  - `apps/pwa/app/features/groups/providers/group-provider.test.tsx`
-
-Behavior contract:
-- persisted chat-state groups are now fallback visibility evidence only when membership ledger evidence is missing.
-- explicit non-joined ledger status (`left`/`expelled`) suppresses persisted visibility for the same community identity.
-- tombstones remain highest-precedence suppression across all sources.
-
-### v0.9.2 Milestone B2 (Landed 2026-03-18)
-
-Objective:
-- implement cross-device membership reconstruction when backup membership snapshots are missing or delayed.
-
-Scope landed:
-- added canonical reconstruction service:
-  - `apps/pwa/app/features/groups/services/community-membership-reconstruction.ts`
-- reconstruction now derives supplemental joined membership evidence from:
-  - backup chat-state `createdGroups`,
-  - accepted `community-invite-response` DM payloads in backup chat-state timelines,
-  - outgoing `community-invite` DM payloads (sender-side membership evidence).
-- wired encrypted backup restore merge path to use reconstruction as supplement-only evidence:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- supplement rule:
-  - reconstruction fills only missing membership keys,
-  - explicit ledger keys (including local explicit status such as `left` or `expelled`) are never overridden by reconstruction.
-
-Validation coverage:
-- `apps/pwa/app/features/groups/services/community-membership-reconstruction.test.ts`
-- `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
-- `apps/pwa/app/features/groups/providers/group-provider.test.tsx`
-
-Behavior contract:
-- community membership recovery no longer depends solely on backup `communityMembershipLedger` presence.
-- delayed or partial backup snapshots can still reconstruct joined communities from chat-state evidence without silently discarding explicit leave/expel state.
-
-### v0.9.2 Milestone B3 (Landed 2026-03-18)
-
-Objective:
-- validate two-account/new-device membership recovery paths end-to-end through integration-focused provider coverage.
-
-Scope landed:
-- added two-account cross-device membership integration coverage in:
-  - `apps/pwa/app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
-- validated receiver recovery in both required scenarios:
-  - missing-backup-ledger restore reconstructing joined membership from accepted invite-response evidence.
-  - delayed-backup restore arriving after receiver window mount and reconstructing joined membership from backup chat-state `createdGroups`.
-- assertions explicitly reason about sender (A) and receiver (B) states independently to prevent single-account optimistic false positives.
-
-Validation coverage:
-- `apps/pwa/app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx`
-- `apps/pwa/app/features/groups/providers/group-provider.test.tsx`
-
-Behavior contract:
-- two-account recovery remains deterministic when backup ledger snapshots are absent or delayed.
-- sender-side membership evidence and receiver-side restore reconstruction converge on the same community identity without introducing parallel hydration owners.
-
-### v0.9.2 Milestone C1 (Landed 2026-03-18)
-
-Objective:
-- finalize canonical conversation-target routing guardrails so group-intent navigation cannot silently downgrade into DM selection.
-
-Scope landed:
-- hardened conversation target resolver contract in:
-  - `apps/pwa/app/features/messaging/utils/conversation-target.ts`
-- added explicit DM fallback policy modes:
-  - `connection_match` (compatibility path for persisted local selection restore),
-  - `canonical_id_only` (strict path for URL token routing boundaries).
-- canonical-only DM fallback now requires a canonical DM conversation id token (`pubkeyA:pubkeyB`), preventing non-canonical unresolved tokens from selecting DM paths.
-- applied strict fallback policy on deep-link query routing boundary:
-  - `apps/pwa/app/features/main-shell/hooks/use-deep-links.ts` (`convId` path now uses `canonical_id_only`).
-
-Validation coverage:
-- `apps/pwa/app/features/messaging/utils/conversation-target.test.ts`
-- `apps/pwa/app/features/groups/utils/group-route-token.test.ts`
-
-Behavior contract:
-- explicit group-shaped tokens still resolve group-only.
-- URL-driven conversation tokens now require canonical DM identity shape before DM fallback can occur.
-- non-canonical unresolved tokens no longer silently downgrade into DM conversation selection.
-
-### v0.9.2 Milestone C2 (Landed 2026-03-18)
-
-Objective:
-- isolate unread projection/clear behavior by active conversation target so community-focused sessions do not retain stale unread reassertions.
-
-Scope landed:
-- added explicit selected-target unread isolation helper:
-  - `apps/pwa/app/features/messaging/providers/unread-isolation.ts`
-- unread clear-on-select path now:
-  - always anchors the active selected conversation key to explicit `0` in unread map (even when key was missing),
-  - clears legacy/canonical alias keys for selected group targets (`community:*`, `group:*`, and legacy `group@relay-host` forms).
-- wired helper into canonical unread owner:
-  - `apps/pwa/app/features/messaging/providers/messaging-provider.tsx`
-
-Validation coverage:
-- `apps/pwa/app/features/messaging/providers/unread-isolation.test.ts`
-- `apps/pwa/app/features/messaging/providers/projection-unread.test.ts`
-
-Behavior contract:
-- active target unread state is now explicitly keyed and isolated from fallback `conversation.unreadCount` drift.
-- selected group sessions no longer leave stale alias-key unread counts that can reassert badges after replay/rebind.
-
-### v0.9.2 Milestone C3 (Landed 2026-03-18)
-
-Objective:
-- lock mixed DM/community regression coverage so navigation and unread convergence remain stable after replay/restore.
-
-Scope landed:
-- added mixed-history conversation/unread integration coverage in:
-  - `apps/pwa/app/features/messaging/providers/conversation-unread-convergence.integration.test.ts`
-- new regression flow asserts canonical owner ordering across boundaries:
-  - strict conversation token resolution (`canonical_id_only`) prevents non-canonical DM downgrade,
-  - selected-group unread isolation clears canonical/legacy group alias keys before projection merge,
-  - projection merge preserves local DM unread state while a group target is active and converges selected DM unread to `0` when DM is active.
-
-Validation coverage:
-- `apps/pwa/app/features/messaging/providers/conversation-unread-convergence.integration.test.ts`
-- `apps/pwa/app/features/messaging/providers/unread-isolation.test.ts`
-- `apps/pwa/app/features/messaging/providers/projection-unread.test.ts`
-- `apps/pwa/app/features/messaging/utils/conversation-target.test.ts`
-
-Behavior contract:
-- DM/group navigation + unread flows are now regression-covered as one canonical sequence for mixed histories.
-- unresolved non-canonical conversation tokens no longer mutate unread state through accidental DM selection paths.
-
-### v0.9.2 Restore Integrity Hardening (Landed 2026-03-18)
-
-Objective:
-- prevent new-device restore from dropping self-authored DM history and group timeline/state domains when restore uses canonical account-event append.
-
-Scope landed:
-- hardened encrypted backup restore append path in:
-  - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-- canonical append restore now also applies merged chat-state domains with mutation-signal suppression:
-  - restores `messagesByConversationId`,
-  - restores `createdGroups`,
-  - restores `groupMessages`,
-  - while still appending canonical account events for projection convergence.
-- backup payload hydration now reconstructs `groupMessages` directly from indexed message records for
-  group-shaped conversation ids (`community:*`, `group:*`, legacy `group@relay` forms), so
-  self-authored community history is portable even when legacy chat-state group timelines are sparse.
-
-Validation coverage:
-- `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
-
-Behavior contract:
-- append-mode restore no longer keeps only counterparty DM evidence on new devices when backup payload contains sender-authored history.
-- group list/timeline domains carried by backup chat-state are no longer dropped during append-mode restore.
-
-## Testing and Gate Strategy (Community Lane)
-
-Minimum per increment:
-- unit tests for community reducer and policy logic,
-- focused integration tests for sealed event ingest/publish and moderation outcomes,
-- docs update for owner/path changes.
-
-Required gates before merge to release branch:
-- `pnpm -C apps/pwa exec vitest run` (targeted + touched suites),
-- `pnpm ci:scan:pwa:head`,
-- `pnpm release:test-pack -- --skip-preflight`,
-- `pnpm docs:check`,
-- Android fast-fail Kotlin compile gate in CI must pass.
-
-## First Concrete Sprint (Recommended Next)
-
-1. Replace all governance `noop` handlers in `use-sealed-community.ts`.
-2. Add explicit vote contract tests (kick quorum + avatar-change quorum) and join-policy tests.
-3. Add a compact governance queue panel in the community UI.
-4. Add user-visible result states for governance actions (accepted/denied/retryable).
-5. Update docs and ship as the first v0.9.1 community milestone.
+Rule: do not introduce a second mutation owner for any lifecycle above.
+
+## Governance Contract
+
+- Communities are decentralized and adminless.
+- Moderation actions are member-governed and evidence-backed.
+- Removal decisions and metadata-sensitive actions must resolve from signed governance events and reducer outcomes, never from optimistic UI state.
+- Local safety actions (mute/hide) remain local-only and do not redefine global membership truth.
+
+## Data Truth and Recovery Model
+
+Community state recovery precedence is fixed:
+1. Tombstones
+2. Membership ledger
+3. Persisted chat-state fallback
+
+Additional invariants:
+- Explicit non-joined ledger states (`left`, `expelled`) suppress fallback visibility.
+- Missing ledger coverage can be supplemented by reconstruction evidence (chat/invite history) without overriding explicit ledger status.
+- Room keys and membership are separate domains; both must converge for send-capable state.
+
+## Startup and Restore Contract
+
+- Profile/account scope is resolved before group-scoped state services mount.
+- Membership and room-key restore are applied as evidence domains; timeout-only signals cannot mark convergence complete.
+- Restore paths must emit diagnostics at merge and apply boundaries.
+
+## Send Eligibility Contract
+
+A community send is allowed only when all are true:
+1. Membership evidence resolves to joined.
+2. Target group record is present in canonical group state.
+3. Room key for target group is available on the active device.
+
+When blocked, runtime must emit deterministic diagnostics (not implicit "kicked" inference).
+
+## UX and Product Expectations
+
+Core UX outcomes to preserve:
+- predictable join/invite/leave behavior across device changes,
+- stable group identity (name/avatar/membership) under replay and restore,
+- explicit user-facing states for pending, accepted, denied, timed out, and blocked actions,
+- no silent downgrade from group-intent navigation into DM routing.
+
+## Required Diagnostics
+
+Monitor these events for regression triage:
+- `groups.membership_recovery_hydrate`
+- `messaging.chat_state_groups_update`
+- `groups.room_key_missing_send_blocked`
+- `account_sync.backup_restore_merge_diagnostics`
+- `account_sync.backup_restore_apply_diagnostics`
+
+## Validation Gates
+
+Minimum per community change set:
+1. Targeted unit tests for reducer/policy changes.
+2. Focused integration coverage for two-user and cross-device membership/recovery behavior.
+3. `pnpm docs:check` after architectural or contract changes.
+4. Typecheck/test packs required by CI lane for touched modules.
+
+## Active Workstreams (General)
+
+1. Governance completion and moderation ergonomics.
+2. Cross-device recovery hardening under relay lag and partial snapshots.
+3. Community UX quality for creation, operation, and diagnostics visibility.
+4. Trust and abuse-resistance capabilities that remain privacy-preserving.
+
+Use `docs/roadmap/current-roadmap.md` for current slices and release sequencing.

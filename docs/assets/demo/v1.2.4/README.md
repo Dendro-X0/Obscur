@@ -1,6 +1,10 @@
 # v1.2.4 M10 Demo Asset Bundle
 
-Place generated demo artifacts from `docs/34-v1.2.4-m10-demo-asset-matrix.md` in this folder.
+Place generated demo artifacts for the M10 demo asset flow in this folder.
+
+Historical matrix details are consolidated in:
+- `docs/11-program-milestones-and-stability-history.md`
+- `docs/history/version-context.md`
 
 Helper commands:
 1. `pnpm demo:m10:init`

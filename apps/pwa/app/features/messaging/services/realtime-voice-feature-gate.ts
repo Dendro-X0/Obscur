@@ -1,8 +1,7 @@
 const ENABLE_REALTIME_VOICE_CALLS_ENV = (process.env.NEXT_PUBLIC_ENABLE_REALTIME_VOICE_CALLS ?? "").trim().toLowerCase();
 
-export const isRealtimeVoiceCallsEnabled = (): boolean => (
-  ENABLE_REALTIME_VOICE_CALLS_ENV === "1"
-  || ENABLE_REALTIME_VOICE_CALLS_ENV === "true"
-  || ENABLE_REALTIME_VOICE_CALLS_ENV === "on"
-);
+const VOICE_CALLS_DISABLED_VALUES = new Set(["0", "false", "off", "disabled"]);
 
+export const isRealtimeVoiceCallsEnabled = (): boolean => (
+  !VOICE_CALLS_DISABLED_VALUES.has(ENABLE_REALTIME_VOICE_CALLS_ENV)
+);
