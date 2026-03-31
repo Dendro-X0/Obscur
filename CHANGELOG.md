@@ -2,6 +2,28 @@
 
 ### Changed
 
+- Hardened restored voice-call control rendering in chat/message list:
+  - `apps/pwa/app/features/messaging/components/message-list-render-meta.ts`
+    now tolerates double-encoded and escaped payload text for
+    `voice-call-invite` / `voice-call-signal` summaries,
+  - `apps/pwa/app/features/messaging/services/realtime-voice-signaling.ts`
+    now suppresses escaped control payload preview text in conversation rows.
+- Added focused regression coverage for restored control-payload rendering in:
+  - `apps/pwa/app/features/messaging/components/message-list-render-meta.test.ts`
+  - `apps/pwa/app/features/messaging/services/realtime-voice-signaling.test.ts`
+  - `apps/pwa/app/features/messaging/components/conversation-row.test.tsx`.
+- Redesigned mobile chat video playback UX:
+  - `apps/pwa/app/features/messaging/components/video-player.tsx`
+    now uses native controls on coarse-pointer/mobile devices and keeps the
+    cinematic floating control dock for desktop.
+- Improved mobile video message layout in
+  `apps/pwa/app/features/messaging/components/message-list.tsx` with
+  mobile-first aspect ratio (`16:10`), tighter spacing, and bounded theater
+  mode height.
+- Refined invitation composer dual-theme visual system in
+  `apps/pwa/app/features/messaging/components/invitation-composer-dialog.tsx`
+  with stable gradient surfaces and explicit high-contrast field styling in
+  both light and dark modes.
 - Hardened NIP-96 media upload timeout behavior across web/desktop:
   - added bounded `.well-known/nostr/nip96.json` discovery timeout and
     diagnostics in

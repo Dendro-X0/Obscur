@@ -1450,7 +1450,7 @@ function MessageAttachmentLayout({
 
     const deriveDisplayFileName = (attachment: Attachment): string => displayNameByUrl[attachment.url] ?? fileLabel;
     return (
-        <div className="mb-3 space-y-3">
+        <div className="mb-2 space-y-2 sm:mb-3 sm:space-y-3">
             {!chatUxV083Enabled && (
                 <>
                     {imageMedia.length > 0 ? (
@@ -1480,7 +1480,7 @@ function MessageAttachmentLayout({
                         </div>
                     ) : null}
                     {videoMedia.length > 0 ? (
-                        <div className="space-y-2">
+                        <div className="space-y-2 sm:space-y-3">
                             {videoMedia.map((attachment, index) => (
                                 <div key={`legacy-vid-${attachment.url}-${index}`} className="relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
                                     {localAttachmentUrlSet.has(attachment.url) ? (
@@ -1491,7 +1491,7 @@ function MessageAttachmentLayout({
                                     <VideoPlayer
                                         src={attachment.url}
                                         isOutgoing={isOutgoing}
-                                        className="w-full rounded-xl"
+                                        className="w-full rounded-xl aspect-[16/10] sm:aspect-video"
                                     />
                                 </div>
                             ))}
@@ -1549,7 +1549,7 @@ function MessageAttachmentLayout({
                                 <VideoPlayer
                                     src={activeVisual.attachment.url}
                                     isOutgoing={isOutgoing}
-                                    className="w-full rounded-2xl aspect-video"
+                                    className="w-full rounded-2xl aspect-[16/10] sm:aspect-video max-h-[62vh] sm:max-h-none"
                                 />
                             )}
                         </motion.div>

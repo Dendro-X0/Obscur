@@ -48,5 +48,53 @@ describe("ConversationRow", () => {
     expect(screen.getByText("messaging.noMessagesYet")).toBeInTheDocument();
     expect(screen.queryByText(/voice-call-signal/i)).not.toBeInTheDocument();
   });
-});
 
+  it("suppresses double-encoded voice-call control payload previews", () => {
+    const controlPayload = JSON.stringify({
+      type: "voice-call-signal",
+      version: 1,
+      roomId: "room-b",
+      signalType: "leave",
+      fromPubkey: "b".repeat(64),
+      sentAtUnixMs: 2,
+    });
+    const doubleEncodedPayload = JSON.stringify(controlPayload);
+    render(
+      <ConversationRow
+        conversation={{ ...baseConversation, id: "conv-b", lastMessage: doubleEncodedPayload }}
+        isSelected={false}
+        onSelect={vi.fn()}
+        unreadCount={0}
+        lastMessageLabel=""
+        lastActiveLabel=""
+        lastViewedLabel=""
+      />,
+    );
+    expect(screen.getByText("messaging.noMessagesYet")).toBeInTheDocument();
+    expect(screen.queryByText(/voice-call-signal/i)).not.toBeInTheDocument();
+  });
+
+  it("suppresses escaped-object voice-call control payload previews", () => {
+    const escapedControlPayload = JSON.stringify({
+      type: "voice-call-signal",
+      version: 1,
+      roomId: "room-c",
+      signalType: "ice-candidate",
+      fromPubkey: "c".repeat(64),
+      sentAtUnixMs: 3,
+    }).replace(/\"/g, "\\\"");
+    render(
+      <ConversationRow
+        conversation={{ ...baseConversation, id: "conv-c", lastMessage: escapedControlPayload }}
+        isSelected={false}
+        onSelect={vi.fn()}
+        unreadCount={0}
+        lastMessageLabel=""
+        lastActiveLabel=""
+        lastViewedLabel=""
+      />,
+    );
+    expect(screen.getByText("messaging.noMessagesYet")).toBeInTheDocument();
+    expect(screen.queryByText(/voice-call-signal/i)).not.toBeInTheDocument();
+  });
+});

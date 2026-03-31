@@ -113,14 +113,93 @@ const getMessageContentForDisplay = (params: Readonly<{
 };
 
 const parsePayload = (content: string): ParsedMessagePayload | null => {
-    try {
-        const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === "object") {
-            return parsed as ParsedMessagePayload;
+    let candidate: unknown = content;
+    for (let depth = 0; depth < 3; depth += 1) {
+        if (typeof candidate === "string") {
+            const trimmed = candidate.trim();
+            if (!trimmed) {
+                return null;
+            }
+            try {
+                candidate = JSON.parse(trimmed);
+            } catch {
+                candidate = trimmed;
+                break;
+            }
+            continue;
         }
-    } catch {
-        // Ignore parse failures for non-JSON message content.
+        if (candidate && typeof candidate === "object") {
+            return candidate as ParsedMessagePayload;
+        }
+        return null;
     }
+    if (candidate && typeof candidate === "object") {
+        return candidate as ParsedMessagePayload;
+    }
+    const trimmed = content.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const readLooseStringField = (field: string): string | null => {
+        const direct = new RegExp(`"${field}"\\s*:\\s*"([^"]+)"`).exec(trimmed);
+        if (direct?.[1]) {
+            return direct[1].trim() || null;
+        }
+        const escaped = new RegExp(`\\\\"${field}\\\\"\\s*:\\s*\\\\"([^\\\\"]+)\\\\"`).exec(trimmed);
+        if (escaped?.[1]) {
+            return escaped[1].trim() || null;
+        }
+        return null;
+    };
+
+    const readLooseNumberField = (field: string): number | null => {
+        const direct = new RegExp(`"${field}"\\s*:\\s*(-?\\d+)`).exec(trimmed);
+        if (direct?.[1]) {
+            const parsed = Number(direct[1]);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+        const escaped = new RegExp(`\\\\"${field}\\\\"\\s*:\\s*(-?\\d+)`).exec(trimmed);
+        if (escaped?.[1]) {
+            const parsed = Number(escaped[1]);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+        return null;
+    };
+
+    const looseType = readLooseStringField("type");
+    if (looseType === "voice-call-signal") {
+        const roomId = readLooseStringField("roomId");
+        const signalType = readLooseStringField("signalType");
+        if (!roomId || !signalType) {
+            return null;
+        }
+        return {
+            type: "voice-call-signal",
+            version: 1,
+            roomId,
+            signalType,
+            fromPubkey: readLooseStringField("fromPubkey"),
+            toPubkey: readLooseStringField("toPubkey"),
+            sentAtUnixMs: readLooseNumberField("sentAtUnixMs"),
+        };
+    }
+
+    if (looseType === "voice-call-invite") {
+        const roomId = readLooseStringField("roomId");
+        if (!roomId) {
+            return null;
+        }
+        return {
+            type: "voice-call-invite",
+            version: readLooseNumberField("version") ?? 1,
+            roomId,
+            invitedAtUnixMs: readLooseNumberField("invitedAtUnixMs"),
+            expiresAtUnixMs: readLooseNumberField("expiresAtUnixMs"),
+            fromPubkey: readLooseStringField("fromPubkey"),
+        };
+    }
+
     return null;
 };
 

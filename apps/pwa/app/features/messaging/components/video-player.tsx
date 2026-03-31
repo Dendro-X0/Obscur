@@ -19,7 +19,7 @@ interface VideoPlayerProps {
  * Custom styled Video Player for the Obscur chat app.
  * Matches the aesthetic of the AudioPlayer with smooth transitions and premium feel.
  */
-export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: VideoPlayerProps) {
+export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(autoPlay);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -32,6 +32,7 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
     const [hasRetriedWithBypass, setHasRetriedWithBypass] = useState(false);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
+    const [isCoarsePointer, setIsCoarsePointer] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -39,6 +40,23 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
         setRuntimeSrc(src);
         setHasRetriedWithBypass(false);
     }, [src]);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+            return;
+        }
+        const pointerQuery = window.matchMedia("(pointer: coarse)");
+        const updatePointerState = () => {
+            setIsCoarsePointer(pointerQuery.matches);
+        };
+        updatePointerState();
+        if (typeof pointerQuery.addEventListener === "function") {
+            pointerQuery.addEventListener("change", updatePointerState);
+            return () => pointerQuery.removeEventListener("change", updatePointerState);
+        }
+        pointerQuery.addListener(updatePointerState);
+        return () => pointerQuery.removeListener(updatePointerState);
+    }, []);
 
     const openExternally = async (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
@@ -173,6 +191,8 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
     };
 
     const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
+    const useNativeMobileControls = isCoarsePointer;
+    const showControlDock = !useNativeMobileControls && !isError && (isHovering || !isPlaying);
 
     return (
         <motion.div
@@ -239,7 +259,10 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                     key={runtimeSrc}
                     ref={videoRef}
                     src={runtimeSrc}
-                    className="w-full h-full object-contain cursor-pointer"
+                    className={cn(
+                        "w-full h-full object-contain",
+                        !useNativeMobileControls && "cursor-pointer"
+                    )}
                     onLoadStart={() => {
                         setIsLoading(true);
                         setIsError(false);
@@ -254,16 +277,18 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                     onCanPlay={handleCanPlay}
                     onError={handleVideoError}
                     onEnded={handleEnded}
-                    onClick={togglePlay}
+                    onClick={useNativeMobileControls ? undefined : togglePlay}
                     playsInline
                     preload="metadata"
                     autoPlay={autoPlay}
+                    controls={useNativeMobileControls}
+                    controlsList="nodownload noplaybackrate"
                 />
             )}
 
             {/* Premium Big Center Play Button */}
             <AnimatePresence>
-                {!isPlaying && !isLoading && !isError && (
+                {!useNativeMobileControls && !isPlaying && !isLoading && !isError && (
                     <motion.button
                         initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
                         animate={{ opacity: 1, scale: 1, rotate: 0 }}
@@ -282,49 +307,49 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
 
             {/* Floating Glassmorphic Control Dock */}
             <AnimatePresence>
-                {(isHovering || !isPlaying) && !isError && (
+                {showControlDock && (
                     <motion.div
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
                         transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-                        className="absolute inset-x-0 bottom-6 px-6 z-30 pointer-events-none"
+                        className="absolute inset-x-0 bottom-2 z-30 px-2 pointer-events-none sm:bottom-6 sm:px-6"
                     >
-                        <div className="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col gap-4 rounded-[24px] border border-zinc-300/80 bg-white/92 p-4 shadow-[0_20px_50px_rgba(15,23,42,0.2)] backdrop-blur-3xl dark:border-white/10 dark:bg-zinc-900/60 dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
+                        <div className="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col gap-2 rounded-2xl border border-zinc-300/80 bg-white/90 p-2.5 shadow-[0_16px_35px_rgba(15,23,42,0.2)] backdrop-blur-3xl dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-[0_16px_35px_rgba(0,0,0,0.55)] sm:gap-4 sm:rounded-[24px] sm:p-4 sm:shadow-[0_20px_50px_rgba(15,23,42,0.2)] dark:sm:shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
                             {/* Premium Continuous Seek Bar */}
-                            <div className="group/seek relative h-1.5 w-full cursor-pointer rounded-full bg-zinc-200/90 transition-all hover:h-2.5 dark:bg-white/5">
+                            <div className="group/seek relative h-1.5 w-full cursor-pointer rounded-full bg-zinc-200/90 transition-all hover:h-2 dark:bg-white/10 sm:hover:h-2.5">
                                 <div
                                     className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-600 via-purple-500 to-blue-400 rounded-full transition-all duration-100 shadow-[0_0_10px_rgba(147,51,234,0.5)]"
                                     style={{ width: `${progress}%` }}
                                 />
                                 <div
-                                    className="absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full border-2 border-purple-500 bg-white opacity-0 shadow-2xl scale-75 transition-all group-hover/seek:opacity-100 group-hover/seek:scale-100"
+                                    className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-purple-500 bg-white opacity-0 shadow-2xl scale-75 transition-all group-hover/seek:opacity-100 group-hover/seek:scale-100 sm:h-4 sm:w-4"
                                     style={{ left: `${progress}%`, marginLeft: "-8px" }}
                                 />
                             </div>
 
                             <div className="flex items-center justify-between px-1">
-                                <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-3 sm:gap-6">
                                     <button
                                         onClick={togglePlay}
                                         className="text-zinc-700 transition-all hover:scale-110 hover:text-zinc-950 active:scale-95 dark:text-white/70 dark:hover:text-white"
                                     >
                                         {isPlaying ? (
-                                            <Pause className="h-6 w-6 fill-current" />
+                                            <Pause className="h-5 w-5 fill-current sm:h-6 sm:w-6" />
                                         ) : (
-                                            <Play className="h-6 w-6 fill-current" />
+                                            <Play className="h-5 w-5 fill-current sm:h-6 sm:w-6" />
                                         )}
                                     </button>
 
-                                    <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] text-zinc-600 dark:text-white/50">
+                                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600 dark:text-white/50 sm:gap-3 sm:text-[11px] sm:tracking-[0.2em]">
                                         <span className="text-zinc-900 dark:text-white/90">{formatTime(currentTime)}</span>
                                         <span className="opacity-20 translate-y-[-1px]">|</span>
                                         <span>{formatTime(duration)}</span>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-5">
-                                    <div className="group/volume flex items-center gap-3 rounded-full border border-zinc-300/75 bg-white px-3 py-1.5 transition-all hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
+                                <div className="flex items-center gap-2 sm:gap-5">
+                                    <div className="hidden sm:flex group/volume items-center gap-3 rounded-full border border-zinc-300/75 bg-white px-3 py-1.5 transition-all hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
                                         <button onClick={handleToggleMute} className="text-zinc-500 transition-all hover:text-zinc-900 dark:text-white/40 dark:hover:text-white">
                                             {isMuted || volume === 0 ? (
                                                 <VideoOff className="h-4 w-4 opacity-100" />
@@ -345,6 +370,18 @@ export function VideoPlayer({ src, isOutgoing, autoPlay = false, className }: Vi
                                             {volumePercent}%
                                         </span>
                                     </div>
+
+                                    <button
+                                        onClick={handleToggleMute}
+                                        className="sm:hidden rounded-xl border border-zinc-300/75 bg-white p-2 text-zinc-600 transition-all hover:bg-zinc-100 hover:text-zinc-900 active:scale-90 dark:border-white/10 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20 dark:hover:text-white"
+                                        aria-label={isMuted || volume === 0 ? "Unmute video" : "Mute video"}
+                                    >
+                                        {isMuted || volume === 0 ? (
+                                            <VideoOff className="h-4 w-4" />
+                                        ) : (
+                                            <Volume2 className="h-4 w-4" />
+                                        )}
+                                    </button>
 
                                     <button
                                         onClick={handleFullscreen}

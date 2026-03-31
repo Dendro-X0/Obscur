@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   Button,
-  Input,
-  Textarea,
 } from "@dweb/ui-kit";
 import { AlertTriangle, Loader2, Send, Shield, WifiOff, X } from "lucide-react";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
@@ -49,6 +47,7 @@ export function InvitationComposerDialog({
   const submitButtonLabel = relayRecovery.writableRelayCount > 0
     ? submitLabel
     : "Queue Invitation";
+  const formFieldClassName = "w-full rounded-2xl border border-slate-300/85 bg-white/90 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/45 focus:ring-offset-2 focus:ring-offset-slate-100 dark:border-indigo-300/20 dark:bg-slate-950/55 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-indigo-300/50 dark:focus:ring-offset-slate-950";
 
   useEffect(() => {
     if (!isOpen) {
@@ -89,10 +88,10 @@ export function InvitationComposerDialog({
       }}
     >
       <div
-        className="w-full max-w-2xl overflow-hidden rounded-[32px] border border-slate-200/80 bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.14),_transparent_58%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.98))] text-slate-900 shadow-[0_30px_80px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#040816] dark:text-white dark:shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
+        className="w-full max-w-2xl overflow-hidden rounded-[32px] border border-slate-200/85 bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.18),_transparent_52%),linear-gradient(180deg,rgba(248,251,255,0.98),rgba(236,243,255,0.97))] text-slate-900 shadow-[0_30px_80px_rgba(15,23,42,0.22)] dark:border-indigo-200/20 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.24),_transparent_56%),linear-gradient(180deg,rgba(9,16,39,0.98),rgba(4,9,24,0.98))] dark:text-white dark:shadow-[0_30px_80px_rgba(0,0,0,0.5)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.18),_transparent_62%),linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.96))] px-6 py-6 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.28),_transparent_56%),linear-gradient(180deg,rgba(10,18,46,0.95),rgba(4,8,22,0.98))]">
+        <div className="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.2),_transparent_62%),linear-gradient(180deg,rgba(245,249,255,0.98),rgba(236,242,255,0.98))] px-6 py-6 dark:border-indigo-200/20 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.3),_transparent_58%),linear-gradient(180deg,rgba(12,20,52,0.96),rgba(6,12,30,0.98))]">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="mb-3 inline-flex w-fit items-center rounded-full border border-indigo-200/80 bg-indigo-50/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
@@ -122,16 +121,16 @@ export function InvitationComposerDialog({
           </div>
         </div>
 
-        <div className="space-y-5 px-6 py-6">
+        <div className="space-y-5 bg-[linear-gradient(180deg,rgba(247,251,255,0.92),rgba(236,242,255,0.96))] px-6 py-6 dark:bg-[linear-gradient(180deg,rgba(7,13,33,0.94),rgba(4,9,24,0.98))]">
           <div className="space-y-2">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 dark:text-slate-300">Why you are reaching out</p>
-            <Textarea
+            <textarea
               value={intro}
               onChange={(event) => setIntro(event.target.value)}
               rows={4}
               maxLength={280}
               placeholder={DEFAULT_INVITATION_INTRO}
-              className="resize-none rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
+              className={`${formFieldClassName} resize-none min-h-[132px]`}
             />
             <div className="flex justify-end text-[11px] text-slate-500 dark:text-slate-400">{intro.length}/280</div>
           </div>
@@ -139,22 +138,22 @@ export function InvitationComposerDialog({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 dark:text-slate-300">How they know you</p>
-              <Input
+              <input
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 maxLength={120}
                 placeholder="Designer from the Oslo meetup, teammate, artist friend..."
-                className="rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
+                className={formFieldClassName}
               />
             </div>
             <div className="space-y-2">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 dark:text-slate-300">Shared phrase or code</p>
-              <Input
+              <input
                 value={secretCode}
                 onChange={(event) => setSecretCode(event.target.value)}
                 maxLength={64}
                 placeholder="Optional shared phrase"
-                className="rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
+                className={formFieldClassName}
               />
             </div>
           </div>

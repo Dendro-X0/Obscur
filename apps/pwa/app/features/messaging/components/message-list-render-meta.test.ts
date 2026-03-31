@@ -174,4 +174,99 @@ describe("message-list render meta cache", () => {
             durationSeconds: 11,
         });
     });
+
+    it("parses double-encoded control payloads so restored call cards still render", () => {
+        const roomId = "dm-voice-room-double-encoded";
+        const invitePayload = JSON.stringify({
+            type: "voice-call-invite",
+            roomId,
+            invitedAtUnixMs: 2_000,
+            expiresAtUnixMs: 22_000,
+        });
+        const leavePayload = JSON.stringify({
+            type: "voice-call-signal",
+            roomId,
+            signalType: "leave",
+            sentAtUnixMs: 15_000,
+        });
+        const messages: ReadonlyArray<Message> = [
+            createMessage({
+                id: "msg-invite-double",
+                timestamp: new Date(2_000),
+                content: JSON.stringify(invitePayload),
+            }),
+            createMessage({
+                id: "msg-leave-double",
+                timestamp: new Date(15_000),
+                content: JSON.stringify(leavePayload),
+            }),
+        ];
+
+        const caches = buildMessageRenderCaches({
+            messages,
+            expandedRelayUrlsByMessageId: new Set<string>(),
+        });
+
+        expect(caches.parsedPayloadByMessageId.get("msg-invite-double")).toMatchObject({
+            type: "voice-call-invite",
+            roomId,
+        });
+        expect(caches.parsedPayloadByMessageId.get("msg-leave-double")).toMatchObject({
+            type: "voice-call-signal",
+            roomId,
+            signalType: "leave",
+        });
+        expect(caches.voiceCallRoomSummaryByRoomId.get(roomId)).toMatchObject({
+            roomId,
+            invitedAtUnixMs: 2_000,
+            endedAtUnixMs: 15_000,
+        });
+    });
+
+    it("parses escaped-object control payload text from restored histories", () => {
+        const roomId = "dm-voice-room-escaped-object";
+        const escapedSignalText = JSON.stringify({
+            type: "voice-call-signal",
+            version: 1,
+            roomId,
+            signalType: "offer",
+            fromPubkey: "f".repeat(64),
+            sentAtUnixMs: 12_345,
+        }).replace(/\"/g, "\\\"");
+        const escapedInviteText = JSON.stringify({
+            type: "voice-call-invite",
+            version: 1,
+            roomId,
+            invitedAtUnixMs: 10_000,
+            expiresAtUnixMs: 40_000,
+            fromPubkey: "f".repeat(64),
+        }).replace(/\"/g, "\\\"");
+        const messages: ReadonlyArray<Message> = [
+            createMessage({
+                id: "msg-invite-escaped-object",
+                timestamp: new Date(10_000),
+                content: escapedInviteText,
+            }),
+            createMessage({
+                id: "msg-signal-escaped-object",
+                timestamp: new Date(12_345),
+                content: escapedSignalText,
+            }),
+        ];
+
+        const caches = buildMessageRenderCaches({
+            messages,
+            expandedRelayUrlsByMessageId: new Set<string>(),
+        });
+
+        expect(caches.parsedPayloadByMessageId.get("msg-invite-escaped-object")).toMatchObject({
+            type: "voice-call-invite",
+            roomId,
+        });
+        expect(caches.parsedPayloadByMessageId.get("msg-signal-escaped-object")).toMatchObject({
+            type: "voice-call-signal",
+            roomId,
+            signalType: "offer",
+        });
+    });
 });
