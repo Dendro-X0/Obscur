@@ -9,6 +9,8 @@ import { NetworkProvider } from "@/app/features/network/providers/network-provid
 import { TanstackQueryRuntimeProvider } from "@/app/features/query/providers/tanstack-query-runtime-provider";
 import { RelayProvider } from "@/app/features/relays/providers/relay-provider";
 import { RuntimeActivationManager } from "./runtime-activation-manager";
+import { GlobalVoiceCallOverlay } from "@/app/features/messaging/components/global-voice-call-overlay";
+import MainShell from "@/app/features/main-shell/main-shell";
 
 
 export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
@@ -21,6 +23,8 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
             <MessagingProvider>
               <RuntimeMessagingTransportOwnerProvider>
                 <GlobalDialogManager />
+                <MainShell />
+                <GlobalVoiceCallOverlay />
                 {props.children}
               </RuntimeMessagingTransportOwnerProvider>
             </MessagingProvider>

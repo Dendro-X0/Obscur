@@ -2,6 +2,37 @@
 
 ### Changed
 
+- Hardened cross-route realtime voice session continuity:
+  - `apps/pwa/app/features/runtime/components/unlocked-app-runtime-shell.tsx`
+    now mounts `MainShell` as a global runtime owner so voice session logic
+    stays active when navigating away from `/`.
+  - `apps/pwa/app/page.tsx` now renders `null` (chat shell lifecycle is owned
+    globally instead of route-mount/unmount).
+  - `apps/pwa/app/features/main-shell/main-shell.tsx` now gates visual chat
+    rendering by pathname while preserving runtime ownership, and removed
+    navigation-unmount leave-call teardown.
+- Added global cross-page call dock bridge:
+  - `apps/pwa/app/features/messaging/services/realtime-voice-global-ui-store.ts`
+    (canonical global voice overlay state store),
+  - `apps/pwa/app/features/messaging/components/global-voice-call-overlay.tsx`
+    (non-chat route dock renderer + action bridge to chat runtime),
+  - integrated overlay mount in
+    `apps/pwa/app/features/runtime/components/unlocked-app-runtime-shell.tsx`.
+- Hardened explicit call termination ownership:
+  - `apps/pwa/app/features/main-shell/main-shell.tsx` now dispatches leave only
+    on explicit user action or real app/page close (`beforeunload`/`pagehide`),
+    preventing route-switch call drops.
+- Improved incoming DM notification behavior and UX in
+  `apps/pwa/app/components/desktop-notification-handler.tsx`:
+  - notify when user is not actively viewing the same conversation (not only
+    when fully backgrounded),
+  - added stale-event age suppression and dedupe guard preservation,
+  - added subtle throttled notification tone for off-chat incoming messages.
+- Added focused regression coverage for new behavior:
+  - `apps/pwa/app/components/desktop-notification-handler.test.tsx`,
+  - `apps/pwa/app/features/main-shell/main-shell.test.tsx`,
+  - `apps/pwa/app/features/messaging/components/global-voice-call-overlay.test.tsx`.
+
 - Hardened realtime voice host offer/answer SDP dispatch in
   `apps/pwa/app/features/main-shell/main-shell.tsx` to guard
   `setLocalDescription` failures (including m-line order mismatch), emit

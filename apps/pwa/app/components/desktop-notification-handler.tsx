@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useTauri } from "@/app/features/desktop/hooks/use-tauri";
 import { useDesktopNotifications } from "@/app/features/desktop/hooks/use-desktop-notifications";
+import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 
 const MAX_RECENT_MESSAGE_IDS = 400;
 const RECENT_MESSAGE_WINDOW_MS = 5 * 60_000;
+const MAX_MESSAGE_EVENT_AGE_MS = 2 * 60_000;
+const MESSAGE_TONE_COOLDOWN_MS = 2_200;
 
 /**
  * Global component to handle background desktop notifications
@@ -15,9 +19,50 @@ const RECENT_MESSAGE_WINDOW_MS = 5 * 60_000;
  */
 export const DesktopNotificationHandler = () => {
     useTauri();
-    const { showNotification } = useDesktopNotifications();
+    const pathname = usePathname();
+    const { selectedConversation } = useMessaging();
+    const { showNotification, enabled, channels } = useDesktopNotifications();
     const unsubscribeRef = useRef<(() => void) | null>(null);
     const recentlyNotifiedMessageIdsRef = useRef<Map<string, number>>(new Map());
+    const lastTonePlayedAtUnixMsRef = useRef<number>(0);
+
+    const playSubtleMessageTone = useCallback((): void => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const now = Date.now();
+        if ((now - lastTonePlayedAtUnixMsRef.current) < MESSAGE_TONE_COOLDOWN_MS) {
+            return;
+        }
+        lastTonePlayedAtUnixMsRef.current = now;
+        try {
+            const AudioContextCtor: typeof AudioContext | undefined =
+                window.AudioContext
+                || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+            if (!AudioContextCtor) {
+                return;
+            }
+            const audioContext = new AudioContextCtor();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(920, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.018, audioContext.currentTime + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.18);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+            window.setTimeout(() => {
+                void audioContext.close().catch(() => {
+                    // best effort cleanup
+                });
+            }, 260);
+        } catch {
+            // best effort notification tone only
+        }
+    }, []);
 
     useEffect((): (() => void) => {
         unsubscribeRef.current = messageBus.subscribe((event) => {
@@ -27,11 +72,24 @@ export const DesktopNotificationHandler = () => {
             if (event.message.isOutgoing) {
                 return;
             }
-            const isBackgrounded = (
-                typeof document !== "undefined"
-                && (document.visibilityState !== "visible" || !document.hasFocus())
+            const messageUnixMs = (
+                event.message.eventCreatedAt?.getTime()
+                ?? event.message.timestamp.getTime()
             );
-            if (!isBackgrounded) {
+            if ((Date.now() - messageUnixMs) > MAX_MESSAGE_EVENT_AGE_MS) {
+                return;
+            }
+            const isForeground = (
+                typeof document !== "undefined"
+                && document.visibilityState === "visible"
+                && document.hasFocus()
+            );
+            const isViewingSameConversation = (
+                pathname === "/"
+                && selectedConversation?.id === event.conversationId
+                && isForeground
+            );
+            if (isViewingSameConversation) {
                 return;
             }
 
@@ -69,16 +127,19 @@ export const DesktopNotificationHandler = () => {
             );
             const preview = event.message.content.trim();
             const normalizedPreview = preview.length > 0 ? preview : "Sent a message";
-            showNotification(
-                `New message from ${senderName}`,
-                normalizedPreview.length > 90 ? `${normalizedPreview.slice(0, 90)}...` : normalizedPreview,
-                "dmMessages"
-            );
+            if (enabled && channels.dmMessages) {
+                void showNotification(
+                    `New message from ${senderName}`,
+                    normalizedPreview.length > 90 ? `${normalizedPreview.slice(0, 90)}...` : normalizedPreview,
+                    "dmMessages"
+                );
+                playSubtleMessageTone();
+            }
         });
         return (): void => {
             unsubscribeRef.current?.();
         };
-    }, [showNotification]);
+    }, [channels.dmMessages, enabled, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
 
     // This component doesn't render anything
     return null;

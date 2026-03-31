@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import AppShell from "@/app/components/app-shell";
 import { useRuntimeMessagingTransportOwnerController } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
@@ -88,6 +88,7 @@ import {
   PENDING_VOICE_CALL_REQUEST_MAX_AGE_MS,
   readPendingVoiceCallRequest,
 } from "@/app/features/messaging/services/realtime-voice-pending-request";
+import { setGlobalVoiceCallOverlayState } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
@@ -105,6 +106,9 @@ const VOICE_CALL_LEAVE_SIGNAL_RETRY_INTERVAL_MS = 1_500;
 const VOICE_CALL_LEAVE_SIGNAL_RETRY_MAX_ATTEMPTS = 3;
 const VOICE_SIGNAL_BOOTSTRAP_REPLAY_WINDOW_MS = 2 * 60 * 1000;
 const VOICE_INVITE_BOOTSTRAP_REPLAY_WINDOW_MS = 5 * 60 * 1000;
+const VOICE_CALL_OVERLAY_ACTION_EVENT_NAME = "obscur:voice-call-overlay-action";
+const VOICE_CALL_OVERLAY_ACTION_STORAGE_KEY = "obscur.voice_call.overlay_action.v1";
+const VOICE_CALL_OVERLAY_ACTION_MAX_AGE_MS = 20_000;
 const REALTIME_VOICE_CALLS_ENABLED = isRealtimeVoiceCallsEnabled();
 const PRIVATE_CONTACT_DISPLAY_NAME = "Unknown contact";
 const PRIVATE_CALLER_DISPLAY_NAME = "Unknown caller";
@@ -174,9 +178,13 @@ type VoiceWaveAudioLevelState = Readonly<{
   remote: number;
 }>;
 
+type VoiceCallOverlayAction = "open_chat" | "accept" | "decline" | "end" | "dismiss";
+
 function NostrMessengerContent() {
   const { t } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
+  const isChatRoute = pathname === "/";
   const identity = useIdentity();
   const { blocklist, peerTrust, requestsInbox, presence } = useNetwork();
 
@@ -2931,9 +2939,24 @@ function NostrMessengerContent() {
   }, [handleLeaveVoiceCall]);
 
   useEffect(() => {
-    return () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleWindowBeforeUnload = (): void => {
       clearVoiceLeaveSignalRetryTimers();
       leaveCallOnUnmountRef.current();
+    };
+    window.addEventListener("beforeunload", handleWindowBeforeUnload);
+    window.addEventListener("pagehide", handleWindowBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleWindowBeforeUnload);
+      window.removeEventListener("pagehide", handleWindowBeforeUnload);
+    };
+  }, [clearVoiceLeaveSignalRetryTimers]);
+
+  useEffect(() => {
+    return () => {
+      clearVoiceLeaveSignalRetryTimers();
     };
   }, [clearVoiceLeaveSignalRetryTimers]);
 
@@ -2964,6 +2987,36 @@ function NostrMessengerContent() {
     setSelectedConversation(nextConversation);
     unhideConversation(nextConversation.id);
   }, [createdConnections, dmDisplayNameByPubkey, myPublicKeyHex, setSelectedConversation, unhideConversation, voiceCallUiStatus]);
+  const executeVoiceCallOverlayAction = useCallback((action: VoiceCallOverlayAction): void => {
+    if (!REALTIME_VOICE_CALLS_ENABLED) {
+      return;
+    }
+    switch (action) {
+      case "open_chat":
+        handleOpenVoiceCallConversation();
+        return;
+      case "accept":
+        handleAcceptIncomingVoiceInvite();
+        return;
+      case "decline":
+        handleDeclineIncomingVoiceInvite();
+        return;
+      case "end":
+        handleLeaveVoiceCall();
+        return;
+      case "dismiss":
+        handleDismissVoiceCallStatus();
+        return;
+      default:
+        return;
+    }
+  }, [
+    handleAcceptIncomingVoiceInvite,
+    handleDeclineIncomingVoiceInvite,
+    handleDismissVoiceCallStatus,
+    handleLeaveVoiceCall,
+    handleOpenVoiceCallConversation,
+  ]);
   const voiceCallDockPeerDisplayName = useMemo(() => {
     if (!voiceCallUiStatus) {
       return PRIVATE_CALLER_DISPLAY_NAME;
@@ -2988,6 +3041,66 @@ function NostrMessengerContent() {
     const current = voiceWaveAudioLevelRef.current;
     return Math.max(current.local, current.remote);
   }, []);
+  useEffect(() => {
+    setGlobalVoiceCallOverlayState({
+      status: voiceCallUiStatus ? { ...voiceCallUiStatus } : null,
+      peerDisplayName: voiceCallDockResolvedPeerDisplayName,
+      peerAvatarUrl: voiceCallDockResolvedPeerAvatarUrl,
+    });
+  }, [voiceCallDockResolvedPeerAvatarUrl, voiceCallDockResolvedPeerDisplayName, voiceCallUiStatus]);
+
+  useEffect(() => {
+    if (!REALTIME_VOICE_CALLS_ENABLED || typeof window === "undefined") {
+      return;
+    }
+    const applyOverlayActionPayload = (payload: unknown): void => {
+      if (!payload || typeof payload !== "object") {
+        return;
+      }
+      const action = (payload as { action?: unknown }).action;
+      if (typeof action !== "string") {
+        return;
+      }
+      if (!["open_chat", "accept", "decline", "end", "dismiss"].includes(action)) {
+        return;
+      }
+      executeVoiceCallOverlayAction(action as VoiceCallOverlayAction);
+    };
+
+    const readAndConsumePendingOverlayAction = (): void => {
+      try {
+        const raw = window.sessionStorage.getItem(VOICE_CALL_OVERLAY_ACTION_STORAGE_KEY);
+        if (!raw) {
+          return;
+        }
+        window.sessionStorage.removeItem(VOICE_CALL_OVERLAY_ACTION_STORAGE_KEY);
+        const parsed = JSON.parse(raw) as Partial<{ action: string; atUnixMs: number }>;
+        if (!parsed.action) {
+          return;
+        }
+        const ageMs = typeof parsed.atUnixMs === "number"
+          ? Math.max(0, Date.now() - parsed.atUnixMs)
+          : 0;
+        if (ageMs > VOICE_CALL_OVERLAY_ACTION_MAX_AGE_MS) {
+          return;
+        }
+        applyOverlayActionPayload(parsed);
+      } catch {
+        // best effort bridge only
+      }
+    };
+
+    const handleOverlayActionEvent = (event: Event): void => {
+      const custom = event as CustomEvent<unknown>;
+      applyOverlayActionPayload(custom.detail);
+    };
+
+    readAndConsumePendingOverlayAction();
+    window.addEventListener(VOICE_CALL_OVERLAY_ACTION_EVENT_NAME, handleOverlayActionEvent as EventListener);
+    return () => {
+      window.removeEventListener(VOICE_CALL_OVERLAY_ACTION_EVENT_NAME, handleOverlayActionEvent as EventListener);
+    };
+  }, [executeVoiceCallOverlayAction]);
   const interactionByConversationId = useMemo(() => {
     const map: Record<string, Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>> = {};
     allConversations.forEach((conversation) => {
@@ -3086,6 +3199,10 @@ function NostrMessengerContent() {
       return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
     }, 0)
   ), [selectedConversation?.id, unreadByConversationId, visibleChatsList]);
+
+  if (!isChatRoute) {
+    return null;
+  }
 
   if (identity.state.status === "loading") {
     return <AppLoadingScreen title="Restoring identity" detail="Unlocking profile context..." />;

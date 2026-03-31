@@ -5,6 +5,7 @@ import NostrMessenger from "./main-shell";
 
 const testState = vi.hoisted(() => ({
   identityMode: "unlocked" as "unlocked" | "loading" | "locked",
+  pathname: "/" as string,
 }));
 
 const testFns = vi.hoisted(() => ({
@@ -53,6 +54,7 @@ const testFns = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => testState.pathname,
   useRouter: () => ({
     push: testFns.routerPush,
   }),
@@ -358,6 +360,7 @@ describe("main-shell hook stability", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     testState.identityMode = "unlocked";
+    testState.pathname = "/";
   });
 
   it("keeps hook order stable across identity loading transitions", async () => {
@@ -381,5 +384,14 @@ describe("main-shell hook stability", () => {
     } finally {
       consoleErrorSpy.mockRestore();
     }
+  });
+
+  it("keeps runtime mounted but hides chat shell on non-chat routes", async () => {
+    testState.pathname = "/network";
+    const { container } = render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+    expect(screen.queryByTestId("app-shell")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("loading-screen")).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
   });
 });
