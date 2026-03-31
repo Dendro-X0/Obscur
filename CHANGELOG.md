@@ -2,6 +2,11 @@
 
 ### Changed
 
+- Hardened realtime voice host offer/answer SDP dispatch in
+  `apps/pwa/app/features/main-shell/main-shell.tsx` to guard
+  `setLocalDescription` failures (including m-line order mismatch), emit
+  structured diagnostics, and perform one-time RTCPeerConnection reset
+  recovery before retrying offer dispatch.
 - Hardened restored voice-call control rendering in chat/message list:
   - `apps/pwa/app/features/messaging/components/message-list-render-meta.ts`
     now tolerates double-encoded and escaped payload text for

@@ -1728,26 +1728,92 @@ function NostrMessengerContent() {
         return;
       }
 
-      const offer = await connection.createOffer({
-        offerToReceiveAudio: true,
-      });
-      await connection.setLocalDescription(offer);
-      if (!connection.localDescription) {
-        return;
-      }
-      const offerSent = await sendVoiceSignal({
-        peerPubkey,
-        payload: createVoiceCallSignalPayload({
-          roomId: signal.roomId,
-          signalType: "offer",
-          fromPubkey: myPublicKeyHex,
-          toPubkey: peerPubkey,
-          sdp: {
-            type: connection.localDescription.type,
-            sdp: connection.localDescription.sdp,
+      const dispatchHostOffer = async (targetConnection: RTCPeerConnection): Promise<boolean> => {
+        const offer = await targetConnection.createOffer({
+          offerToReceiveAudio: true,
+        });
+        await targetConnection.setLocalDescription(offer);
+        if (!targetConnection.localDescription) {
+          return false;
+        }
+        return await sendVoiceSignal({
+          peerPubkey,
+          payload: createVoiceCallSignalPayload({
+            roomId: signal.roomId,
+            signalType: "offer",
+            fromPubkey: myPublicKeyHex,
+            toPubkey: peerPubkey,
+            sdp: {
+              type: targetConnection.localDescription.type,
+              sdp: targetConnection.localDescription.sdp,
+            },
+          }),
+        });
+      };
+
+      let offerSent = false;
+      let offerDispatchRecovered = false;
+      try {
+        offerSent = await dispatchHostOffer(connection);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error ?? "unknown");
+        const mLineOrderMismatch = /order of m-lines/i.test(errorMessage);
+        logAppEvent({
+          name: "messaging.realtime_voice.join_offer_create_failed",
+          level: "warn",
+          scope: { feature: "messaging", action: "realtime_voice_signal" },
+          context: {
+            roomIdHint: toRoomIdHint(signal.roomId),
+            peerPubkeySuffix: peerPubkey.slice(-8),
+            signalingState: connection.signalingState,
+            connectionState: connection.connectionState,
+            reasonCode: mLineOrderMismatch ? "mline_order_mismatch" : "offer_create_failed",
+            errorMessage,
           },
-        }),
-      });
+        });
+
+        if (mLineOrderMismatch) {
+          tearDownVoicePeerConnection({ reasonCode: "session_closed" });
+          const resetConnection = await ensureVoicePeerConnection(session);
+          if (resetConnection) {
+            try {
+              offerSent = await dispatchHostOffer(resetConnection);
+              offerDispatchRecovered = true;
+            } catch (resetError) {
+              const resetErrorMessage = resetError instanceof Error ? resetError.message : String(resetError ?? "unknown");
+              logAppEvent({
+                name: "messaging.realtime_voice.join_offer_retry_after_reset_failed",
+                level: "warn",
+                scope: { feature: "messaging", action: "realtime_voice_signal" },
+                context: {
+                  roomIdHint: toRoomIdHint(signal.roomId),
+                  peerPubkeySuffix: peerPubkey.slice(-8),
+                  errorMessage: resetErrorMessage,
+                },
+              });
+              return;
+            }
+          } else {
+            return;
+          }
+        } else {
+          return;
+        }
+      }
+
+      if (offerDispatchRecovered) {
+        logAppEvent({
+          name: "messaging.realtime_voice.join_offer_retry_after_reset",
+          level: "info",
+          scope: { feature: "messaging", action: "realtime_voice_signal" },
+          context: {
+            roomIdHint: toRoomIdHint(signal.roomId),
+            peerPubkeySuffix: peerPubkey.slice(-8),
+            status: offerSent ? "sent" : "failed",
+          },
+        });
+      }
+
       if (!offerSent) {
         logAppEvent({
           name: "messaging.realtime_voice.join_offer_dispatch_failed",
@@ -1927,8 +1993,25 @@ function NostrMessengerContent() {
         return;
       }
       await flushPendingRemoteIceCandidates(connection);
-      const answer = await connection.createAnswer();
-      await connection.setLocalDescription(answer);
+      try {
+        const answer = await connection.createAnswer();
+        await connection.setLocalDescription(answer);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error ?? "unknown");
+        logAppEvent({
+          name: "messaging.realtime_voice.join_answer_create_failed",
+          level: "warn",
+          scope: { feature: "messaging", action: "realtime_voice_signal" },
+          context: {
+            roomIdHint: toRoomIdHint(signal.roomId),
+            peerPubkeySuffix: peerPubkey.slice(-8),
+            signalingState: connection.signalingState,
+            connectionState: connection.connectionState,
+            errorMessage,
+          },
+        });
+        return;
+      }
       if (connection.localDescription) {
         const answerSent = await sendVoiceSignal({
           peerPubkey,
