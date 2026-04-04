@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { defaultPrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
 import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
 import { buildCanonicalBackupImportEvents } from "./account-event-bootstrap-service";
+import { writeHistoryResetCutoffUnixMs } from "./history-reset-cutoff-store";
 
 const ACCOUNT = "a".repeat(64) as PublicKeyHex;
 const PEER = "b".repeat(64) as PublicKeyHex;
@@ -39,6 +40,10 @@ const basePayload = (params: Readonly<{
 });
 
 describe("account-event-bootstrap-service", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("restores outgoing and incoming DMs when canonical conversation id is present without createdConnections", () => {
     const conversationId = [ACCOUNT, PEER].sort().join(":");
     const payload = basePayload({
@@ -261,6 +266,88 @@ describe("account-event-bootstrap-service", () => {
         type: "DM_SENT_CONFIRMED",
         messageId: "legacy-out-2",
         peerPublicKeyHex: PEER,
+      }),
+    ]));
+  });
+
+  it("filters backup DM history and stale sync checkpoints older than the local history reset cutoff", () => {
+    writeHistoryResetCutoffUnixMs(PROFILE_ID, 35_000);
+    const payload = basePayload({
+      createdAtUnixMs: 50_000,
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          [PEER]: [
+            {
+              id: "legacy-old",
+              content: "before reset",
+              timestampMs: 30_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+            {
+              id: "legacy-new",
+              content: "after reset",
+              timestampMs: 40_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+          ],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+    });
+    const payloadWithCheckpoints: EncryptedAccountBackupPayload = {
+      ...payload,
+      syncCheckpoints: [
+        {
+          timelineKey: "dm:all",
+          lastProcessedAtUnixSeconds: 31,
+          updatedAtUnixMs: 31_000,
+        },
+        {
+          timelineKey: "dm:all",
+          lastProcessedAtUnixSeconds: 41,
+          updatedAtUnixMs: 41_000,
+        },
+      ],
+    };
+
+    const events = buildCanonicalBackupImportEvents({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT,
+      payload: payloadWithCheckpoints,
+      source: "relay_sync",
+      idempotencyPrefix: "restore:test",
+    });
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "DM_SENT_CONFIRMED",
+        messageId: "legacy-new",
+      }),
+      expect.objectContaining({
+        type: "SYNC_CHECKPOINT_ADVANCED",
+        lastProcessedAtUnixSeconds: 41,
+      }),
+    ]));
+    expect(events).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "DM_SENT_CONFIRMED",
+        messageId: "legacy-old",
+      }),
+      expect.objectContaining({
+        type: "SYNC_CHECKPOINT_ADVANCED",
+        lastProcessedAtUnixSeconds: 31,
       }),
     ]));
   });

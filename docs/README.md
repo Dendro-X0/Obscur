@@ -28,10 +28,20 @@ Use this folder as the canonical engineering contract for architecture, roadmap,
 1. [Current Roadmap](./roadmap/current-roadmap.md)
 2. [Release Closeout Guide](./releases/release-closeout-guide.md)
 
+### Continuation and Handoffs
+
+1. [Maintainer Playbook](./08-maintainer-playbook.md)
+2. [Current Session Handoff](./handoffs/current-session.md)
+3. [Session Handoff Template](./handoffs/session-template.md)
+
 ### History and Design
 
 1. [Version Context](./history/version-context.md)
 2. [Theme Contrast Guidelines](./design/theme-contrast-guidelines.md)
+
+### Tooling
+
+1. [Playwright MCP Quickstart](./playwright-mcp-quickstart.md)
 
 ## Consolidation Policy
 
@@ -42,6 +52,7 @@ Version-specific planning and checkpoint docs were consolidated into general can
 3. `docs/roadmap/current-roadmap.md`
 4. `docs/07-operations-and-release-flow.md`
 5. `docs/08-maintainer-playbook.md`
+6. `docs/handoffs/current-session.md`
 
 Legacy version docs can remain in `docs/archive/versioned/` for audit history, but they are no longer required planning entrypoints.
 
@@ -52,6 +63,8 @@ Legacy version docs can remain in `docs/archive/versioned/` for audit history, b
 3. Keep archive docs read-only unless doing historical correction.
 4. When architecture meaningfully changes, update:
 : `core doc` + `roadmap/release doc` + `CHANGELOG.md` in the same change set.
+5. When work spans multiple Codex threads, update:
+: `docs/handoffs/current-session.md` before ending the thread.
 
 ## Mandatory Check
 

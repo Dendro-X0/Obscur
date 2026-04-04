@@ -10,12 +10,13 @@ const buildMessage = (params: Readonly<{
   timestampMs?: number;
   attachments?: Message["attachments"];
   replyToMessageId?: string;
+  isOutgoing?: boolean;
 }>): Message => ({
   id: params.id,
   kind: "user",
   content: params.content ?? "",
   timestamp: new Date(params.timestampMs ?? 1_700_000_000_000),
-  isOutgoing: true,
+  isOutgoing: params.isOutgoing ?? true,
   status: "delivered",
   eventId: params.eventId,
   eventCreatedAt: typeof params.eventCreatedAtMs === "number" ? new Date(params.eventCreatedAtMs) : undefined,
@@ -26,6 +27,16 @@ const buildMessage = (params: Readonly<{
 });
 
 describe("use-chat-actions delete target derivation", () => {
+  it("only allows delete for everyone on self-authored messages", () => {
+    const outgoingMessage = buildMessage({ id: "outgoing-1" });
+    const incomingMessage = buildMessage({ id: "incoming-1", isOutgoing: false });
+
+    expect(useChatActionsInternals.canDeleteMessageForEveryone(outgoingMessage)).toBe(true);
+    expect(useChatActionsInternals.canDeleteMessageForEveryone(incomingMessage)).toBe(false);
+    expect(useChatActionsInternals.getDeleteForEveryoneRejectionReason(outgoingMessage)).toBeNull();
+    expect(useChatActionsInternals.getDeleteForEveryoneRejectionReason(incomingMessage)).toBe("not_outgoing_message");
+  });
+
   it("derives rumor ids for attachment-only voice-note rows even when dmFormat is missing", async () => {
     const message = buildMessage({
       id: "giftwrap-id-1",
@@ -106,5 +117,22 @@ describe("use-chat-actions delete target derivation", () => {
 
     expect(result).toEqual(expect.arrayContaining(["msg-1", "evt-1"]));
     expect(result).toHaveLength(2);
+  });
+
+  it("prioritizes canonical event id as the primary delete target when available", async () => {
+    const message = buildMessage({
+      id: "gift-wrap-event-id-1",
+      eventId: "canonical-rumor-id-1",
+      content: "hello",
+    });
+
+    const result = await useChatActionsInternals.buildDeleteTargetIdsForDm({
+      message,
+      senderPubkey: null,
+      recipientPubkey: null,
+    });
+
+    expect(result[0]).toBe("canonical-rumor-id-1");
+    expect(result).toEqual(expect.arrayContaining(["gift-wrap-event-id-1", "canonical-rumor-id-1"]));
   });
 });

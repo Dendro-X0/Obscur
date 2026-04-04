@@ -161,6 +161,7 @@ export class CryptoServiceImpl implements CryptoService {
             kind: event.kind,
             content: event.content,
             tags: event.tags,
+            createdAtUnixSeconds: event.created_at,
             privateKeyHex: privateKey
         });
     }

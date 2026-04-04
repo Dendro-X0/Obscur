@@ -7,6 +7,15 @@ import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter
 
 const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
 const getAutolockStorageKey = (): string => getScopedStorageKey(AUTOLOCK_STORAGE_KEY);
+type TorRuntimeState = 'disconnected' | 'starting' | 'connected' | 'error' | 'stopped';
+type TorStatusSnapshot = Readonly<{
+    state: TorRuntimeState;
+    configured: boolean;
+    ready: boolean;
+    usingExternalInstance: boolean;
+    proxyUrl: string;
+}>;
+type TorLogSnapshot = string[];
 
 /**
  * Hook for managing auto-lock state and inactivity tracking
@@ -28,7 +37,8 @@ export function useAutoLock() {
         const stored = sessionStorage.getItem(getAutolockStorageKey());
         return stored ? parseInt(stored, 10) : Date.now();
     });
-    const [torStatus, setTorStatus] = useState<'disconnected' | 'starting' | 'connected' | 'error' | 'stopped'>('disconnected');
+    const [torStatus, setTorStatus] = useState<TorRuntimeState>('disconnected');
+    const [torStatusSnapshot, setTorStatusSnapshot] = useState<TorStatusSnapshot | null>(null);
     const [torLogs, setTorLogs] = useState<string[]>([]);
     const [torRestartRequired, setTorRestartRequired] = useState<boolean>(false);
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -58,6 +68,11 @@ export function useAutoLock() {
                 if (payload === 'connected') {
                     setTorRestartRequired(false);
                 }
+                void invokeNativeCommand<TorStatusSnapshot>("get_tor_status").then((result) => {
+                    if (result.ok && result.value?.state) {
+                        setTorStatusSnapshot(result.value);
+                    }
+                });
             }).then(u => unlistenStatus = u);
 
             void listenToNativeEvent<string>('tor-log', (event) => {
@@ -73,9 +88,18 @@ export function useAutoLock() {
             }).then(u => unlistenError = u);
 
             // Initial status check
-            void invokeNativeCommand<boolean>("get_tor_status").then((result) => {
-                if (result.ok && result.value) {
-                    setTorStatus("connected");
+            void invokeNativeCommand<TorStatusSnapshot>("get_tor_status").then((result) => {
+                if (result.ok && result.value?.state) {
+                    setTorStatus(result.value.state);
+                    setTorStatusSnapshot(result.value);
+                    if (result.value.ready) {
+                        setTorRestartRequired(false);
+                    }
+                }
+            });
+            void invokeNativeCommand<TorLogSnapshot>("get_tor_logs").then((result) => {
+                if (result.ok && Array.isArray(result.value)) {
+                    setTorLogs(result.value.slice(-100));
                 }
             });
         }
@@ -209,18 +233,33 @@ export function useAutoLock() {
         // Handle Tor process if enableTorProxy changed
         if (isTauri && newSettings.enableTorProxy !== undefined && newSettings.enableTorProxy !== current.enableTorProxy) {
             void (async () => {
-                if (newSettings.enableTorProxy) {
-                    await invokeNativeCommand("start_tor");
-                } else {
-                    await invokeNativeCommand("stop_tor");
-                }
-
                 const persisted = await invokeNativeCommand("save_tor_settings", {
                     enableTor: newSettings.enableTorProxy,
                     proxyUrl: updated.torProxyUrl,
                 });
                 if (persisted.ok) {
                     setTorRestartRequired(false);
+                }
+
+                if (newSettings.enableTorProxy) {
+                    setTorStatus("starting");
+                    await invokeNativeCommand("start_tor");
+                } else {
+                    setTorStatus("stopped");
+                    await invokeNativeCommand("stop_tor");
+                }
+
+                const statusSnapshot = await invokeNativeCommand<TorStatusSnapshot>("get_tor_status");
+                if (statusSnapshot.ok && statusSnapshot.value?.state) {
+                    setTorStatus(statusSnapshot.value.state);
+                    setTorStatusSnapshot(statusSnapshot.value);
+                    if (statusSnapshot.value.ready) {
+                        setTorRestartRequired(false);
+                    }
+                }
+                const logSnapshot = await invokeNativeCommand<TorLogSnapshot>("get_tor_logs");
+                if (logSnapshot.ok && Array.isArray(logSnapshot.value)) {
+                    setTorLogs(logSnapshot.value.slice(-100));
                 }
             })();
         }
@@ -237,6 +276,7 @@ export function useAutoLock() {
         unlock,
         lastActivityTime,
         torStatus,
+        torStatusSnapshot,
         torLogs,
         torRestartRequired,
         isTauri
@@ -248,6 +288,7 @@ export function useAutoLock() {
         unlock,
         lastActivityTime,
         torStatus,
+        torStatusSnapshot,
         torLogs,
         torRestartRequired,
         isTauri

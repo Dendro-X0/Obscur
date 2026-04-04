@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.3.3",
+  "version": "1.3.4",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -10,11 +10,17 @@
     "dev:pwa": "pnpm -C apps/pwa dev",
     "dev:api": "pnpm -C apps/api dev",
     "dev:desktop": "pnpm -C apps/desktop dev",
+    "mcp:playwright": "playwright-mcp --headless --isolated",
+    "mcp:playwright:headed": "playwright-mcp --isolated",
+    "mcp:playwright:sse": "playwright-mcp --headless --isolated --host 127.0.0.1 --port 8931",
     "build:pwa": "pnpm -C apps/pwa build",
     "build:api": "pnpm -C apps/api build",
     "build:desktop": "pnpm -C apps/desktop build",
     "lint:pwa": "pnpm -C apps/pwa lint",
     "docs:check": "node scripts/docs-check.mjs",
+    "context:handoff:init": "node scripts/context-handoff.mjs init",
+    "context:checkpoint": "node scripts/context-handoff.mjs checkpoint",
+    "context:handoff:show": "node scripts/context-handoff.mjs show",
     "security:audit": "pnpm audit",
     "release:preflight": "node scripts/release-preflight.mjs",
     "release:integrity-check": "node scripts/check-release-source-integrity.mjs",
@@ -54,5 +60,8 @@
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
     "version:bump": "node scripts/bump-version.js"
+  },
+  "devDependencies": {
+    "@playwright/mcp": "^0.0.70"
   }
 }

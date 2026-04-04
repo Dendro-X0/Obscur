@@ -341,6 +341,9 @@ describe("ChatView batch delete", () => {
         await waitFor(() => {
             expect(messageListPropsRef.current?.batchDeleteMode).toBe(true);
         });
+        expect(screen.getByText("Deletion permissions:")).toBeInTheDocument();
+        expect(screen.getByText('"Delete for me" hides selected messages only in your interface.')).toBeInTheDocument();
+        expect(screen.getByText('"Delete for everyone" removes only messages you sent from all participants\' interfaces.')).toBeInTheDocument();
 
         await act(async () => {
             const toggle = messageListPropsRef.current?.onToggleSelectMessage as ((messageId: string) => void) | undefined;

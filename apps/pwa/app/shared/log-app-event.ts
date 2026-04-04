@@ -301,10 +301,12 @@ type AppEventDiagnosticsApi = Readonly<{
 const APP_EVENT_ISSUE_EXCLUSION_SET: ReadonlySet<string> = new Set([
   "messaging.delivery.sender_delivery_failed",
   "messaging.delivery.sender_delivery_queued",
+  "relay.runtime_performance_gate",
 ]);
 
 const DEV_WARN_ONLY_ERROR_EVENT_SET: ReadonlySet<string> = new Set([
   "messaging.delivery.sender_delivery_failed",
+  "relay.runtime_performance_gate",
 ]);
 
 const APP_EVENT_BUFFER_KEY = "__obscur_app_event_buffer__";

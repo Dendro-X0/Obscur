@@ -33,7 +33,20 @@ import { CommunityInviteResponseCard } from "../../groups/components/community-i
 import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
-import { isMessageListAwayFromBottom, isMessageListFastScroll } from "./message-list-scroll";
+import {
+    canMessageListAutoScrollToBottom,
+    isMessageListAwayFromBottom,
+    isMessageListFastScroll,
+    type MessageListScrollMode,
+    isMessageListUserAwayFromBottom,
+    shouldMessageListLockToUserHistoryOnUpwardScroll,
+    shouldAutoScrollOnNewMessage,
+} from "./message-list-scroll";
+import {
+    MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS,
+    MESSAGE_BUBBLE_LONG_PRESS_DELAY_MS,
+    shouldCancelMessageBubbleLongPress,
+} from "./message-list-touch";
 import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { resolveSearchJumpDomResolution, resolveSearchJumpStep } from "./message-search-jump";
@@ -87,6 +100,11 @@ interface MessageListProps {
 
 type MessageListScrollBehavior = "auto" | "smooth";
 const EMPTY_SELECTED_MESSAGE_IDS: ReadonlySet<string> = new Set<string>();
+const INITIAL_LATEST_LANDING_STABLE_DELAY_MS = 320;
+type MessageListPrependAnchor = Readonly<{
+    messageId: string;
+    topOffsetPx: number;
+}>;
 
 const toIdHint = (value: string): string => {
     const trimmed = value.trim();
@@ -145,8 +163,13 @@ function MessageListImpl({
     const lastScrollTsRef = React.useRef(0);
     const fastScrollTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const scrollFrameRef = React.useRef<number | null>(null);
+    const autoBottomFrameRef = React.useRef<number | null>(null);
     const pendingScrollMetricsRef = React.useRef<Readonly<{ scrollTop: number; scrollHeight: number; clientHeight: number }> | null>(null);
     const showScrollBottomRef = React.useRef(false);
+    const scrollModeRef = React.useRef<MessageListScrollMode>("follow_bottom");
+    const [scrollMode, setScrollMode] = React.useState<MessageListScrollMode>("follow_bottom");
+    const hasUserUpwardScrollIntentRef = React.useRef(false);
+    const pendingPrependAnchorRef = React.useRef<MessageListPrependAnchor | null>(null);
 
     React.useEffect(() => {
         const onPrivacySettingsChanged = () => {
@@ -165,8 +188,29 @@ function MessageListImpl({
         fastScrollModeRef.current = fastScrollMode;
     }, [fastScrollMode]);
 
+    const updateScrollMode = React.useCallback((nextMode: MessageListScrollMode): void => {
+        if (scrollModeRef.current === nextMode) {
+            return;
+        }
+        scrollModeRef.current = nextMode;
+        setScrollMode(nextMode);
+    }, []);
+
+    React.useEffect(() => {
+        updateScrollMode("follow_bottom");
+        hasUserUpwardScrollIntentRef.current = false;
+        didInitialAutoScrollRef.current = false;
+        initialLatestLandingCancelledRef.current = false;
+        if (initialLatestLandingTimerRef.current !== null) {
+            clearTimeout(initialLatestLandingTimerRef.current);
+            initialLatestLandingTimerRef.current = null;
+        }
+        pendingPrependAnchorRef.current = null;
+    }, [conversationId, updateScrollMode]);
+
     const highLoadMode = chatPerformanceV2Enabled && (messages.length >= 100 || pendingEventCount >= 20 || fastScrollMode);
-    const suspendDynamicMeasurement = chatPerformanceV2Enabled && fastScrollMode;
+    const suspendDynamicMeasurement = chatPerformanceV2Enabled
+        && (fastScrollMode || scrollMode === "user_reading_history" || scrollMode === "loading_earlier");
     const virtualizerOverscan = suspendDynamicMeasurement ? 2 : highLoadMode ? 4 : 8;
 
     const virtualizer = useVirtualizer({
@@ -181,7 +225,9 @@ function MessageListImpl({
     const prevLastId = React.useRef<string | null>(null);
     const prevLength = React.useRef(0);
     const didInitialAutoScrollRef = React.useRef(false);
-    const autoStickBottomUntilUnixMsRef = React.useRef<number>(0);
+    const initialLatestLandingCancelledRef = React.useRef(false);
+    const initialLatestLandingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const touchStartYRef = React.useRef<number | null>(null);
 
     const scrollToBottom = React.useCallback((behavior: MessageListScrollBehavior = "auto") => {
         if (messages.length === 0) {
@@ -193,40 +239,47 @@ function MessageListImpl({
             return;
         }
 
-        try {
-            virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior });
-        } catch {
-            // Fallback to container anchoring below.
-        }
-
-        const scrollNow = (scrollBehavior: MessageListScrollBehavior) => {
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior: scrollBehavior,
-            });
-        };
-
-        // Virtualizer index-scrolling is noisy with dynamic row heights; anchor by container offset instead.
-        if (behavior === "smooth") {
-            scrollNow("smooth");
+        if (behavior === "auto" && !canMessageListAutoScrollToBottom(scrollModeRef.current)) {
             return;
         }
 
-        scrollNow("auto");
-        requestAnimationFrame(() => {
+        if (behavior === "smooth") {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: "smooth",
+            });
+            return;
+        }
+
+        if (autoBottomFrameRef.current !== null) {
+            return;
+        }
+        autoBottomFrameRef.current = requestAnimationFrame(() => {
+            autoBottomFrameRef.current = null;
             const nextContainer = parentRef.current;
             if (!nextContainer) {
                 return;
             }
-            nextContainer.scrollTop = nextContainer.scrollHeight;
-            requestAnimationFrame(() => {
-                const settledContainer = parentRef.current;
-                if (settledContainer) {
-                    settledContainer.scrollTop = settledContainer.scrollHeight;
-                }
+            nextContainer.scrollTo({
+                top: nextContainer.scrollHeight,
+                behavior: "auto",
             });
         });
-    }, [messages.length, virtualizer]);
+    }, [messages.length]);
+
+    const clearInitialLatestLandingTimer = React.useCallback((): void => {
+        if (initialLatestLandingTimerRef.current !== null) {
+            clearTimeout(initialLatestLandingTimerRef.current);
+            initialLatestLandingTimerRef.current = null;
+        }
+    }, []);
+
+    const markUserHistoryIntent = React.useCallback((nextMode: MessageListScrollMode = "user_reading_history"): void => {
+        hasUserUpwardScrollIntentRef.current = true;
+        initialLatestLandingCancelledRef.current = true;
+        clearInitialLatestLandingTimer();
+        updateScrollMode(nextMode);
+    }, [clearInitialLatestLandingTimer, updateScrollMode]);
 
     const isNearBottom = React.useCallback((thresholdPx = 24): boolean => {
         const container = parentRef.current;
@@ -236,44 +289,118 @@ function MessageListImpl({
         return (container.scrollHeight - container.scrollTop - container.clientHeight) <= thresholdPx;
     }, []);
 
+    const resolveUserAwayFromBottom = React.useCallback((): boolean => {
+        const container = parentRef.current;
+        if (!container) {
+            return scrollModeRef.current === "user_reading_history";
+        }
+        return isMessageListUserAwayFromBottom({
+            scrollTop: container.scrollTop,
+            scrollHeight: container.scrollHeight,
+            clientHeight: container.clientHeight,
+        });
+    }, []);
+
+    const resolveInitialLandingSignal = React.useCallback((): string => {
+        const firstId = messages[0]?.id ?? "none";
+        const lastId = messages[messages.length - 1]?.id ?? "none";
+        return [
+            hasHydrated ? "hydrated" : "pending",
+            messages.length,
+            firstId,
+            lastId,
+            pendingEventCount,
+            hasEarlierMessages ? "earlier" : "latest",
+        ].join(":");
+    }, [hasEarlierMessages, hasHydrated, messages, pendingEventCount]);
+
+    const capturePrependAnchor = React.useCallback((): void => {
+        const container = parentRef.current;
+        if (!container || messages.length === 0) {
+            pendingPrependAnchorRef.current = null;
+            return;
+        }
+        const viewportTop = container.scrollTop;
+        const virtualItems = virtualizer.getVirtualItems();
+        if (virtualItems.length === 0) {
+            pendingPrependAnchorRef.current = null;
+            return;
+        }
+        let anchorItem = virtualItems[0];
+        for (const item of virtualItems) {
+            if (item.start <= viewportTop) {
+                anchorItem = item;
+            } else {
+                break;
+            }
+        }
+        const anchorMessage = messages[anchorItem.index];
+        if (!anchorMessage) {
+            pendingPrependAnchorRef.current = null;
+            return;
+        }
+        pendingPrependAnchorRef.current = {
+            messageId: anchorMessage.id,
+            topOffsetPx: Math.max(0, Math.floor(viewportTop - anchorItem.start)),
+        };
+    }, [messages, virtualizer]);
+
+    const requestLoadEarlier = React.useCallback((): void => {
+        capturePrependAnchor();
+        markUserHistoryIntent("loading_earlier");
+        void Promise.resolve(onLoadEarlier());
+    }, [capturePrependAnchor, markUserHistoryIntent, onLoadEarlier]);
+
     React.useEffect(() => {
         if (messages.length === 0) {
             didInitialAutoScrollRef.current = false;
+            initialLatestLandingCancelledRef.current = false;
+            if (initialLatestLandingTimerRef.current !== null) {
+                clearTimeout(initialLatestLandingTimerRef.current);
+                initialLatestLandingTimerRef.current = null;
+            }
         }
     }, [messages.length]);
 
     React.useEffect(() => {
-        if (!hasHydrated || messages.length === 0 || didInitialAutoScrollRef.current) {
+        clearInitialLatestLandingTimer();
+        if (!hasHydrated || messages.length === 0 || didInitialAutoScrollRef.current || initialLatestLandingCancelledRef.current) {
             return;
         }
-        didInitialAutoScrollRef.current = true;
-        autoStickBottomUntilUnixMsRef.current = Date.now() + 3000;
-        scrollToBottom("auto");
-
-        // Virtualized rows can finish measuring after initial paint.
-        // Retry a few frames so initial load reliably lands on latest messages.
-        let attempts = 0;
-        const settleToBottom = () => {
-            attempts += 1;
-            if (!isNearBottom() && attempts <= 8) {
+        const scheduledSignal = resolveInitialLandingSignal();
+        initialLatestLandingTimerRef.current = setTimeout(() => {
+            initialLatestLandingTimerRef.current = null;
+            if (
+                didInitialAutoScrollRef.current
+                || initialLatestLandingCancelledRef.current
+                || hasUserUpwardScrollIntentRef.current
+                || !canMessageListAutoScrollToBottom(scrollModeRef.current)
+            ) {
+                return;
+            }
+            if (resolveInitialLandingSignal() !== scheduledSignal) {
+                return;
+            }
+            if (!isNearBottom()) {
                 scrollToBottom("auto");
-                requestAnimationFrame(settleToBottom);
+            }
+            didInitialAutoScrollRef.current = true;
+        }, INITIAL_LATEST_LANDING_STABLE_DELAY_MS);
+
+        return () => {
+            if (initialLatestLandingTimerRef.current !== null) {
+                clearTimeout(initialLatestLandingTimerRef.current);
+                initialLatestLandingTimerRef.current = null;
             }
         };
-        requestAnimationFrame(settleToBottom);
-    }, [hasHydrated, isNearBottom, messages.length, scrollToBottom]);
-
-    React.useEffect(() => {
-        if (!hasHydrated || messages.length === 0) {
-            return;
-        }
-        if (Date.now() > autoStickBottomUntilUnixMsRef.current) {
-            return;
-        }
-        if (!isNearBottom()) {
-            scrollToBottom("auto");
-        }
-    }, [hasHydrated, isNearBottom, messages.length, scrollToBottom]);
+    }, [
+        clearInitialLatestLandingTimer,
+        hasHydrated,
+        isNearBottom,
+        messages.length,
+        resolveInitialLandingSignal,
+        scrollToBottom,
+    ]);
 
     // Scroll to bottom and anchoring logic
     React.useEffect(() => {
@@ -289,27 +416,67 @@ function MessageListImpl({
                 && messages[0].id !== prevFirstId.current;
 
             if (isPrepended && parentRef.current) {
-                // Record the current scroll bottom position relative to the last message
-                // This is a simple but effective scroll anchoring for pagination
                 const container = parentRef.current;
-                const oldHeight = container.scrollHeight;
-
-                // We use a small delay to let the virtualizer finish its layout
-                requestAnimationFrame(() => {
-                    if (container) {
-                        const newHeight = container.scrollHeight;
+                const anchor = pendingPrependAnchorRef.current;
+                if (anchor) {
+                    const anchorIndex = messages.findIndex((message) => message.id === anchor.messageId);
+                    if (anchorIndex >= 0) {
+                        try {
+                            virtualizer.scrollToIndex(anchorIndex, { align: "start", behavior: "auto" });
+                        } catch {
+                            // best effort; fallback below anchors by delta.
+                        }
+                        requestAnimationFrame(() => {
+                            const nextContainer = parentRef.current;
+                            if (!nextContainer) {
+                                return;
+                            }
+                            const anchorItem = virtualizer.getVirtualItems().find((item) => item.index === anchorIndex);
+                            if (anchorItem) {
+                                nextContainer.scrollTop = anchorItem.start + anchor.topOffsetPx;
+                            }
+                        });
+                        pendingPrependAnchorRef.current = null;
+                    } else {
+                        pendingPrependAnchorRef.current = null;
+                    }
+                    updateScrollMode("user_reading_history");
+                } else if (canMessageListAutoScrollToBottom(scrollModeRef.current) && !hasUserUpwardScrollIntentRef.current) {
+                    // Non-user prepend while still in follow mode: keep the viewport anchored to newest.
+                    scrollToBottom("auto");
+                } else {
+                    // Fallback anchor when prepend occurs while user is reading history.
+                    const oldHeight = container.scrollHeight;
+                    requestAnimationFrame(() => {
+                        const nextContainer = parentRef.current;
+                        if (!nextContainer) {
+                            return;
+                        }
+                        const newHeight = nextContainer.scrollHeight;
                         const heightDiff = newHeight - oldHeight;
                         if (heightDiff > 0) {
-                            container.scrollTop += heightDiff;
+                            nextContainer.scrollTop += heightDiff;
                         }
-                    }
-                });
+                    });
+                    updateScrollMode("user_reading_history");
+                }
             } else if (isNewMessage) {
                 // Scroll if:
                 // 1. Initial load (prevLastId was null)
                 // 2. We are already at the bottom
-                // 3. It's our own message
-                if (!prevLastId.current || !showScrollBottom || lastMessage.isOutgoing) {
+                // 3. Fresh outgoing messages should return the viewport to latest.
+                const shouldAutoScroll = shouldAutoScrollOnNewMessage({
+                    hasPreviousLastMessage: prevLastId.current !== null,
+                    isAwayFromBottom: resolveUserAwayFromBottom(),
+                    isOutgoing: lastMessage.isOutgoing,
+                    messageTimestampMs: lastMessage.timestamp.getTime(),
+                    nowMs: Date.now(),
+                });
+                if (shouldAutoScroll && lastMessage.isOutgoing) {
+                    hasUserUpwardScrollIntentRef.current = false;
+                    updateScrollMode("follow_bottom");
+                    scrollToBottom("smooth");
+                } else if (canMessageListAutoScrollToBottom(scrollModeRef.current) && shouldAutoScroll) {
                     scrollToBottom();
                 }
             }
@@ -318,7 +485,7 @@ function MessageListImpl({
             prevFirstId.current = messages[0]?.id || null;
             prevLength.current = messages.length;
         }
-    }, [hasHydrated, isNearBottom, messages, showScrollBottom, scrollToBottom]);
+    }, [hasHydrated, isNearBottom, messages, resolveUserAwayFromBottom, scrollToBottom, updateScrollMode, virtualizer]);
 
     const prevFirstId = React.useRef<string | null>(null);
     const jumpResolveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -347,6 +514,7 @@ function MessageListImpl({
             jumpLoadAttemptCountRef.current = 0;
             jumpRenderResolveAttemptCountRef.current = 0;
         }
+        updateScrollMode("search_jump");
         jumpInFlightMessageIdRef.current = jumpToMessageId;
         let cancelled = false;
         const maxLoadAttempts = 36;
@@ -372,6 +540,7 @@ function MessageListImpl({
                 jumpInFlightMessageIdRef.current = null;
                 jumpLoadAttemptCountRef.current = 0;
                 jumpRenderResolveAttemptCountRef.current = 0;
+                updateScrollMode("user_reading_history");
             };
 
             const nextStep = resolveSearchJumpStep({
@@ -494,7 +663,7 @@ function MessageListImpl({
             if (nextStep.kind === "load_earlier_for_timestamp" || nextStep.kind === "load_earlier_for_id") {
                 jumpLoadAttemptCountRef.current += 1;
                 jumpRenderResolveAttemptCountRef.current = 0;
-                void Promise.resolve(onLoadEarlier());
+                requestLoadEarlier();
                 scheduleSettle(180);
                 return;
             }
@@ -527,10 +696,11 @@ function MessageListImpl({
                 jumpResolveTimerRef.current = null;
             }
         };
-    }, [conversationId, jumpToMessageId, jumpToMessageTimestampMs, messages, onJumpToMessageHandled, onLoadEarlier, virtualizer]);
+    }, [conversationId, jumpToMessageId, jumpToMessageTimestampMs, messages, onJumpToMessageHandled, requestLoadEarlier, updateScrollMode, virtualizer]);
 
     const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        const isTrustedUserScroll = e.isTrusted;
         pendingScrollMetricsRef.current = { scrollTop, scrollHeight, clientHeight };
         if (scrollFrameRef.current !== null) {
             return;
@@ -548,16 +718,26 @@ function MessageListImpl({
                 showScrollBottomRef.current = isAwayFromBottom;
                 setShowScrollBottom(isAwayFromBottom);
             }
-            if (isAwayFromBottom) {
-                // User intentionally moved away from newest messages; stop auto-stick.
-                autoStickBottomUntilUnixMsRef.current = 0;
+            const deltaY = nextMetrics.scrollTop - lastScrollTopRef.current;
+            const shouldLockToHistory = shouldMessageListLockToUserHistoryOnUpwardScroll({
+                mode: scrollModeRef.current,
+                deltaY,
+                isTrustedUserScroll,
+            });
+            if (shouldLockToHistory) {
+                markUserHistoryIntent("user_reading_history");
             }
 
+            const now = performance.now();
+            const previousScrollTop = lastScrollTopRef.current;
+            const previousScrollTimestampMs = lastScrollTsRef.current;
+            lastScrollTopRef.current = nextMetrics.scrollTop;
+            lastScrollTsRef.current = now;
+
             if (chatPerformanceV2Enabled) {
-                const now = performance.now();
                 const isFastScroll = isMessageListFastScroll({
-                    previousScrollTop: lastScrollTopRef.current,
-                    previousScrollTimestampMs: lastScrollTsRef.current,
+                    previousScrollTop,
+                    previousScrollTimestampMs,
                     nextScrollTop: nextMetrics.scrollTop,
                     nextScrollTimestampMs: now,
                 });
@@ -576,11 +756,64 @@ function MessageListImpl({
                     }, 200);
                 }
 
-                lastScrollTopRef.current = nextMetrics.scrollTop;
-                lastScrollTsRef.current = now;
             }
         });
-    }, [chatPerformanceV2Enabled]);
+    }, [chatPerformanceV2Enabled, markUserHistoryIntent]);
+
+    const handleWheel = React.useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+        if (!event.isTrusted) {
+            return;
+        }
+        if (event.deltaY < 0) {
+            markUserHistoryIntent("user_reading_history");
+        }
+    }, [markUserHistoryIntent]);
+
+    const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+        touchStartYRef.current = event.touches[0]?.clientY ?? null;
+    }, []);
+
+    const handleTouchMove = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+        if (!event.isTrusted) {
+            return;
+        }
+        const startY = touchStartYRef.current;
+        const currentY = event.touches[0]?.clientY ?? null;
+        if (startY === null || currentY === null) {
+            return;
+        }
+        if ((currentY - startY) < -6) {
+            markUserHistoryIntent("user_reading_history");
+        }
+    }, [markUserHistoryIntent]);
+
+    React.useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const isEditableTarget = (target: EventTarget | null): boolean => {
+            if (!(target instanceof HTMLElement)) {
+                return false;
+            }
+            const tagName = target.tagName.toLowerCase();
+            if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+                return true;
+            }
+            return target.isContentEditable;
+        };
+        const handleKeyDown = (event: KeyboardEvent): void => {
+            if (!event.isTrusted || isEditableTarget(event.target)) {
+                return;
+            }
+            if (event.key === "ArrowUp" || event.key === "PageUp" || event.key === "Home") {
+                markUserHistoryIntent("user_reading_history");
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown, { passive: true });
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [markUserHistoryIntent]);
 
     const y = useMotionValue(0);
     const refreshOpacity = useTransform(y, [0, 80], [0, 1]);
@@ -623,7 +856,16 @@ function MessageListImpl({
                 cancelAnimationFrame(scrollFrameRef.current);
                 scrollFrameRef.current = null;
             }
+            if (autoBottomFrameRef.current !== null) {
+                cancelAnimationFrame(autoBottomFrameRef.current);
+                autoBottomFrameRef.current = null;
+            }
+            if (initialLatestLandingTimerRef.current !== null) {
+                clearTimeout(initialLatestLandingTimerRef.current);
+                initialLatestLandingTimerRef.current = null;
+            }
             pendingScrollMetricsRef.current = null;
+            touchStartYRef.current = null;
         };
     }, []);
 
@@ -705,8 +947,14 @@ function MessageListImpl({
                 dragElastic={{ top: 0, bottom: 0.5 }}
                 onDragEnd={handleDragEnd}
                 style={{ y: isRefreshing ? 20 : y }}
-                className="flex-1 min-h-0 overflow-y-auto p-4 scrollbar-custom relative z-10"
+                className="flex-1 min-h-0 overflow-y-auto p-4 scrollbar-custom relative z-10 [overflow-anchor:none]"
                 onScroll={handleScroll}
+                onWheel={handleWheel}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={() => {
+                    touchStartYRef.current = null;
+                }}
             >
                 {!hasHydrated ? (
                     <div className="space-y-3">
@@ -734,7 +982,7 @@ function MessageListImpl({
                                 <Button
                                     type="button"
                                     variant="secondary"
-                                    onClick={onLoadEarlier}
+                                    onClick={requestLoadEarlier}
                                     data-testid="message-list-load-more"
                                 >
                                     {t("messaging.loadMore", "Load More")}
@@ -833,7 +1081,11 @@ function MessageListImpl({
                             size="icon"
                             variant="secondary"
                             className="h-10 w-10 rounded-full shadow-2xl ring-1 ring-black/10 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md hover:scale-110 active:scale-95 transition-transform"
-                            onClick={() => scrollToBottom('smooth')}
+                            onClick={() => {
+                                updateScrollMode("follow_bottom");
+                                hasUserUpwardScrollIntentRef.current = false;
+                                scrollToBottom("smooth");
+                            }}
                         >
                             <ChevronDown className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                         </Button>
@@ -982,7 +1234,20 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
     } = props;
     const menuAnchoredToThisMessage = isMessageMenuAnchored;
     const reactionAnchoredToThisMessage = isReactionPickerAnchored;
-    const actionDockPinned = !batchDeleteMode && (menuAnchoredToThisMessage || reactionAnchoredToThisMessage);
+    const [longPressDockVisible, setLongPressDockVisible] = React.useState(false);
+    const [hoverDockVisible, setHoverDockVisible] = React.useState(false);
+    const bubbleRef = React.useRef<HTMLDivElement | null>(null);
+    const actionDockRef = React.useRef<HTMLDivElement | null>(null);
+    const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hoverDockHideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const longPressStartRef = React.useRef<Readonly<{ x: number; y: number }> | null>(null);
+    const longPressTriggeredRef = React.useRef(false);
+    const actionDockPinned = !batchDeleteMode && (
+        menuAnchoredToThisMessage
+        || reactionAnchoredToThisMessage
+        || longPressDockVisible
+        || hoverDockVisible
+    );
     const voiceCallInvitePayload = parsedPayload?.type === "voice-call-invite"
         ? (parsedPayload as VoiceCallInvitePayload)
         : null;
@@ -998,9 +1263,167 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         if (batchDeleteMode) {
             return;
         }
+        if (hoverDockHideTimerRef.current !== null) {
+            clearTimeout(hoverDockHideTimerRef.current);
+            hoverDockHideTimerRef.current = null;
+        }
+        setHoverDockVisible(true);
         markMenuAnchorHover(true);
         onOpenMessageMenu({ messageId: message.id, x: clientX, y: clientY });
     }, [batchDeleteMode, markMenuAnchorHover, message.id, onOpenMessageMenu]);
+
+    const clearLongPressTimer = React.useCallback((): void => {
+        if (longPressTimerRef.current !== null) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    }, []);
+
+    const clearHoverDockHideTimer = React.useCallback((): void => {
+        if (hoverDockHideTimerRef.current !== null) {
+            clearTimeout(hoverDockHideTimerRef.current);
+            hoverDockHideTimerRef.current = null;
+        }
+    }, []);
+
+    const showHoverDock = React.useCallback((): void => {
+        clearHoverDockHideTimer();
+        setHoverDockVisible(true);
+    }, [clearHoverDockHideTimer]);
+
+    const scheduleHoverDockHide = React.useCallback((): void => {
+        clearHoverDockHideTimer();
+        hoverDockHideTimerRef.current = setTimeout(() => {
+            hoverDockHideTimerRef.current = null;
+            setHoverDockVisible(false);
+        }, MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS);
+    }, [clearHoverDockHideTimer]);
+
+    const handleBubbleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
+        if (batchDeleteMode) {
+            return;
+        }
+        const touch = event.touches[0];
+        if (!touch) {
+            return;
+        }
+        longPressTriggeredRef.current = false;
+        longPressStartRef.current = {
+            x: touch.clientX,
+            y: touch.clientY,
+        };
+        clearLongPressTimer();
+        longPressTimerRef.current = setTimeout(() => {
+            longPressTimerRef.current = null;
+            longPressTriggeredRef.current = true;
+            setLongPressDockVisible(true);
+        }, MESSAGE_BUBBLE_LONG_PRESS_DELAY_MS);
+    }, [batchDeleteMode, clearLongPressTimer]);
+
+    const handleBubbleTouchMove = React.useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
+        const start = longPressStartRef.current;
+        const touch = event.touches[0];
+        if (!start || !touch) {
+            return;
+        }
+        if (shouldCancelMessageBubbleLongPress({
+            startX: start.x,
+            startY: start.y,
+            currentX: touch.clientX,
+            currentY: touch.clientY,
+        })) {
+            clearLongPressTimer();
+            longPressStartRef.current = null;
+        }
+    }, [clearLongPressTimer]);
+
+    const handleBubbleTouchEnd = React.useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
+        clearLongPressTimer();
+        longPressStartRef.current = null;
+        if (longPressTriggeredRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
+            longPressTriggeredRef.current = false;
+        }
+    }, [clearLongPressTimer]);
+
+    const handleBubbleMouseEnter = React.useCallback((): void => {
+        showHoverDock();
+        if (menuAnchoredToThisMessage) {
+            markMenuAnchorHover(true);
+        }
+    }, [markMenuAnchorHover, menuAnchoredToThisMessage, showHoverDock]);
+
+    const handleBubbleMouseLeave = React.useCallback((event: React.MouseEvent<HTMLDivElement>): void => {
+        if (menuAnchoredToThisMessage) {
+            markMenuAnchorHover(false);
+        }
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && actionDockRef.current?.contains(nextTarget)) {
+            return;
+        }
+        scheduleHoverDockHide();
+    }, [markMenuAnchorHover, menuAnchoredToThisMessage, scheduleHoverDockHide]);
+
+    const handleActionDockMouseEnter = React.useCallback((): void => {
+        showHoverDock();
+        if (menuAnchoredToThisMessage) {
+            markMenuAnchorHover(true);
+        }
+    }, [markMenuAnchorHover, menuAnchoredToThisMessage, showHoverDock]);
+
+    const handleActionDockMouseLeave = React.useCallback((event: React.MouseEvent<HTMLDivElement>): void => {
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && bubbleRef.current?.contains(nextTarget)) {
+            return;
+        }
+        scheduleHoverDockHide();
+    }, [scheduleHoverDockHide]);
+
+    React.useEffect(() => {
+        if (!longPressDockVisible || typeof window === "undefined") {
+            return;
+        }
+        const handlePointerDown = (event: PointerEvent): void => {
+            const target = event.target;
+            if (!(target instanceof Node)) {
+                setLongPressDockVisible(false);
+                return;
+            }
+            if (bubbleRef.current?.contains(target) || actionDockRef.current?.contains(target)) {
+                return;
+            }
+            setLongPressDockVisible(false);
+        };
+        window.addEventListener("pointerdown", handlePointerDown, { capture: true });
+        return () => {
+            window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+        };
+    }, [longPressDockVisible]);
+
+    React.useEffect(() => {
+        if (!longPressDockVisible) {
+            return;
+        }
+        if (batchDeleteMode) {
+            setLongPressDockVisible(false);
+        }
+    }, [batchDeleteMode, longPressDockVisible]);
+
+    React.useEffect(() => {
+        if (!batchDeleteMode) {
+            return;
+        }
+        clearHoverDockHideTimer();
+        setHoverDockVisible(false);
+    }, [batchDeleteMode, clearHoverDockHideTimer]);
+
+    React.useEffect(() => {
+        return () => {
+            clearLongPressTimer();
+            clearHoverDockHideTimer();
+        };
+    }, [clearHoverDockHideTimer, clearLongPressTimer]);
 
     if (parsedPayload?.type === "voice-call-signal") {
         return (
@@ -1072,7 +1495,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                 isOutgoing={message.isOutgoing}
                 enableSwipeReply={!highLoadMode && !batchDeleteMode}
             >
-                <div className={cn("flex flex-col w-full", message.isOutgoing ? "items-end" : "items-start")}>
+                <div className={cn("flex min-w-0 flex-col w-full", message.isOutgoing ? "items-end" : "items-start")}>
                     {isGroupStart && (
                         <div className={cn("flex items-center gap-2 mb-1 px-1", message.isOutgoing ? "flex-row-reverse" : "flex-row")}>
                             {!message.isOutgoing ? (
@@ -1086,6 +1509,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                     )}
 
                     <div
+                        ref={bubbleRef}
                         id={`msg-${message.id}`}
                         onContextMenu={(e) => {
                             e.preventDefault();
@@ -1103,17 +1527,21 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             onToggleSelectMessage?.(message.id);
                         }}
                         onMouseEnter={() => {
-                            if (!batchDeleteMode && menuAnchoredToThisMessage) {
-                                markMenuAnchorHover(true);
+                            if (!batchDeleteMode) {
+                                handleBubbleMouseEnter();
                             }
                         }}
-                        onMouseLeave={() => {
-                            if (!batchDeleteMode && menuAnchoredToThisMessage) {
-                                markMenuAnchorHover(false);
+                        onMouseLeave={(event) => {
+                            if (!batchDeleteMode) {
+                                handleBubbleMouseLeave(event);
                             }
                         }}
+                        onTouchStart={handleBubbleTouchStart}
+                        onTouchMove={handleBubbleTouchMove}
+                        onTouchEnd={handleBubbleTouchEnd}
+                        onTouchCancel={handleBubbleTouchEnd}
                         className={cn(
-                            "relative max-w-[90%] sm:max-w-[80%] group",
+                            "relative min-w-0 max-w-[90%] sm:max-w-[80%] group",
                             highLoadMode ? "transition-none" : "transition-all duration-200",
                             hasVisualAttachments && "min-w-[300px] sm:min-w-[420px] max-w-[95%] sm:max-w-[88%]",
                             message.isOutgoing
@@ -1140,28 +1568,38 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                     >
                         {!batchDeleteMode ? (
                             <div
+                                ref={actionDockRef}
+                                data-testid={`message-action-dock-${message.id}`}
+                                data-visible={actionDockPinned ? "true" : "false"}
+                                onMouseEnter={handleActionDockMouseEnter}
+                                onMouseLeave={handleActionDockMouseLeave}
                                 className={cn(
                                     "absolute z-20 top-1 flex flex-col gap-1.5 transition-all duration-150",
                                     actionDockPinned
-                                        ? "opacity-100 translate-y-0"
-                                        : "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0",
+                                        ? "opacity-100 translate-y-0 pointer-events-auto"
+                                        : "opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto",
                                     message.isOutgoing ? "-left-12" : "-right-12",
                                 )}
                             >
                                 <Button
                                     variant="ghost"
                                     size="icon"
+                                    aria-label={t("messaging.openReactionPicker", "Open reactions")}
                                     className={cn(
                                         "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
                                         reactionAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
                                     )}
-                                    onClick={(e) => onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY })}
+                                    onClick={(e) => {
+                                        showHoverDock();
+                                        onOpenReactionPicker({ messageId: message.id, x: e.clientX, y: e.clientY });
+                                    }}
                                 >
                                     <Smile className="h-4 w-4" />
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     size="icon"
+                                    aria-label={t("messaging.openMessageMenu", "Open message menu")}
                                     className={cn(
                                         "h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform",
                                         menuAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900",
@@ -1233,7 +1671,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                         />
                                     ) : null}
 
-                                    <div className="text-[15px] leading-relaxed break-words">
+                                    <div className="min-w-0 max-w-full text-[15px] leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word]">
                                         {parsedPayload?.type === "community-invite" ? (
                                             <CommunityInviteCard
                                                 invite={parsedPayload as any}
@@ -1766,7 +2204,7 @@ function SwipeReplyWrapper({
     };
 
     return (
-        <div className="relative flex-1 flex w-full" style={{ justifyContent: isOutgoing ? 'flex-end' : 'flex-start' }}>
+        <div className="relative flex min-w-0 flex-1 w-full" style={{ justifyContent: isOutgoing ? 'flex-end' : 'flex-start' }}>
             {enableSwipeReply ? (
                 <motion.div
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-600 dark:text-purple-400"
@@ -1781,9 +2219,9 @@ function SwipeReplyWrapper({
                 dragElastic={0.1}
                 onDragEnd={enableSwipeReply ? handleDragEnd : undefined}
                 style={{ x }}
-                className="flex-1 flex"
+                className="flex min-w-0 flex-1"
             >
-                <div className="flex-1 flex" style={{ justifyContent: isOutgoing ? 'flex-end' : 'flex-start' }}>
+                <div className="flex min-w-0 flex-1" style={{ justifyContent: isOutgoing ? 'flex-end' : 'flex-start' }}>
                     {children}
                 </div>
             </motion.div>

@@ -195,10 +195,8 @@ async fn send_multipart_request(
     Ok((status, text))
 }
 
-async fn send_with_network_fallback(
-    primary_client: &reqwest::Client,
-    direct_client: Option<&reqwest::Client>,
-    tor_enabled: bool,
+async fn send_upload_request(
+    client: &reqwest::Client,
     api_url: &str,
     field_name: &str,
     file_bytes: &[u8],
@@ -206,41 +204,16 @@ async fn send_with_network_fallback(
     content_type: &str,
     auth_header: Option<String>,
 ) -> Result<(reqwest::StatusCode, String), NativeError> {
-    let primary_result = send_multipart_request(
-        primary_client,
+    send_multipart_request(
+        client,
         api_url,
         field_name,
         file_bytes.to_vec(),
         file_name.to_string(),
         content_type.to_string(),
-        auth_header.clone(),
+        auth_header,
     )
-    .await;
-
-    match primary_result {
-        Ok(response) => Ok(response),
-        Err(primary_error) => {
-            if tor_enabled && primary_error.code.starts_with("NETWORK_") {
-                if let Some(fallback_client) = direct_client {
-                    eprintln!(
-                        "[NIP96-V2] Proxy upload failed ({}). Retrying direct network path...",
-                        primary_error.message
-                    );
-                    return send_multipart_request(
-                        fallback_client,
-                        api_url,
-                        field_name,
-                        file_bytes.to_vec(),
-                        file_name.to_string(),
-                        content_type.to_string(),
-                        auth_header,
-                    )
-                    .await;
-                }
-            }
-            Err(primary_error)
-        }
-    }
+    .await
 }
 
 /// Main upload command - receives bytes directly from frontend
@@ -300,12 +273,6 @@ pub async fn nip96_upload_v2(
 
     // Build HTTP client
     let client = net_runtime.build_reqwest_client()?;
-    let tor_enabled = net_runtime.is_tor_enabled();
-    let direct_client = if tor_enabled {
-        Some(net_runtime.build_reqwest_client_direct()?)
-    } else {
-        None
-    };
 
     // Retry logic for field names: file -> files[] -> files
     let field_names = vec!["file", "files[]", "files"];
@@ -317,10 +284,8 @@ pub async fn nip96_upload_v2(
             field_name
         );
 
-        match send_with_network_fallback(
+        match send_upload_request(
             &client,
-            direct_client.as_ref(),
-            tor_enabled,
             &api_url,
             field_name,
             &file_bytes,

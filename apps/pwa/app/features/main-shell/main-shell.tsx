@@ -70,16 +70,19 @@ import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversati
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { resolveConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { getIncomingInboxRequests } from "@/app/features/messaging/services/request-inbox-view";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import { configureInviteRequestStateBridge, configureInviteRequestTransportBridge } from "@/app/features/invites/utils/invite-manager";
 import type { Connection as LegacyInviteConnection, ConnectionRequest as LegacyInviteRequest } from "@/app/features/invites/utils/types";
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
+import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
+import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { resolveAccountSyncUiPolicy } from "@/app/features/account-sync/services/account-sync-ui-policy";
 import { AppLoadingScreen } from "@/app/components/app-loading-screen";
 import { usePeerLastActiveByPeer } from "@/app/features/messaging/hooks/use-peer-last-active-by-peer";
-import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
+import { getPublicGroupHref, getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { isRecentPresenceEvidenceActive } from "@/app/features/network/services/presence-evidence";
 import { IncomingVoiceCallToast } from "@/app/features/messaging/components/incoming-voice-call-toast";
 import { VoiceCallDock } from "@/app/features/messaging/components/voice-call-dock";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
@@ -89,6 +92,8 @@ import {
   readPendingVoiceCallRequest,
 } from "@/app/features/messaging/services/realtime-voice-pending-request";
 import { setGlobalVoiceCallOverlayState } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
+import { shouldSuppressVoiceCallDockForPendingIncomingInvite } from "@/app/features/messaging/services/realtime-voice-ui-visibility";
+import { resolveIncomingVoiceInviteExit } from "@/app/features/messaging/services/realtime-voice-invite-exit";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
@@ -215,13 +220,14 @@ function NostrMessengerContent() {
     messageMenu, setMessageMenu,
     reactionPicker, setReactionPicker,
     pinnedChatIds, togglePin,
-    hiddenChatIds, hideConversation, deleteConversation, clearHistory, unhideConversation,
+    hiddenChatIds, hideConversation, clearHistory, unhideConversation,
     chatsUnreadCount,
     createdConnections, setCreatedConnections
   } = useMessaging();
 
   const { relayPool, relayStatus } = useRelay();
   const accountSyncSnapshot = useAccountSyncSnapshot();
+  const accountProjectionSnapshot = useAccountProjectionSnapshot();
   const {
     createdGroups, isNewGroupOpen, setIsNewGroupOpen,
     updateGroup,
@@ -592,6 +598,10 @@ function NostrMessengerContent() {
     ? incomingVoiceInvitePeerMetadata.displayName
     : (incomingVoiceInvite?.inviterDisplayName || "Unknown user");
   const incomingVoiceInviteResolvedAvatarUrl = incomingVoiceInvitePeerMetadata?.avatarUrl || "";
+  const suppressVoiceCallDockForPendingIncomingInvite = shouldSuppressVoiceCallDockForPendingIncomingInvite({
+    status: voiceCallUiStatus,
+    pendingIncomingInvite: incomingVoiceInvite,
+  });
 
   useEffect(() => {
     setIsSendingVoiceCallInvite(false);
@@ -2257,46 +2267,27 @@ function NostrMessengerContent() {
       return;
     }
     setIncomingVoiceInvite(null);
-    if (!myPublicKeyHex || !pendingInvite.invite.roomId) {
-      return;
+    const resolution = resolveIncomingVoiceInviteExit({
+      pendingIncomingInvite: pendingInvite,
+      kind: "decline",
+      canDispatchLeaveSignal: Boolean(myPublicKeyHex),
+      nowUnixMs: Date.now(),
+    });
+    if (resolution.nextStatus) {
+      setVoiceCallUiStatus(resolution.nextStatus);
     }
-    setVoiceCallUiStatus({
-      roomId: pendingInvite.invite.roomId,
-      peerPubkey: pendingInvite.peerPubkey,
-      phase: "ended",
-      role: "joiner",
-      sinceUnixMs: Date.now(),
-      reasonCode: "left_by_user",
-    });
-    dispatchVoiceLeaveSignalWithRetry({
-      roomId: pendingInvite.invite.roomId,
-      peerPubkey: pendingInvite.peerPubkey,
-    });
+    if (resolution.leaveSignalTarget) {
+      dispatchVoiceLeaveSignalWithRetry(resolution.leaveSignalTarget);
+    }
   }, [dispatchVoiceLeaveSignalWithRetry, incomingVoiceInvite, myPublicKeyHex]);
-
-  const handleDismissIncomingVoiceInvite = useCallback((): void => {
-    const pendingInvite = incomingVoiceInvite;
-    setIncomingVoiceInvite(null);
-    if (!pendingInvite?.invite.roomId) {
-      return;
-    }
-    setVoiceCallUiStatus({
-      roomId: pendingInvite.invite.roomId,
-      peerPubkey: pendingInvite.peerPubkey,
-      phase: "interrupted",
-      role: "joiner",
-      sinceUnixMs: Date.now(),
-      reasonCode: "session_closed",
-    });
-  }, [incomingVoiceInvite]);
 
   const handleDismissVoiceCallStatus = useCallback((): void => {
     if (voiceCallUiStatus?.phase === "ringing_incoming" && incomingVoiceInvite) {
-      handleDismissIncomingVoiceInvite();
+      handleDeclineIncomingVoiceInvite();
       return;
     }
     setVoiceCallUiStatus(null);
-  }, [handleDismissIncomingVoiceInvite, incomingVoiceInvite, voiceCallUiStatus]);
+  }, [handleDeclineIncomingVoiceInvite, incomingVoiceInvite, voiceCallUiStatus]);
 
   useEffect(() => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
@@ -3047,7 +3038,11 @@ function NostrMessengerContent() {
       peerDisplayName: voiceCallDockResolvedPeerDisplayName,
       peerAvatarUrl: voiceCallDockResolvedPeerAvatarUrl,
     });
-  }, [voiceCallDockResolvedPeerAvatarUrl, voiceCallDockResolvedPeerDisplayName, voiceCallUiStatus]);
+  }, [
+    voiceCallDockResolvedPeerAvatarUrl,
+    voiceCallDockResolvedPeerDisplayName,
+    voiceCallUiStatus,
+  ]);
 
   useEffect(() => {
     if (!REALTIME_VOICE_CALLS_ENABLED || typeof window === "undefined") {
@@ -3118,6 +3113,15 @@ function NostrMessengerContent() {
     });
     return map;
   }, [allConversations, lastViewedByConversationId, peerLastActiveByPeerPubkey]);
+  const isPeerOnlineByEvidence = useCallback((publicKeyHex: PublicKeyHex): boolean => {
+    if (presence.isPeerOnline(publicKeyHex)) {
+      return true;
+    }
+    return isRecentPresenceEvidenceActive({
+      nowMs,
+      lastObservedAtMs: peerLastActiveByPeerPubkey[publicKeyHex],
+    });
+  }, [nowMs, peerLastActiveByPeerPubkey, presence]);
 
   const handleUnlock = async (passphrase: string) => {
     setIsUnlocking(true);
@@ -3185,6 +3189,51 @@ function NostrMessengerContent() {
     isIdentityUnlocked,
     snapshot: accountSyncSnapshot,
   });
+  const activeProfileId = getActiveProfileIdSafe();
+  const projectionReadAuthority = useMemo(() => (
+    resolveProjectionReadAuthority({
+      projectionSnapshot: accountProjectionSnapshot,
+      expectedProfileId: activeProfileId,
+      expectedAccountPublicKeyHex: myPublicKeyHex,
+    })
+  ), [accountProjectionSnapshot, activeProfileId, myPublicKeyHex]);
+  const showProjectionScopeMismatchNotice = isIdentityUnlocked
+    && projectionReadAuthority.reason === "projection_scope_mismatch";
+  const projectionScopeMismatchLogKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!showProjectionScopeMismatchNotice) {
+      projectionScopeMismatchLogKeyRef.current = null;
+      return;
+    }
+    const logKey = [
+      activeProfileId,
+      accountProjectionSnapshot.profileId ?? "none",
+      myPublicKeyHex ?? "none",
+      accountProjectionSnapshot.accountPublicKeyHex ?? "none",
+    ].join("|");
+    if (projectionScopeMismatchLogKeyRef.current === logKey) {
+      return;
+    }
+    projectionScopeMismatchLogKeyRef.current = logKey;
+    logAppEvent({
+      name: "messaging.profile_scope_mismatch_notice_visible",
+      level: "warn",
+      scope: { feature: "messaging", action: "profile_scope_mismatch_notice" },
+      context: {
+        expectedProfileId: activeProfileId,
+        projectionProfileId: accountProjectionSnapshot.profileId ?? null,
+        expectedAccountPublicKeyHex: myPublicKeyHex ?? null,
+        projectionAccountPublicKeyHex: accountProjectionSnapshot.accountPublicKeyHex ?? null,
+      },
+    });
+  }, [
+    accountProjectionSnapshot.accountPublicKeyHex,
+    accountProjectionSnapshot.profileId,
+    activeProfileId,
+    myPublicKeyHex,
+    showProjectionScopeMismatchNotice,
+  ]);
   const hiddenChatIdSet = useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
   const visibleChatsList = useMemo(() => (
     filteredConversations.filter((conversation) => (
@@ -3250,10 +3299,9 @@ function NostrMessengerContent() {
             togglePin={togglePin}
             hiddenChatIds={hiddenChatIds}
             hideConversation={hideConversation}
-            deleteConversation={deleteConversation}
             clearHistory={clearHistory}
             onClearHistory={requestsInbox.clearHistory}
-            isPeerOnline={(publicKeyHex) => presence.isPeerOnline(publicKeyHex)}
+            isPeerOnline={isPeerOnlineByEvidence}
             onAcceptRequest={(pk) => {
               const requestEventId = requestsInbox.state.items.find(
                 (item) => item.peerPublicKeyHex === (pk as PublicKeyHex) && !item.isOutgoing
@@ -3315,6 +3363,26 @@ function NostrMessengerContent() {
           <span className="font-semibold">Account Restore Warning:</span> Shared account data was not found on relays yet. Local identity access remains active.
         </div>
       ) : null}
+      {showProjectionScopeMismatchNotice ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-orange-500/25 bg-orange-500/10 px-4 py-2 text-sm text-orange-900 dark:text-orange-100">
+          <span className="font-semibold">{t("messaging.profileScopeMismatchNoticeTitle", "Profile Scope Notice")}:</span>
+          <span>
+            {t(
+              "messaging.profileScopeMismatchNoticeBody",
+              "This window is bound to a different local profile slot than this account's data. Open the saved profile that owns this account, or switch this window's profile before signing in."
+            )}
+          </span>
+          <button
+            type="button"
+            className="ml-auto rounded-md border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-500/20 dark:text-orange-50"
+            onClick={() => {
+              void router.push("/profiles");
+            }}
+          >
+            {t("messaging.openProfiles", "Open Profiles")}
+          </button>
+        </div>
+      ) : null}
       <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
         {!selectedConversationView ? (
           <EmptyConversationView
@@ -3330,7 +3398,7 @@ function NostrMessengerContent() {
             conversation={selectedConversationView}
             isPeerOnline={
               selectedConversationView.kind === "dm"
-                ? presence.isPeerOnline(selectedConversationView.pubkey)
+                ? isPeerOnlineByEvidence(selectedConversationView.pubkey)
                 : undefined
             }
             interactionStatus={interactionByConversationId[selectedConversationView.id]}
@@ -3355,6 +3423,11 @@ function NostrMessengerContent() {
                     selectedConversationView.relayUrl
                   )
                 );
+              }
+              : undefined}
+            onOpenProfile={selectedConversationView.kind === "dm"
+              ? (pubkey) => {
+                router.push(getPublicProfileHref(pubkey));
               }
               : undefined}
             onSendVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm"
@@ -3502,10 +3575,10 @@ function NostrMessengerContent() {
           roomIdHint={incomingVoiceInviteRoomIdHint}
           onAccept={handleAcceptIncomingVoiceInvite}
           onDecline={handleDeclineIncomingVoiceInvite}
-          onDismiss={handleDismissIncomingVoiceInvite}
+          onDismiss={handleDeclineIncomingVoiceInvite}
         />
       ) : null}
-      {REALTIME_VOICE_CALLS_ENABLED ? (
+      {REALTIME_VOICE_CALLS_ENABLED && !suppressVoiceCallDockForPendingIncomingInvite ? (
         <VoiceCallDock
           status={voiceCallUiStatus}
           peerDisplayName={voiceCallDockResolvedPeerDisplayName}

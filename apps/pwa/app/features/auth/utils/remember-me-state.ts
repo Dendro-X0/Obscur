@@ -1,10 +1,10 @@
-import { getRememberMeStorageKeyCandidates } from "./auth-storage-keys";
+import { getRememberMeScopedStorageKeys } from "./auth-storage-keys";
 
 export const isRememberMeEnabledForProfile = (profileId: string): boolean => {
   if (typeof window === "undefined") {
     return false;
   }
-  const rememberKeys = getRememberMeStorageKeyCandidates({
+  const rememberKeys = getRememberMeScopedStorageKeys({
     profileId,
     includeLegacy: true,
   });

@@ -17,6 +17,7 @@ import { PrivacySettingsService } from "@/app/features/settings/services/privacy
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { publishViaRelayCore } from "@/app/features/relays/lib/nostr-core-relay";
+import { parseCommandMessage } from "../utils/commands";
 import type { DeliveryReasonCode, RelayCircuitState } from "@dweb/core/security-foundation-contracts";
 import {
   mapCoreResultToRelayPublishResult,
@@ -221,6 +222,18 @@ const isRetryablePublishFailure = (reasonCode?: DeliveryReasonCode): boolean => 
 const getDurableRelaySuccessMinimum = (targetRelayCount: number): number => (
   targetRelayCount >= 3 ? 2 : 1
 );
+
+const resolveQueuedDurableRelaySuccessMinimum = (params: Readonly<{
+  content: string;
+  targetRelayCount: number;
+}>): number => {
+  const parsedCommand = parseCommandMessage(params.content);
+  if (parsedCommand?.type === "delete") {
+    // Delete commands should converge once recipient-scoped relay evidence exists.
+    return 1;
+  }
+  return getDurableRelaySuccessMinimum(params.targetRelayCount);
+};
 
 const resolveRequiredRelaySuccessMinimum = (
   targetRelayCount: number,
@@ -584,7 +597,7 @@ export const publishOutgoingDm = async (params: Readonly<{
     finalMessage = {
       ...finalMessage,
       id: fallbackBuild.signedEvent.id,
-      eventId: fallbackBuild.signedEvent.id,
+      eventId: fallbackBuild.canonicalEventId,
       encryptedContent: fallbackBuild.encryptedContent,
       dmFormat: fallbackBuild.format,
       relayResults: []
@@ -774,9 +787,10 @@ export const publishQueuedOutgoingMessage = async (params: Readonly<{
         : openRelayUrls
     );
     const priorAchievedRelayUrls = dedupeRelayUrls(params.message.achievedRelayUrls ?? []);
-    const durableRelaySuccessMinimum = getDurableRelaySuccessMinimum(
-      scopedRelayUrls.length > 0 ? scopedRelayUrls.length : Math.max(openRelayUrls.length, 1)
-    );
+    const durableRelaySuccessMinimum = resolveQueuedDurableRelaySuccessMinimum({
+      content: params.message.content,
+      targetRelayCount: scopedRelayUrls.length > 0 ? scopedRelayUrls.length : Math.max(openRelayUrls.length, 1),
+    });
     const evaluateAttempt = async (result: RelayPublishResult): Promise<QueueSendAttemptResult> => {
       const cumulativeRelayUrls = dedupeRelayUrls([
         ...priorAchievedRelayUrls,

@@ -4,7 +4,8 @@ const runtimeMocks = vi.hoisted(() => ({
   hasNativeRuntime: vi.fn(),
 }));
 
-const eventMocks = vi.hoisted(() => ({
+const webviewMocks = vi.hoisted(() => ({
+  getCurrentWebviewWindow: vi.fn(),
   listen: vi.fn(),
 }));
 
@@ -12,8 +13,8 @@ vi.mock("./runtime-capabilities", () => ({
   hasNativeRuntime: runtimeMocks.hasNativeRuntime,
 }));
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: eventMocks.listen,
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: webviewMocks.getCurrentWebviewWindow,
 }));
 
 import { listenToNativeEvent, nativeEventAdapterInternals } from "./native-event-adapter";
@@ -22,6 +23,9 @@ describe("native-event-adapter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     nativeEventAdapterInternals.resetForTests();
+    webviewMocks.getCurrentWebviewWindow.mockReturnValue({
+      listen: webviewMocks.listen,
+    });
   });
 
   it("returns noop unlisten in unsupported runtime", async () => {
@@ -30,18 +34,18 @@ describe("native-event-adapter", () => {
     const unlisten = await listenToNativeEvent("deep-link", () => undefined);
 
     expect(typeof unlisten).toBe("function");
-    expect(eventMocks.listen).not.toHaveBeenCalled();
+    expect(webviewMocks.listen).not.toHaveBeenCalled();
   });
 
   it("registers listener in native runtime", async () => {
     const unlisten = vi.fn();
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
-    eventMocks.listen.mockResolvedValue(unlisten);
+    webviewMocks.listen.mockResolvedValue(unlisten);
     const handler = vi.fn();
 
     const result = await listenToNativeEvent("deep-link", handler);
 
-    expect(eventMocks.listen).toHaveBeenCalledWith("deep-link", expect.any(Function));
+    expect(webviewMocks.listen).toHaveBeenCalledWith("deep-link", expect.any(Function));
     expect(typeof result).toBe("function");
   });
 
@@ -49,7 +53,7 @@ describe("native-event-adapter", () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
     const nativeUnlisten = vi.fn();
     const capturedCallbacks: Array<(event: { payload?: { value: number } }) => void> = [];
-    eventMocks.listen.mockImplementation(async (_eventName: string, handler: (event: { payload?: { value: number } }) => void) => {
+    webviewMocks.listen.mockImplementation(async (_eventName: string, handler: (event: { payload?: { value: number } }) => void) => {
       capturedCallbacks[0] = handler;
       return nativeUnlisten;
     });
@@ -59,7 +63,8 @@ describe("native-event-adapter", () => {
     const disposeOne = await listenToNativeEvent("relay-event", handlerOne);
     const disposeTwo = await listenToNativeEvent("relay-event", handlerTwo);
 
-    expect(eventMocks.listen).toHaveBeenCalledTimes(1);
+    expect(webviewMocks.getCurrentWebviewWindow).toHaveBeenCalledTimes(1);
+    expect(webviewMocks.listen).toHaveBeenCalledTimes(1);
     expect(nativeEventAdapterInternals.getRegistrySize()).toBe(1);
     expect(nativeEventAdapterInternals.getListenerCount("relay-event")).toBe(2);
 

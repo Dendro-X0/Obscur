@@ -27,7 +27,13 @@ describe("relay-native-adapter", () => {
       message: "unsupported",
     });
 
-    await expect(relayNativeAdapter.getTorStatus()).resolves.toBe("disabled");
+    await expect(relayNativeAdapter.getTorStatus()).resolves.toEqual({
+      state: "disconnected",
+      configured: false,
+      ready: false,
+      usingExternalInstance: false,
+      proxyUrl: "",
+    });
   });
 
   it("maps relay commands through invokeNativeCommand", async () => {

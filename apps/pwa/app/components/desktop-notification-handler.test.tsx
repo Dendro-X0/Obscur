@@ -15,10 +15,27 @@ const messagingMocks = vi.hoisted(() => ({
 
 const notificationMocks = vi.hoisted(() => ({
   showNotification: vi.fn(),
+  channels: {
+    dmMessages: true,
+    mentionsReplies: false,
+    invitesSystem: true,
+  },
 }));
 
 const discoveryCacheMocks = vi.hoisted(() => ({
   getProfile: vi.fn(),
+}));
+
+const voiceOverlayMocks = vi.hoisted(() => ({
+  status: null as null | Readonly<{
+    roomId: string;
+    peerPubkey: string;
+    phase: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended";
+    role: "host" | "joiner";
+    sinceUnixMs: number;
+  }>,
+  peerDisplayName: "Unknown caller",
+  peerAvatarUrl: "",
 }));
 
 vi.mock("@/app/features/desktop/hooks/use-tauri", () => ({
@@ -29,11 +46,7 @@ vi.mock("@/app/features/desktop/hooks/use-desktop-notifications", () => ({
   useDesktopNotifications: () => ({
     showNotification: notificationMocks.showNotification,
     enabled: true,
-    channels: {
-      dmMessages: true,
-      mentionsReplies: false,
-      invitesSystem: false,
-    },
+    channels: notificationMocks.channels,
   }),
 }));
 
@@ -55,6 +68,14 @@ vi.mock("@/app/features/search/services/discovery-cache", () => ({
   },
 }));
 
+vi.mock("@/app/features/messaging/services/realtime-voice-global-ui-store", () => ({
+  useGlobalVoiceCallOverlayState: () => ({
+    status: voiceOverlayMocks.status,
+    peerDisplayName: voiceOverlayMocks.peerDisplayName,
+    peerAvatarUrl: voiceOverlayMocks.peerAvatarUrl,
+  }),
+}));
+
 const createIncomingMessage = (id: string): Message => ({
   id,
   eventId: id,
@@ -70,8 +91,13 @@ const createIncomingMessage = (id: string): Message => ({
 describe("DesktopNotificationHandler", () => {
   beforeEach(() => {
     notificationMocks.showNotification.mockReset();
+    notificationMocks.channels.dmMessages = true;
+    notificationMocks.channels.invitesSystem = true;
     discoveryCacheMocks.getProfile.mockReset();
     discoveryCacheMocks.getProfile.mockReturnValue({ displayName: "Alice" });
+    voiceOverlayMocks.status = null;
+    voiceOverlayMocks.peerDisplayName = "Unknown caller";
+    voiceOverlayMocks.peerAvatarUrl = "";
     routingMocks.pathname = "/";
     messagingMocks.selectedConversationId = null;
     Object.defineProperty(document, "visibilityState", {
@@ -123,6 +149,56 @@ describe("DesktopNotificationHandler", () => {
     const duplicate = createIncomingMessage("evt-3");
     messageBus.emitNewMessage("conv-1", duplicate);
     messageBus.emitNewMessage("conv-1", duplicate);
+
+    expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows incoming-call desktop notifications while app is hidden", () => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    const { rerender } = render(<DesktopNotificationHandler />);
+    voiceOverlayMocks.peerDisplayName = "Tester2";
+    voiceOverlayMocks.status = {
+      roomId: "dm-voice-call-room-1234567890abcdef",
+      peerPubkey: "c".repeat(64),
+      phase: "ringing_incoming",
+      role: "joiner",
+      sinceUnixMs: Date.now(),
+    };
+    rerender(<DesktopNotificationHandler />);
+
+    expect(notificationMocks.showNotification).toHaveBeenCalledWith(
+      "Incoming call from Tester2",
+      "Room: dm-voice-c...7890abcdef",
+      "invitesSystem"
+    );
+  });
+
+  it("de-duplicates repeated incoming-call notifications for the same room", () => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    const { rerender } = render(<DesktopNotificationHandler />);
+    voiceOverlayMocks.peerDisplayName = "Tester2";
+    voiceOverlayMocks.status = {
+      roomId: "dm-voice-call-room-dup",
+      peerPubkey: "d".repeat(64),
+      phase: "ringing_incoming",
+      role: "joiner",
+      sinceUnixMs: Date.now(),
+    };
+    rerender(<DesktopNotificationHandler />);
+    voiceOverlayMocks.status = {
+      roomId: "dm-voice-call-room-dup",
+      peerPubkey: "d".repeat(64),
+      phase: "ringing_incoming",
+      role: "joiner",
+      sinceUnixMs: Date.now() + 1,
+    };
+    rerender(<DesktopNotificationHandler />);
 
     expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
   });

@@ -8,6 +8,20 @@ const toTrustedRelayUrl = (candidate: string): string | null => {
     return validated?.normalizedUrl ?? null;
 };
 
+const hasReadableRelayPermission = (permissions: unknown): boolean => {
+    if (typeof permissions !== "object" || permissions === null) {
+        return true;
+    }
+    const { read, write } = permissions as { read?: unknown; write?: unknown };
+    if (typeof read === "boolean") {
+        return read;
+    }
+    if (typeof write === "boolean" && write === true) {
+        return false;
+    }
+    return true;
+};
+
 export interface RecipientDiscoveryParams {
     pool: RelayPool;
     recipientRelayCheckCache: { current: Set<string> };
@@ -133,7 +147,7 @@ export const ensureConnectedToRecipientRelays = async (
                             const relays = JSON.parse(event.content);
                             Object.entries(relays).forEach(([url, permissions]: [string, any]) => {
                                 const trustedUrl = toTrustedRelayUrl(url);
-                                if (trustedUrl && permissions.read) {
+                                if (trustedUrl && hasReadableRelayPermission(permissions)) {
                                     discoveredRelays.add(trustedUrl);
                                 }
                             });

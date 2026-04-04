@@ -12,6 +12,7 @@ import {
 import {
   accountEventStoreInternals,
 } from "@/app/features/account-sync/services/account-event-store";
+import { writeHistoryResetCutoffUnixMs } from "@/app/features/account-sync/services/history-reset-cutoff-store";
 import { openMessageDb } from "@/app/features/messaging/lib/open-message-db";
 import { purgeLocalMediaCache } from "@/app/features/vault/services/local-media-store";
 
@@ -214,6 +215,7 @@ export const resetLocalHistoryKeepingIdentity = async (
     profileId,
     publicKeyHex,
   });
+  writeHistoryResetCutoffUnixMs(profileId);
 
   try {
     await dependencies.purgeLocalMediaCache();
@@ -276,4 +278,3 @@ export const localHistoryResetServiceInternals = {
   clearLegacyMessageQueueStores,
   clearAccountEventLogStore,
 };
-

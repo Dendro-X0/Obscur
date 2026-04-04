@@ -5,7 +5,7 @@ export interface PrivacySettings {
     encryptStorageAtRest: boolean;
     clearClipboardOnLock: boolean;
     enableTorProxy: boolean;
-    torProxyUrl: string; // e.g. socks5://127.0.0.1:9050
+    torProxyUrl: string; // e.g. socks5h://127.0.0.1:9050
     autoLockTimeout: number; // minutes
     useModernDMs: boolean; // NIP-17 Gift Wraps
     dmPrivacy: 'everyone' | 'contacts-only';
@@ -31,7 +31,7 @@ export const defaultPrivacySettings: PrivacySettings = {
     encryptStorageAtRest: true,
     clearClipboardOnLock: true,
     enableTorProxy: false,
-    torProxyUrl: "socks5://127.0.0.1:9050",
+    torProxyUrl: "socks5h://127.0.0.1:9050",
     autoLockTimeout: 0,
     useModernDMs: false,
     dmPrivacy: 'everyone',
@@ -66,12 +66,24 @@ export class PrivacySettingsService {
         return getScopedStorageKey(this.STORAGE_KEY);
     }
 
+    private static normalizeTorProxyUrl(proxyUrl: string | undefined): string {
+        if (!proxyUrl || proxyUrl === "socks5://127.0.0.1:9050") {
+            return defaultPrivacySettings.torProxyUrl;
+        }
+        return proxyUrl;
+    }
+
     static getSettings(): PrivacySettings {
         if (typeof window === "undefined") return defaultPrivacySettings;
         const stored = localStorage.getItem(this.scopedStorageKey());
         if (!stored) return normalizeV090Flags(defaultPrivacySettings);
         try {
-            return normalizeV090Flags({ ...defaultPrivacySettings, ...JSON.parse(stored) });
+            const parsed = JSON.parse(stored) as Partial<PrivacySettings>;
+            return normalizeV090Flags({
+                ...defaultPrivacySettings,
+                ...parsed,
+                torProxyUrl: this.normalizeTorProxyUrl(parsed.torProxyUrl),
+            });
         } catch {
             return normalizeV090Flags(defaultPrivacySettings);
         }
@@ -79,7 +91,10 @@ export class PrivacySettingsService {
 
     static saveSettings(settings: PrivacySettings): void {
         if (typeof window === "undefined") return;
-        const normalized = normalizeV090Flags(settings);
+        const normalized = normalizeV090Flags({
+            ...settings,
+            torProxyUrl: this.normalizeTorProxyUrl(settings.torProxyUrl),
+        });
         localStorage.setItem(this.scopedStorageKey(), JSON.stringify(normalized));
 
         // Dispatch event for components to react

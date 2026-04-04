@@ -116,7 +116,7 @@ const MessageContent = (props: MessageContentProps): React.JSX.Element | null =>
     return null;
   }
   return (
-    <p className="wrap-break-word whitespace-pre-wrap text-sm leading-relaxed">
+    <p className="min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] text-sm leading-relaxed">
       {lines.map((line: string, lineIndex: number): React.JSX.Element => {
         const parsed: ParseResult = splitIntoSegments(line);
         return (
@@ -130,7 +130,7 @@ const MessageContent = (props: MessageContentProps): React.JSX.Element | null =>
                     target="_blank"
                     rel="noreferrer"
                     className={cn(
-                      "underline underline-offset-2",
+                      "underline underline-offset-2 break-words [overflow-wrap:anywhere] [word-break:break-word]",
                       props.isOutgoing ? "text-white/90 dark:text-zinc-900" : "text-zinc-900 dark:text-zinc-100"
                     )}
                   >

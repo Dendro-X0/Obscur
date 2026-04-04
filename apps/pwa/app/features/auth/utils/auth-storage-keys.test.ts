@@ -9,8 +9,10 @@ vi.mock("@/app/features/profiles/services/profile-scope", () => ({
 import {
   getAuthTokenStorageKey,
   getAuthTokenStorageKeyCandidates,
+  getAuthTokenScopedStorageKeys,
   getRememberMeStorageKey,
   getRememberMeStorageKeyCandidates,
+  getRememberMeScopedStorageKeys,
   LEGACY_AUTH_TOKEN_KEY,
   LEGACY_REMEMBER_ME_KEY,
 } from "./auth-storage-keys";
@@ -49,6 +51,26 @@ describe("auth-storage-keys", () => {
     expect(getAuthTokenStorageKeyCandidates({ includeLegacy: false })).toEqual([
       "obscur_auth_token::active-profile",
       "obscur_auth_token::default",
+    ]);
+  });
+
+  it("returns strict scoped keys for explicit non-default profiles", () => {
+    expect(getRememberMeScopedStorageKeys({ profileId: "bound-profile", includeLegacy: true })).toEqual([
+      "obscur_remember_me::bound-profile",
+    ]);
+    expect(getAuthTokenScopedStorageKeys({ profileId: "bound-profile", includeLegacy: true })).toEqual([
+      "obscur_auth_token::bound-profile",
+    ]);
+  });
+
+  it("keeps legacy keys only for the default scoped profile", () => {
+    expect(getRememberMeScopedStorageKeys({ profileId: "default", includeLegacy: true })).toEqual([
+      "obscur_remember_me::default",
+      LEGACY_REMEMBER_ME_KEY,
+    ]);
+    expect(getAuthTokenScopedStorageKeys({ profileId: "default", includeLegacy: true })).toEqual([
+      "obscur_auth_token::default",
+      LEGACY_AUTH_TOKEN_KEY,
     ]);
   });
 });

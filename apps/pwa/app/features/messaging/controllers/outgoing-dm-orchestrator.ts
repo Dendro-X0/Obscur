@@ -94,6 +94,36 @@ const resolveSenderDeliveryIssueStatus = (publishResult: Readonly<{
         : "failed"
 );
 
+const isRetryableRelayFailureReasonCode = (reasonCode: string | undefined): boolean => (
+    reasonCode === "no_writable_relays"
+    || reasonCode === "quorum_not_met"
+    || reasonCode === "relay_degraded"
+);
+
+const resolveSendDeliveryStatus = (publishResult: Readonly<{
+    success: boolean;
+    status?: "ok" | "partial" | "queued" | "failed";
+    reasonCode?: string;
+    successCount?: number;
+}>, options?: Readonly<{
+    queueRetryableFailures?: boolean;
+}>): "sent_quorum" | "sent_partial" | "queued_retrying" | "failed" => {
+    if (publishResult.success) {
+        return publishResult.status === "partial" ? "sent_partial" : "sent_quorum";
+    }
+    const queueRetryableFailures = options?.queueRetryableFailures === true;
+    if (publishResult.status === "queued") {
+        return "queued_retrying";
+    }
+    if (isRetryableRelayFailureReasonCode(publishResult.reasonCode)) {
+        if (queueRetryableFailures) {
+            return "queued_retrying";
+        }
+        return (publishResult.successCount ?? 0) > 0 ? "sent_partial" : "failed";
+    }
+    return "failed";
+};
+
 const getScopedWritableRelayUrls = (params: Readonly<{
     pool: RelayPool;
     targetRelayUrls: ReadonlyArray<string>;
@@ -174,6 +204,8 @@ export const resolveTargetRelayUrls = (params: Readonly<{
     usedRecipientScopeOnly: boolean;
 }> => {
     const lifecycleTag = getConnectionLifecycleTag(params.customTags);
+    const transportTag = getTransportTag(params.customTags);
+    const deleteCommandTransport = transportTag === "message-delete";
     const recipientScopeSources: RecipientRelayScopeSource[] = [];
     if (params.discoveredRecipientRelayUrls.length > 0) {
         recipientScopeSources.push("recipient_discovery");
@@ -194,6 +226,17 @@ export const resolveTargetRelayUrls = (params: Readonly<{
         : recipientScopeSources.length === 1
             ? recipientScopeSources[0]
             : "mixed_recipient_scope";
+
+    if (deleteCommandTransport && recipientScopeRelayUrls.length > 0) {
+        return {
+            lifecycleTag: null,
+            targetRelayUrls: recipientScopeRelayUrls,
+            recipientScopeRelayUrls,
+            recipientScopeSources,
+            relayScopeSource,
+            usedRecipientScopeOnly: true,
+        };
+    }
 
     if (lifecycleTag) {
         if (recipientScopeRelayUrls.length > 0) {
@@ -584,13 +627,9 @@ export const orchestrateOutgoingDm = async (
             const updatedMessages = prev.messages.map((m: Message) => (m.id === (updatedSignedEvent ? prepared.messageId : finalMessage.id) ? finalMessage : m));
             return createReadyState(updatedMessages);
         });
-        const deliveryStatus = publishResult.status === "queued"
-            ? "queued_retrying"
-            : publishResult.status === "partial"
-                ? "sent_partial"
-                : publishResult.success
-                    ? "sent_quorum"
-                    : "failed";
+        const deliveryStatus = resolveSendDeliveryStatus(publishResult, {
+            queueRetryableFailures: transportTag === "message-delete",
+        });
         const failureReason = publishResult.success
             ? undefined
             : publishResult.reasonCode === "no_writable_relays"
@@ -673,4 +712,5 @@ export const outgoingDmOrchestratorInternals = {
     resolveTargetRelayUrls,
     resolveRelayPreflightDecision,
     resolveSenderDeliveryIssueStatus,
+    resolveSendDeliveryStatus,
 };

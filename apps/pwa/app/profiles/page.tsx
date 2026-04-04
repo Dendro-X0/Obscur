@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, toast } from "@dweb/ui-kit";
-import { ArrowLeft, Plus, Settings2, SquareArrowOutUpRight } from "lucide-react";
+import { Button, ConfirmDialog, Input, toast } from "@dweb/ui-kit";
+import { ArrowLeft, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PageShell } from "@/app/components/page-shell";
 import { UserAvatar } from "@/app/components/user-avatar";
@@ -12,6 +12,7 @@ import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { clearProfileLocalData } from "@/app/features/profiles/services/profile-data-cleanup";
 import {
   buildDesktopProfileMenuEntries,
   deriveDesktopProfileSessionMismatch,
@@ -28,6 +29,8 @@ export default function ProfilesPage(): React.JSX.Element {
   const profile = useProfile();
   const snapshot = useDesktopProfileIsolationSnapshot();
   const [newLabel, setNewLabel] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<Readonly<{ profileId: string; label: string }> | null>(null);
+  const [isRemovingProfile, setIsRemovingProfile] = useState(false);
   const [previewByProfileId, setPreviewByProfileId] = useState<Readonly<Record<string, DesktopProfilePreview | undefined>>>({});
   const currentPublicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? undefined;
   const sessionMismatch = deriveDesktopProfileSessionMismatch({
@@ -113,6 +116,39 @@ export default function ProfilesPage(): React.JSX.Element {
     }
   };
 
+  const handleRemoveProfile = (profileId: string): void => {
+    if (profileId === snapshot.currentWindow.profileId) {
+      toast.error("Cannot remove the profile bound to this window.");
+      return;
+    }
+    if (profileId === "default") {
+      toast.error("The default profile cannot be removed.");
+      return;
+    }
+
+    const entry = entries.find((item) => item.profileId === profileId);
+    const label = entry?.label || profileId;
+    setRemoveTarget({ profileId, label });
+  };
+
+  const confirmRemoveProfile = async (): Promise<void> => {
+    if (!removeTarget) {
+      return;
+    }
+
+    setIsRemovingProfile(true);
+    try {
+      await desktopProfileRuntime.removeProfile(removeTarget.profileId);
+      await clearProfileLocalData(removeTarget.profileId);
+      setRemoveTarget(null);
+      toast.success("Profile removed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove profile.");
+    } finally {
+      setIsRemovingProfile(false);
+    }
+  };
+
   return (
     <PageShell
       title="Profiles"
@@ -177,6 +213,12 @@ export default function ProfilesPage(): React.JSX.Element {
                         <Button size="sm" variant="outline" disabled={!entry.canSwitchHere} onClick={() => void handleSwitchHere(entry.profileId)}>
                           Switch This Window
                         </Button>
+                        {entry.profileId !== "default" ? (
+                          <Button size="sm" variant="outline" onClick={() => handleRemoveProfile(entry.profileId)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove
+                          </Button>
+                        ) : null}
                       </>
                     ) : (
                       <Button size="sm" variant="outline" disabled>
@@ -220,11 +262,31 @@ export default function ProfilesPage(): React.JSX.Element {
                 <p>Each profile is a separate local workspace on this device.</p>
                 <p>Opening a profile creates an isolated desktop window. In-memory state and account data are not shared across windows.</p>
                 <p>Profiles you log into stay listed here so you can reopen them later.</p>
+                <p className="rounded-xl border border-orange-500/25 bg-orange-500/5 px-3 py-2 text-orange-900 dark:text-orange-100">
+                  If chats or contacts look empty after signing in, reopen the profile window where that account was previously used, or use <span className="font-semibold">Switch This Window</span> before logging in.
+                </p>
               </div>
             </section>
           </aside>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={Boolean(removeTarget)}
+        onClose={() => {
+          if (!isRemovingProfile) {
+            setRemoveTarget(null);
+          }
+        }}
+        onConfirm={confirmRemoveProfile}
+        title="Remove Profile"
+        description={removeTarget
+          ? `Remove profile "${removeTarget.label}" from this device? This will delete local data for that profile in this app.`
+          : "Remove this profile from this device?"}
+        confirmLabel="Remove"
+        cancelLabel="Keep Profile"
+        variant="danger"
+        isLoading={isRemovingProfile}
+      />
     </PageShell>
   );
 }

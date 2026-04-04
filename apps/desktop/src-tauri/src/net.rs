@@ -2,6 +2,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 pub struct NativeNetworkRuntime {
     enable_tor: Mutex<bool>,
@@ -49,10 +50,6 @@ impl NativeNetworkRuntime {
         builder.build()
     }
 
-    pub fn build_reqwest_client_direct(&self) -> Result<reqwest::Client, reqwest::Error> {
-        Self::build_reqwest_client_base().build()
-    }
-
     pub async fn connect_websocket(
         &self,
         relay_url: &url::Url,
@@ -68,26 +65,20 @@ impl NativeNetworkRuntime {
                 .0);
         }
         let proxy_url = self.get_proxy_url();
-        if relay_url.scheme() == "wss" {
-            Self::connect_wss_via_socks5(relay_url, &proxy_url).await
-        } else {
-            Ok(tokio_tungstenite::connect_async(relay_url.as_str())
-                .await?
-                .0)
+        match relay_url.scheme() {
+            "wss" => Self::connect_wss_via_socks5(relay_url, &proxy_url).await,
+            "ws" => Self::connect_ws_via_socks5(relay_url, &proxy_url).await,
+            _ => Err(tungstenite::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Unsupported relay scheme",
+            ))),
         }
     }
 
-    async fn connect_wss_via_socks5(
+    async fn connect_tcp_via_socks5(
         relay_url: &url::Url,
         proxy_url: &str,
-    ) -> Result<
-        tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
-        tungstenite::Error,
-    > {
-        use rustls::RootCertStore;
-        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    ) -> Result<tokio::net::TcpStream, tungstenite::Error> {
         use tokio_tungstenite::tungstenite::error::UrlError;
         use tokio_tungstenite::tungstenite::Error;
 
@@ -129,12 +120,41 @@ impl NativeNetworkRuntime {
         )
         .await
         .map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ))
+            Error::Io(std::io::Error::other(e.to_string()))
         })?;
-        let tcp_stream = socks_stream.into_inner();
+        Ok(socks_stream.into_inner())
+    }
+
+    async fn connect_ws_via_socks5(
+        relay_url: &url::Url,
+        proxy_url: &str,
+    ) -> Result<
+        tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        tungstenite::Error,
+    > {
+        let tcp_stream = Self::connect_tcp_via_socks5(relay_url, proxy_url).await?;
+        let request = relay_url.as_str().into_client_request()?;
+        let (ws_stream, _) = tokio_tungstenite::client_async(
+            request,
+            tokio_tungstenite::MaybeTlsStream::Plain(tcp_stream),
+        )
+        .await?;
+        Ok(ws_stream)
+    }
+
+    async fn connect_wss_via_socks5(
+        relay_url: &url::Url,
+        proxy_url: &str,
+    ) -> Result<
+        tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        tungstenite::Error,
+    > {
+        use rustls::RootCertStore;
+        let tcp_stream = Self::connect_tcp_via_socks5(relay_url, proxy_url).await?;
 
         let mut root_store = RootCertStore::empty();
         let certs_result = rustls_native_certs::load_native_certs();

@@ -16,6 +16,7 @@ export interface ChatHeaderProps {
     onCopyPubkey: (pubkey: string) => void;
     onOpenMedia: () => void;
     onOpenInfo?: () => void;
+    onOpenProfile?: (pubkey: string) => void;
     onSendVoiceCallInvite?: () => void;
     canSendVoiceCallInvite?: boolean;
     isSendingVoiceCallInvite?: boolean;
@@ -46,6 +47,7 @@ export function ChatHeader({
     onCopyPubkey,
     onOpenMedia,
     onOpenInfo,
+    onOpenProfile,
     onSendVoiceCallInvite,
     canSendVoiceCallInvite = true,
     isSendingVoiceCallInvite = false,
@@ -181,17 +183,35 @@ export function ChatHeader({
     return (
         <div className="flex items-center justify-between border-b border-black/10 bg-white/60 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
             <div className="flex items-center gap-3">
-                <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-900 text-sm font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                    {metadata?.avatarUrl ? (
-                        <Image src={metadata.avatarUrl} alt={resolvedName || "User"} width={36} height={36} className="h-full w-full object-cover" unoptimized />
-                    ) : (
-                        (resolvedName?.[0] || "?").toUpperCase()
-                    )}
-                    {conversation.kind === "dm" ? (
+                {conversation.kind === "dm" && onOpenProfile ? (
+                    <button
+                        type="button"
+                        className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-900 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 dark:bg-zinc-100 dark:text-zinc-900"
+                        onClick={() => onOpenProfile(conversation.pubkey)}
+                        aria-label={t("network.actions.viewProfile", "View Profile")}
+                        title={t("network.actions.viewProfile", "View Profile")}
+                        data-testid="chat-header-avatar-button"
+                    >
+                        {metadata?.avatarUrl ? (
+                            <Image src={metadata.avatarUrl} alt={resolvedName || "User"} width={36} height={36} className="h-full w-full object-cover" unoptimized />
+                        ) : (
+                            (resolvedName?.[0] || "?").toUpperCase()
+                        )}
                         <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-black ${effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"}`} />
-                    ) : null}
-                </div>
-                <div>
+                    </button>
+                ) : (
+                    <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-900 text-sm font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                        {metadata?.avatarUrl ? (
+                            <Image src={metadata.avatarUrl} alt={resolvedName || "User"} width={36} height={36} className="h-full w-full object-cover" unoptimized />
+                        ) : (
+                            (resolvedName?.[0] || "?").toUpperCase()
+                        )}
+                        {conversation.kind === "dm" ? (
+                            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-black ${effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"}`} />
+                        ) : null}
+                    </div>
+                )}
+                <div className="space-y-1">
                     <h2 className="font-bold tracking-tight">{resolvedName}</h2>
                     {conversation.kind === "dm" ? (
                         <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
@@ -209,7 +229,7 @@ export function ChatHeader({
                             {!isDeletedRecipient && lastViewedLabel ? ` | Last viewed ${lastViewedLabel}` : ""}
                         </p>
                     ) : null}
-                    <div className="flex items-center gap-2">
+                    <div className="mt-3 flex items-center gap-2">
                         {conversation.kind === "dm" ? (
                             <>
                                 {showPublicKeyControlsInChat ? (

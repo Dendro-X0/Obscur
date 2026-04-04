@@ -152,6 +152,7 @@ const RELAY_CHURN_RECOVERY_LOOKBACK_MS = 2 * 60 * 1000;
 const RELAY_CHURN_RECOVERY_SYNC_COOLDOWN_MS = 15_000;
 const RELAY_CHURN_DEFERRED_SYNC_RETRY_MS = 1_500;
 const RELAY_CHURN_DEFERRED_SYNC_MAX_ATTEMPTS = 8;
+const TRANSPORT_SAFETY_SYNC_INTERVAL_MS = 15_000;
 const NATIVE_SESSION_CHECK_TTL_MS = 2_000;
 const NATIVE_KEY_SENTINEL_VALUE = "native" as PrivateKeyHex;
 const NATIVE_SESSION_MISMATCH_LOG_WINDOW_MS = 60_000;
@@ -229,6 +230,25 @@ const shouldLogIncomingEventSeen = (seenCount: number): boolean => {
     return true;
   }
   return seenCount <= 3 || seenCount % INCOMING_EVENT_DEV_SAMPLE_EVERY === 0;
+};
+
+const shouldRunTransportSafetySync = (params: Readonly<{
+  incomingTransportEnabled: boolean;
+  myPublicKeyHex: PublicKeyHex | null;
+  poolConnections: ReadonlyArray<Readonly<{ status: string }>>;
+  isSyncing: boolean;
+  visibilityState: "visible" | "hidden" | "prerender" | "unloaded" | "unknown";
+}>): boolean => {
+  if (!params.incomingTransportEnabled || !params.myPublicKeyHex) {
+    return false;
+  }
+  if (params.isSyncing) {
+    return false;
+  }
+  if (params.visibilityState !== "visible") {
+    return false;
+  }
+  return params.poolConnections.some((connection) => connection.status === "open");
 };
 
 /**
@@ -1120,6 +1140,53 @@ export const useEnhancedDMController = (
     return () => { if (initialSyncTimeoutRef.current) clearTimeout(initialSyncTimeoutRef.current); };
   }, [incomingTransportEnabled, params.pool.connections, params.myPublicKeyHex, syncMissedMessages]);
 
+  useEffect(() => {
+    if (!incomingTransportEnabled || !params.myPublicKeyHex) {
+      return;
+    }
+
+    const resolveVisibilityState = (): "visible" | "hidden" | "prerender" | "unloaded" | "unknown" => {
+      if (typeof document === "undefined") {
+        return "visible";
+      }
+      const visibilityState = document.visibilityState;
+      if (
+        visibilityState === "visible"
+        || visibilityState === "hidden"
+        || visibilityState === "prerender"
+        || visibilityState === "unloaded"
+      ) {
+        return visibilityState;
+      }
+      return "unknown";
+    };
+
+    const attemptSafetySync = (): void => {
+      if (!shouldRunTransportSafetySync({
+        incomingTransportEnabled,
+        myPublicKeyHex: paramsRef.current.myPublicKeyHex,
+        poolConnections: paramsRef.current.pool.connections,
+        isSyncing: syncStateRef.current.isSyncing,
+        visibilityState: resolveVisibilityState(),
+      })) {
+        return;
+      }
+      void syncMissedMessages();
+    };
+
+    const interval = setInterval(attemptSafetySync, TRANSPORT_SAFETY_SYNC_INTERVAL_MS);
+    const hasDocument = typeof document !== "undefined";
+    if (hasDocument) {
+      document.addEventListener("visibilitychange", attemptSafetySync);
+    }
+    return () => {
+      clearInterval(interval);
+      if (hasDocument) {
+        document.removeEventListener("visibilitychange", attemptSafetySync);
+      }
+    };
+  }, [incomingTransportEnabled, params.myPublicKeyHex, syncMissedMessages]);
+
   const sendDmDirect = useCallback(async (sendParams: Readonly<{
     peerPublicKeyInput: string;
     plaintext: string;
@@ -1356,4 +1423,6 @@ export const enhancedDmControllerInternals = {
   isStaleOutgoingPendingRequestState,
   PENDING_REQUEST_STALE_MS,
   hasRequestDeliveryEvidence,
+  shouldRunTransportSafetySync,
+  TRANSPORT_SAFETY_SYNC_INTERVAL_MS,
 };

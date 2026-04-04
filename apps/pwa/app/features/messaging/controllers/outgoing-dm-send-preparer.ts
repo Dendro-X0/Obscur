@@ -42,7 +42,7 @@ export const prepareOutgoingDm = async (params: Readonly<{
     isOutgoing: true,
     status: "sending",
     dmFormat: params.build.format,
-    eventId: params.build.signedEvent.id,
+    eventId: params.build.canonicalEventId,
     eventCreatedAt: new Date(params.createdAtUnixSeconds * 1000),
     senderPubkey: params.myPublicKeyHex,
     recipientPubkey: params.recipientPubkey,

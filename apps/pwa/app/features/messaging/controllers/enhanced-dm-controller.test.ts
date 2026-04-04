@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { enhancedDmControllerInternals } from "./enhanced-dm-controller";
 
 describe("enhanced-dm-controller pending request guard", () => {
@@ -71,5 +72,40 @@ describe("enhanced-dm-controller pending request guard", () => {
       relayResults: [],
     });
     expect(withPartialEvidence).toBe(true);
+  });
+
+  it("runs transport safety sync only when transport is active, visible, and connected", () => {
+    const myPublicKeyHex = "a".repeat(64) as PublicKeyHex;
+    expect(enhancedDmControllerInternals.shouldRunTransportSafetySync({
+      incomingTransportEnabled: true,
+      myPublicKeyHex,
+      poolConnections: [{ status: "open" }],
+      isSyncing: false,
+      visibilityState: "visible",
+    })).toBe(true);
+
+    expect(enhancedDmControllerInternals.shouldRunTransportSafetySync({
+      incomingTransportEnabled: true,
+      myPublicKeyHex,
+      poolConnections: [{ status: "open" }],
+      isSyncing: true,
+      visibilityState: "visible",
+    })).toBe(false);
+
+    expect(enhancedDmControllerInternals.shouldRunTransportSafetySync({
+      incomingTransportEnabled: true,
+      myPublicKeyHex,
+      poolConnections: [{ status: "closed" }],
+      isSyncing: false,
+      visibilityState: "visible",
+    })).toBe(false);
+
+    expect(enhancedDmControllerInternals.shouldRunTransportSafetySync({
+      incomingTransportEnabled: true,
+      myPublicKeyHex,
+      poolConnections: [{ status: "open" }],
+      isSyncing: false,
+      visibilityState: "hidden",
+    })).toBe(false);
   });
 });

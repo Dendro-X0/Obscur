@@ -12,6 +12,7 @@ use tauri_plugin_updater::UpdaterExt;
 // use serde::{Serialize, Deserialize};
 use serde_json::json;
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
@@ -65,6 +66,8 @@ const MAX_REASONABLE_WINDOW_WIDTH: u32 = 8192;
 const MAX_REASONABLE_WINDOW_HEIGHT: u32 = 8192;
 #[cfg(desktop)]
 const MAX_REASONABLE_POSITION_ABS: i32 = 20_000;
+#[cfg(desktop)]
+const PERSIST_WINDOW_STATE_IN_DEBUG: bool = false;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct TorSettings {
@@ -72,9 +75,126 @@ struct TorSettings {
     proxy_url: String,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum TorRuntimeStatus {
+    Disconnected,
+    Starting,
+    Connected,
+    Error,
+    Stopped,
+}
+
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TorStatusSnapshot {
+    state: TorRuntimeStatus,
+    configured: bool,
+    ready: bool,
+    using_external_instance: bool,
+    proxy_url: String,
+}
+
 struct TorState {
     child: Mutex<Option<CommandChild>>,
     settings: Mutex<TorSettings>,
+    runtime_status: Mutex<TorRuntimeStatus>,
+    using_external_instance: Mutex<bool>,
+    logs: Mutex<Vec<String>>,
+}
+
+const TOR_LOG_BUFFER_LIMIT: usize = 200;
+
+fn append_tor_log(state: &TorState, line: impl Into<String>) -> Result<(), String> {
+    let mut logs = state.logs.lock().map_err(|e| e.to_string())?;
+    logs.push(line.into());
+    let overflow = logs.len().saturating_sub(TOR_LOG_BUFFER_LIMIT);
+    if overflow > 0 {
+        logs.drain(0..overflow);
+    }
+    Ok(())
+}
+
+async fn probe_tor_proxy(proxy_url: &str) -> bool {
+    let parsed = match url::Url::parse(proxy_url) {
+        Ok(value) => value,
+        Err(_) => return false,
+    };
+    let host = match parsed.host_str() {
+        Some(value) => value.to_string(),
+        None => return false,
+    };
+    let port = parsed.port().unwrap_or(9050);
+    matches!(
+        tokio::time::timeout(
+            Duration::from_millis(1200),
+            tokio::net::TcpStream::connect((host.as_str(), port)),
+        )
+        .await,
+        Ok(Ok(_))
+    )
+}
+
+async fn refresh_tor_runtime_status_from_proxy(state: &TorState) -> Result<bool, String> {
+    let (configured, proxy_url, runtime_status) = {
+        let settings = state.settings.lock().map_err(|e| e.to_string())?;
+        let runtime_status = *state.runtime_status.lock().map_err(|e| e.to_string())?;
+        (
+            settings.enable_tor,
+            settings.proxy_url.clone(),
+            runtime_status,
+        )
+    };
+
+    if !configured || runtime_status == TorRuntimeStatus::Connected {
+        return Ok(false);
+    }
+
+    if !probe_tor_proxy(&proxy_url).await {
+        return Ok(false);
+    }
+
+    let mut status_lock = state.runtime_status.lock().map_err(|e| e.to_string())?;
+    *status_lock = TorRuntimeStatus::Connected;
+    Ok(true)
+}
+
+fn build_tor_status_snapshot(state: &TorState) -> Result<TorStatusSnapshot, String> {
+    let settings = state.settings.lock().map_err(|e| e.to_string())?.clone();
+    let runtime_status = *state.runtime_status.lock().map_err(|e| e.to_string())?;
+    let using_external_instance = *state
+        .using_external_instance
+        .lock()
+        .map_err(|e| e.to_string())?;
+    Ok(TorStatusSnapshot {
+        state: runtime_status,
+        configured: settings.enable_tor,
+        ready: settings.enable_tor && runtime_status == TorRuntimeStatus::Connected,
+        using_external_instance,
+        proxy_url: settings.proxy_url,
+    })
+}
+
+fn set_tor_runtime_status(
+    app: &tauri::AppHandle,
+    state: &TorState,
+    next_status: TorRuntimeStatus,
+    using_external_instance: Option<bool>,
+) -> Result<(), String> {
+    {
+        let mut status = state.runtime_status.lock().map_err(|e| e.to_string())?;
+        *status = next_status;
+    }
+    if let Some(external) = using_external_instance {
+        let mut external_lock = state
+            .using_external_instance
+            .lock()
+            .map_err(|e| e.to_string())?;
+        *external_lock = external;
+    }
+    app.emit("tor-status", next_status)
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn stop_tor_child(state: &TorState) -> Result<bool, String> {
@@ -370,8 +490,17 @@ async fn start_tor(
     app: tauri::AppHandle,
     state: tauri::State<'_, TorState>,
 ) -> Result<String, String> {
-    let mut lock = state.child.lock().unwrap();
-    if lock.is_some() {
+    let already_running = {
+        let lock = state.child.lock().map_err(|e| e.to_string())?;
+        lock.is_some()
+    };
+    if already_running {
+        let _ = refresh_tor_runtime_status_from_proxy(&state).await;
+        let snapshot = build_tor_status_snapshot(&state)?;
+        let reuse_message = "Tor process already running. Reusing shared runtime instance.";
+        append_tor_log(&state, reuse_message)?;
+        let _ = app.emit("tor-log", reuse_message);
+        let _ = app.emit("tor-status", snapshot.state);
         return Ok("Tor is already running".to_string());
     }
 
@@ -381,38 +510,79 @@ async fn start_tor(
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
+            let tor_state = app_handle.state::<TorState>();
             match event {
                 CommandEvent::Stdout(line) => {
                     let line_str = String::from_utf8_lossy(&line);
+                    let _ = append_tor_log(&tor_state, line_str.to_string());
                     let _ = app_handle.emit("tor-log", line_str.clone());
                     if line_str.contains("Bootstrapped 100%") {
-                        let _ = app_handle.emit("tor-status", "connected");
+                        let _ = set_tor_runtime_status(
+                            &app_handle,
+                            &tor_state,
+                            TorRuntimeStatus::Connected,
+                            Some(false),
+                        );
                     } else if line_str.contains("Address already in use") {
-                        let _ = app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...");
-                        let _ = app_handle.emit("tor-status", "connected");
+                        let message = "Detected existing Tor instance on port 9050. Using existing connection...";
+                        let _ = append_tor_log(&tor_state, message);
+                        let _ = app_handle.emit("tor-log", message);
+                        let _ = set_tor_runtime_status(
+                            &app_handle,
+                            &tor_state,
+                            TorRuntimeStatus::Connected,
+                            Some(true),
+                        );
                     }
                 }
                 CommandEvent::Stderr(line) => {
                     let line_str = String::from_utf8_lossy(&line);
+                    let _ = append_tor_log(&tor_state, line_str.to_string());
                     let _ = app_handle.emit("tor-error", line_str.clone());
                     if line_str.contains("Address already in use") {
-                        let _ = app_handle.emit("tor-log", "Detected existing Tor instance on port 9050. Using existing connection...");
-                        let _ = app_handle.emit("tor-status", "connected");
+                        let message = "Detected existing Tor instance on port 9050. Using existing connection...";
+                        let _ = append_tor_log(&tor_state, message);
+                        let _ = app_handle.emit("tor-log", message);
+                        let _ = set_tor_runtime_status(
+                            &app_handle,
+                            &tor_state,
+                            TorRuntimeStatus::Connected,
+                            Some(true),
+                        );
                     }
                 }
-                CommandEvent::Terminated(payload) => {
-                    let _ = app_handle.emit(
-                        "tor-status",
-                        format!("terminated: {}", payload.code.unwrap_or(-1)),
-                    );
+                CommandEvent::Terminated(_payload) => {
+                    if let Ok(mut child) = tor_state.child.lock() {
+                        child.take();
+                    }
+                    let using_external_instance = tor_state
+                        .using_external_instance
+                        .lock()
+                        .map(|guard| *guard)
+                        .unwrap_or(false);
+                    if !using_external_instance {
+                        let _ = set_tor_runtime_status(
+                            &app_handle,
+                            &tor_state,
+                            TorRuntimeStatus::Stopped,
+                            Some(false),
+                        );
+                    }
                 }
                 _ => {}
             }
         }
     });
 
+    let mut lock = state.child.lock().map_err(|e| e.to_string())?;
     *lock = Some(child);
-    let _ = app.emit("tor-status", "starting");
+    drop(lock);
+    append_tor_log(&state, "Tor sidecar started. Waiting for bootstrap confirmation...")?;
+    let _ = app.emit(
+        "tor-log",
+        "Tor sidecar started. Waiting for bootstrap confirmation...",
+    );
+    set_tor_runtime_status(&app, &state, TorRuntimeStatus::Starting, Some(false))?;
     Ok("Tor started".to_string())
 }
 
@@ -422,17 +592,33 @@ async fn stop_tor(
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     if stop_tor_child(&state)? {
-        let _ = app.emit("tor-status", "stopped");
+        append_tor_log(&state, "Tor sidecar stopped.")?;
+        let _ = app.emit("tor-log", "Tor sidecar stopped.");
+        set_tor_runtime_status(&app, &state, TorRuntimeStatus::Stopped, Some(false))?;
         Ok("Tor stopped".to_string())
     } else {
+        set_tor_runtime_status(&app, &state, TorRuntimeStatus::Stopped, Some(false))?;
         Ok("Tor is not running".to_string())
     }
 }
 
 #[tauri::command]
-async fn get_tor_status(state: tauri::State<'_, TorState>) -> Result<bool, String> {
-    let lock = state.child.lock().unwrap();
-    Ok(lock.is_some())
+async fn get_tor_status(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TorState>,
+) -> Result<TorStatusSnapshot, String> {
+    if refresh_tor_runtime_status_from_proxy(&state).await? {
+        let snapshot = build_tor_status_snapshot(&state)?;
+        let _ = app.emit("tor-status", snapshot.state);
+        return Ok(snapshot);
+    }
+    build_tor_status_snapshot(&state)
+}
+
+#[tauri::command]
+async fn get_tor_logs(state: tauri::State<'_, TorState>) -> Result<Vec<String>, String> {
+    let logs = state.logs.lock().map_err(|e| e.to_string())?;
+    Ok(logs.clone())
 }
 
 #[tauri::command]
@@ -449,6 +635,10 @@ async fn save_tor_settings(
 
     net_runtime.set(enable_tor, proxy_url.clone());
 
+    if !enable_tor {
+        let _ = set_tor_runtime_status(&app, &state, TorRuntimeStatus::Disconnected, Some(false));
+    }
+
     // Save to file
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
@@ -462,7 +652,7 @@ async fn save_tor_settings(
 fn load_tor_settings(app: &tauri::AppHandle) -> TorSettings {
     let default = TorSettings {
         enable_tor: false,
-        proxy_url: "socks5://127.0.0.1:9050".to_string(),
+        proxy_url: "socks5h://127.0.0.1:9050".to_string(),
     };
 
     let Ok(app_dir) = app.path().app_data_dir() else {
@@ -472,7 +662,11 @@ fn load_tor_settings(app: &tauri::AppHandle) -> TorSettings {
     let Ok(json) = std::fs::read_to_string(path) else {
         return default;
     };
-    serde_json::from_str(&json).unwrap_or(default)
+    let mut settings: TorSettings = serde_json::from_str(&json).unwrap_or(default.clone());
+    if settings.proxy_url == "socks5://127.0.0.1:9050" {
+        settings.proxy_url = default.proxy_url;
+    }
+    settings
 }
 
 #[tauri::command]
@@ -737,6 +931,9 @@ async fn save_window_state(window: WebviewWindow, app: tauri::AppHandle) -> Resu
 // Load window state from storage
 #[cfg(desktop)]
 fn load_window_state(app: &tauri::AppHandle) -> Option<WindowState> {
+    if cfg!(debug_assertions) && !PERSIST_WINDOW_STATE_IN_DEBUG {
+        return None;
+    }
     let app_dir = app.path().app_data_dir().ok()?;
     let state_path = app_dir.join("window_state.json");
     let state_json = std::fs::read_to_string(state_path).ok()?;
@@ -806,6 +1003,9 @@ fn write_window_state(
     window_label: &str,
     state: &WindowState,
 ) -> Result<(), String> {
+    if cfg!(debug_assertions) && !PERSIST_WINDOW_STATE_IN_DEBUG {
+        return Ok(());
+    }
     if window_label != MAIN_WINDOW_LABEL {
         return Ok(());
     }
@@ -858,6 +1058,9 @@ pub fn run() {
             app.manage(TorState {
                 child: Mutex::new(None),
                 settings: Mutex::new(settings.clone()),
+                runtime_status: Mutex::new(TorRuntimeStatus::Disconnected),
+                using_external_instance: Mutex::new(false),
+                logs: Mutex::new(Vec::new()),
             });
 
             // Start Tor if enabled
@@ -914,6 +1117,7 @@ pub fn run() {
                         }
                         "show" => {
                             if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.unminimize();
                                 let _ = window.show();
                                 let _ = window.set_focus();
                             }
@@ -933,6 +1137,7 @@ pub fn run() {
                         {
                             let app = tray.app_handle();
                             if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.unminimize();
                                 let _ = window.show();
                                 let _ = window.set_focus();
                             }
@@ -949,6 +1154,7 @@ pub fn run() {
                 }
 
                 // Show the window now
+                let _ = _window.unminimize();
                 let _ = _window.show();
                 let _ = _window.set_focus();
             }
@@ -1048,6 +1254,7 @@ pub fn run() {
             start_tor,
             stop_tor,
             get_tor_status,
+            get_tor_logs,
             save_tor_settings,
             restart_app,
             init_native_session,

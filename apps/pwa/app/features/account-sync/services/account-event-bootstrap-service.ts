@@ -5,6 +5,7 @@ import { chatStateStoreService } from "@/app/features/messaging/services/chat-st
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { readHistoryResetCutoffUnixMs } from "./history-reset-cutoff-store";
 import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
 import type { AccountEvent, AccountEventSource } from "../account-event-contracts";
 
@@ -227,6 +228,7 @@ const collectFromChatState = (params: Readonly<{
   chatState: ReturnType<typeof chatStateStoreService.load>;
   source: AccountEventSource;
   idempotencyPrefix: string;
+  historyResetCutoffUnixMs?: number | null;
 }>): void => {
   const chatState = params.chatState;
   if (!chatState) {
@@ -266,6 +268,13 @@ const collectFromChatState = (params: Readonly<{
       return messagePubkey;
     }, null);
     messages.forEach((message) => {
+      if (
+        typeof params.historyResetCutoffUnixMs === "number"
+        && Number.isFinite(params.historyResetCutoffUnixMs)
+        && message.timestampMs < params.historyResetCutoffUnixMs
+      ) {
+        return;
+      }
       const isOutgoing = resolveMessageIsOutgoing({
         message,
         accountPublicKeyHex: params.accountPublicKeyHex,
@@ -303,6 +312,7 @@ const collectFromBackupPayload = (params: Readonly<{
   payload: EncryptedAccountBackupPayload;
   source: AccountEventSource;
   idempotencyPrefix: string;
+  historyResetCutoffUnixMs?: number | null;
 }>): void => {
   params.payload.peerTrust.acceptedPeers.forEach((peerPublicKeyHex) => {
     params.events.push({
@@ -325,8 +335,16 @@ const collectFromBackupPayload = (params: Readonly<{
     chatState: params.payload.chatState,
     source: params.source,
     idempotencyPrefix: params.idempotencyPrefix,
+    historyResetCutoffUnixMs: params.historyResetCutoffUnixMs,
   });
   params.payload.syncCheckpoints.forEach((checkpoint) => {
+    if (
+      typeof params.historyResetCutoffUnixMs === "number"
+      && Number.isFinite(params.historyResetCutoffUnixMs)
+      && checkpoint.updatedAtUnixMs < params.historyResetCutoffUnixMs
+    ) {
+      return;
+    }
     params.events.push({
       ...createCommonEvent({
         type: "SYNC_CHECKPOINT_ADVANCED",
@@ -352,6 +370,7 @@ export const buildCanonicalBackupImportEvents = (params: Readonly<{
 }>): ReadonlyArray<AccountEvent> => {
   const source = params.source ?? "relay_sync";
   const idempotencyPrefix = params.idempotencyPrefix ?? `restore:${params.payload.createdAtUnixMs}`;
+  const historyResetCutoffUnixMs = readHistoryResetCutoffUnixMs(params.profileId);
   const events: AccountEvent[] = [];
   collectFromBackupPayload({
     profileId: params.profileId,
@@ -360,6 +379,7 @@ export const buildCanonicalBackupImportEvents = (params: Readonly<{
     payload: params.payload,
     source,
     idempotencyPrefix,
+    historyResetCutoffUnixMs,
   });
   return events;
 };
@@ -372,6 +392,7 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
   events: ReadonlyArray<AccountEvent>;
   sourceCounts: Readonly<Record<AccountEventSource, number>>;
 }>> => {
+  const historyResetCutoffUnixMs = readHistoryResetCutoffUnixMs(params.profileId);
   await chatStateStoreService.hydrateMessages(params.accountPublicKeyHex);
   const events: AccountEvent[] = [];
   const peerTrust = peerTrustInternals.loadFromStorage(params.accountPublicKeyHex);
@@ -399,9 +420,17 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
     chatState,
     source: "local_bootstrap",
     idempotencyPrefix: "legacy",
+    historyResetCutoffUnixMs,
   });
 
   checkpoints.forEach((checkpoint) => {
+    if (
+      typeof historyResetCutoffUnixMs === "number"
+      && Number.isFinite(historyResetCutoffUnixMs)
+      && checkpoint.updatedAtUnixMs < historyResetCutoffUnixMs
+    ) {
+      return;
+    }
     events.push({
       ...createCommonEvent({
         type: "SYNC_CHECKPOINT_ADVANCED",
@@ -424,6 +453,7 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
       payload: params.backupPayload,
       source: "local_bootstrap",
       idempotencyPrefix: "backup",
+      historyResetCutoffUnixMs,
     });
   }
 

@@ -46,6 +46,7 @@ vi.mock("../hooks/use-auto-lock", () => ({
         settings: settingsPanelMocks.settings,
         updateSettings: settingsPanelMocks.updateSettings,
         torStatus: "disconnected" as const,
+        torStatusSnapshot: null,
         torLogs: [] as string[],
         torRestartRequired: false,
     }),

@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 import type { Conversation } from "../types";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
-import { MoreVertical, Pin, PinOff, Trash2 } from "lucide-react";
+import { EyeOff, MoreVertical, Pin, PinOff, User } from "lucide-react";
 import { stripVoiceCallControlPreview } from "@/app/features/messaging/services/realtime-voice-signaling";
 import {
     DropdownMenu,
@@ -26,7 +26,8 @@ export interface ConversationRowProps {
     lastViewedLabel: string;
     isPinned?: boolean;
     onTogglePin?: (conversationId: string) => void;
-    onDelete?: (conversationId: string) => void;
+    onHide?: (conversationId: string) => void;
+    onViewProfile?: (pubkey: string) => void;
 }
 
 export const ConversationRow = React.memo(function ConversationRow({
@@ -40,7 +41,8 @@ export const ConversationRow = React.memo(function ConversationRow({
     lastViewedLabel,
     isPinned,
     onTogglePin,
-    onDelete
+    onHide,
+    onViewProfile,
 }: ConversationRowProps) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null, { live: false });
@@ -65,21 +67,47 @@ export const ConversationRow = React.memo(function ConversationRow({
                 isSelected && "bg-zinc-100/50 dark:bg-zinc-900/60"
             )}
         >
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white dark:from-zinc-100 dark:to-zinc-300 dark:text-black shadow-sm overflow-hidden">
-                {metadata?.avatarUrl ? (
-                    <Image src={metadata.avatarUrl} alt={resolvedName} width={48} height={48} className="h-full w-full object-cover" unoptimized />
-                ) : (
-                    resolvedName[0]?.toUpperCase()
-                )}
-                {conversation.kind === "dm" ? (
+            {conversation.kind === "dm" && onViewProfile ? (
+                <button
+                    type="button"
+                    className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 dark:from-zinc-100 dark:to-zinc-300 dark:text-black"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onViewProfile(conversation.pubkey);
+                    }}
+                    aria-label={t("network.actions.viewProfile", "View Profile")}
+                    title={t("network.actions.viewProfile", "View Profile")}
+                    data-testid="conversation-row-avatar-button"
+                >
+                    {metadata?.avatarUrl ? (
+                        <Image src={metadata.avatarUrl} alt={resolvedName} width={48} height={48} className="h-full w-full object-cover" unoptimized />
+                    ) : (
+                        resolvedName[0]?.toUpperCase()
+                    )}
                     <span
                         className={cn(
                             "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-black",
                             effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"
                         )}
                     />
-                ) : null}
-            </div>
+                </button>
+            ) : (
+                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white dark:from-zinc-100 dark:to-zinc-300 dark:text-black shadow-sm overflow-hidden">
+                    {metadata?.avatarUrl ? (
+                        <Image src={metadata.avatarUrl} alt={resolvedName} width={48} height={48} className="h-full w-full object-cover" unoptimized />
+                    ) : (
+                        resolvedName[0]?.toUpperCase()
+                    )}
+                    {conversation.kind === "dm" ? (
+                        <span
+                            className={cn(
+                                "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-black",
+                                effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"
+                            )}
+                        />
+                    ) : null}
+                </div>
+            )}
 
             <div className="min-w-0 flex-1 py-0.5">
                 <div className="mb-1 flex items-center justify-between">
@@ -112,16 +140,24 @@ export const ConversationRow = React.memo(function ConversationRow({
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="z-[10040]">
+                            {conversation.kind === "dm" ? (
+                                <DropdownMenuItem onClick={(e) => {
+                                    e.stopPropagation();
+                                    onViewProfile?.(conversation.pubkey);
+                                }}>
+                                    <User className="h-4 w-4 mr-2" />
+                                    {t("network.actions.viewProfile", "View Profile")}
+                                </DropdownMenuItem>
+                            ) : null}
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin?.(conversation.id); }}>
                                 {isPinned ? <PinOff className="h-4 w-4 mr-2" /> : <Pin className="h-4 w-4 mr-2" />}
                                 {isPinned ? t("messaging.unpin_chat") : t("messaging.pin_chat")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                                className="text-red-600 focus:text-red-600"
-                                onClick={(e) => { e.stopPropagation(); onDelete?.(conversation.id); }}
+                                onClick={(e) => { e.stopPropagation(); onHide?.(conversation.id); }}
                             >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                {t("messaging.delete_chat")}
+                                <EyeOff className="h-4 w-4 mr-2" />
+                                {t("messaging.hide_chat", "Hide")}
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

@@ -150,6 +150,7 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
     if let Some(existing) = app.get_webview_window(&binding.window_label) {
         #[cfg(desktop)]
         {
+            let _ = existing.unminimize();
             let _ = existing.show();
             let _ = existing.set_focus();
         }

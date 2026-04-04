@@ -13,6 +13,7 @@ export type IdentityProfileBinding = Readonly<{
 const LEGACY_IDENTITY_DB_KEY = "primary";
 const REMEMBER_ME_BASE_KEY = "obscur_remember_me";
 const AUTH_TOKEN_BASE_KEY = "obscur_auth_token";
+const SCOPED_STORAGE_DELIMITER = "::";
 
 const parseIdentityRecord = (value: unknown): IdentityRecord | null => {
   if (typeof value !== "object" || value === null) {
@@ -40,6 +41,55 @@ const profileIdFromIdentityDbKey = (dbKey: string): string => {
 };
 
 const unique = (values: ReadonlyArray<string>): ReadonlyArray<string> => Array.from(new Set(values));
+
+const extractProfileIdFromScopedStorageKey = (storageKey: string): string | null => {
+  const separatorIndex = storageKey.lastIndexOf(SCOPED_STORAGE_DELIMITER);
+  if (separatorIndex < 0) {
+    return null;
+  }
+  const profileId = storageKey.slice(separatorIndex + SCOPED_STORAGE_DELIMITER.length).trim();
+  if (profileId.length === 0) {
+    return null;
+  }
+  return profileId;
+};
+
+const collectScopedAccountProfileCandidates = (publicKeyHex: PublicKeyHex): ReadonlyArray<string> => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  const normalizedPublicKeyHex = publicKeyHex.trim().toLowerCase();
+  if (normalizedPublicKeyHex.length === 0) {
+    return [];
+  }
+
+  const profileIds: string[] = [];
+  const collectFromStorage = (storage: Storage): void => {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (!key || !key.toLowerCase().includes(normalizedPublicKeyHex)) {
+        continue;
+      }
+      const profileId = extractProfileIdFromScopedStorageKey(key);
+      if (profileId) {
+        profileIds.push(profileId);
+      }
+    }
+  };
+
+  try {
+    collectFromStorage(window.localStorage);
+  } catch {
+    // Continue with best-effort profile candidate discovery.
+  }
+  try {
+    collectFromStorage(window.sessionStorage);
+  } catch {
+    // Continue with best-effort profile candidate discovery.
+  }
+
+  return unique(profileIds);
+};
 
 const collectRememberedProfileCandidates = (): ReadonlyArray<string> => {
   if (typeof window === "undefined") {
@@ -172,13 +222,13 @@ const migrateScopedStorage = (sourceProfileId: string, targetProfileId: string):
   if (typeof window === "undefined" || sourceProfileId === targetProfileId) {
     return;
   }
-  const sourceSuffix = `::${sourceProfileId}`;
+  const sourceSuffix = `${SCOPED_STORAGE_DELIMITER}${sourceProfileId}`;
   for (let index = 0; index < window.localStorage.length; index += 1) {
     const key = window.localStorage.key(index);
     if (!key || !key.endsWith(sourceSuffix)) {
       continue;
     }
-    const targetKey = key.slice(0, key.length - sourceSuffix.length) + `::${targetProfileId}`;
+    const targetKey = key.slice(0, key.length - sourceSuffix.length) + `${SCOPED_STORAGE_DELIMITER}${targetProfileId}`;
     if (window.localStorage.getItem(targetKey) === null) {
       const value = window.localStorage.getItem(key);
       if (value !== null) {
@@ -191,7 +241,7 @@ const migrateScopedStorage = (sourceProfileId: string, targetProfileId: string):
     if (!key || !key.endsWith(sourceSuffix)) {
       continue;
     }
-    const targetKey = key.slice(0, key.length - sourceSuffix.length) + `::${targetProfileId}`;
+    const targetKey = key.slice(0, key.length - sourceSuffix.length) + `${SCOPED_STORAGE_DELIMITER}${targetProfileId}`;
     if (window.sessionStorage.getItem(targetKey) === null) {
       const value = window.sessionStorage.getItem(key);
       if (value !== null) {
@@ -199,6 +249,35 @@ const migrateScopedStorage = (sourceProfileId: string, targetProfileId: string):
       }
     }
   }
+};
+
+const collectScopedStorageMigrationSources = (params: Readonly<{
+  publicKeyHex: PublicKeyHex;
+  targetProfileId: string;
+  existingProfileId?: string;
+  currentActiveProfileId: string;
+  explicitProfileScope?: string | null;
+}>): ReadonlyArray<string> => {
+  const sourceProfileIds: string[] = [];
+  const pushProfileId = (profileId: string | null | undefined): void => {
+    const normalized = profileId?.trim();
+    if (!normalized || normalized === params.targetProfileId) {
+      return;
+    }
+    sourceProfileIds.push(normalized);
+  };
+
+  pushProfileId(params.existingProfileId);
+
+  if (!params.existingProfileId && !params.explicitProfileScope) {
+    pushProfileId(params.currentActiveProfileId);
+  }
+
+  collectScopedAccountProfileCandidates(params.publicKeyHex).forEach((profileId) => {
+    pushProfileId(profileId);
+  });
+
+  return unique(sourceProfileIds);
 };
 
 export const ensureIdentityProfileBinding = async (params: Readonly<{
@@ -216,9 +295,16 @@ export const ensureIdentityProfileBinding = async (params: Readonly<{
     throw new Error(ensured.message || "Failed to ensure identity profile");
   }
 
-  if (!existing && !explicitProfileScope && currentActiveProfileId !== targetProfileId) {
-    migrateScopedStorage(currentActiveProfileId, targetProfileId);
-  }
+  const migrationSources = collectScopedStorageMigrationSources({
+    publicKeyHex: params.publicKeyHex,
+    targetProfileId,
+    existingProfileId: existing?.profileId,
+    currentActiveProfileId,
+    explicitProfileScope,
+  });
+  migrationSources.forEach((sourceProfileId) => {
+    migrateScopedStorage(sourceProfileId, targetProfileId);
+  });
 
   if (explicitProfileScope) {
     return targetProfileId;
@@ -274,7 +360,10 @@ export const recoverStoredIdentityProfile = async (): Promise<IdentityProfileBin
 
 export const identityProfileBindingInternals = {
   profileIdFromIdentityDbKey,
+  extractProfileIdFromScopedStorageKey,
+  collectScopedAccountProfileCandidates,
   migrateScopedStorage,
+  collectScopedStorageMigrationSources,
   defaultProfileLabelForPublicKey,
   getProfileIdentityDbKey,
   collectRememberedProfileCandidates,

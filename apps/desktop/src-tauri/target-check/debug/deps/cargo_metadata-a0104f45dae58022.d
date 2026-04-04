@@ -1,9 +1,0 @@
-E:\Web Project\experimental-workspace\newstart\apps\desktop\src-tauri\target-check\debug\deps\cargo_metadata-a0104f45dae58022.d: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\dependency.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\diagnostic.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\errors.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\messages.rs
-
-E:\Web Project\experimental-workspace\newstart\apps\desktop\src-tauri\target-check\debug\deps\libcargo_metadata-a0104f45dae58022.rmeta: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\dependency.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\diagnostic.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\errors.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\messages.rs
-
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\lib.rs:
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\dependency.rs:
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\diagnostic.rs:
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\errors.rs:
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\messages.rs:

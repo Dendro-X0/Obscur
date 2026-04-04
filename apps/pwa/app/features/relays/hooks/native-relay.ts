@@ -77,7 +77,7 @@ export class NativeRelay implements EventTarget {
                 return;
             }
 
-            if (torStatus !== "enabled") {
+            if (!torStatus.configured) {
                 this.transportMode = "browser";
                 logRuntimeEvent("native_relay.browser_preferred", "expected", [
                     `[NativeRelay] Tor disabled for ${this.url}; using browser WebSocket transport`,
@@ -304,17 +304,20 @@ export class NativeRelay implements EventTarget {
             relayHealthMonitor.recordConnectionFailure(this.url, errorMessage);
             this.nativeConnected = false;
 
-            let probeMessage: string | null = null;
-            try {
-                const report = await relayNativeAdapter.probeRelay(this.url);
-                probeMessage = formatRelayProbeReport(report);
-            } catch (probeError) {
-                probeMessage = `Relay probe failed: ${probeError instanceof Error ? probeError.message : String(probeError)}`;
-            }
-
             const torStatus = await relayNativeAdapter.getTorStatus();
+            let probeMessage: string | null = null;
+            if (!torStatus.configured) {
+                try {
+                    const report = await relayNativeAdapter.probeRelay(this.url);
+                    probeMessage = formatRelayProbeReport(report);
+                } catch (probeError) {
+                    probeMessage = `Relay probe failed: ${probeError instanceof Error ? probeError.message : String(probeError)}`;
+                }
+            } else {
+                probeMessage = "[RelayProbe] skipped direct diagnostic probe because Tor routing is enabled";
+            }
             const shouldFallbackToBrowser = (
-                torStatus !== "enabled"
+                !torStatus.configured
                 && !this.closeRequested
                 && this.transportMode === "native"
             );

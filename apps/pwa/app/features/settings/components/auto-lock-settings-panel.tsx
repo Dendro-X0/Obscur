@@ -66,7 +66,7 @@ const hasSignalStateChanged = (
  */
 export const AutoLockSettingsPanel: React.FC = () => {
     const { t } = useTranslation();
-    const { settings, updateSettings, torStatus, torLogs, torRestartRequired } = useAutoLock();
+    const { settings, updateSettings, torStatus, torStatusSnapshot, torLogs, torRestartRequired } = useAutoLock();
     const [showLogs, setShowLogs] = React.useState(false);
     const [actionPhase, setActionPhase] = React.useState<SettingsActionPhase>("idle");
     const [actionMessage, setActionMessage] = React.useState<string>("");
@@ -604,6 +604,46 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>
                     )}
                 </div>
+
+                {isTauri && (
+                    <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div className={cn(
+                                "rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider",
+                                torStatusSnapshot?.usingExternalInstance
+                                    ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-700 dark:text-cyan-300"
+                                    : "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-300"
+                            )}>
+                                Runtime: {torStatusSnapshot?.usingExternalInstance ? "Shared" : "Sidecar"}
+                            </div>
+                            <div className={cn(
+                                "rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider",
+                                torStatusSnapshot?.ready
+                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                                    : settings.enableTorProxy
+                                        ? "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300"
+                                        : "bg-zinc-500/10 border-zinc-500/20 text-zinc-700 dark:text-zinc-300"
+                            )}>
+                                Reachability: {torStatusSnapshot?.ready ? "Proxy Reachable" : settings.enableTorProxy ? "Pending" : "Disabled"}
+                            </div>
+                            <div className={cn(
+                                "rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider",
+                                torStatus === "connected"
+                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                                    : torStatus === "starting"
+                                        ? "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300"
+                                        : torStatus === "error"
+                                            ? "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300"
+                                            : "bg-zinc-500/10 border-zinc-500/20 text-zinc-700 dark:text-zinc-300"
+                            )}>
+                                Bootstrap: {torStatus === "connected" ? "Ready" : torStatus === "starting" ? "Starting" : torStatus === "error" ? "Error" : "Idle"}
+                            </div>
+                        </div>
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                            Proxy: {torStatusSnapshot?.proxyUrl || settings.torProxyUrl}
+                        </div>
+                    </div>
+                )}
 
                 {isTauri && torRestartRequired && (
                     <div className="mt-4 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center justify-between gap-4">

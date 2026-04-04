@@ -8,11 +8,11 @@ import { AlertTriangle, ChevronDown, Lock, LogOut, RefreshCw, Settings2, UserPlu
 import { UserAvatar } from "@/app/components/user-avatar";
 import { cn } from "@/app/lib/utils";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import {
-  getAuthTokenStorageKey,
-  getRememberMeStorageKey,
-} from "@/app/features/auth/utils/auth-storage-keys";
+import { getAuthTokenStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
+import { clearAuthSessionPersistence } from "@/app/features/auth/utils/clear-auth-session-persistence";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/utils/remember-me-state";
+import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { useTauri } from "@/app/features/desktop/hooks/use-tauri";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import {
@@ -32,6 +32,7 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
   const identity = useIdentity();
   const profile = useProfile();
   const snapshot = useDesktopProfileIsolationSnapshot();
+  const { isDesktop, api } = useTauri();
   const [open, setOpen] = useState(false);
   const [previewByProfileId, setPreviewByProfileId] = useState<Readonly<Record<string, DesktopProfilePreview | undefined>>>({});
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -116,14 +117,41 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
     router.replace("/");
   };
 
-  const handleLogout = (): void => {
-    localStorage.removeItem(getAuthTokenStorageKey());
-    localStorage.removeItem(getRememberMeStorageKey());
-    localStorage.removeItem("obscur_auth_token");
-    localStorage.removeItem("obscur_remember_me");
+  const clearNativeSessionBestEffort = async (): Promise<void> => {
+    const cs = cryptoService as unknown as { clearNativeSession?: () => Promise<void> };
+    if (typeof cs.clearNativeSession !== "function") {
+      return;
+    }
+    try {
+      await cs.clearNativeSession();
+    } catch {
+      // Best-effort; keep logout resilient even if native bridge is unavailable.
+    }
+  };
+
+  const handleLogout = async (): Promise<void> => {
+    clearAuthSessionPersistence({ profileId: snapshot.currentWindow.profileId });
+    await clearNativeSessionBestEffort();
     identity.lockIdentity();
     setOpen(false);
     toast.success("Logged out.");
+    router.replace("/");
+  };
+
+  const handleLogoutAndClose = async (): Promise<void> => {
+    clearAuthSessionPersistence({ profileId: snapshot.currentWindow.profileId });
+    await clearNativeSessionBestEffort();
+    identity.lockIdentity();
+    setOpen(false);
+    toast.success("Logged out.");
+    if (isDesktop && snapshot.currentWindow.windowLabel !== "main") {
+      try {
+        await api.window.close();
+        return;
+      } catch {
+        // Fall back to routing if window close fails.
+      }
+    }
     router.replace("/");
   };
 
@@ -231,6 +259,12 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
                 <LogOut className="h-3.5 w-3.5" />
                 Log Out
               </Button>
+              {snapshot.currentWindow.windowLabel !== "main" ? (
+                <Button type="button" variant="outline" onClick={handleLogoutAndClose}>
+                  <LogOut className="h-3.5 w-3.5" />
+                  Log Out & Close Window
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>

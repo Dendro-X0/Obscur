@@ -31,4 +31,4 @@ Use this checklist before and after changes to identity, auth, profiles, relays,
 2. Confirm the change does not introduce optimistic success without evidence.
 3. Update docs/changelog if the change affects architecture, rollout status, or release risk.
 4. Record remaining blockers if the fix is partial.
-
+5. Update `docs/handoffs/current-session.md` with the next atomic step and a final checkpoint.

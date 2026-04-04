@@ -7,7 +7,7 @@ import { Textarea } from "../../../components/ui/textarea";
 import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
 import { Paperclip, Send, X, FileText, Loader2, Smile, Play } from "lucide-react";
-import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import EmojiPicker, { EmojiClickData, SuggestionMode, Theme } from "emoji-picker-react";
 import { VoiceRecorder } from "./voice-recorder";
 import type { ReplyTo, RelayStatusSummary } from "../types";
 import { BEST_EFFORT_STORAGE_NOTE } from "../lib/media-upload-policy";
@@ -65,6 +65,11 @@ export function Composer({
     mediaProcessingProgress,
     recipientRemoved = false,
 }: ComposerProps) {
+    const EMOJI_PICKER_DESKTOP_WIDTH_PX = 320;
+    const EMOJI_PICKER_DESKTOP_HEIGHT_PX = 400;
+    const EMOJI_PICKER_MOBILE_MAX_WIDTH_PX = 400;
+    const EMOJI_PICKER_MOBILE_MIN_HEIGHT_PX = 260;
+    const EMOJI_PICKER_MOBILE_MAX_HEIGHT_PX = 360;
     const { t } = useTranslation();
     const isGated: boolean = isPeerAccepted === false && isInitiator === false;
     const disableCompose = isGated || recipientRemoved;
@@ -75,6 +80,11 @@ export function Composer({
         left: 16,
         top: 16,
     });
+    const [emojiPickerDimensions, setEmojiPickerDimensions] = React.useState<Readonly<{ width: number; height: number }>>({
+        width: EMOJI_PICKER_DESKTOP_WIDTH_PX,
+        height: EMOJI_PICKER_DESKTOP_HEIGHT_PX,
+    });
+    const [isCompactEmojiPicker, setIsCompactEmojiPicker] = React.useState(false);
     const [isMounted, setIsMounted] = React.useState(false);
 
     const updateEmojiPickerPosition = React.useCallback(() => {
@@ -86,10 +96,36 @@ export function Composer({
             return;
         }
         const buttonRect = button.getBoundingClientRect();
-        const pickerWidth = 320;
-        const pickerHeight = 400;
         const margin = 12;
         const gap = 10;
+        const compactLayout = window.matchMedia("(max-width: 640px), (pointer: coarse)").matches;
+
+        const pickerWidth = compactLayout
+            ? Math.min(Math.max(window.innerWidth - (margin * 2), 280), EMOJI_PICKER_MOBILE_MAX_WIDTH_PX)
+            : EMOJI_PICKER_DESKTOP_WIDTH_PX;
+        const pickerHeight = compactLayout
+            ? Math.min(
+                Math.max(Math.round(window.innerHeight * 0.44), EMOJI_PICKER_MOBILE_MIN_HEIGHT_PX),
+                EMOJI_PICKER_MOBILE_MAX_HEIGHT_PX,
+            )
+            : EMOJI_PICKER_DESKTOP_HEIGHT_PX;
+
+        setIsCompactEmojiPicker(compactLayout);
+        setEmojiPickerDimensions({
+            width: pickerWidth,
+            height: pickerHeight,
+        });
+
+        if (compactLayout) {
+            const maxLeftCompact = Math.max(margin, window.innerWidth - pickerWidth - margin);
+            const maxTopCompact = Math.max(margin, window.innerHeight - pickerHeight - margin);
+            const centeredLeft = Math.round((window.innerWidth - pickerWidth) / 2);
+            const anchoredTop = buttonRect.top - pickerHeight - gap;
+            const nextLeft = Math.min(Math.max(centeredLeft, margin), maxLeftCompact);
+            const nextTop = Math.min(Math.max(anchoredTop, margin), maxTopCompact);
+            setEmojiPickerPosition({ left: nextLeft, top: nextTop });
+            return;
+        }
 
         let nextLeft = buttonRect.right - pickerWidth;
         let nextTop = buttonRect.top - pickerHeight - gap;
@@ -105,7 +141,7 @@ export function Composer({
         nextTop = Math.min(Math.max(nextTop, margin), maxTop);
 
         setEmojiPickerPosition({ left: Math.round(nextLeft), top: Math.round(nextTop) });
-    }, []);
+    }, [EMOJI_PICKER_DESKTOP_HEIGHT_PX, EMOJI_PICKER_DESKTOP_WIDTH_PX, EMOJI_PICKER_MOBILE_MAX_HEIGHT_PX, EMOJI_PICKER_MOBILE_MAX_WIDTH_PX, EMOJI_PICKER_MOBILE_MIN_HEIGHT_PX]);
 
     React.useEffect(() => {
         setIsMounted(true);
@@ -125,7 +161,10 @@ export function Composer({
     // Close emoji picker when clicking outside
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            const clickedPicker = emojiPickerRef.current?.contains(target) ?? false;
+            const clickedToggleButton = emojiButtonRef.current?.contains(target) ?? false;
+            if (!clickedPicker && !clickedToggleButton) {
                 setShowEmojiPicker(false);
             }
         };
@@ -457,7 +496,7 @@ export function Composer({
                             "h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 transition-colors flex items-center justify-center p-0",
                             showEmojiPicker && "bg-black/5 dark:bg-white/5 text-purple-600"
                         )}
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        onClick={() => setShowEmojiPicker((current) => !current)}
                         disabled={disableCompose}
                         aria-label={t("messaging.searchEmojis")}
                     >
@@ -467,16 +506,30 @@ export function Composer({
                     {showEmojiPicker && isMounted && createPortal(
                         <div
                             ref={emojiPickerRef}
-                            className="fixed z-[1200] animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            className={cn(
+                                "emoji-picker-shell fixed z-[1200] animate-in fade-in slide-in-from-bottom-2 duration-200",
+                                isCompactEmojiPicker && "emoji-picker-shell-mobile",
+                            )}
                             style={{ left: emojiPickerPosition.left, top: emojiPickerPosition.top }}
                         >
                             <EmojiPicker
                                 onEmojiClick={onEmojiClick}
                                 autoFocusSearch={false}
                                 theme={Theme.AUTO}
-                                width={320}
-                                height={400}
+                                width={emojiPickerDimensions.width}
+                                height={emojiPickerDimensions.height}
                                 skinTonesDisabled
+                                suggestedEmojisMode={SuggestionMode.RECENT}
+                                previewConfig={{
+                                    showPreview: !isCompactEmojiPicker,
+                                }}
+                                style={isCompactEmojiPicker ? ({
+                                    "--epr-header-padding": "10px 12px",
+                                    "--epr-horizontal-padding": "10px",
+                                    "--epr-search-input-height": "38px",
+                                    "--epr-emoji-size": "26px",
+                                    "--epr-emoji-padding": "4px",
+                                } as React.CSSProperties) : undefined}
                                 searchPlaceHolder={t("messaging.searchEmojis")}
                             />
                         </div>

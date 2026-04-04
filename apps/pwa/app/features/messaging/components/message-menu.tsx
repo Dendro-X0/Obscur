@@ -4,12 +4,7 @@ import { createPortal } from "react-dom";
 import { cn } from "../../../lib/cn";
 import { useTranslation } from "react-i18next";
 import type { Message } from "../types";
-
-// Helper to determine if deletable - logic from page.tsx
-const isDeletableMessageId = (messageId: string): boolean => {
-    void messageId;
-    return true;
-};
+import { canDeleteMessageForEveryone, canDeleteMessageForMe } from "../services/message-delete-permissions";
 
 interface MessageMenuProps {
     x: number;
@@ -46,7 +41,8 @@ export function MessageMenu({
     onRequestClose,
 }: MessageMenuProps) {
     const { t } = useTranslation();
-    const canDeleteForEveryone: boolean = activeMessage.isOutgoing && isDeletableMessageId(activeMessage.id);
+    const canDeleteForMe = canDeleteMessageForMe(activeMessage);
+    const canDeleteForEveryone = canDeleteMessageForEveryone(activeMessage);
     const hasText: boolean = Boolean(activeMessage.content.trim());
     const hasAttachment: boolean = Boolean(activeMessage.attachments && activeMessage.attachments.length > 0);
     const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
@@ -182,7 +178,11 @@ export function MessageMenu({
                 </button>
                 <button
                     type="button"
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
+                    className={cn(
+                        "w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
+                        !canDeleteForMe ? "opacity-50" : ""
+                    )}
+                    disabled={!canDeleteForMe}
                     onClick={onDeleteForMe}
                 >
                     {t("messaging.deleteForMe", "Delete for me")}

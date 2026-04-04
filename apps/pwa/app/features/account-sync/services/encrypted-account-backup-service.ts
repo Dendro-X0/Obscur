@@ -2102,6 +2102,25 @@ const saveRecoverySnapshot = (publicKeyHex: PublicKeyHex, payload: EncryptedAcco
   }
 };
 
+const loadRecoverySnapshot = (publicKeyHex: PublicKeyHex): EncryptedAccountBackupPayload | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(getRecoverySnapshotStorageKey(publicKeyHex));
+    if (!raw) {
+      return null;
+    }
+    const parsed = parseBackupPayload(JSON.parse(raw));
+    if (!parsed || parsed.publicKeyHex !== publicKeyHex) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
 const buildBackupPayload = (
   publicKeyHex: PublicKeyHex,
   chatStateOverride?: EncryptedAccountBackupPayload["chatState"],
@@ -2468,6 +2487,22 @@ const mergeIncomingRestorePayload = async (
     parseRoomKeySnapshots(currentPayloadCandidate.roomKeys).length > 0
     || existingScopedRoomKeySnapshots.length > 0
   );
+  const recoverySnapshot = loadRecoverySnapshot(publicKeyHex);
+  const recoverySnapshotHasReplayableHistory = hasReplayableChatHistory(recoverySnapshot?.chatState ?? null);
+  const recoverySnapshotHasExplicitLedgerEvidence = (
+    parseCommunityMembershipLedgerSnapshot(recoverySnapshot?.communityMembershipLedger).length > 0
+  );
+  const recoverySnapshotHasExplicitRoomKeyEvidence = (
+    parseRoomKeySnapshots(recoverySnapshot?.roomKeys).length > 0
+  );
+  const shouldUseRecoverySnapshot = Boolean(
+    recoverySnapshot
+    && (
+      recoverySnapshotHasReplayableHistory
+      || recoverySnapshotHasExplicitLedgerEvidence
+      || recoverySnapshotHasExplicitRoomKeyEvidence
+    ),
+  );
   const currentPayload = (
     existingLocalPrivateState
     || hasHydratedLocalReplayableHistory
@@ -2475,7 +2510,9 @@ const mergeIncomingRestorePayload = async (
     || hasExplicitLocalRoomKeyEvidence
   )
     ? currentPayloadCandidate
-    : null;
+    : shouldUseRecoverySnapshot
+      ? recoverySnapshot
+      : null;
   if (currentPayload) {
     saveRecoverySnapshot(publicKeyHex, currentPayload);
   }
@@ -2613,6 +2650,15 @@ const mergeIncomingRestorePayload = async (
       hasHydratedLocalReplayableHistory,
       hasExplicitLocalLedgerEvidence,
       hasExplicitLocalRoomKeyEvidence,
+      recoverySnapshotAvailable: recoverySnapshot !== null,
+      recoverySnapshotUsed: (
+        currentPayload !== null
+        && recoverySnapshot !== null
+        && currentPayload.createdAtUnixMs === recoverySnapshot.createdAtUnixMs
+      ),
+      recoverySnapshotHasReplayableHistory,
+      recoverySnapshotHasExplicitLedgerEvidence,
+      recoverySnapshotHasExplicitRoomKeyEvidence,
       incomingLedgerEntryCount: incomingLedgerEntries.length,
       incomingLedgerReconciledEntryCount: reconciledIncomingLedgerEntries.length,
       mergedChatReconstructedLedgerEntryCount: reconstructedMergedLedgerEntries.length,
@@ -2816,6 +2862,33 @@ const hasSparseDmOutgoingEvidenceForConvergenceFloor = (
   return diagnostics.dmOutgoingCount <= sparseOutgoingEvidenceThreshold;
 };
 
+type BackupPublishConvergenceFetchStatus =
+  | "not_required"
+  | "pool_unavailable"
+  | "no_backup"
+  | "degraded_backup"
+  | "fetched"
+  | "error";
+
+type BackupPublishConvergenceResult = Readonly<{
+  payload: EncryptedAccountBackupPayload;
+  localDiagnostics: BackupPayloadConvergenceDiagnostics;
+  remoteDiagnostics?: BackupPayloadConvergenceDiagnostics;
+  floorRequired: boolean;
+  localLowEvidence: boolean;
+  remoteHasBackup: boolean;
+  fetchStatus: BackupPublishConvergenceFetchStatus;
+}>;
+
+const isLowEvidenceBackupPayloadForPublish = (
+  payload: EncryptedAccountBackupPayload,
+  diagnostics: BackupPayloadConvergenceDiagnostics,
+): boolean => (
+  !hasReplayableChatHistory(payload.chatState)
+  && diagnostics.groupEvidenceCount === 0
+  && diagnostics.dmOutgoingCount === 0
+);
+
 const mergeBackupPayloadForPublishConvergence = (
   localPayload: EncryptedAccountBackupPayload,
   remotePayload: EncryptedAccountBackupPayload,
@@ -2876,15 +2949,34 @@ const maybeConvergeBackupPayloadBeforePublish = async (params: Readonly<{
   publicKeyHex: PublicKeyHex;
   privateKeyHex: PrivateKeyHex;
   pool: RelayPoolLike;
-}>): Promise<EncryptedAccountBackupPayload> => {
+}>): Promise<BackupPublishConvergenceResult> => {
   const localDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(params.localPayload, params.publicKeyHex);
   const applyGroupEvidenceFloor = localDiagnostics.groupEvidenceCount === 0;
   const applySparseDmOutgoingFloor = hasSparseDmOutgoingEvidenceForConvergenceFloor(localDiagnostics);
-  if (!applyGroupEvidenceFloor && !applySparseDmOutgoingFloor) {
-    return params.localPayload;
+  const floorRequired = applyGroupEvidenceFloor || applySparseDmOutgoingFloor;
+  const localLowEvidence = isLowEvidenceBackupPayloadForPublish(
+    params.localPayload,
+    localDiagnostics,
+  );
+  if (!floorRequired) {
+    return {
+      payload: params.localPayload,
+      localDiagnostics,
+      floorRequired: false,
+      localLowEvidence,
+      remoteHasBackup: false,
+      fetchStatus: "not_required",
+    };
   }
   if (!isRelayPoolWithSubscribe(params.pool)) {
-    return params.localPayload;
+    return {
+      payload: params.localPayload,
+      localDiagnostics,
+      floorRequired: true,
+      localLowEvidence,
+      remoteHasBackup: false,
+      fetchStatus: "pool_unavailable",
+    };
   }
 
   try {
@@ -2893,8 +2985,25 @@ const maybeConvergeBackupPayloadBeforePublish = async (params: Readonly<{
       privateKeyHex: params.privateKeyHex,
       pool: params.pool,
     });
-    if (!fetched.hasBackup || !fetched.payload || fetched.degradedReason) {
-      return params.localPayload;
+    if (!fetched.hasBackup || !fetched.payload) {
+      return {
+        payload: params.localPayload,
+        localDiagnostics,
+        floorRequired: true,
+        localLowEvidence,
+        remoteHasBackup: false,
+        fetchStatus: "no_backup",
+      };
+    }
+    if (fetched.degradedReason) {
+      return {
+        payload: params.localPayload,
+        localDiagnostics,
+        floorRequired: true,
+        localLowEvidence,
+        remoteHasBackup: true,
+        fetchStatus: "degraded_backup",
+      };
     }
 
     const remoteDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(
@@ -2904,7 +3013,15 @@ const maybeConvergeBackupPayloadBeforePublish = async (params: Readonly<{
     const shouldConverge = remoteDiagnostics.groupEvidenceCount > localDiagnostics.groupEvidenceCount
       || remoteDiagnostics.dmOutgoingCount > localDiagnostics.dmOutgoingCount;
     if (!shouldConverge) {
-      return params.localPayload;
+      return {
+        payload: params.localPayload,
+        localDiagnostics,
+        remoteDiagnostics,
+        floorRequired: true,
+        localLowEvidence,
+        remoteHasBackup: true,
+        fetchStatus: "fetched",
+      };
     }
 
     const convergedPayload = mergeBackupPayloadForPublishConvergence(params.localPayload, fetched.payload);
@@ -2934,7 +3051,15 @@ const maybeConvergeBackupPayloadBeforePublish = async (params: Readonly<{
         convergedDmOutgoingCount: convergedDiagnostics.dmOutgoingCount,
       },
     });
-    return convergedPayload;
+    return {
+      payload: convergedPayload,
+      localDiagnostics,
+      remoteDiagnostics,
+      floorRequired: true,
+      localLowEvidence,
+      remoteHasBackup: true,
+      fetchStatus: "fetched",
+    };
   } catch (error) {
     logAppEvent({
       name: "account_sync.backup_publish_convergence_floor_skipped",
@@ -2945,7 +3070,14 @@ const maybeConvergeBackupPayloadBeforePublish = async (params: Readonly<{
         reason: error instanceof Error ? error.message : String(error),
       },
     });
-    return params.localPayload;
+    return {
+      payload: params.localPayload,
+      localDiagnostics,
+      floorRequired: true,
+      localLowEvidence,
+      remoteHasBackup: false,
+      fetchStatus: "error",
+    };
   }
 };
 
@@ -3087,12 +3219,49 @@ export const encryptedAccountBackupService = {
     scopedRelayUrls?: ReadonlyArray<string>;
   }>) {
     const localBackupPayload = await buildBackupPayloadWithHydratedChatState(params.publicKeyHex);
-    const backupPayload = await maybeConvergeBackupPayloadBeforePublish({
+    const convergedBackupPayload = await maybeConvergeBackupPayloadBeforePublish({
       localPayload: localBackupPayload,
       publicKeyHex: params.publicKeyHex,
       privateKeyHex: params.privateKeyHex,
       pool: params.pool,
     });
+    const backupPayload = convergedBackupPayload.payload;
+    const suppressLowEvidencePublish = convergedBackupPayload.localLowEvidence
+      && (
+        convergedBackupPayload.fetchStatus === "no_backup"
+        || convergedBackupPayload.fetchStatus === "degraded_backup"
+        || convergedBackupPayload.fetchStatus === "error"
+      );
+    if (suppressLowEvidencePublish) {
+      accountSyncStatusStore.updateSnapshot({
+        publicKeyHex: params.publicKeyHex,
+        message: "Waiting for relay convergence evidence before publishing low-evidence account backup",
+      });
+      logAppEvent({
+        name: "account_sync.backup_publish_low_evidence_suppressed",
+        level: "warn",
+        scope: { feature: "account_sync", action: "backup_publish" },
+        context: {
+          publicKeySuffix: params.publicKeyHex.slice(-8),
+          fetchStatus: convergedBackupPayload.fetchStatus,
+          floorRequired: convergedBackupPayload.floorRequired,
+          remoteHasBackup: convergedBackupPayload.remoteHasBackup,
+          localDmOutgoingCount: convergedBackupPayload.localDiagnostics.dmOutgoingCount,
+          localDmIncomingCount: convergedBackupPayload.localDiagnostics.dmIncomingCount,
+          localGroupEvidenceCount: convergedBackupPayload.localDiagnostics.groupEvidenceCount,
+        },
+      });
+      return {
+        publishResult: {
+          status: "unsupported" as const,
+          reasonCode: "low_evidence_convergence_unverified" as const,
+          message: "Skipped encrypted backup publish because relay convergence could not be verified for low-evidence local state.",
+        },
+        envelope: null,
+        backupPayload,
+        signedEvent: null,
+      };
+    }
     if (!hasPortablePrivateStateEvidence(backupPayload)) {
       accountSyncStatusStore.updateSnapshot({
         publicKeyHex: params.publicKeyHex,

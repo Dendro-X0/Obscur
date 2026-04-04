@@ -254,6 +254,7 @@ describe("dm delivery deterministic two-user flow", () => {
           format: "nip04",
           signedEvent,
           encryptedContent: signedEvent.content,
+          canonicalEventId: signedEvent.id,
         },
         plaintext: `hello-${iteration}`,
         recipientPubkey: USER_B,

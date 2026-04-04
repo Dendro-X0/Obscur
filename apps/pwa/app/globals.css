@@ -597,4 +597,31 @@
   .bg-gradient-sidebar {
     background: var(--gradient-sidebar);
   }
+
+  @media (pointer: coarse), (max-width: 640px) {
+    .emoji-picker-shell-mobile .EmojiPickerReact #epr-category-nav-id {
+      justify-content: flex-start;
+      flex-wrap: nowrap;
+      gap: 0.25rem;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0.5rem 0.625rem 0.375rem;
+      scrollbar-width: none;
+    }
+
+    .emoji-picker-shell-mobile .EmojiPickerReact .epr-cat-btn {
+      min-width: var(--epr-category-navigation-button-size);
+      min-height: var(--epr-category-navigation-button-size);
+      flex: 0 0 auto;
+      background-repeat: no-repeat;
+    }
+
+    .emoji-picker-shell-mobile .EmojiPickerReact #epr-category-nav-id::-webkit-scrollbar {
+      display: none;
+    }
+
+    .emoji-picker-shell-mobile .EmojiPickerReact .epr-search-container input {
+      font-size: 0.95rem;
+    }
+  }
 }

@@ -41,6 +41,8 @@ const toIdHint = (value: string): string => {
     return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
 };
 
+const MESSAGE_MENU_HOVER_DISMISS_DELAY_MS = 320;
+
 export interface ChatViewProps {
     conversation: Conversation;
     isPeerOnline?: boolean;
@@ -58,6 +60,7 @@ export interface ChatViewProps {
     onCopyPubkey: (pubkey: string) => void;
     onOpenMedia: () => void;
     onOpenInfo?: () => void;
+    onOpenProfile?: (pubkey: string) => void;
     onSendVoiceCallInvite?: () => void;
     canSendVoiceCallInvite?: boolean;
     isSendingVoiceCallInvite?: boolean;
@@ -156,6 +159,7 @@ export function ChatView(props: ChatViewProps) {
     const searchFlashTimeoutRef = React.useRef<number | null>(null);
     const [messageMenuAnchorHoverId, setMessageMenuAnchorHoverId] = useState<string | null>(null);
     const [isMessageMenuHovered, setIsMessageMenuHovered] = useState(false);
+    const [canUseMessageMenuHoverDismiss, setCanUseMessageMenuHoverDismiss] = useState(false);
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
     const resolvedName = metadata?.displayName || props.conversation.displayName;
     const isDeletedRecipient = props.conversation.kind === "dm" && metadata?.isDeleted === true;
@@ -179,6 +183,29 @@ export function ChatView(props: ChatViewProps) {
     const selectedMessageCount = selectedMessages.length;
     const selectedOutgoingMessageCount = selectedOutgoingMessages.length;
     const effectiveFlashMessageId = searchFlashMessageId ?? props.flashMessageId;
+
+    React.useEffect(() => {
+        if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+            setCanUseMessageMenuHoverDismiss(false);
+            return;
+        }
+        const mediaQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+        const apply = (): void => {
+            setCanUseMessageMenuHoverDismiss(mediaQuery.matches);
+        };
+        apply();
+        const listener = () => apply();
+        if (typeof mediaQuery.addEventListener === "function") {
+            mediaQuery.addEventListener("change", listener);
+            return () => {
+                mediaQuery.removeEventListener("change", listener);
+            };
+        }
+        mediaQuery.addListener(listener);
+        return () => {
+            mediaQuery.removeListener(listener);
+        };
+    }, []);
     const {
         isMediaGalleryOpen,
         lightboxIndex,
@@ -477,6 +504,9 @@ export function ChatView(props: ChatViewProps) {
             setIsMessageMenuHovered(false);
             return;
         }
+        if (!canUseMessageMenuHoverDismiss) {
+            return;
+        }
 
         const menuAnchoredToHoveredBubble = messageMenuAnchorHoverId === messageMenu.messageId;
         if (menuAnchoredToHoveredBubble || isMessageMenuHovered) {
@@ -485,12 +515,12 @@ export function ChatView(props: ChatViewProps) {
 
         const timeoutId = window.setTimeout(() => {
             setMessageMenu(null);
-        }, 120);
+        }, MESSAGE_MENU_HOVER_DISMISS_DELAY_MS);
 
         return () => {
             window.clearTimeout(timeoutId);
         };
-    }, [isMessageMenuHovered, messageMenu, messageMenuAnchorHoverId, setMessageMenu]);
+    }, [canUseMessageMenuHoverDismiss, isMessageMenuHovered, messageMenu, messageMenuAnchorHoverId, setMessageMenu]);
 
     React.useEffect(() => {
         const handleEscapeDismiss = (event: KeyboardEvent): void => {
@@ -567,6 +597,7 @@ export function ChatView(props: ChatViewProps) {
                 onCopyPubkey={props.onCopyPubkey}
                 onOpenMedia={props.onOpenMedia}
                 onOpenInfo={props.onOpenInfo}
+                onOpenProfile={props.onOpenProfile}
                 onSendVoiceCallInvite={props.onSendVoiceCallInvite}
                 canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite}
                 isSendingVoiceCallInvite={props.isSendingVoiceCallInvite}
@@ -652,6 +683,27 @@ export function ChatView(props: ChatViewProps) {
                                 <Trash2 className="h-3.5 w-3.5" />
                                 {t("messaging.deleteForEveryoneWithCount", "Delete for everyone ({{count}})", { count: selectedOutgoingMessageCount })}
                             </button>
+                        </div>
+
+                        <div className="mt-2 rounded-xl border border-black/5 bg-zinc-50/80 p-2 dark:border-white/10 dark:bg-zinc-900/70">
+                            <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                                {t(
+                                    "messaging.deletePermissionsIntro",
+                                    "Deletion permissions:",
+                                )}
+                            </p>
+                            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                {t(
+                                    "messaging.deleteForMePermissionDescription",
+                                    "\"Delete for me\" hides selected messages only in your interface.",
+                                )}
+                            </p>
+                            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                {t(
+                                    "messaging.deleteForEveryonePermissionDescription",
+                                    "\"Delete for everyone\" removes only messages you sent from all participants' interfaces.",
+                                )}
+                            </p>
                         </div>
 
                         {selectedMessageCount > 0 && selectedOutgoingMessageCount !== selectedMessageCount ? (

@@ -141,6 +141,42 @@ describe("outgoing-dm-orchestrator internals", () => {
     });
   });
 
+  it("scopes message-delete transport to recipient-facing relays only when available", () => {
+    expect(outgoingDmOrchestratorInternals.resolveTargetRelayUrls({
+      customTags: [["t", "message-delete"]],
+      discoveredRecipientRelayUrls: ["wss://recipient-read.example"],
+      senderOpenRelayUrls: ["wss://sender-open.example"],
+      senderWriteRelayUrls: ["wss://sender-write.example"],
+      recipientWriteRelayUrls: ["wss://recipient-write.example"],
+      recipientInboundRelayUrls: [],
+    })).toEqual({
+      lifecycleTag: null,
+      targetRelayUrls: ["wss://recipient-read.example", "wss://recipient-write.example"],
+      recipientScopeRelayUrls: ["wss://recipient-read.example", "wss://recipient-write.example"],
+      recipientScopeSources: ["recipient_discovery", "recipient_write_relays"],
+      relayScopeSource: "mixed_recipient_scope",
+      usedRecipientScopeOnly: true,
+    });
+  });
+
+  it("falls back to sender relays for message-delete when recipient scope is unknown", () => {
+    expect(outgoingDmOrchestratorInternals.resolveTargetRelayUrls({
+      customTags: [["t", "message-delete"]],
+      discoveredRecipientRelayUrls: [],
+      senderOpenRelayUrls: ["wss://sender-open.example"],
+      senderWriteRelayUrls: ["wss://sender-write.example"],
+      recipientWriteRelayUrls: [],
+      recipientInboundRelayUrls: [],
+    })).toEqual({
+      lifecycleTag: null,
+      targetRelayUrls: ["wss://sender-open.example", "wss://sender-write.example"],
+      recipientScopeRelayUrls: [],
+      recipientScopeSources: [],
+      relayScopeSource: "sender_fallback",
+      usedRecipientScopeOnly: false,
+    });
+  });
+
   it("classifies partial publish evidence as retrying delivery issue", () => {
     expect(outgoingDmOrchestratorInternals.resolveSenderDeliveryIssueStatus({
       success: false,
@@ -169,5 +205,50 @@ describe("outgoing-dm-orchestrator internals", () => {
       scopedWritableRelayCount: 0,
       durableRelayMinimum: 2,
     })).toBe("queue_no_writable_relays");
+  });
+
+  it("keeps retryable failed publish outcomes as partial for ordinary messages", () => {
+    expect(outgoingDmOrchestratorInternals.resolveSendDeliveryStatus({
+      success: false,
+      status: "partial",
+      reasonCode: "relay_degraded",
+      successCount: 1,
+    })).toBe("sent_partial");
+  });
+
+  it("keeps zero-success retryable outcomes as failed for ordinary messages", () => {
+    expect(outgoingDmOrchestratorInternals.resolveSendDeliveryStatus({
+      success: false,
+      status: "failed",
+      reasonCode: "quorum_not_met",
+      successCount: 0,
+    })).toBe("failed");
+  });
+
+  it("maps retryable failed publish outcomes to queued retrying for delete commands", () => {
+    expect(outgoingDmOrchestratorInternals.resolveSendDeliveryStatus({
+      success: false,
+      status: "partial",
+      reasonCode: "relay_degraded",
+      successCount: 1,
+    }, {
+      queueRetryableFailures: true,
+    })).toBe("queued_retrying");
+  });
+
+  it("maps non-retryable failed publish outcomes to failed delivery status", () => {
+    expect(outgoingDmOrchestratorInternals.resolveSendDeliveryStatus({
+      success: false,
+      status: "failed",
+      reasonCode: "unsupported_runtime",
+    })).toBe("failed");
+  });
+
+  it("keeps successful partial publish outcomes as sent_partial", () => {
+    expect(outgoingDmOrchestratorInternals.resolveSendDeliveryStatus({
+      success: true,
+      status: "partial",
+      reasonCode: "relay_degraded",
+    })).toBe("sent_partial");
   });
 });

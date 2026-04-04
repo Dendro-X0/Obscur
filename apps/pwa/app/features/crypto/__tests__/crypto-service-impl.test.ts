@@ -105,6 +105,14 @@ describe('CryptoServiceImpl Tests', () => {
     it('should sign event', async () => {
         const event = { kind: 1, content: 'test', tags: [], created_at: 123, pubkey: validPublicKey };
         const signed = await service.signEvent(event, validPrivateKey);
+        const { createNostrEvent } = await import('@dweb/nostr/create-nostr-event');
+        expect(createNostrEvent).toHaveBeenCalledWith(expect.objectContaining({
+            kind: 1,
+            content: "test",
+            tags: [],
+            createdAtUnixSeconds: 123,
+            privateKeyHex: validPrivateKey,
+        }));
         expect(signed.sig).toBe('mock_signature');
     });
 

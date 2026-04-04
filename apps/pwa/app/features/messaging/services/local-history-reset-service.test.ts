@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetLocalHistoryKeepingIdentity } from "./local-history-reset-service";
+import { readHistoryResetCutoffUnixMs } from "@/app/features/account-sync/services/history-reset-cutoff-store";
 
 const PUBLIC_KEY = "a".repeat(64);
 
@@ -53,6 +54,7 @@ describe("local-history-reset-service", () => {
     expect(deps.resetProjectionRuntime).toHaveBeenCalledTimes(1);
     expect(deps.resetSyncStatusSnapshot).toHaveBeenCalledWith(PUBLIC_KEY);
     expect(deps.resetBackupEventOrdering).toHaveBeenCalledTimes(1);
+    expect(readHistoryResetCutoffUnixMs("default")).not.toBeNull();
 
     expect(report.removedLocalStorageKeyCount).toBeGreaterThanOrEqual(6);
     expect(report.clearedIndexedDbStoreCount).toBe(7);
@@ -107,4 +109,3 @@ describe("local-history-reset-service", () => {
     expect(report.warnings.length).toBeGreaterThanOrEqual(5);
   });
 });
-

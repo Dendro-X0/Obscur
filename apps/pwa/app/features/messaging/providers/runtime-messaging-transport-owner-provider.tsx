@@ -13,7 +13,7 @@ import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { recordPeerLastActive } from "@/app/features/messaging/services/peer-interaction-store";
 
-const ACTIVE_OWNER_RUNTIME_PHASES = new Set(["ready", "degraded"]);
+const ACTIVE_OWNER_RUNTIME_PHASES = new Set(["activating_runtime", "ready", "degraded"]);
 const RUNTIME_TRANSPORT_OWNER_ID = "runtime_singleton_owner";
 
 const RuntimeMessagingTransportOwnerContext = createContext<UseEnhancedDMControllerResult | null>(null);
@@ -32,6 +32,13 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
   const projectionAllowsIncomingOwner = (
     // Normal ready steady-state.
     projection.accountProjectionReady
+    // Keep incoming transport alive during restore/bootstrap for the same
+    // unlocked account so live DMs and delete commands do not stall behind
+    // projection replay/import progress.
+    || (
+      projection.phase === "bootstrapping"
+      && projectionBoundToActiveIdentity
+    )
     // Keep owner stable during deterministic replay for the same account so
     // transport doesn't flap unregister/register on every replay pass.
     || (

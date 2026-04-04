@@ -22,6 +22,11 @@ As of 2026-03-29:
 2. no unresolved severe blocker is currently identified in active tracking,
 3. architecture remains fragile under uncontrolled changes, so owner and evidence contracts stay mandatory.
 
+Update (2026-04-04, v1.3.4 release prep):
+1. realtime DM convergence hardening is landed (canonical delete-for-everyone IDs, transport safety-sync watchdog, outgoing send auto-scroll),
+2. active release posture has no unresolved severe blocker recorded for the v1.3.4 lane,
+3. two-user runtime replay evidence remains mandatory before tag publication claims.
+
 ## Platform Surfaces
 
 1. `apps/pwa`: primary product surface and most feature logic.

@@ -117,6 +117,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const identity = useIdentity();
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
     const activeProfileId = getActiveProfileIdSafe();
+    const hydrationScopeKey = `${activeProfileId}::${publicKeyHex ?? "signed_out"}`;
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const projectionReadAuthority = useMemo(() => (
         resolveProjectionReadAuthority({
@@ -142,14 +143,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         setSelectedConversationState(conv);
         if (publicKeyHex) {
-            const key = getScopedStorageKey(`obscur-last-chat-${publicKeyHex}`);
+            const key = getScopedStorageKey(`obscur-last-chat-${publicKeyHex}`, activeProfileId);
             if (conv) {
                 localStorage.setItem(key, conv.id);
             } else {
                 localStorage.removeItem(key);
             }
         }
-    }, [publicKeyHex]);
+    }, [activeProfileId, publicKeyHex]);
 
     const selectedConversation = selectedConversationState;
     const [hasHydrated, setHasHydrated] = useState(false);
@@ -181,6 +182,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const unreadByConversationIdRef = React.useRef(unreadByConversationId);
     const lastSeenByConversationIdRef = React.useRef<Readonly<Record<string, number>>>({});
     const connectionOverridesByConnectionIdRef = React.useRef(connectionOverridesByConnectionId);
+    const hydratedScopeKeyRef = React.useRef<string | null>(null);
 
     // Initialize persistence service
     useEffect(() => {
@@ -188,10 +190,25 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, []);
 
     useEffect(() => {
-        if (publicKeyHex) return;
+        if (hydratedScopeKeyRef.current === hydrationScopeKey) {
+            return;
+        }
+        hydratedScopeKeyRef.current = hydrationScopeKey;
+
+        createdConnectionsRef.current = [];
+        unreadByConversationIdRef.current = {};
         lastSeenByConversationIdRef.current = {};
+        connectionOverridesByConnectionIdRef.current = {};
+
+        setCreatedConnections([]);
+        setSelectedConversationState(null);
+        setUnreadByConversationId({});
         setLastViewedByConversationId({});
-    }, [publicKeyHex]);
+        setConnectionOverridesByConnectionId({});
+        setPinnedChatIds([]);
+        setHiddenChatIds([]);
+        setHasHydrated(false);
+    }, [hydrationScopeKey]);
 
     const togglePin = (conversationId: string) => {
         setPinnedChatIds((previous) => (
@@ -235,7 +252,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (hasHydrated) return;
         if (!publicKeyHex) return;
 
-        const persisted = chatStateStoreService.load(publicKeyHex);
+        const persisted = chatStateStoreService.load(publicKeyHex, { profileId: activeProfileId });
         if (persisted) {
             const nextCreatedConnections: ReadonlyArray<DmConversation> = persisted.createdConnections
                 .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
@@ -262,7 +279,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setLastViewedByConversationId(loadedLastSeen);
 
         setHasHydrated(true);
-    }, [publicKeyHex, hasHydrated]);
+    }, [publicKeyHex, hasHydrated, activeProfileId]);
 
     useEffect(() => {
         if (!publicKeyHex || typeof window === "undefined") {

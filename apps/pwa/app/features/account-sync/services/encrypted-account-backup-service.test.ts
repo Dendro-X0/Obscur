@@ -1737,6 +1737,116 @@ describe("encryptedAccountBackupService", () => {
     ]);
   });
 
+  it("uses same-account recovery snapshot as restore merge baseline when hydrated local state is empty", async () => {
+    const emptyChatState = {
+      version: 2 as const,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    };
+    const recoveryPayload = {
+      version: 1 as const,
+      publicKeyHex,
+      createdAtUnixMs: 900_000,
+      profile: {
+        username: "Recovered Tester",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: {
+        acceptedPeers: [acceptedPeerPublicKeyHex],
+        mutedPeers: [],
+      },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      chatState: {
+        ...emptyChatState,
+        createdConnections: [{
+          id: "dm:recovery",
+          displayName: "Peer",
+          pubkey: acceptedPeerPublicKeyHex,
+          lastMessage: "recovered message",
+          unreadCount: 0,
+          lastMessageTimeMs: 4_000,
+        }],
+        messagesByConversationId: {
+          "dm:recovery": [{
+            id: "recovered-1",
+            content: "recovered message",
+            timestampMs: 4_000,
+            isOutgoing: true,
+            status: "delivered",
+            pubkey: publicKeyHex,
+          }],
+        },
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+      identityUnlock: {
+        encryptedPrivateKey: "enc:recovered",
+      },
+    };
+    window.localStorage.setItem(
+      encryptedAccountBackupServiceInternals.getRecoverySnapshotStorageKey(publicKeyHex),
+      JSON.stringify(recoveryPayload),
+    );
+
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue(emptyChatState);
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([]);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+
+    const merged = await encryptedAccountBackupServiceInternals.mergeIncomingRestorePayload(publicKeyHex, {
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: 901_000,
+      profile: {
+        username: "Incoming",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: {
+        acceptedPeers: [],
+        mutedPeers: [],
+      },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      chatState: emptyChatState,
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+    });
+
+    expect(merged.chatState?.messagesByConversationId["dm:recovery"]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "recovered-1",
+        isOutgoing: true,
+      }),
+    ]));
+    expect(merged.chatState?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "dm:recovery",
+        pubkey: acceptedPeerPublicKeyHex,
+      }),
+    ]));
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+  });
+
   it("keeps richer group metadata and member coverage when newer backup row is regressed", () => {
     const merged = encryptedAccountBackupServiceInternals.mergeChatState({
       version: 2,
@@ -3044,6 +3154,73 @@ describe("encryptedAccountBackupService", () => {
       publicKeyHex,
       privateKeyHex,
     );
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
+  it("suppresses low-evidence publish when relay convergence cannot confirm an existing backup", async () => {
+    peerTrustInternals.saveToStorage(publicKeyHex, {
+      acceptedPeers: [acceptedPeerPublicKeyHex],
+      mutedPeers: [],
+    });
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([]);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+    const fetchSpy = vi.spyOn(
+      encryptedAccountBackupService,
+      "fetchLatestEncryptedAccountBackupPayload",
+    ).mockResolvedValue({
+      event: null,
+      payload: null,
+      hasBackup: false,
+      degradedReason: undefined,
+    });
+    const pool = {
+      connections: [{ url: "wss://relay.example", status: "open" }],
+      waitForConnection: vi.fn(async () => true),
+      publishToUrls: vi.fn(async () => ({
+        success: true,
+        successCount: 1,
+        totalRelays: 1,
+        metQuorum: true,
+        quorumRequired: 1,
+        results: [{ relayUrl: "wss://relay.example", success: true }],
+      })),
+      sendToOpen: vi.fn(),
+      subscribeToMessages: vi.fn(() => () => undefined),
+    };
+
+    const result = await encryptedAccountBackupService.publishEncryptedAccountBackup({
+      publicKeyHex,
+      privateKeyHex,
+      pool,
+      scopedRelayUrls: ["wss://relay.example"],
+    });
+
+    expect(fetchSpy).toHaveBeenCalled();
+    expect(result.publishResult).toEqual({
+      status: "unsupported",
+      reasonCode: "low_evidence_convergence_unverified",
+      message: "Skipped encrypted backup publish because relay convergence could not be verified for low-evidence local state.",
+    });
+    expect(pool.publishToUrls).not.toHaveBeenCalled();
+    expect(cryptoService.signEvent).not.toHaveBeenCalled();
 
     hydrateSpy.mockRestore();
     loadSpy.mockRestore();

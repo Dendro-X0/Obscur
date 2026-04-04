@@ -1,8 +1,0 @@
-E:/Web Project/experimental-workspace/newstart/apps/desktop/target-check\debug\deps\tauri_plugin_deep_link-f323180ecd1fdf67.d: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\commands.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\config.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\error.rs
-
-E:/Web Project/experimental-workspace/newstart/apps/desktop/target-check\debug\deps\libtauri_plugin_deep_link-f323180ecd1fdf67.rmeta: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\commands.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\config.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\error.rs
-
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\lib.rs:
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\commands.rs:
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\config.rs:
-C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-plugin-deep-link-2.4.6\src\error.rs:

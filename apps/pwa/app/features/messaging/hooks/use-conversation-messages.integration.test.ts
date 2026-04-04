@@ -41,13 +41,14 @@ vi.mock("@/app/features/account-sync/services/account-projection-read-authority"
     }),
 }));
 
-const createMessage = (params: Readonly<{ id: string; timestampMs: number; content?: string }>) => ({
+const createMessage = (params: Readonly<{ id: string; timestampMs: number; content?: string; eventId?: string }>) => ({
     id: params.id,
     kind: "user" as const,
     content: params.content ?? params.id,
     timestamp: new Date(params.timestampMs),
     isOutgoing: false,
     status: "delivered" as const,
+    ...(params.eventId ? { eventId: params.eventId } : {}),
 });
 
 describe("useConversationMessages integration (perf mode)", () => {
@@ -153,6 +154,45 @@ describe("useConversationMessages integration (perf mode)", () => {
         unmount();
     });
 
+    it("suppresses stale replays that return under an alternate event id after deletion", async () => {
+        const { result, unmount } = renderHook(() => useConversationMessages("c-alias-tombstone", null));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        act(() => {
+            messageBus.emitNewMessage("c-alias-tombstone", createMessage({
+                id: "alias-local-1",
+                eventId: "alias-event-1",
+                timestampMs: 12_000,
+                content: "first",
+            }));
+        });
+        await waitFor(() => expect(result.current.messages.length).toBe(1));
+
+        act(() => {
+            messageBus.emitMessageDeleted("c-alias-tombstone", "alias-event-1");
+        });
+        await waitFor(() => expect(result.current.messages.length).toBe(0));
+
+        act(() => {
+            messageBus.emitNewMessage("c-alias-tombstone", createMessage({
+                id: "alias-local-2",
+                eventId: "alias-event-1",
+                timestampMs: 12_500,
+                content: "stale-event-replay",
+            }));
+            messageBus.emitNewMessage("c-alias-tombstone", createMessage({
+                id: "alias-local-3",
+                eventId: "alias-event-3",
+                timestampMs: 13_000,
+                content: "fresh",
+            }));
+        });
+
+        await waitFor(() => expect(result.current.messages.length).toBe(1));
+        expect(result.current.messages[0]?.id).toBe("alias-local-3");
+        unmount();
+    });
+
     it("hydrates from projection timeline when local indexeddb has no messages", async () => {
         accountProjectionSnapshot.projection = {
             profileId: "default",
@@ -237,7 +277,8 @@ describe("useConversationMessages integration (perf mode)", () => {
         const { result, rerender, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.some((message) => message.id === "idx-1")).toBe(true));
-        expect(messagingDB.getAllByIndex).toHaveBeenCalledTimes(1);
+        const initialIndexedReadCallCount = vi.mocked(messagingDB.getAllByIndex).mock.calls.length;
+        expect(initialIndexedReadCallCount).toBeGreaterThan(0);
 
         accountProjectionSnapshot.projection = {
             profileId: "default",
@@ -267,7 +308,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         rerender();
         await waitFor(() => expect(result.current.messages.some((message) => message.id === "projection-2")).toBe(true));
-        expect(messagingDB.getAllByIndex).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBe(initialIndexedReadCallCount);
         unmount();
     });
 
@@ -509,6 +550,68 @@ describe("useConversationMessages integration (perf mode)", () => {
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(200));
         expect(result.current.hasEarlier).toBe(true);
+        unmount();
+    });
+
+    it("accepts realtime DM events from canonical sibling ids when mounted on legacy peer conversation id", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const legacyConversationId = peerPublicKeyHex;
+        const canonicalConversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        const { result, unmount } = renderHook(() => useConversationMessages(legacyConversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        act(() => {
+            messageBus.emitNewMessage(
+                canonicalConversationId,
+                createMessage({ id: "alias-live-1", timestampMs: 42_000, content: "live inbound" }),
+            );
+        });
+        await waitFor(() => expect(result.current.messages.some((message) => message.id === "alias-live-1")).toBe(true));
+
+        act(() => {
+            messageBus.emitMessageDeleted(canonicalConversationId, "alias-live-1");
+        });
+        await waitFor(() => expect(result.current.messages.some((message) => message.id === "alias-live-1")).toBe(false));
+        unmount();
+    });
+
+    it("hydrates DM history from canonical sibling ids when selected conversation uses legacy peer id", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const legacyConversationId = peerPublicKeyHex;
+        const canonicalConversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+        vi.stubGlobal("IDBKeyRange", {
+            bound: (lower: ReadonlyArray<unknown>, upper: ReadonlyArray<unknown>) => ({ lower, upper }),
+        });
+        vi.mocked(messagingDB.getAllByIndex).mockImplementation(async (_store, _index, range: any) => {
+            const requestedConversationId = range?.lower?.[0];
+            if (requestedConversationId === canonicalConversationId) {
+                return [
+                    {
+                        id: "alias-hydrated-1",
+                        conversationId: canonicalConversationId,
+                        senderPubkey: peerPublicKeyHex,
+                        recipientPubkey: myPublicKeyHex,
+                        content: "stored on canonical key",
+                        timestampMs: 43_000,
+                        isOutgoing: false,
+                        status: "delivered",
+                    },
+                ];
+            }
+            return [];
+        });
+
+        const { result, unmount } = renderHook(() => useConversationMessages(legacyConversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        expect(result.current.messages.some((message) => message.id === "alias-hydrated-1")).toBe(true);
+
+        const requestedConversationIds = vi.mocked(messagingDB.getAllByIndex).mock.calls
+            .map((call) => (call[2] as any)?.lower?.[0])
+            .filter((value): value is string => typeof value === "string");
+        expect(requestedConversationIds).toContain(canonicalConversationId);
         unmount();
     });
 });

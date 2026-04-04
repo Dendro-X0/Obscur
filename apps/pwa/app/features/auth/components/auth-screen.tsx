@@ -38,8 +38,8 @@ import { FlashMessage } from "@/app/components/ui/flash-message";
 import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
 import {
     getRememberMeStorageKey,
-    getAuthTokenStorageKeyCandidates,
-    getRememberMeStorageKeyCandidates,
+    getAuthTokenScopedStorageKeys,
+    getRememberMeScopedStorageKeys,
 } from "../utils/auth-storage-keys";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
@@ -108,11 +108,11 @@ export function AuthScreen() {
 
     const rememberProfileId = runtime.snapshot.session.profileId;
     const persistRememberMe = useCallback((params: Readonly<{ remember: boolean; token?: string }>) => {
-        const rememberKeys = getRememberMeStorageKeyCandidates({
+        const rememberKeys = getRememberMeScopedStorageKeys({
             profileId: rememberProfileId,
             includeLegacy: true,
         });
-        const tokenKeys = getAuthTokenStorageKeyCandidates({
+        const tokenKeys = getAuthTokenScopedStorageKeys({
             profileId: rememberProfileId,
             includeLegacy: true,
         });
@@ -151,13 +151,13 @@ export function AuthScreen() {
     }, [rememberProfileId]);
 
     React.useEffect(() => {
-        const rememberedValues = getRememberMeStorageKeyCandidates({
+        const rememberedValues = getRememberMeScopedStorageKeys({
             profileId: rememberProfileId,
             includeLegacy: true,
         })
             .map((key) => localStorage.getItem(key))
             .filter((value): value is string => value !== null);
-        const tokenValues = getAuthTokenStorageKeyCandidates({
+        const tokenValues = getAuthTokenScopedStorageKeys({
             profileId: rememberProfileId,
             includeLegacy: true,
         })

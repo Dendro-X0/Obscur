@@ -7,11 +7,32 @@ import { useDesktopNotifications } from "@/app/features/desktop/hooks/use-deskto
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { useGlobalVoiceCallOverlayState } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
 
 const MAX_RECENT_MESSAGE_IDS = 400;
 const RECENT_MESSAGE_WINDOW_MS = 5 * 60_000;
 const MAX_MESSAGE_EVENT_AGE_MS = 2 * 60_000;
 const MESSAGE_TONE_COOLDOWN_MS = 2_200;
+const MAX_RECENT_CALL_NOTIFICATION_KEYS = 120;
+const RECENT_CALL_NOTIFICATION_WINDOW_MS = 2 * 60_000;
+const CALL_NOTIFICATION_BODY_MAX_LENGTH = 90;
+
+const isForeground = (): boolean => (
+    typeof document !== "undefined"
+    && document.visibilityState === "visible"
+    && document.hasFocus()
+);
+
+const toRoomIdHint = (roomIdInput: string): string => {
+    const roomId = roomIdInput.trim();
+    if (!roomId) {
+        return "unknown-room";
+    }
+    if (roomId.length <= 24) {
+        return roomId;
+    }
+    return `${roomId.slice(0, 10)}...${roomId.slice(-10)}`;
+};
 
 /**
  * Global component to handle background desktop notifications
@@ -22,8 +43,10 @@ export const DesktopNotificationHandler = () => {
     const pathname = usePathname();
     const { selectedConversation } = useMessaging();
     const { showNotification, enabled, channels } = useDesktopNotifications();
+    const globalVoiceOverlay = useGlobalVoiceCallOverlayState();
     const unsubscribeRef = useRef<(() => void) | null>(null);
     const recentlyNotifiedMessageIdsRef = useRef<Map<string, number>>(new Map());
+    const recentlyNotifiedCallKeysRef = useRef<Map<string, number>>(new Map());
     const lastTonePlayedAtUnixMsRef = useRef<number>(0);
 
     const playSubtleMessageTone = useCallback((): void => {
@@ -79,15 +102,10 @@ export const DesktopNotificationHandler = () => {
             if ((Date.now() - messageUnixMs) > MAX_MESSAGE_EVENT_AGE_MS) {
                 return;
             }
-            const isForeground = (
-                typeof document !== "undefined"
-                && document.visibilityState === "visible"
-                && document.hasFocus()
-            );
             const isViewingSameConversation = (
                 pathname === "/"
                 && selectedConversation?.id === event.conversationId
-                && isForeground
+                && isForeground()
             );
             if (isViewingSameConversation) {
                 return;
@@ -140,6 +158,56 @@ export const DesktopNotificationHandler = () => {
             unsubscribeRef.current?.();
         };
     }, [channels.dmMessages, enabled, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
+
+    useEffect((): void => {
+        if (!enabled || !channels.invitesSystem) {
+            return;
+        }
+        const status = globalVoiceOverlay.status;
+        if (!status || status.phase !== "ringing_incoming") {
+            return;
+        }
+        if (isForeground()) {
+            return;
+        }
+        const dedupeKey = `${status.peerPubkey.trim()}|${status.roomId.trim()}`;
+        if (!dedupeKey || dedupeKey === "|") {
+            return;
+        }
+
+        const now = Date.now();
+        const recent = recentlyNotifiedCallKeysRef.current;
+        const knownAt = recent.get(dedupeKey) ?? 0;
+        if (knownAt > 0 && (now - knownAt) <= RECENT_CALL_NOTIFICATION_WINDOW_MS) {
+            return;
+        }
+        recent.set(dedupeKey, now);
+        if (recent.size > MAX_RECENT_CALL_NOTIFICATION_KEYS) {
+            const cutoff = now - RECENT_CALL_NOTIFICATION_WINDOW_MS;
+            for (const [key, observedAt] of recent.entries()) {
+                if (observedAt < cutoff) {
+                    recent.delete(key);
+                }
+            }
+            if (recent.size > MAX_RECENT_CALL_NOTIFICATION_KEYS) {
+                const staleKey = recent.keys().next().value;
+                if (typeof staleKey === "string") {
+                    recent.delete(staleKey);
+                }
+            }
+        }
+
+        const displayName = globalVoiceOverlay.peerDisplayName?.trim() || "Unknown caller";
+        const body = `Room: ${toRoomIdHint(status.roomId)}`;
+        const boundedBody = body.length > CALL_NOTIFICATION_BODY_MAX_LENGTH
+            ? `${body.slice(0, CALL_NOTIFICATION_BODY_MAX_LENGTH)}...`
+            : body;
+        void showNotification(
+            `Incoming call from ${displayName}`,
+            boundedBody,
+            "invitesSystem",
+        );
+    }, [channels.invitesSystem, enabled, globalVoiceOverlay.peerDisplayName, globalVoiceOverlay.status, showNotification]);
 
     // This component doesn't render anything
     return null;

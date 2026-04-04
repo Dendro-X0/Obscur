@@ -192,7 +192,7 @@ describe("useAccountSync convergence orchestration", () => {
       expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("mutation");
     });
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("mutation");
-    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("skipped_cooldown");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("ok");
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreReason).toBe("mutation_fast_follow");
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupRestoreResult).toBe("skipped_cooldown");
   });
@@ -243,11 +243,17 @@ describe("useAccountSync convergence orchestration", () => {
     expect(mocks.publishBackupMock).toHaveBeenCalled();
   });
 
-  it("still runs startup restore on identity-only rehydrate results before startup publish", async () => {
+  it("suppresses startup publish when startup restore reports no backup", async () => {
     mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
     mocks.rehydrateAccountMock.mockResolvedValue({
       relayList: [],
       restoreStatus: "identity_only",
+    } as any);
+    mocks.restoreBackupMock.mockResolvedValue({
+      event: null,
+      payload: null,
+      hasBackup: false,
+      degradedReason: undefined,
     } as any);
 
     renderHook(() => useAccountSync({
@@ -260,7 +266,33 @@ describe("useAccountSync convergence orchestration", () => {
     await waitFor(() => {
       expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.publishBackupMock).toHaveBeenCalled();
+    expect(mocks.publishBackupMock).not.toHaveBeenCalled();
+  });
+
+  it("suppresses startup publish when startup restore is degraded", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+    mocks.rehydrateAccountMock.mockResolvedValue({
+      relayList: [],
+      restoreStatus: "identity_only",
+    } as any);
+    mocks.restoreBackupMock.mockResolvedValue({
+      event: null,
+      payload: null,
+      hasBackup: true,
+      degradedReason: "decrypt failed",
+    } as any);
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.publishBackupMock).not.toHaveBeenCalled();
   });
 
   it("suppresses startup publish when startup restore fails", async () => {

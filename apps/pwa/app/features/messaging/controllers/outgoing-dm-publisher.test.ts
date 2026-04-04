@@ -12,6 +12,7 @@ import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-roll
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { retryManager } from "../lib/retry-manager";
+import { createDeleteCommandMessage, encodeCommandMessage } from "../utils/commands";
 
 vi.mock("@/app/features/settings/services/privacy-settings-service", () => ({
   PrivacySettingsService: {
@@ -109,6 +110,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
         format: "nip04",
         signedEvent: buildSignedEvent("evt-1"),
         encryptedContent: "ciphertext",
+        canonicalEventId: "evt-1",
       },
       plaintext: "hello",
       recipientPubkey,
@@ -160,6 +162,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
         format: "nip04",
         signedEvent: buildSignedEvent("evt-legacy-runtime"),
         encryptedContent: "ciphertext",
+        canonicalEventId: "evt-legacy-runtime",
       },
       plaintext: "hello",
       recipientPubkey,
@@ -209,6 +212,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
         format: "nip04",
         signedEvent: buildSignedEvent("evt-2"),
         encryptedContent: "ciphertext",
+        canonicalEventId: "evt-2",
       },
       plaintext: "hello",
       recipientPubkey,
@@ -266,6 +270,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
         format: "nip04",
         signedEvent: buildSignedEvent("evt-scoped"),
         encryptedContent: "ciphertext",
+        canonicalEventId: "evt-scoped",
       },
       plaintext: "hello",
       recipientPubkey,
@@ -331,6 +336,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
         format: "nip04",
         signedEvent: buildSignedEvent("evt-durable-threshold"),
         encryptedContent: "ciphertext",
+        canonicalEventId: "evt-durable-threshold",
       },
       plaintext: "hello",
       recipientPubkey,
@@ -386,6 +392,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
         format: "nip04",
         signedEvent: buildSignedEvent("evt-realtime-threshold"),
         encryptedContent: "ciphertext",
+        canonicalEventId: "evt-realtime-threshold",
       },
       plaintext: "hello",
       recipientPubkey,
@@ -419,6 +426,7 @@ describe("outgoing-dm-publisher protocol routing", () => {
         format: "nip04",
         signedEvent: buildSignedEvent("evt-unsupported"),
         encryptedContent: "ciphertext",
+        canonicalEventId: "evt-unsupported",
       },
       plaintext: "hello",
       recipientPubkey,
@@ -824,6 +832,51 @@ describe("outgoing-dm-publisher protocol routing", () => {
       id: "queued-partial",
       retryCount: 2,
     }));
+  });
+
+  it("accepts queued delete commands after single-relay evidence", async () => {
+    const message: OutgoingMessage = {
+      id: "queued-delete-command",
+      conversationId: "conv-1",
+      content: encodeCommandMessage(createDeleteCommandMessage("evt-target-1")),
+      recipientPubkey,
+      targetRelayUrls: ["wss://relay-1.example", "wss://relay-2.example", "wss://relay-3.example"],
+      createdAt: new Date(),
+      retryCount: 1,
+      nextRetryAt: new Date(),
+      signedEvent: buildSignedEvent("evt-queued-delete-command"),
+    };
+
+    const updateMessageStatus = vi.fn(async () => undefined);
+    const queueOutgoingMessage = vi.fn(async () => undefined);
+    const outcome = await publishQueuedOutgoingMessage({
+      pool: {
+        sendToOpen: vi.fn(),
+        publishToAll: vi.fn(async () => ({
+          success: false,
+          successCount: 1,
+          totalRelays: 3,
+          metQuorum: false,
+          results: [
+            { relayUrl: "wss://relay-1.example", success: true },
+            { relayUrl: "wss://relay-2.example", success: false, error: "503" },
+            { relayUrl: "wss://relay-3.example", success: false, error: "503" },
+          ],
+        })),
+      } as any,
+      messageQueue: { updateMessageStatus, queueOutgoingMessage } as any,
+      message,
+      openRelays: [{ url: "wss://relay-1.example" }, { url: "wss://relay-2.example" }, { url: "wss://relay-3.example" }],
+    });
+
+    expect(outcome.status).toBe("accepted");
+    expect(outcome.relayOutcome).toEqual({
+      successCount: 1,
+      totalRelays: 3,
+      metQuorum: true,
+    });
+    expect(updateMessageStatus).toHaveBeenCalledWith("queued-delete-command", "accepted");
+    expect(queueOutgoingMessage).not.toHaveBeenCalled();
   });
 });
 

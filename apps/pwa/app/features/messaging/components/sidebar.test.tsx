@@ -10,6 +10,12 @@ vi.mock("react-i18next", () => ({
     }),
 }));
 
+vi.mock("next/navigation", () => ({
+    useRouter: () => ({
+        push: vi.fn(),
+    }),
+}));
+
 vi.mock("./sidebar-user-search", () => ({
     SidebarUserSearch: ({ query, onQueryChange, inputRef }: { query: string; onQueryChange: (value: string) => void; inputRef?: React.RefObject<HTMLInputElement | null> }) => (
         <input
@@ -22,8 +28,19 @@ vi.mock("./sidebar-user-search", () => ({
 }));
 
 vi.mock("./conversation-row", () => ({
-    ConversationRow: ({ conversation }: { conversation: Conversation }) => (
-        <div data-testid="conversation-row">{conversation.displayName}</div>
+    ConversationRow: ({
+        conversation,
+        onHide,
+    }: {
+        conversation: Conversation;
+        onHide?: (conversationId: string) => void;
+    }) => (
+        <div data-testid="conversation-row">
+            {conversation.displayName}
+            <button type="button" onClick={() => onHide?.(conversation.id)}>
+                Hide
+            </button>
+        </div>
     ),
 }));
 
@@ -86,7 +103,6 @@ const createBaseProps = (overrides: Partial<SidebarProps> = {}): SidebarProps =>
     togglePin: vi.fn(),
     hiddenChatIds: [],
     hideConversation: vi.fn(),
-    deleteConversation: vi.fn(),
     clearHistory: vi.fn(),
     onClearHistory: vi.fn(),
     isPeerOnline: vi.fn(() => false),
@@ -145,5 +161,21 @@ describe("Sidebar", () => {
         expect(setSearchQuery).toHaveBeenCalledWith("new query");
 
         expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    });
+
+    it("routes row hide action to hideConversation", () => {
+        const hideConversation = vi.fn();
+        const conversations = [createDm(1)];
+        render(
+            <Sidebar
+                {...createBaseProps({
+                    filteredConversations: conversations,
+                    hideConversation,
+                })}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+        expect(hideConversation).toHaveBeenCalledWith(conversations[0].id);
     });
 });

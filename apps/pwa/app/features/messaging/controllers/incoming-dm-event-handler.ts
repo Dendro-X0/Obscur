@@ -421,34 +421,55 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         return;
       }
 
-      let matchedMessageId: string | null = null;
-      let matchedSenderPubkey: PublicKeyHex | null = null;
-      const inMemoryTarget = params.existingMessages.find((entry) => (
-        normalizedTargetIds.includes(entry.id)
-        || (!!entry.eventId && normalizedTargetIds.includes(entry.eventId))
-      ));
-      if (inMemoryTarget) {
-        matchedMessageId = inMemoryTarget.id;
-        matchedSenderPubkey = inMemoryTarget.senderPubkey ?? null;
-      }
+      const matchedTargets = new Map<string, Pick<Message, "id" | "eventId" | "senderPubkey">>();
+      const addMatchedTarget = (entry: Pick<Message, "id" | "eventId" | "senderPubkey"> | null | undefined): void => {
+        if (!entry) {
+          return;
+        }
+        const existing = matchedTargets.get(entry.id);
+        if (!existing) {
+          matchedTargets.set(entry.id, entry);
+        }
+      };
 
-      let canApplyDelete = true;
-      if (!matchedMessageId && params.messageQueue) {
+      params.existingMessages.forEach((entry) => {
+        if (
+          normalizedTargetIds.includes(entry.id)
+          || (!!entry.eventId && normalizedTargetIds.includes(entry.eventId))
+        ) {
+          addMatchedTarget(entry);
+        }
+      });
+
+      if (params.messageQueue) {
         for (const targetId of normalizedTargetIds) {
-          const targetMessage = await params.messageQueue.getMessage(targetId);
-          if (targetMessage) {
-            matchedMessageId = targetMessage.id;
-            matchedSenderPubkey = targetMessage.senderPubkey;
-            break;
-          }
+          addMatchedTarget(await params.messageQueue.getMessage(targetId));
+        }
+        if (matchedTargets.size === 0) {
+          const persistedConversationMessages = await params.messageQueue.getMessages(commandParams.conversationId);
+          persistedConversationMessages.forEach((entry) => {
+            if (
+              normalizedTargetIds.includes(entry.id)
+              || (!!entry.eventId && normalizedTargetIds.includes(entry.eventId))
+            ) {
+              addMatchedTarget(entry);
+            }
+          });
         }
       }
-      if (matchedSenderPubkey && matchedSenderPubkey !== commandParams.deletedByPubkey) {
-        canApplyDelete = false;
-      }
-      const resolvedMessageId = matchedMessageId ?? normalizedTargetIds[0];
 
-      if (!canApplyDelete) {
+      const mismatchedTarget = Array.from(matchedTargets.values()).find((entry) => (
+        !!entry.senderPubkey && entry.senderPubkey !== commandParams.deletedByPubkey
+      ));
+      const resolvedDeletionIds = Array.from(new Set([
+        ...normalizedTargetIds,
+        ...Array.from(matchedTargets.values()).flatMap((entry) => (
+          [entry.id, entry.eventId ?? ""]
+        )),
+      ].map((value) => value.trim()).filter((value) => value.length > 0)));
+      const resolvedMessageId = Array.from(matchedTargets.values())[0]?.id ?? normalizedTargetIds[0];
+
+      if (mismatchedTarget) {
         logRuntimeEvent(
           "incoming_dm.delete_command.rejected_sender_mismatch",
           "degraded",
@@ -462,9 +483,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
           const p = prev;
           const filteredMessages = p.messages.filter((entry: Message) => (
             entry.id !== commandParams.deleteCommandEventId
-            && entry.id !== resolvedMessageId
-            && !normalizedTargetIds.includes(entry.id)
-            && !(entry.eventId && normalizedTargetIds.includes(entry.eventId))
+            && !resolvedDeletionIds.includes(entry.id)
+            && !(entry.eventId && resolvedDeletionIds.includes(entry.eventId))
           ));
           params.messageMemoryManager.addMessages(commandParams.conversationId, [...filteredMessages]);
           return {
@@ -474,11 +494,13 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         });
       });
 
-      currentParams.onMessageDeleted?.({
-        conversationId: commandParams.conversationId,
-        messageId: resolvedMessageId,
-        deletedByPubkey: commandParams.deletedByPubkey,
-        deletionEventId: commandParams.deleteCommandEventId,
+      resolvedDeletionIds.forEach((messageId) => {
+        currentParams.onMessageDeleted?.({
+          conversationId: commandParams.conversationId,
+          messageId,
+          deletedByPubkey: commandParams.deletedByPubkey,
+          deletionEventId: commandParams.deleteCommandEventId,
+        });
       });
     };
 

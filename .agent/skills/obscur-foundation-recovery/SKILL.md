@@ -30,6 +30,7 @@ Trigger this skill when the task involves any of:
    - a diagnostics surface,
    - a doc update,
    - a smaller boundary.
+6. Maintain continuity by updating `docs/handoffs/current-session.md` before ending each substantial thread.
 
 ## Repository Hotspots
 
@@ -67,4 +68,3 @@ When the work is partial, explicitly state:
 - what is now provably fixed,
 - what is still only inferred,
 - what still blocks release confidence.
-

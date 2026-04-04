@@ -25,6 +25,14 @@ export type RelayProbeReport = Readonly<{
   error: string | null;
 }>;
 
+export type TorStatusSnapshot = Readonly<{
+  state: "disconnected" | "starting" | "connected" | "error" | "stopped";
+  configured: boolean;
+  ready: boolean;
+  usingExternalInstance: boolean;
+  proxyUrl: string;
+}>;
+
 const requireNativeValue = async <T>(
   command: string,
   args?: Record<string, unknown>,
@@ -44,11 +52,17 @@ const SUBSCRIPTION_TIMEOUT_MS = 8_000;
 const DISCONNECT_TIMEOUT_MS = 5_000;
 
 export const relayNativeAdapter = {
-  getTorStatus: async (): Promise<string> => {
+  getTorStatus: async (): Promise<TorStatusSnapshot> => {
     try {
-      return await requireNativeValue<string>("get_tor_status", undefined, { timeoutMs: 5_000 });
+      return await requireNativeValue<TorStatusSnapshot>("get_tor_status", undefined, { timeoutMs: 5_000 });
     } catch {
-      return "disabled";
+      return {
+        state: "disconnected",
+        configured: false,
+        ready: false,
+        usingExternalInstance: false,
+        proxyUrl: "",
+      };
     }
   },
   connectRelay: async (url: string): Promise<string> =>

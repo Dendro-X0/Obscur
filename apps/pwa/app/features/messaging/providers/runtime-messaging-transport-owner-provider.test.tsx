@@ -95,7 +95,7 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     peerInteractionMocks.recordPeerLastActive.mockReset();
   });
 
-  it("keeps transport disabled until projection is ready", () => {
+  it("keeps transport enabled during bootstrapping when projection is bound to the active identity", () => {
     render(
       <RuntimeMessagingTransportOwnerProvider>
         <div>child</div>
@@ -103,9 +103,9 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     );
 
     expect(useEnhancedDmController).toHaveBeenCalledWith(expect.objectContaining({
-      enableIncomingTransport: false,
-      autoSubscribeIncoming: false,
-      enableAutoQueueProcessing: false,
+      enableIncomingTransport: true,
+      autoSubscribeIncoming: true,
+      enableAutoQueueProcessing: true,
     }));
   });
 
@@ -126,10 +126,28 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     }));
   });
 
-  it("keeps transport disabled while runtime is activating even when projection is ready", () => {
+  it("keeps transport enabled while runtime is activating when projection is ready", () => {
     projectionState.accountProjectionReady = true;
     projectionState.phase = "ready";
     runtimeState.phase = "activating_runtime";
+
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    expect(useEnhancedDmController).toHaveBeenCalledWith(expect.objectContaining({
+      enableIncomingTransport: true,
+      autoSubscribeIncoming: true,
+      enableAutoQueueProcessing: true,
+    }));
+  });
+
+  it("keeps transport disabled during bootstrapping when projection is not bound to the active identity", () => {
+    projectionState.accountProjectionReady = false;
+    projectionState.phase = "bootstrapping";
+    projectionState.accountPublicKeyHex = "c".repeat(64) as PublicKeyHex;
 
     render(
       <RuntimeMessagingTransportOwnerProvider>
@@ -144,7 +162,7 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     }));
   });
 
-  it("toggles transport flags deterministically across projection/runtime gate flapping", () => {
+  it("keeps transport flags enabled across projection/runtime activation and replay transitions", () => {
     projectionState.accountProjectionReady = false;
     projectionState.phase = "bootstrapping";
     runtimeState.phase = "activating_runtime";
@@ -202,8 +220,8 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     });
 
     expect(flags).toEqual([
-      [false, false, false],
-      [false, false, false],
+      [true, true, true],
+      [true, true, true],
       [true, true, true],
       [true, true, true],
       [true, true, true],

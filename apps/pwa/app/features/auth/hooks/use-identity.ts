@@ -19,11 +19,13 @@ import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service"
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import { recordIdentityActivationRisk } from "@/app/shared/sybil-risk-signals";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import { resolveAccountImportEvidence } from "../services/account-import-evidence";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { SessionApi } from "@/app/features/auth/services/session-api";
+import { getRememberMeStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -197,6 +199,13 @@ const isPasswordlessNativeOnlyRecord = (record: IdentityRecord | undefined): boo
   return record?.encryptedPrivateKey === PASSWORDLESS_NATIVE_ONLY_SENTINEL;
 };
 
+const isRememberMeEnabledStrict = (profileId: string): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(getRememberMeStorageKey(profileId)) === "true";
+};
+
 let identityState: IdentityState = createLoadingState();
 let hasInitialized: boolean = false;
 const listeners: Set<() => void> = new Set();
@@ -365,9 +374,11 @@ const ensureInitialized = async (): Promise<void> => {
       });
     }
 
-    // Auto-unlock with native keychain/session if possible.
+    // Auto-unlock with native keychain/session only when remember-me is enabled for this profile.
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (stored && canUseNativeSession()) {
+    const activeProfileId = getActiveProfileIdSafe();
+    const allowNativeAutoUnlock = Boolean(stored) && canUseNativeSession() && isRememberMeEnabledStrict(activeProfileId);
+    if (stored && allowNativeAutoUnlock) {
       const nativeSessionStatusResult = await tryNativeSessionUnlock({
         stored,
         context: "bootstrap",
@@ -376,7 +387,7 @@ const ensureInitialized = async (): Promise<void> => {
         return;
       }
     }
-    if (stored && canUseNativeSession() && hasFn(cs.hasNativeKey) && await cs.hasNativeKey()) {
+    if (stored && allowNativeAutoUnlock && hasFn(cs.hasNativeKey) && await cs.hasNativeKey()) {
       try {
         const nativeNpub = hasFn(cs.getNativeNpub) ? await cs.getNativeNpub() : null;
         const normalizedNativeNpub = normalizePublicKeyHex(nativeNpub ?? undefined);

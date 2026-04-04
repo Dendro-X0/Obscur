@@ -3,11 +3,11 @@
 This is the canonical active roadmap.  
 Version-specific phase plans are consolidated into general workstreams and milestone slices.
 
-## Current Health Baseline (2026-03-29)
+## Current Health Baseline (2026-04-04)
 
-1. project is currently stable for active development,
-2. no unresolved severe blocker is identified in active tracking,
-3. high-fragility domains still require owner-safe, evidence-first iteration.
+1. project remains active for development, with stability work prioritized,
+2. no unresolved severe blocker is currently active for the v1.3.4 release lane,
+3. high-fragility domains still require owner-safe, evidence-first iteration and two-user runtime evidence before tag claims.
 
 ## Workstream Order (Canonical)
 

@@ -1,17 +1,36 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConversationRow } from "./conversation-row";
 import type { Conversation } from "../types";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, fallback?: string) => fallback ?? key,
   }),
 }));
 
 vi.mock("../../profile/hooks/use-resolved-profile-metadata", () => ({
   useResolvedProfileMetadata: () => null,
+}));
+
+vi.mock("../../../components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onClick,
+    className,
+  }: {
+    children: React.ReactNode;
+    onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+    className?: string;
+  }) => (
+    <button type="button" className={className} onClick={onClick}>
+      {children}
+    </button>
+  ),
 }));
 
 const baseConversation: Conversation = {
@@ -96,5 +115,65 @@ describe("ConversationRow", () => {
     );
     expect(screen.getByText("messaging.noMessagesYet")).toBeInTheDocument();
     expect(screen.queryByText(/voice-call-signal/i)).not.toBeInTheDocument();
+  });
+
+  it("offers a direct profile navigation action for dm conversations", () => {
+    const onViewProfile = vi.fn();
+    render(
+      <ConversationRow
+        conversation={baseConversation}
+        isSelected={false}
+        onSelect={vi.fn()}
+        unreadCount={0}
+        lastMessageLabel=""
+        lastActiveLabel=""
+        lastViewedLabel=""
+        onViewProfile={onViewProfile}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("View Profile"));
+
+    expect(onViewProfile).toHaveBeenCalledWith(baseConversation.pubkey);
+  });
+
+  it("navigates to profile when avatar is clicked", () => {
+    const onViewProfile = vi.fn();
+    render(
+      <ConversationRow
+        conversation={baseConversation}
+        isSelected={false}
+        onSelect={vi.fn()}
+        unreadCount={0}
+        lastMessageLabel=""
+        lastActiveLabel=""
+        lastViewedLabel=""
+        onViewProfile={onViewProfile}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("conversation-row-avatar-button"));
+
+    expect(onViewProfile).toHaveBeenCalledWith(baseConversation.pubkey);
+  });
+
+  it("offers a hide action for conversations", () => {
+    const onHide = vi.fn();
+    render(
+      <ConversationRow
+        conversation={baseConversation}
+        isSelected={false}
+        onSelect={vi.fn()}
+        unreadCount={0}
+        lastMessageLabel=""
+        lastActiveLabel=""
+        lastViewedLabel=""
+        onHide={onHide}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Hide"));
+
+    expect(onHide).toHaveBeenCalledWith(baseConversation.id);
   });
 });

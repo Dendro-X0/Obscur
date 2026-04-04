@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../components/ui/button";
 import { cn } from "@/app/lib/utils";
@@ -22,6 +23,7 @@ import {
 } from "../../../components/ui/dropdown-menu";
 import { RelayStatusIndicator } from "../../relays/components/relay-status-indicator";
 import { getIncomingPendingRequestCount, getIncomingUnreadRequestTotal } from "../services/request-inbox-view";
+import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
 
 const INITIAL_SIDEBAR_PAGE_SIZE = 25;
 const SIDEBAR_PAGE_STEP = 25;
@@ -57,7 +59,6 @@ export interface SidebarProps {
     togglePin: (conversationId: string) => void;
     hiddenChatIds: ReadonlyArray<string>;
     hideConversation: (conversationId: string) => void;
-    deleteConversation: (conversationId: string) => void;
     clearHistory: (conversationId: string) => void;
     onClearHistory: () => void;
     isPeerOnline?: (publicKeyHex: PublicKeyHex) => boolean;
@@ -87,11 +88,11 @@ export function Sidebar({
     togglePin,
     hiddenChatIds,
     hideConversation,
-    deleteConversation,
     onClearHistory
     , isPeerOnline
 }: SidebarProps) {
     const { t } = useTranslation();
+    const router = useRouter();
     const resolvedNowMs = nowMs;
 
     const hiddenChatIdSet = React.useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
@@ -180,7 +181,7 @@ export function Sidebar({
     const dmsUnread = conversationBuckets.dmsUnread;
     const groupsUnread = conversationBuckets.groupsUnread;
 
-    const renderConversationList = (list: ReadonlyArray<Conversation>) => (
+    const renderConversationList = React.useCallback((list: ReadonlyArray<Conversation>) => (
         list.map((conversation) => {
             const interaction = interactionByConversationId?.[conversation.id];
             return (
@@ -200,11 +201,14 @@ export function Sidebar({
                         : ""}
                     isPinned={pinnedChatIdSet.has(conversation.id)}
                     onTogglePin={togglePin}
-                    onDelete={deleteConversation}
+                    onHide={hideConversation}
+                    onViewProfile={(pubkey) => {
+                        void router.push(getPublicProfileHref(pubkey));
+                    }}
                 />
             );
         })
-    );
+    ), [hideConversation, interactionByConversationId, pinnedChatIdSet, resolvedNowMs, resolveConversationUnread, router, selectConversation, selectedConversation?.id, togglePin, isPeerOnline]);
     return (
         <div className="flex h-full flex-col">
             <div className="border-b border-black/[0.03] p-4 dark:border-white/[0.03] space-y-4">

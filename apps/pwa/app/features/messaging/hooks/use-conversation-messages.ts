@@ -243,11 +243,15 @@ export const filterMessagesByLocalRetention = (
 const loadConversationWindow = async (params: Readonly<{
     conversationId: string;
     limit: number;
+    beforeTimestampMs?: number;
 }>): Promise<ReadonlyArray<any>> => {
+    const upperTimestampMs = typeof params.beforeTimestampMs === "number"
+        ? Math.max(0, params.beforeTimestampMs - 1)
+        : Date.now();
     const rows = await messagingDB.getAllByIndex<any>(
         "messages",
         "conversation_timestamp",
-        IDBKeyRange.bound([params.conversationId, 0], [params.conversationId, Date.now()]),
+        IDBKeyRange.bound([params.conversationId, 0], [params.conversationId, upperTimestampMs]),
         params.limit,
         "prev"
     );
@@ -255,6 +259,87 @@ const loadConversationWindow = async (params: Readonly<{
         return [];
     }
     return rows;
+};
+
+const toRowTimestampMs = (row: any): number => {
+    const timestampMs = Number(row?.timestampMs ?? (row?.timestamp instanceof Date ? row.timestamp.getTime() : row?.timestamp));
+    if (Number.isFinite(timestampMs)) {
+        return timestampMs;
+    }
+    return 0;
+};
+
+const mergeConversationRows = (params: Readonly<{
+    rowsByConversationId: ReadonlyArray<Readonly<{ conversationId: string; rows: ReadonlyArray<any> }>>;
+    limit: number;
+}>): Readonly<{ rows: ReadonlyArray<any>; hasEarlier: boolean }> => {
+    const byMessageKey = new Map<string, any>();
+    let hasEarlier = false;
+
+    params.rowsByConversationId.forEach(({ rows }) => {
+        if (rows.length >= params.limit) {
+            hasEarlier = true;
+        }
+        rows.forEach((row) => {
+            const messageId = typeof row?.id === "string" ? row.id : "";
+            const eventId = typeof row?.eventId === "string" ? row.eventId : "";
+            const dedupeKey = eventId || messageId || `${toRowTimestampMs(row)}:${JSON.stringify(row?.content ?? "")}`;
+            const existing = byMessageKey.get(dedupeKey);
+            if (!existing || toRowTimestampMs(row) >= toRowTimestampMs(existing)) {
+                byMessageKey.set(dedupeKey, row);
+            }
+        });
+    });
+
+    const newestFirst = Array.from(byMessageKey.values()).sort((left, right) => toRowTimestampMs(right) - toRowTimestampMs(left));
+    if (newestFirst.length > params.limit) {
+        hasEarlier = true;
+    }
+    return {
+        rows: newestFirst.slice(0, params.limit),
+        hasEarlier,
+    };
+};
+
+const loadConversationWindowAcrossAliases = async (params: Readonly<{
+    conversationIds: ReadonlyArray<string>;
+    limit: number;
+    beforeTimestampMs?: number;
+}>): Promise<Readonly<{ rows: ReadonlyArray<any>; hasEarlier: boolean }>> => {
+    const conversationIds = Array.from(new Set(
+        params.conversationIds
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+    ));
+    if (conversationIds.length === 0) {
+        return { rows: [], hasEarlier: false };
+    }
+
+    const rowsByConversationId = await Promise.all(conversationIds.map(async (conversationId) => ({
+        conversationId,
+        rows: await loadConversationWindow({
+            conversationId,
+            limit: params.limit,
+            beforeTimestampMs: params.beforeTimestampMs,
+        }),
+    })));
+
+    return mergeConversationRows({
+        rowsByConversationId,
+        limit: params.limit,
+    });
+};
+
+const dedupeMessagesByIdentity = (messages: ReadonlyArray<Message>): ReadonlyArray<Message> => {
+    const byMessageKey = new Map<string, Message>();
+    messages.forEach((message) => {
+        const dedupeKey = message.eventId?.trim() || message.id;
+        const existing = byMessageKey.get(dedupeKey);
+        if (!existing || message.timestamp.getTime() >= existing.timestamp.getTime()) {
+            byMessageKey.set(dedupeKey, message);
+        }
+    });
+    return Array.from(byMessageKey.values()).sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
 };
 
 export const applyBufferedEvents = (
@@ -353,6 +438,24 @@ export function useConversationMessages(
     const [localMessageRetentionDays, setLocalMessageRetentionDays] = useState<0 | 30 | 90>(() => (
         normalizeLocalRetentionDays(PrivacySettingsService.getSettings().localMessageRetentionDays)
     ));
+    const normalizedPublicKeyHex = useMemo(() => (
+        normalizePublicKeyHex(publicKeyHex)
+    ), [publicKeyHex]);
+    const conversationAliasIds = useMemo(() => {
+        if (!conversationId) {
+            return [] as ReadonlyArray<string>;
+        }
+        if (!normalizedPublicKeyHex) {
+            return [conversationId] as ReadonlyArray<string>;
+        }
+        return buildDmSiblingConversationIds({
+            conversationId,
+            myPublicKeyHex: normalizedPublicKeyHex,
+        });
+    }, [conversationId, normalizedPublicKeyHex]);
+    const conversationAliasIdSet = useMemo(() => (
+        new Set(conversationAliasIds)
+    ), [conversationAliasIds]);
 
     const eventQueueRef = useRef<MessageBusEvent[]>([]);
     const rafFlushRef = useRef<number | null>(null);
@@ -419,35 +522,36 @@ export function useConversationMessages(
     }, []);
 
     // Initial load from IndexedDB
-    const hydrateHistory = useCallback(async (cid: string) => {
+    const hydrateHistory = useCallback(async (cid: string, conversationIds: ReadonlyArray<string>) => {
         setIsLoading(true);
         try {
             const initialBatchSize = getInitialBatchSize(chatPerformanceV2Enabled);
-            // Cursor direction 'prev' returns newest first, so reverse to maintain chronological order.
-            const latestMessages = await loadConversationWindow({
-                conversationId: cid,
+            const latestWindow = await loadConversationWindowAcrossAliases({
+                conversationIds,
                 limit: initialBatchSize,
             });
-            const mapped: Message[] = latestMessages.slice().reverse().map((m: any) => normalizeMessage(m, {
-                conversationId: cid,
+            const mapped: Message[] = latestWindow.rows.slice().reverse().map((m: any) => normalizeMessage(m, {
+                conversationId: typeof m?.conversationId === "string" ? m.conversationId : cid,
                 myPublicKeyHex: publicKeyHex,
             })).filter((message) => (
                 !persistedDeletedIdsRef.current.has(message.id)
                 && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
             ));
-            const retentionFilteredMapped = filterMessagesByLocalRetention(mapped, localMessageRetentionDays);
+            const retentionFilteredMapped = filterMessagesByLocalRetention(
+                dedupeMessagesByIdentity(mapped),
+                localMessageRetentionDays,
+            );
             const projectionMessagesSnapshot = projectionMessagesRef.current;
             const projectionReadAuthoritySnapshot = projectionReadAuthorityRef.current;
 
             const shouldUseProjectionFallback = (
-                mapped.length === 0
+                retentionFilteredMapped.length === 0
                 && projectionReadAuthoritySnapshot.useProjectionReads
                 && projectionMessagesSnapshot.length > 0
             );
             const hydrated = shouldUseProjectionFallback
                 ? projectionMessagesSnapshot
                 : retentionFilteredMapped.filter(isDisplayableMessage);
-            const normalizedPublicKeyHex = normalizePublicKeyHex(publicKeyHex);
             const mappedDirectionCounts = getMessageDirectionCounts(mapped, normalizedPublicKeyHex);
             const projectionDirectionCounts = getMessageDirectionCounts(projectionMessagesSnapshot, normalizedPublicKeyHex);
 
@@ -531,11 +635,7 @@ export function useConversationMessages(
             }
 
             setMessages(hydrated);
-            setHasEarlier(
-                shouldUseProjectionFallback
-                    ? false
-                    : (mapped.length >= initialBatchSize && retentionFilteredMapped.length >= initialBatchSize)
-            );
+            setHasEarlier(shouldUseProjectionFallback ? false : (latestWindow.hasEarlier && retentionFilteredMapped.length > 0));
             projectionFallbackHydrationRef.current = shouldUseProjectionFallback;
             expandedHistoryRef.current = false;
         } catch (e) {
@@ -547,6 +647,7 @@ export function useConversationMessages(
         chatPerformanceV2Enabled,
         localMessageRetentionDays,
         publicKeyHex,
+        normalizedPublicKeyHex,
     ]);
 
     useEffect(() => {
@@ -563,8 +664,8 @@ export function useConversationMessages(
         deletedTombstonesRef.current.clear();
         persistedDeletedIdsRef.current = new Set(loadSuppressedMessageDeleteIds());
 
-        hydrateHistory(conversationId);
-    }, [conversationId, hydrateHistory, publicKeyHex]);
+        hydrateHistory(conversationId, conversationAliasIds);
+    }, [conversationAliasIds, conversationId, hydrateHistory, publicKeyHex]);
 
     useEffect(() => {
         if (!conversationId || !projectionReadAuthority.useProjectionReads) {
@@ -678,8 +779,11 @@ export function useConversationMessages(
 
         const unsubscribe = messageBus.subscribe((event: MessageBusEvent) => {
             const belongsToConversation = event.type === "message_deleted"
-                ? (event.conversationId === conversationId || event.conversationIdOriginal === conversationId)
-                : event.conversationId === conversationId;
+                ? (
+                    conversationAliasIdSet.has(event.conversationId)
+                    || (!!event.conversationIdOriginal && conversationAliasIdSet.has(event.conversationIdOriginal))
+                )
+                : conversationAliasIdSet.has(event.conversationId);
 
             if (!belongsToConversation) return;
 
@@ -724,7 +828,7 @@ export function useConversationMessages(
             eventQueueRef.current = [];
             setPendingEventCount(0);
         };
-    }, [conversationId, chatPerformanceV2Enabled, localMessageRetentionDays, publicKeyHex]);
+    }, [conversationAliasIdSet, conversationId, chatPerformanceV2Enabled, localMessageRetentionDays, publicKeyHex]);
 
     const loadEarlier = useCallback(async () => {
         if (!conversationId || messages.length === 0) return;
@@ -733,31 +837,31 @@ export function useConversationMessages(
         const loadEarlierBatchSize = getLoadEarlierBatchSize(chatPerformanceV2Enabled);
 
         try {
-            // Fetch next page: messages before the current earliest one
-            const earlierMessages = await messagingDB.getAllByIndex<any>(
-                "messages",
-                "conversation_timestamp",
-                IDBKeyRange.bound([conversationId, 0], [conversationId, earliestTimestamp - 1]),
-                loadEarlierBatchSize,
-                "prev"
-            );
+            const earlierWindow = await loadConversationWindowAcrossAliases({
+                conversationIds: conversationAliasIds,
+                limit: loadEarlierBatchSize,
+                beforeTimestampMs: earliestTimestamp,
+            });
 
-            if (earlierMessages.length > 0) {
-                const mapped: Message[] = earlierMessages.reverse().map((m: any) => normalizeMessage(m, {
-                    conversationId,
+            if (earlierWindow.rows.length > 0) {
+                const mapped: Message[] = earlierWindow.rows.reverse().map((m: any) => normalizeMessage(m, {
+                    conversationId: typeof m?.conversationId === "string" ? m.conversationId : conversationId,
                     myPublicKeyHex: publicKeyHex,
                 })).filter((message) => (
                     isDisplayableMessage(message)
                     && !persistedDeletedIdsRef.current.has(message.id)
                     && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
                 ));
-                const retentionFilteredMapped = filterMessagesByLocalRetention(mapped, localMessageRetentionDays);
+                const retentionFilteredMapped = filterMessagesByLocalRetention(
+                    dedupeMessagesByIdentity(mapped),
+                    localMessageRetentionDays,
+                );
                 if (retentionFilteredMapped.length === 0) {
                     setHasEarlier(false);
                     return;
                 }
-                setMessages(prev => [...retentionFilteredMapped, ...prev]);
-                setHasEarlier(retentionFilteredMapped.length >= loadEarlierBatchSize);
+                setMessages(prev => dedupeMessagesByIdentity([...retentionFilteredMapped, ...prev]));
+                setHasEarlier(earlierWindow.hasEarlier && retentionFilteredMapped.length > 0);
                 expandedHistoryRef.current = true;
             } else {
                 setHasEarlier(false);
@@ -765,7 +869,7 @@ export function useConversationMessages(
         } catch (e) {
             console.error("[useConversationMessages] Failed to load earlier messages:", e);
         }
-    }, [chatPerformanceV2Enabled, conversationId, localMessageRetentionDays, messages, publicKeyHex]);
+    }, [chatPerformanceV2Enabled, conversationAliasIds, conversationId, localMessageRetentionDays, messages, publicKeyHex]);
 
     return {
         messages,

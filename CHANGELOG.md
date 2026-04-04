@@ -1,7 +1,20 @@
 ## [Unreleased]
 
+- _No entries yet._
+
+## [v1.3.4] - 2026-04-04
+
 ### Changed
 
+- Closed the v1.3.4 realtime DM convergence hardening lane:
+  - canonical `Delete for everyone` target IDs now use stable event identity
+    contracts across wrapper/rumor boundaries,
+  - incoming transport safety sync watchdog added (15s interval + visibility
+    resume) to reduce stale inbox/delete state,
+  - outgoing send now re-enters follow-bottom mode and scrolls to latest
+    message automatically,
+  - DM online indicators now resolve from relay presence first, then bounded
+    recent inbound peer-activity evidence to avoid active-chat false `OFFLINE`.
 - Hardened cross-route realtime voice session continuity:
   - `apps/pwa/app/features/runtime/components/unlocked-app-runtime-shell.tsx`
     now mounts `MainShell` as a global runtime owner so voice session logic

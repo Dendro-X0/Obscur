@@ -14,6 +14,11 @@ type StorageKeyCandidatesParams = Readonly<{
   includeLegacy?: boolean;
 }>;
 
+type ScopedStorageKeysParams = Readonly<{
+  profileId?: string | null;
+  includeLegacy?: boolean;
+}>;
+
 const unique = (values: ReadonlyArray<string>): ReadonlyArray<string> => Array.from(new Set(values));
 
 const resolveProfileCandidates = (explicitProfileId?: string | null): ReadonlyArray<string> => {
@@ -43,6 +48,34 @@ export const getRememberMeStorageKey = (profileId?: string): string => (
 
 export const getAuthTokenStorageKey = (profileId?: string): string => (
   getScopedStorageKey(AUTH_TOKEN_BASE_KEY, profileId ?? getActiveProfileIdSafe())
+);
+
+const resolveScopedProfileId = (profileId?: string | null): string => {
+  const normalized = profileId?.trim();
+  if (normalized && normalized.length > 0) {
+    return normalized;
+  }
+  return getActiveProfileIdSafe();
+};
+
+const buildScopedStorageKeys = (
+  baseKey: string,
+  params?: ScopedStorageKeysParams,
+): ReadonlyArray<string> => {
+  const profileId = resolveScopedProfileId(params?.profileId);
+  const keys = [getScopedStorageKey(baseKey, profileId)];
+  if ((params?.includeLegacy ?? false) && profileId === getDefaultProfileId()) {
+    keys.push(baseKey);
+  }
+  return keys;
+};
+
+export const getRememberMeScopedStorageKeys = (params?: ScopedStorageKeysParams): ReadonlyArray<string> => (
+  buildScopedStorageKeys(REMEMBER_ME_BASE_KEY, params)
+);
+
+export const getAuthTokenScopedStorageKeys = (params?: ScopedStorageKeysParams): ReadonlyArray<string> => (
+  buildScopedStorageKeys(AUTH_TOKEN_BASE_KEY, params)
 );
 
 export const getRememberMeStorageKeyCandidates = (params?: StorageKeyCandidatesParams): ReadonlyArray<string> => (

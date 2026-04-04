@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { ChatHeaderProps } from "./chat-header";
@@ -50,5 +50,15 @@ describe("ChatHeader", () => {
 
     expect(screen.getByText("No recent activity")).toBeInTheDocument();
     expect(screen.queryByText(/Last active/i)).not.toBeInTheDocument();
+  });
+
+  it("navigates to profile when dm avatar is clicked", () => {
+    const onOpenProfile = vi.fn();
+    const props = createProps();
+    render(<ChatHeader {...props} onOpenProfile={onOpenProfile} />);
+
+    fireEvent.click(screen.getByTestId("chat-header-avatar-button"));
+
+    expect(onOpenProfile).toHaveBeenCalledWith("a".repeat(64));
   });
 });

@@ -10,6 +10,22 @@ This is the canonical handoff runbook for restarting work safely in a fragile co
 2. Keep architecture-safe execution under ongoing feature expansion.
 3. Ensure regressions are captured before they are "fixed" by new layering.
 
+## Context Continuity Contract
+
+Use `docs/handoffs/current-session.md` as the canonical state across Codex threads.
+
+1. Start thread:
+: read `AGENTS.md`, this playbook, and `docs/handoffs/current-session.md`.
+2. During thread:
+: checkpoint when owner decisions, evidence, or blockers change.
+3. End thread:
+: update `Next Atomic Step` and append one final checkpoint.
+
+Helper commands:
+1. `pnpm context:handoff:init`
+2. `pnpm context:checkpoint -- --summary "..." --next "..."`
+3. `pnpm context:handoff:show`
+
 ## Current Health Snapshot
 
 As of 2026-03-29:

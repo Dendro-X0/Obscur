@@ -93,6 +93,40 @@ describe("logAppEvent", () => {
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
+  it("keeps relay runtime performance gate diagnostics out of the dev runtime issue feed", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "relay.runtime_performance_gate",
+      level: "error",
+      scope: { feature: "relays", action: "runtime_performance_gate" },
+      context: {
+        performancePrimaryReasonCode: "relay_flap_rate_over_budget",
+        performanceGateStatus: "fail",
+      },
+    });
+
+    expect(vi.mocked(reportDevRuntimeIssue)).not.toHaveBeenCalled();
+  });
+
+  it("downgrades relay runtime performance gate console emission to warn in non-production", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    logAppEvent({
+      name: "relay.runtime_performance_gate",
+      level: "error",
+      scope: { feature: "relays", action: "runtime_performance_gate" },
+      context: {
+        performancePrimaryReasonCode: "relay_flap_rate_over_budget",
+        performanceGateStatus: "fail",
+      },
+    });
+
+    expect(warnSpy).toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it("exposes recent app events through obscurAppEvents diagnostics API", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
 

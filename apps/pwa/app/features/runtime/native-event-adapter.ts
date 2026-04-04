@@ -38,8 +38,14 @@ const createRegistryEntry = (eventName: string): NativeEventRegistryEntry => {
     }
     listenPromise = (async () => {
       try {
-        const { listen } = await import("@tauri-apps/api/event");
-        nativeUnlisten = await listen(eventName, (event) => dispatch(event as { payload?: unknown }));
+        const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+        const currentWindow = getCurrentWebviewWindow();
+        // Keep native event delivery window-local so same-process desktop windows
+        // do not react to each other's relay/session events.
+        nativeUnlisten = await currentWindow.listen(
+          eventName,
+          (event) => dispatch(event as { payload?: unknown })
+        );
       } catch {
         nativeUnlisten = null;
       } finally {

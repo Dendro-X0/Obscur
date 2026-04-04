@@ -33,6 +33,24 @@ vi.mock("./voice-call-dock", () => ({
   ),
 }));
 
+vi.mock("./incoming-voice-call-toast", () => ({
+  IncomingVoiceCallToast: (props: Readonly<{
+    isOpen: boolean;
+    inviterDisplayName: string;
+    roomIdHint: string;
+    onAccept: () => void;
+    onDismiss: () => void;
+  }>) => (
+    <div>
+      <span>{props.isOpen ? "toast-open" : "toast-closed"}</span>
+      <span>{props.inviterDisplayName}</span>
+      <span>{props.roomIdHint}</span>
+      <button type="button" onClick={props.onAccept}>Accept</button>
+      <button type="button" onClick={props.onDismiss}>Dismiss</button>
+    </div>
+  ),
+}));
+
 describe("GlobalVoiceCallOverlay", () => {
   beforeEach(() => {
     routerMocks.pathname = "/network";
@@ -84,5 +102,26 @@ describe("GlobalVoiceCallOverlay", () => {
     const { container } = render(<GlobalVoiceCallOverlay />);
     expect(container.firstChild).toBeNull();
   });
-});
 
+  it("renders incoming-call toast on non-chat routes", () => {
+    setGlobalVoiceCallOverlayState({
+      status: {
+        roomId: "dm-voice-call-room-abcdef1234567890",
+        peerPubkey: "c".repeat(64),
+        phase: "ringing_incoming",
+        role: "joiner",
+        sinceUnixMs: Date.now(),
+      },
+      peerDisplayName: "Carol",
+      peerAvatarUrl: "",
+    });
+    render(<GlobalVoiceCallOverlay />);
+    expect(screen.getByText("toast-open")).toBeInTheDocument();
+    expect(screen.getByText("Carol")).toBeInTheDocument();
+    expect(screen.getByText("dm-voice-c...1234567890")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    expect(routerMocks.push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(routerMocks.push).not.toHaveBeenCalled();
+  });
+});

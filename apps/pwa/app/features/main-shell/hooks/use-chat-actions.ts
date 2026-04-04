@@ -19,6 +19,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../../messaging/utils/commands";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
+import { canDeleteMessageForEveryone, getDeleteForEveryoneRejectionReason } from "../../messaging/services/message-delete-permissions";
 
 type MultiRelayPublishResult = Readonly<{
     success: boolean;
@@ -136,13 +137,13 @@ const buildDeleteTargetIdsForDm = async (params: Readonly<{
     recipientPubkey: string | null;
 }>): Promise<ReadonlyArray<string>> => {
     const deleteTargetIds = new Set<string>();
-    const directMessageId = params.message.id.trim();
-    if (directMessageId.length > 0) {
-        deleteTargetIds.add(directMessageId);
-    }
     const eventId = params.message.eventId?.trim();
     if (eventId && eventId.length > 0) {
         deleteTargetIds.add(eventId);
+    }
+    const directMessageId = params.message.id.trim();
+    if (directMessageId.length > 0) {
+        deleteTargetIds.add(directMessageId);
     }
 
     if (!params.senderPubkey || !params.recipientPubkey) {
@@ -491,14 +492,15 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
             context: baseContext,
         });
 
-        if (!params.message.isOutgoing) {
+        const deleteForEveryoneRejectionReason = getDeleteForEveryoneRejectionReason(params.message);
+        if (deleteForEveryoneRejectionReason) {
             logAppEvent({
                 name: "messaging.delete_for_everyone_rejected",
                 level: "warn",
                 scope: { feature: "messaging", action: "delete_message" },
                 context: {
                     ...baseContext,
-                    reasonCode: "not_outgoing_message",
+                    reasonCode: deleteForEveryoneRejectionReason,
                 },
             });
             toast.info("You can only delete messages you sent.");
@@ -704,4 +706,6 @@ export const useChatActionsInternals = {
     buildDeleteCreatedAtCandidates,
     buildDeleteTargetIdsForDm,
     deriveNip17RumorId,
+    canDeleteMessageForEveryone,
+    getDeleteForEveryoneRejectionReason,
 };

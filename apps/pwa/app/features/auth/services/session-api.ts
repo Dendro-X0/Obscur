@@ -1,5 +1,7 @@
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+import { getRememberMeStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 
 export interface SessionStatus {
     isActive: boolean;
@@ -57,6 +59,16 @@ export class SessionApi {
             });
             return { isActive: false, npub: null, isNative: false };
         }
+
+        const activeProfileId = getActiveProfileIdSafe();
+        const rememberEnabled = (() => {
+            if (typeof window === "undefined") {
+                return false;
+            }
+            // Strict per-profile check: do not fall back to other profiles/legacy keys here.
+            return window.localStorage.getItem(getRememberMeStorageKey(activeProfileId)) === "true";
+        })();
+
         const statusResult = await invokeNativeCommand<SessionStatusWire>("get_session_status", undefined, { timeoutMs: 3_000 });
         if (statusResult.ok) {
             const normalized = normalizeSessionStatus(statusResult.value);
@@ -71,21 +83,31 @@ export class SessionApi {
             }
         }
 
-        // Fallback rehydration path for native profile windows: get_native_npub can
-        // restore in-memory session from keychain when status payload is stale.
-        const npubResult = await invokeNativeCommand<string | null>("get_native_npub", undefined, { timeoutMs: 3_000 });
-        if (npubResult.ok && typeof npubResult.value === "string" && npubResult.value.trim().length > 0) {
+        if (rememberEnabled) {
+            // Fallback rehydration path for native profile windows: get_native_npub can
+            // restore in-memory session from keychain when status payload is stale.
+            const npubResult = await invokeNativeCommand<string | null>("get_native_npub", undefined, { timeoutMs: 3_000 });
+            if (npubResult.ok && typeof npubResult.value === "string" && npubResult.value.trim().length > 0) {
+                setMobileSecurityDiagnostics({
+                    owner: "rust_secure_store",
+                    sessionActive: true,
+                    detail: "session_restored",
+                    atUnixMs: Date.now(),
+                });
+                return {
+                    isActive: true,
+                    npub: npubResult.value,
+                    isNative: true,
+                };
+            }
+        } else {
             setMobileSecurityDiagnostics({
-                owner: "rust_secure_store",
-                sessionActive: true,
-                detail: "session_restored",
+                owner: "locked_no_secure_key",
+                sessionActive: false,
+                detail: "remember_me_disabled_skip_keychain_restore",
                 atUnixMs: Date.now(),
             });
-            return {
-                isActive: true,
-                npub: npubResult.value,
-                isNative: true,
-            };
+            return { isActive: false, npub: null, isNative: true };
         }
 
         setMobileSecurityDiagnostics({

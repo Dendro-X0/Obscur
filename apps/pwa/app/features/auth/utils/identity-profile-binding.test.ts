@@ -171,6 +171,48 @@ describe("identity-profile-binding", () => {
     expect(mocks.switchProfile).not.toHaveBeenCalled();
   });
 
+  it("copies same-account scoped local state from an existing binding into the explicit desktop profile slot", async () => {
+    const record: IdentityRecord = {
+      encryptedPrivateKey: "cipher-existing",
+      publicKeyHex: "e".repeat(64),
+      username: "Echo",
+    };
+    mocks.setEntries([{ key: "identity::profile-b", value: record }]);
+    mocks.getActiveProfileIdSafe.mockReturnValue("profile-a");
+    mocks.getProfileScopeOverride.mockReturnValue("profile-a");
+    localStorage.setItem(`dweb.nostr.pwa.chatState.v2.${record.publicKeyHex}::profile-b`, JSON.stringify({ createdConnections: [{ id: "peer-1" }] }));
+    sessionStorage.setItem("obscur_auth_token::profile-b", "token-b");
+
+    const { ensureIdentityProfileBinding } = await import("./identity-profile-binding");
+    const profileId = await ensureIdentityProfileBinding({
+      publicKeyHex: record.publicKeyHex as any,
+      username: record.username,
+    });
+
+    expect(profileId).toBe("profile-a");
+    expect(mocks.ensureProfile).toHaveBeenCalledWith("profile-a", "Echo");
+    expect(localStorage.getItem(`dweb.nostr.pwa.chatState.v2.${record.publicKeyHex}::profile-a`)).toContain("peer-1");
+    expect(sessionStorage.getItem("obscur_auth_token::profile-a")).toBe("token-b");
+    expect(mocks.switchProfile).not.toHaveBeenCalled();
+  });
+
+  it("remaps account-scoped local state into explicit profile slot even when identity binding was cleared", async () => {
+    const publicKeyHex = "f".repeat(64) as any;
+    mocks.getActiveProfileIdSafe.mockReturnValue("profile-a");
+    mocks.getProfileScopeOverride.mockReturnValue("profile-a");
+    localStorage.setItem(`dweb.nostr.pwa.chatState.v2.${publicKeyHex}::profile-b`, JSON.stringify({ createdConnections: [{ id: "peer-2" }] }));
+
+    const { ensureIdentityProfileBinding } = await import("./identity-profile-binding");
+    const profileId = await ensureIdentityProfileBinding({
+      publicKeyHex,
+      username: "Foxtrot",
+    });
+
+    expect(profileId).toBe("profile-a");
+    expect(localStorage.getItem(`dweb.nostr.pwa.chatState.v2.${publicKeyHex}::profile-a`)).toContain("peer-2");
+    expect(mocks.switchProfile).not.toHaveBeenCalled();
+  });
+
   it("recovers the single stored identity by switching to its profile", async () => {
     const record: IdentityRecord = {
       encryptedPrivateKey: "cipher",

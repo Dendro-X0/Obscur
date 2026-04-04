@@ -399,7 +399,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         // Ensure startup restore is applied before the first startup publish.
         // Publishing first on a fresh device can propagate stale/empty local state.
         const startupRestoreResult = await maybeRestoreBackup("startup_fast_follow");
-        if (startupRestoreResult === "failed" || startupRestoreResult === "in_flight") {
+        if (startupRestoreResult !== "applied") {
           logAppEvent({
             name: "account_sync.backup_publish_startup_suppressed",
             level: "warn",

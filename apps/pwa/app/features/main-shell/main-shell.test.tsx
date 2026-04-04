@@ -6,6 +6,8 @@ import NostrMessenger from "./main-shell";
 const testState = vi.hoisted(() => ({
   identityMode: "unlocked" as "unlocked" | "loading" | "locked",
   pathname: "/" as string,
+  projectionProfileId: "default" as string | null,
+  projectionAccountPublicKeyHex: "a".repeat(64) as string | null,
 }));
 
 const testFns = vi.hoisted(() => ({
@@ -345,6 +347,19 @@ vi.mock("@/app/features/account-sync/hooks/use-account-sync-snapshot", () => ({
   }),
 }));
 
+vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () => ({
+  useAccountProjectionSnapshot: () => ({
+    profileId: testState.projectionProfileId,
+    accountPublicKeyHex: testState.projectionAccountPublicKeyHex,
+    projection: null,
+    phase: "ready",
+    status: "ready",
+    accountProjectionReady: true,
+    driftStatus: "clean",
+    updatedAtUnixMs: 1,
+  }),
+}));
+
 vi.mock("@/app/features/account-sync/services/account-sync-ui-policy", () => ({
   resolveAccountSyncUiPolicy: () => ({
     showRestoreProgress: false,
@@ -361,6 +376,8 @@ describe("main-shell hook stability", () => {
     vi.clearAllMocks();
     testState.identityMode = "unlocked";
     testState.pathname = "/";
+    testState.projectionProfileId = "default";
+    testState.projectionAccountPublicKeyHex = "a".repeat(64);
   });
 
   it("keeps hook order stable across identity loading transitions", async () => {
@@ -393,5 +410,18 @@ describe("main-shell hook stability", () => {
     expect(screen.queryByTestId("app-shell")).not.toBeInTheDocument();
     expect(screen.queryByTestId("loading-screen")).not.toBeInTheDocument();
     expect(container.firstChild).toBeNull();
+  });
+
+  it("shows profile-scope mismatch guidance when projection scope diverges from this window profile", async () => {
+    testState.projectionProfileId = "profile-b";
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByText(/Profile Scope Notice/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This window is bound to a different local profile slot than this account's data. Open the saved profile that owns this account, or switch this window's profile before signing in."
+      )
+    ).toBeInTheDocument();
   });
 });

@@ -1,51 +1,65 @@
 # Obscur
 
-Pre-release beta software. Not production-ready.
+[![Release](https://img.shields.io/github/v/release/Dendro-X0/Obscur?display_name=tag&logo=github)](https://github.com/Dendro-X0/Obscur/releases)
+[![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)
+[![Architecture](https://img.shields.io/badge/architecture-decentralized-22c55e)](#core-positioning)
+[![Security](https://img.shields.io/badge/security-E2EE-ef4444)](#core-positioning)
+![License](https://img.shields.io/github/license/Dendro-X0/Obscur)
 
-Obscur is a local-first, decentralized, end-to-end encrypted communication app for private one-on-one and small community/group messaging over Nostr relays.
+Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-## What This Project Is
+Project phase: pre-launch stabilization.
 
-- A privacy-first messenger with no central server requirement.
-- A cross-platform app suite:
-  - `apps/pwa`: web/PWA client.
-  - `apps/desktop`: Tauri desktop client (native networking, updater, Tor support).
-  - Mobile runtime via Tauri targets (Android and iOS) from `apps/desktop`.
-- A shared protocol/runtime workspace:
-  - `packages/dweb-*`: core, crypto, nostr, storage, and UI primitives.
+Release prep status (`v1.3.4`):
 
-## Why Obscur
+- DM delete-for-everyone convergence hardened across canonical event IDs.
+- Incoming sync now includes a safety watchdog (interval + visibility resume) to reduce stale message/delete state.
+- Outgoing sends now auto-scroll to latest messages and keep follow-bottom behavior.
+- Realtime peer online indicators now converge using relay presence with bounded inbound-activity evidence fallback.
 
-- Decentralized transport: relay-based architecture, no single backend dependency.
-- Strong privacy model: encrypted messaging with local-first data handling.
-- Self-custody identity: key-based identity instead of account/password silos.
-- Cross-platform consistency: same core messaging model across PWA and desktop.
-- Release discipline: version sync/check automation and docs-backed release runbooks.
+## Core Positioning
 
-## Core Features
+- Decentralized by design (relay-based transport, no required central server).
+- Privacy-first messaging and community interactions.
+- End-to-end encryption for private communications.
+- User sovereignty through key-based identity and local-first ownership.
+- Independently developed and publicly maintained (not operated by a corporation or government agency).
 
-- Direct messaging and group/community messaging.
-- End-to-end encrypted message flows.
-- Rich media messaging (images, audio, video, documents).
-- Local media caching and vault workflows.
-- Relay and storage configuration controls.
-- Light and dark theme support.
-- Multi-language UI (English, Chinese, Spanish).
-- Desktop updater and release-tag awareness.
-- Performance mode improvements for large timelines and burst traffic.
+## Trust and Transparency
 
-## Current Status
+- Public repository with auditable source code and open release history.
+- Project policy guarantee: no intentional malicious code, hidden telemetry backdoors, or closed-source runtime logic in this repository.
+- Security/privacy model and implementation history are documented in `/docs` and `CHANGELOG.md`.
+- Release artifacts are published via GitHub Releases with reproducible version contracts.
 
-- Active lane: stabilization and v1.3.0 closeout preparation.
-- Canonical active roadmap:
-  - [`docs/roadmap/current-roadmap.md`](docs/roadmap/current-roadmap.md)
-- Canonical release closeout runbook:
-  - [`docs/releases/release-closeout-guide.md`](docs/releases/release-closeout-guide.md)
-- Historical version/matrix execution docs:
-  - [`docs/archive/versioned/`](docs/archive/versioned)
-- Canonical runtime monitoring baseline:
-  - [`ISSUES.md`](ISSUES.md)
-  - [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
+## Key Capabilities
+
+- Direct messaging and community/group messaging.
+- Rich media messaging (image/video/audio/file).
+- Voice notes and realtime voice call flow.
+- Local vault/media workflows.
+- Message deletion controls (`Delete for me` and `Delete for everyone` where supported by protocol flow).
+- Light/dark themes, multilingual UI, and cross-platform UX parity improvements.
+- Runtime diagnostics and triage tooling for long-term maintainability.
+
+## Feature GIF Previews (Placeholders)
+
+The following placeholders are reserved for production-build feature demonstrations:
+
+- Settings and configuration:
+  ![Settings and configuration demo placeholder](docs/assets/demo/placeholders/settings-configuration.gif)
+- UI and navigation:
+  ![UI and navigation demo placeholder](docs/assets/demo/placeholders/ui-navigation.gif)
+- Multimedia upload and playback:
+  ![Multimedia upload demo placeholder](docs/assets/demo/placeholders/multimedia-upload.gif)
+- Groups and communities:
+  ![Groups and communities demo placeholder](docs/assets/demo/placeholders/groups-communities.gif)
+
+## Platform Coverage
+
+- Web/PWA: `apps/pwa`
+- Desktop (Tauri): `apps/desktop`
+- Mobile targets via desktop runtime/tooling lane (Android/iOS support paths in repository workflows)
 
 ## Quick Start
 
@@ -54,85 +68,63 @@ Prerequisites:
 - Node.js `>=20.11.0`
 - `pnpm`
 
-Install and run:
+Install and run PWA:
 
 ```bash
 pnpm install
 pnpm dev:pwa
 ```
 
-Default local endpoint: `http://127.0.0.1:3340` (reserved for Obscur to avoid `localhost:3000` collisions with other projects).
+Default local endpoint: `http://127.0.0.1:3340`
 
-For desktop:
+Run desktop:
 
 ```bash
 pnpm dev:desktop
 ```
 
-## Documentation (Primary Navigation)
+## Deployment and Release
 
-Use `/docs` as the source of truth for maintainers and contributors.
+Current public distribution:
 
-Root `PHASE0-4` and `ROADMAP_*` planning files were retired in `v0.9.2`; keep planning and handoff context in `/docs` + `ISSUES.md`.
+- GitHub Releases (primary channel)
 
-- Docs index: [`docs/README.md`](docs/README.md)
-- Project overview: [`docs/01-project-overview.md`](docs/01-project-overview.md)
-- Repository map: [`docs/02-repository-map.md`](docs/02-repository-map.md)
-- Runtime architecture: [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md)
-- Feature module map: [`docs/04-messaging-and-groups.md`](docs/04-messaging-and-groups.md)
-- Data and sync flows: [`docs/05-performance-and-load-testing.md`](docs/05-performance-and-load-testing.md)
-- Testing and quality gates: [`docs/06-testing-and-quality-gates.md`](docs/06-testing-and-quality-gates.md)
-- Operations and release flow: [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- Maintainer handoff: [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
+Planned distribution:
 
-## Demo Placeholders (To Be Replaced)
+- Official website (under construction), including:
+  - changelog and release notes,
+  - feature descriptions,
+  - short GIF demonstrations for key production-build features.
 
-These placeholders are for future GIF demos in README and the future official website.
-
-1. `docs/assets/demo-auth-and-onboarding.gif`  
-   Placeholder: account creation/import, remember-login flow, lock/unlock.
-2. `docs/assets/demo-dm-and-groups.gif`  
-   Placeholder: DM chat, group timeline, invite/join/leave actions.
-3. `docs/assets/demo-media-and-vault.gif`  
-   Placeholder: media uploads, previews, volume controls, vault behavior.
-4. `docs/assets/demo-relay-and-settings.gif`  
-   Placeholder: relay/storage config, performance toggle, update check flow.
-5. `docs/assets/demo-desktop-updater.gif`  
-   Placeholder: current vs latest version state and install prompt.
-
-## Release Preparation (Current Tag Lane)
-
-Before tagging:
+Release guard commands:
 
 ```bash
 pnpm version:sync
 pnpm version:check
-pnpm release:integrity-check
 pnpm docs:check
-pnpm release:ci-signal-check
-pnpm release:artifact-matrix-check
+pnpm release:integrity-check
 pnpm release:artifact-version-contract-check
+pnpm release:ci-signal-check
 pnpm release:test-pack
 pnpm release:preflight -- --tag vX.Y.Z
-pnpm release:verify-tag --tag vX.Y.Z
 ```
 
-Release execution model:
+## Documentation Map
 
-- Step 1: push tag to run preflight/build/artifact verification and auto-publish GitHub Release assets.
-- Step 2 (fallback only): manual `.github/workflows/release.yml` dispatch with `publish_release=true` on the tag ref if a rerun/publish repair is needed.
-- Android lane is reported explicitly in release evidence (`android_job_result`, `android_signing_state`) and does not block desktop/web artifact verification or publication when Android fails.
+- Docs index: `docs/README.md`
+- Project overview: `docs/01-project-overview.md`
+- Runtime architecture: `docs/03-runtime-architecture.md`
+- Messaging/groups architecture: `docs/04-messaging-and-groups.md`
+- Quality gates: `docs/06-testing-and-quality-gates.md`
+- Release operations: `docs/07-operations-and-release-flow.md`
+- Maintainer playbook: `docs/08-maintainer-playbook.md`
+- Roadmap: `docs/roadmap/current-roadmap.md`
+- Active issue ledger: `ISSUES.md`
 
-Release references:
+## Repository Layout
 
-- [`docs/07-operations-and-release-flow.md`](docs/07-operations-and-release-flow.md)
-- [`docs/08-maintainer-playbook.md`](docs/08-maintainer-playbook.md)
-- [`ISSUES.md`](ISSUES.md)
-
-Current distribution channel:
-
-- GitHub Releases only (`.github/workflows/release.yml`), with required artifact lanes for:
-  - Web/PWA static bundle (`.tar.gz`)
-  - Desktop installers (Windows/macOS/Linux)
-  - Android (`.apk` + `.aab`) when Android lane succeeds; lane status is surfaced in release summary
-  - iOS (`.ipa`) when signing secrets are available
+- `apps/pwa`: web/PWA runtime
+- `apps/desktop`: Tauri desktop runtime
+- `apps/website`: official website (in progress)
+- `packages/dweb-*`: shared core/crypto/nostr/storage/UI packages
+- `docs`: canonical architecture, operations, and roadmap docs

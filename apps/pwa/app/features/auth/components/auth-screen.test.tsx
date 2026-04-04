@@ -179,6 +179,14 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect((token ?? "").length).toBeGreaterThan(0);
   });
 
+  it("defaults remember-me to enabled for stored identities even when a stale false marker exists", async () => {
+    localStorage.setItem("obscur_remember_me::default", "false");
+    render(<AuthScreen />);
+
+    const rememberCheckbox = await screen.findByLabelText("Keep me logged in on this device");
+    expect(rememberCheckbox).toBeChecked();
+  });
+
   it("surfaces retired-key warning before import continues", async () => {
     const privateKeyHex = "a".repeat(64) as PrivateKeyHex;
     const publicKeyHex = derivePublicKeyHex(privateKeyHex);

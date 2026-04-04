@@ -109,8 +109,10 @@ describe("recipient-discovery-service", () => {
       kind: 3,
       content: JSON.stringify({
         "wss://trusted-b.example": { read: true },
+        "wss://trusted-default.example": {},
         "http://bad.example": { read: true },
         "wss://write-only.example": { write: true },
+        "wss://read-disabled.example": { read: false },
       }),
       tags: [],
     }]);
@@ -119,13 +121,16 @@ describe("recipient-discovery-service", () => {
     await expect(attemptPromise).resolves.toEqual([
       "wss://trusted-a.example",
       "wss://trusted-b.example",
+      "wss://trusted-default.example",
     ]);
-    expect(runtime.pool.addTransientRelay).toHaveBeenCalledTimes(2);
+    expect(runtime.pool.addTransientRelay).toHaveBeenCalledTimes(3);
     expect(runtime.pool.addTransientRelay).toHaveBeenNthCalledWith(1, "wss://trusted-a.example");
     expect(runtime.pool.addTransientRelay).toHaveBeenNthCalledWith(2, "wss://trusted-b.example");
+    expect(runtime.pool.addTransientRelay).toHaveBeenNthCalledWith(3, "wss://trusted-default.example");
     expect(recipientRelayResolutionCache.current.get(pubkey)).toEqual([
       "wss://trusted-a.example",
       "wss://trusted-b.example",
+      "wss://trusted-default.example",
     ]);
   });
 });
