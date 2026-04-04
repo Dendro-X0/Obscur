@@ -844,7 +844,7 @@ export function useConversationMessages(
             });
 
             if (earlierWindow.rows.length > 0) {
-                const mapped: Message[] = earlierWindow.rows.reverse().map((m: any) => normalizeMessage(m, {
+                const mapped: Message[] = earlierWindow.rows.slice().reverse().map((m: any) => normalizeMessage(m, {
                     conversationId: typeof m?.conversationId === "string" ? m.conversationId : conversationId,
                     myPublicKeyHex: publicKeyHex,
                 })).filter((message) => (

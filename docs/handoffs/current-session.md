@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-04T16:01:41Z
+- Last Updated (UTC): 2026-04-04T16:40:32Z
 - Session Status: in-progress
 - Active Owner: DM realtime presence truth surface (relay presence + inbound peer activity evidence)
 
@@ -91,7 +91,9 @@ Make DM online/offline indicators converge in realtime during active chat exchan
 
 ## Next Atomic Step
 
-Stage full workspace changes, create v1.3.4 release commit, and push main to origin.
+Commit and push this patch so CI/Vercel can rerun and clear the previous compile failures.
+
+
 
 
 
@@ -217,4 +219,14 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Stage full workspace changes, create v1.3.4 release commit, and push main to origin.
+### 2026-04-04T16:38:57Z checkpoint
+- Summary: Fixed readonly reverse typecheck blocker in use-conversation-messages loadEarlier path by cloning earlierWindow.rows before reverse; release:test-pack skip-preflight now passes locally.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Push this one-line typing-safe fix, then rerun Vercel deployment check to confirm remote build recovers from the previous TS compile failure.
+### 2026-04-04T16:40:32Z checkpoint
+- Summary: Validated fix against both gates: release:test-pack (--skip-preflight) passed and apps/pwa production build now compiles/types/generates successfully.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Commit and push this patch so CI/Vercel can rerun and clear the previous compile failures.
 <!-- CONTEXT_CHECKPOINTS_END -->
