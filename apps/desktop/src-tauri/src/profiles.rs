@@ -374,36 +374,75 @@ pub async fn resolve_profile_for_window(
 }
 
 fn migrate_legacy_webview_data(app: &AppHandle) -> Result<(), String> {
-    let local_dir = app.path().local_data_dir().map_err(|e| e.to_string())?;
-    // Legacy location (Local on Windows for WebView2)
-    // The identifier is app.obscur.desktop
-    let legacy_eb_webview = local_dir.join("app.obscur.desktop").join("EBWebView");
-    
-    if !legacy_eb_webview.exists() {
-        return Ok(());
-    }
-
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let local_dir = app.path().local_data_dir().map_err(|e| e.to_string())?;
     let default_profile_dir = app_data_dir.join("profiles").join(DEFAULT_PROFILE_ID);
     let target_eb_webview = default_profile_dir.join("EBWebView");
 
-    // Only migrate if target does not exist
-    if target_eb_webview.exists() {
+    if target_eb_webview.exists() && fs::read_dir(&target_eb_webview).map(|mut entries| entries.next().is_some()).unwrap_or(false) {
         return Ok(());
     }
 
-    println!("[ProfileIsolation] Migrating legacy WebView data from {:?} to {:?}", legacy_eb_webview, target_eb_webview);
-    
-    // Ensure target parent exists
+    let candidate_sources = [
+        local_dir.join("app.obscur.desktop").join("EBWebView"),
+        local_dir.join("app.obscur.desktop").join("WebView2"),
+        local_dir.join("app.obscur.desktop").join("webview"),
+        app_data_dir.join("EBWebView"),
+        app_data_dir.join("WebView2"),
+        app_data_dir.join("webview"),
+    ];
+
+    let copy_dir_recursive = |source: &std::path::Path, destination: &std::path::Path| -> Result<(), String> {
+        fn copy_recursive_inner(source: &std::path::Path, destination: &std::path::Path) -> Result<(), String> {
+            fs::create_dir_all(destination).map_err(|e| e.to_string())?;
+            for entry in fs::read_dir(source).map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let source_path = entry.path();
+                let destination_path = destination.join(entry.file_name());
+                if source_path.is_dir() {
+                    copy_recursive_inner(&source_path, &destination_path)?;
+                } else {
+                    fs::copy(&source_path, &destination_path).map_err(|e| e.to_string())?;
+                }
+            }
+            Ok(())
+        }
+
+        copy_recursive_inner(source, destination)
+    };
+
     let _ = fs::create_dir_all(&default_profile_dir);
 
-    // Fast-path: move directory in one operation to avoid heavy startup copy on low-end machines.
-    // If move fails (e.g. cross-volume), skip migration rather than blocking startup.
-    if let Err(e) = fs::rename(&legacy_eb_webview, &target_eb_webview) {
-        eprintln!("[ProfileIsolation] Migration skipped (fast move failed): {}", e);
-        return Ok(());
+    for source_dir in candidate_sources {
+        if !source_dir.exists() {
+            continue;
+        }
+
+        println!(
+            "[ProfileIsolation] Attempting legacy WebView migration from {:?} to {:?}",
+            source_dir, target_eb_webview
+        );
+
+        if fs::rename(&source_dir, &target_eb_webview).is_ok() {
+            println!("[ProfileIsolation] Migration completed successfully via move.");
+            return Ok(());
+        }
+
+        if target_eb_webview.exists() {
+            let _ = fs::remove_dir_all(&target_eb_webview);
+        }
+
+        if copy_dir_recursive(&source_dir, &target_eb_webview).is_ok() {
+            let _ = fs::remove_dir_all(&source_dir);
+            println!("[ProfileIsolation] Migration completed successfully via copy fallback.");
+            return Ok(());
+        }
+
+        eprintln!(
+            "[ProfileIsolation] Migration attempt failed for source {:?}; trying next candidate.",
+            source_dir
+        );
     }
 
-    println!("[ProfileIsolation] Migration completed successfully.");
     Ok(())
 }

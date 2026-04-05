@@ -40,6 +40,8 @@ export interface SyncOrchestratorParams {
       isSyncing: boolean;
       lastSyncAt?: Date;
       conversationTimestamps: Map<string, Date>;
+      coldStartPartialCoverageDetected?: boolean;
+      coldStartHistoricalBackfillRelayCount?: number | null;
     };
   };
   setState: React.Dispatch<React.SetStateAction<EnhancedDMControllerState>>;
@@ -180,6 +182,9 @@ export const syncMissedMessages = async (
     const openRelayUrls = pool.connections
       .filter((connection) => connection.status === "open")
       .map((connection) => connection.url);
+    const openRelayCount = openRelayUrls.length;
+    const configuredRelayCount = pool.connections.length;
+    const startedAsPartialColdStart = isColdStartSync && configuredRelayCount > openRelayCount;
     const eoseQuorumRequired = resolveEoseQuorumRequired(openRelayUrls.length);
 
     let totalSyncedCount = 0;
@@ -222,6 +227,26 @@ export const syncMissedMessages = async (
 
       syncStateRef.current.isSyncing = false;
       syncStateRef.current.lastSyncAt = new Date();
+      if (finalParams.status !== "failed") {
+        if (isColdStartSync) {
+          syncStateRef.current.coldStartPartialCoverageDetected = startedAsPartialColdStart;
+          syncStateRef.current.coldStartHistoricalBackfillRelayCount = startedAsPartialColdStart
+            ? openRelayCount
+            : null;
+        } else {
+          const replayingFromEpoch = Boolean(since) && Math.floor(since.getTime() / 1000) <= COLD_START_FULL_HISTORY_SINCE_UNIX_SECONDS;
+          if (replayingFromEpoch && syncStateRef.current.coldStartPartialCoverageDetected) {
+            const previousBackfillRelayCount = typeof syncStateRef.current.coldStartHistoricalBackfillRelayCount === "number"
+              ? syncStateRef.current.coldStartHistoricalBackfillRelayCount
+              : 0;
+            syncStateRef.current.coldStartHistoricalBackfillRelayCount = Math.max(previousBackfillRelayCount, openRelayCount);
+            if (openRelayCount >= configuredRelayCount) {
+              syncStateRef.current.coldStartPartialCoverageDetected = false;
+              syncStateRef.current.coldStartHistoricalBackfillRelayCount = null;
+            }
+          }
+        }
+      }
 
       let checkpointUpdatedToUnixSeconds: number | undefined;
       const hasEventEvidenceFrontier = typeof aggregateMaxSeenCreatedAtUnixSeconds === "number";

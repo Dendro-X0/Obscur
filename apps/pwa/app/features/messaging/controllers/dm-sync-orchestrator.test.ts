@@ -39,11 +39,13 @@ describe("dm-sync-orchestrator", () => {
     vi.mocked(logAppEvent).mockClear();
   });
 
-  const createPool = (openRelayCount = 1) => {
+  const createPool = (openRelayCount = 1, totalRelayCount = openRelayCount) => {
     let handler: ((params: Readonly<{ url: string; message: string }>) => void) | undefined;
-    const connections = Array.from({ length: Math.max(1, openRelayCount) }, (_, index) => ({
+    const normalizedTotalRelayCount = Math.max(1, totalRelayCount);
+    const normalizedOpenRelayCount = Math.min(Math.max(0, openRelayCount), normalizedTotalRelayCount);
+    const connections = Array.from({ length: normalizedTotalRelayCount }, (_, index) => ({
       url: `wss://relay-${index + 1}.example`,
-      status: "open",
+      status: index < normalizedOpenRelayCount ? "open" : "closed",
     }));
     return {
       pool: {
@@ -315,6 +317,38 @@ describe("dm-sync-orchestrator", () => {
     const parsedReq = JSON.parse(reqPayload);
     expect(parsedReq[2].since).toBe(0);
     expect(parsedReq[2].limit).toBe(1000);
+  });
+
+  it("marks partial cold-start relay coverage so churn recovery can request full-history backfill later", async () => {
+    const { pool, emit } = createPool(1, 3);
+    const syncStateRef = {
+      current: {
+        isSyncing: false,
+        lastSyncAt: undefined as Date | undefined,
+        conversationTimestamps: new Map<string, Date>(),
+        coldStartPartialCoverageDetected: false,
+        coldStartHistoricalBackfillRelayCount: null as number | null,
+      },
+    };
+
+    await syncMissedMessages({
+      myPublicKeyHex: "receiver-pubkey" as never,
+      messageQueue: {} as never,
+      pool,
+      syncStateRef,
+      setState: vi.fn(),
+    });
+
+    const reqPayload = vi.mocked(pool.sendToOpen).mock.calls[0]?.[0] as string;
+    const subId = JSON.parse(reqPayload)[1];
+
+    emit({
+      url: "wss://relay-1.example",
+      message: JSON.stringify(["EOSE", subId]),
+    });
+
+    expect(syncStateRef.current.coldStartPartialCoverageDetected).toBe(true);
+    expect(syncStateRef.current.coldStartHistoricalBackfillRelayCount).toBe(1);
   });
 
   it("routes matched sync events through the incoming event handler", async () => {

@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-05T03:50:01Z
+- Last Updated (UTC): 2026-04-05T05:40:35Z
 - Session Status: in-progress
 - Active Owner: DM realtime presence truth surface (relay presence + inbound peer activity evidence)
 
@@ -91,7 +91,8 @@ Make DM online/offline indicators converge in realtime during active chat exchan
 
 ## Next Atomic Step
 
-Commit/tag/push v1.3.5 and monitor CI + production installer replay for video attachment upload start behavior.
+Run two-user reinstall/reset replay on production desktop to confirm history convergence and data retention across update install.
+
 
 
 
@@ -241,4 +242,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Commit/tag/push v1.3.5 and monitor CI + production installer replay for video attachment upload start behavior.
+### 2026-04-05T05:40:35Z checkpoint
+- Summary: Hardened desktop WebView data migration and fixed relay coverage recovery path so partial cold-start sync now triggers full-history backfill when additional relays connect.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run two-user reinstall/reset replay on production desktop to confirm history convergence and data retention across update install.
 <!-- CONTEXT_CHECKPOINTS_END -->

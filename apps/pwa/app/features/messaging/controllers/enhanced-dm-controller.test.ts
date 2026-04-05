@@ -108,4 +108,24 @@ describe("enhanced-dm-controller pending request guard", () => {
       visibilityState: "hidden",
     })).toBe(false);
   });
+
+  it("forces full relay-coverage backfill when open relay count expands after partial cold-start", () => {
+    expect(enhancedDmControllerInternals.shouldForceFullRelayCoverageBackfill({
+      coldStartPartialCoverageDetected: true,
+      coldStartHistoricalBackfillRelayCount: 1,
+      openRelayCount: 2,
+    })).toBe(true);
+
+    expect(enhancedDmControllerInternals.shouldForceFullRelayCoverageBackfill({
+      coldStartPartialCoverageDetected: true,
+      coldStartHistoricalBackfillRelayCount: 2,
+      openRelayCount: 2,
+    })).toBe(false);
+
+    expect(enhancedDmControllerInternals.shouldForceFullRelayCoverageBackfill({
+      coldStartPartialCoverageDetected: false,
+      coldStartHistoricalBackfillRelayCount: 1,
+      openRelayCount: 3,
+    })).toBe(false);
+  });
 });

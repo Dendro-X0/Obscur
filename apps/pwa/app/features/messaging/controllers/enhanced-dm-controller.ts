@@ -251,6 +251,20 @@ const shouldRunTransportSafetySync = (params: Readonly<{
   return params.poolConnections.some((connection) => connection.status === "open");
 };
 
+const shouldForceFullRelayCoverageBackfill = (params: Readonly<{
+  coldStartPartialCoverageDetected?: boolean;
+  coldStartHistoricalBackfillRelayCount?: number | null;
+  openRelayCount: number;
+}>): boolean => {
+  if (!params.coldStartPartialCoverageDetected) {
+    return false;
+  }
+  const previousBackfillRelayCount = typeof params.coldStartHistoricalBackfillRelayCount === "number"
+    ? params.coldStartHistoricalBackfillRelayCount
+    : 0;
+  return params.openRelayCount > previousBackfillRelayCount;
+};
+
 /**
  * Controller parameters
  */
@@ -497,9 +511,13 @@ export const useEnhancedDMController = (
     isSyncing: boolean;
     lastSyncAt?: Date;
     conversationTimestamps: Map<string, Date>;
+    coldStartPartialCoverageDetected?: boolean;
+    coldStartHistoricalBackfillRelayCount?: number | null;
   }>({
     isSyncing: false,
-    conversationTimestamps: new Map()
+    conversationTimestamps: new Map(),
+    coldStartPartialCoverageDetected: false,
+    coldStartHistoricalBackfillRelayCount: null,
   });
   const processingEvents = useRef<Set<string>>(new Set());
   const failedDecryptEvents = useRef<Set<string>>(new Set());
@@ -1030,6 +1048,12 @@ export const useEnhancedDMController = (
 
     const previousOpenRelaySignature = lastOpenRelaySignatureRef.current;
     const relaySetChanged = openRelaySignature !== previousOpenRelaySignature;
+    const openRelayCount = openRelaySignature.split("|").filter(Boolean).length;
+    const shouldUseFullHistoryRecovery = shouldForceFullRelayCoverageBackfill({
+      coldStartPartialCoverageDetected: syncStateRef.current.coldStartPartialCoverageDetected,
+      coldStartHistoricalBackfillRelayCount: syncStateRef.current.coldStartHistoricalBackfillRelayCount,
+      openRelayCount,
+    });
     lastOpenRelaySignatureRef.current = openRelaySignature;
 
     if (!previousOpenRelaySignature || !hasSubscribedRef.current || activeSubscriptions.current.size === 0 || !relaySetChanged) {
@@ -1043,14 +1067,18 @@ export const useEnhancedDMController = (
     let forcedSyncTriggered = false;
     let deferredSyncScheduled = false;
     let forcedSyncSinceUnixSeconds: number | null = null;
+    let forcedSyncMode: "lookback" | "full_history_recovery" | null = null;
     let skippedReason: "cooldown" | "sync_in_progress" | null = null;
 
     if (cooldownElapsedMs < RELAY_CHURN_RECOVERY_SYNC_COOLDOWN_MS) {
       skippedReason = "cooldown";
     } else {
       const baseSinceUnixMs = syncStateRef.current.lastSyncAt?.getTime() ?? nowUnixMs;
-      const forcedSince = new Date(Math.max(0, baseSinceUnixMs - RELAY_CHURN_RECOVERY_LOOKBACK_MS));
+      const forcedSince = shouldUseFullHistoryRecovery
+        ? new Date(0)
+        : new Date(Math.max(0, baseSinceUnixMs - RELAY_CHURN_RECOVERY_LOOKBACK_MS));
       forcedSyncSinceUnixSeconds = Math.floor(forcedSince.getTime() / 1000);
+      forcedSyncMode = shouldUseFullHistoryRecovery ? "full_history_recovery" : "lookback";
       if (syncStateRef.current.isSyncing) {
         skippedReason = "sync_in_progress";
         deferredSyncScheduled = true;
@@ -1091,6 +1119,16 @@ export const useEnhancedDMController = (
       } else {
         lastRelayChurnRecoverySyncAtUnixMsRef.current = nowUnixMs;
         forcedSyncTriggered = true;
+        if (shouldUseFullHistoryRecovery) {
+          const previousBackfillRelayCount = typeof syncStateRef.current.coldStartHistoricalBackfillRelayCount === "number"
+            ? syncStateRef.current.coldStartHistoricalBackfillRelayCount
+            : 0;
+          syncStateRef.current.coldStartHistoricalBackfillRelayCount = Math.max(previousBackfillRelayCount, openRelayCount);
+          if (openRelayCount >= params.pool.connections.length) {
+            syncStateRef.current.coldStartPartialCoverageDetected = false;
+            syncStateRef.current.coldStartHistoricalBackfillRelayCount = null;
+          }
+        }
         void syncMissedMessages(forcedSince);
       }
     }
@@ -1102,11 +1140,12 @@ export const useEnhancedDMController = (
       context: {
         previousOpenRelaySignature: previousOpenRelaySignature || null,
         openRelaySignature,
-        openRelayCount: openRelaySignature.split("|").filter(Boolean).length,
+        openRelayCount,
         resubscribeTriggered: typeof params.pool.resubscribeAll === "function",
         forcedSyncTriggered,
         deferredSyncScheduled,
         forcedSyncSinceUnixSeconds,
+        forcedSyncMode,
         skippedReason,
         transportOwnerId: transportOwnerId ?? "none",
         controllerInstanceId,
@@ -1424,5 +1463,6 @@ export const enhancedDmControllerInternals = {
   PENDING_REQUEST_STALE_MS,
   hasRequestDeliveryEvidence,
   shouldRunTransportSafetySync,
+  shouldForceFullRelayCoverageBackfill,
   TRANSPORT_SAFETY_SYNC_INTERVAL_MS,
 };
