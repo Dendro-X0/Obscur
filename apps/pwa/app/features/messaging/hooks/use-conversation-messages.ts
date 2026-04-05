@@ -13,6 +13,7 @@ import { selectProjectionConversationMessages } from "@/app/features/account-syn
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { extractAttachmentsFromContent } from "../utils/logic";
+import { parseCommandMessage } from "../utils/commands";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import {
@@ -116,6 +117,13 @@ const normalizeMessage = (
     }
 
     const content = typeof value.content === "string" ? value.content : "";
+    const parsedCommand = parseCommandMessage(content);
+    const resolvedKind: Message["kind"] = (
+        value.kind === "command"
+        || parsedCommand !== null
+    )
+        ? "command"
+        : "user";
     const storedAttachments = Array.isArray(value.attachments) && value.attachments.length > 0
         ? value.attachments
         : Array.isArray(value.attachment) && value.attachment.length > 0
@@ -138,6 +146,7 @@ const normalizeMessage = (
 
     return {
         ...value,
+        kind: resolvedKind,
         timestamp,
         ...(senderPubkey ? { senderPubkey } : {}),
         ...(recipientPubkey ? { recipientPubkey } : {}),
@@ -328,6 +337,45 @@ const loadConversationWindowAcrossAliases = async (params: Readonly<{
         rowsByConversationId,
         limit: params.limit,
     });
+};
+
+const scanDisplayableHistoryWindow = async (params: Readonly<{
+    conversationIds: ReadonlyArray<string>;
+    initialRows: ReadonlyArray<any>;
+    initialHasEarlier: boolean;
+    limit: number;
+    mapRows: (rows: ReadonlyArray<any>) => ReadonlyArray<Message>;
+}>): Promise<Readonly<{ messages: ReadonlyArray<Message>; hasEarlier: boolean }>> => {
+    let collectedRows = [...params.initialRows];
+    let hasEarlier = params.initialHasEarlier;
+    let mappedMessages = params.mapRows(collectedRows);
+    let passCount = 0;
+
+    while (mappedMessages.length === 0 && hasEarlier && passCount < 4) {
+        passCount += 1;
+        const oldestRow = collectedRows[collectedRows.length - 1];
+        const beforeTimestampMs = toRowTimestampMs(oldestRow);
+        if (beforeTimestampMs <= 0) {
+            break;
+        }
+        const earlierWindow = await loadConversationWindowAcrossAliases({
+            conversationIds: params.conversationIds,
+            limit: params.limit,
+            beforeTimestampMs,
+        });
+        if (earlierWindow.rows.length === 0) {
+            hasEarlier = false;
+            break;
+        }
+        collectedRows = [...collectedRows, ...earlierWindow.rows];
+        hasEarlier = earlierWindow.hasEarlier;
+        mappedMessages = params.mapRows(collectedRows);
+    }
+
+    return {
+        messages: mappedMessages,
+        hasEarlier,
+    };
 };
 
 const dedupeMessagesByIdentity = (messages: ReadonlyArray<Message>): ReadonlyArray<Message> => {
@@ -530,17 +578,29 @@ export function useConversationMessages(
                 conversationIds,
                 limit: initialBatchSize,
             });
-            const mapped: Message[] = latestWindow.rows.slice().reverse().map((m: any) => normalizeMessage(m, {
-                conversationId: typeof m?.conversationId === "string" ? m.conversationId : cid,
-                myPublicKeyHex: publicKeyHex,
-            })).filter((message) => (
-                !persistedDeletedIdsRef.current.has(message.id)
-                && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
-            ));
-            const retentionFilteredMapped = filterMessagesByLocalRetention(
-                dedupeMessagesByIdentity(mapped),
-                localMessageRetentionDays,
-            );
+            const mapRowsToDisplayableMessages = (rows: ReadonlyArray<any>): ReadonlyArray<Message> => {
+                const mapped: Message[] = rows.slice().reverse().map((m: any) => normalizeMessage(m, {
+                    conversationId: typeof m?.conversationId === "string" ? m.conversationId : cid,
+                    myPublicKeyHex: publicKeyHex,
+                })).filter((message) => (
+                    !persistedDeletedIdsRef.current.has(message.id)
+                    && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
+                ));
+                const retentionFilteredMapped = filterMessagesByLocalRetention(
+                    dedupeMessagesByIdentity(mapped),
+                    localMessageRetentionDays,
+                );
+                return retentionFilteredMapped.filter(isDisplayableMessage);
+            };
+
+            const scannedWindow = await scanDisplayableHistoryWindow({
+                conversationIds,
+                initialRows: latestWindow.rows,
+                initialHasEarlier: latestWindow.hasEarlier,
+                limit: initialBatchSize,
+                mapRows: mapRowsToDisplayableMessages,
+            });
+            const retentionFilteredMapped = scannedWindow.messages;
             const projectionMessagesSnapshot = projectionMessagesRef.current;
             const projectionReadAuthoritySnapshot = projectionReadAuthorityRef.current;
 
@@ -551,8 +611,8 @@ export function useConversationMessages(
             );
             const hydrated = shouldUseProjectionFallback
                 ? projectionMessagesSnapshot
-                : retentionFilteredMapped.filter(isDisplayableMessage);
-            const mappedDirectionCounts = getMessageDirectionCounts(mapped, normalizedPublicKeyHex);
+                : retentionFilteredMapped;
+            const mappedDirectionCounts = getMessageDirectionCounts(retentionFilteredMapped, normalizedPublicKeyHex);
             const projectionDirectionCounts = getMessageDirectionCounts(projectionMessagesSnapshot, normalizedPublicKeyHex);
 
             if (shouldUseProjectionFallback || (mappedDirectionCounts.outgoing === 0 && mappedDirectionCounts.incoming > 0)) {
@@ -562,7 +622,7 @@ export function useConversationMessages(
                     scope: { feature: "messaging", action: "conversation_hydrate" },
                     context: {
                         conversationIdHint: toConversationIdDiagnosticLabel(cid),
-                        indexedMessageCount: mapped.length,
+                        indexedMessageCount: retentionFilteredMapped.length,
                         indexedOutgoingCount: mappedDirectionCounts.outgoing,
                         indexedIncomingCount: mappedDirectionCounts.incoming,
                         projectionMessageCount: projectionMessagesSnapshot.length,
@@ -635,7 +695,7 @@ export function useConversationMessages(
             }
 
             setMessages(hydrated);
-            setHasEarlier(shouldUseProjectionFallback ? false : (latestWindow.hasEarlier && retentionFilteredMapped.length > 0));
+            setHasEarlier(shouldUseProjectionFallback ? false : (scannedWindow.hasEarlier && retentionFilteredMapped.length > 0));
             projectionFallbackHydrationRef.current = shouldUseProjectionFallback;
             expandedHistoryRef.current = false;
         } catch (e) {
@@ -844,24 +904,33 @@ export function useConversationMessages(
             });
 
             if (earlierWindow.rows.length > 0) {
-                const mapped: Message[] = earlierWindow.rows.slice().reverse().map((m: any) => normalizeMessage(m, {
-                    conversationId: typeof m?.conversationId === "string" ? m.conversationId : conversationId,
-                    myPublicKeyHex: publicKeyHex,
-                })).filter((message) => (
-                    isDisplayableMessage(message)
-                    && !persistedDeletedIdsRef.current.has(message.id)
-                    && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
-                ));
-                const retentionFilteredMapped = filterMessagesByLocalRetention(
-                    dedupeMessagesByIdentity(mapped),
-                    localMessageRetentionDays,
-                );
-                if (retentionFilteredMapped.length === 0) {
-                    setHasEarlier(false);
+                const mapRowsToDisplayableMessages = (rows: ReadonlyArray<any>): ReadonlyArray<Message> => {
+                    const mapped: Message[] = rows.slice().reverse().map((m: any) => normalizeMessage(m, {
+                        conversationId: typeof m?.conversationId === "string" ? m.conversationId : conversationId,
+                        myPublicKeyHex: publicKeyHex,
+                    })).filter((message) => (
+                        isDisplayableMessage(message)
+                        && !persistedDeletedIdsRef.current.has(message.id)
+                        && !(message.eventId && persistedDeletedIdsRef.current.has(message.eventId))
+                    ));
+                    return filterMessagesByLocalRetention(
+                        dedupeMessagesByIdentity(mapped),
+                        localMessageRetentionDays,
+                    );
+                };
+                const scannedWindow = await scanDisplayableHistoryWindow({
+                    conversationIds: conversationAliasIds,
+                    initialRows: earlierWindow.rows,
+                    initialHasEarlier: earlierWindow.hasEarlier,
+                    limit: loadEarlierBatchSize,
+                    mapRows: mapRowsToDisplayableMessages,
+                });
+                if (scannedWindow.messages.length === 0) {
+                    setHasEarlier(scannedWindow.hasEarlier);
                     return;
                 }
-                setMessages(prev => dedupeMessagesByIdentity([...retentionFilteredMapped, ...prev]));
-                setHasEarlier(earlierWindow.hasEarlier && retentionFilteredMapped.length > 0);
+                setMessages(prev => dedupeMessagesByIdentity([...scannedWindow.messages, ...prev]));
+                setHasEarlier(scannedWindow.hasEarlier && scannedWindow.messages.length > 0);
                 expandedHistoryRef.current = true;
             } else {
                 setHasEarlier(false);

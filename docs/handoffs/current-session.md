@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-05T06:36:30Z
+- Last Updated (UTC): 2026-04-05T07:26:41Z
 - Session Status: in-progress
 - Active Owner: DM realtime presence truth surface (relay presence + inbound peer activity evidence)
 
@@ -91,7 +91,8 @@ Make DM online/offline indicators converge in realtime during active chat exchan
 
 ## Next Atomic Step
 
-Build a Windows NSIS artifact and run reinstall smoke test while app/tor are intentionally left running to verify no write-lock prompt appears.
+Run production two-account reinstall replay to verify contact list/chat history appears quickly without command JSON leaks; then tune staged sync budget if restore still exceeds acceptable wait.
+
 
 
 
@@ -259,4 +260,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Build a Windows NSIS artifact and run reinstall smoke test while app/tor are intentionally left running to verify no write-lock prompt appears.
+### 2026-04-05T07:26:41Z checkpoint
+- Summary: Quarantined delete-command junk during restore/hydration: bootstrap import now skips __dweb_cmd__ rows and suppresses targeted legacy message rows; conversation hydration now auto-scans older windows when newest pages are command-only, preventing blank/empty chat illusions and reducing restore confusion.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run production two-account reinstall replay to verify contact list/chat history appears quickly without command JSON leaks; then tune staged sync budget if restore still exceeds acceptable wait.
 <!-- CONTEXT_CHECKPOINTS_END -->

@@ -5,6 +5,7 @@ import { chatStateStoreService } from "@/app/features/messaging/services/chat-st
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
 import { readHistoryResetCutoffUnixMs } from "./history-reset-cutoff-store";
 import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
 import type { AccountEvent, AccountEventSource } from "../account-event-contracts";
@@ -221,6 +222,34 @@ const resolveMessageIsOutgoing = (params: Readonly<{
     : false;
 };
 
+const isCommandMessage = (message: Readonly<{
+  kind?: unknown;
+  content?: unknown;
+}>): boolean => (
+  message.kind === "command"
+  || (typeof message.content === "string" && parseCommandMessage(message.content) !== null)
+);
+
+const toDeleteTargetMessageIds = (messages: ReadonlyArray<Readonly<{
+  content?: unknown;
+}>>): ReadonlySet<string> => {
+  const ids = new Set<string>();
+  messages.forEach((message) => {
+    if (typeof message.content !== "string") {
+      return;
+    }
+    const parsed = parseCommandMessage(message.content);
+    if (!parsed || parsed.type !== "delete") {
+      return;
+    }
+    const targetMessageId = parsed.targetMessageId.trim();
+    if (targetMessageId.length > 0) {
+      ids.add(targetMessageId);
+    }
+  });
+  return ids;
+};
+
 const collectFromChatState = (params: Readonly<{
   profileId: string;
   accountPublicKeyHex: PublicKeyHex;
@@ -257,6 +286,7 @@ const collectFromChatState = (params: Readonly<{
     });
   });
   Object.entries(chatState.messagesByConversationId).forEach(([conversationId, messages]) => {
+    const deleteTargetMessageIds = toDeleteTargetMessageIds(messages as ReadonlyArray<Readonly<{ content?: unknown }>>);
     const inferredConversationPeer = messages.reduce<PublicKeyHex | null>((resolved, message) => {
       if (resolved) {
         return resolved;
@@ -268,6 +298,16 @@ const collectFromChatState = (params: Readonly<{
       return messagePubkey;
     }, null);
     messages.forEach((message) => {
+      if (isCommandMessage(message)) {
+        return;
+      }
+      const messageId = typeof message.id === "string" ? message.id.trim() : "";
+      const messageEventId = typeof (message as { eventId?: unknown }).eventId === "string"
+        ? ((message as { eventId?: string }).eventId ?? "").trim()
+        : "";
+      if ((messageId && deleteTargetMessageIds.has(messageId)) || (messageEventId && deleteTargetMessageIds.has(messageEventId))) {
+        return;
+      }
       if (
         typeof params.historyResetCutoffUnixMs === "number"
         && Number.isFinite(params.historyResetCutoffUnixMs)
@@ -289,12 +329,15 @@ const collectFromChatState = (params: Readonly<{
       if (!peerPublicKeyHex) {
         return;
       }
+      if (!messageId) {
+        return;
+      }
       pushMessageEvent(params.events, {
         profileId: params.profileId,
         accountPublicKeyHex: params.accountPublicKeyHex,
         conversationId,
         peerPublicKeyHex,
-        messageId: message.id,
+        messageId,
         plaintext: message.content,
         timestampUnixMs: message.timestampMs,
         isOutgoing,

@@ -351,4 +351,68 @@ describe("account-event-bootstrap-service", () => {
       }),
     ]));
   });
+
+  it("does not restore delete-command payloads or their targeted legacy rows as DM events", () => {
+    const payload = basePayload({
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          [PEER]: [
+            {
+              id: "legacy-target",
+              content: "to be deleted",
+              timestampMs: 50_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+            {
+              id: "legacy-delete-cmd",
+              content: "__dweb_cmd__{\"type\":\"delete\",\"targetMessageId\":\"legacy-target\"}",
+              timestampMs: 51_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+            {
+              id: "legacy-keep",
+              content: "keep me",
+              timestampMs: 52_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+          ],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+    });
+
+    const events = buildCanonicalBackupImportEvents({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT,
+      payload,
+      source: "relay_sync",
+      idempotencyPrefix: "restore:test",
+    });
+
+    const dmEvents = events.filter((event) => event.type === "DM_SENT_CONFIRMED" || event.type === "DM_RECEIVED");
+    expect(dmEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "DM_SENT_CONFIRMED",
+        messageId: "legacy-keep",
+      }),
+    ]));
+    expect(dmEvents).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ messageId: "legacy-delete-cmd" }),
+      expect.objectContaining({ messageId: "legacy-target" }),
+    ]));
+  });
 });
