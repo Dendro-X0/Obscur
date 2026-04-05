@@ -2,6 +2,25 @@
 
 - _No entries yet._
 
+## [v1.3.6] - 2026-04-05
+
+### Fixed
+
+- Hardened desktop profile data migration on startup so reinstall/update paths
+  now recover legacy WebView data from multiple historical locations (including
+  `EBWebView`, `WebView2`, and `webview`) instead of silently skipping when
+  fast move fails.
+- Added copy-recursive fallback in desktop migration flow
+  (`apps/desktop/src-tauri/src/profiles.rs`) so cross-volume or lock-sensitive
+  environments still migrate retained account chat storage.
+- Fixed DM history convergence after reset/reinstall when initial cold-start
+  sync begins with partial relay coverage:
+  - sync runtime now records partial-coverage evidence during cold start,
+  - relay-set expansion recovery now triggers full-history backfill when new
+    relays come online (instead of only a short lookback window),
+  - added focused regression coverage in
+    `dm-sync-orchestrator.test.ts` and `enhanced-dm-controller.test.ts`.
+
 ## [v1.3.5] - 2026-04-05
 
 ### Fixed

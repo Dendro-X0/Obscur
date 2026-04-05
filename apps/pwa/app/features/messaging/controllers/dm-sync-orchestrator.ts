@@ -234,7 +234,10 @@ export const syncMissedMessages = async (
             ? openRelayCount
             : null;
         } else {
-          const replayingFromEpoch = Boolean(since) && Math.floor(since.getTime() / 1000) <= COLD_START_FULL_HISTORY_SINCE_UNIX_SECONDS;
+          const replayingFromEpoch = (
+            since instanceof Date
+            && Math.floor(since.getTime() / 1000) <= COLD_START_FULL_HISTORY_SINCE_UNIX_SECONDS
+          );
           if (replayingFromEpoch && syncStateRef.current.coldStartPartialCoverageDetected) {
             const previousBackfillRelayCount = typeof syncStateRef.current.coldStartHistoricalBackfillRelayCount === "number"
               ? syncStateRef.current.coldStartHistoricalBackfillRelayCount

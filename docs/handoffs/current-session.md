@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-05T05:40:35Z
+- Last Updated (UTC): 2026-04-05T05:51:26Z
 - Session Status: in-progress
 - Active Owner: DM realtime presence truth surface (relay presence + inbound peer activity evidence)
 
@@ -91,7 +91,8 @@ Make DM online/offline indicators converge in realtime during active chat exchan
 
 ## Next Atomic Step
 
-Run two-user reinstall/reset replay on production desktop to confirm history convergence and data retention across update install.
+Create v1.3.6 release commit/tag, push to origin, and validate installer two-account reinstall/reset replay for history convergence.
+
 
 
 
@@ -247,4 +248,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Run two-user reinstall/reset replay on production desktop to confirm history convergence and data retention across update install.
+### 2026-04-05T05:51:26Z checkpoint
+- Summary: Prepared v1.3.6 hotfix release: synced all manifests to 1.3.6, documented desktop migration + relay coverage backfill fixes, and passed release:test-pack --skip-preflight after tightening dm-sync optional since narrowing.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Create v1.3.6 release commit/tag, push to origin, and validate installer two-account reinstall/reset replay for history convergence.
 <!-- CONTEXT_CHECKPOINTS_END -->
