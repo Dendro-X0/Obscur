@@ -1,6 +1,12 @@
 ## [Unreleased]
 
-- _No entries yet._
+### Fixed
+
+- Windows NSIS installer now runs explicit preinstall/preuninstall hooks to
+  stop lingering `obscur_desktop_app.exe` and bundled `tor.exe` processes
+  before file operations, preventing confusing
+  "Error opening file for writing ...\\tor.exe" dialogs during reinstall or
+  first install over a previously running copy.
 
 ## [v1.3.6] - 2026-04-05
 

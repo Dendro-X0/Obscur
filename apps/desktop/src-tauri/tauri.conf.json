@@ -43,6 +43,7 @@
         "languages": [
           "English"
         ],
+        "installerHooks": "windows/installer-hooks.nsh",
         "template": null
       }
     },

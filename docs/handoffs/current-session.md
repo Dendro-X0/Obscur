@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-05T05:51:26Z
+- Last Updated (UTC): 2026-04-05T06:36:30Z
 - Session Status: in-progress
 - Active Owner: DM realtime presence truth surface (relay presence + inbound peer activity evidence)
 
@@ -91,7 +91,8 @@ Make DM online/offline indicators converge in realtime during active chat exchan
 
 ## Next Atomic Step
 
-Create v1.3.6 release commit/tag, push to origin, and validate installer two-account reinstall/reset replay for history convergence.
+Build a Windows NSIS artifact and run reinstall smoke test while app/tor are intentionally left running to verify no write-lock prompt appears.
+
 
 
 
@@ -253,4 +254,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Create v1.3.6 release commit/tag, push to origin, and validate installer two-account reinstall/reset replay for history convergence.
+### 2026-04-05T06:36:30Z checkpoint
+- Summary: Added NSIS installer hooks for Windows to stop lingering obscur_desktop_app.exe and tor.exe before install/uninstall, reducing tor.exe write-lock dialogs during reinstall/new-device setup.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Build a Windows NSIS artifact and run reinstall smoke test while app/tor are intentionally left running to verify no write-lock prompt appears.
 <!-- CONTEXT_CHECKPOINTS_END -->
