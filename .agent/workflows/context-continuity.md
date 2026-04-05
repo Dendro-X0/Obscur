@@ -26,6 +26,10 @@ Create a checkpoint in `docs/handoffs/current-session.md` whenever one of these 
 4. blockers were found,
 5. thread close is expected soon.
 
+If context pressure is high or interruption is likely, run:
+1. `pnpm context:rescue -- --summary "..." --next "..."`
+2. resume from latest `.artifacts/context-rescue/*` bundle if the thread is interrupted.
+
 Each checkpoint must include:
 
 1. what changed,

@@ -25,6 +25,18 @@ Helper commands:
 1. `pnpm context:handoff:init`
 2. `pnpm context:checkpoint -- --summary "..." --next "..."`
 3. `pnpm context:handoff:show`
+4. `pnpm context:rescue -- --summary "..." --next "..."`
+
+### Context Pressure Emergency Routine
+
+When context window pressure rises above ~70% or interruption looks likely:
+
+1. run `pnpm context:rescue -- --summary "..." --next "..."` immediately,
+2. continue work only after the rescue bundle path is printed,
+3. if interruption happens, resume from:
+: `docs/handoffs/current-session.md`
+: latest `.artifacts/context-rescue/*/manifest.json`
+: latest `.artifacts/context-rescue/*/git-diff.patch`
 
 ## Current Health Snapshot
 

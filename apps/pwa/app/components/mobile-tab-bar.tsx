@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, MessageSquare, Search, Settings, UserPlus, Users, FolderLock } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/app/lib/utils";
@@ -26,6 +26,7 @@ interface MobileTabBarProps {
 
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} }) => {
     const { t } = useTranslation();
+    const router = useRouter();
     const pathname = usePathname();
     const routeFallbackTimeoutIdRef = React.useRef<number | null>(null);
     const routePendingTargetRef = React.useRef<string | null>(null);
@@ -126,13 +127,14 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                             key={item.href}
                             href={item.href}
                             onClick={(event): void => {
-                                if (event.defaultPrevented) {
-                                    return;
-                                }
                                 if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
                                     return;
                                 }
+                                event.preventDefault();
                                 armRouteHardFallback(item.href);
+                                if (item.href !== pathname) {
+                                    router.push(item.href);
+                                }
                             }}
                             className={cn(
                                 "relative flex flex-col items-center justify-center gap-1 px-3 py-1 transition-colors",

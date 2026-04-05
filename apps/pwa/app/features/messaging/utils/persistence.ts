@@ -539,9 +539,10 @@ const parsePersistedConnectionOverride = (value: unknown): PersistedConnectionOv
 };
 const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
     if (!isRecord(value)) return null;
-    const { id, kind, content, timestampMs, isOutgoing, status, attachment, replyTo, reactions, deletedAtMs, pubkey } = value;
+    const { id, eventId, kind, content, timestampMs, isOutgoing, status, attachment, replyTo, reactions, deletedAtMs, pubkey } = value;
 
     if (!isString(id) || !isString(content) || !isNumber(timestampMs) || !isBoolean(isOutgoing)) return null;
+    if (eventId !== undefined && !isString(eventId)) return null;
     if (kind !== undefined && !isMessageKind(kind)) return null;
     if (
         status !== "delivered" &&
@@ -570,6 +571,7 @@ const parsePersistedMessage = (value: unknown): PersistedMessage | null => {
 
     return {
         id,
+        ...(isString(eventId) && eventId.trim().length > 0 ? { eventId: eventId.trim() } : {}),
         ...(kind ? { kind } : {}),
         pubkey: isString(pubkey) ? pubkey : undefined,
         content,
@@ -810,6 +812,7 @@ export const toPersistedMessagesByConversationId = (messagesByConversationId: Me
         const limited = sorted.slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
         result[conversationId] = limited.map((m): PersistedMessage => ({
             id: m.id,
+            ...(typeof m.eventId === "string" && m.eventId.trim().length > 0 ? { eventId: m.eventId.trim() } : {}),
             ...(m.kind !== "user" ? { kind: m.kind } : {}),
             pubkey: m.senderPubkey,
             content: m.content,
@@ -897,6 +900,7 @@ export const fromPersistedMessagesByConversationId = (
 
             return {
                 id: m.id,
+                ...(typeof m.eventId === "string" && m.eventId.trim().length > 0 ? { eventId: m.eventId.trim() } : {}),
                 kind: m.kind ?? "user",
                 ...(senderPubkey ? { senderPubkey } : {}),
                 content: m.content,
@@ -914,9 +918,14 @@ export const fromPersistedMessagesByConversationId = (
         const existing = result[canonicalConversationId] ?? [];
         const byMessageId = new Map<string, Message>();
         [...existing, ...parsed].forEach((message) => {
-            const prior = byMessageId.get(message.id);
+            const dedupeKey = (
+                typeof message.eventId === "string" && message.eventId.trim().length > 0
+                    ? message.eventId.trim()
+                    : message.id
+            );
+            const prior = byMessageId.get(dedupeKey);
             if (!prior || message.timestamp.getTime() >= prior.timestamp.getTime()) {
-                byMessageId.set(message.id, message);
+                byMessageId.set(dedupeKey, message);
             }
         });
         result[canonicalConversationId] = Array.from(byMessageId.values())

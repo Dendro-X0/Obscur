@@ -8,16 +8,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const desktopTargetRoot = path.join(repoRoot, "apps", "desktop", "src-tauri", "target");
+const managedWindowsBinaryMetadata = {
+  "tor.exe": "Tor sidecar",
+  "obscur_desktop_app.exe": "desktop app",
+};
 
 function normalize(p) {
   return p.replace(/\\/g, "/").toLowerCase();
 }
 
-function isManagedTorPath(executablePath) {
-  if (!executablePath) return false;
+function isManagedTargetBinaryPath(executablePath, binaryName) {
+  if (!executablePath || !binaryName) return false;
   const p = normalize(executablePath);
   const root = normalize(desktopTargetRoot);
-  return p.startsWith(root) && p.endsWith("/tor.exe");
+  const normalizedBinaryName = binaryName.toLowerCase();
+  return p.startsWith(root) && p.endsWith(`/${normalizedBinaryName}`);
 }
 
 function cleanupWindows() {
@@ -28,7 +33,7 @@ function cleanupWindows() {
       [
         "-NoProfile",
         "-Command",
-        "Get-CimInstance Win32_Process | Where-Object { $_.Name -ieq 'tor.exe' } | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress",
+        "Get-Process -Name tor,obscur_desktop_app -ErrorAction SilentlyContinue | Select-Object ProcessName,Id,Path | ConvertTo-Json -Compress",
       ],
       { encoding: "utf8" }
     ).trim();
@@ -41,14 +46,18 @@ function cleanupWindows() {
   const list = Array.isArray(parsed) ? parsed : [parsed];
 
   for (const proc of list) {
-    const pid = Number(proc.ProcessId);
-    const executablePath = proc.ExecutablePath || "";
+    const processName = `${String(proc.ProcessName ?? "").toLowerCase()}.exe`;
+    const binaryLabel = managedWindowsBinaryMetadata[processName];
+    if (!binaryLabel) continue;
+
+    const pid = Number(proc.Id);
+    const executablePath = proc.Path || "";
     if (!Number.isFinite(pid) || pid <= 0) continue;
-    if (!isManagedTorPath(executablePath)) continue;
+    if (!isManagedTargetBinaryPath(executablePath, processName)) continue;
 
     try {
       execFileSync("powershell", ["-NoProfile", "-Command", `Stop-Process -Id ${pid} -Force`], { stdio: "ignore" });
-      console.log(`[Desktop Cleanup] Stopped stale Tor sidecar PID ${pid}: ${executablePath}`);
+      console.log(`[Desktop Cleanup] Stopped stale ${binaryLabel} PID ${pid}: ${executablePath}`);
     } catch {
       // Ignore process races.
     }
@@ -74,11 +83,15 @@ function cleanupPosix() {
     const pid = Number(match[1]);
     const command = normalize(match[2]);
 
-    if (!command.includes(root) || !command.includes("/tor")) continue;
+    if (!command.includes(root)) continue;
+    const isTor = command.includes("/tor");
+    const isDesktopApp = command.includes("/obscur_desktop_app");
+    if (!isTor && !isDesktopApp) continue;
 
     try {
       process.kill(pid, "SIGKILL");
-      console.log(`[Desktop Cleanup] Stopped stale Tor sidecar PID ${pid}`);
+      const label = isTor ? "Tor sidecar" : "desktop app";
+      console.log(`[Desktop Cleanup] Stopped stale ${label} PID ${pid}`);
     } catch {
       // Ignore process races and permission errors.
     }

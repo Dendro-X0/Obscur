@@ -170,6 +170,7 @@ function MessageListImpl({
     const [scrollMode, setScrollMode] = React.useState<MessageListScrollMode>("follow_bottom");
     const hasUserUpwardScrollIntentRef = React.useRef(false);
     const pendingPrependAnchorRef = React.useRef<MessageListPrependAnchor | null>(null);
+    const virtualizerRecoveryAttemptRef = React.useRef(0);
 
     React.useEffect(() => {
         const onPrivacySettingsChanged = () => {
@@ -201,6 +202,7 @@ function MessageListImpl({
         hasUserUpwardScrollIntentRef.current = false;
         didInitialAutoScrollRef.current = false;
         initialLatestLandingCancelledRef.current = false;
+        virtualizerRecoveryAttemptRef.current = 0;
         if (initialLatestLandingTimerRef.current !== null) {
             clearTimeout(initialLatestLandingTimerRef.current);
             initialLatestLandingTimerRef.current = null;
@@ -355,12 +357,52 @@ function MessageListImpl({
         if (messages.length === 0) {
             didInitialAutoScrollRef.current = false;
             initialLatestLandingCancelledRef.current = false;
+            virtualizerRecoveryAttemptRef.current = 0;
             if (initialLatestLandingTimerRef.current !== null) {
                 clearTimeout(initialLatestLandingTimerRef.current);
                 initialLatestLandingTimerRef.current = null;
             }
         }
     }, [messages.length]);
+
+    React.useEffect(() => {
+        if (!hasHydrated || messages.length === 0) {
+            return;
+        }
+        const currentVirtualItems = virtualizer.getVirtualItems();
+        if (currentVirtualItems.length > 0) {
+            virtualizerRecoveryAttemptRef.current = 0;
+            return;
+        }
+        if (virtualizerRecoveryAttemptRef.current >= 2) {
+            return;
+        }
+        virtualizerRecoveryAttemptRef.current += 1;
+        const attempt = virtualizerRecoveryAttemptRef.current;
+        logAppEvent({
+            name: "messaging.message_list_virtualizer_recovery_attempt",
+            level: "warn",
+            scope: { feature: "messaging", action: "message_list_virtualizer_recovery" },
+            context: {
+                conversationIdHint: toIdHint(conversationId ?? "unknown"),
+                messageCount: messages.length,
+                attempt,
+            },
+        });
+        const frameId = requestAnimationFrame(() => {
+            virtualizer.measure();
+            if (canMessageListAutoScrollToBottom(scrollModeRef.current)) {
+                try {
+                    virtualizer.scrollToIndex(Math.max(0, messages.length - 1), { align: "end", behavior: "auto" });
+                } catch {
+                    // Best-effort recovery only.
+                }
+            }
+        });
+        return () => {
+            cancelAnimationFrame(frameId);
+        };
+    }, [conversationId, hasHydrated, messages.length, virtualizer]);
 
     React.useEffect(() => {
         clearInitialLatestLandingTimer();
@@ -998,6 +1040,9 @@ function MessageListImpl({
                         >
                             {virtualizer.getVirtualItems().map((virtualItem) => {
                                 const message = messages[virtualItem.index];
+                                if (!message) {
+                                    return null;
+                                }
                                 const prevMessage = virtualItem.index > 0 ? messages[virtualItem.index - 1] : null;
                                 const nextMessage = virtualItem.index < messages.length - 1 ? messages[virtualItem.index + 1] : null;
 

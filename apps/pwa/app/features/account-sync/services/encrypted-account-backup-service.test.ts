@@ -1737,6 +1737,209 @@ describe("encryptedAccountBackupService", () => {
     ]);
   });
 
+  it("quarantines delete-command rows and targeted DM history during chat-state merge", () => {
+    const conversationId = "dm:delete-thread";
+    const merged = encryptedAccountBackupServiceInternals.mergeChatState({
+      version: 2,
+      createdConnections: [{
+        id: conversationId,
+        displayName: "Peer",
+        pubkey: acceptedPeerPublicKeyHex,
+        lastMessage: "__dweb_cmd__{\"type\":\"delete\",\"targetMessageId\":\"legacy-target\"}",
+        unreadCount: 0,
+        lastMessageTimeMs: 35,
+      }],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {
+        [conversationId]: [
+          {
+            id: "legacy-target",
+            content: "to be deleted",
+            timestampMs: 30,
+            isOutgoing: true,
+            status: "delivered",
+            pubkey: publicKeyHex,
+          },
+          {
+            id: "delete-cmd-1",
+            kind: "command",
+            content: "__dweb_cmd__{\"type\":\"delete\",\"targetMessageId\":\"legacy-target\"}",
+            timestampMs: 35,
+            isOutgoing: true,
+            status: "delivered",
+            pubkey: publicKeyHex,
+          },
+        ],
+      },
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    }, {
+      version: 2,
+      createdConnections: [{
+        id: conversationId,
+        displayName: "Peer",
+        pubkey: acceptedPeerPublicKeyHex,
+        lastMessage: "restored keep",
+        unreadCount: 0,
+        lastMessageTimeMs: 40,
+      }],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {
+        [conversationId]: [
+          {
+            id: "keep-1",
+            content: "restored keep",
+            timestampMs: 40,
+            isOutgoing: false,
+            status: "delivered",
+            pubkey: acceptedPeerPublicKeyHex,
+          },
+        ],
+      },
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+
+    expect(merged?.messagesByConversationId[conversationId]).toEqual([
+      expect.objectContaining({
+        id: "keep-1",
+        content: "restored keep",
+      }),
+    ]);
+    expect(merged?.messagesByConversationId[conversationId]).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "legacy-target" }),
+      expect.objectContaining({ id: "delete-cmd-1" }),
+    ]));
+    expect(merged?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: conversationId,
+        lastMessage: "restored keep",
+        lastMessageTimeMs: 40,
+      }),
+    ]));
+  });
+
+  it("quarantines delete targets when command target matches canonical eventId and local ids drift", () => {
+    const conversationId = "dm:delete-eventid-thread";
+    const merged = encryptedAccountBackupServiceInternals.mergeChatState({
+      version: 2,
+      createdConnections: [{
+        id: conversationId,
+        displayName: "Peer",
+        pubkey: acceptedPeerPublicKeyHex,
+        lastMessage: "__dweb_cmd__{\"type\":\"delete\",\"targetMessageId\":\"evt-delete-target\"}",
+        unreadCount: 0,
+        lastMessageTimeMs: 20,
+      }],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {
+        [conversationId]: [
+          {
+            id: "legacy-local-id",
+            eventId: "evt-delete-target",
+            content: "to be deleted by event id",
+            timestampMs: 10,
+            isOutgoing: true,
+            status: "delivered",
+            pubkey: publicKeyHex,
+          },
+          {
+            id: "delete-cmd-eventid",
+            kind: "command",
+            content: "__dweb_cmd__{\"type\":\"delete\",\"targetMessageId\":\"evt-delete-target\"}",
+            timestampMs: 20,
+            isOutgoing: true,
+            status: "delivered",
+            pubkey: publicKeyHex,
+          },
+        ],
+      },
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    }, {
+      version: 2,
+      createdConnections: [{
+        id: conversationId,
+        displayName: "Peer",
+        pubkey: acceptedPeerPublicKeyHex,
+        lastMessage: "kept after delete",
+        unreadCount: 0,
+        lastMessageTimeMs: 30,
+      }],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {
+        [conversationId]: [{
+          id: "evt-keep",
+          eventId: "evt-keep",
+          content: "kept after delete",
+          timestampMs: 30,
+          isOutgoing: false,
+          status: "delivered",
+          pubkey: acceptedPeerPublicKeyHex,
+        }],
+      },
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+
+    expect(merged?.messagesByConversationId[conversationId]).toEqual([
+      expect.objectContaining({
+        id: "evt-keep",
+        content: "kept after delete",
+      }),
+    ]);
+    expect(merged?.messagesByConversationId[conversationId]).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "legacy-local-id" }),
+      expect.objectContaining({ id: "delete-cmd-eventid" }),
+    ]));
+  });
+
+  it("deduplicates persisted DM messages by canonical eventId during restore merge", () => {
+    const mergedMessages = encryptedAccountBackupServiceInternals.mergePersistedMessages(
+      [{
+        id: "local-row-a",
+        eventId: "evt-shared-1",
+        content: "older copy",
+        timestampMs: 10,
+        isOutgoing: true,
+        status: "delivered",
+        pubkey: publicKeyHex,
+      }],
+      [{
+        id: "local-row-b",
+        eventId: "evt-shared-1",
+        content: "newer copy",
+        timestampMs: 20,
+        isOutgoing: true,
+        status: "delivered",
+        pubkey: publicKeyHex,
+      }],
+    );
+
+    expect(mergedMessages).toHaveLength(1);
+    expect(mergedMessages[0]).toEqual(expect.objectContaining({
+      eventId: "evt-shared-1",
+      content: "newer copy",
+      timestampMs: 20,
+    }));
+  });
+
   it("uses same-account recovery snapshot as restore merge baseline when hydrated local state is empty", async () => {
     const emptyChatState = {
       version: 2 as const,
@@ -2041,6 +2244,88 @@ describe("encryptedAccountBackupService", () => {
     hydrateSpy.mockRestore();
     loadSpy.mockRestore();
     getAllByIndexSpy.mockRestore();
+  });
+
+  it("quarantines indexed delete-command rows and targeted DM history during backup hydration", async () => {
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([
+      {
+        id: "legacy-target-local",
+        eventId: "evt-target",
+        conversationId: "legacy-delete-thread",
+        senderPubkey: publicKeyHex,
+        recipientPubkey: acceptedPeerPublicKeyHex,
+        content: "to be deleted",
+        isOutgoing: true,
+        status: "accepted",
+        timestampMs: 1_000,
+        ownerPubkey: publicKeyHex,
+      },
+      {
+        id: "legacy-delete-cmd",
+        eventId: "evt-delete-cmd",
+        conversationId: "legacy-delete-thread",
+        senderPubkey: publicKeyHex,
+        recipientPubkey: acceptedPeerPublicKeyHex,
+        content: "__dweb_cmd__{\"type\":\"delete\",\"targetMessageId\":\"evt-target\"}",
+        kind: "command",
+        isOutgoing: true,
+        status: "delivered",
+        timestampMs: 1_100,
+        ownerPubkey: publicKeyHex,
+      },
+      {
+        id: "legacy-keep-local",
+        eventId: "evt-keep",
+        conversationId: "legacy-delete-thread",
+        senderPubkey: acceptedPeerPublicKeyHex,
+        recipientPubkey: publicKeyHex,
+        content: "keep me",
+        isOutgoing: false,
+        status: "delivered",
+        timestampMs: 1_200,
+        ownerPubkey: publicKeyHex,
+      },
+    ] as any);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+
+    const payload = await encryptedAccountBackupServiceInternals.buildBackupPayloadWithHydratedChatState(publicKeyHex);
+
+    expect(payload.chatState?.messagesByConversationId["legacy-delete-thread"]).toEqual([
+      expect.objectContaining({
+        id: "evt-keep",
+        eventId: "evt-keep",
+        content: "keep me",
+      }),
+    ]);
+    expect(payload.chatState?.messagesByConversationId["legacy-delete-thread"]).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "legacy-target-local" }),
+      expect.objectContaining({ id: "legacy-delete-cmd" }),
+    ]));
+    expect(payload.chatState?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "legacy-delete-thread",
+        lastMessage: "keep me",
+        lastMessageTimeMs: 1_200,
+      }),
+    ]));
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
   });
 
   it("hydrates group history from indexed message records into backup chat-state group timelines", async () => {

@@ -6,10 +6,14 @@ import * as pageTransitionRecovery from "./page-transition-recovery";
 
 const mobileTabBarMocks = vi.hoisted(() => ({
     pathname: "/",
+    push: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
     usePathname: () => mobileTabBarMocks.pathname,
+    useRouter: () => ({
+        push: mobileTabBarMocks.push,
+    }),
 }));
 
 vi.mock("next/link", () => ({
@@ -76,6 +80,7 @@ describe("MobileTabBar navigation", () => {
             act(() => {
                 fireEvent.click(networkLink);
             });
+            expect(mobileTabBarMocks.push).toHaveBeenCalledWith("/network");
             expect(hardNavigateSpy).not.toHaveBeenCalled();
 
             act(() => {

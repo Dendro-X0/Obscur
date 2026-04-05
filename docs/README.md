@@ -22,6 +22,7 @@ Use this folder as the canonical engineering contract for architecture, roadmap,
 14. [14 Module Owner Index](./14-module-owner-index.md)
 15. [15 Relay Foundation Hardening Spec](./15-relay-foundation-hardening-spec.md)
 16. [16 Cross-Device Group Visibility Incident](./16-cross-device-group-visibility-incident.md)
+17. [17 DM Delete/Restore Divergence Incident](./17-dm-delete-restore-divergence-incident.md)
 
 ### Roadmap and Release
 

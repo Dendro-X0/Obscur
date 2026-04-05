@@ -19,8 +19,10 @@ export const decodePrivateKey = (input: string): PrivateKeyHex | null => {
                     .map(b => b.toString(16).padStart(2, '0'))
                     .join('') as PrivateKeyHex;
             }
-        } catch (e) {
-            console.error("Failed to decode nsec:", e);
+        } catch {
+            // Invalid/partial nsec input is expected while users type; fail
+            // quietly so auth validation can show inline guidance without
+            // triggering global dev overlays.
             return null;
         }
     }

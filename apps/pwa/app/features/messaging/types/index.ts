@@ -181,6 +181,7 @@ export type PersistedGroupConversation = Readonly<{
 
 export type PersistedMessage = Readonly<{
     id: string;
+    eventId?: string;
     kind?: MessageKind;
     pubkey?: string;
     content: string;

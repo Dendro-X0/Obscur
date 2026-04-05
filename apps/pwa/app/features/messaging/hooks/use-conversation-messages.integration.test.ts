@@ -507,6 +507,180 @@ describe("useConversationMessages integration (perf mode)", () => {
         unmount();
     });
 
+    it("hydrates up to the latest visible 200-message window when newest page is mostly hidden command rows", async () => {
+        const conversationId = "c-sparse-visible-window";
+        vi.stubGlobal("IDBKeyRange", {
+            bound: (lower: ReadonlyArray<unknown>, upper: ReadonlyArray<unknown>) => ({ lower, upper }),
+        });
+        const newestVisibleRow = {
+            id: "safe-latest",
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: "safe-latest",
+            timestampMs: 1_000,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "user",
+        };
+        const newestCommandRows = Array.from({ length: 199 }, (_, index) => ({
+            id: `cmd-${index + 1}`,
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: `__dweb_cmd__${index + 1}`,
+            timestampMs: 999 - index,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "command",
+        }));
+        const olderDisplayRows = Array.from({ length: 200 }, (_, index) => ({
+            id: `older-${index + 1}`,
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: `older-visible-${index + 1}`,
+            timestampMs: 800 - index,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "user",
+        }));
+
+        vi.mocked(messagingDB.getAllByIndex).mockImplementation(async (_store, _index, range: any) => {
+            const upperTimestampMs = Number(range?.upper?.[1] ?? Number.NaN);
+            if (!Number.isFinite(upperTimestampMs) || upperTimestampMs >= 1_000) {
+                return [newestVisibleRow, ...newestCommandRows] as any;
+            }
+            if (upperTimestampMs >= 800) {
+                return olderDisplayRows as any;
+            }
+            return [];
+        });
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, null));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(result.current.messages.length).toBe(200);
+        expect(result.current.hasEarlier).toBe(true);
+        expect(result.current.messages.some((message) => message.id === "safe-latest")).toBe(true);
+        expect(result.current.messages.some((message) => message.id === "older-1")).toBe(true);
+        expect(result.current.messages.some((message) => message.id === "older-200")).toBe(false);
+        expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBeGreaterThanOrEqual(2);
+        unmount();
+    });
+
+    it("continues sparse-window hydration when malformed rows have zero timestamps", async () => {
+        const conversationId = "c-malformed-sparse-window";
+        vi.stubGlobal("IDBKeyRange", {
+            bound: (lower: ReadonlyArray<unknown>, upper: ReadonlyArray<unknown>) => ({ lower, upper }),
+        });
+        const newestVisibleRow = {
+            id: "safe-newest",
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: "safe-newest",
+            timestampMs: 1_000,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "user",
+        };
+        const malformedRows = Array.from({ length: 199 }, (_, index) => ({
+            id: `malformed-${index + 1}`,
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: `__dweb_cmd__malformed-${index + 1}`,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "command",
+        }));
+        const olderDisplayRows = Array.from({ length: 30 }, (_, index) => ({
+            id: `older-valid-${index + 1}`,
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: `older-valid-${index + 1}`,
+            timestampMs: 900 - index,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "user",
+        }));
+
+        vi.mocked(messagingDB.getAllByIndex).mockImplementation(async (_store, _index, range: any) => {
+            const upperTimestampMs = Number(range?.upper?.[1] ?? Number.NaN);
+            if (!Number.isFinite(upperTimestampMs) || upperTimestampMs >= 1_000) {
+                return [newestVisibleRow, ...malformedRows] as any;
+            }
+            if (upperTimestampMs >= 900) {
+                return olderDisplayRows as any;
+            }
+            return [];
+        });
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, null));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(result.current.messages.length).toBeGreaterThan(1);
+        expect(result.current.messages.some((message) => message.id === "safe-newest")).toBe(true);
+        expect(result.current.messages.some((message) => message.id === "older-valid-1")).toBe(true);
+        expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBeGreaterThanOrEqual(2);
+        unmount();
+    });
+
+    it("filters hidden voice-call-signal payload rows from hydration so timeline is not blank", async () => {
+        const conversationId = "c-hidden-signal-window";
+        vi.stubGlobal("IDBKeyRange", {
+            bound: (lower: ReadonlyArray<unknown>, upper: ReadonlyArray<unknown>) => ({ lower, upper }),
+        });
+        const hiddenSignalRows = Array.from({ length: 200 }, (_, index) => ({
+            id: `signal-${index + 1}`,
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: JSON.stringify({
+                type: "voice-call-signal",
+                roomId: "room-1",
+                signalType: "leave",
+                sentAtUnixMs: 5_000 + index,
+            }),
+            timestampMs: 5_000 + index,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "user",
+        }));
+        const olderDisplayRows = Array.from({ length: 12 }, (_, index) => ({
+            id: `older-user-${index + 1}`,
+            conversationId,
+            senderPubkey: "b".repeat(64),
+            recipientPubkey: "a".repeat(64),
+            content: `older-user-${index + 1}`,
+            timestampMs: 4_000 - index,
+            isOutgoing: false,
+            status: "delivered",
+            kind: "user",
+        }));
+
+        vi.mocked(messagingDB.getAllByIndex).mockImplementation(async (_store, _index, range: any) => {
+            const upperTimestampMs = Number(range?.upper?.[1] ?? Number.NaN);
+            if (!Number.isFinite(upperTimestampMs) || upperTimestampMs >= 5_000) {
+                return hiddenSignalRows as any;
+            }
+            if (upperTimestampMs >= 4_000) {
+                return olderDisplayRows as any;
+            }
+            return [];
+        });
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, null));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(result.current.messages.length).toBe(12);
+        expect(result.current.messages.some((message) => message.id === "older-user-1")).toBe(true);
+        expect(result.current.messages.some((message) => message.id.startsWith("signal-"))).toBe(false);
+        unmount();
+    });
+
     it("keeps the live conversation window capped at 200 when projection supplements include large history", async () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);

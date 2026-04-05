@@ -26,6 +26,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { extractAttachmentsFromContent } from "@/app/features/messaging/utils/logic";
+import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
 import {
   loadCommunityMembershipLedger,
   mergeCommunityMembershipLedgerEntries,
@@ -602,6 +603,154 @@ const withTimeout = async <T>(
   });
 };
 
+const resolveDeleteCommandTargetMessageId = (message: Readonly<{
+  content?: unknown;
+}>): string | null => {
+  if (typeof message.content !== "string") {
+    return null;
+  }
+  const parsedCommand = parseCommandMessage(message.content);
+  if (!parsedCommand || parsedCommand.type !== "delete") {
+    return null;
+  }
+  const targetMessageId = parsedCommand.targetMessageId.trim();
+  return targetMessageId.length > 0 ? targetMessageId : null;
+};
+
+const isCommandDmMessage = (message: Readonly<{
+  kind?: unknown;
+  content?: unknown;
+}>): boolean => (
+  message.kind === "command"
+  || resolveDeleteCommandTargetMessageId(message) !== null
+);
+
+const toPersistedMessageIdentityKeys = (message: Readonly<{
+  id?: unknown;
+  eventId?: unknown;
+}>): ReadonlyArray<string> => {
+  const keys = new Set<string>();
+  const id = typeof message.id === "string" ? message.id.trim() : "";
+  const eventId = typeof message.eventId === "string" ? message.eventId.trim() : "";
+  if (id.length > 0) {
+    keys.add(id);
+  }
+  if (eventId.length > 0) {
+    keys.add(eventId);
+  }
+  return Array.from(keys);
+};
+
+const sanitizePersistedMessagesByDeleteContract = (
+  messages: ReadonlyArray<PersistedMessage>,
+): ReadonlyArray<PersistedMessage> => {
+  if (messages.length === 0) {
+    return messages;
+  }
+  const deleteTargetMessageIds = new Set<string>();
+  const commandMessageIds = new Set<string>();
+  messages.forEach((message) => {
+    const messageId = typeof message.id === "string" ? message.id.trim() : "";
+    if (messageId.length > 0 && isCommandDmMessage(message)) {
+      commandMessageIds.add(messageId);
+    }
+    const targetMessageId = resolveDeleteCommandTargetMessageId(message);
+    if (targetMessageId) {
+      deleteTargetMessageIds.add(targetMessageId);
+    }
+  });
+  if (deleteTargetMessageIds.size > 0) {
+    const knownIdentityKeys = new Set<string>();
+    messages.forEach((message) => {
+      toPersistedMessageIdentityKeys(message).forEach((identityKey) => {
+        knownIdentityKeys.add(identityKey);
+      });
+    });
+    const unresolvedTargets = Array.from(deleteTargetMessageIds).filter((targetMessageId) => !knownIdentityKeys.has(targetMessageId));
+    if (unresolvedTargets.length > 0) {
+      logAppEvent({
+        name: "account_sync.backup_restore_delete_target_unresolved",
+        level: "warn",
+        scope: { feature: "account_sync", action: "backup_restore" },
+        context: {
+          messageCount: messages.length,
+          commandMessageCount: commandMessageIds.size,
+          deleteTargetCount: deleteTargetMessageIds.size,
+          unresolvedDeleteTargetCount: unresolvedTargets.length,
+          unresolvedDeleteTargetSample: unresolvedTargets.slice(0, 5).join(","),
+        },
+      });
+    }
+  }
+  const filtered = messages.filter((message) => {
+    const identityKeys = toPersistedMessageIdentityKeys(message);
+    if (identityKeys.length === 0) {
+      return false;
+    }
+    if (identityKeys.some((identityKey) => deleteTargetMessageIds.has(identityKey))) {
+      return false;
+    }
+    return !isCommandDmMessage(message);
+  });
+  if (filtered.length <= 1) {
+    return filtered;
+  }
+  return filtered.slice().sort((left, right) => Number(left.timestampMs ?? 0) - Number(right.timestampMs ?? 0));
+};
+
+const sanitizePersistedChatStateMessagesByDeleteContract = (
+  chatState: EncryptedAccountBackupPayload["chatState"],
+): EncryptedAccountBackupPayload["chatState"] => {
+  if (!chatState) {
+    return chatState;
+  }
+
+  const sanitizedMessagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {};
+  Object.entries(chatState.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
+    const sanitizedMessages = sanitizePersistedMessagesByDeleteContract(messages ?? []);
+    if (sanitizedMessages.length > 0) {
+      sanitizedMessagesByConversationId[conversationId] = sanitizedMessages;
+    }
+  });
+
+  const latestMessageByConversationId = new Map<string, PersistedMessage>();
+  Object.entries(sanitizedMessagesByConversationId).forEach(([conversationId, messages]) => {
+    const latest = messages[messages.length - 1];
+    if (latest) {
+      latestMessageByConversationId.set(conversationId, latest);
+    }
+  });
+
+  const sanitizedCreatedConnections = chatState.createdConnections.map((connection) => {
+    const latestMessage = latestMessageByConversationId.get(connection.id);
+    const parsedCommandPreview = parseCommandMessage(connection.lastMessage ?? "");
+    if (!latestMessage) {
+      if (!parsedCommandPreview) {
+        return connection;
+      }
+      return {
+        ...connection,
+        lastMessage: "",
+        lastMessageTimeMs: 0,
+      };
+    }
+    if (!parsedCommandPreview && latestMessage.timestampMs < connection.lastMessageTimeMs) {
+      return connection;
+    }
+    return {
+      ...connection,
+      lastMessage: toPreview(latestMessage.content ?? ""),
+      lastMessageTimeMs: latestMessage.timestampMs,
+    };
+  });
+
+  return {
+    ...chatState,
+    createdConnections: sanitizedCreatedConnections,
+    messagesByConversationId: sanitizedMessagesByConversationId,
+  };
+};
+
 const getPersistedMessageCount = (value: EncryptedAccountBackupPayload["chatState"]): number => {
   if (!value) {
     return 0;
@@ -901,20 +1050,40 @@ const mergePersistedMessages = (
   current: ReadonlyArray<PersistedMessage>,
   incoming: ReadonlyArray<PersistedMessage>,
 ): ReadonlyArray<PersistedMessage> => {
-  const byId = new Map<string, PersistedMessage>();
+  const byCanonicalIdentity = new Map<string, PersistedMessage>();
+  const canonicalIdentityByAlias = new Map<string, string>();
   for (const message of [...current, ...incoming]) {
-    const key = message.id;
-    if (!key) {
+    const identityKeys = toPersistedMessageIdentityKeys(message);
+    if (identityKeys.length === 0) {
       continue;
     }
-    const existing = byId.get(key);
+    const existingCanonicalIdentity = identityKeys.reduce<string | null>((resolved, identityKey) => {
+      if (resolved) {
+        return resolved;
+      }
+      return canonicalIdentityByAlias.get(identityKey) ?? null;
+    }, null);
+    const canonicalIdentity = existingCanonicalIdentity ?? identityKeys[0];
+    const existing = byCanonicalIdentity.get(canonicalIdentity);
+    const merged = existing
+      ? mergePersistedMessageEntry(existing, message)
+      : message;
+
+    const mergedIdentityKeys = toPersistedMessageIdentityKeys(merged);
+    mergedIdentityKeys.forEach((identityKey) => {
+      canonicalIdentityByAlias.set(identityKey, canonicalIdentity);
+    });
+    identityKeys.forEach((identityKey) => {
+      canonicalIdentityByAlias.set(identityKey, canonicalIdentity);
+    });
+
     if (!existing) {
-      byId.set(key, message);
+      byCanonicalIdentity.set(canonicalIdentity, merged);
       continue;
     }
-    byId.set(key, mergePersistedMessageEntry(existing, message));
+    byCanonicalIdentity.set(canonicalIdentity, merged);
   }
-  return Array.from(byId.values()).sort((a, b) => Number(a.timestampMs ?? 0) - Number(b.timestampMs ?? 0));
+  return Array.from(byCanonicalIdentity.values()).sort((a, b) => Number(a.timestampMs ?? 0) - Number(b.timestampMs ?? 0));
 };
 
 const mergePersistedGroupMessages = (
@@ -1076,12 +1245,12 @@ const mergeChatState = (
   incoming: EncryptedAccountBackupPayload["chatState"]
 ): EncryptedAccountBackupPayload["chatState"] => {
   if (!current) {
-    return incoming;
+    return sanitizePersistedChatStateMessagesByDeleteContract(incoming);
   }
   if (!incoming) {
-    return current;
+    return sanitizePersistedChatStateMessagesByDeleteContract(current);
   }
-  return {
+  return sanitizePersistedChatStateMessagesByDeleteContract({
     ...incoming,
     createdConnections: pickNewestBy(
       [...current.createdConnections, ...incoming.createdConnections],
@@ -1112,7 +1281,7 @@ const mergeChatState = (
       incoming.messagesByConversationId,
     ),
     groupMessages: mergeGroupMessageMaps(current.groupMessages, incoming.groupMessages),
-  };
+  });
 };
 
 const normalizeMessageStatus = (value: unknown): PersistedMessage["status"] => {
@@ -1197,11 +1366,13 @@ const toPersistedGroupMessageFromIndexedRecord = (params: Readonly<{
 
   const idRaw = params.record.id;
   const eventIdRaw = params.record.eventId;
-  const messageId = typeof idRaw === "string" && idRaw.trim().length > 0
+  const normalizedEventId = typeof eventIdRaw === "string" && eventIdRaw.trim().length > 0
+    ? eventIdRaw.trim()
+    : null;
+  const normalizedId = typeof idRaw === "string" && idRaw.trim().length > 0
     ? idRaw.trim()
-    : typeof eventIdRaw === "string" && eventIdRaw.trim().length > 0
-      ? eventIdRaw.trim()
-      : null;
+    : null;
+  const messageId = normalizedEventId ?? normalizedId;
   if (!messageId) {
     return null;
   }
@@ -1396,11 +1567,13 @@ const toPersistedMessageFromIndexedRecord = (params: Readonly<{
 
   const idRaw = params.record.id;
   const eventIdRaw = params.record.eventId;
-  const messageId = typeof idRaw === "string" && idRaw.trim().length > 0
+  const normalizedEventId = typeof eventIdRaw === "string" && eventIdRaw.trim().length > 0
+    ? eventIdRaw.trim()
+    : null;
+  const normalizedId = typeof idRaw === "string" && idRaw.trim().length > 0
     ? idRaw.trim()
-    : typeof eventIdRaw === "string" && eventIdRaw.trim().length > 0
-      ? eventIdRaw.trim()
-      : null;
+    : null;
+  const messageId = normalizedEventId ?? normalizedId;
   if (!messageId) {
     return null;
   }
@@ -1426,6 +1599,7 @@ const toPersistedMessageFromIndexedRecord = (params: Readonly<{
     conversationId,
     persistedMessage: {
       id: messageId,
+      ...(normalizedEventId ? { eventId: normalizedEventId } : {}),
       ...(kind ? { kind } : {}),
       ...(senderPubkey ? { pubkey: senderPubkey } : {}),
       content,
@@ -2071,6 +2245,8 @@ const hydrateChatStateFromIndexedMessages = async (
     }
   }
 
+  nextState = sanitizePersistedChatStateMessagesByDeleteContract(nextState) ?? nextState;
+
   const hydratedChatStateDiagnostics = summarizePersistedChatStateMessages(nextState, publicKeyHex);
   logAppEvent({
     name: "account_sync.backup_payload_hydration_diagnostics",
@@ -2127,7 +2303,9 @@ const buildBackupPayload = (
   roomKeyOverride?: ReadonlyArray<RoomKeySnapshot>,
 ): EncryptedAccountBackupPayload => {
   const profileId = getActiveProfileIdSafe();
-  const chatState = chatStateOverride ?? chatStateStoreService.load(publicKeyHex);
+  const chatState = sanitizePersistedChatStateMessagesByDeleteContract(
+    chatStateOverride ?? chatStateStoreService.load(publicKeyHex)
+  );
   const communityMembershipLedger = loadCommunityMembershipLedger(publicKeyHex);
   const roomKeys = filterRoomKeySnapshotsToJoinedEvidence({
     roomKeys: parseRoomKeySnapshots(roomKeyOverride ?? []),
@@ -2202,6 +2380,7 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
   );
   const communityMembershipLedger = parseCommunityMembershipLedgerSnapshot(parsed.communityMembershipLedger);
   const roomKeys = parseRoomKeySnapshots(parsed.roomKeys);
+  const chatState = sanitizePersistedChatStateMessagesByDeleteContract(parsed.chatState ?? null);
   const payload: EncryptedAccountBackupPayload = {
     version: 1,
     publicKeyHex: parsed.publicKeyHex as PublicKeyHex,
@@ -2212,7 +2391,7 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
     requestFlowEvidence: parsed.requestFlowEvidence ?? { byPeer: {} },
     requestOutbox: parsed.requestOutbox ?? { records: [] },
     syncCheckpoints: Array.isArray(parsed.syncCheckpoints) ? parsed.syncCheckpoints : [],
-    chatState: parsed.chatState ?? null,
+    chatState,
     privacySettings: parsed.privacySettings ?? defaultPrivacySettings,
     relayList: Array.isArray(parsed.relayList) ? parsed.relayList : [],
     uiSettings: {
@@ -2454,10 +2633,15 @@ const mergeIncomingRestorePayload = async (
     includeHydratedLocalMessages?: boolean;
   }>,
 ): Promise<EncryptedAccountBackupPayload> => {
-  const sanitizedIncomingPayload: EncryptedAccountBackupPayload = hasReplayableChatHistory(payload.chatState)
-    ? payload
+  const sanitizedIncomingChatState = sanitizePersistedChatStateMessagesByDeleteContract(payload.chatState);
+  const sanitizedIncomingPayload: EncryptedAccountBackupPayload = hasReplayableChatHistory(sanitizedIncomingChatState)
+    ? {
+      ...payload,
+      chatState: sanitizedIncomingChatState,
+    }
     : {
       ...payload,
+      chatState: sanitizedIncomingChatState,
       syncCheckpoints: [],
     };
   const {

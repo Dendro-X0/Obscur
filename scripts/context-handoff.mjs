@@ -22,8 +22,10 @@ const parseFlags = (args) => {
   const flags = {};
   for (let i = 0; i < args.length; i += 1) {
     const token = args[i];
+    if (token === "--") continue;
     if (!token.startsWith("--")) continue;
     const key = token.slice(2);
+    if (!key) continue;
     const next = args[i + 1];
     if (!next || next.startsWith("--")) {
       flags[key] = "true";

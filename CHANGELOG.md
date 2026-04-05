@@ -7,6 +7,14 @@
   before file operations, preventing confusing
   "Error opening file for writing ...\\tor.exe" dialogs during reinstall or
   first install over a previously running copy.
+- Hardened DM backup restore/delete convergence for cross-device history:
+  - backup hydration now prefers canonical DM `eventId` identity when present,
+  - persisted chat-state messages now retain optional canonical `eventId`,
+  - delete-command quarantine now suppresses targets by both `id` and `eventId`,
+  - restore merge dedupe now converges by canonical identity aliases instead of
+    local row id only,
+  - added focused regression coverage in
+    `encrypted-account-backup-service.test.ts`.
 
 ## [v1.3.6] - 2026-04-05
 

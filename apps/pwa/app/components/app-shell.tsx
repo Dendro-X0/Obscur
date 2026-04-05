@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, FolderLock, Menu, MessageSquare, Search, Settings, Users, X } from "lucide-react";
 import { cn } from "@/app/lib/utils";
@@ -78,6 +78,7 @@ const isKeyboardEditableTarget = (target: EventTarget | null): boolean => {
 
 const AppShell = (props: AppShellProps): React.JSX.Element => {
   const { t } = useTranslation();
+  const router = useRouter();
   const pathname: string = usePathname();
   const activeRouteSurface = useMemo(() => getRouteSurfaceFromPathname(pathname), [pathname]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
@@ -651,18 +652,18 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                     href={item.href}
                     suppressHydrationWarning
                     onClick={(event): void => {
-                      if (event.defaultPrevented) {
-                        return;
-                      }
                       if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
                         return;
                       }
+                      event.preventDefault();
                       if (navigationFailOpenEnabledRef.current) {
-                        event.preventDefault();
                         hardNavigate(item.href);
                         return;
                       }
                       armRouteHardFallback(item.href);
+                      if (item.href !== pathname) {
+                        router.push(item.href);
+                      }
                     }}
                     className={cn(
                       "nav-link group relative inline-flex h-10 w-10 select-none items-center justify-center rounded-xl border border-transparent transition-all shrink-0",

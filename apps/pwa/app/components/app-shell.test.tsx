@@ -151,6 +151,7 @@ describe("AppShell navigation", () => {
     act(() => {
       fireEvent.click(networkLink);
     });
+    expect(appShellMocks.push).toHaveBeenCalledWith("/network");
     const routeRequestLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
       event.name === "navigation.route_request"
       && event.context?.guardSource === "app_shell"

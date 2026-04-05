@@ -35,6 +35,8 @@ const LOAD_EARLIER_BATCH_SIZE_DEFAULT = MESSAGE_PAGE_SIZE;
 const INITIAL_BATCH_SIZE_PERF_V2 = MESSAGE_PAGE_SIZE;
 const LOAD_EARLIER_BATCH_SIZE_PERF_V2 = MESSAGE_PAGE_SIZE;
 const LIVE_WINDOW_SOFT_LIMIT = MESSAGE_PAGE_SIZE;
+const INITIAL_HYDRATION_VISIBLE_TARGET_DEFAULT = LIVE_WINDOW_SOFT_LIMIT;
+const INITIAL_HYDRATION_MAX_SCAN_PASSES = 12;
 const PROJECTION_CONVERSATION_SOFT_LIMIT = MESSAGE_PAGE_SIZE * 3;
 const DELETE_TOMBSTONE_TTL_MS = 2 * 60 * 1000;
 const MESSAGE_RETENTION_DAY_MS = 24 * 60 * 60 * 1000;
@@ -46,6 +48,8 @@ const getInitialBatchSize = (chatPerformanceV2Enabled: boolean): number =>
 
 const getLoadEarlierBatchSize = (chatPerformanceV2Enabled: boolean): number =>
     chatPerformanceV2Enabled ? LOAD_EARLIER_BATCH_SIZE_PERF_V2 : LOAD_EARLIER_BATCH_SIZE_DEFAULT;
+
+const getInitialHydrationVisibleTarget = (): number => INITIAL_HYDRATION_VISIBLE_TARGET_DEFAULT;
 
 const inferPeerFromConversationId = (params: Readonly<{
     conversationId: string;
@@ -155,7 +159,44 @@ const normalizeMessage = (
     };
 };
 
-const isDisplayableMessage = (message: Message): boolean => message.kind !== "command";
+const isVoiceCallSignalPayload = (content: string): boolean => {
+    let candidate: unknown = content;
+    for (let depth = 0; depth < 3; depth += 1) {
+        if (typeof candidate === "string") {
+            const trimmed = candidate.trim();
+            if (!trimmed) {
+                return false;
+            }
+            try {
+                candidate = JSON.parse(trimmed);
+            } catch {
+                candidate = trimmed;
+                break;
+            }
+            continue;
+        }
+        if (candidate && typeof candidate === "object") {
+            return (candidate as { type?: unknown }).type === "voice-call-signal";
+        }
+        return false;
+    }
+    if (candidate && typeof candidate === "object") {
+        return (candidate as { type?: unknown }).type === "voice-call-signal";
+    }
+    const trimmed = content.trim();
+    if (!trimmed) {
+        return false;
+    }
+    return (
+        /"type"\s*:\s*"voice-call-signal"/.test(trimmed)
+        || /\\"type\\"\s*:\s*\\"voice-call-signal\\"/.test(trimmed)
+    );
+};
+
+const isDisplayableMessage = (message: Message): boolean => (
+    message.kind !== "command"
+    && !isVoiceCallSignalPayload(message.content)
+);
 
 const getMessageDirectionCounts = (
     entries: ReadonlyArray<Message>,
@@ -278,6 +319,20 @@ const toRowTimestampMs = (row: any): number => {
     return 0;
 };
 
+const findEarliestValidRowTimestampMs = (rows: ReadonlyArray<any>): number | null => {
+    let earliestTimestampMs = Number.POSITIVE_INFINITY;
+    rows.forEach((row) => {
+        const timestampMs = toRowTimestampMs(row);
+        if (!Number.isFinite(timestampMs) || timestampMs <= 0) {
+            return;
+        }
+        if (timestampMs < earliestTimestampMs) {
+            earliestTimestampMs = timestampMs;
+        }
+    });
+    return Number.isFinite(earliestTimestampMs) ? earliestTimestampMs : null;
+};
+
 const mergeConversationRows = (params: Readonly<{
     rowsByConversationId: ReadonlyArray<Readonly<{ conversationId: string; rows: ReadonlyArray<any> }>>;
     limit: number;
@@ -345,17 +400,24 @@ const scanDisplayableHistoryWindow = async (params: Readonly<{
     initialHasEarlier: boolean;
     limit: number;
     mapRows: (rows: ReadonlyArray<any>) => ReadonlyArray<Message>;
+    targetVisibleCount?: number;
+    maxPassCount?: number;
 }>): Promise<Readonly<{ messages: ReadonlyArray<Message>; hasEarlier: boolean }>> => {
     let collectedRows = [...params.initialRows];
     let hasEarlier = params.initialHasEarlier;
     let mappedMessages = params.mapRows(collectedRows);
     let passCount = 0;
+    const targetVisibleCount = Number.isFinite(params.targetVisibleCount)
+        ? Math.max(1, Math.floor(params.targetVisibleCount ?? 1))
+        : 1;
+    const maxPassCount = Number.isFinite(params.maxPassCount)
+        ? Math.max(1, Math.floor(params.maxPassCount ?? 1))
+        : 4;
 
-    while (mappedMessages.length === 0 && hasEarlier && passCount < 4) {
+    while (mappedMessages.length < targetVisibleCount && hasEarlier && passCount < maxPassCount) {
         passCount += 1;
-        const oldestRow = collectedRows[collectedRows.length - 1];
-        const beforeTimestampMs = toRowTimestampMs(oldestRow);
-        if (beforeTimestampMs <= 0) {
+        const beforeTimestampMs = findEarliestValidRowTimestampMs(collectedRows);
+        if (!beforeTimestampMs || beforeTimestampMs <= 0) {
             break;
         }
         const earlierWindow = await loadConversationWindowAcrossAliases({
@@ -599,19 +661,25 @@ export function useConversationMessages(
                 initialHasEarlier: latestWindow.hasEarlier,
                 limit: initialBatchSize,
                 mapRows: mapRowsToDisplayableMessages,
+                targetVisibleCount: getInitialHydrationVisibleTarget(),
+                maxPassCount: INITIAL_HYDRATION_MAX_SCAN_PASSES,
             });
             const retentionFilteredMapped = scannedWindow.messages;
+            const shouldCapHydratedHistoryWindow = retentionFilteredMapped.length > LIVE_WINDOW_SOFT_LIMIT;
+            const cappedHydratedMessages = shouldCapHydratedHistoryWindow
+                ? retentionFilteredMapped.slice(-LIVE_WINDOW_SOFT_LIMIT)
+                : retentionFilteredMapped;
             const projectionMessagesSnapshot = projectionMessagesRef.current;
             const projectionReadAuthoritySnapshot = projectionReadAuthorityRef.current;
 
             const shouldUseProjectionFallback = (
-                retentionFilteredMapped.length === 0
+                cappedHydratedMessages.length === 0
                 && projectionReadAuthoritySnapshot.useProjectionReads
                 && projectionMessagesSnapshot.length > 0
             );
             const hydrated = shouldUseProjectionFallback
                 ? projectionMessagesSnapshot
-                : retentionFilteredMapped;
+                : cappedHydratedMessages;
             const mappedDirectionCounts = getMessageDirectionCounts(retentionFilteredMapped, normalizedPublicKeyHex);
             const projectionDirectionCounts = getMessageDirectionCounts(projectionMessagesSnapshot, normalizedPublicKeyHex);
 
@@ -695,7 +763,9 @@ export function useConversationMessages(
             }
 
             setMessages(hydrated);
-            setHasEarlier(shouldUseProjectionFallback ? false : (scannedWindow.hasEarlier && retentionFilteredMapped.length > 0));
+            setHasEarlier(shouldUseProjectionFallback
+                ? false
+                : ((scannedWindow.hasEarlier || shouldCapHydratedHistoryWindow) && hydrated.length > 0));
             projectionFallbackHydrationRef.current = shouldUseProjectionFallback;
             expandedHistoryRef.current = false;
         } catch (e) {
