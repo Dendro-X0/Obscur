@@ -6,6 +6,27 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { AttachmentKind } from "../types";
 
 let ffmpeg: FFmpeg | null = null;
+const FFMPEG_CORE_LOAD_TIMEOUT_MS = 8_000;
+const FFMPEG_TRANSCODE_TIMEOUT_MS = 60_000;
+const VIDEO_THUMBNAIL_TIMEOUT_MS = 8_000;
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise<T>((_, reject) => {
+                timeoutHandle = setTimeout(() => {
+                    reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+                }, timeoutMs);
+            })
+        ]);
+    } finally {
+        if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+        }
+    }
+};
 
 /**
  * Initialize and load FFmpeg if not already loaded
@@ -17,10 +38,21 @@ async function loadFFmpeg(): Promise<FFmpeg> {
 
     // We need to load the worker and wasm files
     const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
-    await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-    });
+    const coreURL = await withTimeout(
+        toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+        FFMPEG_CORE_LOAD_TIMEOUT_MS,
+        "FFmpeg core script load"
+    );
+    const wasmURL = await withTimeout(
+        toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+        FFMPEG_CORE_LOAD_TIMEOUT_MS,
+        "FFmpeg wasm load"
+    );
+    await withTimeout(
+        ffmpeg.load({ coreURL, wasmURL }),
+        FFMPEG_CORE_LOAD_TIMEOUT_MS,
+        "FFmpeg initialization"
+    );
 
     return ffmpeg;
 }
@@ -50,7 +82,11 @@ export async function compressImage(file: File): Promise<File> {
  */
 export async function compressVideo(file: File, onProgress?: (p: number) => void): Promise<File> {
     try {
-        const instance = await loadFFmpeg();
+        const instance = await withTimeout(
+            loadFFmpeg(),
+            FFMPEG_CORE_LOAD_TIMEOUT_MS,
+            "FFmpeg preparation"
+        );
 
         const inputName = "input_" + file.name;
         const outputName = "output.mp4";
@@ -63,11 +99,20 @@ export async function compressVideo(file: File, onProgress?: (p: number) => void
             if (onProgress) onProgress(Math.round(progress * 100));
         });
 
-        await instance.writeFile(inputName, await fetchFile(file));
+        const fileBytes = await withTimeout(
+            fetchFile(file),
+            FFMPEG_CORE_LOAD_TIMEOUT_MS,
+            "Video read for FFmpeg"
+        );
+        await withTimeout(
+            instance.writeFile(inputName, fileBytes),
+            FFMPEG_CORE_LOAD_TIMEOUT_MS,
+            "FFmpeg input write"
+        );
 
         // Command to scale to 720p (if larger) and use a reasonable CRF for size/quality balance
         // -vf "scale='min(1280,iw)':-2" ensures width is at most 1280 and height is proportional and even
-        await instance.exec([
+        await withTimeout(instance.exec([
             "-i", inputName,
             "-vf", "scale='min(1280,iw)':-2",
             "-vcodec", "libx264",
@@ -77,9 +122,13 @@ export async function compressVideo(file: File, onProgress?: (p: number) => void
             "-b:a", "128k",
             "-movflags", "faststart",
             outputName
-        ]);
+        ]), FFMPEG_TRANSCODE_TIMEOUT_MS, "FFmpeg transcode");
 
-        const data = await instance.readFile(outputName);
+        const data = await withTimeout(
+            instance.readFile(outputName),
+            FFMPEG_CORE_LOAD_TIMEOUT_MS,
+            "FFmpeg output read"
+        );
         const buffer = typeof data === "string" ? new TextEncoder().encode(data) : data;
         const compressedBlob = new Blob([buffer as any], { type: "video/mp4" });
 
@@ -105,9 +154,20 @@ export async function generateVideoThumbnail(file: File): Promise<string | null>
         video.preload = "metadata";
         video.muted = true;
         video.playsInline = true;
+        let settled = false;
+
+        const finish = (value: string | null): void => {
+            if (settled) return;
+            settled = true;
+            URL.revokeObjectURL(url);
+            resolve(value);
+        };
 
         const url = URL.createObjectURL(file);
         video.src = url;
+        const timeoutHandle = setTimeout(() => {
+            finish(null);
+        }, VIDEO_THUMBNAIL_TIMEOUT_MS);
 
         video.onloadedmetadata = () => {
             // Seek to 1 second or half way if shorter
@@ -123,17 +183,17 @@ export async function generateVideoThumbnail(file: File): Promise<string | null>
             if (ctx) {
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.7);
-                URL.revokeObjectURL(url);
-                resolve(thumbnailUrl);
+                clearTimeout(timeoutHandle);
+                finish(thumbnailUrl);
             } else {
-                URL.revokeObjectURL(url);
-                resolve(null);
+                clearTimeout(timeoutHandle);
+                finish(null);
             }
         };
 
         video.onerror = () => {
-            URL.revokeObjectURL(url);
-            resolve(null);
+            clearTimeout(timeoutHandle);
+            finish(null);
         };
     });
 }

@@ -2,6 +2,22 @@
 
 - _No entries yet._
 
+## [v1.3.5] - 2026-04-05
+
+### Fixed
+
+- Fixed production desktop media attachment stalls where video processing could
+  remain at `0%` indefinitely before upload started.
+- Hardened media pre-upload processing in
+  `apps/pwa/app/features/messaging/lib/media-processor.ts` with bounded
+  timeouts for:
+  - FFmpeg core script/wasm loading,
+  - FFmpeg initialization,
+  - FFmpeg transcode execution,
+  - video thumbnail generation.
+- Added deterministic fallback behavior to continue with the original file when
+  preprocessing times out/fails, so upload can proceed instead of hanging.
+
 ## [v1.3.4] - 2026-04-04
 
 ### Changed

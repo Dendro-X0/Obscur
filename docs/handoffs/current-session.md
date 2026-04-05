@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-04T16:40:32Z
+- Last Updated (UTC): 2026-04-05T03:50:01Z
 - Session Status: in-progress
 - Active Owner: DM realtime presence truth surface (relay presence + inbound peer activity evidence)
 
@@ -91,7 +91,9 @@ Make DM online/offline indicators converge in realtime during active chat exchan
 
 ## Next Atomic Step
 
-Commit and push this patch so CI/Vercel can rerun and clear the previous compile failures.
+Commit/tag/push v1.3.5 and monitor CI + production installer replay for video attachment upload start behavior.
+
+
 
 
 
@@ -229,4 +231,14 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Commit and push this patch so CI/Vercel can rerun and clear the previous compile failures.
+### 2026-04-05T03:45:18Z checkpoint
+- Summary: Hardened media pre-upload processing to prevent production desktop stalls at 0%: FFmpeg core fetch/init, transcode, and thumbnail generation now fail fast with bounded timeouts and fallback to original file.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run a production desktop replay: attach a >10MB video in chat and verify processing completes (or gracefully skips compression) and NIP-96 upload starts instead of hanging at 0%.
+### 2026-04-05T03:50:01Z checkpoint
+- Summary: Prepared v1.3.5 patch release for production desktop media upload stall: added fail-fast media processor timeouts with fallback, synced versions to 1.3.5, and updated changelog.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Commit/tag/push v1.3.5 and monitor CI + production installer replay for video attachment upload start behavior.
 <!-- CONTEXT_CHECKPOINTS_END -->
