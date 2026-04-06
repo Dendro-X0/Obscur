@@ -16,6 +16,27 @@
   - added focused regression coverage in
     `encrypted-account-backup-service.test.ts`.
 
+### Changed
+
+- Added v1.3.8 streaming-update control contract and rollout safety path:
+  - new updater policy owner
+    `apps/pwa/app/features/updates/services/streaming-update-policy.ts`
+    with deterministic channel/rollout/kill-switch/min-safe decisions,
+  - desktop updater UI now enforces policy eligibility before install and
+    classifies install failures into explicit safe rollback outcomes,
+  - release gate `release:streaming-update-contract:check` now validates
+    updater config + manifest contract before release readiness claims.
+- Added streaming-update manifest publication wiring in release workflow:
+  - `scripts/build-streaming-update-manifest.mjs` generates
+    `streaming-update-policy.json` from artifact checksums,
+  - `.github/workflows/release.yml` now builds/uploads the manifest and
+    publishes it with release artifacts.
+- Expanded v1.3.8 offline/update focused evidence coverage:
+  - added offline shell owner boundary test
+    `app/components/pwa-service-worker-registrar.test.tsx`,
+  - added updater contract/failure-path tests
+    `app/features/updates/services/streaming-update-policy.test.ts`.
+
 ## [v1.3.6] - 2026-04-05
 
 ### Fixed

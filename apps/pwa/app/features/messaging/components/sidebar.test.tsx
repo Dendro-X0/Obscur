@@ -178,4 +178,19 @@ describe("Sidebar", () => {
         fireEvent.click(screen.getByRole("button", { name: "Hide" }));
         expect(hideConversation).toHaveBeenCalledWith(conversations[0].id);
     });
+
+    it("shows sync skeleton notice when restore is in progress and conversation list is still empty", () => {
+        render(
+            <Sidebar
+                {...createBaseProps({
+                    filteredConversations: [],
+                    showHistorySyncNotice: true,
+                    hasHydrated: true,
+                })}
+            />
+        );
+
+        expect(screen.getByText("Syncing history on this device...")).toBeInTheDocument();
+        expect(screen.queryByTestId("conversation-row")).not.toBeInTheDocument();
+    });
 });

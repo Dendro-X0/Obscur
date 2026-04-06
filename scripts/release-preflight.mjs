@@ -52,7 +52,9 @@ const verifyRequiredPaths = () => {
     "scripts/docs-check.mjs",
     "scripts/check-release-source-integrity.mjs",
     "scripts/check-release-artifact-version-contract.mjs",
+    "scripts/check-streaming-update-contract.mjs",
     "apps/desktop/src-tauri/tauri.conf.json",
+    "apps/desktop/release/streaming-update-policy.example.json",
     "version.json",
   ];
   const missing = required.filter((relPath) => !existsSync(resolve(rootDir, relPath)));
@@ -209,6 +211,8 @@ const main = () => {
   run("pnpm", ["version:check"]);
   console.log("[release:preflight] Running docs check...");
   run("pnpm", ["docs:check"]);
+  console.log("[release:preflight] Verifying streaming update contract...");
+  run("pnpm", ["release:streaming-update-contract:check"]);
   console.log("[release:preflight] Verifying release artifact matrix workflow...");
   run("pnpm", ["release:artifact-matrix-check"]);
   console.log("[release:preflight] Verifying CI signal contract...");

@@ -15,6 +15,8 @@ const requiredSnippets = [
   "release-assets/linux",
   "release-assets/android",
   "release-assets/web",
+  "streaming-update-policy.json",
+  "streaming-update-manifest",
   "*.exe",
   "*.msi",
   "*.dmg",

@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import { Share2, Copy, Link as LinkIcon, Sparkles } from "lucide-react";
+import { Share2, Copy, Link as LinkIcon, Sparkles, Loader2 } from "lucide-react";
 import { Card } from "@dweb/ui-kit";
 import { Button } from "@dweb/ui-kit";
 import { cn } from "@/app/lib/utils";
@@ -14,6 +14,7 @@ interface EmptyConversationViewProps {
     onCopyMyPubkey: () => void;
     onCopyChatLink: () => void;
     onNewChat?: () => void;
+    showHistorySyncNotice?: boolean;
 }
 
 export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
@@ -23,6 +24,7 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
     onCopyMyPubkey,
     onCopyChatLink,
     onNewChat,
+    showHistorySyncNotice = false,
 }) => {
     const { t } = useTranslation();
     return (
@@ -46,6 +48,17 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
                 )}
 
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 w-full flex flex-col items-center">
+                    {showHistorySyncNotice ? (
+                        <div className="w-full rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-4 text-left">
+                            <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span className="text-xs font-black uppercase tracking-widest">Syncing account history</span>
+                            </div>
+                            <p className="mt-2 text-xs font-medium leading-relaxed text-indigo-900/90 dark:text-indigo-100/90">
+                                This is likely a fresh device restore. Contacts and message history are still loading and can take a few minutes.
+                            </p>
+                        </div>
+                    ) : null}
                     <div className="flex justify-center">
                         <div className="group relative">
                             <div className="absolute -inset-2 bg-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" aria-hidden="true"></div>

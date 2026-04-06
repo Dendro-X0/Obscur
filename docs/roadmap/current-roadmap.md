@@ -3,6 +3,13 @@
 This is the canonical active roadmap.  
 Version-specific phase plans are consolidated into general workstreams and milestone slices.
 
+## Active Detailed Plan (Do Not Lose)
+
+1. [v1.3.8 Roadmap and Execution Contract](./v1.3.8-hybrid-offline-streaming-update-plan.md)
+2. [v1.3.8 Offline UI Asset Inventory and Local-First Policy](./v1.3.8-offline-ui-asset-inventory.md)
+3. [v1.3.8 Streaming Update Contract](./v1.3.8-streaming-update-contract.md)
+4. These plan files are mandatory continuity artifacts for this lane and are non-removable until closeout conditions are met.
+
 ## Current Health Baseline (2026-04-04)
 
 1. project remains active for development, with stability work prioritized,

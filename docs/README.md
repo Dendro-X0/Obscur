@@ -27,7 +27,10 @@ Use this folder as the canonical engineering contract for architecture, roadmap,
 ### Roadmap and Release
 
 1. [Current Roadmap](./roadmap/current-roadmap.md)
-2. [Release Closeout Guide](./releases/release-closeout-guide.md)
+2. [v1.3.8 Roadmap and Execution Contract](./roadmap/v1.3.8-hybrid-offline-streaming-update-plan.md)
+3. [v1.3.8 Offline UI Asset Inventory and Local-First Policy](./roadmap/v1.3.8-offline-ui-asset-inventory.md)
+4. [v1.3.8 Streaming Update Contract](./roadmap/v1.3.8-streaming-update-contract.md)
+4. [Release Closeout Guide](./releases/release-closeout-guide.md)
 
 ### Continuation and Handoffs
 

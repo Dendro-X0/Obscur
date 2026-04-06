@@ -1,16 +1,20 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-05T10:21:48Z
+- Last Updated (UTC): 2026-04-05T16:17:17Z
 - Session Status: in-progress
-- Active Owner: Account backup restore/hydration delete-command quarantine boundary
+- Active Owner: v1.3.8 offline shell + streaming updater contract boundary
 
 ## Active Objective
 
-Prevent deleted historical DM messages from resurfacing as `__dweb_cmd__`/JSON junk after login + account-sync restore by enforcing delete-command suppression at backup/restore owner boundaries.
+Close the v1.3.8 M1 technical scope with evidence-backed offline shell/update contracts and keep M2/M3 closeout blockers explicit until replay + production verification are complete.
 
 ## Current Snapshot
 
 - What is true now:
+  - Streaming update policy owner is now explicit in `apps/pwa/app/features/updates/services/streaming-update-policy.ts` with deterministic channel/rollout/kill-switch/min-safe decisions.
+  - Desktop updater UI now enforces policy eligibility before install and classifies install failures into safe rollback outcomes that preserve current version.
+  - Release gates now include streaming update contract checks (`pnpm release:streaming-update-contract:check`) and workflow publication of `streaming-update-policy.json` alongside release artifacts.
+  - Offline deterministic shell owner evidence now includes focused SW registrar boundary tests (`pwa-service-worker-registrar.test.tsx`) and passes in focused and release-test-pack gate runs.
   - `Reset Local History` now records a scoped cutoff so old relay-backed DM history and stale sync checkpoints do not come straight back after reset.
   - Runtime DM transport used to stay disabled during `bootstrapping`, even for the correct unlocked account, which could stall realtime incoming DMs and delete commands behind account restore.
   - DM transport now stays enabled during `bootstrapping` when projection ownership matches the active identity.
@@ -19,7 +23,17 @@ Prevent deleted historical DM messages from resurfacing as `__dweb_cmd__`/JSON j
   - Incoming transport now has a safety-sync watchdog (15s interval + tab-visibility resume trigger) so silent subscription stalls cannot leave DM/delete state stale indefinitely without refresh.
   - DM online indicators now resolve through a canonical owner path in `main-shell`: relay presence first, then bounded recent inbound peer-activity evidence to prevent active-chat false `OFFLINE`.
   - Encrypted account backup restore/hydration now quarantines delete-command DM rows and their targeted historical rows before chat-state restore/import, and chat preview rows no longer keep command payload snippets as `lastMessage`.
+  - Phase M1 now has a canonical offline UI asset inventory (`docs/roadmap/v1.3.8-offline-ui-asset-inventory.md`) and an executable guard (`pnpm offline:asset-policy:check`) wired into `pwa-ci-scan` and `release:test-pack`.
 - What changed in this thread:
+  - Added streaming update policy contract module + tests (`streaming-update-policy.ts`, `streaming-update-policy.test.ts`) and integrated policy enforcement into `DesktopUpdater` (rollout, kill switch, min-safe, failure classification).
+  - Added release update-contract checks and generation tooling:
+    - `scripts/check-streaming-update-contract.mjs`
+    - `scripts/build-streaming-update-manifest.mjs`
+    - workflow wiring in `.github/workflows/release.yml` to generate/upload/publish `streaming-update-policy.json` with artifacts.
+  - Hardened `scripts/run-release-test-pack.mjs` Windows command execution path so `tsc`/`vitest` are resolved reliably in workspace runs.
+  - Added focused offline app-shell owner boundary coverage in `app/components/pwa-service-worker-registrar.test.tsx`.
+  - Added v1.3.8 streaming contract doc and linked it from roadmap/doc indexes.
+  - Updated v1.3.8 roadmap checklist with completed M1 items, focused M2 tests, and M3 gate pass state.
   - Added the reset cutoff store and bootstrap filtering for restored DM history/checkpoints.
   - Relaxed the runtime messaging transport gate so incoming transport remains active during restore/bootstrap for the bound account.
   - Added focused test coverage for the transport-owner bootstrap contract.
@@ -50,9 +64,14 @@ Prevent deleted historical DM messages from resurfacing as `__dweb_cmd__`/JSON j
   - Fixed intermittent sidebar/menu navigation drops by making nav clicks explicitly call `router.push` on primary clicks in `app-shell` and `mobile-tab-bar`, while preserving the existing hard-fallback route watchdog.
   - Removed dependence on `event.defaultPrevented` short-circuiting in nav handlers, which could silently discard user navigation intent under layered gesture/capture handlers.
   - Added/updated focused nav tests to assert router-driven navigation request dispatch.
+  - Added `scripts/check-offline-ui-asset-policy.mjs` to enforce local-first shell asset contracts (no remote shell URLs, manifest local-icon contract, `/sw.js` registration owner check).
+  - Added `pnpm offline:asset-policy:check` and wired it into `scripts/pwa-ci-scan.mjs` and `scripts/run-release-test-pack.mjs`.
+  - Added a v1.3.8 Phase M1 inventory doc and updated roadmap/docs index references; marked two M1 checklist items complete in `docs/roadmap/v1.3.8-hybrid-offline-streaming-update-plan.md`.
 
 ## Evidence
 
+- `pnpm.cmd offline:asset-policy:check`
+- `pnpm.cmd docs:check`
 - `.\node_modules\.bin\vitest.cmd run app/features/account-sync/services/account-event-bootstrap-service.test.ts`
 - `.\node_modules\.bin\vitest.cmd run app/features/messaging/services/local-history-reset-service.test.ts`
 - `.\node_modules\.bin\vitest.cmd run app/features/messaging/providers/runtime-messaging-transport-owner-provider.test.tsx`
@@ -70,6 +89,12 @@ Prevent deleted historical DM messages from resurfacing as `__dweb_cmd__`/JSON j
 - `.\node_modules\.bin\vitest.CMD run app/features/messaging/hooks/use-conversation-messages.integration.test.ts` (from `apps/pwa`, 18/18 passing after hidden voice-call-signal row suppression)
 - `.\node_modules\.bin\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing)
 - `.\node_modules\.bin\vitest.CMD run app/components/app-shell.test.tsx app/components/mobile-tab-bar.test.tsx` (from `apps/pwa`, 14/14 passing)
+- `pnpm.cmd release:streaming-update-contract:check` (passed)
+- `pnpm.cmd offline:asset-policy:check` (passed)
+- `.\node_modules\.bin\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing after streaming-update/offline test additions)
+- `.\node_modules\.bin\vitest.CMD run app/features/updates/services/streaming-update-policy.test.ts app/components/pwa-service-worker-registrar.test.tsx app/features/main-shell/main-shell.test.tsx` (from `apps/pwa`, 14/14 passing)
+- `pnpm.cmd docs:check` (passed)
+- `pnpm.cmd release:test-pack -- --skip-preflight` (passed; includes new streaming update contract gate + focused tests)
 
 ## Changed Files
 
@@ -103,21 +128,52 @@ Prevent deleted historical DM messages from resurfacing as `__dweb_cmd__`/JSON j
 - `apps/pwa/app/features/network/services/presence-evidence.test.ts`
 - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
 - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
+- `scripts/check-offline-ui-asset-policy.mjs`
+- `scripts/check-streaming-update-contract.mjs`
+- `scripts/build-streaming-update-manifest.mjs`
+- `scripts/pwa-ci-scan.mjs`
+- `scripts/run-release-test-pack.mjs`
+- `scripts/check-release-artifact-matrix.mjs`
+- `.github/workflows/release.yml`
+- `package.json`
+- `CHANGELOG.md`
+- `docs/roadmap/v1.3.8-offline-ui-asset-inventory.md`
+- `docs/roadmap/v1.3.8-streaming-update-contract.md`
+- `docs/roadmap/v1.3.8-hybrid-offline-streaming-update-plan.md`
+- `docs/roadmap/current-roadmap.md`
+- `docs/07-operations-and-release-flow.md`
+- `docs/README.md`
 - `docs/handoffs/current-session.md`
+- `apps/desktop/release/streaming-update-policy.example.json`
+- `apps/pwa/app/features/updates/services/streaming-update-policy.ts`
+- `apps/pwa/app/features/updates/services/streaming-update-policy.test.ts`
+- `apps/pwa/app/components/pwa-service-worker-registrar.test.tsx`
+- `apps/pwa/app/components/desktop-updater.tsx`
 
 ## Open Risks Or Blockers
 
-- Two-account runtime verification is still required to confirm deleted historical messages do not reappear as command JSON junk after login + account-sync restore completes.
-- If junk rows still appear after this boundary hardening, the next likely owner is non-canonical message persistence/import outside encrypted backup parse/merge/hydrate paths.
-- `apps/pwa` typecheck currently has unrelated pre-existing failures in `app/features/messaging/hooks/use-conversation-messages.ts` (`readonly reverse` + implicit `any`) that were not introduced by this fix.
-- Initial sparse-window auto-scan is bounded to twelve earlier-page passes; extremely command-heavy histories beyond that bound can still require manual `Load More`.
-- If runtime still shows `Load More` on a blank timeline after this fix, capture `messaging.conversation_hydration_diagnostics` with indexed/projection counts to confirm whether non-displayable rows are coming from a different owner path.
-- If runtime still shows blank+`Load More`, check for `messaging.message_list_virtualizer_recovery_attempt` events to confirm virtualizer-level recovery is triggering; if not, capture DOM/scroll metrics for `parentRef` sizing.
-- Sidebar/page navigation behavior still needs runtime replay in desktop/PWA to confirm route taps remain responsive under load and during long chat sessions.
+- M2 manual replay evidence is still open:
+  - desktop + PWA offline boot/degraded UX replay,
+  - in-app update replay from previous stable build to candidate build.
+- M2 diagnostics-bundle capture is still open; no canonical replay artifact bundle has been attached in docs for this lane yet.
+- M3 production closeout items are still open:
+  - publish release tag for this scope,
+  - verify updater path in production,
+  - append final checkpoint marking plan complete.
+- Roadmap deletion guard remains active; file removal is blocked until the remaining M2/M3 closeout conditions are truly complete.
 
 ## Next Atomic Step
 
-Create and push the v1.3.7 release commit/tag, then capture a concise offline-first UI architecture plan for component and asset loading boundaries.
+Run M2 manual replay evidence (offline desktop/PWA + in-app update previous-stable->candidate), attach diagnostics bundle refs, then execute M3 publish/verification closeout before considering roadmap deletion.
+
+
+
+
+
+
+
+
+
 
 
 
@@ -370,4 +426,49 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Create and push the v1.3.7 release commit/tag, then capture a concise offline-first UI architecture plan for component and asset loading boundaries.
+### 2026-04-05T10:30:50Z checkpoint
+- Summary: Released v1.3.7: committed staged fixes/version sync as release: v1.3.7, tagged v1.3.7, pushed main and tag to origin to trigger CI/release workflows.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Plan v1.3.8 hybrid offline-first UX lane: keep core UI shell/assets/components fully local/offline, retain network paths only for relay-dependent data flows, and define measurable offline coverage + perf gates.
+### 2026-04-05T11:22:55Z checkpoint
+- Summary: Added roadmap goal: support in-app streaming updates so users can upgrade directly inside the app without manual installer download from GitHub/website.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Draft v1.3.8 streaming-update architecture: signed release manifest + in-app updater UX + staged rollout/fallback strategy across desktop/PWA runtimes.
+### 2026-04-05T11:29:20Z checkpoint
+- Summary: Created a single canonical v1.3.8 execution-contract roadmap file for hybrid offline-first UI + in-app streaming updates, with non-removal gates and phased checklist; linked it from current-roadmap/docs index.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Start Phase M0: lock canonical owners for offline shell cache, network boundary resolver, and desktop updater runtime; then define diagnostics event map and baseline risk evidence.
+### 2026-04-05T11:39:03Z checkpoint
+- Summary: Fixed attachment progress UX stall: media processing progress now uses monotonic updates plus fallback ticker (cap 95%) so UI does not sit at 0% during active work; added focused hook internals tests and updated v1.3.8 roadmap checklist with this completed item.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run runtime manual replay for large/small video attachment flow and confirm composer shows non-zero progressing state through processing/upload/send stages under fast and slow networks.
+### 2026-04-05T14:00:27Z checkpoint
+- Summary: Implemented new-device history-loading UX: account sync UI policy now factors projection runtime + empty-conversation state, showing a dedicated 'Syncing account history' banner and empty-state restore notice when contacts/messages are still restoring.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run desktop/PWA manual fresh-device login replay and verify the new sync notice appears during empty-history warmup, then disappears after conversations hydrate.
+### 2026-04-05T14:43:22Z checkpoint
+- Summary: Extended new-device sync UX with sidebar hydration skeletons: when account history restore is active and chat list is empty, sidebar now shows placeholder rows + syncing hint instead of a blank list. Added focused sidebar, main-shell, and account-sync-ui-policy tests.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run manual fresh-device login replay on desktop/PWA to verify top banner + empty-state + sidebar sync placeholders all appear during restore and disappear once conversations hydrate.
+### 2026-04-05T15:16:11Z checkpoint
+- Summary: Landed v1.3.8 M1 offline shell asset inventory and CI guard contracts (new guard script + gate wiring + roadmap/doc index updates).
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Implement and verify deterministic offline app-shell start behavior (Phase M1 item 3), then capture desktop/PWA manual replay evidence for offline boot plus fresh-device restore placeholders.
+### 2026-04-05T15:22:42Z checkpoint
+- Summary: Fixed runtime TDZ crash (Cannot access 'accountSyncUiPolicy' before initialization) by computing accountSyncUiPolicy before effects/deps in main-shell.
+- Evidence: pnpm -C apps/pwa exec vitest run app/features/main-shell/main-shell.test.tsx; .\\\\node_modules\\\\.bin\\\\tsc.CMD --noEmit --pretty false (from apps/pwa)
+- Uncertainty: not provided
+- Next: Resume Phase M1 item 3: implement/verify deterministic offline app-shell start behavior and run desktop/PWA manual replay for offline boot + fresh-device restore placeholders.
+### 2026-04-05T16:17:17Z checkpoint
+- Summary: Landed v1.3.8 streaming update contract + rollout controls (policy module/tests, updater UI enforcement, release manifest generation/check gates) and verified gates (offline policy, streaming contract, focused vitest, apps/pwa tsc, docs:check, release:test-pack --skip-preflight). Updated roadmap/handoff/changelog truth; M2 manual replay + production tag verification remain open, so roadmap deletion stays blocked.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run M2 manual replay evidence (offline desktop/PWA + in-app update previous-stable->candidate), attach diagnostics bundle refs, then execute M3 publish/verification closeout before considering roadmap deletion.
 <!-- CONTEXT_CHECKPOINTS_END -->

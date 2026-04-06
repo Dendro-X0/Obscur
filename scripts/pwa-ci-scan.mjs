@@ -62,6 +62,7 @@ const main = async () => {
   const steps = [
     { label: "install", cwd: pwaDir, cmd: "pnpm", args: ["install", "--frozen-lockfile"] },
     { label: "typecheck", cwd: pwaDir, cmd: "pnpm", args: ["exec", "tsc", "--noEmit", "--pretty", "false"] },
+    { label: "offline_asset_policy", cwd: repoRoot, cmd: "pnpm", args: ["offline:asset-policy:check"] },
     { label: "build", cwd: pwaDir, cmd: "pnpm", args: ["build"] },
   ];
 
@@ -97,4 +98,3 @@ const main = async () => {
 };
 
 void main();
-

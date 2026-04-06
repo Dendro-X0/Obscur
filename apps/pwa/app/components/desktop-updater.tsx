@@ -6,8 +6,20 @@ import { Card } from "./ui/card";
 import { useTranslation } from "react-i18next";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+import {
+  classifyStreamingUpdateInstallFailure,
+  compareVersions,
+  evaluateStreamingUpdateDecision,
+  parseStreamingUpdateManifest,
+  type StreamingUpdateBlockReason,
+  type StreamingUpdateChannel,
+} from "@/app/features/updates/services/streaming-update-policy";
 
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/Dendro-X0/Obscur/releases/latest";
+const STREAMING_UPDATE_POLICY_URL = process.env.NEXT_PUBLIC_DESKTOP_UPDATE_POLICY_URL
+  ?? "https://github.com/Dendro-X0/Obscur/releases/latest/download/streaming-update-policy.json";
+const STREAMING_UPDATE_CHANNEL: StreamingUpdateChannel = "stable";
+const ROLLOUT_SEED_STORAGE_KEY = "obscur.desktop.streaming-update.rollout-seed.v1";
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const APP_VERSION = (process.env.NEXT_PUBLIC_APP_VERSION ?? "dev").replace(/^v/i, "");
 
@@ -19,6 +31,11 @@ interface UpdateInfo {
   source?: "tauri" | "github" | "both";
   message?: string;
   isDevBuild?: boolean;
+  eligible?: boolean;
+  blockReasonCode?: StreamingUpdateBlockReason | "policy_unavailable";
+  forceUpdateRequired?: boolean;
+  policySource?: "manifest" | "fallback";
+  rollbackBehavior?: "preserve_current_version";
 }
 
 type DesktopUpdaterProps = Readonly<{
@@ -40,19 +57,34 @@ const parseSemverParts = (raw: string): number[] | null => {
   return normalized.split(".").map((x) => Number.parseInt(x, 10) || 0);
 };
 
-const compareVersions = (currentRaw: string, latestRaw: string): number | null => {
-  const currentParts = parseSemverParts(currentRaw);
-  const latestParts = parseSemverParts(latestRaw);
-  if (!currentParts || !latestParts) {
-    return null;
+const resolveRolloutSeed = (): string => {
+  if (typeof window === "undefined") {
+    return "server-render-rollout-seed";
   }
-  const max = Math.max(currentParts.length, latestParts.length);
-  for (let i = 0; i < max; i += 1) {
-    const a = currentParts[i] ?? 0;
-    const b = latestParts[i] ?? 0;
-    if (a !== b) return a < b ? -1 : 1;
+  const existing = window.localStorage.getItem(ROLLOUT_SEED_STORAGE_KEY);
+  if (existing && existing.trim().length > 0) {
+    return existing;
   }
-  return 0;
+  const nextSeed = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  window.localStorage.setItem(ROLLOUT_SEED_STORAGE_KEY, nextSeed);
+  return nextSeed;
+};
+
+const describePolicyBlockReason = (reason: UpdateInfo["blockReasonCode"]): string => {
+  switch (reason) {
+    case "kill_switch_active":
+      return "Updates are temporarily disabled by the release control kill switch.";
+    case "channel_mismatch":
+      return "This device is not in the active release channel for the candidate update.";
+    case "rollout_holdback":
+      return "This update is being rolled out in stages and is not available for this device yet.";
+    case "manifest_invalid":
+      return "Update policy manifest is invalid; update was blocked for safety.";
+    case "policy_unavailable":
+      return "Update policy was unavailable; using signed updater checks only.";
+    default:
+      return "Update policy is currently unavailable.";
+  }
 };
 
 export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) => {
@@ -78,9 +110,10 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       const tauriCheckPromise = isDesktop
         ? invokeNativeCommand<string>("check_for_updates").then((result) => (result.ok ? result.value : "No updates available"))
         : Promise.resolve("No updates available");
-      const [tauriResult, releaseResponse] = await Promise.all([
+      const [tauriResult, releaseResponse, policyResponse] = await Promise.all([
         tauriCheckPromise,
         fetch(GITHUB_LATEST_RELEASE_URL, { headers: { Accept: "application/vnd.github+json" } }),
+        fetch(STREAMING_UPDATE_POLICY_URL, { headers: { Accept: "application/json" } }).catch(() => null),
       ]);
 
       let latestTag = currentVersion;
@@ -92,6 +125,17 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       }
       setReleaseUrl(htmlUrl);
 
+      const parsedPolicy = (() => {
+        if (!policyResponse || !policyResponse.ok) {
+          return null;
+        }
+        return policyResponse
+          .json()
+          .then((value) => parseStreamingUpdateManifest(value))
+          .catch(() => ({ ok: false as const, reason: "invalid_json" }));
+      })();
+      const policyManifestResult = parsedPolicy ? await parsedPolicy : null;
+
       const tauriHasUpdate = typeof tauriResult === "string" && tauriResult.includes("Update available");
       const tauriVersion = tauriHasUpdate ? normalizeVersion(tauriResult.replace("Update available: ", "")) : undefined;
       const versionComparison = compareVersions(currentVersion, latestTag);
@@ -99,14 +143,49 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
 
       if (tauriHasUpdate || githubHasUpdate) {
         const targetVersion = tauriVersion || latestTag;
+        let eligible = true;
+        let blockReasonCode: UpdateInfo["blockReasonCode"];
+        let forceUpdateRequired = false;
+        let policySource: UpdateInfo["policySource"] = "fallback";
+        let rollbackBehavior: UpdateInfo["rollbackBehavior"] = "preserve_current_version";
+
+        if (policyManifestResult?.ok) {
+          policySource = "manifest";
+          const decision = evaluateStreamingUpdateDecision({
+            manifest: policyManifestResult.manifest,
+            currentVersion,
+            channel: STREAMING_UPDATE_CHANNEL,
+            rolloutSeed: resolveRolloutSeed(),
+          });
+          eligible = decision.eligible;
+          blockReasonCode = decision.reasonCode;
+          forceUpdateRequired = decision.forceUpdateRequired;
+          rollbackBehavior = decision.rollbackBehavior;
+          if (!htmlUrl && policyManifestResult.manifest.releaseNotesUrl) {
+            htmlUrl = policyManifestResult.manifest.releaseNotesUrl;
+            setReleaseUrl(htmlUrl);
+          }
+        } else if (policyManifestResult && !policyManifestResult.ok) {
+          eligible = false;
+          blockReasonCode = "manifest_invalid";
+        } else {
+          blockReasonCode = "policy_unavailable";
+        }
+
+        const blockedMessage = !eligible ? describePolicyBlockReason(blockReasonCode) : null;
         setUpdateInfo({
           available: true,
           version: targetVersion,
           latestTag,
           currentVersion,
           source: tauriHasUpdate && githubHasUpdate ? "both" : tauriHasUpdate ? "tauri" : "github",
-          message: t("settings.updates.versionAvailable", { version: targetVersion }),
+          message: blockedMessage ?? t("settings.updates.versionAvailable", { version: targetVersion }),
           isDevBuild,
+          eligible,
+          blockReasonCode,
+          forceUpdateRequired,
+          policySource,
+          rollbackBehavior,
         });
         return;
       }
@@ -120,9 +199,11 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
           ? `Development build detected. Latest stable tag: v${latestTag}.`
           : t("settings.updates.latest"),
         isDevBuild,
+        eligible: false,
       });
     } catch (err) {
-      setError(err as string);
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
       console.error("Failed to check for updates:", err);
     } finally {
       setIsChecking(false);
@@ -130,17 +211,21 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
   };
 
   const installUpdate = async () => {
-    if (!isDesktop || !updateInfo?.available) return;
+    if (!isDesktop || !updateInfo?.available || updateInfo.eligible === false) return;
 
     try {
       const ok = window.confirm(`Install update ${updateInfo.version ?? ""} now? The app may restart after install.`);
       if (!ok) return;
       setIsInstalling(true);
       setError(null);
-      await invokeNativeCommand("install_update");
+      const result = await invokeNativeCommand("install_update");
+      if (!result.ok) {
+        throw new Error(result.message || "Failed to install update");
+      }
       // App will restart automatically after update
     } catch (err) {
-      setError(err as string);
+      const failure = classifyStreamingUpdateInstallFailure(err instanceof Error ? err.message : String(err));
+      setError(failure.userMessage);
       setIsInstalling(false);
       console.error("Failed to install update:", err);
     }
@@ -176,6 +261,11 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
               <p className="text-sm text-muted-foreground">
                 {updateInfo.message}
               </p>
+              {updateInfo.forceUpdateRequired ? (
+                <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">
+                  This device is below the minimum safe version and should update before continuing sensitive operations.
+                </p>
+              ) : null}
             </div>
 
             {error && (
@@ -187,10 +277,14 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
             <div className="flex gap-2">
               <Button
                 onClick={installUpdate}
-                disabled={isInstalling}
+                disabled={isInstalling || updateInfo.eligible === false}
                 className="flex-1"
               >
-                {isInstalling ? t("settings.updates.installing") : t("settings.updates.install")}
+                {updateInfo.eligible === false
+                  ? "Update Blocked"
+                  : isInstalling
+                    ? t("settings.updates.installing")
+                    : t("settings.updates.install")}
               </Button>
               <Button
                 onClick={dismissUpdate}
@@ -228,10 +322,14 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
         {isDesktop && updateInfo?.available ? (
           <Button
             onClick={installUpdate}
-            disabled={isInstalling}
+            disabled={isInstalling || updateInfo.eligible === false}
             className="min-h-9 rounded-xl px-4 py-1 text-xs font-semibold"
           >
-            {isInstalling ? t("settings.updates.installing") : t("settings.updates.install")}
+            {updateInfo.eligible === false
+              ? "Update Blocked"
+              : isInstalling
+                ? t("settings.updates.installing")
+                : t("settings.updates.install")}
           </Button>
         ) : null}
         {releaseUrl ? (
@@ -249,12 +347,19 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
         Current: {updateInfo?.currentVersion || currentVersion}
         {updateInfo?.latestTag ? ` | Latest tag: ${updateInfo.latestTag}` : ""}
         {updateInfo?.source ? ` | Source: ${updateInfo.source}` : ""}
+        {updateInfo?.policySource ? ` | Policy: ${updateInfo.policySource}` : ""}
       </div>
       {updateInfo ? (
         updateInfo.available ? (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-            New version available: v{updateInfo.version || updateInfo.latestTag}. You are on v{updateInfo.currentVersion || currentVersion}.
-          </div>
+          updateInfo.eligible === false ? (
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">
+              Update blocked by policy: {describePolicyBlockReason(updateInfo.blockReasonCode)}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+              New version available: v{updateInfo.version || updateInfo.latestTag}. You are on v{updateInfo.currentVersion || currentVersion}.
+            </div>
+          )
         ) : (
           <div className={isDevBuild
             ? "rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-700 dark:text-blue-300"

@@ -12,7 +12,8 @@ const isEnabled = (value) => value === "1" || value === "true";
 const hasArg = (flag) => process.argv.includes(flag);
 
 const run = (cmd, args, cwd = rootDir) => {
-  const result = spawnSync(isWin ? `${cmd}.cmd` : cmd, args, {
+  const resolvedCommand = isWin && !cmd.toLowerCase().endsWith(".cmd") ? `${cmd}.cmd` : cmd;
+  const result = spawnSync(resolvedCommand, args, {
     cwd,
     stdio: "inherit",
     shell: isWin,
@@ -20,6 +21,24 @@ const run = (cmd, args, cwd = rootDir) => {
   if (result.status !== 0) {
     throw new Error(`${cmd} ${args.join(" ")} failed`);
   }
+};
+
+const runPwaTypecheck = () => {
+  const pwaCwd = resolve(rootDir, "apps/pwa");
+  if (isWin) {
+    run(".\\node_modules\\.bin\\tsc.CMD", ["--noEmit", "--pretty", "false"], pwaCwd);
+    return;
+  }
+  run("pnpm", ["-C", "apps/pwa", "exec", "tsc", "--noEmit", "--pretty", "false"]);
+};
+
+const runPwaVitest = (tests) => {
+  const pwaCwd = resolve(rootDir, "apps/pwa");
+  if (isWin) {
+    run(".\\node_modules\\.bin\\vitest.CMD", ["run", ...tests], pwaCwd);
+    return;
+  }
+  run("pnpm", ["-C", "apps/pwa", "exec", "vitest", "run", ...tests]);
 };
 
 const main = () => {
@@ -30,15 +49,16 @@ const main = () => {
   run("pnpm", ["release:artifact-version-contract-check"]);
 
   console.log("[release:test-pack] Running apps/pwa typecheck...");
-  run("pnpm", ["-C", "apps/pwa", "exec", "tsc", "--noEmit", "--pretty", "false"]);
+  runPwaTypecheck();
+
+  console.log("[release:test-pack] Checking offline UI asset policy...");
+  run("pnpm", ["offline:asset-policy:check"]);
+
+  console.log("[release:test-pack] Checking streaming update manifest contract...");
+  run("pnpm", ["release:streaming-update-contract:check"]);
 
   console.log("[release:test-pack] Running focused reliability/runtime/profile/storage/P2P tests...");
-  run("pnpm", [
-    "-C",
-    "apps/pwa",
-    "exec",
-    "vitest",
-    "run",
+  runPwaVitest([
     "app/features/runtime/runtime-capabilities.test.ts",
     "app/features/runtime/native-adapters.test.ts",
     "app/features/runtime/native-event-adapter.test.ts",
@@ -47,6 +67,8 @@ const main = () => {
     "app/features/runtime/protocol-acl-parity.test.ts",
     "app/features/runtime/components/runtime-activation-manager.test.tsx",
     "app/features/runtime/components/runtime-activation-transport-gate.integration.test.tsx",
+    "app/components/pwa-service-worker-registrar.test.tsx",
+    "app/features/updates/services/streaming-update-policy.test.ts",
     "app/shared/public-url.test.ts",
     "app/lib/notification-service.test.ts",
     "app/lib/background-service.test.ts",

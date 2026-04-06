@@ -62,6 +62,7 @@ export interface SidebarProps {
     clearHistory: (conversationId: string) => void;
     onClearHistory: () => void;
     isPeerOnline?: (publicKeyHex: PublicKeyHex) => boolean;
+    showHistorySyncNotice?: boolean;
 }
 
 export function Sidebar({
@@ -90,6 +91,7 @@ export function Sidebar({
     hideConversation,
     onClearHistory
     , isPeerOnline
+    , showHistorySyncNotice = false
 }: SidebarProps) {
     const { t } = useTranslation();
     const router = useRouter();
@@ -402,6 +404,21 @@ export function Sidebar({
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        ) : showHistorySyncNotice && pinnedConversations.length === 0 && cappedDms.length === 0 && cappedCommunities.length === 0 ? (
+                            <div className="space-y-2 p-3">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={`sync-skeleton-${i}`} className="flex items-start gap-4 p-3 h-20 rounded-xl border border-indigo-500/10 bg-indigo-500/5">
+                                        <div className="h-12 w-12 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+                                        <div className="flex-1 space-y-3 py-1">
+                                            <div className="h-3 w-1/3 rounded bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+                                            <div className="h-3 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+                                        </div>
+                                    </div>
+                                ))}
+                                <p className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-700/80 dark:text-indigo-300/80">
+                                    Syncing history on this device...
+                                </p>
                             </div>
                         ) : (
                             <>

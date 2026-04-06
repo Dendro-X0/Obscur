@@ -42,6 +42,7 @@ Tracked sync surfaces include:
 pnpm version:check
 pnpm docs:check
 pnpm release:integrity-check
+pnpm release:streaming-update-contract:check
 pnpm release:ci-signal-check
 pnpm release:artifact-matrix-check
 pnpm release:artifact-version-contract-check
@@ -70,8 +71,9 @@ From `.github/workflows/release.yml`:
 1. Desktop bundles (Windows/macOS/Linux)
 2. Android APK/AAB + metadata
 3. Web/PWA static artifact
-4. Optional iOS lane (when signing prerequisites exist)
-5. Artifact verification + release publication
+4. Streaming update policy manifest artifact (`streaming-update-policy.json`)
+5. Optional iOS lane (when signing prerequisites exist)
+6. Artifact verification + release publication
 
 Release summary signals include:
 1. `android_job_result`

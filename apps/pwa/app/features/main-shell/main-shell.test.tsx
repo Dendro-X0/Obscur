@@ -364,6 +364,7 @@ vi.mock("@/app/features/account-sync/services/account-sync-ui-policy", () => ({
   resolveAccountSyncUiPolicy: () => ({
     showRestoreProgress: false,
     showMissingSharedDataWarning: false,
+    showInitialHistorySyncNotice: false,
   }),
 }));
 

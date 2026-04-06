@@ -529,6 +529,16 @@ jobs:
         with:
           name: mobile-ios
           path: ./release-assets/ios
+      
+      - name: Build streaming update manifest from downloaded artifacts
+        run: pnpm release:streaming-update-manifest:build -- --assets-dir release-assets --output release-assets/streaming-update-policy.json --release-notes-url "https://github.com/${{ github.repository }}/releases/latest"
+
+      - name: Upload streaming update manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: streaming-update-manifest
+          path: release-assets/streaming-update-policy.json
+          if-no-files-found: error
 
       - name: Run desktop artifact version parity check
         run: pnpm release:artifact-version-parity -- --assets-dir release-assets --skip-android
@@ -684,6 +694,12 @@ jobs:
           name: mobile-ios
           path: ./release-assets/ios
 
+      - name: Download Streaming Update Manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: streaming-update-manifest
+          path: ./release-assets/streaming-update
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -700,3 +716,4 @@ jobs:
             ./release-assets/android/**/*
             ./release-assets/web/**/*
             ./release-assets/ios/**/*
+            ./release-assets/streaming-update/**/*

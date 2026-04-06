@@ -3185,10 +3185,6 @@ function NostrMessengerContent() {
 
   const isIdentityUnlocked = identity.state.status === "unlocked";
   const shouldShowLockScreen = (isLocked || identity.state.status === "locked") && !!identity.state.stored;
-  const accountSyncUiPolicy = resolveAccountSyncUiPolicy({
-    isIdentityUnlocked,
-    snapshot: accountSyncSnapshot,
-  });
   const activeProfileId = getActiveProfileIdSafe();
   const projectionReadAuthority = useMemo(() => (
     resolveProjectionReadAuthority({
@@ -3200,6 +3196,7 @@ function NostrMessengerContent() {
   const showProjectionScopeMismatchNotice = isIdentityUnlocked
     && projectionReadAuthority.reason === "projection_scope_mismatch";
   const projectionScopeMismatchLogKeyRef = useRef<string | null>(null);
+  const historySyncNoticeLogKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!showProjectionScopeMismatchNotice) {
@@ -3248,6 +3245,52 @@ function NostrMessengerContent() {
       return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
     }, 0)
   ), [selectedConversation?.id, unreadByConversationId, visibleChatsList]);
+  const hasVisibleConversations = visibleChatsList.length > 0;
+  const accountSyncUiPolicy = resolveAccountSyncUiPolicy({
+    isIdentityUnlocked,
+    snapshot: accountSyncSnapshot,
+    projectionSnapshot: accountProjectionSnapshot,
+    hasVisibleConversations,
+  });
+  useEffect(() => {
+    if (!accountSyncUiPolicy.showInitialHistorySyncNotice) {
+      historySyncNoticeLogKeyRef.current = null;
+      return;
+    }
+    const logKey = [
+      activeProfileId,
+      accountSyncSnapshot.phase,
+      accountSyncSnapshot.status,
+      accountProjectionSnapshot.phase,
+      accountProjectionSnapshot.status,
+      myPublicKeyHex ?? "none",
+    ].join("|");
+    if (historySyncNoticeLogKeyRef.current === logKey) {
+      return;
+    }
+    historySyncNoticeLogKeyRef.current = logKey;
+    logAppEvent({
+      name: "messaging.history_sync_notice_visible",
+      level: "info",
+      scope: { feature: "messaging", action: "history_sync_notice" },
+      context: {
+        profileId: activeProfileId,
+        accountSyncPhase: accountSyncSnapshot.phase,
+        accountSyncStatus: accountSyncSnapshot.status,
+        projectionPhase: accountProjectionSnapshot.phase,
+        projectionStatus: accountProjectionSnapshot.status,
+        accountPublicKeyHex: myPublicKeyHex ?? null,
+      },
+    });
+  }, [
+    accountProjectionSnapshot.phase,
+    accountProjectionSnapshot.status,
+    accountSyncSnapshot.phase,
+    accountSyncSnapshot.status,
+    accountSyncUiPolicy.showInitialHistorySyncNotice,
+    activeProfileId,
+    myPublicKeyHex,
+  ]);
 
   if (!isChatRoute) {
     return null;
@@ -3302,6 +3345,7 @@ function NostrMessengerContent() {
             clearHistory={clearHistory}
             onClearHistory={requestsInbox.clearHistory}
             isPeerOnline={isPeerOnlineByEvidence}
+            showHistorySyncNotice={accountSyncUiPolicy.showInitialHistorySyncNotice}
             onAcceptRequest={(pk) => {
               const requestEventId = requestsInbox.state.items.find(
                 (item) => item.peerPublicKeyHex === (pk as PublicKeyHex) && !item.isOutgoing
@@ -3363,6 +3407,11 @@ function NostrMessengerContent() {
           <span className="font-semibold">Account Restore Warning:</span> Shared account data was not found on relays yet. Local identity access remains active.
         </div>
       ) : null}
+      {accountSyncUiPolicy.showInitialHistorySyncNotice ? (
+        <div className="border-b border-indigo-500/20 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-900 dark:text-indigo-100">
+          <span className="font-semibold">Syncing account history:</span> This device is still restoring contacts and messages. Initial recovery can take a few minutes.
+        </div>
+      ) : null}
       {showProjectionScopeMismatchNotice ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-orange-500/25 bg-orange-500/10 px-4 py-2 text-sm text-orange-900 dark:text-orange-100">
           <span className="font-semibold">{t("messaging.profileScopeMismatchNoticeTitle", "Profile Scope Notice")}:</span>
@@ -3392,6 +3441,7 @@ function NostrMessengerContent() {
             relayStatus={relayStatus}
             onCopyMyPubkey={handleCopyMyPubkey}
             onCopyChatLink={handleCopyChatLink}
+            showHistorySyncNotice={accountSyncUiPolicy.showInitialHistorySyncNotice}
           />
         ) : (
           <ChatView
