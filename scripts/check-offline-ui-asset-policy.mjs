@@ -8,6 +8,7 @@ const shellFiles = [
   "apps/pwa/app/layout.tsx",
   "apps/pwa/app/globals.css",
   "apps/pwa/app/components/pwa-service-worker-registrar.tsx",
+  "apps/pwa/public/sw.js",
   "apps/pwa/public/manifest.webmanifest",
 ];
 
@@ -97,6 +98,15 @@ const main = async () => {
     errors.push("[service-worker-native-runtime-gate] apps/pwa/app/components/pwa-service-worker-registrar.tsx (expected hasNativeRuntime gate)");
   }
 
+  const swPath = path.join(repoRoot, "apps/pwa/public/sw.js");
+  const swText = await fs.readFile(swPath, "utf8");
+  if (!swText.includes("obscur-app-shell-")) {
+    errors.push("[service-worker-cache-owner] apps/pwa/public/sw.js (expected obscur-app-shell cache owner)");
+  }
+  if (!swText.includes("request.mode === \"navigate\"")) {
+    errors.push("[service-worker-navigation-handler] apps/pwa/public/sw.js (expected navigation fetch handling)");
+  }
+
   const manifestPath = path.join(repoRoot, "apps/pwa/public/manifest.webmanifest");
   const manifestText = await fs.readFile(manifestPath, "utf8");
   let manifest;
@@ -159,4 +169,3 @@ void main().catch((error) => {
   console.error("offline:asset-policy check crashed:", error);
   process.exit(1);
 });
-

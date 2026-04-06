@@ -1,0 +1,25 @@
+{
+  "executedAtUtc": "2026-04-06T05:29:05.182Z",
+  "url": "http://127.0.0.1:3352",
+  "swScriptStatus": {
+    "ok": true,
+    "status": 200,
+    "contentType": "application/javascript; charset=UTF-8"
+  },
+  "registrationState": null,
+  "controllerReady": false,
+  "onlineTitle": "Obscur",
+  "offlineNavigation": {
+    "ok": false,
+    "error": "Error: page.goto: net::ERR_INTERNET_DISCONNECTED at http://127.0.0.1:3352/\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:3352/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  },
+  "offlineSnapshot": {
+    "title": "",
+    "hasController": false,
+    "bodyTextSample": ""
+  },
+  "artifacts": [
+    "docs/assets/demo/v1.3.8/raw/pwa-online-sw-probe.png",
+    "docs/assets/demo/v1.3.8/raw/pwa-offline-sw-probe.png"
+  ]
+}

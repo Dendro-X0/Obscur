@@ -1,12 +1,12 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-05T16:17:17Z
+- Last Updated (UTC): 2026-04-06T06:20:38Z
 - Session Status: in-progress
-- Active Owner: v1.3.8 offline shell + streaming updater contract boundary
+- Active Owner: v1.3.8 M2 replay closeout (offline shell evidence + updater replay boundary)
 
 ## Active Objective
 
-Close the v1.3.8 M1 technical scope with evidence-backed offline shell/update contracts and keep M2/M3 closeout blockers explicit until replay + production verification are complete.
+Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep remaining updater + production verification blockers explicit until M3 closeout.
 
 ## Current Snapshot
 
@@ -25,6 +25,18 @@ Close the v1.3.8 M1 technical scope with evidence-backed offline shell/update co
   - Encrypted account backup restore/hydration now quarantines delete-command DM rows and their targeted historical rows before chat-state restore/import, and chat preview rows no longer keep command payload snippets as `lastMessage`.
   - Phase M1 now has a canonical offline UI asset inventory (`docs/roadmap/v1.3.8-offline-ui-asset-inventory.md`) and an executable guard (`pnpm offline:asset-policy:check`) wired into `pwa-ci-scan` and `release:test-pack`.
 - What changed in this thread:
+  - Committed and pushed release-prep scope to `main` (`339b9da9`) without deleting the v1.3.8 roadmap file.
+  - Initialized a dedicated v1.3.8 replay packet:
+    - `docs/assets/demo/v1.3.8/README.md`
+    - `docs/assets/demo/v1.3.8/manual-verification-checklist.md`
+    - `docs/assets/demo/v1.3.8/runtime-evidence-summary.json`
+    - raw/gifs placeholder READMEs.
+  - Started M2 replay capture execution:
+    - built desktop artifacts via `pnpm -C apps/desktop build` (Windows NSIS output produced),
+    - captured initial PWA offline replay artifacts via Playwright automation (`pwa-online.png`, `pwa-offline.png`, replay JSON/startup log).
+  - Resolved the PWA replay blocker: stale generated SW artifacts were causing install/control failures (`swControlled=false`) due old build-id precache URLs.
+  - Landed a repository-owned service worker owner path (`apps/pwa/public/sw.js`) and tightened offline asset policy checks to require SW navigation/cache contracts.
+  - Reran production-mode offline replay; PWA now passes control/offline/reconnect checks (`swControlled=true`, `offlineBootOk=true`, `offlineNavOk=true`).
   - Added streaming update policy contract module + tests (`streaming-update-policy.ts`, `streaming-update-policy.test.ts`) and integrated policy enforcement into `DesktopUpdater` (rollout, kill switch, min-safe, failure classification).
   - Added release update-contract checks and generation tooling:
     - `scripts/check-streaming-update-contract.mjs`
@@ -95,6 +107,16 @@ Close the v1.3.8 M1 technical scope with evidence-backed offline shell/update co
 - `.\node_modules\.bin\vitest.CMD run app/features/updates/services/streaming-update-policy.test.ts app/components/pwa-service-worker-registrar.test.tsx app/features/main-shell/main-shell.test.tsx` (from `apps/pwa`, 14/14 passing)
 - `pnpm.cmd docs:check` (passed)
 - `pnpm.cmd release:test-pack -- --skip-preflight` (passed; includes new streaming update contract gate + focused tests)
+- `pnpm.cmd -C apps/pwa build` (passed; production bundle baseline for replay)
+- `pnpm.cmd release:streaming-update-manifest:build -- --assets-dir release-assets --output docs/assets/demo/v1.3.8/raw/streaming-update-policy.generated.json` (expected fail; missing `release-assets/*` inputs in local workspace)
+- `pnpm.cmd -C apps/desktop build` (passed with escalation; produced `apps/desktop/src-tauri/target/release/bundle/nsis/Obscur_1.3.7_x64-setup.exe`)
+- `pnpm.cmd -C apps/pwa exec playwright install chromium` (passed with escalation; replay runtime dependency installed)
+- automated offline replay probe script (Node + Playwright; artifacts in `docs/assets/demo/v1.3.8/raw/`)
+- `pnpm.cmd offline:asset-policy:check` (passed after SW owner hardening)
+- `pnpm.cmd -C apps/pwa build` (passed after SW owner hardening)
+- `.\node_modules\.bin\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing)
+- `.\node_modules\.bin\vitest.CMD run app/features/main-shell/main-shell.test.tsx app/components/pwa-service-worker-registrar.test.tsx app/features/account-sync/services/account-sync-ui-policy.test.ts` (from `apps/pwa`, 10/10 passing)
+- extended production replay script (Node + Playwright via `@playwright/test`; artifacts include `pwa-offline-settings.png`, `pwa-reconnect.png`, updated replay JSON)
 
 ## Changed Files
 
@@ -149,13 +171,16 @@ Close the v1.3.8 M1 technical scope with evidence-backed offline shell/update co
 - `apps/pwa/app/features/updates/services/streaming-update-policy.test.ts`
 - `apps/pwa/app/components/pwa-service-worker-registrar.test.tsx`
 - `apps/pwa/app/components/desktop-updater.tsx`
+- `apps/pwa/public/sw.js`
+- `docs/assets/demo/v1.3.8/manual-verification-checklist.md`
+- `docs/assets/demo/v1.3.8/runtime-evidence-summary.json`
 
 ## Open Risks Or Blockers
 
 - M2 manual replay evidence is still open:
-  - desktop + PWA offline boot/degraded UX replay,
-  - in-app update replay from previous stable build to candidate build.
-- M2 diagnostics-bundle capture is still open; no canonical replay artifact bundle has been attached in docs for this lane yet.
+  - desktop offline/degraded UX replay is still pending (PWA production replay now passes and artifacts are attached),
+  - in-app update replay from previous stable build to candidate build (needs explicit previous-stable + candidate replay harness artifacts/context).
+- M2 diagnostics-bundle capture is still open for updater success/failure/rollout/min-safe paths; offline PWA diagnostics are now attached.
 - M3 production closeout items are still open:
   - publish release tag for this scope,
   - verify updater path in production,
@@ -164,7 +189,9 @@ Close the v1.3.8 M1 technical scope with evidence-backed offline shell/update co
 
 ## Next Atomic Step
 
-Run M2 manual replay evidence (offline desktop/PWA + in-app update previous-stable->candidate), attach diagnostics bundle refs, then execute M3 publish/verification closeout before considering roadmap deletion.
+Complete remaining M2 manual replays: desktop offline/degraded UX and in-app updater success/failure/rollout/min-safe, then run M3 tag + production updater verification before roadmap deletion.
+
+
 
 
 
@@ -471,4 +498,14 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Run M2 manual replay evidence (offline desktop/PWA + in-app update previous-stable->candidate), attach diagnostics bundle refs, then execute M3 publish/verification closeout before considering roadmap deletion.
+### 2026-04-06T04:48:12Z checkpoint
+- Summary: Started M2 replay execution after pushing main commit 339b9da9: initialized docs/assets/demo/v1.3.8 evidence packet, built desktop artifact locally, installed Playwright Chromium, and captured first PWA offline replay probe artifacts. Probe currently fails pass criteria (swControlled=false, offline reload ERR_INTERNET_DISCONNECTED), so offline replay remains in-progress.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Continue M2 by resolving PWA SW-control offline replay path and capturing passing offline/degraded/reconnect evidence, then run updater success/failure replay evidence before M3 publish verification.
+### 2026-04-06T06:20:38Z checkpoint
+- Summary: Resolved v1.3.8 PWA offline replay blocker by replacing stale generated SW path with repository-owned apps/pwa/public/sw.js + policy gate hardening; production replay now passes swControlled/offline boot/offline navigation/reconnect and release:test-pack remains green.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Complete remaining M2 manual replays: desktop offline/degraded UX and in-app updater success/failure/rollout/min-safe, then run M3 tag + production updater verification before roadmap deletion.
 <!-- CONTEXT_CHECKPOINTS_END -->

@@ -1,0 +1,483 @@
+﻿{
+    "executedAtUtc":  "2026-04-06T05:48:33.0002137Z",
+    "base":  "http://127.0.0.1:3360",
+    "swStatus":  200,
+    "precacheCount":  89,
+    "failureCount":  79,
+    "failures":  [
+                     {
+                         "url":  "/_next/static/P_FO0p04p8fVYA8aztIXK/_buildManifest.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/P_FO0p04p8fVYA8aztIXK/_ssgManifest.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/1409-c670ef7a627cba28.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/1598-e1e24c5585cd922a.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/2179-423fe442ee9d1230.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/2650-e6915f8751b7378e.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/2716-1284102716db5a4b.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/3008.30525682ca04fde7.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/3215-88baa275d6267e98.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/3270-8368404890bdf65f.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/3495-10ec50263388266e.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/3727.0e6a976c56af4e90.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/3912-37d879cbea5c14aa.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/4448-a75408886ce63b98.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/45378054-1f25a7329c817092.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/4731.1d308fbc1fb940fa.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/4845-bd44d23c1dec4df7.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/4a2a0ca9-c1831fa2f8cd418d.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/5123-d8e2bc6113f7d7b8.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/5459.d43433904ab409de.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/5607.da87d3e9116d9c34.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/5714.61ed00e1d197f73e.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/5722-013c2b9c1222622c.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/5785.bc190aed76dfef4f.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/5826.678bbb251a846471.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/6246-ff94b3a3f7b2e178.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/6331-716c072be6eeb19f.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/7431-7a235dff5cac5860.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/7698-3d575ba349cd932b.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/7841-e89bfb33aabea537.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/7906-0a2c873b2a7fa92f.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/8343-31d8cbf3d431f246.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/8739.445014f2c5667431.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/8817.07df6f113147c1b7.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/8902-5c4b0a8d71c1d6ff.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/8ae03caa.f344913db037ba43.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/9010-949f781dc7c4839a.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/9779-34e4b4ec8634aef2.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/9984-f01537173f41ce10.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/_global-error/page-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/_not-found/page-aab86094d2b95a4e.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/api/link-preview/route-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/api/upload/route-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/api/v1/bootstrap/route-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/apple-touch-icon.png/route-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/download/page-06a929aa7a478a45.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/groups/%5B...id%5D/page-963806968cf01f13.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/icon-192.png/route-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/icon-512.png/route-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/invites/page-247c3d218c1ac8f3.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/layout-e4615d378ae5092a.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/loading-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/network/%5Bpubkey%5D/page-815f0f5bda96219e.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/network/page-41c1f159f8f4dd61.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/page-4bbbd10ef6e8b1d6.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/profile/page-5a3adfdf57e51b5f.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/search/page-e02641958c25def8.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/settings/page-ce21a4e784e5bef3.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/app/vault/page-9b8837aba2fa9976.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/framework-75fe0e98de42852d.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/main-298cde9c9951d69f.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/main-app-b15fa51fc56d7be6.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/next/dist/client/components/builtin/app-error-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/next/dist/client/components/builtin/forbidden-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/next/dist/client/components/builtin/global-error-46594b0f9d6863c1.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/next/dist/client/components/builtin/not-found-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/next/dist/client/components/builtin/unauthorized-4b9f644cebdda1fe.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/polyfills-42372ed130431b0a.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/chunks/webpack-01952a224eec0f37.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/css/0ee28025fb146c8a.css",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/css/4cc528650c59751c.css",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/css/fc0549cf7d2e7de6.css",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/media/4cf2300e9c8272f7-s.p.woff2",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/media/747892c23ea88013-s.woff2",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/media/8d697b304b401681-s.woff2",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/media/93f479601ee12b01-s.p.woff2",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/media/9610d9e46709d722-s.woff2",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/_next/static/media/ba015fad6dcf6784-s.woff2",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     },
+                     {
+                         "url":  "/swe-worker-5c72df51bb1f6ee0.js",
+                         "status":  404,
+                         "ok":  false,
+                         "error":  "The remote server returned an error: (404) Not Found."
+                     }
+                 ]
+}

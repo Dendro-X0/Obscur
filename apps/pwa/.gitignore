@@ -41,7 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 # PWA
-public/sw.js
+# SW owner is repository-managed; generated sourcemaps/workbox blobs remain ignored.
+!public/sw.js
 public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map
