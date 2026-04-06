@@ -1,7 +1,7 @@
 {
   "version": "1.3.8",
-  "status": "in_progress_m2_pwa_offline_pass_desktop_updater_pending",
-  "lastUpdatedUtc": "2026-04-06T06:14:46Z",
+  "status": "in_progress_m3_tag_published_updater_verification_pending",
+  "lastUpdatedUtc": "2026-04-06T06:33:00Z",
   "automatedEvidence": {
     "docsCheck": "pass",
     "offlineAssetPolicyCheck": "pass",
@@ -37,6 +37,6 @@
     "Desktop offline-state/manual degraded-UX replay remains open.",
     "In-app update replay requires previous stable + candidate artifacts and signed manifest endpoint context.",
     "Manual replay evidence not yet complete for updater success/failure/rollout/min-safe paths.",
-    "Production tag/update verification pending."
+    "Release tag v1.3.8 is published; production updater-path verification is still pending."
   ]
 }

@@ -1,8 +1,8 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-06T06:22:49Z
+- Last Updated (UTC): 2026-04-06T06:36:32Z
 - Session Status: in-progress
-- Active Owner: v1.3.8 M2 replay closeout (offline shell evidence + updater replay boundary)
+- Active Owner: v1.3.8 M3 closeout (tag published, production updater verification pending)
 
 ## Active Objective
 
@@ -25,6 +25,10 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
   - Encrypted account backup restore/hydration now quarantines delete-command DM rows and their targeted historical rows before chat-state restore/import, and chat preview rows no longer keep command payload snippets as `lastMessage`.
   - Phase M1 now has a canonical offline UI asset inventory (`docs/roadmap/v1.3.8-offline-ui-asset-inventory.md`) and an executable guard (`pnpm offline:asset-policy:check`) wired into `pwa-ci-scan` and `release:test-pack`.
 - What changed in this thread:
+  - Published v1.3.8 release to origin:
+    - release commit `92c4b29d` (`release: v1.3.8`) pushed to `main`,
+    - tag `v1.3.8` created locally and pushed to `origin`.
+  - Version contract is now aligned at `1.3.8` across release-tracked manifests (`pnpm version:sync`, `pnpm version:check`).
   - Committed and pushed release-prep scope to `main` (`339b9da9`) without deleting the v1.3.8 roadmap file.
   - Initialized a dedicated v1.3.8 replay packet:
     - `docs/assets/demo/v1.3.8/README.md`
@@ -182,14 +186,14 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
   - in-app update replay from previous stable build to candidate build (needs explicit previous-stable + candidate replay harness artifacts/context).
 - M2 diagnostics-bundle capture is still open for updater success/failure/rollout/min-safe paths; offline PWA diagnostics are now attached.
 - M3 production closeout items are still open:
-  - publish release tag for this scope,
-  - verify updater path in production,
+  - verify updater path in production for the published `v1.3.8` tag,
   - append final checkpoint marking plan complete.
 - Roadmap deletion guard remains active; file removal is blocked until the remaining M2/M3 closeout conditions are truly complete.
 
 ## Next Atomic Step
 
-Execute remaining manual replays (desktop offline state + in-app updater success/failure/rollout/min-safe), then publish/verify v1.3.8 tag in production and only then remove the roadmap file.
+Run updater production verification for v1.3.8 (success/failure/rollout/min-safe), capture diagnostics artifacts, then append final completion checkpoint and remove roadmap file only if guard conditions are fully satisfied.
+
 
 
 
@@ -514,4 +518,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Execute remaining manual replays (desktop offline state + in-app updater success/failure/rollout/min-safe), then publish/verify v1.3.8 tag in production and only then remove the roadmap file.
+### 2026-04-06T06:36:32Z checkpoint
+- Summary: Published v1.3.8 release commit/tag (92c4b29d, tag v1.3.8) to origin and updated roadmap/evidence/handoff truth: release is out, but production updater-path verification and remaining M2 updater replay evidence still block roadmap deletion.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run updater production verification for v1.3.8 (success/failure/rollout/min-safe), capture diagnostics artifacts, then append final completion checkpoint and remove roadmap file only if guard conditions are fully satisfied.
 <!-- CONTEXT_CHECKPOINTS_END -->

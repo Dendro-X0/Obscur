@@ -32,6 +32,7 @@ Mark each gate after completing replay on desktop + PWA targets.
 
 - [ ] Manual verification pass accepted for `v1.3.8` closeout.
 - Notes:
+  - `v1.3.8` tag has been pushed to `origin`; production updater-path verification remains open.
   - 2026-04-06 UTC production replay confirms SW control and offline reload success:
     `raw/pwa-offline-replay.json` (`swControlled=true`, `offlineBootOk=true`, `offlineNavOk=true`).
   - New replay artifacts captured:
