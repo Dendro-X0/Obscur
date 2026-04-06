@@ -113,7 +113,7 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 - `pnpm.cmd release:test-pack -- --skip-preflight` (passed; includes new streaming update contract gate + focused tests)
 - `pnpm.cmd -C apps/pwa build` (passed; production bundle baseline for replay)
 - `pnpm.cmd release:streaming-update-manifest:build -- --assets-dir release-assets --output docs/assets/demo/v1.3.8/raw/streaming-update-policy.generated.json` (expected fail; missing `release-assets/*` inputs in local workspace)
-- `pnpm.cmd -C apps/desktop build` (passed with escalation; produced `apps/desktop/src-tauri/target/release/bundle/nsis/Obscur_1.3.7_x64-setup.exe`)
+- `pnpm.cmd -C apps/desktop build` (passed with escalation; produced a local Windows NSIS installer in the desktop build output directory)
 - `pnpm.cmd -C apps/pwa exec playwright install chromium` (passed with escalation; replay runtime dependency installed)
 - automated offline replay probe script (Node + Playwright; artifacts in `docs/assets/demo/v1.3.8/raw/`)
 - `pnpm.cmd offline:asset-policy:check` (passed after SW owner hardening)
