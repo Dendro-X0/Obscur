@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-06T06:36:32Z
+- Last Updated (UTC): 2026-04-06T08:15:11Z
 - Session Status: in-progress
 - Active Owner: v1.3.8 M3 closeout (tag published, production updater verification pending)
 
@@ -192,7 +192,8 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 
 ## Next Atomic Step
 
-Run updater production verification for v1.3.8 (success/failure/rollout/min-safe), capture diagnostics artifacts, then append final completion checkpoint and remove roadmap file only if guard conditions are fully satisfied.
+Re-run docs-check/release workflow on latest main; if release publishing is still required from v1.3.8 lane, cut next patch tag from this fixed commit instead of retagging.
+
 
 
 
@@ -523,4 +524,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Run updater production verification for v1.3.8 (success/failure/rollout/min-safe), capture diagnostics artifacts, then append final completion checkpoint and remove roadmap file only if guard conditions are fully satisfied.
+### 2026-04-06T08:15:11Z checkpoint
+- Summary: Fixed CI docs-check failure by removing a non-repo local desktop build artifact path from docs/handoffs/current-session.md that failed stale-path-ref on clean runners.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Re-run docs-check/release workflow on latest main; if release publishing is still required from v1.3.8 lane, cut next patch tag from this fixed commit instead of retagging.
 <!-- CONTEXT_CHECKPOINTS_END -->
