@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+## [v1.3.9] - 2026-04-06
+
+### Fixed
+
+- Release-lane CI publication blocker:
+  - removed a stale local desktop build output path from
+    `docs/handoffs/current-session.md` that caused `docs:check` to fail on
+    clean GitHub runners,
+  - no runtime behavior change from `v1.3.8`; this patch is a release pipeline
+    recovery cut to allow full workflow publication from a clean commit.
+
 ## [v1.3.8] - 2026-04-06
 
 ### Fixed
