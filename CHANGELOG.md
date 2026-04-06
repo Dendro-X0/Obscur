@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [v1.3.8] - 2026-04-06
+
 ### Fixed
 
 - Windows NSIS installer now runs explicit preinstall/preuninstall hooks to
