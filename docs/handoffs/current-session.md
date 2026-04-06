@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-06T06:20:38Z
+- Last Updated (UTC): 2026-04-06T06:22:49Z
 - Session Status: in-progress
 - Active Owner: v1.3.8 M2 replay closeout (offline shell evidence + updater replay boundary)
 
@@ -189,7 +189,8 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 
 ## Next Atomic Step
 
-Complete remaining M2 manual replays: desktop offline/degraded UX and in-app updater success/failure/rollout/min-safe, then run M3 tag + production updater verification before roadmap deletion.
+Execute remaining manual replays (desktop offline state + in-app updater success/failure/rollout/min-safe), then publish/verify v1.3.8 tag in production and only then remove the roadmap file.
+
 
 
 
@@ -508,4 +509,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Complete remaining M2 manual replays: desktop offline/degraded UX and in-app updater success/failure/rollout/min-safe, then run M3 tag + production updater verification before roadmap deletion.
+### 2026-04-06T06:22:49Z checkpoint
+- Summary: Pushed commit 8349b12e to main with repository-owned PWA service worker owner path, offline policy gate hardening, and updated v1.3.8 replay packet. Production PWA replay now passes SW control/offline navigation/reconnect; roadmap/manual checklist updated to reflect remaining desktop + updater + M3 closeout blockers.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Execute remaining manual replays (desktop offline state + in-app updater success/failure/rollout/min-safe), then publish/verify v1.3.8 tag in production and only then remove the roadmap file.
 <!-- CONTEXT_CHECKPOINTS_END -->
