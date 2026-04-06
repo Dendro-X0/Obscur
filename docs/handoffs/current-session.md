@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-06T08:15:11Z
+- Last Updated (UTC): 2026-04-06T08:44:43Z
 - Session Status: in-progress
 - Active Owner: v1.3.8 M3 closeout (tag published, production updater verification pending)
 
@@ -192,7 +192,8 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 
 ## Next Atomic Step
 
-Re-run docs-check/release workflow on latest main; if release publishing is still required from v1.3.8 lane, cut next patch tag from this fixed commit instead of retagging.
+Monitor release workflow run #107 to completion; if publish succeeds, verify latest stable release/updater visibility and then close roadmap guard tasks.
+
 
 
 
@@ -529,4 +530,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Re-run docs-check/release workflow on latest main; if release publishing is still required from v1.3.8 lane, cut next patch tag from this fixed commit instead of retagging.
+### 2026-04-06T08:44:43Z checkpoint
+- Summary: Cut and pushed v1.3.9 from fixed CI commit 667c7117 to avoid retagging v1.3.8; release workflow triggered successfully (run #107, in_progress).
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Monitor release workflow run #107 to completion; if publish succeeds, verify latest stable release/updater visibility and then close roadmap guard tasks.
 <!-- CONTEXT_CHECKPOINTS_END -->
