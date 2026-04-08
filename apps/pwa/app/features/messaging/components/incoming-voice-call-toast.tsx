@@ -4,42 +4,67 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PhoneIncoming, PhoneOff, PhoneCall, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { createPortal } from "react-dom";
 import { UserAvatar } from "@/app/components/user-avatar";
+import {
+  incomingNotificationActionToneClassNames,
+  incomingNotificationCardBodyClassName,
+  incomingNotificationCardGlowClassName,
+  incomingNotificationCardMotion,
+  incomingNotificationCardShellClassName,
+} from "./incoming-notification-card-theme";
 
 type IncomingVoiceCallToastProps = Readonly<{
   isOpen: boolean;
   inviterDisplayName: string;
   inviterAvatarUrl?: string;
   roomIdHint: string;
+  anchorMode?: "chat" | "page";
+  onOpenChat?: () => void;
   onAccept: () => void;
   onDecline: () => void;
   onDismiss: () => void;
 }>;
 
+const CALL_OVERLAY_RIGHT_OFFSET = "max(1rem, calc(env(safe-area-inset-right) + 0.75rem))";
+const CALL_OVERLAY_BOTTOM_OFFSET_CHAT = "max(9rem, calc(env(safe-area-inset-bottom) + 8.5rem))";
+const CALL_OVERLAY_BOTTOM_OFFSET_PAGE = "max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))";
+
 export function IncomingVoiceCallToast({
   isOpen,
   inviterDisplayName,
   inviterAvatarUrl = "",
-  roomIdHint,
+  roomIdHint: _roomIdHint,
+  anchorMode = "page",
+  onOpenChat,
   onAccept,
   onDecline,
   onDismiss,
 }: IncomingVoiceCallToastProps): React.JSX.Element {
   const { t } = useTranslation();
-
-  return (
+  const bottomOffset = anchorMode === "chat"
+    ? CALL_OVERLAY_BOTTOM_OFFSET_CHAT
+    : CALL_OVERLAY_BOTTOM_OFFSET_PAGE;
+  const toastNode = (
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          initial={{ opacity: 0, y: 28, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 18, scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 320, damping: 24 }}
-          className="pointer-events-auto fixed bottom-5 right-5 z-[90] w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-black/10 bg-white/92 shadow-[0_24px_80px_rgba(2,6,23,0.28)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/88"
+          initial={incomingNotificationCardMotion.initial}
+          animate={incomingNotificationCardMotion.animate}
+          exit={incomingNotificationCardMotion.exit}
+          transition={incomingNotificationCardMotion.transition}
+          className={`pointer-events-auto w-[min(27rem,calc(100vw-1.5rem))] ${incomingNotificationCardShellClassName}`}
+          style={{
+            position: "fixed",
+            bottom: bottomOffset,
+            right: CALL_OVERLAY_RIGHT_OFFSET,
+            left: "auto",
+            zIndex: 2147483000,
+          }}
         >
           <div className="relative">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.18),transparent_45%),radial-gradient(circle_at_left,rgba(99,102,241,0.16),transparent_40%)]" />
-            <div className="relative p-4">
+            <div className={incomingNotificationCardGlowClassName} />
+            <div className={incomingNotificationCardBodyClassName}>
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="relative shrink-0">
@@ -61,9 +86,6 @@ export function IncomingVoiceCallToast({
                     <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
                       {inviterDisplayName}
                     </p>
-                    <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {t("messaging.voiceCallRoom", "Room")}: {roomIdHint}
-                    </p>
                   </div>
                 </div>
                 <button
@@ -79,7 +101,7 @@ export function IncomingVoiceCallToast({
                 <button
                   type="button"
                   onClick={onDecline}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-black uppercase tracking-widest text-rose-700 transition-colors hover:bg-rose-500/15 dark:text-rose-300"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 text-xs font-black uppercase tracking-widest text-rose-700 transition-colors hover:bg-rose-500/15 dark:border-rose-400/45 dark:text-rose-300"
                 >
                   <PhoneOff className="h-4 w-4" />
                   {t("common.decline", "Decline")}
@@ -87,16 +109,38 @@ export function IncomingVoiceCallToast({
                 <button
                   type="button"
                   onClick={onAccept}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/15 text-xs font-black uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-200"
+                  className={[
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors",
+                    incomingNotificationActionToneClassNames.positive,
+                  ].join(" ")}
                 >
                   <PhoneCall className="h-4 w-4" />
                   {t("common.accept", "Accept")}
                 </button>
               </div>
+              {onOpenChat ? (
+                <button
+                  type="button"
+                  onClick={onOpenChat}
+                  className={[
+                    "mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.14em] transition-colors",
+                    incomingNotificationActionToneClassNames.subtle,
+                  ].join(" ")}
+                >
+                  <PhoneCall className="h-4 w-4" />
+                  {t("messaging.openCallChat", "Open Chat")}
+                </button>
+              ) : null}
             </div>
           </div>
         </motion.div>
       ) : null}
     </AnimatePresence>
   );
+
+  if (typeof document === "undefined") {
+    return toastNode;
+  }
+
+  return createPortal(toastNode, document.body);
 }

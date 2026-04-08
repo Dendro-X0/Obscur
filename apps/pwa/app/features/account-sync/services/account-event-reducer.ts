@@ -1,5 +1,6 @@
 import type {
   AccountEvent,
+  AccountEventSource,
   AccountProjectionSnapshot,
   ContactProjection,
   MessageProjection,
@@ -76,27 +77,36 @@ const toConversationPreview = (value: string): string => {
 
 const upsertMessage = (
   current: AccountProjectionSnapshot,
-  message: MessageProjection
+  params: Readonly<{
+    message: MessageProjection;
+    source: AccountEventSource;
+  }>
 ): AccountProjectionSnapshot => {
-  const existingConversationMessages = current.messagesByConversationId[message.conversationId] ?? [];
+  const existingConversationMessages = current.messagesByConversationId[params.message.conversationId] ?? [];
   const byMessageId = new Map(existingConversationMessages.map((entry) => [entry.messageId, entry] as const));
-  byMessageId.set(message.messageId, message);
+  const wasMessageKnown = byMessageId.has(params.message.messageId);
+  byMessageId.set(params.message.messageId, params.message);
   const nextMessages = Array.from(byMessageId.values()).sort((left, right) => {
     if (left.eventCreatedAtUnixSeconds !== right.eventCreatedAtUnixSeconds) {
       return left.eventCreatedAtUnixSeconds - right.eventCreatedAtUnixSeconds;
     }
     return left.messageId.localeCompare(right.messageId);
   });
-  const currentConversation = current.conversationsById[message.conversationId];
+  const currentConversation = current.conversationsById[params.message.conversationId];
+  const shouldIncrementUnread = (
+    params.message.direction === "incoming"
+    && params.source === "relay_live"
+    && !wasMessageKnown
+  );
   const nextConversation = {
-    conversationId: message.conversationId,
-    peerPublicKeyHex: message.peerPublicKeyHex,
-    lastMessagePreview: toConversationPreview(message.plaintextPreview),
+    conversationId: params.message.conversationId,
+    peerPublicKeyHex: params.message.peerPublicKeyHex,
+    lastMessagePreview: toConversationPreview(params.message.plaintextPreview),
     lastMessageAtUnixMs: Math.max(
       currentConversation?.lastMessageAtUnixMs ?? 0,
-      message.eventCreatedAtUnixSeconds * 1000
+      params.message.eventCreatedAtUnixSeconds * 1000
     ),
-    unreadCount: message.direction === "incoming"
+    unreadCount: shouldIncrementUnread
       ? (currentConversation?.unreadCount ?? 0) + 1
       : (currentConversation?.unreadCount ?? 0),
   };
@@ -104,11 +114,11 @@ const upsertMessage = (
     ...current,
     conversationsById: {
       ...current.conversationsById,
-      [message.conversationId]: nextConversation,
+      [params.message.conversationId]: nextConversation,
     },
     messagesByConversationId: {
       ...current.messagesByConversationId,
-      [message.conversationId]: nextMessages,
+      [params.message.conversationId]: nextMessages,
     },
   };
 };
@@ -148,25 +158,31 @@ export const reduceAccountEvent = (
     }
     case "DM_RECEIVED": {
       next = upsertMessage(next, {
-        messageId: accountEvent.messageId,
-        conversationId: accountEvent.conversationId,
-        peerPublicKeyHex: accountEvent.peerPublicKeyHex,
-        direction: "incoming",
-        eventCreatedAtUnixSeconds: accountEvent.eventCreatedAtUnixSeconds,
-        plaintextPreview: accountEvent.plaintextPreview,
-        observedAtUnixMs: accountEvent.observedAtUnixMs,
+        source: accountEvent.source,
+        message: {
+          messageId: accountEvent.messageId,
+          conversationId: accountEvent.conversationId,
+          peerPublicKeyHex: accountEvent.peerPublicKeyHex,
+          direction: "incoming",
+          eventCreatedAtUnixSeconds: accountEvent.eventCreatedAtUnixSeconds,
+          plaintextPreview: accountEvent.plaintextPreview,
+          observedAtUnixMs: accountEvent.observedAtUnixMs,
+        },
       });
       break;
     }
     case "DM_SENT_CONFIRMED": {
       next = upsertMessage(next, {
-        messageId: accountEvent.messageId,
-        conversationId: accountEvent.conversationId,
-        peerPublicKeyHex: accountEvent.peerPublicKeyHex,
-        direction: "outgoing",
-        eventCreatedAtUnixSeconds: accountEvent.eventCreatedAtUnixSeconds,
-        plaintextPreview: accountEvent.plaintextPreview,
-        observedAtUnixMs: accountEvent.observedAtUnixMs,
+        source: accountEvent.source,
+        message: {
+          messageId: accountEvent.messageId,
+          conversationId: accountEvent.conversationId,
+          peerPublicKeyHex: accountEvent.peerPublicKeyHex,
+          direction: "outgoing",
+          eventCreatedAtUnixSeconds: accountEvent.eventCreatedAtUnixSeconds,
+          plaintextPreview: accountEvent.plaintextPreview,
+          observedAtUnixMs: accountEvent.observedAtUnixMs,
+        },
       });
       break;
     }

@@ -34,6 +34,11 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     const [hasRetriedWithBypass, setHasRetriedWithBypass] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
 
+    const resolveDuration = (audio: HTMLAudioElement | null): number => {
+        if (!audio) return 0;
+        return Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+    };
+
     useEffect(() => {
         setRuntimeSrc(src);
         setHasRetriedWithBypass(false);
@@ -51,16 +56,18 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     };
 
     const handleTimeUpdate = () => {
-        if (audioRef.current) {
-            setCurrentTime(audioRef.current.currentTime);
-            setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
-        }
+        const audio = audioRef.current;
+        if (!audio) return;
+        const nextDuration = resolveDuration(audio);
+        const nextCurrentTime = Number.isFinite(audio.currentTime) ? Math.max(0, audio.currentTime) : 0;
+        setCurrentTime(nextCurrentTime);
+        setProgress(nextDuration > 0 ? (nextCurrentTime / nextDuration) * 100 : 0);
     };
 
     const handleLoadedMetadata = () => {
-        if (audioRef.current) {
-            setDuration(audioRef.current.duration);
-        }
+        const audio = audioRef.current;
+        if (!audio) return;
+        setDuration(resolveDuration(audio));
     };
 
     const handleEnded = () => {
@@ -102,6 +109,18 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
         setIsMuted(nextMuted);
     };
 
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        const nextDuration = resolveDuration(audio);
+        if (nextDuration <= 0) return;
+        const nextProgress = Math.max(0, Math.min(100, Number(e.target.value)));
+        const nextTime = (nextProgress / 100) * nextDuration;
+        audio.currentTime = nextTime;
+        setCurrentTime(nextTime);
+        setProgress(nextProgress);
+    };
+
     const formatTime = (time: number) => {
         if (isNaN(time)) return "0:00";
         const mins = Math.floor(time / 60);
@@ -110,6 +129,7 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     };
 
     const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
+    const progressPercent = Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : 0;
     const recordedAtLabel = (
         voiceNoteMetadata?.isVoiceNote && typeof voiceNoteMetadata.recordedAtUnixMs === "number"
             ? formatVoiceNoteRecordedAtLabel(voiceNoteMetadata.recordedAtUnixMs)
@@ -233,10 +253,24 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
                     </div>
 
                     {/* Premium Progress Bar */}
-                    <div className="relative h-2 w-full bg-zinc-200/90 dark:bg-white/5 rounded-full overflow-hidden">
+                    <div className="group/seek relative h-2 w-full cursor-pointer rounded-full bg-zinc-200/90 dark:bg-white/5 overflow-hidden transition-all hover:h-2.5">
                         <div
                             className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-300"
-                            style={{ width: `${progress}%` }}
+                            style={{ width: `${progressPercent}%` }}
+                        />
+                        <div
+                            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-purple-500 bg-white opacity-0 shadow-lg transition-all duration-200 group-hover/seek:opacity-100"
+                            style={{ left: `calc(${progressPercent}% - 0.375rem)` }}
+                        />
+                        <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={0.1}
+                            value={progressPercent}
+                            onChange={handleSeek}
+                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            aria-label="Audio progress"
                         />
                     </div>
                 </div>

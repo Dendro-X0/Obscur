@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import { Share2, Copy, Link as LinkIcon, Sparkles, Loader2 } from "lucide-react";
+import { Share2, Copy, Link as LinkIcon, Sparkles, Loader2, Info } from "lucide-react";
 import { Card } from "@dweb/ui-kit";
 import { Button } from "@dweb/ui-kit";
 import { cn } from "@/app/lib/utils";
@@ -48,17 +48,39 @@ export const EmptyConversationView: React.FC<EmptyConversationViewProps> = ({
                 )}
 
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 w-full flex flex-col items-center">
-                    {showHistorySyncNotice ? (
-                        <div className="w-full rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-4 text-left">
-                            <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
+                    <div className={cn(
+                        "w-full rounded-2xl border p-4 text-left",
+                        showHistorySyncNotice
+                            ? "border-indigo-500/20 bg-indigo-500/10"
+                            : "border-zinc-500/20 bg-zinc-500/10"
+                    )}>
+                        <div className={cn(
+                            "flex items-center gap-2",
+                            showHistorySyncNotice
+                                ? "text-indigo-800 dark:text-indigo-200"
+                                : "text-zinc-700 dark:text-zinc-200"
+                        )}>
+                            {showHistorySyncNotice ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                <span className="text-xs font-black uppercase tracking-widest">Syncing account history</span>
-                            </div>
-                            <p className="mt-2 text-xs font-medium leading-relaxed text-indigo-900/90 dark:text-indigo-100/90">
-                                This is likely a fresh device restore. Contacts and message history are still loading and can take a few minutes.
-                            </p>
+                            ) : (
+                                <Info className="h-4 w-4" />
+                            )}
+                            <span className="text-xs font-black uppercase tracking-widest">
+                                {showHistorySyncNotice ? "Syncing account history" : "Missing contacts or chat history?"}
+                            </span>
                         </div>
-                    ) : null}
+                        <p className={cn(
+                            "mt-2 text-xs font-medium leading-relaxed",
+                            showHistorySyncNotice
+                                ? "text-indigo-900/90 dark:text-indigo-100/90"
+                                : "text-zinc-800/90 dark:text-zinc-100/90"
+                        )}>
+                            {t(
+                                "messaging.historySyncWaitHint",
+                                "If you do not see contacts or chat history yet, please wait a few minutes while loading and account data synchronization completes."
+                            )}
+                        </p>
+                    </div>
                     <div className="flex justify-center">
                         <div className="group relative">
                             <div className="absolute -inset-2 bg-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" aria-hidden="true"></div>

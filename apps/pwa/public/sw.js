@@ -124,3 +124,67 @@ self.addEventListener("message", (event) => {
     void self.skipWaiting();
   }
 });
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const notificationData = (
+      event.notification && typeof event.notification.data === "object"
+        ? event.notification.data
+        : {}
+    );
+    const href = typeof notificationData?.href === "string" && notificationData.href.length > 0
+      ? notificationData.href
+      : "/";
+    const actionFromButton = typeof event.action === "string" && event.action.length > 0
+      ? event.action
+      : null;
+    const overlayAction = actionFromButton
+      || (typeof notificationData?.overlayAction === "string"
+        ? notificationData.overlayAction
+        : null);
+
+    const windowClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    let targetClient = windowClients[0] ?? null;
+
+    if (targetClient) {
+      try {
+        await targetClient.focus();
+      } catch {
+        // best effort
+      }
+      if (typeof targetClient.navigate === "function") {
+        try {
+          await targetClient.navigate(href);
+        } catch {
+          // best effort
+        }
+      }
+    } else if (typeof self.clients.openWindow === "function") {
+      try {
+        targetClient = await self.clients.openWindow(href);
+      } catch {
+        targetClient = null;
+      }
+    }
+
+    if (!overlayAction) {
+      return;
+    }
+
+    const messagePayload = {
+      type: "OBSCUR_NOTIFICATION_CLICK",
+      overlayAction,
+    };
+
+    if (windowClients.length > 0) {
+      windowClients.forEach((client) => {
+        client.postMessage(messagePayload);
+      });
+      return;
+    }
+    if (targetClient && typeof targetClient.postMessage === "function") {
+      targetClient.postMessage(messagePayload);
+    }
+  })());
+});

@@ -14,6 +14,7 @@ export interface TauriWindow {
   maximize(): Promise<void>;
   unmaximize(): Promise<void>;
   close(): Promise<void>;
+  showAndFocus(): Promise<void>;
   setTitle(title: string): Promise<void>;
   isMaximized(): Promise<boolean>;
   setFullscreen(fullscreen: boolean): Promise<void>;
@@ -21,9 +22,30 @@ export interface TauriWindow {
 }
 
 export interface TauriNotification {
-  show(options: { title: string; body: string }): Promise<void>;
+  show(options: {
+    title: string;
+    body: string;
+    tag?: string;
+    data?: Record<string, unknown>;
+    requireInteraction?: boolean;
+    actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
+  }): Promise<void>;
   requestPermission(): Promise<"granted" | "denied" | "default">;
   isPermissionGranted(): Promise<boolean>;
+}
+
+export interface TauriTray {
+  setUnreadBadgeCount(unreadCount: number): Promise<void>;
+  setIncomingCallState(params: Readonly<{ callerName: string; roomId: string }> | null): Promise<void>;
+}
+
+export interface TauriIncomingCall {
+  getState(): Promise<Readonly<{
+    active: boolean;
+    callerName: string;
+    roomId: string;
+  }>>;
+  performAction(action: "accept" | "decline" | "dismiss" | "open_chat"): Promise<void>;
 }
 
 export interface TauriTheme {
@@ -44,6 +66,8 @@ export interface TauriFileSystem {
 export interface TauriAPI {
   window: TauriWindow;
   notification: TauriNotification;
+  tray: TauriTray;
+  incomingCall: TauriIncomingCall;
   theme: TauriTheme;
   updater: TauriUpdater;
   fileSystem: TauriFileSystem;
@@ -118,6 +142,10 @@ export function createTauriAPI(): TauriAPI {
         if (!isDesktop) return;
         await invokeTauri("window_close");
       },
+      async showAndFocus() {
+        if (!isDesktop) return;
+        await invokeTauri("window_show_and_focus");
+      },
       async setTitle(title: string) {
         if (!isDesktop) return;
         // Title setting is handled by Tauri's built-in API
@@ -146,7 +174,14 @@ export function createTauriAPI(): TauriAPI {
       },
     },
     notification: {
-      async show(options: { title: string; body: string }) {
+      async show(options: {
+        title: string;
+        body: string;
+        tag?: string;
+        data?: Record<string, unknown>;
+        requireInteraction?: boolean;
+        actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
+      }) {
         if (!isDesktop) {
           // Fallback to web notifications
           if ("Notification" in window && Notification.permission === "granted") {
@@ -154,7 +189,14 @@ export function createTauriAPI(): TauriAPI {
           }
           return;
         }
-        await invokeTauri("show_notification", { title: options.title, body: options.body });
+        await invokeTauri("show_notification", {
+          title: options.title,
+          body: options.body,
+          tag: options.tag,
+          data: options.data,
+          requireInteraction: options.requireInteraction,
+          actions: options.actions,
+        });
       },
       async requestPermission() {
         if (!isDesktop) {
@@ -178,6 +220,45 @@ export function createTauriAPI(): TauriAPI {
         }
         const result = await invokeTauri<boolean>("is_notification_permission_granted");
         return result ?? false;
+      },
+    },
+    tray: {
+      async setUnreadBadgeCount(unreadCount: number) {
+        if (!isDesktop) return;
+        await invokeTauri("set_tray_unread_badge_count", { unreadCount });
+      },
+      async setIncomingCallState(params: Readonly<{ callerName: string; roomId: string }> | null) {
+        if (!isDesktop) return;
+        await invokeTauri("set_tray_incoming_call_state", {
+          active: Boolean(params),
+          callerName: params?.callerName ?? null,
+          roomId: params?.roomId ?? null,
+        });
+      },
+    },
+    incomingCall: {
+      async getState() {
+        if (!isDesktop) {
+          return {
+            active: false,
+            callerName: "",
+            roomId: "",
+          };
+        }
+        const result = await invokeTauri<{
+          active?: boolean;
+          callerName?: string;
+          roomId?: string;
+        }>("desktop_get_incoming_call_state");
+        return {
+          active: result?.active === true,
+          callerName: typeof result?.callerName === "string" ? result.callerName : "",
+          roomId: typeof result?.roomId === "string" ? result.roomId : "",
+        };
+      },
+      async performAction(action: "accept" | "decline" | "dismiss" | "open_chat") {
+        if (!isDesktop) return;
+        await invokeTauri("desktop_incoming_call_action", { action });
       },
     },
     theme: {

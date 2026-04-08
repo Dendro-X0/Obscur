@@ -123,6 +123,70 @@ describe("account-event-reducer", () => {
     expect(projection?.messagesByConversationId[`${ACCOUNT}:${PEER}`]).toHaveLength(1);
     expect(projection?.messagesByConversationId[`${ACCOUNT}:${PEER}`][0]?.plaintextPreview).toBe("second");
     expect(projection?.sync.checkpointsByTimelineKey["dm:all"]).toBe(100);
+    expect(projection?.conversationsById[`${ACCOUNT}:${PEER}`]?.unreadCount).toBe(0);
+  });
+
+  it("does not inflate unread for relay_sync/bootstrap replay history but counts live incoming once", () => {
+    const conversationId = `${ACCOUNT}:${PEER}`;
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        source: "local_bootstrap",
+        type: "DM_RECEIVED",
+        eventId: "bootstrap-in-1",
+        idempotencyKey: "bootstrap-in-1",
+        observedAtUnixMs: 1_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "bootstrap-msg-1",
+        eventCreatedAtUnixSeconds: 10,
+        plaintextPreview: "bootstrap",
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        source: "relay_sync",
+        type: "DM_RECEIVED",
+        eventId: "sync-in-1",
+        idempotencyKey: "sync-in-1",
+        observedAtUnixMs: 2_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "sync-msg-1",
+        eventCreatedAtUnixSeconds: 20,
+        plaintextPreview: "sync",
+      }, 2),
+      createEvent({
+        ...baseMeta,
+        source: "relay_live",
+        type: "DM_RECEIVED",
+        eventId: "live-in-1",
+        idempotencyKey: "live-in-1",
+        observedAtUnixMs: 3_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "live-msg-1",
+        eventCreatedAtUnixSeconds: 30,
+        plaintextPreview: "live",
+      }, 3),
+      createEvent({
+        ...baseMeta,
+        source: "relay_live",
+        type: "DM_RECEIVED",
+        eventId: "live-in-duplicate",
+        idempotencyKey: "live-in-duplicate",
+        observedAtUnixMs: 3_500,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "live-msg-1",
+        eventCreatedAtUnixSeconds: 30,
+        plaintextPreview: "live-updated",
+      }, 4),
+    ]);
+
+    expect(projection).not.toBeNull();
+    expect(projection?.messagesByConversationId[conversationId]).toHaveLength(3);
+    expect(projection?.conversationsById[conversationId]?.unreadCount).toBe(1);
+    expect(projection?.conversationsById[conversationId]?.lastMessagePreview).toBe("live-updated");
   });
 
   it("does not regress accepted contact back to pending from stale request replay", () => {

@@ -1,12 +1,12 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-06T08:44:43Z
+- Last Updated (UTC): 2026-04-08T16:13:35Z
 - Session Status: in-progress
-- Active Owner: v1.3.8 M3 closeout (tag published, production updater verification pending)
+- Active Owner: Messaging two-user convergence recovery (B -> A receive visibility regression)
 
 ## Active Objective
 
-Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep remaining updater + production verification blockers explicit until M3 closeout.
+Restore deterministic two-user DM visibility (especially `B -> A`) and keep blocker evidence explicit while preserving the canonical incoming transport owner path.
 
 ## Current Snapshot
 
@@ -83,6 +83,7 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
   - Added `scripts/check-offline-ui-asset-policy.mjs` to enforce local-first shell asset contracts (no remote shell URLs, manifest local-icon contract, `/sw.js` registration owner check).
   - Added `pnpm offline:asset-policy:check` and wired it into `scripts/pwa-ci-scan.mjs` and `scripts/run-release-test-pack.mjs`.
   - Added a v1.3.8 Phase M1 inventory doc and updated roadmap/docs index references; marked two M1 checklist items complete in `docs/roadmap/v1.3.8-hybrid-offline-streaming-update-plan.md`.
+  - Added a canonical voice-call connect-timeout policy (`apps/pwa/app/features/messaging/services/realtime-voice-timeout-policy.ts`) and integrated bounded timeout extensions into `apps/pwa/app/features/main-shell/main-shell.tsx` for `connecting` sessions with transport-progress evidence, with explicit diagnostics (`messaging.realtime_voice.connect_timeout_extended`) and bounded end-of-call fallback.
 
 ## Evidence
 
@@ -121,6 +122,8 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 - `.\node_modules\.bin\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing)
 - `.\node_modules\.bin\vitest.CMD run app/features/main-shell/main-shell.test.tsx app/components/pwa-service-worker-registrar.test.tsx app/features/account-sync/services/account-sync-ui-policy.test.ts` (from `apps/pwa`, 10/10 passing)
 - extended production replay script (Node + Playwright via `@playwright/test`; artifacts include `pwa-offline-settings.png`, `pwa-reconnect.png`, updated replay JSON)
+- `.\\node_modules\\.bin\\vitest.CMD run app/features/messaging/services/realtime-voice-timeout-policy.test.ts app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-owner.test.ts` (from `apps/pwa`, 22/22 passing; executed with escalation due sandbox `spawn EPERM`)
+- `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing after timeout-policy integration)
 
 ## Changed Files
 
@@ -146,6 +149,8 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`
 - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`
 - `apps/pwa/app/features/main-shell/main-shell.tsx`
+- `apps/pwa/app/features/messaging/services/realtime-voice-timeout-policy.ts`
+- `apps/pwa/app/features/messaging/services/realtime-voice-timeout-policy.test.ts`
 - `apps/pwa/app/features/crypto/crypto-service-impl.ts`
 - `apps/pwa/app/features/crypto/__tests__/crypto-service-impl.test.ts`
 - `apps/pwa/app/features/messaging/controllers/enhanced-dm-controller.ts`
@@ -181,6 +186,10 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 
 ## Open Risks Or Blockers
 
+- New release-blocker (2026-04-06): two-user runtime replay reports `B -> A` DM visibility failure (A cannot see B messages consistently), which blocks reliable interaction QA and has not yet been reproduced by focused deterministic suites.
+- Evidence gap: focused owner-path suites are green, so the regression currently appears runtime/manual only and likely tied to a lifecycle/identity-state combination not covered by existing tests.
+- New voice-call blocker (2026-04-08): runtime reports ongoing call setup timeouts under real two-user conditions; timeout policy is now hardened with bounded extensions for connecting sessions with transport progress evidence, and connected-call waveform decay/dynamics were tightened to avoid a sticky reused voiceprint, but manual replay evidence is still required to confirm timeout-frequency reduction, live voiceprint motion, and no stuck-call regressions.
+- Notification follow-up polish (2026-04-08): desktop/browser notification payloads now deep-link to exact conversations for DM follow-up, and call notifications were simplified to a chat-follow-up owner path with no room IDs and no misleading accept/decline system-toast affordances; runtime verification is still required on Windows native to confirm which click/open-chat affordances the OS toast surface actually honors beyond the existing in-app and service-worker paths.
 - M2 manual replay evidence is still open:
   - desktop offline/degraded UX replay is still pending (PWA production replay now passes and artifacts are attached),
   - in-app update replay from previous stable build to candidate build (needs explicit previous-stable + candidate replay harness artifacts/context).
@@ -192,7 +201,48 @@ Close v1.3.8 M2 replay evidence with deterministic offline shell truth and keep 
 
 ## Next Atomic Step
 
-Monitor release workflow run #107 to completion; if publish succeeds, verify latest stable release/updater visibility and then close roadmap guard tasks.
+Investigate a native-branded Windows notification click bridge instead of WebView/browser notifications; user should retest that call/message toasts are back to normal Obscur branding while in-app card copy stays simplified.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -535,4 +585,254 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Monitor release workflow run #107 to completion; if publish succeeds, verify latest stable release/updater visibility and then close roadmap guard tasks.
+### 2026-04-06T10:10:44Z checkpoint
+- Summary: Enabled chat media seek controls for audio/video preview players by wiring progress bars to explicit range-driven currentTime updates with duration safety guards; added focused player seek regression tests.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run quick desktop/PWA manual replay on chat attachments (audio + video) to confirm drag seek UX feels correct and then continue remaining v1.3.8 production verification tasks.
+### 2026-04-06T10:44:29Z checkpoint
+- Summary: Added first-login history-sync notice persistence for empty-history device restores: main-shell now enforces a one-minute minimum visibility window for the existing account history sync notice (with per-profile/account first-run sentinel) while retaining policy-driven visibility, and all notice surfaces now share the same visibility state.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run manual fresh-device login replay to confirm the notice remains visible for at least 60 seconds, then verify it clears after hold expiry when restore state settles.
+### 2026-04-06T11:08:57Z checkpoint
+- Summary: Fixed DM unread inflation at account projection owner: incoming unread now increments only for new relay_live events (not relay_sync/local_bootstrap replay) and only once per messageId; added regression coverage for historical replay suppression and duplicate-live-event safety.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run a fresh-device restore replay and verify chat/request badges stay near zero after history sync, then confirm new live incoming messages increment unread dynamically.
+### 2026-04-06T11:22:21Z checkpoint
+- Summary: Updated empty conversation center panel with a persistent user-facing sync hint: when contacts/history are missing, it now explicitly tells users to wait a few minutes for loading and account-data synchronization; added focused component tests for both inactive/active sync notice states.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run a manual fresh-device empty-state replay to confirm the new hint is visible in the screenshot area and wording stays clear on desktop + PWA.
+### 2026-04-06T11:55:55Z checkpoint
+- Summary: Added canonical per-target notification preferences with chat-header bell toggles (DM/group), wired DesktopNotificationHandler message notifications to respect target-level mute state, and aligned legacy group notification toggles to the shared notification-target owner with focused tests.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run manual desktop + mobile background notification replay: verify global settings + per-chat bell toggles suppress/allow message popups for DM and group targets.
+### 2026-04-06T12:33:25Z checkpoint
+- Summary: Made chat-header notification bell explicitly interactive: click now triggers a callback action path (toast from main-shell) and applies a clear enabled/disabled style state with aria-pressed; added regression assertion for visual/state toggle.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run quick manual DM/group header replay and verify bell state, toast feedback, and per-chat mute behavior while receiving background messages.
+### 2026-04-06T12:52:30Z checkpoint
+- Summary: Added desktop drag-scroll control for chat timelines: ChatView now exposes a Drag Scroll toggle and MessageList supports guarded mouse pointer-drag scrolling (grab/grabbing cursors, click suppression after drag, interactive-target exclusions) so users can pan history like mobile without breaking normal controls.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run manual desktop replay: toggle Drag Scroll in an active DM/group, drag through history, confirm links/buttons still click normally when not dragging and accidental clicks are suppressed after drag gestures.
+### 2026-04-06T13:07:29Z checkpoint
+- Summary: Removed desktop drag-scroll mode from chat timeline due UX regression: deleted ChatView drag-scroll control, removed MessageList mouse pointer-drag scrolling handlers/cursor mode/click-suppression path, and reverted associated chat-view test additions.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manual desktop replay: verify chat timeline scroll/selection/media controls feel normal and no drag-scroll control is visible; continue with stable desktop UX path only.
+### 2026-04-06T13:49:20Z checkpoint
+- Summary: Improved incoming voice-call background handling across the shared runtime owner path. Added a canonical voice-call overlay action bridge module, wired incoming-call desktop notification clicks to dispatch `open_chat`, and added main-shell visibility/focus resume logic so hidden-background incoming invites reopen into an interactive call surface with Accept/Decline controls when users return.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`); `.\\node_modules\\.bin\\vitest.CMD run app/components/desktop-notification-handler.test.tsx app/lib/notification-service.test.ts app/features/messaging/components/global-voice-call-overlay.test.tsx` (from `apps/pwa`); `.\\node_modules\\.bin\\vitest.CMD run app/features/main-shell/main-shell.test.tsx` (from `apps/pwa`)
+- Uncertainty: Native Tauri notification-click callbacks are not yet action-aware in this patch; desktop-native clicks still rely on user focus/visibility return path to surface call controls.
+- Next: Run manual desktop + mobile replay with app backgrounded on both chat and non-chat routes; verify invite notification appears, returning/clicking surfaces the call UI immediately, and Accept/Decline actions complete correctly.
+### 2026-04-06T02:47:13Z checkpoint
+- Summary: Upgraded notification delivery to a more system-native path for background behavior: runtime notifications now request permission on-demand when permission is `default`, web/mobile notifications prefer `ServiceWorkerRegistration.showNotification`, call alerts carry structured click metadata (`overlayAction`, `href`, `requireInteraction`), service worker now handles `notificationclick` to focus/open app and post action messages, and DesktopNotificationHandler consumes SW click messages and relays them through the canonical voice-call overlay action bridge.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`); `.\\node_modules\\.bin\\vitest.CMD run app/lib/notification-service.test.ts app/components/desktop-notification-handler.test.tsx` (from `apps/pwa`); `.\\node_modules\\.bin\\vitest.CMD run app/features/messaging/components/global-voice-call-overlay.test.tsx app/features/main-shell/main-shell.test.tsx` (from `apps/pwa`)
+- Uncertainty: Native Tauri notification action buttons (`Accept`/`Decline` directly in OS toast) are still not implemented; current native flow focuses/reopens and hands off to in-app interactive controls.
+- Next: Execute manual runtime replay on desktop (Tauri) and mobile PWA with app minimized/backgrounded; verify notification appearance reliability, click-to-chat call handoff, and permission behavior on first notification.
+### 2026-04-06T03:19:29Z checkpoint
+- Summary: Added desktop unread app-icon badge owner path for minimized/backgrounded awareness: introduced `unread-taskbar-badge` utility to normalize unread counts, render dynamic Windows overlay badge icons (with `99+` cap), apply `setBadgeCount` where supported, and clear icon when unread is zero. Wired `DesktopNotificationHandler` to drive badge updates from `chatsUnreadCount` plus active incoming-call ring state, so call+message pending state is visible from taskbar/tray context.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`); `.\\node_modules\\.bin\\vitest.CMD run app/components/desktop-notification-handler.test.tsx app/features/desktop/utils/unread-taskbar-badge.test.ts app/lib/notification-service.test.ts app/features/messaging/components/global-voice-call-overlay.test.tsx app/features/main-shell/main-shell.test.tsx` (from `apps/pwa`)
+- Uncertainty: Visual badge appearance depends on OS/taskbar support for overlay icons/badges; runtime manual verification is still needed on the target desktop shell.
+- Next: Run manual desktop minimized replay: generate unread DMs and incoming ringing call, confirm app icon marker updates in taskbar/tray context, verify `99+` cap behavior, then clear unread and confirm badge removal.
+### 2026-04-06T16:47:01Z checkpoint
+- Summary: Recorded B->A DM visibility regression as explicit release blocker, replayed focused transport/receive suites (green), and added bidirectional deterministic DM delivery integration coverage (A->B then B->A) to prevent silent one-way regressions.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run manual two-account runtime replay with diagnostics capture to reproduce B->A drop path in live lifecycle state, then patch canonical owner boundary once divergence is isolated.
+### 2026-04-06T17:17:03Z checkpoint
+- Summary: Patched runtime messaging transport owner gate to stay enabled for unlocked active runtime phases independent of projection replay/readiness, preventing incoming subscription drop during projection lifecycle transitions that can cause one-way DM visibility (B->A). Added/updated owner-provider tests and kept bidirectional deterministic DM replay guard.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run two-account manual runtime replay (A and B) with event diagnostics; if B->A still fails, capture incoming_event_seen + hydration diagnostics and patch the next canonical owner boundary.
+### 2026-04-06T17:23:25Z checkpoint
+- Summary: Added canonical incoming-owner diagnostics at runtime transport boundary (messaging.transport.runtime_owner_enabled/disabled) and kept owner gate decoupled from projection readiness. Verified focused suites: runtime owner provider, incoming DM handler, and deterministic bidirectional delivery all passing.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Execute manual two-account runtime replay (A/B) while watching the new owner diagnostics plus incoming/hydration events to confirm B->A convergence under minimized/backgrounded and normal foreground flows.
+### 2026-04-06T19:06:16Z checkpoint
+- Summary: Implemented desktop tray unread badge + tray incoming-call accept/decline bridge; extended runtime notification actions and SW notificationclick action routing; verified with focused pwa tests, pwa tsc, and desktop build.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manual two-user replay: verify minimized/background flow shows tray unread counts and accepts/declines incoming calls via tray menu + notification actions on web/mobile service worker path.
+### 2026-04-07T01:45:03Z checkpoint
+- Summary: Added background-alert fallback badge owner in DesktopNotificationHandler so minimized/hidden incoming-message notifications increment badge even when projection unread remains zero; added focused regression test and fixed act-wrapped assertions.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User runtime replay on Windows: confirm tray icon badge now increments while hidden/minimized and clears on foreground focus; if still absent, capture whether tray icon swaps visually to determine OS/tray renderer limitation vs state path issue.
+### 2026-04-07T02:46:43Z checkpoint
+- Summary: Fixed notification/tray suppression gates: native runtime defaults notifications enabled when no persisted preference, background message badge increments independent of preference state, desktop call notifications can force-send in native background, and tray badge updates no longer require supportsWindowControls.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Hard runtime replay: full tray Quit -> relaunch -> background message/call test; if still no system prompt/icon change, capture whether runtime detects native bridge and whether desktop commands set_tray_unread_badge_count / show_notification are invoked at all.
+### 2026-04-07T03:31:15Z checkpoint
+- Summary: Hardened Windows build toggle-api script with retry-based rename to survive transient EPERM locks; cleared locking node/desktop processes; rebuilt desktop successfully with latest background-notification/tray-badge fixes and produced new NSIS installer.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs/runs fresh Obscur_1.3.9_x64-setup.exe and replays minimized/background message + incoming call flows; if system prompts/tray badge still absent, capture runtime capability snapshot and native invoke diagnostics from packaged app.
+### 2026-04-07T04:12:09Z checkpoint
+- Summary: Addressed user-reported PowerShell toast identity and route-dependent notification gaps: show_notification now uses Windows notify-rust path with explicit app identifier; DesktopNotificationHandler gained unread-count background fallback notifier to avoid chat-route-only event dependence; rebuilt desktop installer successfully.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs new NSIS build and verifies: notification header no longer Windows PowerShell, message notifications fire while on non-chat routes, tray unread badge increments while minimized.
+### 2026-04-07T05:42:21Z checkpoint
+- Summary: DesktopNotificationHandler now parses incoming voice-call-invite payloads from messageBus and emits actionable incoming-call notifications (Accept/Decline) instead of raw JSON message previews; voice-call control payloads are suppressed from generic DM message toasts; added focused regression test.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retest on dev server: B sends call invite while A on non-chat routes/minimized; verify system toast shows Incoming call + actions, not JSON; verify accept/decline actions route through overlay bridge.
+### 2026-04-07T09:22:05Z checkpoint
+- Summary: Call invite UX owner path hardened: DesktopNotificationHandler now persists same IncomingVoiceCallToast fallback for invite payloads (including background arrivals), and voice-call actions from fallback/SW/Tauri bridges route to chat for accept/decline/open_chat so users can answer from any route. GlobalVoiceCallOverlay now also routes accept/decline to chat on non-chat routes. Added focused regression tests for off-route accept behavior; pwa vitest + tsc pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manual replay on desktop dev build: receive voice-call invite while on non-chat route and while app minimized; verify same incoming call card appears on return and Accept/Decline works without manually navigating to chat first. If Windows system toast still lacks actionable buttons, keep toast as wake signal and rely on tray actions + in-app card as canonical interactive surface.
+### 2026-04-07T10:46:02Z checkpoint
+- Summary: Incoming call notifications no longer depend on non-actionable Windows toast alone: added native window_show_and_focus command + permission and wired DesktopNotificationHandler incoming-call path to surface the desktop window when hidden, so the same in-app IncomingVoiceCallToast card becomes immediately actionable (Accept/Decline) from background/minimized state.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests with latest desktop build: minimize/hide app, trigger incoming call, confirm app surfaces with interactive call card and Accept/Decline actions work without opening chat manually.
+### 2026-04-07T11:57:28Z checkpoint
+- Summary: Implemented native incoming-call popup ownership for desktop: Rust now maintains canonical incoming-call state, emits desktop://incoming-call-state, opens/hides a dedicated always-on-top incoming-call-popup window, and exposes desktop_get_incoming_call_state + desktop_incoming_call_action commands. PWA now routes popup windows through DesktopWindowRootSurface (skipping full chat shell) and renders IncomingCallPopupSurface using the same IncomingVoiceCallToast component with Accept/Decline actions bridged to native call action command.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest desktop build and runs two-account replay: with app minimized/backgrounded and off-chat route, incoming call must open incoming-call-popup with actionable card; verify accept/decline works immediately and popup closes/updates state correctly.
+### 2026-04-07T15:08:14Z checkpoint
+- Summary: Implemented premium in-app message notification cards with shared call/message card tokens, action row (Reply/Mark read/Open chat), mention/encrypted badges, and handler wiring for unread-clear + compose focus; updated focused notification tests to assert foreground in-app card ownership.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run desktop two-account replay: verify incoming message cards appear on non-chat foreground routes with Reply/Mark read/Open chat behavior, and confirm incoming-call popup + message-card visual consistency on minimized/background return path.
+### 2026-04-07T15:33:41Z checkpoint
+- Summary: Corrected in-app message card action routing to canonical convId deep-link owner path (replacing non-canonical conversation param), added regression tests for Open chat + Reply route intent and mark-read behavior, and updated manual verification checklist with message-card + call-popup parity replay gates.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Execute manual two-account desktop replay: validate foreground non-chat message cards (Reply/Mark read/Open chat), verify convId routing resolves correct conversation, and confirm minimized/background incoming-call popup remains actionable and visually aligned with message cards.
+### 2026-04-07T16:09:17Z checkpoint
+- Summary: Removed chat-embedded IncomingVoiceCallToast render path from main-shell to stop call-card overlap/layout break; hardened incoming-call popup detection with URL query fallback (incomingCallPopup=1) and promoted hidden/minimized invite handling to native tray incoming-call state so popup owner path is engaged before OS-toast fallback.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests latest desktop build: confirm no in-chat layout break from incoming call cards, hidden/minimized incoming calls open dedicated popup window with actionable Accept/Decline, and OS toast is only secondary wake signal.
+### 2026-04-07T16:11:18Z checkpoint
+- Summary: Addressed user-reported UX regression directly: removed chat-embedded incoming-call card render from main-shell (prevents chat layout break), added popup-window detection fallback via incomingCallPopup query flag, and changed hidden/minimized desktop invite handling to prefer native popup path (set tray incoming-call state + focus) while skipping redundant OS-toast fallback in that mode.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests latest desktop build: incoming calls should no longer overlay/break chat layout; hidden/minimized incoming calls should open dedicated popup card with Accept/Decline; if popup still absent, capture runtime logs for set_tray_incoming_call_state + desktop://incoming-call-state emission.
+### 2026-04-07T16:31:42Z checkpoint
+- Summary: Made desktop packaging deterministic in network-restricted environments by removing next/font/google dependency from app/layout and defining local sans/mono stacks in globals.css. Rebuilt desktop successfully (NSIS installer produced) with prior incoming-call regression fixes: removed in-chat incoming-call card path, popup-window detection fallback, and hidden/minimized call handling that prioritizes native popup owner path over redundant OS-toast fallback.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest Obscur_1.3.9_x64-setup.exe and replays two-account call flow: verify no chat-layout overlap, hidden/minimized incoming calls surface dedicated popup with Accept/Decline, and message card actions still route to convId target correctly.
+### 2026-04-07T17:10:54Z checkpoint
+- Summary: Recovery-by-subtraction pass landed and built: removed duplicate main-shell VoiceCallDock render (global overlay/popup is now canonical call surface), simplified inline voice-call invite timeline blocks to compact cards, hardened desktop notification caller-name fallback to use conversation/pubkey display names before unknown placeholders, and rebuilt desktop installer successfully after offline-safe font setup.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest Obscur_1.3.9_x64-setup.exe and verifies: (1) no in-chat call-control bar overlap, (2) voice-call invite messages appear compact (not oversized premium cards), (3) hidden/minimized incoming calls use popup/interactive path with actionable controls and improved caller naming.
+### 2026-04-07T17:57:15Z checkpoint
+- Summary: Restored floating in-app incoming-call card behavior as canonical cross-route surface: GlobalVoiceCallOverlay now renders on chat and non-chat routes, IncomingVoiceCallToast elevated above app UI, duplicate main-shell call dock remains removed, and desktop caller-name fallback prefers conversation/pubkey names over unknown placeholders. Rebuilt desktop installer successfully after clearing lock-holding processes.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest Obscur_1.3.9_x64-setup.exe and verifies floating incoming-call card appears on chat and non-chat pages with prominent Accept/Decline + avatar/name, no in-chat top bar overlap, and minimized/background calls still surface actionable popup flow.
+### 2026-04-07T18:17:36Z checkpoint
+- Summary: Isolated incoming-call UI from chat layout: removed in-chat call status/action strip from ChatHeader and moved IncomingVoiceCallToast rendering to a body portal with high fixed z-layer so call cards always float above UI without participating in page flow.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests latest desktop build: incoming call card should float above all routes without shifting header/content layout; verify Accept/Decline and popup/minimized flows still work.
+### 2026-04-07T18:20:30Z checkpoint
+- Summary: Hardened floating-call owner boundary: GlobalVoiceCallOverlay now portals to document.body with fixed pointer-events-none wrapper, ensuring both IncomingVoiceCallToast and VoiceCallDock render outside route/layout flow. Revalidated focused chat-header/global-overlay/desktop-notification tests + PWA typecheck.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests desktop runtime: incoming call card and dock should float above all routes without shifting chat/network/vault layouts; confirm Accept/Decline/end actions still route correctly on chat and non-chat pages.
+### 2026-04-07T18:29:59Z checkpoint
+- Summary: Delivered floating-call layout isolation in build artifacts: incoming-call UI now uses body-portal rendering (IncomingVoiceCallToast + GlobalVoiceCallOverlay), chat-header inline call strip removed, focused pwa tests/typecheck passing, and desktop installer rebuilt successfully after clearing Node/Obscur lock holders.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs fresh Obscur_1.3.9_x64-setup.exe and verifies incoming call card/dock float above all pages with zero layout shift while Accept/Decline/end still work on chat and non-chat routes.
+### 2026-04-08T03:38:00Z checkpoint
+- Summary: Repositioned floating VoiceCallDock from bottom-center/left-influenced placement to bottom-right overlay zone (high z-layer, fixed right/bottom offsets, constrained width) so it remains visible and operable without clashing with left-side UI chrome. Focused messaging overlay tests and PWA typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests runtime call flow on chat and non-chat routes to confirm dock/card now consistently appears bottom-right and remains fully clickable; if overlap persists, tune bottom offset for composer height in desktop mode.
+### 2026-04-08T03:46:02Z checkpoint
+- Summary: Raised floating call surfaces above clipped bottom zone: IncomingVoiceCallToast and VoiceCallDock now use safe-area-aware elevated bottom anchors (calc(env(safe-area-inset-bottom)+6rem), sm +5.5rem) while staying bottom-right. Focused overlay/notification tests and PWA typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests desktop runtime: active call dock and incoming call card should now appear visibly above composer/window edge and remain fully clickable on chat/non-chat routes; if still too low, bump desktop offset token further.
+### 2026-04-08T03:56:35Z checkpoint
+- Summary: Made call overlay placement deterministic: IncomingVoiceCallToast and VoiceCallDock now use explicit inline bottom offsets (max(6.5rem, calc(env(safe-area-inset-bottom)+6rem))) plus left:auto, removing dependence on potentially dropped Tailwind arbitrary calc classes that caused clipped left-bottom fallback placement. Focused overlay tests + PWA tsc pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User retests runtime: incoming call card/tab should stay on right side and clear of composer input; if still too close, raise shared bottom offset token further.
+### 2026-04-08T04:06:31Z checkpoint
+- Summary: Finalized right-side/non-obstructive call placement with deterministic inline offsets and rebuilt desktop installer. IncomingVoiceCallToast + VoiceCallDock now force right anchoring (left:auto) and elevated bottom offset above composer; packaged NSIS installer regenerated successfully after clearing lock holders.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest Obscur_1.3.9_x64-setup.exe and verifies incoming call card/tab appears on right side above input box and remains fully operable; if needed, increment shared bottom offset token further.
+### 2026-04-08T04:33:10Z checkpoint
+- Summary: Addressed persistent bottom-left cropped call-card regression with two hardening layers: (1) incoming-call and call-dock components now force position/right/bottom/zIndex via inline styles (independent of Tailwind class generation), using elevated bottom offset above composer; (2) desktop-shell builds now always unregister/skip service workers to prevent stale cached runtime assets. Focused tests + tsc pass, desktop installer rebuilt.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User fully exits Obscur, installs latest NSIS build, and verifies incoming call card appears on right and above input without cropping. If any left/cropped render remains, capture runtime version/hash and active window label to detect stale binary/process mismatch.
+### 2026-04-08T05:38:11Z checkpoint
+- Summary: Implemented adaptive call-overlay placement policy for cross-page polish: IncomingVoiceCallToast and VoiceCallDock now accept anchorMode and use chat-aware high right anchor on '/' (clear composer) plus lower right anchor on non-chat pages for better visual balance. Wired anchor mode through GlobalVoiceCallOverlay and DesktopNotificationHandler fallback path, retained deterministic inline position/right/bottom/zIndex styling, verified focused tests + tsc, and rebuilt desktop installer.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest Obscur_1.3.9_x64-setup.exe and reviews call-card placement across chat/network/discovery/settings; if needed, tune chat/page offsets separately without changing ownership path.
+### 2026-04-08T06:14:47Z checkpoint
+- Summary: Implemented connected-call dock policy requested by user: on chat route and connected phase, VoiceCallDock now anchors bottom-center above composer, widens to ~46rem max, and uses a three-lane layout with dedicated center waveform lane so voiceprint is not obscured by action buttons. Non-connected phases keep right-rail adaptive placement. Focused tests + pwa tsc pass; desktop installer rebuilt.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest NSIS and verifies: connected call status card is bottom-center, clears input box, and waveform remains visible between identity and action controls; tune connected bottom offset/center-lane width if needed.
+### 2026-04-08T07:53:05Z checkpoint
+- Summary: Adjusted post-confirmation call dock anchoring: chat-mode VoiceCallDock now centers at bottom not only for connected, but also connecting and interrupted phases, keeping the wider center-oriented layout and avoiding right-corner placement after accept. Focused tests + pwa tsc pass; desktop installer rebuilt.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: User installs latest NSIS and verifies after accepting a call the status card stays bottom-center through connecting->connected instead of moving to bottom-right.
+### 2026-04-08T08:05:57Z checkpoint
+- Summary: Unified call status dock horizontal placement for consistency: VoiceCallDock now anchors bottom-center across call-status phases (including initiator outgoing/connecting), with route-based vertical offset only (chat above composer, non-chat lower). Maintained widened centered layout for clear waveform/action separation and rebuilt desktop installer.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run two-account runtime replay focused on voice-call setup timeout behavior (normal + minimized/backgrounded): verify connecting sessions with ongoing SDP/ICE progress no longer hard-timeout at 30s, and capture `messaging.realtime_voice.connect_timeout_diagnostics` plus `messaging.realtime_voice.connect_timeout_extended` evidence for both caller and callee.
+### 2026-04-08T09:43:32Z checkpoint
+- Summary: Added deterministic connect-timeout policy owner path for realtime voice calls. `main-shell` now routes `ringing_outgoing/connecting` timeout handling through `resolveRealtimeVoiceConnectTimeoutDecision`, allowing one bounded extension only for `connecting` sessions that still show transport progress evidence (RTC connecting/local-or-remote description) before fallback end/interrupted handling. Added new diagnostics event `messaging.realtime_voice.connect_timeout_extended` and explicit timeout decision context in existing timeout diagnostics.
+- Evidence: `.\\node_modules\\.bin\\vitest.CMD run app/features/messaging/services/realtime-voice-timeout-policy.test.ts app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-owner.test.ts` (from `apps/pwa`, 22/22 passing); `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing).
+- Uncertainty: Manual runtime evidence is still required to confirm the reported timeout regression is mitigated end-to-end across caller/joiner flows and that bounded extension does not mask true failed setup states.
+- Next: Run two-account runtime replay focused on voice-call setup timeout behavior (normal + minimized/backgrounded): verify connecting sessions with ongoing SDP/ICE progress no longer hard-timeout at 30s, and capture `messaging.realtime_voice.connect_timeout_diagnostics` plus `messaging.realtime_voice.connect_timeout_extended` evidence for both caller and callee.
+### 2026-04-08T10:26:06Z checkpoint
+- Summary: Restored live voiceprint dynamics in connected call status cards by wiring a canonical audio-level channel through the global overlay owner path: `main-shell` now publishes smoothed max(local/remote) voice energy into `realtime-voice-global-ui-store`, `GlobalVoiceCallOverlay` passes the live level into `VoiceCallDock`, and `VoiceCallDock` now consumes that level directly with speech-detection boost so bars visibly jump when audio is present.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing); `.\\node_modules\\.bin\\vitest.CMD run app/features/messaging/components/global-voice-call-overlay.test.tsx` (from `apps/pwa`, 6/6 passing, includes waveform-level propagation assertion).
+- Uncertainty: Runtime verification is still needed to calibrate perceived motion amplitude against real microphone/speaker levels across desktop routes and minimized/background return paths.
+- Next: Run desktop two-user replay while connected: verify the call status-card voiceprint now visibly jumps with speech/activity on either side (not static), then continue the voice-timeout diagnostics replay (`messaging.realtime_voice.connect_timeout_diagnostics` + `messaging.realtime_voice.connect_timeout_extended`).
+### 2026-04-08T10:29:30Z checkpoint
+- Summary: Slightly reduced the centered call-status dock width cap from `46rem` to `43rem` in `VoiceCallDock` so the middle card reads tighter without changing layout ownership, control grouping, or anchor behavior.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing).
+- Uncertainty: Runtime visual verification is still needed to confirm the new width feels balanced across connecting and connected states on desktop.
+- Next: Run desktop replay to confirm the centered call-status card now feels better proportioned at the slightly reduced width, then continue the voice-timeout diagnostics replay (`messaging.realtime_voice.connect_timeout_diagnostics` + `messaging.realtime_voice.connect_timeout_extended`).
+### 2026-04-08T15:11:41Z checkpoint
+- Summary: Hardened the connected-call voiceprint owner path so the center waveform no longer gets stuck after one prior burst: extracted canonical smoothing/decay into `realtime-voice-waveform-level`, updated `main-shell` to publish overlay waveform levels through that contract, reduced overlay store deadband, and simplified `VoiceCallDock` to render the canonical live level directly instead of adding a second sticky smoothing layer.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing); `.\\node_modules\\.bin\\vitest.CMD run app/features/messaging/services/realtime-voice-waveform-level.test.ts app/features/messaging/components/global-voice-call-overlay.test.tsx` (from `apps/pwa`, 8/8 passing).
+- Uncertainty: Manual desktop replay is still required to confirm perceived waveform motion remains lively across repeated connected calls and real microphone/speaker activity, not just focused test harness updates.
+- Next: Run desktop two-user replay while connected to verify the center voiceprint now keeps moving and decays back down between speech bursts across repeated calls, then continue the voice-timeout diagnostics replay (`messaging.realtime_voice.connect_timeout_diagnostics` + `messaging.realtime_voice.connect_timeout_extended`).
+### 2026-04-08T15:37:12Z checkpoint
+- Summary: Notification UX/action pass landed through the existing `DesktopNotificationHandler` owner path: added typed notification presentation helpers for exact conversation deep-links, upgraded background DM notifications to carry exact `convId` href + onClick routing, upgraded incoming-call notification copy/actions to be clearer about opening chat, and refreshed the in-app message/call cards so previews and primary follow-up actions are more visually prominent without adding a parallel navigation owner.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing); `.\\node_modules\\.bin\\vitest.CMD run app/components/desktop-notification-handler.test.tsx app/features/notifications/utils/notification-presentation.test.ts app/lib/notification-service.test.ts` (from `apps/pwa`, 27/27 passing).
+- Uncertainty: Windows native toast visuals are still constrained by the current Tauri/Windows adapter, so runtime replay is still needed to confirm whether the richer copy plus target hrefs are sufficient there or whether a deeper native-notification action bridge is needed for parity with browser/service-worker click-through.
+- Next: Run a desktop notification replay to verify richer message/call notifications now open the target conversation reliably from click-through paths (browser/service-worker/in-app, and Windows native where supported), then continue the voice-call runtime replay for waveform motion and timeout diagnostics (`messaging.realtime_voice.connect_timeout_diagnostics` + `messaging.realtime_voice.connect_timeout_extended`).
+### 2026-04-08T15:54:41Z checkpoint
+- Summary: Refined the call-notification decision to match runtime truth: room IDs were removed from user-facing call notification copy, system-call notifications now expose only the `open_chat` follow-up path (no misleading accept/decline toast actions), and the in-app incoming-call card now points users toward the chat surface for controls/follow-up instead of showing transport internals.
+- Evidence: `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing); `.\\node_modules\\.bin\\vitest.CMD run app/components/desktop-notification-handler.test.tsx app/features/notifications/utils/notification-presentation.test.ts app/lib/notification-service.test.ts` (from `apps/pwa`, 27/27 passing).
+- Uncertainty: Windows native runtime replay is still required to confirm the OS toast click path reliably opens the chat surface, since the current native adapter still cannot own inline answer/decline behavior.
+- Next: Run a desktop notification replay to verify simplified call notifications now open the target chat reliably without exposing room IDs or non-functional system-toast call actions, then continue the voice-call runtime replay for waveform motion and timeout diagnostics (`messaging.realtime_voice.connect_timeout_diagnostics` + `messaging.realtime_voice.connect_timeout_extended`).
+### 2026-04-08T16:08:30Z checkpoint
+- Summary: Removed extra explanatory copy from the in-app incoming-call card and changed actionable desktop notifications to prefer the JS-owned browser/WebView notification path when an onClick handler is present, so toast clicks can route into the target chat instead of relying on the Windows native adapter that only dismisses the toast.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run a desktop notification replay on Windows: verify incoming call and DM toasts now click through into the exact chat surface, and confirm the slimmer in-app incoming-call card still feels clear without the extra helper text.
+### 2026-04-08T16:13:35Z checkpoint
+- Summary: Reverted the attempted JS/browser notification fallback for Tauri desktop after it surfaced as Windows PowerShell in Windows toasts. Native-branded desktop notifications are restored, the slimmer in-app incoming-call card remains, and the Windows system-toast click-through limitation remains unresolved under the current native adapter.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Investigate a native-branded Windows notification click bridge instead of WebView/browser notifications; user should retest that call/message toasts are back to normal Obscur branding while in-app card copy stays simplified.
 <!-- CONTEXT_CHECKPOINTS_END -->

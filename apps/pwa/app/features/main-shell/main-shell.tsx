@@ -78,29 +78,48 @@ import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-ac
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { resolveAccountSyncUiPolicy } from "@/app/features/account-sync/services/account-sync-ui-policy";
+import {
+  FIRST_LOGIN_HISTORY_SYNC_NOTICE_MIN_VISIBLE_MS,
+  resolveHistorySyncNoticeVisible,
+  shouldStartFirstLoginHistorySyncNoticeHold,
+} from "@/app/features/account-sync/services/history-sync-notice-visibility";
 import { AppLoadingScreen } from "@/app/components/app-loading-screen";
 import { usePeerLastActiveByPeer } from "@/app/features/messaging/hooks/use-peer-last-active-by-peer";
 import { getPublicGroupHref, getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { isRecentPresenceEvidenceActive } from "@/app/features/network/services/presence-evidence";
-import { IncomingVoiceCallToast } from "@/app/features/messaging/components/incoming-voice-call-toast";
-import { VoiceCallDock } from "@/app/features/messaging/components/voice-call-dock";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import {
   clearPendingVoiceCallRequest,
   PENDING_VOICE_CALL_REQUEST_MAX_AGE_MS,
   readPendingVoiceCallRequest,
 } from "@/app/features/messaging/services/realtime-voice-pending-request";
-import { setGlobalVoiceCallOverlayState } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
-import { shouldSuppressVoiceCallDockForPendingIncomingInvite } from "@/app/features/messaging/services/realtime-voice-ui-visibility";
+import {
+  setGlobalVoiceCallOverlayState,
+  setGlobalVoiceCallOverlayWaveAudioLevel,
+} from "@/app/features/messaging/services/realtime-voice-global-ui-store";
 import { resolveIncomingVoiceInviteExit } from "@/app/features/messaging/services/realtime-voice-invite-exit";
+import {
+  VOICE_CALL_OVERLAY_ACTION_EVENT_NAME,
+  extractVoiceCallOverlayAction,
+  readAndConsumePendingVoiceCallOverlayAction,
+  type VoiceCallOverlayAction,
+} from "@/app/features/messaging/services/voice-call-overlay-action-bridge";
+import { resolveRealtimeVoiceConnectTimeoutDecision } from "@/app/features/messaging/services/realtime-voice-timeout-policy";
+import {
+  advanceVoiceWaveAudioLevelChannel,
+  getVoiceWaveOverlayLevel,
+  type VoiceWaveAudioLevelState,
+} from "@/app/features/messaging/services/realtime-voice-waveform-level";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
+const HISTORY_SYNC_NOTICE_FIRST_LOGIN_SEEN_KEY = "obscur.messaging.history_sync_notice.first_login_seen.v1";
 const DEFAULT_VISIBLE_MESSAGES = 50;
 const LOAD_EARLIER_STEP = 50;
 const VOICE_CALL_MIN_WAIT_MS = 30_000;
 const VOICE_CALL_INTERRUPTION_GRACE_MS = 30_000;
+const VOICE_CALL_CONNECT_TIMEOUT_MAX_EXTENSIONS = 1;
 const VOICE_CALL_LEAVE_TOMBSTONE_TTL_MS = 10 * 60 * 1000;
 const VOICE_WAVE_SAMPLE_INTERVAL_MS = 120;
 const VOICE_CALL_JOIN_REQUEST_RETRY_INTERVAL_MS = 3_000;
@@ -111,9 +130,6 @@ const VOICE_CALL_LEAVE_SIGNAL_RETRY_INTERVAL_MS = 1_500;
 const VOICE_CALL_LEAVE_SIGNAL_RETRY_MAX_ATTEMPTS = 3;
 const VOICE_SIGNAL_BOOTSTRAP_REPLAY_WINDOW_MS = 2 * 60 * 1000;
 const VOICE_INVITE_BOOTSTRAP_REPLAY_WINDOW_MS = 5 * 60 * 1000;
-const VOICE_CALL_OVERLAY_ACTION_EVENT_NAME = "obscur:voice-call-overlay-action";
-const VOICE_CALL_OVERLAY_ACTION_STORAGE_KEY = "obscur.voice_call.overlay_action.v1";
-const VOICE_CALL_OVERLAY_ACTION_MAX_AGE_MS = 20_000;
 const REALTIME_VOICE_CALLS_ENABLED = isRealtimeVoiceCallsEnabled();
 const PRIVATE_CONTACT_DISPLAY_NAME = "Unknown contact";
 const PRIVATE_CALLER_DISPLAY_NAME = "Unknown caller";
@@ -177,13 +193,6 @@ type PendingIncomingVoiceInvite = Readonly<{
   invite: VoiceCallInvitePayload;
   receivedAtUnixMs: number;
 }>;
-
-type VoiceWaveAudioLevelState = Readonly<{
-  local: number;
-  remote: number;
-}>;
-
-type VoiceCallOverlayAction = "open_chat" | "accept" | "decline" | "end" | "dismiss";
 
 function NostrMessengerContent() {
   const { t } = useTranslation();
@@ -497,6 +506,10 @@ function NostrMessengerContent() {
     remote: 0,
   });
   const [incomingVoiceInvite, setIncomingVoiceInvite] = useState<PendingIncomingVoiceInvite | null>(null);
+  const pendingBackgroundIncomingInviteRef = useRef<Readonly<{
+    messageId: string;
+    roomId: string;
+  }> | null>(null);
   const realtimeVoiceSessionOwnerRef = useRef(createRealtimeVoiceSessionOwner());
   const activeVoiceCallSessionRef = useRef<ActiveVoiceCallSession | null>(null);
   const voicePeerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -523,6 +536,8 @@ function NostrMessengerContent() {
   const voiceOfferRetryAttemptRef = useRef(0);
   const voiceCallConnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceCallInterruptionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceCallConnectTimeoutKeyRef = useRef<string | null>(null);
+  const voiceCallConnectTimeoutExtensionAttemptRef = useRef(0);
   const voicePeerConnectionCreationRef = useRef<Promise<RTCPeerConnection | null> | null>(null);
   const voicePeerConnectionCreationKeyRef = useRef<string | null>(null);
   const voiceLeaveSignalRetryTimeoutsRef = useRef<Set<number>>(new Set());
@@ -587,22 +602,6 @@ function NostrMessengerContent() {
     && selectedConversationDmPubkey
     && voiceCallUiStatus.peerPubkey === selectedConversationDmPubkey
   ) ? voiceCallUiStatus : null;
-  const incomingVoiceInviteRoomIdHint = incomingVoiceInvite?.invite.roomId
-    ? toRoomIdHint(incomingVoiceInvite.invite.roomId)
-    : "unknown-room";
-  const incomingVoiceInvitePeerMetadata = useResolvedProfileMetadata(incomingVoiceInvite?.peerPubkey ?? null);
-  const incomingVoiceInviteResolvedDisplayName = (
-    incomingVoiceInvitePeerMetadata?.displayName
-    && incomingVoiceInvitePeerMetadata.displayName.trim().length > 0
-  )
-    ? incomingVoiceInvitePeerMetadata.displayName
-    : (incomingVoiceInvite?.inviterDisplayName || "Unknown user");
-  const incomingVoiceInviteResolvedAvatarUrl = incomingVoiceInvitePeerMetadata?.avatarUrl || "";
-  const suppressVoiceCallDockForPendingIncomingInvite = shouldSuppressVoiceCallDockForPendingIncomingInvite({
-    status: voiceCallUiStatus,
-    pendingIncomingInvite: incomingVoiceInvite,
-  });
-
   useEffect(() => {
     setIsSendingVoiceCallInvite(false);
     setJoiningVoiceCallInviteMessageId(null);
@@ -709,18 +708,17 @@ function NostrMessengerContent() {
   }, []);
 
   const updateVoiceWaveAudioLevel = useCallback((channel: "local" | "remote", nextLevel: number): void => {
-    const normalizedLevel = Math.max(0, Math.min(1, Number.isFinite(nextLevel) ? nextLevel : 0));
     const current = voiceWaveAudioLevelRef.current;
-    const previousLevel = channel === "local" ? current.local : current.remote;
-    const smoothedLevel = normalizedLevel > previousLevel
-      ? (previousLevel * 0.3) + (normalizedLevel * 0.7)
-      : (previousLevel * 0.82) + (normalizedLevel * 0.18);
-    if (Math.abs(smoothedLevel - previousLevel) < 0.01) {
+    const nextLevels = advanceVoiceWaveAudioLevelChannel({
+      current,
+      channel,
+      nextSample: nextLevel,
+    });
+    if (nextLevels === current) {
       return;
     }
-    voiceWaveAudioLevelRef.current = channel === "local"
-      ? { ...current, local: smoothedLevel }
-      : { ...current, remote: smoothedLevel };
+    voiceWaveAudioLevelRef.current = nextLevels;
+    setGlobalVoiceCallOverlayWaveAudioLevel(getVoiceWaveOverlayLevel(nextLevels));
   }, []);
 
   const stopVoiceAudioMonitor = useCallback((channel: "local" | "remote"): void => {
@@ -736,13 +734,17 @@ function NostrMessengerContent() {
       if (current.local === 0) {
         return;
       }
-      voiceWaveAudioLevelRef.current = { ...current, local: 0 };
+      const nextLevels = { ...current, local: 0 };
+      voiceWaveAudioLevelRef.current = nextLevels;
+      setGlobalVoiceCallOverlayWaveAudioLevel(Math.max(nextLevels.local, nextLevels.remote));
       return;
     }
     if (current.remote === 0) {
       return;
     }
-    voiceWaveAudioLevelRef.current = { ...current, remote: 0 };
+    const nextLevels = { ...current, remote: 0 };
+    voiceWaveAudioLevelRef.current = nextLevels;
+    setGlobalVoiceCallOverlayWaveAudioLevel(Math.max(nextLevels.local, nextLevels.remote));
   }, []);
 
   const startVoiceAudioMonitor = useCallback((params: Readonly<{
@@ -2802,9 +2804,28 @@ function NostrMessengerContent() {
 
     if (voiceCallUiStatus.phase === "ringing_outgoing" || voiceCallUiStatus.phase === "connecting") {
       const statusSnapshot = voiceCallUiStatus;
+      const timeoutPhase = statusSnapshot.phase === "connecting" ? "connecting" : "ringing_outgoing";
+      const timeoutKey = `${statusSnapshot.roomId}|${statusSnapshot.peerPubkey}|${statusSnapshot.phase}`;
+      if (voiceCallConnectTimeoutKeyRef.current !== timeoutKey) {
+        voiceCallConnectTimeoutKeyRef.current = timeoutKey;
+        voiceCallConnectTimeoutExtensionAttemptRef.current = 0;
+      }
       voiceCallConnectTimeoutRef.current = setTimeout(() => {
         const active = activeVoiceCallSessionRef.current;
         const connection = voicePeerConnectionRef.current;
+        const timeoutDecision = resolveRealtimeVoiceConnectTimeoutDecision({
+          phase: timeoutPhase,
+          hasActiveSession: Boolean(
+            active
+            && active.roomId === statusSnapshot.roomId
+            && active.peerPubkey === statusSnapshot.peerPubkey
+          ),
+          rtcConnectionState: connection?.connectionState ?? "none",
+          hasLocalDescription: Boolean(connection?.localDescription),
+          hasRemoteDescription: Boolean(connection?.remoteDescription),
+          extensionAttemptCount: voiceCallConnectTimeoutExtensionAttemptRef.current,
+          maxExtensionAttempts: VOICE_CALL_CONNECT_TIMEOUT_MAX_EXTENSIONS,
+        });
         logAppEvent({
           name: "messaging.realtime_voice.connect_timeout_diagnostics",
           level: "warn",
@@ -2823,8 +2844,45 @@ function NostrMessengerContent() {
             rtcConnectionState: connection?.connectionState ?? "none",
             hasLocalDescription: Boolean(connection?.localDescription),
             hasRemoteDescription: Boolean(connection?.remoteDescription),
+            timeoutExtensionAttemptCount: voiceCallConnectTimeoutExtensionAttemptRef.current,
+            timeoutDecision: timeoutDecision.action,
+            timeoutDecisionReasonCode: timeoutDecision.reasonCode,
           },
         });
+
+        if (timeoutDecision.action === "extend") {
+          voiceCallConnectTimeoutExtensionAttemptRef.current += 1;
+          logAppEvent({
+            name: "messaging.realtime_voice.connect_timeout_extended",
+            level: "info",
+            scope: { feature: "messaging", action: "realtime_voice_signal" },
+            context: {
+              roomIdHint: toRoomIdHint(statusSnapshot.roomId),
+              peerPubkeySuffix: statusSnapshot.peerPubkey.slice(-8),
+              role: statusSnapshot.role,
+              phase: statusSnapshot.phase,
+              extensionAttemptCount: voiceCallConnectTimeoutExtensionAttemptRef.current,
+              maxExtensionAttempts: VOICE_CALL_CONNECT_TIMEOUT_MAX_EXTENSIONS,
+              reasonCode: timeoutDecision.reasonCode,
+            },
+          });
+          setVoiceCallUiStatus((current) => {
+            if (
+              !current
+              || current.roomId !== statusSnapshot.roomId
+              || current.peerPubkey !== statusSnapshot.peerPubkey
+              || current.phase !== statusSnapshot.phase
+            ) {
+              return current;
+            }
+            return {
+              ...current,
+              sinceUnixMs: Date.now(),
+            };
+          });
+          return;
+        }
+
         if (
           active
           && active.roomId === statusSnapshot.roomId
@@ -2858,6 +2916,9 @@ function NostrMessengerContent() {
           };
         });
       }, VOICE_CALL_MIN_WAIT_MS);
+    } else {
+      voiceCallConnectTimeoutKeyRef.current = null;
+      voiceCallConnectTimeoutExtensionAttemptRef.current = 0;
     }
 
     if (voiceCallUiStatus.phase === "interrupted") {
@@ -2977,7 +3038,19 @@ function NostrMessengerContent() {
     }
     setSelectedConversation(nextConversation);
     unhideConversation(nextConversation.id);
-  }, [createdConnections, dmDisplayNameByPubkey, myPublicKeyHex, setSelectedConversation, unhideConversation, voiceCallUiStatus]);
+    if (!isChatRoute) {
+      void router.push("/");
+    }
+  }, [
+    createdConnections,
+    dmDisplayNameByPubkey,
+    isChatRoute,
+    myPublicKeyHex,
+    router,
+    setSelectedConversation,
+    unhideConversation,
+    voiceCallUiStatus,
+  ]);
   const executeVoiceCallOverlayAction = useCallback((action: VoiceCallOverlayAction): void => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
       return;
@@ -3028,20 +3101,84 @@ function NostrMessengerContent() {
     ? voiceCallDockPeerMetadata.displayName
     : voiceCallDockPeerDisplayName;
   const voiceCallDockResolvedPeerAvatarUrl = voiceCallDockPeerMetadata?.avatarUrl || "";
-  const readVoiceCallDockAudioLevel = useCallback((): number => {
-    const current = voiceWaveAudioLevelRef.current;
-    return Math.max(current.local, current.remote);
-  }, []);
   useEffect(() => {
     setGlobalVoiceCallOverlayState({
       status: voiceCallUiStatus ? { ...voiceCallUiStatus } : null,
       peerDisplayName: voiceCallDockResolvedPeerDisplayName,
       peerAvatarUrl: voiceCallDockResolvedPeerAvatarUrl,
+      waveAudioLevel: voiceCallUiStatus?.phase === "connected"
+        ? undefined
+        : 0,
     });
   }, [
     voiceCallDockResolvedPeerAvatarUrl,
     voiceCallDockResolvedPeerDisplayName,
     voiceCallUiStatus,
+  ]);
+  useEffect(() => {
+    if (!REALTIME_VOICE_CALLS_ENABLED || typeof document === "undefined") {
+      return;
+    }
+    if (!incomingVoiceInvite || voiceCallUiStatus?.phase !== "ringing_incoming") {
+      pendingBackgroundIncomingInviteRef.current = null;
+      return;
+    }
+    if (document.visibilityState === "visible") {
+      return;
+    }
+    const incomingRoomId = incomingVoiceInvite.invite.roomId ?? "";
+    if (!incomingRoomId) {
+      pendingBackgroundIncomingInviteRef.current = null;
+      return;
+    }
+    pendingBackgroundIncomingInviteRef.current = {
+      messageId: incomingVoiceInvite.messageId,
+      roomId: incomingRoomId,
+    };
+  }, [
+    incomingVoiceInvite?.invite.roomId,
+    incomingVoiceInvite?.messageId,
+    voiceCallUiStatus?.phase,
+  ]);
+
+  useEffect(() => {
+    if (!REALTIME_VOICE_CALLS_ENABLED || typeof window === "undefined" || typeof document === "undefined") {
+      return;
+    }
+    const maybeResumeIncomingInvite = (): void => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      const pendingInvite = pendingBackgroundIncomingInviteRef.current;
+      if (!pendingInvite) {
+        return;
+      }
+      const currentMessageId = incomingVoiceInvite?.messageId ?? null;
+      const currentRoomId = incomingVoiceInvite?.invite.roomId ?? null;
+      const matchesPendingInvite = (
+        (currentMessageId !== null && currentMessageId === pendingInvite.messageId)
+        || (currentRoomId !== null && currentRoomId === pendingInvite.roomId)
+      );
+      if (!matchesPendingInvite || voiceCallUiStatus?.phase !== "ringing_incoming") {
+        pendingBackgroundIncomingInviteRef.current = null;
+        return;
+      }
+      pendingBackgroundIncomingInviteRef.current = null;
+      executeVoiceCallOverlayAction("open_chat");
+    };
+
+    maybeResumeIncomingInvite();
+    window.addEventListener("focus", maybeResumeIncomingInvite);
+    document.addEventListener("visibilitychange", maybeResumeIncomingInvite);
+    return () => {
+      window.removeEventListener("focus", maybeResumeIncomingInvite);
+      document.removeEventListener("visibilitychange", maybeResumeIncomingInvite);
+    };
+  }, [
+    executeVoiceCallOverlayAction,
+    incomingVoiceInvite?.invite.roomId,
+    incomingVoiceInvite?.messageId,
+    voiceCallUiStatus?.phase,
   ]);
 
   useEffect(() => {
@@ -3049,40 +3186,19 @@ function NostrMessengerContent() {
       return;
     }
     const applyOverlayActionPayload = (payload: unknown): void => {
-      if (!payload || typeof payload !== "object") {
+      const action = extractVoiceCallOverlayAction(payload);
+      if (!action) {
         return;
       }
-      const action = (payload as { action?: unknown }).action;
-      if (typeof action !== "string") {
-        return;
-      }
-      if (!["open_chat", "accept", "decline", "end", "dismiss"].includes(action)) {
-        return;
-      }
-      executeVoiceCallOverlayAction(action as VoiceCallOverlayAction);
+      executeVoiceCallOverlayAction(action);
     };
 
     const readAndConsumePendingOverlayAction = (): void => {
-      try {
-        const raw = window.sessionStorage.getItem(VOICE_CALL_OVERLAY_ACTION_STORAGE_KEY);
-        if (!raw) {
-          return;
-        }
-        window.sessionStorage.removeItem(VOICE_CALL_OVERLAY_ACTION_STORAGE_KEY);
-        const parsed = JSON.parse(raw) as Partial<{ action: string; atUnixMs: number }>;
-        if (!parsed.action) {
-          return;
-        }
-        const ageMs = typeof parsed.atUnixMs === "number"
-          ? Math.max(0, Date.now() - parsed.atUnixMs)
-          : 0;
-        if (ageMs > VOICE_CALL_OVERLAY_ACTION_MAX_AGE_MS) {
-          return;
-        }
-        applyOverlayActionPayload(parsed);
-      } catch {
-        // best effort bridge only
+      const action = readAndConsumePendingVoiceCallOverlayAction();
+      if (!action) {
+        return;
       }
+      executeVoiceCallOverlayAction(action);
     };
 
     const handleOverlayActionEvent = (event: Event): void => {
@@ -3197,6 +3313,7 @@ function NostrMessengerContent() {
     && projectionReadAuthority.reason === "projection_scope_mismatch";
   const projectionScopeMismatchLogKeyRef = useRef<string | null>(null);
   const historySyncNoticeLogKeyRef = useRef<string | null>(null);
+  const [historySyncNoticeHoldVisibleUntilUnixMs, setHistorySyncNoticeHoldVisibleUntilUnixMs] = useState<number | null>(null);
 
   useEffect(() => {
     if (!showProjectionScopeMismatchNotice) {
@@ -3252,8 +3369,64 @@ function NostrMessengerContent() {
     projectionSnapshot: accountProjectionSnapshot,
     hasVisibleConversations,
   });
+  const firstLoginHistorySyncNoticeStorageKey = useMemo(() => {
+    if (!myPublicKeyHex) {
+      return null;
+    }
+    return getScopedStorageKey(
+      `${HISTORY_SYNC_NOTICE_FIRST_LOGIN_SEEN_KEY}:${myPublicKeyHex}`,
+      activeProfileId,
+    );
+  }, [activeProfileId, myPublicKeyHex]);
   useEffect(() => {
-    if (!accountSyncUiPolicy.showInitialHistorySyncNotice) {
+    setHistorySyncNoticeHoldVisibleUntilUnixMs(null);
+  }, [firstLoginHistorySyncNoticeStorageKey, isIdentityUnlocked]);
+  useEffect(() => {
+    if (!firstLoginHistorySyncNoticeStorageKey) {
+      return;
+    }
+    let hasSeenFirstLoginNotice = false;
+    try {
+      hasSeenFirstLoginNotice = window.localStorage.getItem(firstLoginHistorySyncNoticeStorageKey) === "1";
+    } catch {
+      hasSeenFirstLoginNotice = false;
+    }
+    const shouldStartHold = shouldStartFirstLoginHistorySyncNoticeHold({
+      isIdentityUnlocked,
+      showInitialHistorySyncNotice: accountSyncUiPolicy.showInitialHistorySyncNotice,
+      hasVisibleConversations,
+      accountPublicKeyHex: myPublicKeyHex,
+      hasSeenFirstLoginNotice,
+    });
+    if (!shouldStartHold) {
+      return;
+    }
+    const holdUntilUnixMs = Date.now() + FIRST_LOGIN_HISTORY_SYNC_NOTICE_MIN_VISIBLE_MS;
+    setHistorySyncNoticeHoldVisibleUntilUnixMs((currentValue) => {
+      if (typeof currentValue === "number" && currentValue > holdUntilUnixMs) {
+        return currentValue;
+      }
+      return holdUntilUnixMs;
+    });
+    try {
+      window.localStorage.setItem(firstLoginHistorySyncNoticeStorageKey, "1");
+    } catch {
+      // localStorage can be unavailable in embedded runtimes.
+    }
+  }, [
+    accountSyncUiPolicy.showInitialHistorySyncNotice,
+    firstLoginHistorySyncNoticeStorageKey,
+    hasVisibleConversations,
+    isIdentityUnlocked,
+    myPublicKeyHex,
+  ]);
+  const showHistorySyncNotice = resolveHistorySyncNoticeVisible({
+    policyVisible: accountSyncUiPolicy.showInitialHistorySyncNotice,
+    holdVisibleUntilUnixMs: historySyncNoticeHoldVisibleUntilUnixMs,
+    nowUnixMs: typeof nowMs === "number" ? nowMs : Date.now(),
+  });
+  useEffect(() => {
+    if (!showHistorySyncNotice) {
       historySyncNoticeLogKeyRef.current = null;
       return;
     }
@@ -3283,14 +3456,14 @@ function NostrMessengerContent() {
       },
     });
   }, [
-    accountProjectionSnapshot.phase,
-    accountProjectionSnapshot.status,
-    accountSyncSnapshot.phase,
-    accountSyncSnapshot.status,
-    accountSyncUiPolicy.showInitialHistorySyncNotice,
-    activeProfileId,
-    myPublicKeyHex,
-  ]);
+      accountProjectionSnapshot.phase,
+      accountProjectionSnapshot.status,
+      accountSyncSnapshot.phase,
+      accountSyncSnapshot.status,
+      showHistorySyncNotice,
+      activeProfileId,
+      myPublicKeyHex,
+    ]);
 
   if (!isChatRoute) {
     return null;
@@ -3345,7 +3518,7 @@ function NostrMessengerContent() {
             clearHistory={clearHistory}
             onClearHistory={requestsInbox.clearHistory}
             isPeerOnline={isPeerOnlineByEvidence}
-            showHistorySyncNotice={accountSyncUiPolicy.showInitialHistorySyncNotice}
+            showHistorySyncNotice={showHistorySyncNotice}
             onAcceptRequest={(pk) => {
               const requestEventId = requestsInbox.state.items.find(
                 (item) => item.peerPublicKeyHex === (pk as PublicKeyHex) && !item.isOutgoing
@@ -3407,9 +3580,9 @@ function NostrMessengerContent() {
           <span className="font-semibold">Account Restore Warning:</span> Shared account data was not found on relays yet. Local identity access remains active.
         </div>
       ) : null}
-      {accountSyncUiPolicy.showInitialHistorySyncNotice ? (
+      {showHistorySyncNotice ? (
         <div className="border-b border-indigo-500/20 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-900 dark:text-indigo-100">
-          <span className="font-semibold">Syncing account history:</span> This device is still restoring contacts and messages. Initial recovery can take a few minutes.
+          <span className="font-semibold">Syncing account history:</span> This device is still restoring contacts and messages. First-time recovery on a new device can take a few minutes.
         </div>
       ) : null}
       {showProjectionScopeMismatchNotice ? (
@@ -3441,7 +3614,7 @@ function NostrMessengerContent() {
             relayStatus={relayStatus}
             onCopyMyPubkey={handleCopyMyPubkey}
             onCopyChatLink={handleCopyChatLink}
-            showHistorySyncNotice={accountSyncUiPolicy.showInitialHistorySyncNotice}
+            showHistorySyncNotice={showHistorySyncNotice}
           />
         ) : (
           <ChatView
@@ -3465,6 +3638,14 @@ function NostrMessengerContent() {
               toast.success(t("messaging.pubkeyCopied"));
             }}
             onOpenMedia={() => setIsMediaGalleryOpen(true)}
+            onToggleConversationNotifications={({ conversation, enabled }) => {
+              const entityLabel = conversation.kind === "group" ? "group" : "chat";
+              toast.success(
+                enabled
+                  ? `Notifications enabled for this ${entityLabel}.`
+                  : `Notifications muted for this ${entityLabel}.`
+              );
+            }}
             onOpenInfo={selectedConversationView.kind === "group"
               ? () => {
                 router.push(
@@ -3617,30 +3798,6 @@ function NostrMessengerContent() {
           />
         )}
       </main>
-      {REALTIME_VOICE_CALLS_ENABLED ? (
-        <IncomingVoiceCallToast
-          isOpen={incomingVoiceInvite !== null}
-          inviterDisplayName={incomingVoiceInviteResolvedDisplayName}
-          inviterAvatarUrl={incomingVoiceInviteResolvedAvatarUrl}
-          roomIdHint={incomingVoiceInviteRoomIdHint}
-          onAccept={handleAcceptIncomingVoiceInvite}
-          onDecline={handleDeclineIncomingVoiceInvite}
-          onDismiss={handleDeclineIncomingVoiceInvite}
-        />
-      ) : null}
-      {REALTIME_VOICE_CALLS_ENABLED && !suppressVoiceCallDockForPendingIncomingInvite ? (
-        <VoiceCallDock
-          status={voiceCallUiStatus}
-          peerDisplayName={voiceCallDockResolvedPeerDisplayName}
-          peerAvatarUrl={voiceCallDockResolvedPeerAvatarUrl}
-          readAudioLevel={readVoiceCallDockAudioLevel}
-          onOpenChat={handleOpenVoiceCallConversation}
-          onAccept={handleAcceptIncomingVoiceInvite}
-          onDecline={handleDeclineIncomingVoiceInvite}
-          onEnd={handleLeaveVoiceCall}
-          onDismiss={handleDismissVoiceCallStatus}
-        />
-      ) : null}
       <audio ref={voiceRemoteAudioElementRef} autoPlay playsInline className="hidden" />
       <DevPanel dmController={dmController} />
     </AppShell>

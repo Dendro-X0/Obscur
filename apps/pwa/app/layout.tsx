@@ -1,6 +1,5 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import "./styles/mobile-safe-area.css"
 import { ThemeController } from "./components/theme-controller"
@@ -14,16 +13,12 @@ import { DeepLinkHandler } from "./components/desktop/deep-link-handler"
 import { I18nProvider } from "./components/i18n-provider"
 import { RootErrorBoundary } from "./components/root-error-boundary"
 import { Preloader } from "./components/preloader"
-import { DesktopNotificationHandler } from "./components/desktop-notification-handler"
 import { StorageHealthBootstrap } from "./components/storage-health-bootstrap"
 import { ErrorPanel } from "./features/native/components/error-panel"
-import { AppProviders } from "./components/providers"
 import { TitleBar } from "./components/desktop/title-bar"
 import { NativeRuntimeGate } from "./components/native-runtime-gate"
 import { ProfileMigrationBootstrap } from "./components/profile-migration-bootstrap"
-
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
+import { DesktopWindowRootSurface } from "./components/desktop/desktop-window-root-surface"
 
 export const metadata: Metadata = {
   title: "Obscur",
@@ -407,7 +402,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`} suppressHydrationWarning>
+      <body className="font-sans antialiased bg-background text-foreground" suppressHydrationWarning>
         <NativeRuntimeGate>
           <Preloader />
           <RootErrorBoundary>
@@ -428,10 +423,9 @@ export default function RootLayout({
                       <TitleBar />
                     </div>
                     <main className="flex-1 min-h-0 relative flex flex-col">
-                      <AppProviders>
-                        <DesktopNotificationHandler />
+                      <DesktopWindowRootSurface>
                         {children}
-                      </AppProviders>
+                      </DesktopWindowRootSurface>
                     </main>
                   </div>
               </I18nProvider>

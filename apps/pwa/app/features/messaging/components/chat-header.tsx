@@ -6,7 +6,13 @@ import type { Conversation } from "../types";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { formatTime } from "../utils/formatting";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
-import { Copy, PhoneCall, PhoneOff, PhoneIncoming, PhoneOutgoing } from "lucide-react";
+import {
+    getNotificationTargetEnabled,
+    setNotificationTargetEnabled,
+    subscribeNotificationTargetPreferenceChanges,
+    type NotificationTarget,
+} from "../../notifications/utils/notification-target-preference";
+import { Bell, BellOff, Copy, PhoneCall } from "lucide-react";
 
 export interface ChatHeaderProps {
     conversation: Conversation;
@@ -15,6 +21,7 @@ export interface ChatHeaderProps {
     nowMs?: number | null;
     onCopyPubkey: (pubkey: string) => void;
     onOpenMedia: () => void;
+    onToggleConversationNotifications?: (params: Readonly<{ conversation: Conversation; enabled: boolean }>) => void;
     onOpenInfo?: () => void;
     onOpenProfile?: (pubkey: string) => void;
     onSendVoiceCallInvite?: () => void;
@@ -46,6 +53,7 @@ export function ChatHeader({
     nowMs,
     onCopyPubkey,
     onOpenMedia,
+    onToggleConversationNotifications,
     onOpenInfo,
     onOpenProfile,
     onSendVoiceCallInvite,
@@ -65,11 +73,39 @@ export function ChatHeader({
     const [showPublicKeyControlsInChat, setShowPublicKeyControlsInChat] = React.useState<boolean>(() => (
         PrivacySettingsService.getSettings().showPublicKeyControlsInChat === true
     ));
+    const notificationTarget = React.useMemo<NotificationTarget>(() => {
+        if (conversation.kind === "dm") {
+            return {
+                kind: "dm",
+                peerPublicKeyHex: conversation.pubkey,
+            };
+        }
+        return {
+            kind: "group",
+            conversationId: conversation.id,
+            groupId: conversation.groupId,
+        };
+    }, [
+        conversation.id,
+        conversation.kind,
+        conversation.kind === "dm" ? conversation.pubkey : "",
+        conversation.kind === "group" ? (conversation.groupId ?? "") : "",
+    ]);
+    const [notificationsEnabled, setNotificationsEnabled] = React.useState<boolean>(() => (
+        getNotificationTargetEnabled(notificationTarget)
+    ));
     const [isPubkeyPanelVisible, setIsPubkeyPanelVisible] = React.useState(false);
-    const [clockNowMs, setClockNowMs] = React.useState<number | null>(null);
     React.useEffect(() => {
         setIsPubkeyPanelVisible(false);
     }, [conversation.id]);
+    React.useEffect(() => {
+        setNotificationsEnabled(getNotificationTargetEnabled(notificationTarget));
+    }, [notificationTarget]);
+    React.useEffect(() => {
+        return subscribeNotificationTargetPreferenceChanges(() => {
+            setNotificationsEnabled(getNotificationTargetEnabled(notificationTarget));
+        });
+    }, [notificationTarget]);
     React.useEffect(() => {
         const onPrivacySettingsChanged = () => {
             const nextShowPublicKeyControls = PrivacySettingsService.getSettings().showPublicKeyControlsInChat === true;
@@ -84,22 +120,7 @@ export function ChatHeader({
         }
         return;
     }, []);
-    React.useEffect(() => {
-        if (voiceCallStatus?.phase !== "connected") {
-            setClockNowMs(null);
-            return;
-        }
-        setClockNowMs(Date.now());
-        const intervalId = window.setInterval(() => {
-            setClockNowMs(Date.now());
-        }, 1000);
-        return () => {
-            window.clearInterval(intervalId);
-        };
-    }, [voiceCallStatus?.phase]);
-    const resolvedNowMs = voiceCallStatus?.phase === "connected"
-        ? (clockNowMs ?? nowMs ?? voiceCallStatus.sinceUnixMs)
-        : (nowMs ?? null);
+    const resolvedNowMs = nowMs ?? null;
     const lastActiveLabel = (
         interactionStatus?.lastActiveAtMs
             ? formatTime(new Date(interactionStatus.lastActiveAtMs), resolvedNowMs)
@@ -110,75 +131,15 @@ export function ChatHeader({
             ? formatTime(new Date(interactionStatus.lastViewedAtMs), resolvedNowMs)
             : ""
     );
-    const callStateLabel = (() => {
-        if (voiceCallStatus) {
-            switch (voiceCallStatus.phase) {
-                case "ringing_outgoing":
-                    return t("messaging.voiceCallRingingOutgoing", "Calling...");
-                case "ringing_incoming":
-                    return t("messaging.voiceCallRingingIncoming", "Incoming call");
-                case "connecting":
-                    return t("messaging.voiceCallConnecting", "Connecting...");
-                case "connected":
-                    return t("messaging.voiceCallConnected", "In call");
-                case "interrupted":
-                    return t("messaging.voiceCallInterrupted", "Call interrupted");
-                case "ended":
-                    return t("messaging.voiceCallEnded", "Call ended");
-                default:
-                    return t("messaging.voiceCallActive", "Voice call active");
-            }
-        }
-        if (!activeVoiceCallState) return null;
-        switch (activeVoiceCallState.connectionState) {
-            case "connected":
-                return t("messaging.voiceCallConnected", "In call");
-            case "connecting":
-            case "new":
-                return t("messaging.voiceCallConnecting", "Connecting...");
-            case "disconnected":
-                return t("messaging.voiceCallDisconnected", "Reconnecting...");
-            case "failed":
-                return t("messaging.voiceCallFailed", "Connection failed");
-            case "closed":
-                return t("messaging.voiceCallEnded", "Call ended");
-            default:
-                return t("messaging.voiceCallActive", "Voice call active");
-        }
-    })();
-    const CallIcon = (
-        voiceCallStatus?.role === "host" || activeVoiceCallState?.role === "host"
-            ? PhoneOutgoing
-            : PhoneIncoming
-    );
-    const connectedDurationLabel = (
-        voiceCallStatus?.phase === "connected" && Number.isFinite(voiceCallStatus.sinceUnixMs)
-            ? (() => {
-                const effectiveNowMs = resolvedNowMs ?? voiceCallStatus.sinceUnixMs;
-                const elapsedMs = Math.max(0, effectiveNowMs - voiceCallStatus.sinceUnixMs);
-                const totalSeconds = Math.floor(elapsedMs / 1000);
-                const minutes = Math.floor(totalSeconds / 60);
-                const seconds = totalSeconds % 60;
-                return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-            })()
-            : null
-    );
-    const voiceCallStatusToneClass = (() => {
-        switch (voiceCallStatus?.phase) {
-            case "interrupted":
-                return "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300";
-            case "ended":
-                return "border-zinc-400/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300";
-            case "ringing_incoming":
-            case "ringing_outgoing":
-                return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
-            default:
-                return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-        }
-    })();
-    const canEndVoiceCall = voiceCallStatus
-        ? voiceCallStatus.phase !== "ended"
-        : !!activeVoiceCallState;
+    const handleToggleConversationNotifications = React.useCallback(() => {
+        const next = !notificationsEnabled;
+        setNotificationsEnabled(next);
+        setNotificationTargetEnabled({ target: notificationTarget, enabled: next });
+        onToggleConversationNotifications?.({ conversation, enabled: next });
+    }, [conversation, notificationTarget, notificationsEnabled, onToggleConversationNotifications]);
+    const notificationToggleLabel = notificationsEnabled
+        ? t("messaging.notifications.disableForChat", "Disable notifications for this chat")
+        : t("messaging.notifications.enableForChat", "Enable notifications for this chat");
 
     return (
         <div className="flex items-center justify-between border-b border-black/10 bg-white/60 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
@@ -212,7 +173,29 @@ export function ChatHeader({
                     </div>
                 )}
                 <div className="space-y-1">
-                    <h2 className="font-bold tracking-tight">{resolvedName}</h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="font-bold tracking-tight">{resolvedName}</h2>
+                        <button
+                            type="button"
+                            onClick={handleToggleConversationNotifications}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                                notificationsEnabled
+                                    ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300"
+                                    : "border-rose-500/35 bg-rose-500/15 text-rose-700 hover:bg-rose-500/25 dark:text-rose-300"
+                            }`}
+                            aria-label={notificationToggleLabel}
+                            title={notificationToggleLabel}
+                            aria-pressed={notificationsEnabled}
+                            data-state={notificationsEnabled ? "enabled" : "disabled"}
+                            data-testid="chat-header-notification-toggle"
+                        >
+                            {notificationsEnabled ? (
+                                <Bell className="h-3.5 w-3.5" />
+                            ) : (
+                                <BellOff className="h-3.5 w-3.5" />
+                            )}
+                        </button>
+                    </div>
                     {conversation.kind === "dm" ? (
                         <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                             <span className="mr-2 inline-flex items-center gap-1.5">
@@ -273,48 +256,6 @@ export function ChatHeader({
                             </Button>
                         )}
                     </div>
-                    {conversation.kind === "dm" && (voiceCallStatus || activeVoiceCallState) ? (
-                        <div className={`mt-2 inline-flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-1 text-[11px] font-semibold ${voiceCallStatusToneClass}`}>
-                            <CallIcon className="h-3.5 w-3.5" />
-                            <span className="uppercase tracking-wide">{callStateLabel}</span>
-                            {connectedDurationLabel ? (
-                                <span className="rounded-md border border-emerald-500/35 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-black tracking-wider">
-                                    {connectedDurationLabel}
-                                </span>
-                            ) : null}
-                            {voiceCallStatus?.phase === "ringing_incoming" ? (
-                                <>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="h-6 rounded-md px-2 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-200 dark:hover:text-emerald-100"
-                                        onClick={onAcceptIncomingVoiceCall}
-                                    >
-                                        {t("common.accept", "Accept")}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="h-6 rounded-md px-2 text-[10px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200"
-                                        onClick={onDeclineIncomingVoiceCall}
-                                    >
-                                        {t("common.decline", "Decline")}
-                                    </Button>
-                                </>
-                            ) : null}
-                            {canEndVoiceCall ? (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="h-6 rounded-md px-2 text-[10px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200"
-                                    onClick={onLeaveVoiceCall}
-                                >
-                                    <PhoneOff className="mr-1 h-3 w-3" />
-                                    {t("messaging.voiceCallEnd", "End")}
-                                </Button>
-                            ) : null}
-                        </div>
-                    ) : null}
                     {conversation.kind === "dm" && showPublicKeyControlsInChat && isPubkeyPanelVisible ? (
                         <div className="mt-2 inline-flex flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-black/[0.02] px-2.5 py-1.5 text-[11px] dark:border-white/10 dark:bg-white/[0.03]">
                             <span className="font-mono text-zinc-600 dark:text-zinc-300">

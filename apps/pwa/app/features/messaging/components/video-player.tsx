@@ -36,6 +36,11 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    const resolveDuration = (video: HTMLVideoElement | null): number => {
+        if (!video) return 0;
+        return Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+    };
+
     useEffect(() => {
         setRuntimeSrc(src);
         setHasRetriedWithBypass(false);
@@ -96,19 +101,20 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
     };
 
     const handleTimeUpdate = () => {
-        if (videoRef.current) {
-            setCurrentTime(videoRef.current.currentTime);
-            const d = videoRef.current.duration;
-            setProgress(d > 0 ? (videoRef.current.currentTime / d) * 100 : 0);
-        }
+        const video = videoRef.current;
+        if (!video) return;
+        const nextDuration = resolveDuration(video);
+        const nextCurrentTime = Number.isFinite(video.currentTime) ? Math.max(0, video.currentTime) : 0;
+        setCurrentTime(nextCurrentTime);
+        setProgress(nextDuration > 0 ? (nextCurrentTime / nextDuration) * 100 : 0);
     };
 
     const handleLoadedMetadata = () => {
-        if (videoRef.current) {
-            setDuration(videoRef.current.duration);
-            setIsLoading(false);
-            setIsError(false);
-        }
+        const video = videoRef.current;
+        if (!video) return;
+        setDuration(resolveDuration(video));
+        setIsLoading(false);
+        setIsError(false);
     };
 
     const handleCanPlay = () => {
@@ -183,6 +189,19 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
         setIsMuted(nextMuted);
     };
 
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.stopPropagation();
+        const video = videoRef.current;
+        if (!video) return;
+        const nextDuration = resolveDuration(video);
+        if (nextDuration <= 0) return;
+        const nextProgress = Math.max(0, Math.min(100, Number(e.target.value)));
+        const nextTime = (nextProgress / 100) * nextDuration;
+        video.currentTime = nextTime;
+        setCurrentTime(nextTime);
+        setProgress(nextProgress);
+    };
+
     const formatTime = (time: number) => {
         if (isNaN(time)) return "0:00";
         const mins = Math.floor(time / 60);
@@ -191,6 +210,7 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
     };
 
     const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
+    const progressPercent = Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : 0;
     const useNativeMobileControls = isCoarsePointer;
     const showControlDock = !useNativeMobileControls && !isError && (isHovering || !isPlaying);
 
@@ -320,11 +340,21 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
                             <div className="group/seek relative h-1.5 w-full cursor-pointer rounded-full bg-zinc-200/90 transition-all hover:h-2 dark:bg-white/10 sm:hover:h-2.5">
                                 <div
                                     className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-600 via-purple-500 to-blue-400 rounded-full transition-all duration-100 shadow-[0_0_10px_rgba(147,51,234,0.5)]"
-                                    style={{ width: `${progress}%` }}
+                                    style={{ width: `${progressPercent}%` }}
                                 />
                                 <div
                                     className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-purple-500 bg-white opacity-0 shadow-2xl scale-75 transition-all group-hover/seek:opacity-100 group-hover/seek:scale-100 sm:h-4 sm:w-4"
-                                    style={{ left: `${progress}%`, marginLeft: "-8px" }}
+                                    style={{ left: `${progressPercent}%`, marginLeft: "-8px" }}
+                                />
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={progressPercent}
+                                    onChange={handleSeek}
+                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                    aria-label="Video progress"
                                 />
                             </div>
 

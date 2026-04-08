@@ -44,7 +44,10 @@ import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import {
+    isConversationNotificationsEnabled,
+    setConversationNotificationsEnabled,
+} from "@/app/features/notifications/utils/notification-target-preference";
 import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
@@ -385,17 +388,10 @@ export default function GroupHomePage() {
     }, [group, router, setSelectedConversation]);
 
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-    const getScopedGroupNotificationsKey = (groupId: string): string => getScopedStorageKey(`obscur_group_notifications_${groupId}`);
-    const getLegacyGroupNotificationsKey = (groupId: string): string => `obscur_group_notifications_${groupId}`;
 
     React.useEffect(() => {
         if (!group) return;
-        const saved =
-            localStorage.getItem(getScopedGroupNotificationsKey(group.groupId))
-            ?? localStorage.getItem(getLegacyGroupNotificationsKey(group.groupId));
-        if (saved) {
-            setNotificationsEnabled(saved === "on");
-        }
+        setNotificationsEnabled(isConversationNotificationsEnabled(group));
 
         const fetchRoomKey = async () => {
             const { roomKeyStore } = await import("@/app/features/crypto/room-key-store");
@@ -409,7 +405,10 @@ export default function GroupHomePage() {
         const next = !notificationsEnabled;
         setNotificationsEnabled(next);
         if (group) {
-            localStorage.setItem(getScopedGroupNotificationsKey(group.groupId), next ? "on" : "off");
+            setConversationNotificationsEnabled({
+                conversation: group,
+                enabled: next,
+            });
             toast.success(next ? "Notifications enabled" : "Notifications disabled");
         }
     };

@@ -24,6 +24,7 @@ import {
 
 describe("notification-service", () => {
   const originalNotification = globalThis.Notification;
+  const originalServiceWorker = navigator.serviceWorker;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,6 +38,10 @@ describe("notification-service", () => {
     if (originalNotification) {
       vi.stubGlobal("Notification", originalNotification);
     }
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: originalServiceWorker,
+    });
   });
 
   it("uses browser notification permission in web runtimes", async () => {
@@ -71,7 +76,7 @@ describe("notification-service", () => {
       ok: true,
       permission: "granted",
     });
-    expect(show).toHaveBeenCalledWith({ title: "Hello", body: "World" });
+    expect(show).toHaveBeenCalledWith(expect.objectContaining({ title: "Hello", body: "World" }));
   });
 
   it("returns failure when browser notification permission is not granted", async () => {
@@ -87,5 +92,92 @@ describe("notification-service", () => {
       ok: false,
       permission: "denied",
     });
+  });
+
+  it("requests permission when browser permission is default", async () => {
+    const requestPermission = vi.fn().mockResolvedValue("granted");
+    class BrowserNotificationMock {
+      static permission: NotificationPermission = "default";
+      static requestPermission = requestPermission;
+      onclick: (() => void) | null = null;
+      constructor(_title: string, _options?: NotificationOptions) {}
+    }
+    vi.stubGlobal("Notification", BrowserNotificationMock as unknown as typeof Notification);
+
+    await expect(showRuntimeNotification({ title: "Hello", body: "World" })).resolves.toEqual({
+      ok: true,
+      permission: "granted",
+    });
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses service worker notification path when available", async () => {
+    class BrowserNotificationMock {
+      static permission: NotificationPermission = "granted";
+      static requestPermission = vi.fn().mockResolvedValue("granted");
+      onclick: (() => void) | null = null;
+      constructor(_title: string, _options?: NotificationOptions) {}
+    }
+    vi.stubGlobal("Notification", BrowserNotificationMock as unknown as typeof Notification);
+    const showNotification = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: {
+        getRegistration: vi.fn().mockResolvedValue({
+          showNotification,
+        }),
+      },
+    });
+
+    await expect(showRuntimeNotification({
+      title: "Incoming call",
+      body: "Room: dm-voice",
+      tag: "obscur-call",
+      data: { overlayAction: "open_chat", href: "/" },
+      requireInteraction: true,
+      actions: [
+        { action: "accept", title: "Accept" },
+        { action: "decline", title: "Decline" },
+      ],
+    })).resolves.toEqual({
+      ok: true,
+      permission: "granted",
+    });
+
+    expect(showNotification).toHaveBeenCalledWith("Incoming call", expect.objectContaining({
+      body: "Room: dm-voice",
+      tag: "obscur-call",
+      data: { overlayAction: "open_chat", href: "/" },
+      requireInteraction: true,
+      actions: [
+        { action: "accept", title: "Accept" },
+        { action: "decline", title: "Decline" },
+      ],
+    }));
+  });
+
+  it("wires browser notification clicks to focus and callback", async () => {
+    const onClick = vi.fn();
+    class BrowserNotificationMock {
+      static permission: NotificationPermission = "granted";
+      static requestPermission = vi.fn().mockResolvedValue("granted");
+      static lastInstance: BrowserNotificationMock | null = null;
+      onclick: (() => void) | null = null;
+      constructor(_title: string, _options?: NotificationOptions) {
+        BrowserNotificationMock.lastInstance = this;
+      }
+    }
+    vi.stubGlobal("Notification", BrowserNotificationMock as unknown as typeof Notification);
+    const focusSpy = vi.spyOn(window, "focus").mockImplementation(() => undefined);
+
+    await expect(showRuntimeNotification({ title: "Call", body: "Incoming", onClick })).resolves.toEqual({
+      ok: true,
+      permission: "granted",
+    });
+
+    BrowserNotificationMock.lastInstance?.onclick?.();
+
+    expect(focusSpy).toHaveBeenCalledTimes(1);
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

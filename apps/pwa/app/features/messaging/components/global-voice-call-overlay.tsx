@@ -2,14 +2,14 @@
 
 import React, { useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { VoiceCallDock } from "./voice-call-dock";
 import { IncomingVoiceCallToast } from "./incoming-voice-call-toast";
 import { useGlobalVoiceCallOverlayState } from "../services/realtime-voice-global-ui-store";
-
-const OVERLAY_ACTION_STORAGE_KEY = "obscur.voice_call.overlay_action.v1";
-const OVERLAY_ACTION_EVENT_NAME = "obscur:voice-call-overlay-action";
-
-type OverlayAction = "open_chat" | "accept" | "decline" | "end" | "dismiss";
+import {
+  dispatchVoiceCallOverlayAction,
+  type VoiceCallOverlayAction,
+} from "../services/voice-call-overlay-action-bridge";
 
 const toRoomIdHint = (roomIdInput: string): string => {
   const roomId = roomIdInput.trim();
@@ -22,67 +22,63 @@ const toRoomIdHint = (roomIdInput: string): string => {
   return `${roomId.slice(0, 10)}...${roomId.slice(-10)}`;
 };
 
-const dispatchOverlayAction = (action: OverlayAction): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.sessionStorage.setItem(
-      OVERLAY_ACTION_STORAGE_KEY,
-      JSON.stringify({
-        action,
-        atUnixMs: Date.now(),
-      }),
-    );
-  } catch {
-    // best effort bridge only
-  }
-  window.dispatchEvent(new CustomEvent(OVERLAY_ACTION_EVENT_NAME, {
-    detail: { action },
-  }));
-};
-
 export function GlobalVoiceCallOverlay(): React.JSX.Element | null {
   const pathname = usePathname();
   const router = useRouter();
   const overlay = useGlobalVoiceCallOverlayState();
   const isChatRoute = pathname === "/";
+  const anchorMode = isChatRoute ? "chat" : "page";
 
-  const relayActionToChatSurface = useCallback((action: OverlayAction): void => {
-    dispatchOverlayAction(action);
-    if (action === "open_chat" && !isChatRoute) {
+  const relayActionToChatSurface = useCallback((action: VoiceCallOverlayAction): void => {
+    dispatchVoiceCallOverlayAction(action);
+    if (
+      !isChatRoute
+      && (action === "open_chat" || action === "accept" || action === "decline")
+    ) {
       router.push("/");
     }
   }, [isChatRoute, router]);
 
-  if (!overlay.status || isChatRoute) {
+  if (!overlay.status) {
     return null;
   }
 
-  if (overlay.status.phase === "ringing_incoming") {
-    return (
+  const overlayNode = overlay.status.phase === "ringing_incoming"
+    ? (
       <IncomingVoiceCallToast
         isOpen
         inviterDisplayName={overlay.peerDisplayName}
         inviterAvatarUrl={overlay.peerAvatarUrl}
         roomIdHint={toRoomIdHint(overlay.status.roomId)}
+        anchorMode={anchorMode}
         onAccept={() => relayActionToChatSurface("accept")}
         onDecline={() => relayActionToChatSurface("decline")}
         onDismiss={() => relayActionToChatSurface("dismiss")}
       />
+    )
+    : (
+      <VoiceCallDock
+        status={overlay.status}
+        peerDisplayName={overlay.peerDisplayName}
+        peerAvatarUrl={overlay.peerAvatarUrl}
+        anchorMode={anchorMode}
+        audioLevel={overlay.waveAudioLevel}
+        onOpenChat={() => relayActionToChatSurface("open_chat")}
+        onAccept={() => relayActionToChatSurface("accept")}
+        onDecline={() => relayActionToChatSurface("decline")}
+        onEnd={() => relayActionToChatSurface("end")}
+        onDismiss={() => relayActionToChatSurface("dismiss")}
+      />
     );
+
+  if (typeof document === "undefined") {
+    return overlayNode;
   }
 
-  return (
-    <VoiceCallDock
-      status={overlay.status}
-      peerDisplayName={overlay.peerDisplayName}
-      peerAvatarUrl={overlay.peerAvatarUrl}
-      onOpenChat={() => relayActionToChatSurface("open_chat")}
-      onAccept={() => relayActionToChatSurface("accept")}
-      onDecline={() => relayActionToChatSurface("decline")}
-      onEnd={() => relayActionToChatSurface("end")}
-      onDismiss={() => relayActionToChatSurface("dismiss")}
-    />
+  return createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[2147482990]">
+      {overlayNode}
+    </div>,
+    document.body,
   );
 }

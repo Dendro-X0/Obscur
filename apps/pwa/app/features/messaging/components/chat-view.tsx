@@ -59,6 +59,7 @@ export interface ChatViewProps {
     // Header Props
     onCopyPubkey: (pubkey: string) => void;
     onOpenMedia: () => void;
+    onToggleConversationNotifications?: (params: Readonly<{ conversation: Conversation; enabled: boolean }>) => void;
     onOpenInfo?: () => void;
     onOpenProfile?: (pubkey: string) => void;
     onSendVoiceCallInvite?: () => void;
@@ -596,6 +597,7 @@ export function ChatView(props: ChatViewProps) {
                 nowMs={props.nowMs}
                 onCopyPubkey={props.onCopyPubkey}
                 onOpenMedia={props.onOpenMedia}
+                onToggleConversationNotifications={props.onToggleConversationNotifications}
                 onOpenInfo={props.onOpenInfo}
                 onOpenProfile={props.onOpenProfile}
                 onSendVoiceCallInvite={props.onSendVoiceCallInvite}

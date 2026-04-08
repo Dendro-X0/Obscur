@@ -1,10 +1,11 @@
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GlobalVoiceCallOverlay } from "./global-voice-call-overlay";
 import {
   clearGlobalVoiceCallOverlayState,
   setGlobalVoiceCallOverlayState,
+  setGlobalVoiceCallOverlayWaveAudioLevel,
 } from "../services/realtime-voice-global-ui-store";
 
 const routerMocks = vi.hoisted(() => ({
@@ -23,11 +24,13 @@ vi.mock("./voice-call-dock", () => ({
   VoiceCallDock: (props: Readonly<{
     status: { phase: string } | null;
     peerDisplayName: string;
+    audioLevel?: number;
     onOpenChat: () => void;
   }>) => (
     <div>
       <span>{props.peerDisplayName}</span>
       <span>{props.status?.phase ?? "none"}</span>
+      <span>{`wave:${(props.audioLevel ?? 0).toFixed(2)}`}</span>
       <button type="button" onClick={props.onOpenChat}>Open Chat</button>
     </div>
   ),
@@ -86,21 +89,23 @@ describe("GlobalVoiceCallOverlay", () => {
     expect(routerMocks.push).toHaveBeenCalledWith("/");
   });
 
-  it("stays hidden on chat route to avoid duplicate dock rendering", () => {
+  it("renders global dock on chat route and keeps open-chat action in-place", () => {
     routerMocks.pathname = "/";
     setGlobalVoiceCallOverlayState({
       status: {
         roomId: "room-2",
         peerPubkey: "b".repeat(64),
-        phase: "ringing_outgoing",
+        phase: "connected",
         role: "host",
         sinceUnixMs: Date.now(),
       },
       peerDisplayName: "Bob",
       peerAvatarUrl: "",
     });
-    const { container } = render(<GlobalVoiceCallOverlay />);
-    expect(container.firstChild).toBeNull();
+    render(<GlobalVoiceCallOverlay />);
+    expect(screen.getByText("Bob")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open Chat" }));
+    expect(routerMocks.push).not.toHaveBeenCalled();
   });
 
   it("renders incoming-call toast on non-chat routes", () => {
@@ -120,8 +125,52 @@ describe("GlobalVoiceCallOverlay", () => {
     expect(screen.getByText("Carol")).toBeInTheDocument();
     expect(screen.getByText("dm-voice-c...1234567890")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
-    expect(routerMocks.push).not.toHaveBeenCalled();
+    expect(routerMocks.push).toHaveBeenCalledWith("/");
+    routerMocks.push.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(routerMocks.push).not.toHaveBeenCalled();
+  });
+
+
+  it("updates dock waveform level through global overlay audio-level store", () => {
+    setGlobalVoiceCallOverlayState({
+      status: {
+        roomId: "room-wave",
+        peerPubkey: "e".repeat(64),
+        phase: "connected",
+        role: "host",
+        sinceUnixMs: Date.now(),
+      },
+      peerDisplayName: "Echo",
+      peerAvatarUrl: "",
+      waveAudioLevel: 0,
+    });
+    render(<GlobalVoiceCallOverlay />);
+    expect(screen.getByText("wave:0.00")).toBeInTheDocument();
+
+    act(() => {
+      setGlobalVoiceCallOverlayWaveAudioLevel(0.73);
+    });
+    expect(screen.getByText("wave:0.73")).toBeInTheDocument();
+  });
+
+  it("renders incoming-call toast on chat routes", () => {
+    routerMocks.pathname = "/";
+    setGlobalVoiceCallOverlayState({
+      status: {
+        roomId: "dm-voice-call-room-chat-abcdef1234567890",
+        peerPubkey: "d".repeat(64),
+        phase: "ringing_incoming",
+        role: "joiner",
+        sinceUnixMs: Date.now(),
+      },
+      peerDisplayName: "Dana",
+      peerAvatarUrl: "",
+    });
+    render(<GlobalVoiceCallOverlay />);
+    expect(screen.getByText("toast-open")).toBeInTheDocument();
+    expect(screen.getByText("Dana")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
     expect(routerMocks.push).not.toHaveBeenCalled();
   });
 });

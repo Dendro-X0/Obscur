@@ -84,6 +84,9 @@ vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () 
 
 describe("RuntimeMessagingTransportOwnerProvider", () => {
   beforeEach(() => {
+    identityState.status = "unlocked";
+    identityState.publicKeyHex = "a".repeat(64) as PublicKeyHex;
+    identityState.privateKeyHex = "f".repeat(64);
     projectionState.accountProjectionReady = false;
     projectionState.phase = "bootstrapping";
     projectionState.accountPublicKeyHex = "a".repeat(64) as PublicKeyHex;
@@ -144,7 +147,7 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     }));
   });
 
-  it("keeps transport disabled during bootstrapping when projection is not bound to the active identity", () => {
+  it("keeps transport enabled during bootstrapping even when projection is not bound to the active identity", () => {
     projectionState.accountProjectionReady = false;
     projectionState.phase = "bootstrapping";
     projectionState.accountPublicKeyHex = "c".repeat(64) as PublicKeyHex;
@@ -156,9 +159,9 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     );
 
     expect(useEnhancedDmController).toHaveBeenCalledWith(expect.objectContaining({
-      enableIncomingTransport: false,
-      autoSubscribeIncoming: false,
-      enableAutoQueueProcessing: false,
+      enableIncomingTransport: true,
+      autoSubscribeIncoming: true,
+      enableAutoQueueProcessing: true,
     }));
   });
 
@@ -333,5 +336,37 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     });
 
     expect(busMocks.emitMessageDeleted).toHaveBeenCalledWith("conversation-delete", "msg-delete-1");
+  });
+
+  it("disables transport when runtime phase is not active", () => {
+    runtimeState.phase = "booting";
+
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    expect(useEnhancedDmController).toHaveBeenCalledWith(expect.objectContaining({
+      enableIncomingTransport: false,
+      autoSubscribeIncoming: false,
+      enableAutoQueueProcessing: false,
+    }));
+  });
+
+  it("disables transport when identity is not unlocked", () => {
+    identityState.status = "locked";
+
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    expect(useEnhancedDmController).toHaveBeenCalledWith(expect.objectContaining({
+      enableIncomingTransport: false,
+      autoSubscribeIncoming: false,
+      enableAutoQueueProcessing: false,
+    }));
   });
 });

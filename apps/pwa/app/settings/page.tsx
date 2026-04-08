@@ -2882,6 +2882,9 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
             <div className="text-sm text-zinc-700 dark:text-zinc-300">
               {t("settings.notifications.backgroundDesc")}
             </div>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              {t("settings.notifications.perConversationDesc", "Tip: use the bell icon in each chat header to mute or unmute notifications for a specific user or group.")}
+            </div>
             <div className="rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50">
               <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
                 {t("settings.notifications.permission", "Permission")}: {notificationPreference.state.permission}

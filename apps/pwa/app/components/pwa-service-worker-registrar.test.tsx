@@ -77,4 +77,25 @@ describe("PwaServiceWorkerRegistrar", () => {
     expect(register).not.toHaveBeenCalled();
     expect(getRegistrations).not.toHaveBeenCalled();
   });
+
+  it("unregisters service workers and skips registration in desktop-shell builds", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_DESKTOP_SHELL", "1");
+    runtimeMocks.hasNativeRuntime.mockReturnValue(false);
+    const unregister = vi.fn(() => Promise.resolve(true));
+    const getRegistrations = vi.fn(() => Promise.resolve([{ unregister }]));
+    const register = vi.fn(() => Promise.resolve({}));
+    defineServiceWorker({
+      register,
+      getRegistrations,
+    });
+
+    render(<PwaServiceWorkerRegistrar />);
+
+    await waitFor(() => {
+      expect(getRegistrations).toHaveBeenCalled();
+      expect(unregister).toHaveBeenCalled();
+    });
+    expect(register).not.toHaveBeenCalled();
+  });
 });

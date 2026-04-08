@@ -8,6 +8,13 @@ import type { NotificationChannels } from "../../notifications/utils/notificatio
 
 const DESKTOP_NOTIFICATION_TAG: string = "obscur-notification";
 type NotificationChannelKey = keyof NotificationChannels;
+type ShowDesktopNotificationOptions = Readonly<{
+  onClick?: () => void;
+  data?: Record<string, unknown>;
+  requireInteraction?: boolean;
+  actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
+  force?: boolean;
+}>;
 
 /**
  * Hook to integrate desktop notifications with PWA notification system
@@ -32,12 +39,25 @@ export function useDesktopNotifications() {
 
   // Show notification function that uses desktop or web notifications
   const showNotification = useCallback(
-    async (title: string, body: string, channel: NotificationChannelKey = "dmMessages") => {
-      if (!state.enabled || !state.channels[channel]) {
+    async (
+      title: string,
+      body: string,
+      channel: NotificationChannelKey = "dmMessages",
+      options?: ShowDesktopNotificationOptions,
+    ) => {
+      if (!options?.force && (!state.enabled || !state.channels[channel])) {
         return;
       }
 
-      await showDesktopNotification({ title, body, tag: DESKTOP_NOTIFICATION_TAG });
+      await showDesktopNotification({
+        title,
+        body,
+        tag: DESKTOP_NOTIFICATION_TAG,
+        onClick: options?.onClick,
+        data: options?.data,
+        requireInteraction: options?.requireInteraction,
+        actions: options?.actions,
+      });
     },
     [state.enabled, state.channels]
   );

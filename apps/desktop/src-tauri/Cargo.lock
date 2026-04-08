@@ -3210,6 +3210,7 @@ dependencies = [
  "keyring",
  "libobscur",
  "nostr",
+ "notify-rust",
  "reqwest",
  "rustls 0.23.36",
  "rustls-native-certs 0.8.3",

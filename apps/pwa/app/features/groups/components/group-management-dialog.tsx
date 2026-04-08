@@ -55,6 +55,10 @@ import type { GroupConversation } from "../../messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupAccessMode } from "../types";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import {
+    isConversationNotificationsEnabled,
+    setConversationNotificationsEnabled,
+} from "@/app/features/notifications/utils/notification-target-preference";
 import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
@@ -127,8 +131,6 @@ export function GroupManagementDialog({
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const getScopedMutedMembersKey = (groupId: string): string => getScopedStorageKey(`obscur_group_muted_members_${groupId}`);
     const getLegacyMutedMembersKey = (groupId: string): string => `obscur_group_muted_members_${groupId}`;
-    const getScopedNotificationsKey = (groupId: string): string => getScopedStorageKey(`obscur_group_notifications_${groupId}`);
-    const getLegacyNotificationsKey = (groupId: string): string => `obscur_group_notifications_${groupId}`;
 
     const isLocalAdmin = group.adminPubkeys?.includes(myPublicKeyHex || "") || false;
     const isAdmin = state.membership.role === "member" || isLocalAdmin;
@@ -189,12 +191,7 @@ export function GroupManagementDialog({
             } catch (e) { }
         }
 
-        const notifSaved =
-            localStorage.getItem(getScopedNotificationsKey(group.groupId))
-            ?? localStorage.getItem(getLegacyNotificationsKey(group.groupId));
-        if (notifSaved) {
-            setNotificationsEnabled(notifSaved === "on");
-        }
+        setNotificationsEnabled(isConversationNotificationsEnabled(group));
     }, [group.groupId]);
 
     const toggleMute = (pk: string) => {
@@ -209,7 +206,10 @@ export function GroupManagementDialog({
     const toggleNotifications = () => {
         const next = !notificationsEnabled;
         setNotificationsEnabled(next);
-        localStorage.setItem(getScopedNotificationsKey(group.groupId), next ? "on" : "off");
+        setConversationNotificationsEnabled({
+            conversation: group,
+            enabled: next,
+        });
         toast.success(next ? "Notifications enabled" : "Notifications disabled");
     };
 

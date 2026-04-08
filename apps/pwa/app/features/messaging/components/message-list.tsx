@@ -11,7 +11,6 @@ import { MessageLinkPreview } from "../../../components/message-link-preview";
 import { AudioPlayer } from "./audio-player";
 import { VideoPlayer } from "./video-player";
 import { VoiceNoteCard } from "./voice-note-card";
-import { VoiceCallInviteCard } from "./voice-call-invite-card";
 import { cn } from "../../../lib/cn";
 import { formatTime } from "../utils/formatting";
 import type {
@@ -1299,6 +1298,11 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
     const voiceCallInviteRoomId = typeof voiceCallInvitePayload?.roomId === "string"
         ? voiceCallInvitePayload.roomId
         : null;
+    const voiceCallInviteRoomIdHint = voiceCallInviteRoomId
+        ? (voiceCallInviteRoomId.length <= 24
+            ? voiceCallInviteRoomId
+            : `${voiceCallInviteRoomId.slice(0, 10)}...${voiceCallInviteRoomId.slice(-10)}`)
+        : "unknown-room";
 
     const markMenuAnchorHover = React.useCallback((isHovered: boolean): void => {
         onMessageMenuAnchorHoverChange?.({ messageId: message.id, isHovered });
@@ -1731,24 +1735,36 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                                 isOutgoing={message.isOutgoing}
                                             />
                                         ) : parsedPayload?.type === "voice-call-invite" ? (
-                                            <VoiceCallInviteCard
-                                                invite={voiceCallInvitePayload as VoiceCallInvitePayload}
-                                                isOutgoing={message.isOutgoing}
-                                                isJoining={joiningVoiceCallInviteMessageId === message.id}
-                                                callSummary={voiceCallRoomSummary}
-                                                nowUnixMs={nowUnixMs}
-                                                liveStatusPhase={(
-                                                    voiceCallStatus
-                                                    && voiceCallInviteRoomId !== null
-                                                    && voiceCallInviteRoomId === voiceCallStatus.roomId
-                                                ) ? voiceCallStatus.phase : null}
-                                                onJoinCall={(invite) => onJoinVoiceCallInvite?.({
-                                                    invite,
-                                                    messageId: message.id,
-                                                })}
-                                                onRequestCallback={() => onRequestVoiceCallCallback?.(voiceCallInviteRoomId)}
-                                                callbackConsumed={voiceCallInviteRoomId !== null && usedVoiceCallCallbackRoomIds.has(voiceCallInviteRoomId)}
-                                            />
+                                            <div
+                                                className={cn(
+                                                    "rounded-lg border px-2.5 py-2 text-xs",
+                                                    message.isOutgoing
+                                                        ? "border-white/20 bg-white/10 text-white dark:border-zinc-300 dark:bg-zinc-200 dark:text-zinc-900"
+                                                        : "border-zinc-300 bg-zinc-100 text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                                                )}
+                                            >
+                                                <p className="text-[10px] font-black uppercase tracking-[0.14em] opacity-70">
+                                                    {t("messaging.voiceCallInvite", "Voice Call Invite")}
+                                                </p>
+                                                <p className="mt-0.5 font-mono text-[11px] opacity-85">
+                                                    {t("messaging.voiceCallRoom", "Room")}: {voiceCallInviteRoomIdHint}
+                                                </p>
+                                                {!message.isOutgoing && onJoinVoiceCallInvite && voiceCallInvitePayload ? (
+                                                    <button
+                                                        type="button"
+                                                        className="mt-2 inline-flex h-7 items-center rounded-md border border-cyan-500/35 bg-cyan-500/12 px-2.5 text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-200"
+                                                        onClick={() => onJoinVoiceCallInvite({
+                                                            invite: voiceCallInvitePayload,
+                                                            messageId: message.id,
+                                                        })}
+                                                        disabled={joiningVoiceCallInviteMessageId === message.id}
+                                                    >
+                                                        {joiningVoiceCallInviteMessageId === message.id
+                                                            ? t("messaging.voiceCallJoining", "Joining...")
+                                                            : t("messaging.voiceCallJoin", "Join Call")}
+                                                    </button>
+                                                ) : null}
+                                            </div>
                                         ) : (
                                             <>
                                                 <MessageContent content={textContent} isOutgoing={message.isOutgoing} />

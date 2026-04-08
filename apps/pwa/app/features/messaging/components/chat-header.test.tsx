@@ -1,9 +1,15 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { ChatHeaderProps } from "./chat-header";
 import { ChatHeader } from "./chat-header";
+
+const notificationPreferenceMocks = vi.hoisted(() => ({
+  getNotificationTargetEnabled: vi.fn(() => true),
+  setNotificationTargetEnabled: vi.fn(),
+  subscribeNotificationTargetPreferenceChanges: vi.fn(() => () => {}),
+}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -27,6 +33,12 @@ vi.mock("../../settings/services/privacy-settings-service", () => ({
   },
 }));
 
+vi.mock("../../notifications/utils/notification-target-preference", () => ({
+  getNotificationTargetEnabled: notificationPreferenceMocks.getNotificationTargetEnabled,
+  setNotificationTargetEnabled: notificationPreferenceMocks.setNotificationTargetEnabled,
+  subscribeNotificationTargetPreferenceChanges: notificationPreferenceMocks.subscribeNotificationTargetPreferenceChanges,
+}));
+
 const createProps = (): ChatHeaderProps => ({
   conversation: {
     kind: "dm",
@@ -45,6 +57,37 @@ const createProps = (): ChatHeaderProps => ({
 });
 
 describe("ChatHeader", () => {
+  beforeEach(() => {
+    notificationPreferenceMocks.getNotificationTargetEnabled.mockClear();
+    notificationPreferenceMocks.setNotificationTargetEnabled.mockClear();
+    notificationPreferenceMocks.subscribeNotificationTargetPreferenceChanges.mockClear();
+    notificationPreferenceMocks.getNotificationTargetEnabled.mockReturnValue(true);
+  });
+
+  it("toggles per-chat notification preference from the header bell button", () => {
+    const props = createProps();
+    const onToggleConversationNotifications = vi.fn();
+    render(<ChatHeader {...props} onToggleConversationNotifications={onToggleConversationNotifications} />);
+
+    const toggleButton = screen.getByTestId("chat-header-notification-toggle");
+    expect(toggleButton).toHaveAttribute("aria-pressed", "true");
+    expect(toggleButton.className).toContain("border-emerald-500/35");
+
+    fireEvent.click(toggleButton);
+
+    expect(toggleButton).toHaveAttribute("aria-pressed", "false");
+    expect(toggleButton.className).toContain("border-rose-500/35");
+
+    expect(notificationPreferenceMocks.setNotificationTargetEnabled).toHaveBeenCalledWith({
+      target: { kind: "dm", peerPublicKeyHex: "a".repeat(64) },
+      enabled: false,
+    });
+    expect(onToggleConversationNotifications).toHaveBeenCalledWith({
+      conversation: props.conversation,
+      enabled: false,
+    });
+  });
+
   it("does not synthesize relative last-active labels when nowMs is unavailable", () => {
     render(<ChatHeader {...createProps()} />);
 

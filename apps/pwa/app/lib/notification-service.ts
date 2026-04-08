@@ -3,10 +3,19 @@ import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilit
 
 export type RuntimeNotificationPermission = NotificationPermission | "unsupported";
 
+export type RuntimeNotificationAction = Readonly<{
+  action: string;
+  title: string;
+}>;
+
 export type RuntimeNotificationParams = Readonly<{
   title: string;
   body: string;
   tag?: string;
+  onClick?: () => void;
+  data?: Record<string, unknown>;
+  requireInteraction?: boolean;
+  actions?: ReadonlyArray<RuntimeNotificationAction>;
 }>;
 
 export type RuntimeNotificationResult = Readonly<{
@@ -48,13 +57,23 @@ export const requestRuntimeNotificationPermission = async (): Promise<RuntimeNot
 export const showRuntimeNotification = async (
   params: RuntimeNotificationParams
 ): Promise<RuntimeNotificationResult> => {
-  const permission = await getNotificationPermission();
+  let permission = await getNotificationPermission();
+  if (permission === "default") {
+    permission = await requestRuntimeNotificationPermission();
+  }
   if (permission !== "granted") {
     return { ok: false, permission };
   }
 
   if (isTauri()) {
-    await getTauriAPI().notification.show({ title: params.title, body: params.body });
+    await getTauriAPI().notification.show({
+      title: params.title,
+      body: params.body,
+      tag: params.tag,
+      data: params.data,
+      requireInteraction: params.requireInteraction,
+      actions: params.actions,
+    });
     return { ok: true, permission };
   }
 
@@ -63,16 +82,46 @@ export const showRuntimeNotification = async (
   }
 
   try {
-    const notification = new Notification(params.title, {
+    if ("serviceWorker" in navigator && navigator.serviceWorker) {
+      try {
+        if (typeof navigator.serviceWorker.getRegistration === "function") {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration && typeof registration.showNotification === "function") {
+            const serviceWorkerOptions: NotificationOptions = {
+              body: params.body,
+              tag: params.tag,
+              data: params.data,
+              requireInteraction: params.requireInteraction,
+            };
+            if (params.actions && params.actions.length > 0) {
+              (serviceWorkerOptions as NotificationOptions & { actions?: ReadonlyArray<RuntimeNotificationAction> }).actions = params.actions;
+            }
+            await registration.showNotification(params.title, serviceWorkerOptions);
+            return { ok: true, permission };
+          }
+        }
+      } catch {
+        // Fallback to Notification constructor below.
+      }
+    }
+
+    const browserOptions: NotificationOptions = {
       body: params.body,
       tag: params.tag,
-    });
+      data: params.data,
+      requireInteraction: params.requireInteraction,
+    };
+    if (params.actions && params.actions.length > 0) {
+      (browserOptions as NotificationOptions & { actions?: ReadonlyArray<RuntimeNotificationAction> }).actions = params.actions;
+    }
+    const notification = new Notification(params.title, browserOptions);
     notification.onclick = (): void => {
       try {
         window.focus();
       } catch {
-        return;
+        // noop
       }
+      params.onClick?.();
     };
     return { ok: true, permission };
   } catch {

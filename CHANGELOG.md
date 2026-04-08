@@ -1,5 +1,23 @@
 ## [Unreleased]
 
+## [v1.3.10] - 2026-04-08
+
+### Fixed
+
+- Refined desktop and in-app notification behavior for messaging and voice
+  calls:
+  - incoming call system notifications now use clearer copy without exposing
+    internal room identifiers,
+  - incoming message notifications keep exact conversation deep-links for
+    follow-up,
+  - the in-app incoming-call card was simplified to remove extra explanatory
+    text and keep actions visually focused.
+- Improved desktop call surface consistency and runtime ownership:
+  - incoming/background call handling continues to route through the canonical
+    desktop notification and popup paths,
+  - connected-call waveform behavior now stays dynamic across repeated use
+    instead of sticking after an earlier burst.
+
 ## [v1.3.9] - 2026-04-06
 
 ### Fixed

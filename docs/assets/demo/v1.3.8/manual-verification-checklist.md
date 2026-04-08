@@ -8,6 +8,9 @@ Mark each gate after completing replay on desktop + PWA targets.
 - [x] PWA offline navigation: core shell navigation remains usable while network-only surfaces show degraded messaging.
 - [ ] Desktop offline state: offline indicator + degraded messaging copy appear deterministically when network drops.
 - [x] Reconnect transition: degraded/offline UI recovers to ready state after network restoration without reload.
+- [ ] Desktop foreground incoming-message card replay: while on a non-chat route, receive DM and verify Obscur in-app card shows `Reply`, `Mark read`, `Open chat` with sender/context/timestamp and badge row.
+- [ ] Desktop card action replay: verify `Open chat` and `Reply` navigate into the target conversation and `Mark read` clears the conversation unread indicator.
+- [ ] Desktop incoming-call popup + card visual consistency replay: with app minimized/backgrounded, incoming call popup uses the same premium card visual language and actionable `Accept/Decline` controls.
 
 ## In-App Update Replay (M2)
 
@@ -38,3 +41,4 @@ Mark each gate after completing replay on desktop + PWA targets.
   - New replay artifacts captured:
     `raw/pwa-online.png`, `raw/pwa-offline.png`, `raw/pwa-offline-settings.png`, `raw/pwa-reconnect.png`.
   - Remaining manual blockers are desktop offline-state replay and in-app updater success/failure/rollout/min-safe replays.
+  - Notification UX parity blockers now include foreground message-card actions (`Reply/Mark read/Open chat`) and incoming-call popup/card visual consistency replay.

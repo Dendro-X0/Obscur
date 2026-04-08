@@ -1,4 +1,5 @@
 import { getNotificationChannelsStorageKey, getNotificationStorageKey } from "./notification-storage-key";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import {
   areNotificationsEnabled,
   DEFAULT_NOTIFICATION_CHANNELS,
@@ -20,6 +21,14 @@ const getNotificationsEnabled = (): NotificationsEnabledResult => {
     const rawChannels =
       window.localStorage.getItem(getNotificationChannelsStorageKey())
       ?? window.localStorage.getItem("dweb.nostr.pwa.notifications.channels.v1");
+
+    const hasPersistedSetting = raw === "0" || raw === "1" || Boolean(rawChannels);
+    if (!hasPersistedSetting) {
+      const defaultEnabled = getRuntimeCapabilities().supportsNativeNotifications;
+      const channels = defaultEnabled ? DEFAULT_NOTIFICATION_CHANNELS : DISABLED_NOTIFICATION_CHANNELS;
+      return { enabled: defaultEnabled, channels };
+    }
+
     if (rawChannels) {
       try {
         const parsed = JSON.parse(rawChannels) as Partial<NotificationChannels>;

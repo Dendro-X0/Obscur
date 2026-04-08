@@ -11,6 +11,8 @@ use tauri::{PhysicalPosition, PhysicalSize};
 use tauri_plugin_updater::UpdaterExt;
 // use serde::{Serialize, Deserialize};
 use serde_json::json;
+#[cfg(desktop)]
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -68,6 +70,99 @@ const MAX_REASONABLE_WINDOW_HEIGHT: u32 = 8192;
 const MAX_REASONABLE_POSITION_ABS: i32 = 20_000;
 #[cfg(desktop)]
 const PERSIST_WINDOW_STATE_IN_DEBUG: bool = false;
+#[cfg(desktop)]
+const TRAY_ICON_ID: &str = "main-tray";
+#[cfg(desktop)]
+const TRAY_MENU_SHOW_ID: &str = "show";
+#[cfg(desktop)]
+const TRAY_MENU_HIDE_ID: &str = "hide";
+#[cfg(desktop)]
+const TRAY_MENU_ACCEPT_CALL_ID: &str = "accept_incoming_call";
+#[cfg(desktop)]
+const TRAY_MENU_DECLINE_CALL_ID: &str = "decline_incoming_call";
+#[cfg(desktop)]
+const TRAY_MENU_QUIT_ID: &str = "quit";
+#[cfg(desktop)]
+const TRAY_INCOMING_CALL_EVENT_NAME: &str = "desktop://incoming-call-action";
+#[cfg(desktop)]
+const INCOMING_CALL_STATE_EVENT_NAME: &str = "desktop://incoming-call-state";
+#[cfg(desktop)]
+const INCOMING_CALL_WINDOW_LABEL: &str = "incoming-call-popup";
+#[cfg(desktop)]
+const TRAY_BADGE_OVERFLOW_LABEL: &str = "99+";
+
+#[cfg(desktop)]
+#[derive(Clone)]
+struct IncomingCallTrayState {
+    caller_name: String,
+    room_id: String,
+}
+
+#[cfg(desktop)]
+struct TrayCallState {
+    incoming: Mutex<Option<IncomingCallTrayState>>,
+}
+
+#[cfg(desktop)]
+struct TrayBadgeState {
+    base_icon: tauri::image::Image<'static>,
+    cache: Mutex<HashMap<String, tauri::image::Image<'static>>>,
+}
+
+#[cfg(desktop)]
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TrayIncomingCallActionPayload {
+    action: String,
+    room_id: Option<String>,
+}
+
+#[cfg(desktop)]
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct IncomingCallStatePayload {
+    active: bool,
+    caller_name: String,
+    room_id: String,
+}
+
+#[cfg(desktop)]
+impl TrayBadgeState {
+    fn new(base_icon: tauri::image::Image<'static>) -> Self {
+        Self {
+            base_icon,
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn format_badge_label(unread_count: u32) -> Option<String> {
+        if unread_count == 0 {
+            return None;
+        }
+        if unread_count > 99 {
+            return Some(TRAY_BADGE_OVERFLOW_LABEL.to_string());
+        }
+        Some(unread_count.to_string())
+    }
+
+    fn icon_for_unread_count(&self, unread_count: u32) -> Result<tauri::image::Image<'static>, String> {
+        let Some(label) = Self::format_badge_label(unread_count) else {
+            return Ok(self.base_icon.clone());
+        };
+
+        {
+            let cache = self.cache.lock().map_err(|e| e.to_string())?;
+            if let Some(cached) = cache.get(&label) {
+                return Ok(cached.clone());
+            }
+        }
+
+        let rendered = render_badged_tray_icon(&self.base_icon, &label);
+        let mut cache = self.cache.lock().map_err(|e| e.to_string())?;
+        cache.insert(label, rendered.clone());
+        Ok(rendered)
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct TorSettings {
@@ -303,6 +398,29 @@ async fn window_close(window: Window, app: tauri::AppHandle) -> Result<(), Strin
 }
 
 #[tauri::command]
+async fn window_show_and_focus(window: Window, app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        let target_window = app
+            .get_webview_window(window.label())
+            .or_else(|| app.get_webview_window(MAIN_WINDOW_LABEL));
+        let Some(target_window) = target_window else {
+            return Err("Main window unavailable".to_string());
+        };
+        target_window.unminimize().map_err(|e| e.to_string())?;
+        target_window.show().map_err(|e| e.to_string())?;
+        target_window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(mobile)]
+    {
+        let _ = window;
+        let _ = app;
+        Ok(())
+    }
+}
+
+#[tauri::command]
 async fn window_is_maximized(window: Window) -> Result<bool, String> {
     #[cfg(desktop)]
     return window.is_maximized().map_err(|e| e.to_string());
@@ -342,15 +460,33 @@ async fn show_notification(
     app: tauri::AppHandle,
     title: String,
     body: String,
+    _tag: Option<String>,
+    _data: Option<serde_json::Value>,
+    _require_interaction: Option<bool>,
+    _actions: Option<Vec<serde_json::Value>>,
 ) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut notification = notify_rust::Notification::new();
+        notification.summary(&title).body(&body);
+        notification.app_id(&app.config().identifier);
+        return notification
+            .show()
+            .map(|_| ())
+            .map_err(|e| e.to_string());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
     use tauri_plugin_notification::NotificationExt;
 
-    app.notification()
-        .builder()
-        .title(title)
-        .body(body)
-        .show()
-        .map_err(|e| e.to_string())
+        return app.notification()
+            .builder()
+            .title(title)
+            .body(body)
+            .show()
+            .map_err(|e| e.to_string());
+    }
 }
 
 #[tauri::command]
@@ -394,6 +530,122 @@ async fn is_notification_permission_granted(app: tauri::AppHandle) -> Result<boo
         permission,
         tauri_plugin_notification::PermissionState::Granted
     ))
+}
+
+#[tauri::command]
+async fn set_tray_unread_badge_count(
+    app: tauri::AppHandle,
+    unread_count: u32,
+) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        let badge_state = app.state::<TrayBadgeState>();
+        let icon = badge_state.icon_for_unread_count(unread_count)?;
+        if let Some(tray) = app.tray_by_id(TRAY_ICON_ID) {
+            tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
+            if unread_count > 0 {
+                let badge_label = TrayBadgeState::format_badge_label(unread_count)
+                    .unwrap_or_else(|| unread_count.to_string());
+                let tooltip = format!("Obscur ({badge_label} unread)");
+                let _ = tray.set_tooltip(Some(tooltip));
+            } else {
+                let _ = tray.set_tooltip(Some("Obscur"));
+            }
+        }
+        return Ok(());
+    }
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        let _ = unread_count;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+async fn set_tray_incoming_call_state(
+    app: tauri::AppHandle,
+    active: bool,
+    caller_name: Option<String>,
+    room_id: Option<String>,
+) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        let state = app.state::<TrayCallState>();
+        let mut guard = state.incoming.lock().map_err(|e| e.to_string())?;
+        if active {
+            let caller = caller_name.unwrap_or_else(|| "Unknown caller".to_string());
+            let room = room_id.unwrap_or_default();
+            *guard = Some(IncomingCallTrayState {
+                caller_name: caller,
+                room_id: room,
+            });
+        } else {
+            *guard = None;
+        }
+        drop(guard);
+        refresh_tray_menu(&app)?;
+        sync_incoming_call_surface_state(&app)?;
+        return Ok(());
+    }
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        let _ = active;
+        let _ = caller_name;
+        let _ = room_id;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+async fn desktop_get_incoming_call_state(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    #[cfg(desktop)]
+    {
+        let payload = current_incoming_call_state_payload(&app)?;
+        return Ok(json!({
+            "active": payload.active,
+            "callerName": payload.caller_name,
+            "roomId": payload.room_id,
+        }));
+    }
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Ok(json!({
+            "active": false,
+            "callerName": "",
+            "roomId": "",
+        }))
+    }
+}
+
+#[tauri::command]
+async fn desktop_incoming_call_action(app: tauri::AppHandle, action: String) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        let normalized_action = action.trim().to_lowercase();
+        let mapped_action = match normalized_action.as_str() {
+            "accept" => "accept",
+            "decline" => "decline",
+            "dismiss" => "decline",
+            "open_chat" => "open_chat",
+            _ => return Err("Unsupported incoming call action".to_string()),
+        };
+        emit_tray_call_action(&app, mapped_action)?;
+        if mapped_action == "accept" || mapped_action == "decline" {
+            clear_incoming_tray_call_state(&app)?;
+            refresh_tray_menu(&app)?;
+        }
+        sync_incoming_call_surface_state(&app)?;
+        return Ok(());
+    }
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        let _ = action;
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -1019,6 +1271,363 @@ fn write_window_state(
     Ok(())
 }
 
+#[cfg(desktop)]
+fn create_tray_menu(
+    app: &tauri::AppHandle,
+    incoming_call: Option<&IncomingCallTrayState>,
+) -> Result<Menu<tauri::Wry>, tauri::Error> {
+    let show_i = MenuItem::with_id(app, TRAY_MENU_SHOW_ID, "Show Obscur", true, None::<&str>)?;
+    let hide_i = MenuItem::with_id(app, TRAY_MENU_HIDE_ID, "Hide to Tray", true, None::<&str>)?;
+    let (accept_label, decline_label, call_enabled) = if let Some(call) = incoming_call {
+        let caller = call.caller_name.trim();
+        let caller_hint = if caller.is_empty() { "caller" } else { caller };
+        (
+            format!("Accept call from {caller_hint}"),
+            format!("Decline call from {caller_hint}"),
+            true,
+        )
+    } else {
+        (
+            "Accept incoming call".to_string(),
+            "Decline incoming call".to_string(),
+            false,
+        )
+    };
+    let accept_i = MenuItem::with_id(
+        app,
+        TRAY_MENU_ACCEPT_CALL_ID,
+        accept_label,
+        call_enabled,
+        None::<&str>,
+    )?;
+    let decline_i = MenuItem::with_id(
+        app,
+        TRAY_MENU_DECLINE_CALL_ID,
+        decline_label,
+        call_enabled,
+        None::<&str>,
+    )?;
+    let quit_i = MenuItem::with_id(app, TRAY_MENU_QUIT_ID, "Quit", true, None::<&str>)?;
+    Menu::with_items(app, &[&show_i, &hide_i, &accept_i, &decline_i, &quit_i])
+}
+
+#[cfg(desktop)]
+fn current_incoming_tray_call_state(app: &tauri::AppHandle) -> Result<Option<IncomingCallTrayState>, String> {
+    let state = app.state::<TrayCallState>();
+    let guard = state.incoming.lock().map_err(|e| e.to_string())?;
+    Ok(guard.clone())
+}
+
+#[cfg(desktop)]
+fn current_incoming_call_state_payload(app: &tauri::AppHandle) -> Result<IncomingCallStatePayload, String> {
+    let incoming = current_incoming_tray_call_state(app)?;
+    if let Some(value) = incoming {
+        return Ok(IncomingCallStatePayload {
+            active: true,
+            caller_name: value.caller_name,
+            room_id: value.room_id,
+        });
+    }
+    Ok(IncomingCallStatePayload {
+        active: false,
+        caller_name: String::new(),
+        room_id: String::new(),
+    })
+}
+
+#[cfg(desktop)]
+fn emit_incoming_call_state(app: &tauri::AppHandle) -> Result<(), String> {
+    let payload = current_incoming_call_state_payload(app)?;
+    app.emit(INCOMING_CALL_STATE_EVENT_NAME, payload)
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(desktop)]
+fn position_incoming_call_window(window: &WebviewWindow) {
+    let monitor = window.current_monitor().ok().flatten();
+    let Some(monitor) = monitor else {
+        return;
+    };
+    let monitor_size = monitor.size();
+    let monitor_position = monitor.position();
+    let window_size = window.outer_size().unwrap_or(PhysicalSize::new(460, 260));
+    let x = monitor_position.x + monitor_size.width as i32 - window_size.width as i32 - 24;
+    let y = monitor_position.y + monitor_size.height as i32 - window_size.height as i32 - 48;
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+}
+
+#[cfg(desktop)]
+fn ensure_incoming_call_window(app: &tauri::AppHandle) -> Result<WebviewWindow, String> {
+    if let Some(existing) = app.get_webview_window(INCOMING_CALL_WINDOW_LABEL) {
+        let _ = existing.unminimize();
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        position_incoming_call_window(&existing);
+        return Ok(existing);
+    }
+
+    let window = tauri::WebviewWindowBuilder::new(
+        app,
+        INCOMING_CALL_WINDOW_LABEL,
+        tauri::WebviewUrl::App("index.html?incomingCallPopup=1".into()),
+    )
+    .title("Incoming call")
+    .inner_size(460.0, 260.0)
+    .min_inner_size(420.0, 220.0)
+    .maximizable(false)
+    .resizable(false)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .focused(true)
+    .visible(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+    position_incoming_call_window(&window);
+    Ok(window)
+}
+
+#[cfg(desktop)]
+fn hide_incoming_call_window(app: &tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(INCOMING_CALL_WINDOW_LABEL) {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(desktop)]
+fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
+    let incoming = current_incoming_tray_call_state(app)?;
+    let menu = create_tray_menu(app, incoming.as_ref()).map_err(|e| e.to_string())?;
+    if let Some(tray) = app.tray_by_id(TRAY_ICON_ID) {
+        tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(desktop)]
+fn clear_incoming_tray_call_state(app: &tauri::AppHandle) -> Result<(), String> {
+    let state = app.state::<TrayCallState>();
+    let mut guard = state.incoming.lock().map_err(|e| e.to_string())?;
+    *guard = None;
+    Ok(())
+}
+
+#[cfg(desktop)]
+fn sync_incoming_call_surface_state(app: &tauri::AppHandle) -> Result<(), String> {
+    let payload = current_incoming_call_state_payload(app)?;
+    if payload.active {
+        let _ = ensure_incoming_call_window(app)?;
+    } else {
+        hide_incoming_call_window(app)?;
+    }
+    emit_incoming_call_state(app)?;
+    Ok(())
+}
+
+#[cfg(desktop)]
+fn emit_tray_call_action(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
+    let room_id = current_incoming_tray_call_state(app)?
+        .map(|value| value.room_id);
+    app.emit(
+        TRAY_INCOMING_CALL_EVENT_NAME,
+        TrayIncomingCallActionPayload {
+            action: action.to_string(),
+            room_id,
+        },
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[cfg(desktop)]
+fn glyph_rows(character: char) -> Option<[u8; 5]> {
+    match character {
+        '0' => Some([0b111, 0b101, 0b101, 0b101, 0b111]),
+        '1' => Some([0b010, 0b110, 0b010, 0b010, 0b111]),
+        '2' => Some([0b111, 0b001, 0b111, 0b100, 0b111]),
+        '3' => Some([0b111, 0b001, 0b111, 0b001, 0b111]),
+        '4' => Some([0b101, 0b101, 0b111, 0b001, 0b001]),
+        '5' => Some([0b111, 0b100, 0b111, 0b001, 0b111]),
+        '6' => Some([0b111, 0b100, 0b111, 0b101, 0b111]),
+        '7' => Some([0b111, 0b001, 0b001, 0b001, 0b001]),
+        '8' => Some([0b111, 0b101, 0b111, 0b101, 0b111]),
+        '9' => Some([0b111, 0b101, 0b111, 0b001, 0b111]),
+        '+' => Some([0b000, 0b010, 0b111, 0b010, 0b000]),
+        _ => None,
+    }
+}
+
+#[cfg(desktop)]
+fn set_pixel_rgba(
+    rgba: &mut [u8],
+    width: usize,
+    height: usize,
+    x: usize,
+    y: usize,
+    color: [u8; 4],
+) {
+    if x >= width || y >= height {
+        return;
+    }
+    let index = ((y * width) + x) * 4;
+    if index + 3 >= rgba.len() {
+        return;
+    }
+    rgba[index] = color[0];
+    rgba[index + 1] = color[1];
+    rgba[index + 2] = color[2];
+    rgba[index + 3] = color[3];
+}
+
+#[cfg(desktop)]
+fn draw_badge_background(
+    rgba: &mut [u8],
+    width: usize,
+    height: usize,
+    x: usize,
+    y: usize,
+    bubble_width: usize,
+    bubble_height: usize,
+    color: [u8; 4],
+) {
+    if bubble_width == 0 || bubble_height == 0 {
+        return;
+    }
+    let radius = bubble_height / 2;
+    let center_y = y + radius;
+    let left_center_x = x + radius;
+    let right_center_x = x + bubble_width.saturating_sub(radius + 1);
+
+    for current_y in y..(y + bubble_height) {
+        if current_y >= height {
+            break;
+        }
+        for current_x in x..(x + bubble_width) {
+            if current_x >= width {
+                break;
+            }
+
+            let inside_middle = current_x >= left_center_x && current_x <= right_center_x;
+            let within_left_arc = {
+                let dx = left_center_x as isize - current_x as isize;
+                let dy = center_y as isize - current_y as isize;
+                (dx * dx + dy * dy) <= (radius as isize * radius as isize)
+            };
+            let within_right_arc = {
+                let dx = right_center_x as isize - current_x as isize;
+                let dy = center_y as isize - current_y as isize;
+                (dx * dx + dy * dy) <= (radius as isize * radius as isize)
+            };
+
+            if inside_middle || within_left_arc || within_right_arc {
+                set_pixel_rgba(rgba, width, height, current_x, current_y, color);
+            }
+        }
+    }
+}
+
+#[cfg(desktop)]
+fn draw_glyph(
+    rgba: &mut [u8],
+    width: usize,
+    height: usize,
+    x: usize,
+    y: usize,
+    character: char,
+    scale: usize,
+    color: [u8; 4],
+) {
+    let Some(rows) = glyph_rows(character) else {
+        return;
+    };
+    for (row_index, row_bits) in rows.iter().enumerate() {
+        for col_index in 0..3 {
+            let bit_mask = 1 << (2 - col_index);
+            if (row_bits & bit_mask) == 0 {
+                continue;
+            }
+            for sy in 0..scale {
+                for sx in 0..scale {
+                    set_pixel_rgba(
+                        rgba,
+                        width,
+                        height,
+                        x + (col_index * scale) + sx,
+                        y + (row_index * scale) + sy,
+                        color,
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[cfg(desktop)]
+fn render_badged_tray_icon(
+    base_icon: &tauri::image::Image<'static>,
+    badge_label: &str,
+) -> tauri::image::Image<'static> {
+    let width = base_icon.width() as usize;
+    let height = base_icon.height() as usize;
+    let mut rgba = base_icon.rgba().to_vec();
+    if width == 0 || height == 0 || badge_label.is_empty() {
+        return tauri::image::Image::new_owned(rgba, base_icon.width(), base_icon.height());
+    }
+
+    let label_chars: Vec<char> = badge_label.chars().take(3).collect();
+    let glyph_width = 3usize;
+    let glyph_height = 5usize;
+    let spacing = 1usize;
+    let scale = if width >= 48 || height >= 48 { 3usize } else { 2usize };
+    let text_width = ((label_chars.len() * glyph_width) + (label_chars.len().saturating_sub(1) * spacing)) * scale;
+    let text_height = glyph_height * scale;
+
+    let padding_x = scale + 1;
+    let padding_y = scale;
+    let mut bubble_height = text_height + (padding_y * 2);
+    bubble_height = bubble_height.max((height / 2).max(12));
+    let mut bubble_width = text_width + (padding_x * 2);
+    bubble_width = bubble_width.max(bubble_height);
+    bubble_width = bubble_width.min(width.saturating_sub(1));
+    bubble_height = bubble_height.min(height.saturating_sub(1));
+
+    let bubble_x = width.saturating_sub(bubble_width + 1);
+    let bubble_y = 1usize;
+
+    draw_badge_background(
+        &mut rgba,
+        width,
+        height,
+        bubble_x,
+        bubble_y,
+        bubble_width,
+        bubble_height,
+        [220, 38, 38, 255],
+    );
+
+    let text_x = bubble_x + (bubble_width.saturating_sub(text_width) / 2);
+    let text_y = bubble_y + (bubble_height.saturating_sub(text_height) / 2);
+    for (index, character) in label_chars.iter().enumerate() {
+        let glyph_x = text_x + (index * (glyph_width + spacing) * scale);
+        draw_glyph(
+            &mut rgba,
+            width,
+            height,
+            glyph_x,
+            text_y,
+            *character,
+            scale,
+            [255, 255, 255, 255],
+        );
+    }
+
+    tauri::image::Image::new_owned(
+        rgba,
+        base_icon.width(),
+        base_icon.height(),
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -1100,32 +1709,50 @@ pub fn run() {
             let _ = tauri::async_runtime::block_on(profile_state.reset_startup_window_bindings(&app.handle()));
             #[cfg(desktop)]
             {
-                let show_i = MenuItem::with_id(app, "show", "Show Obscur", true, None::<&str>)?;
-                let hide_i = MenuItem::with_id(app, "hide", "Hide to Tray", true, None::<&str>)?;
-                let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
+                let base_icon = app
+                    .default_window_icon()
+                    .cloned()
+                    .ok_or("default window icon missing")?
+                    .to_owned();
+                app.manage(TrayCallState {
+                    incoming: Mutex::new(None),
+                });
+                app.manage(TrayBadgeState::new(base_icon.clone()));
+                let menu = create_tray_menu(&app.handle(), None)?;
 
-                let _tray = TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone())
+                let _tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
+                    .icon(base_icon)
                     .menu(&menu)
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id.as_ref() {
-                        "quit" => {
+                        TRAY_MENU_QUIT_ID => {
                             let state = app.state::<TorState>();
                             let _ = stop_tor_child(&state);
                             app.exit(0);
                         }
-                        "show" => {
+                        TRAY_MENU_SHOW_ID => {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.unminimize();
                                 let _ = window.show();
                                 let _ = window.set_focus();
                             }
                         }
-                        "hide" => {
+                        TRAY_MENU_HIDE_ID => {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.hide();
                             }
+                        }
+                        TRAY_MENU_ACCEPT_CALL_ID => {
+                            let _ = emit_tray_call_action(app, "accept");
+                            let _ = clear_incoming_tray_call_state(app);
+                            let _ = refresh_tray_menu(app);
+                            let _ = sync_incoming_call_surface_state(app);
+                        }
+                        TRAY_MENU_DECLINE_CALL_ID => {
+                            let _ = emit_tray_call_action(app, "decline");
+                            let _ = clear_incoming_tray_call_state(app);
+                            let _ = refresh_tray_menu(app);
+                            let _ = sync_incoming_call_surface_state(app);
                         }
                         _ => {}
                     })
@@ -1213,6 +1840,7 @@ pub fn run() {
             window_maximize,
             window_unmaximize,
             window_close,
+            window_show_and_focus,
             window_is_maximized,
             window_set_fullscreen,
             window_is_fullscreen,
@@ -1228,6 +1856,10 @@ pub fn run() {
             show_notification,
             request_notification_permission,
             is_notification_permission_granted,
+            set_tray_unread_badge_count,
+            set_tray_incoming_call_state,
+            desktop_get_incoming_call_state,
+            desktop_incoming_call_action,
             get_system_theme,
             upload::nip96_upload,
             upload::nip96_upload_v2,

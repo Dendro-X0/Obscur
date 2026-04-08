@@ -169,6 +169,155 @@ const buildStep = (name: string, passed: boolean, detail?: string): TwoUserDeter
   detail,
 });
 
+const runDirectionalDelivery = async (params: Readonly<{
+  messageId: string;
+  plaintext: string;
+  senderPubkey: PublicKeyHex;
+  senderPrivateKeyHex: string;
+  recipientPubkey: PublicKeyHex;
+  recipientPrivateKeyHex: string;
+  senderQueue: InMemoryMessageQueue;
+  receiverQueue: InMemoryMessageQueue;
+}>): Promise<Readonly<{
+  senderQueue: InMemoryMessageQueue;
+  receiverQueue: InMemoryMessageQueue;
+  senderMessageStatus: MessageStatus | undefined;
+  receiverDelivered: boolean;
+  queuedBeforeRestartCount: number;
+  queuedAfterRetryCount: number;
+}>> => {
+  const relayMailbox = createRelayMailbox();
+  const initialMessage = buildMessage({
+    id: params.messageId,
+    content: params.plaintext,
+    senderPubkey: params.senderPubkey,
+    recipientPubkey: params.recipientPubkey,
+  });
+  await params.senderQueue.persistMessage(initialMessage);
+
+  const signedEvent = buildSignedEvent({
+    id: params.messageId,
+    senderPubkey: params.senderPubkey,
+    recipientPubkey: params.recipientPubkey,
+    plaintext: params.plaintext,
+  });
+
+  await publishOutgoingDm({
+    pool: {
+      sendToOpen: vi.fn(),
+      connections: [],
+      waitForConnection: async () => false,
+    },
+    openRelays: [],
+    messageQueue: params.senderQueue,
+    initialMessage,
+    build: {
+      format: "nip04",
+      signedEvent,
+      encryptedContent: signedEvent.content,
+      canonicalEventId: signedEvent.id,
+    },
+    plaintext: params.plaintext,
+    recipientPubkey: params.recipientPubkey,
+    senderPubkey: params.senderPubkey,
+    senderPrivateKeyHex: params.senderPrivateKeyHex as any,
+    createdAtUnixSeconds: signedEvent.created_at,
+    tags: [["p", params.recipientPubkey]],
+  });
+
+  const queuedBeforeRestart = await params.senderQueue.getQueuedMessages();
+  const restartedSenderQueue = new InMemoryMessageQueue(params.senderQueue.snapshot());
+  const queuedAfterRestart = await restartedSenderQueue.getQueuedMessages();
+  if (!queuedAfterRestart[0]) {
+    return {
+      senderQueue: restartedSenderQueue,
+      receiverQueue: params.receiverQueue,
+      senderMessageStatus: undefined,
+      receiverDelivered: false,
+      queuedBeforeRestartCount: queuedBeforeRestart.length,
+      queuedAfterRetryCount: 0,
+    };
+  }
+
+  await publishQueuedOutgoingMessage({
+    pool: {
+      sendToOpen: vi.fn(),
+      publishToAll: vi.fn(async (payload: string) => {
+        const [, publishedEvent] = JSON.parse(payload) as [string, NostrEvent];
+        relayMailbox.push(publishedEvent);
+        return {
+          success: false,
+          successCount: 1,
+          totalRelays: 2,
+          metQuorum: false,
+          results: [
+            { relayUrl: "wss://relay-1.example", success: true },
+            { relayUrl: "wss://relay-2.example", success: false, error: "503" },
+          ],
+        };
+      }),
+    } as any,
+    messageQueue: restartedSenderQueue,
+    message: queuedAfterRestart[0],
+    openRelays: [{ url: "wss://relay-1.example" }, { url: "wss://relay-2.example" }],
+  });
+  await restartedSenderQueue.removeFromQueue(params.messageId);
+
+  let receiverState = createReadyState(await params.receiverQueue.getAllMessages());
+  const deliveredEvent = relayMailbox.snapshot().deliverableEvents[0];
+  if (!deliveredEvent) {
+    return {
+      senderQueue: restartedSenderQueue,
+      receiverQueue: params.receiverQueue,
+      senderMessageStatus: (await restartedSenderQueue.getMessage(params.messageId))?.status,
+      receiverDelivered: false,
+      queuedBeforeRestartCount: queuedBeforeRestart.length,
+      queuedAfterRetryCount: (await restartedSenderQueue.getQueuedMessages()).length,
+    };
+  }
+
+  await handleIncomingDmEvent({
+    event: deliveredEvent,
+    currentParams: {
+      myPrivateKeyHex: params.recipientPrivateKeyHex,
+      myPublicKeyHex: params.recipientPubkey,
+      peerTrust: {
+        isAccepted: ({ publicKeyHex }) => publicKeyHex === params.senderPubkey,
+        acceptPeer: () => undefined,
+      },
+      requestsInbox: {
+        upsertIncoming: () => undefined,
+        getRequestStatus: () => null,
+        setStatus: () => undefined,
+      },
+    },
+    messageQueue: params.receiverQueue,
+    processingEvents: new Set<string>(),
+    failedDecryptEvents: new Set<string>(),
+    existingMessages: receiverState.messages,
+    maxMessagesInMemory: 200,
+    syncConversationTimestamps: new Map<string, Date>(),
+    activeSubscriptions: new Map<string, Subscription>(),
+    scheduleUiUpdate: (fn) => fn(),
+    setState: (next) => {
+      receiverState = typeof next === "function" ? next(receiverState) : next;
+    },
+    createReadyState,
+    messageMemoryManager: { addMessages: () => undefined },
+    uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+  });
+
+  const receiverMessage = await params.receiverQueue.getMessage(params.messageId);
+  return {
+    senderQueue: restartedSenderQueue,
+    receiverQueue: params.receiverQueue,
+    senderMessageStatus: (await restartedSenderQueue.getMessage(params.messageId))?.status,
+    receiverDelivered: !!receiverMessage && receiverMessage.status === "delivered",
+    queuedBeforeRestartCount: queuedBeforeRestart.length,
+    queuedAfterRetryCount: (await restartedSenderQueue.getQueuedMessages()).length,
+  };
+};
+
 vi.mock("@/app/features/crypto/crypto-service", () => ({
   cryptoService: {
     decryptDM: vi.fn(async (ciphertext: string) => ciphertext.replace("encrypted_", "")),
@@ -389,5 +538,49 @@ describe("dm delivery deterministic two-user flow", () => {
       .filter((report) => report.failedSteps.length > 0);
     expect(failedReports).toEqual([]);
     expect(reports.find((report) => report.firstDivergenceStep)).toBeUndefined();
+  });
+
+  it("preserves bidirectional delivery after restart (A->B then B->A)", async () => {
+    let queueA = new InMemoryMessageQueue();
+    let queueB = new InMemoryMessageQueue();
+
+    const aToB = await runDirectionalDelivery({
+      messageId: "dm-a-to-b",
+      plaintext: "hello-from-a",
+      senderPubkey: USER_A,
+      senderPrivateKeyHex: PRIVATE_A,
+      recipientPubkey: USER_B,
+      recipientPrivateKeyHex: PRIVATE_B,
+      senderQueue: queueA,
+      receiverQueue: queueB,
+    });
+    queueA = aToB.senderQueue;
+    queueB = aToB.receiverQueue;
+
+    const bToA = await runDirectionalDelivery({
+      messageId: "dm-b-to-a",
+      plaintext: "hello-from-b",
+      senderPubkey: USER_B,
+      senderPrivateKeyHex: PRIVATE_B,
+      recipientPubkey: USER_A,
+      recipientPrivateKeyHex: PRIVATE_A,
+      senderQueue: queueB,
+      receiverQueue: queueA,
+    });
+    queueB = bToA.senderQueue;
+    queueA = bToA.receiverQueue;
+
+    expect(aToB.queuedBeforeRestartCount).toBe(1);
+    expect(aToB.queuedAfterRetryCount).toBe(0);
+    expect(aToB.senderMessageStatus).toBe("accepted");
+    expect(aToB.receiverDelivered).toBe(true);
+
+    expect(bToA.queuedBeforeRestartCount).toBe(1);
+    expect(bToA.queuedAfterRetryCount).toBe(0);
+    expect(bToA.senderMessageStatus).toBe("accepted");
+    expect(bToA.receiverDelivered).toBe(true);
+
+    expect((await queueA.getMessage("dm-b-to-a"))?.content).toBe("hello-from-b");
+    expect((await queueB.getMessage("dm-a-to-b"))?.content).toBe("hello-from-a");
   });
 });
