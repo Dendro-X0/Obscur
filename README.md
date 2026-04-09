@@ -10,12 +10,12 @@ Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communica
 
 Project phase: pre-launch stabilization.
 
-Release prep status (`v1.3.4`):
+Release prep status (`v1.3.11`):
 
-- DM delete-for-everyone convergence hardened across canonical event IDs.
-- Incoming sync now includes a safety watchdog (interval + visibility resume) to reduce stale message/delete state.
-- Outgoing sends now auto-scroll to latest messages and keep follow-bottom behavior.
-- Realtime peer online indicators now converge using relay presence with bounded inbound-activity evidence fallback.
+- Desktop/dev page switching is now guarded by a bounded navigation warmup policy so Discover and Settings no longer repeatedly re-prefetch and freeze weak hardware during basic route switching.
+- Discover and Settings route entry points now load through lightweight wrappers with local loading shells, reducing blank-page pressure while their heavy client surfaces prepare.
+- Settings localization coverage was extended across remaining security and rollout-status copy for English, Spanish, and Chinese parity.
+- Chat history voice-call cards now present clearer missed/completed/timeout states instead of leaking raw control payload behavior into the timeline.
 
 ## Core Positioning
 

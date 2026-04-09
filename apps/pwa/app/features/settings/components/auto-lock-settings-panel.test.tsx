@@ -37,7 +37,15 @@ const createSignal = (signalId: string): Record<string, unknown> => ({
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
-        t: (key: string, fallback?: string) => fallback ?? key,
+        t: (
+            key: string,
+            fallbackOrOptions?: string | Record<string, unknown>,
+            maybeOptions?: Record<string, unknown>,
+        ) => {
+            const template = typeof fallbackOrOptions === "string" ? fallbackOrOptions : key;
+            const options = (typeof fallbackOrOptions === "object" ? fallbackOrOptions : maybeOptions) ?? {};
+            return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options[token] ?? ""));
+        },
     }),
 }));
 

@@ -1,4 +1,5 @@
 import { cn } from "@/app/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export type SettingsActionPhase =
   | "idle"
@@ -17,16 +18,6 @@ type SettingsActionStatusProps = Readonly<{
   className?: string;
 }>;
 
-const phaseLabel = (phase: SettingsActionPhase): string => {
-  if (phase === "waiting") return "waiting";
-  if (phase === "preparing") return "preparing";
-  if (phase === "working") return "working";
-  if (phase === "publishing") return "publishing";
-  if (phase === "success") return "success";
-  if (phase === "error") return "failed";
-  return "idle";
-};
-
 export function SettingsActionStatus({
   title,
   phase,
@@ -34,6 +25,17 @@ export function SettingsActionStatus({
   summary,
   className
 }: SettingsActionStatusProps) {
+  const { t } = useTranslation();
+  const phaseLabel = (() => {
+    if (phase === "waiting") return t("settings.actionStatus.phase.waiting", "waiting");
+    if (phase === "preparing") return t("settings.actionStatus.phase.preparing", "preparing");
+    if (phase === "working") return t("settings.actionStatus.phase.working", "working");
+    if (phase === "publishing") return t("settings.actionStatus.phase.publishing", "publishing");
+    if (phase === "success") return t("settings.actionStatus.phase.success", "success");
+    if (phase === "error") return t("settings.actionStatus.phase.failed", "failed");
+    return t("settings.actionStatus.phase.idle", "idle");
+  })();
+
   return (
     <div className={cn("rounded-xl border border-black/5 bg-zinc-50 p-3 text-xs dark:border-white/10 dark:bg-zinc-900/50", className)}>
       <div className="flex items-center justify-between gap-3">
@@ -46,13 +48,12 @@ export function SettingsActionStatus({
           && "bg-blue-500/15 text-blue-600 dark:text-blue-400",
           phase === "idle" && "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
         )}>
-          {phaseLabel(phase)}
+          {phaseLabel}
         </span>
       </div>
       <div className="mt-2 text-zinc-600 dark:text-zinc-400">
-        {message || summary || "Ready."}
+        {message || summary || t("settings.actionStatus.ready", "Ready.")}
       </div>
     </div>
   );
 }
-

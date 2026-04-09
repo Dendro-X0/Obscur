@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-09T03:31:29Z
+- Last Updated (UTC): 2026-04-09T16:13:59Z
 - Session Status: in-progress
 - Active Owner: Messaging two-user convergence recovery (B -> A receive visibility regression)
 
@@ -201,7 +201,15 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
 
 ## Next Atomic Step
 
-Commit and push the release-gate script/doc fixes, then rerun the remote CI push workflow to confirm Preflight Checks and reliability-gates both stay green in GitHub Actions.
+Retest the desktop runtime by switching Chats -> Network -> Discover -> Settings repeatedly. Confirm whether Discover/Settings now stay interactive with only the local loading shell delay. If any hard freeze remains, capture navigation diagnostics plus desktop WebView logs to determine whether the remaining stall is inside the lazy client page body or below the route owner.
+
+
+
+
+
+
+
+
 
 
 
@@ -847,4 +855,44 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Commit and push the release-gate script/doc fixes, then rerun the remote CI push workflow to confirm Preflight Checks and reliability-gates both stay green in GitHub Actions.
+### 2026-04-09T03:41:10Z checkpoint
+- Summary: Committed the release-gate parity fixes as a0a2c65a (\fix: restore release gate parity), pushed main, deleted the old remote v1.3.10 tag, and recreated/pushed v1.3.10 so it now points at the corrected commit instead of the earlier release snapshot.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Monitor the refreshed v1.3.10 CI/release run on GitHub and confirm the repaired gates stay green on the recreated tag.
+### 2026-04-09T05:50:55Z checkpoint
+- Summary: Replaced the legacy inline voice-call invite block in message-list with VoiceCallInviteCard, added terminal call-result styling for completed/missed/timed-out/failed outcomes, removed room-id display from the card, and enabled callback only for missed incoming calls.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually verify outgoing unanswered, incoming missed, timeout, failure, and completed call cards in the chat timeline to confirm the visual states and callback affordance match live runtime behavior.
+### 2026-04-09T08:27:14Z checkpoint
+- Summary: Patched settings-page localization leaks by moving visible Appearance, Notifications, Relays, and Storage rollout/status copy onto translation keys, localized shared SettingsActionStatus phase labels, and added matching en/es/zh locale entries for the new settings keys.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually verify Spanish and Chinese settings pages again, especially relay/API status cards and storage rollout flags, then sweep remaining hard-coded settings strings outside this patched subset if any English still appears.
+### 2026-04-09T10:42:33Z checkpoint
+- Summary: Localized remaining settings security/appearance leaks by replacing hard-coded English in password-reset and auto-lock panels, added matching en/es/zh locale keys, and updated the focused settings i18n test mock for interpolation; apps/pwa tsc passes and auto-lock-settings-panel vitest passes.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually verify Spanish and Chinese settings pages again, especially relay/API status cards and storage rollout flags, then sweep any remaining hard-coded English outside the patched security settings subset if surfaced.
+### 2026-04-09T14:14:38Z checkpoint
+- Summary: Hardened canonical app-shell navigation owner against dev/native route-mount stalls by adding idle route prefetch warmup for core nav targets, with explicit warmup diagnostics in app-shell. This keeps UI route chunks warming locally instead of waiting for first-click compilation/mount under dev server latency, without conflating relay readiness with shell renderability. apps/pwa tsc passes and focused app-shell vitest passes (12/12).
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Reproduce the page-switch freeze in desktop dev runtime and inspect navigation diagnostics (
+### 2026-04-09T14:15:42Z checkpoint
+- Summary: Corrected the navigation-freeze handoff after the prior checkpoint truncated its Next step. Current state remains: app-shell route prefetch warmup landed, apps/pwa typecheck passes, and focused app-shell tests pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Reproduce the page-switch freeze in desktop dev runtime and inspect navigation diagnostics: navigation.route_request, navigation.route_mount_probe_slow, navigation.route_stall_hard_fallback, and navigation.route_prefetch_warmup_started/completed. Use that evidence to decide whether the remaining stall is route-mount latency, a desktop WebView/runtime issue, or a specific route surface.
+### 2026-04-09T15:51:31Z checkpoint
+- Summary: Reduced deterministic page-switch freeze pressure for Discover and Settings by splitting both route entry points into lightweight dynamic wrappers (\u0007pp/search/page.tsx, \u0007pp/settings/page.tsx) that lazy-load the existing heavy client page bodies from search-page-client.tsx and settings-page-client.tsx with local loading shells. This keeps sidebar navigation able to render a local UI immediately instead of blocking on the full Discover/Settings bundle during dev/native route switches. apps/pwa tsc passes and focused app-shell vitest passes (12/12).
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Retest desktop dev runtime switching from sidebar to Discover and Settings. If the UI now shows the loading shell instead of freezing, capture whether any remaining delay comes from the lazy client page body itself; if it still hard-freezes, inspect navigation diagnostics plus desktop WebView logs to identify whether the stall is below the route owner.
+### 2026-04-09T16:13:59Z checkpoint
+- Summary: Reduced desktop page-switch freeze pressure by making app-shell route warmup explicit and bounded: desktop runtime now skips automatic route prefetch warmup entirely, and web warmup only prefetches lightweight routes (/network, /vault) once instead of rewarming all nav routes including heavy Discover/Settings after every navigation. Added a navigation-prefetch warmup policy module plus focused tests, keeping lazy Discover/Settings wrappers intact while removing repeated background compile/load pressure from the canonical navigation owner path.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Retest the desktop runtime by switching Chats -> Network -> Discover -> Settings repeatedly. Confirm whether Discover/Settings now stay interactive with only the local loading shell delay. If any hard freeze remains, capture navigation diagnostics plus desktop WebView logs to determine whether the remaining stall is inside the lazy client page body or below the route owner.
 <!-- CONTEXT_CHECKPOINTS_END -->

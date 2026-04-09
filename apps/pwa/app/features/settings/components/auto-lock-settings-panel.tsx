@@ -95,9 +95,13 @@ export const AutoLockSettingsPanel: React.FC = () => {
         { label: t('common.never'), value: 0 },
     ];
 
+    const setActionFeedback = (phase: SettingsActionPhase, messageKey: string, fallback: string): void => {
+        setActionPhase(phase);
+        setActionMessage(t(messageKey, fallback));
+    };
+
     const applySetting = (partial: Partial<PrivacySettings>, message: string): void => {
-        setActionPhase("working");
-        setActionMessage("Applying security setting...");
+        setActionFeedback("working", "settings.security.action.applying", "Applying security setting...");
         updateSettings(partial);
         setActionPhase("success");
         setActionMessage(message);
@@ -115,11 +119,13 @@ export const AutoLockSettingsPanel: React.FC = () => {
         if (profile === attackModeSafetyProfile) {
             return;
         }
-        setActionPhase("working");
-        setActionMessage("Applying attack-mode profile...");
+        setActionFeedback("working", "settings.security.attackMode.applying", "Applying attack-mode profile...");
         setAttackModeSafetyProfile(profile);
-        setActionPhase("success");
-        setActionMessage(
+        setActionFeedback(
+            "success",
+            profile === "strict"
+                ? "settings.security.attackMode.profile.strictEnabled"
+                : "settings.security.attackMode.profile.standardEnabled",
             profile === "strict"
                 ? "Strict attack-mode profile enabled."
                 : "Standard attack-mode profile enabled."
@@ -147,7 +153,10 @@ export const AutoLockSettingsPanel: React.FC = () => {
 
     const handleImportSharedIntelJson = (): void => {
         if (!sharedIntelJson.trim()) {
-            setSharedIntelResultMessage("Paste signed shared-intel JSON before importing.");
+            setSharedIntelResultMessage(t(
+                "settings.security.attackMode.import.pasteBeforeImport",
+                "Paste signed shared-intel JSON before importing."
+            ));
             return;
         }
         try {
@@ -164,14 +173,21 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 setRollbackReasonLabel("import");
             }
             refreshSharedIntelSnapshot();
-            setSharedIntelResultMessage(
-                `Imported signals: accepted ${result.acceptedCount}, rejected ${result.rejectedCount}, stored ${result.storedSignalCount}. ` +
-                `Rejections: invalid_shape=${result.rejectedByReason.invalid_shape}, expired=${result.rejectedByReason.expired}, ` +
-                `missing_signature_verifier=${result.rejectedByReason.missing_signature_verifier}, invalid_signature=${result.rejectedByReason.invalid_signature}.`
-            );
+            setSharedIntelResultMessage(t(
+                "settings.security.attackMode.import.result",
+                "Imported signals: accepted {{acceptedCount}}, rejected {{rejectedCount}}, stored {{storedSignalCount}}. Rejections: invalid_shape={{invalidShapeRejectedCount}}, expired={{expiredRejectedCount}}, missing_signature_verifier={{missingSignatureVerifierRejectedCount}}, invalid_signature={{invalidSignatureRejectedCount}}.",
+                {
+                    acceptedCount: result.acceptedCount,
+                    rejectedCount: result.rejectedCount,
+                    storedSignalCount: result.storedSignalCount,
+                    invalidShapeRejectedCount: result.rejectedByReason.invalid_shape,
+                    expiredRejectedCount: result.rejectedByReason.expired,
+                    missingSignatureVerifierRejectedCount: result.rejectedByReason.missing_signature_verifier,
+                    invalidSignatureRejectedCount: result.rejectedByReason.invalid_signature,
+                }
+            ));
             if (result.acceptedCount > 0) {
-                setActionPhase("success");
-                setActionMessage("Shared-intel signals imported.");
+                setActionFeedback("success", "settings.security.attackMode.import.success", "Shared-intel signals imported.");
             }
             logAppEvent({
                 name: "messaging.m10.trust_controls_import_result",
@@ -190,7 +206,10 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 },
             });
         } catch {
-            setSharedIntelResultMessage("Shared-intel import failed: invalid JSON payload.");
+            setSharedIntelResultMessage(t(
+                "settings.security.attackMode.import.invalidJson",
+                "Shared-intel import failed: invalid JSON payload."
+            ));
             logAppEvent({
                 name: "messaging.m10.trust_controls_import_result",
                 level: "warn",
@@ -206,7 +225,11 @@ export const AutoLockSettingsPanel: React.FC = () => {
         const signals = getSignedSharedIntelSignals();
         const payload = JSON.stringify(signals, null, 2);
         setSharedIntelJson(payload);
-        setSharedIntelResultMessage(`Exported ${signals.length} shared-intel signals to editor.`);
+        setSharedIntelResultMessage(t(
+            "settings.security.attackMode.export.result",
+            "Exported {{count}} shared-intel signals to editor.",
+            { count: signals.length }
+        ));
     };
 
     const handleClearSharedIntelSignals = (): void => {
@@ -217,9 +240,11 @@ export const AutoLockSettingsPanel: React.FC = () => {
         }
         clearSignedSharedIntelSignals();
         refreshSharedIntelSnapshot();
-        setSharedIntelResultMessage("Cleared all persisted shared-intel signals for this profile.");
-        setActionPhase("success");
-        setActionMessage("Shared-intel signal store cleared.");
+        setSharedIntelResultMessage(t(
+            "settings.security.attackMode.clear.result",
+            "Cleared all persisted shared-intel signals for this profile."
+        ));
+        setActionFeedback("success", "settings.security.attackMode.clear.success", "Shared-intel signal store cleared.");
         logAppEvent({
             name: "messaging.m10.trust_controls_clear_applied",
             level: "info",
@@ -232,16 +257,21 @@ export const AutoLockSettingsPanel: React.FC = () => {
 
     const handleUndoSharedIntelChange = (): void => {
         if (!rollbackSignals) {
-            setSharedIntelResultMessage("No reversible trust-control change is available.");
+            setSharedIntelResultMessage(t(
+                "settings.security.attackMode.undo.none",
+                "No reversible trust-control change is available."
+            ));
             return;
         }
         setSignedSharedIntelSignals(rollbackSignals);
         refreshSharedIntelSnapshot();
         setRollbackSignals(null);
         setRollbackReasonLabel(null);
-        setSharedIntelResultMessage("Reverted the latest shared-intel trust-control change.");
-        setActionPhase("success");
-        setActionMessage("Trust-control change reverted.");
+        setSharedIntelResultMessage(t(
+            "settings.security.attackMode.undo.result",
+            "Reverted the latest shared-intel trust-control change."
+        ));
+        setActionFeedback("success", "settings.security.attackMode.undo.success", "Trust-control change reverted.");
         logAppEvent({
             name: "messaging.m10.trust_controls_undo_applied",
             level: "info",
@@ -272,9 +302,14 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             <Shield className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                         </div>
                         <div className="space-y-0.5">
-                            <Label className="text-base text-zinc-900 dark:text-white font-bold tracking-tight">Attack Mode Trust Controls</Label>
+                            <Label className="text-base text-zinc-900 dark:text-white font-bold tracking-tight">
+                                {t("settings.security.attackMode.title", "Attack Mode Trust Controls")}
+                            </Label>
                             <p className="text-zinc-500 dark:text-zinc-400 text-xs max-w-[560px] leading-relaxed font-medium">
-                                Strict mode quarantines high-risk requests using relay/peer shared-intel evidence. Standard mode keeps requests open with diagnostics.
+                                {t(
+                                    "settings.security.attackMode.desc",
+                                    "Strict mode quarantines high-risk requests using relay/peer shared-intel evidence. Standard mode keeps requests open with diagnostics."
+                                )}
                             </p>
                         </div>
                     </div>
@@ -288,9 +323,9 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                     ? "bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-black dark:border-white"
                                     : "bg-zinc-50 text-zinc-600 border-black/10 dark:bg-white/5 dark:text-zinc-300 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/10"
                             )}
-                            aria-label="Set attack mode profile to standard"
+                            aria-label={t("settings.security.attackMode.profile.standardAria", "Set attack mode profile to standard")}
                         >
-                            Standard
+                            {t("settings.security.attackMode.profile.standard", "Standard")}
                         </button>
                         <button
                             type="button"
@@ -301,9 +336,9 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                     ? "bg-rose-600 text-white border-rose-600"
                                     : "bg-zinc-50 text-zinc-600 border-black/10 dark:bg-white/5 dark:text-zinc-300 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/10"
                             )}
-                            aria-label="Set attack mode profile to strict"
+                            aria-label={t("settings.security.attackMode.profile.strictAria", "Set attack mode profile to strict")}
                         >
-                            Strict
+                            {t("settings.security.attackMode.profile.strict", "Strict")}
                         </button>
                     </div>
                 </div>
@@ -315,7 +350,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             checked={requireSignatureVerification}
                             onChange={(event) => setRequireSignatureVerification(event.currentTarget.checked)}
                         />
-                        Require signature verification
+                        {t("settings.security.attackMode.requireSignatureVerification", "Require signature verification")}
                     </label>
                     <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300 sm:justify-end">
                         <input
@@ -323,30 +358,30 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             checked={replaceExistingSharedIntelSignals}
                             onChange={(event) => setReplaceExistingSharedIntelSignals(event.currentTarget.checked)}
                         />
-                        Replace existing stored signals
+                        {t("settings.security.attackMode.replaceExisting", "Replace existing stored signals")}
                     </label>
                 </div>
 
                 <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/40 px-3 py-2.5 text-[11px] text-zinc-600 dark:text-zinc-300">
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                         <div>
-                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Profile</div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">{t("settings.security.attackMode.summary.profile", "Profile")}</div>
                             <div>{attackModeSafetyProfile}</div>
                         </div>
                         <div>
-                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Signals</div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">{t("settings.security.attackMode.summary.signals", "Signals")}</div>
                             <div>{sharedIntelSnapshot.signalCount}</div>
                         </div>
                         <div>
-                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Active</div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">{t("settings.security.attackMode.summary.active", "Active")}</div>
                             <div>{sharedIntelSnapshot.activeCount}</div>
                         </div>
                         <div>
-                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Block</div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">{t("settings.security.attackMode.summary.block", "Block")}</div>
                             <div>{sharedIntelSnapshot.blockDispositionCount}</div>
                         </div>
                         <div>
-                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">Watch</div>
+                            <div className="font-black uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400">{t("settings.security.attackMode.summary.watch", "Watch")}</div>
                             <div>{sharedIntelSnapshot.watchDispositionCount}</div>
                         </div>
                     </div>
@@ -356,8 +391,8 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     value={sharedIntelJson}
                     onChange={(event) => setSharedIntelJson(event.currentTarget.value)}
                     className="w-full h-40 rounded-2xl border border-black/10 dark:border-white/10 bg-zinc-50/80 dark:bg-zinc-950/70 p-3 text-xs font-mono text-zinc-700 dark:text-zinc-200 resize-y focus:outline-none focus:ring-2 focus:ring-rose-500/40"
-                    placeholder='Paste signed shared-intel JSON (array or {"signals":[...]})'
-                    aria-label="Shared intel JSON payload"
+                    placeholder={t("settings.security.attackMode.placeholder", 'Paste signed shared-intel JSON (array or {"signals":[...]})')}
+                    aria-label={t("settings.security.attackMode.aria.jsonPayload", "Shared intel JSON payload")}
                 />
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -366,21 +401,21 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         onClick={handleImportSharedIntelJson}
                         className="px-3 py-2 rounded-lg bg-rose-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-rose-700 transition-colors"
                     >
-                        Import JSON
+                        {t("settings.security.attackMode.import.button", "Import JSON")}
                     </button>
                     <button
                         type="button"
                         onClick={handleExportSharedIntelJson}
                         className="px-3 py-2 rounded-lg bg-zinc-200 text-zinc-900 text-[11px] font-black uppercase tracking-wider hover:bg-zinc-300 dark:bg-white/10 dark:text-zinc-100 dark:hover:bg-white/15 transition-colors"
                     >
-                        Export JSON
+                        {t("settings.security.attackMode.export.button", "Export JSON")}
                     </button>
                     <button
                         type="button"
                         onClick={handleClearSharedIntelSignals}
                         className="px-3 py-2 rounded-lg bg-zinc-100 text-zinc-700 text-[11px] font-black uppercase tracking-wider hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 transition-colors"
                     >
-                        Clear Signals
+                        {t("settings.security.attackMode.clear.button", "Clear Signals")}
                     </button>
                     <button
                         type="button"
@@ -393,7 +428,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                 : "bg-zinc-200/80 text-zinc-400 cursor-not-allowed dark:bg-white/5 dark:text-zinc-500"
                         )}
                     >
-                        Undo Last Change
+                        {t("settings.security.attackMode.undo.button", "Undo Last Change")}
                     </button>
                 </div>
 
@@ -402,7 +437,9 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 ) : null}
                 {rollbackReasonLabel ? (
                     <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        Undo is available for the latest {rollbackReasonLabel} operation.
+                        {t("settings.security.attackMode.undo.available", "Undo is available for the latest {{reason}} operation.", {
+                            reason: rollbackReasonLabel,
+                        })}
                     </p>
                 ) : null}
             </div>
@@ -420,7 +457,12 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>
                     </div>
                     <button
-                        onClick={() => applySetting({ encryptStorageAtRest: !settings.encryptStorageAtRest }, settings.encryptStorageAtRest ? "At-rest encryption disabled." : "At-rest encryption enabled.")}
+                        onClick={() => applySetting(
+                            { encryptStorageAtRest: !settings.encryptStorageAtRest },
+                            settings.encryptStorageAtRest
+                                ? t("settings.security.encryption.disabled", "At-rest encryption disabled.")
+                                : t("settings.security.encryption.enabled", "At-rest encryption enabled.")
+                        )}
                         className={cn(
                             "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none",
                             settings.encryptStorageAtRest ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800'
@@ -445,7 +487,11 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             <Label className="text-base text-zinc-900 dark:text-white font-bold tracking-tight">{t("settings.security.autoLock.title")}</Label>
                             <p className="text-zinc-500 dark:text-zinc-400 text-xs max-w-[240px] leading-relaxed font-medium">{t("settings.security.autoLock.desc")}</p>
                             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                                {settings.autoLockTimeout > 0 ? `Locks after ${settings.autoLockTimeout} minute${settings.autoLockTimeout > 1 ? "s" : ""} of inactivity.` : "Auto-lock is disabled."}
+                                {settings.autoLockTimeout > 0
+                                    ? t("settings.security.autoLock.statusMinutes", "Locks after {{count}} minute of inactivity.", {
+                                        count: settings.autoLockTimeout,
+                                    })
+                                    : t("settings.security.autoLock.disabled", "Auto-lock is disabled.")}
                             </p>
                         </div>
                     </div>
@@ -458,7 +504,12 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     {timeoutOptions.map((option) => (
                         <button
                             key={option.value}
-                            onClick={() => applySetting({ autoLockTimeout: option.value }, option.value > 0 ? `Auto-lock set to ${option.label}.` : "Auto-lock disabled.")}
+                            onClick={() => applySetting(
+                                { autoLockTimeout: option.value },
+                                option.value > 0
+                                    ? t("settings.security.autoLock.updated", "Auto-lock set to {{label}}.", { label: option.label })
+                                    : t("settings.security.autoLock.disabled", "Auto-lock is disabled.")
+                            )}
                             className={cn(
                                 "px-2 py-2.5 rounded-xl text-[11px] font-black transition-all border",
                                 settings.autoLockTimeout === option.value
@@ -485,7 +536,12 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>
                     </div>
                     <button
-                        onClick={() => applySetting({ clearClipboardOnLock: !settings.clearClipboardOnLock }, settings.clearClipboardOnLock ? "Clipboard safety disabled." : "Clipboard safety enabled.")}
+                        onClick={() => applySetting(
+                            { clearClipboardOnLock: !settings.clearClipboardOnLock },
+                            settings.clearClipboardOnLock
+                                ? t("settings.security.clipboard.disabled", "Clipboard safety disabled.")
+                                : t("settings.security.clipboard.enabled", "Clipboard safety enabled.")
+                        )}
                         className={cn(
                             "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none",
                             settings.clearClipboardOnLock ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800'
@@ -524,13 +580,19 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                     try {
                                         const result = await invokeNativeCommand<boolean>("request_biometric_auth");
                                         if (result.ok && result.value) {
-                                            applySetting({ biometricLockEnabled: true }, "Biometric lock enabled.");
+                                            applySetting(
+                                                { biometricLockEnabled: true },
+                                                t("settings.security.biometric.enabled", "Biometric lock enabled.")
+                                            );
                                         }
                                     } catch (e) {
                                         console.error("Biometric verification failed:", e);
                                     }
                                 } else {
-                                    applySetting({ biometricLockEnabled: false }, "Biometric lock disabled.");
+                                    applySetting(
+                                        { biometricLockEnabled: false },
+                                        t("settings.security.biometric.disabled", "Biometric lock disabled.")
+                                    );
                                 }
                             }}
                             className={cn(
@@ -548,7 +610,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest inline-block">
                                 {t("settings.security.tauriOnly")}
                             </div>
-                            <div className="text-[10px] text-zinc-500">Unavailable in web runtime.</div>
+                            <div className="text-[10px] text-zinc-500">{t("settings.security.biometric.webUnavailable", "Unavailable in web runtime.")}</div>
                         </div>
                     )}
                 </div>
@@ -574,7 +636,12 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     {isTauri ? (
                         <div className="flex flex-col items-end gap-2">
                             <button
-                                onClick={() => applySetting({ enableTorProxy: !settings.enableTorProxy }, settings.enableTorProxy ? "Tor routing disabled." : "Tor routing enabled.")}
+                                onClick={() => applySetting(
+                                    { enableTorProxy: !settings.enableTorProxy },
+                                    settings.enableTorProxy
+                                        ? t("settings.security.tor.disabled", "Tor routing disabled.")
+                                        : t("settings.security.tor.enabled", "Tor routing enabled.")
+                                )}
                                 className={cn(
                                     "relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none",
                                     settings.enableTorProxy ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800'
@@ -600,7 +667,7 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest inline-block">
                                 {t("settings.security.tauriOnly")}
                             </div>
-                            <div className="text-[10px] text-zinc-500">Tor routing requires desktop runtime capability.</div>
+                            <div className="text-[10px] text-zinc-500">{t("settings.security.tor.desktopOnly", "Tor routing requires desktop runtime capability.")}</div>
                         </div>
                     )}
                 </div>
@@ -614,7 +681,9 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                     ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-700 dark:text-cyan-300"
                                     : "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-300"
                             )}>
-                                Runtime: {torStatusSnapshot?.usingExternalInstance ? "Shared" : "Sidecar"}
+                                {t("settings.security.tor.runtime.label", "Runtime")}: {torStatusSnapshot?.usingExternalInstance
+                                    ? t("settings.security.tor.runtime.shared", "Shared")
+                                    : t("settings.security.tor.runtime.sidecar", "Sidecar")}
                             </div>
                             <div className={cn(
                                 "rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider",
@@ -624,7 +693,11 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                         ? "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300"
                                         : "bg-zinc-500/10 border-zinc-500/20 text-zinc-700 dark:text-zinc-300"
                             )}>
-                                Reachability: {torStatusSnapshot?.ready ? "Proxy Reachable" : settings.enableTorProxy ? "Pending" : "Disabled"}
+                                {t("settings.security.tor.reachability.label", "Reachability")}: {torStatusSnapshot?.ready
+                                    ? t("settings.security.tor.reachability.ready", "Proxy Reachable")
+                                    : settings.enableTorProxy
+                                        ? t("settings.security.tor.reachability.pending", "Pending")
+                                        : t("settings.security.tor.reachability.disabled", "Disabled")}
                             </div>
                             <div className={cn(
                                 "rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider",
@@ -636,11 +709,17 @@ export const AutoLockSettingsPanel: React.FC = () => {
                                             ? "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300"
                                             : "bg-zinc-500/10 border-zinc-500/20 text-zinc-700 dark:text-zinc-300"
                             )}>
-                                Bootstrap: {torStatus === "connected" ? "Ready" : torStatus === "starting" ? "Starting" : torStatus === "error" ? "Error" : "Idle"}
+                                {t("settings.security.tor.bootstrap.label", "Bootstrap")}: {torStatus === "connected"
+                                    ? t("settings.security.tor.bootstrap.ready", "Ready")
+                                    : torStatus === "starting"
+                                        ? t("settings.security.tor.bootstrap.starting", "Starting")
+                                        : torStatus === "error"
+                                            ? t("settings.security.tor.bootstrap.error", "Error")
+                                            : t("settings.security.tor.bootstrap.idle", "Idle")}
                             </div>
                         </div>
                         <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
-                            Proxy: {torStatusSnapshot?.proxyUrl || settings.torProxyUrl}
+                            {t("settings.security.tor.proxy.label", "Proxy")}: {torStatusSnapshot?.proxyUrl || settings.torProxyUrl}
                         </div>
                     </div>
                 )}
@@ -670,14 +749,16 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             onClick={() => setShowLogs(!showLogs)}
                             className="text-[10px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors uppercase tracking-wider mb-2"
                         >
-                            {showLogs ? 'Hide Logs' : 'Show Connection Logs'}
+                            {showLogs
+                                ? t("settings.security.tor.logs.hide", "Hide Logs")
+                                : t("settings.security.tor.logs.show", "Show Connection Logs")}
                         </button>
                         {showLogs && (
                             <div className="mt-2 p-3 rounded-xl bg-black dark:bg-zinc-950 font-mono text-[10px] text-emerald-500/90 h-32 overflow-y-auto custom-scrollbar leading-relaxed">
                                 {torLogs.length > 0 ? (
                                     torLogs.map((log, i) => <div key={i}>{log}</div>)
                                 ) : (
-                                    <div className="text-zinc-600 italic">Waiting for logs...</div>
+                                    <div className="text-zinc-600 italic">{t("settings.security.tor.logs.waiting", "Waiting for logs...")}</div>
                                 )}
                             </div>
                         )}
@@ -695,10 +776,10 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 </p>
             </div>
             <SettingsActionStatus
-                title="Security Controls"
+                title={t("settings.security.action.title", "Security Controls")}
                 phase={actionPhase}
                 message={actionMessage || undefined}
-                summary="Security changes are applied locally and persisted immediately."
+                summary={t("settings.security.action.summary", "Security changes are applied locally and persisted immediately.")}
             />
         </div>
     );

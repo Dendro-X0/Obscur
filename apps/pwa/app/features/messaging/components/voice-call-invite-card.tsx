@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { PhoneCall, Clock3 } from "lucide-react";
+import { PhoneCall, Clock3, AlertTriangle, PhoneMissed, PhoneOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../../lib/cn";
 import { Button } from "../../../components/ui/button";
@@ -18,21 +18,8 @@ type VoiceCallInviteCardProps = Readonly<{
   callSummary?: VoiceCallRoomRenderSummary | null;
   nowUnixMs?: number | null;
   liveStatusPhase?: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended" | null;
+  liveReasonCode?: "left_by_user" | "remote_left" | "network_interrupted" | "session_closed" | null;
 }>;
-
-const toRoomIdHint = (roomIdInput: unknown): string => {
-  if (typeof roomIdInput !== "string") {
-    return "unknown-room";
-  }
-  const roomId = roomIdInput.trim();
-  if (!roomId) {
-    return "unknown-room";
-  }
-  if (roomId.length <= 24) {
-    return roomId;
-  }
-  return `${roomId.slice(0, 10)}...${roomId.slice(-10)}`;
-};
 
 const toTimestampLabel = (value: unknown): string | null => {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -65,9 +52,9 @@ export function VoiceCallInviteCard({
   callSummary = null,
   nowUnixMs = null,
   liveStatusPhase = null,
+  liveReasonCode = null,
 }: VoiceCallInviteCardProps): React.JSX.Element {
   const { t } = useTranslation();
-  const roomIdHint = toRoomIdHint(invite.roomId);
   const invitedAtLabel = toTimestampLabel(invite.invitedAtUnixMs);
   const expiresAtLabel = toTimestampLabel(invite.expiresAtUnixMs);
   const canJoin = !isOutgoing && typeof onJoinCall === "function";
@@ -82,19 +69,30 @@ export function VoiceCallInviteCard({
     && resolvedNowUnixMs !== null
     && invite.expiresAtUnixMs <= resolvedNowUnixMs;
   const endedWithoutConnection = (callSummary?.endedAtUnixMs ?? null) !== null && !hasConnected;
-  const unconnectedRejected = !callSummary?.endedNormally && !hasConnected && liveStatusPhase === "interrupted";
-  const unconnectedTimeout = !callSummary?.endedNormally && !unconnectedRejected && !hasConnected && (
+  const wasInterruptedByFailure = liveStatusPhase === "interrupted"
+    && (liveReasonCode === "network_interrupted" || liveReasonCode === "session_closed");
+  const missedWithoutFailure = !hasConnected && (
+    liveReasonCode === "left_by_user"
+    || liveReasonCode === "remote_left"
+    || liveStatusPhase === "interrupted"
+  );
+  const unconnectedTimeout = !callSummary?.endedNormally && !wasInterruptedByFailure && !missedWithoutFailure && !hasConnected && (
     inviteExpiredByNow || endedWithoutConnection || liveStatusPhase === "ended"
   );
-  const cardState = callSummary?.endedNormally
-    ? "ended_normal"
-    : unconnectedRejected
-      ? "unconnected_rejected"
-      : unconnectedTimeout
-        ? "unconnected_timeout"
-        : "active";
-  const showCallbackAction = cardState === "unconnected_timeout" && typeof onRequestCallback === "function" && !callbackConsumed;
-  const showJoinAction = canJoin && !callSummary?.endedNormally && cardState === "active" && !hasTerminalLivePhase;
+  const cardState: "active" | "completed" | "missed" | "timed_out" | "failed" = callSummary?.endedNormally
+    ? "completed"
+    : wasInterruptedByFailure
+      ? "failed"
+      : missedWithoutFailure
+        ? "missed"
+        : unconnectedTimeout
+          ? "timed_out"
+          : "active";
+  const showCallbackAction = !isOutgoing
+    && (cardState === "missed" || cardState === "timed_out")
+    && typeof onRequestCallback === "function"
+    && !callbackConsumed;
+  const showJoinAction = canJoin && cardState === "active" && !hasTerminalLivePhase;
   const liveStatusLabel = (() => {
     switch (liveStatusPhase) {
       case "ringing_outgoing":
@@ -115,12 +113,16 @@ export function VoiceCallInviteCard({
   })();
   const stateSubtitle = (() => {
     switch (cardState) {
-      case "ended_normal":
+      case "completed":
         return t("messaging.voiceCallEndedNormally", "Ended normally");
-      case "unconnected_timeout":
+      case "missed":
+        return isOutgoing
+          ? t("messaging.voiceCallNotAnswered", "The call was not answered")
+          : t("messaging.voiceCallMissedReturnCall", "The call ended before it was answered");
+      case "timed_out":
         return t("messaging.voiceCallTimedOutBeforeConnect", "Timed out before connection");
-      case "unconnected_rejected":
-        return t("messaging.voiceCallDeclinedBeforeConnect", "Declined before connection");
+      case "failed":
+        return t("messaging.voiceCallFailedBeforeCompletion", "The call could not be completed");
       default:
         return isOutgoing
           ? t("messaging.voiceCallInviteSent", "Invitation sent")
@@ -129,23 +131,45 @@ export function VoiceCallInviteCard({
   })();
   const statusBadgeLabel = (() => {
     switch (cardState) {
-      case "ended_normal":
+      case "completed":
         return t("messaging.voiceCallCompleted", "Call completed");
-      case "unconnected_timeout":
+      case "missed":
+        return isOutgoing
+          ? t("messaging.voiceCallNotConnected", "Not connected")
+          : t("messaging.voiceCallMissed", "Missed call");
+      case "timed_out":
         return t("messaging.voiceCallNoAnswer", "No answer (timed out)");
-      case "unconnected_rejected":
-        return t("messaging.voiceCallDeclined", "Call declined");
+      case "failed":
+        return t("messaging.voiceCallFailed", "Call failed");
       default:
         return liveStatusLabel;
     }
   })();
+  const headingLabel = (() => {
+    switch (cardState) {
+      case "completed":
+        return t("messaging.voiceCallEnded", "Call ended");
+      case "missed":
+        return isOutgoing
+          ? t("messaging.voiceCallNotConnected", "Not connected")
+          : t("messaging.voiceCallMissed", "Missed call");
+      case "timed_out":
+        return t("messaging.voiceCallTimedOut", "Call timed out");
+      case "failed":
+        return t("messaging.voiceCallFailed", "Call failed");
+      default:
+        return t("messaging.voiceCallInvite", "Voice Call Invite");
+    }
+  })();
   const containerToneClass = (() => {
     switch (cardState) {
-      case "ended_normal":
+      case "completed":
         return "ring-1 ring-emerald-500/35";
-      case "unconnected_timeout":
+      case "missed":
+        return "ring-1 ring-sky-500/35";
+      case "timed_out":
         return "ring-1 ring-amber-500/35";
-      case "unconnected_rejected":
+      case "failed":
         return "ring-1 ring-rose-500/40";
       default:
         return isOutgoing
@@ -155,11 +179,13 @@ export function VoiceCallInviteCard({
   })();
   const accentScrimClass = (() => {
     switch (cardState) {
-      case "ended_normal":
+      case "completed":
         return "from-emerald-500/24 to-transparent dark:from-emerald-400/28";
-      case "unconnected_timeout":
+      case "missed":
+        return "from-sky-500/20 to-transparent dark:from-sky-400/28";
+      case "timed_out":
         return "from-amber-500/24 to-transparent dark:from-amber-400/30";
-      case "unconnected_rejected":
+      case "failed":
         return "from-rose-500/24 to-transparent dark:from-rose-400/30";
       default:
         return isOutgoing
@@ -169,11 +195,13 @@ export function VoiceCallInviteCard({
   })();
   const iconToneClass = (() => {
     switch (cardState) {
-      case "ended_normal":
+      case "completed":
         return "bg-emerald-500/18 text-emerald-700 dark:bg-emerald-400/22 dark:text-emerald-200";
-      case "unconnected_timeout":
+      case "missed":
+        return "bg-sky-500/18 text-sky-700 dark:bg-sky-400/22 dark:text-sky-200";
+      case "timed_out":
         return "bg-amber-500/18 text-amber-700 dark:bg-amber-400/24 dark:text-amber-200";
-      case "unconnected_rejected":
+      case "failed":
         return "bg-rose-500/18 text-rose-700 dark:bg-rose-400/24 dark:text-rose-200";
       default:
         return isOutgoing
@@ -183,11 +211,13 @@ export function VoiceCallInviteCard({
   })();
   const titleToneClass = (() => {
     switch (cardState) {
-      case "ended_normal":
+      case "completed":
         return "text-emerald-700 dark:text-emerald-300";
-      case "unconnected_timeout":
+      case "missed":
+        return "text-sky-700 dark:text-sky-300";
+      case "timed_out":
         return "text-amber-700 dark:text-amber-300";
-      case "unconnected_rejected":
+      case "failed":
         return "text-rose-700 dark:text-rose-300";
       default:
         return isOutgoing ? "text-purple-700 dark:text-purple-300" : "text-sky-700 dark:text-sky-300";
@@ -195,16 +225,37 @@ export function VoiceCallInviteCard({
   })();
   const badgeToneClass = (() => {
     switch (cardState) {
-      case "ended_normal":
+      case "completed":
         return "border-emerald-500/35 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-200";
-      case "unconnected_timeout":
+      case "missed":
+        return "border-sky-500/35 bg-sky-500/15 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200";
+      case "timed_out":
         return "border-amber-500/35 bg-amber-500/15 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200";
-      case "unconnected_rejected":
+      case "failed":
         return "border-rose-500/40 bg-rose-500/15 text-rose-800 dark:bg-rose-400/22 dark:text-rose-200";
       default:
         return "border-sky-500/35 bg-sky-500/14 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200";
     }
   })();
+  const StatusIcon = (() => {
+    switch (cardState) {
+      case "missed":
+        return PhoneMissed;
+      case "timed_out":
+        return Clock3;
+      case "failed":
+        return AlertTriangle;
+      case "completed":
+        return PhoneOff;
+      default:
+        return PhoneCall;
+    }
+  })();
+  const primaryActionLabel = cardState === "missed" || cardState === "timed_out"
+    ? t("messaging.voiceCallCallback", "Call Back")
+    : isJoining
+      ? t("messaging.voiceCallJoining", "Joining...")
+      : t("messaging.voiceCallJoin", "Join Call");
 
   return (
     <div
@@ -229,11 +280,11 @@ export function VoiceCallInviteCard({
             iconToneClass
           )}
         >
-          <PhoneCall className="h-3.5 w-3.5" />
+          <StatusIcon className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0">
           <div className={cn("text-[11px] font-black uppercase tracking-[0.14em]", titleToneClass)}>
-            {t("messaging.voiceCallInvite", "Voice Call Invite")}
+            {headingLabel}
           </div>
           <div className="text-[12px] font-semibold leading-4 text-surface-contrast-secondary">
             {stateSubtitle}
@@ -242,12 +293,6 @@ export function VoiceCallInviteCard({
       </div>
 
       <div className="relative mt-2.5 grid grid-cols-[62px,1fr] items-center gap-x-2 gap-y-1 text-[12px] leading-4.5">
-        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
-            {t("messaging.voiceCallRoom", "Room")}
-        </span>
-        <span className="inline-flex min-w-0 items-center rounded-md border border-surface-contrast bg-black/5 px-2 py-0.5 font-mono text-[11px] text-surface-contrast-primary dark:bg-white/5">
-          <span className="truncate">{roomIdHint}</span>
-        </span>
         {invitedAtLabel ? (
           <>
             <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
@@ -269,7 +314,7 @@ export function VoiceCallInviteCard({
             </span>
           </>
         ) : null}
-        {callSummary?.endedNormally ? (
+        {cardState === "completed" || cardState === "failed" ? (
           <>
             {endedAtLabel ? (
               <>
@@ -281,12 +326,16 @@ export function VoiceCallInviteCard({
                 </span>
               </>
             ) : null}
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
-                {t("messaging.voiceCallDuration", "Duration")}
-            </span>
-            <span className="tabular-nums text-[13px] font-bold text-surface-contrast-primary">
-              {durationLabel ?? "0:00"}
-            </span>
+            {cardState === "completed" ? (
+              <>
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
+                    {t("messaging.voiceCallDuration", "Duration")}
+                </span>
+                <span className="tabular-nums text-[13px] font-bold text-surface-contrast-primary">
+                  {durationLabel ?? "0:00"}
+                </span>
+              </>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -310,9 +359,7 @@ export function VoiceCallInviteCard({
             onClick={() => onJoinCall?.(invite)}
             disabled={isJoining}
           >
-            {isJoining
-              ? t("messaging.voiceCallJoining", "Joining...")
-              : t("messaging.voiceCallJoin", "Join Call")}
+            {primaryActionLabel}
           </Button>
         ) : null}
         {showCallbackAction ? (
@@ -322,10 +369,10 @@ export function VoiceCallInviteCard({
             className="h-8 rounded-lg px-3 text-[11px] font-bold"
             onClick={onRequestCallback}
           >
-            {t("messaging.voiceCallCallback", "Call Back")}
+            {primaryActionLabel}
           </Button>
         ) : null}
-        {cardState === "unconnected_timeout" && callbackConsumed ? (
+        {(cardState === "missed" || cardState === "timed_out") && callbackConsumed ? (
           <span className="inline-flex items-center rounded-full border border-surface-contrast bg-black/5 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-surface-contrast-secondary dark:bg-white/5">
             {t("messaging.voiceCallCallbackUsed", "Callback used")}
           </span>

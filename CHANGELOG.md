@@ -1,5 +1,30 @@
 ## [Unreleased]
 
+## [v1.3.11] - 2026-04-09
+
+### Fixed
+
+- Reduced desktop route-freeze pressure on weak hardware:
+  - Discover and Settings now enter through lightweight dynamic route wrappers
+    with local loading shells instead of blocking the full route mount on their
+    heavy client page bodies,
+  - canonical app-shell navigation warmup now skips automatic desktop prefetch
+    fan-out entirely and only prefetches lightweight web routes once, avoiding
+    repeated background compile/load pressure after each page switch,
+  - added focused regression coverage for the bounded navigation-prefetch
+    policy and updated app-shell route-warmup behavior.
+- Hardened Settings language parity across remaining security and rollout UI:
+  - moved remaining password reset, auto-lock, and action-status copy behind
+    translation keys,
+  - added matching `en` / `es` / `zh` locale entries so Settings no longer
+    falls back to stray English strings in those panels.
+- Refined chat voice-call history cards:
+  - replaced the legacy inline invite block with a dedicated voice-call invite
+    card owner,
+  - added clearer terminal call-state presentation for completed, missed,
+    timed-out, and failed call outcomes,
+  - only expose callback affordance on missed incoming calls.
+
 ## [v1.3.10] - 2026-04-08
 
 ### Fixed

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { VoiceCallInviteCard } from "./voice-call-invite-card";
 
 describe("VoiceCallInviteCard", () => {
-  it("renders voice call invite metadata with room hint", () => {
+  it("renders incoming invite metadata without exposing room identifiers", () => {
     render(
       <VoiceCallInviteCard
         isOutgoing={false}
@@ -20,9 +20,9 @@ describe("VoiceCallInviteCard", () => {
 
     expect(screen.getByText("Voice Call Invite")).toBeInTheDocument();
     expect(screen.getByText("Incoming invitation")).toBeInTheDocument();
-    expect(screen.getByText("Room")).toBeInTheDocument();
     expect(screen.getByText("Invited")).toBeInTheDocument();
     expect(screen.getByText("Expires")).toBeInTheDocument();
+    expect(screen.queryByText("Room")).not.toBeInTheDocument();
   });
 
   it("triggers join callback for incoming invite", () => {
@@ -66,6 +66,7 @@ describe("VoiceCallInviteCard", () => {
       />
     );
 
+    expect(screen.getByText("Call ended")).toBeInTheDocument();
     expect(screen.getByText("Ended normally")).toBeInTheDocument();
     expect(screen.getByText("Call completed")).toBeInTheDocument();
     expect(screen.getByText("Ended")).toBeInTheDocument();
@@ -90,19 +91,21 @@ describe("VoiceCallInviteCard", () => {
     );
 
     expect(screen.getByText("Timed out before connection")).toBeInTheDocument();
+    expect(screen.getByText("Call timed out")).toBeInTheDocument();
     expect(screen.getByText("No answer (timed out)")).toBeInTheDocument();
     expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-amber-500/35");
     fireEvent.click(screen.getByRole("button", { name: "Call Back" }));
     expect(onRequestCallback).toHaveBeenCalledTimes(1);
   });
 
-  it("renders declined state for rejected unconnected calls", () => {
+  it("renders missed-call state with callback for unanswered incoming calls", () => {
+    const onRequestCallback = vi.fn();
     render(
       <VoiceCallInviteCard
         isOutgoing={false}
-        onRequestCallback={vi.fn()}
+        onRequestCallback={onRequestCallback}
         liveStatusPhase="interrupted"
-        nowUnixMs={100_000}
+        liveReasonCode="remote_left"
         invite={{
           type: "voice-call-invite",
           roomId: "dm-voice-room-d",
@@ -111,8 +114,30 @@ describe("VoiceCallInviteCard", () => {
       />
     );
 
-    expect(screen.getByText("Declined before connection")).toBeInTheDocument();
-    expect(screen.getByText("Call declined")).toBeInTheDocument();
+    expect(screen.getAllByText("Missed call")).toHaveLength(2);
+    expect(screen.getByText("The call ended before it was answered")).toBeInTheDocument();
+    expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-sky-500/35");
+    fireEvent.click(screen.getByRole("button", { name: "Call Back" }));
+    expect(onRequestCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders failed state for interrupted calls with failure reason", () => {
+    render(
+      <VoiceCallInviteCard
+        isOutgoing={false}
+        onRequestCallback={vi.fn()}
+        liveStatusPhase="interrupted"
+        liveReasonCode="network_interrupted"
+        invite={{
+          type: "voice-call-invite",
+          roomId: "dm-voice-room-d",
+          expiresAtUnixMs: 120_000,
+        }}
+      />
+    );
+
+    expect(screen.getAllByText("Call failed")).toHaveLength(2);
+    expect(screen.getByText("The call could not be completed")).toBeInTheDocument();
     expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-rose-500/40");
     expect(screen.queryByRole("button", { name: "Call Back" })).not.toBeInTheDocument();
   });

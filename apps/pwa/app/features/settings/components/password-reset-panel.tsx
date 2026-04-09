@@ -34,7 +34,10 @@ export function PasswordResetPanel() {
         <>
             <Card
                 title={t("settings.security.passwordReset", "Password Management")}
-                description="Verify your identity to update your master password. Your master password encrypts your private key locally. If you've forgotten it, you can reset it using your original private key."
+                description={t(
+                    "settings.security.passwordReset.description",
+                    "Verify your identity to update your master password. Your master password encrypts your private key locally. If you've forgotten it, you can reset it using your original private key."
+                )}
             >
                 <div className="flex flex-col items-start gap-4 p-1">
                     <Button
@@ -160,10 +163,12 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                             </button>
                         </div>
                         <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed">
-                            {step === "method" && "Choose how you want to verify your identity."}
-                            {step === "verify" && (method === "password" ? "Enter your current password." : "Verify using your backup private key.")}
-                            {step === "new-password" && "Set a new strong master password."}
-                            {step === "success" && "Your password has been updated."}
+                            {step === "method" && t("settings.security.passwordReset.step.method", "Choose how you want to verify your identity.")}
+                            {step === "verify" && (method === "password"
+                                ? t("settings.security.passwordReset.step.verifyPassword", "Enter your current password.")
+                                : t("settings.security.passwordReset.step.verifyKey", "Verify using your backup private key."))}
+                            {step === "new-password" && t("settings.security.passwordReset.step.newPassword", "Set a new strong master password.")}
+                            {step === "success" && t("settings.security.passwordReset.step.success", "Your password has been updated.")}
                         </p>
                     </div>
 
@@ -181,7 +186,9 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                         </div>
                                         <div>
                                             <p className="font-black text-sm text-zinc-900 dark:text-white">{t("settings.security.usePassword", "Use Current Password")}</p>
-                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">I remember my old password.</p>
+                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                                {t("settings.security.passwordReset.rememberPassword", "I remember my old password.")}
+                                            </p>
                                         </div>
                                     </div>
                                     <ArrowRight className="h-5 w-5 text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
@@ -197,7 +204,9 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                         </div>
                                         <div>
                                             <p className="font-black text-sm text-zinc-900 dark:text-white">{t("settings.security.useKey", "Use Private Key")}</p>
-                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">I lost my password but have my key.</p>
+                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                                {t("settings.security.passwordReset.haveBackupKey", "I lost my password but have my key.")}
+                                            </p>
                                         </div>
                                     </div>
                                     <ArrowRight className="h-5 w-5 text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
@@ -211,7 +220,9 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                 className="space-y-6 w-full"
                             >
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">Current Password</Label>
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">
+                                        {t("settings.security.passwordReset.currentPassword", "Current Password")}
+                                    </Label>
                                     <div className="relative group">
                                         <Input
                                             type={showPassword ? "text" : "password"}
@@ -242,7 +253,9 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                         disabled={!oldPassword || isLoading}
                                         className="flex-1 rounded-[16px] h-12 bg-purple-600 hover:bg-purple-700 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-purple-500/20"
                                     >
-                                        {isLoading ? "Verifying..." : "Confirm Password"}
+                                        {isLoading
+                                            ? t("settings.security.passwordReset.verifying", "Verifying...")
+                                            : t("settings.security.passwordReset.confirmPassword", "Confirm Password")}
                                     </Button>
                                 </div>
                             </form>
@@ -254,10 +267,12 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                 className="space-y-6 w-full"
                             >
                                 <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">Backup Private Key</Label>
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">
+                                        {t("settings.security.passwordReset.backupKey", "Backup Private Key")}
+                                    </Label>
                                     <Input
                                         type="password"
-                                        placeholder="nsec1... or hex"
+                                        placeholder={t("settings.security.passwordReset.backupKeyPlaceholder", "nsec1... or hex")}
                                         value={privateKeyInput}
                                         onChange={(e) => setPrivateKeyInput(e.target.value)}
                                         autoFocus
@@ -266,7 +281,10 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                     <div className="p-4 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/10 dark:border-blue-500/20 flex gap-3">
                                         <AlertCircle className="h-4 w-4 text-blue-500 shrink-0" />
                                         <p className="text-[10px] font-bold text-blue-400 leading-relaxed uppercase tracking-tight">
-                                            Only use this method if you have lost your current master password.
+                                            {t(
+                                                "settings.security.passwordReset.backupKeyWarning",
+                                                "Only use this method if you have lost your current master password."
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -280,7 +298,7 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                         disabled={privateKeyInput.length < 10 || isLoading}
                                         className="flex-1 rounded-[16px] h-12 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/20"
                                     >
-                                        Verify Key
+                                        {t("settings.security.passwordReset.verifyKey", "Verify Key")}
                                     </Button>
                                 </div>
                             </form>
@@ -293,10 +311,12 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                             >
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">New Master Password</Label>
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">
+                                            {t("settings.security.passwordReset.newPassword", "New Master Password")}
+                                        </Label>
                                         <Input
                                             type={showPassword ? "text" : "password"}
-                                            placeholder="At least 8 characters"
+                                            placeholder={t("settings.security.passwordReset.newPasswordPlaceholder", "At least 8 characters")}
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
                                             autoFocus
@@ -305,10 +325,12 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                         <PasswordStrengthIndicator password={newPassword} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">Confirm New Password</Label>
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">
+                                            {t("settings.security.passwordReset.confirmNewPassword", "Confirm New Password")}
+                                        </Label>
                                         <Input
                                             type={showPassword ? "text" : "password"}
-                                            placeholder="Repeat new password"
+                                            placeholder={t("settings.security.passwordReset.confirmNewPasswordPlaceholder", "Repeat new password")}
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             className="h-14 px-4 rounded-[20px] bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus:ring-4 focus:ring-purple-500/5 transition-all text-lg text-zinc-900 dark:text-white"
@@ -320,7 +342,9 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                     disabled={newPassword.length < 8 || newPassword !== confirmPassword || isLoading}
                                     className="w-full rounded-[24px] h-16 bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest text-sm shadow-xl shadow-emerald-500/20"
                                 >
-                                    {isLoading ? "Updating Security..." : "Complete Reset"}
+                                    {isLoading
+                                        ? t("settings.security.passwordReset.updating", "Updating Security...")
+                                        : t("settings.security.passwordReset.complete", "Complete Reset")}
                                 </Button>
                             </form>
                         )}
@@ -331,9 +355,11 @@ function PasswordResetModal({ isOpen, onClose, t }: { isOpen: boolean; onClose: 
                                     <CheckCircle2 className="h-12 w-12 text-emerald-500" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-zinc-900 dark:text-white">{t("common.success", "Identity Locked")}</h3>
+                                    <h3 className="text-2xl font-black text-zinc-900 dark:text-white">
+                                        {t("settings.security.passwordReset.successTitle", "Password Updated")}
+                                    </h3>
                                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
-                                        Your master password has been successfully updated.
+                                        {t("settings.security.passwordReset.successDesc", "Your master password has been successfully updated.")}
                                     </p>
                                 </div>
                                 <Button onClick={onClose} className="w-full rounded-[24px] h-16 bg-zinc-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-widest text-xs hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors">

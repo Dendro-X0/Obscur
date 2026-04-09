@@ -30,6 +30,7 @@ import {
   recordPageTransitionWatchdogTimeout,
   type RouteMountDiagnosticsState,
 } from "./page-transition-recovery";
+import { resolveRoutePrefetchWarmupPlan } from "./navigation-prefetch-warmup-policy";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
@@ -76,6 +77,33 @@ const isKeyboardEditableTarget = (target: EventTarget | null): boolean => {
   return tagName === "input" || tagName === "textarea" || tagName === "select";
 };
 
+type IdleCallbackHandle = number;
+type IdleCallback = (callback: () => void) => IdleCallbackHandle;
+type IdleCancel = (handle: IdleCallbackHandle) => void;
+
+const createIdleScheduler = (): Readonly<{
+  schedule: IdleCallback;
+  cancel: IdleCancel;
+}> => {
+  if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+    return {
+      schedule: (callback: () => void): IdleCallbackHandle => window.requestIdleCallback(() => callback()),
+      cancel: (handle: IdleCallbackHandle): void => {
+        if (typeof window.cancelIdleCallback === "function") {
+          window.cancelIdleCallback(handle);
+        }
+      },
+    };
+  }
+
+  return {
+    schedule: (callback: () => void): IdleCallbackHandle => window.setTimeout(callback, 32),
+    cancel: (handle: IdleCallbackHandle): void => {
+      window.clearTimeout(handle);
+    },
+  };
+};
+
 const AppShell = (props: AppShellProps): React.JSX.Element => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -102,6 +130,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const arePageTransitionsEnabledRef = useRef<boolean>(true);
   const routeStallHardFallbackCountRef = useRef<number>(0);
   const navigationFailOpenEnabledRef = useRef<boolean>(false);
+  const warmedPrefetchTargetsRef = useRef<Set<string>>(new Set());
   const isDesktop = useIsDesktop();
   useDesktopLayout();
 
@@ -117,6 +146,73 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   useEffect((): void => {
     arePageTransitionsEnabledRef.current = arePageTransitionsEnabled;
   }, [arePageTransitionsEnabled]);
+
+  useEffect((): (() => void) => {
+    const scheduler = createIdleScheduler();
+    const idleHandle = scheduler.schedule((): void => {
+      const warmupPlan = resolveRoutePrefetchWarmupPlan({
+        pathname,
+        isDesktop,
+        navItems: NAV_ITEMS,
+        warmedHrefs: warmedPrefetchTargetsRef.current,
+      });
+
+      if (!warmupPlan.enabled) {
+        logAppEvent({
+          name: "navigation.route_prefetch_warmup_skipped",
+          level: "debug",
+          scope: { feature: "navigation", action: "route_prefetch" },
+          context: {
+            pathname,
+            routeSurface: activeRouteSurface,
+            reason: warmupPlan.reason,
+            isDesktop,
+          },
+        });
+        return;
+      }
+
+      const prefetchTargets = warmupPlan.targets;
+
+      logAppEvent({
+        name: "navigation.route_prefetch_warmup_started",
+        level: "info",
+        scope: { feature: "navigation", action: "route_prefetch" },
+        context: {
+          pathname,
+          routeSurface: activeRouteSurface,
+          targetCount: prefetchTargets.length,
+          isDesktop,
+        },
+      });
+
+      void Promise.allSettled(prefetchTargets.map((href: string) => router.prefetch(href))).then((results) => {
+        for (const href of prefetchTargets) {
+          warmedPrefetchTargetsRef.current.add(href);
+        }
+        const failedTargets = results.flatMap((result, index): string[] => (
+          result.status === "rejected" ? [prefetchTargets[index]] : []
+        ));
+        logAppEvent({
+          name: "navigation.route_prefetch_warmup_completed",
+          level: failedTargets.length > 0 ? "warn" : "info",
+          scope: { feature: "navigation", action: "route_prefetch" },
+          context: {
+            pathname,
+            routeSurface: activeRouteSurface,
+            targetCount: prefetchTargets.length,
+            failedTargetCount: failedTargets.length,
+            failedTargetsSummary: failedTargets.join(","),
+            isDesktop,
+          },
+        });
+      });
+    });
+
+    return (): void => {
+      scheduler.cancel(idleHandle);
+    };
+  }, [activeRouteSurface, isDesktop, pathname, router]);
 
   const clearPageTransitionTimers = useCallback((): void => {
     const watchdogId = pageTransitionWatchdogIdRef.current;

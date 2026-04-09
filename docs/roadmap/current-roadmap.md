@@ -10,11 +10,12 @@ Version-specific phase plans are consolidated into general workstreams and miles
 3. [v1.3.8 Streaming Update Contract](./v1.3.8-streaming-update-contract.md)
 4. These plan files are mandatory continuity artifacts for this lane and are non-removable until closeout conditions are met.
 
-## Current Health Baseline (2026-04-04)
+## Current Health Baseline (2026-04-09)
 
 1. project remains active for development, with stability work prioritized,
-2. no unresolved severe blocker is currently active for the v1.3.4 release lane,
-3. high-fragility domains still require owner-safe, evidence-first iteration and two-user runtime evidence before tag claims.
+2. no unresolved severe blocker is currently active for the v1.3.11 release lane,
+3. recent desktop navigation freeze pressure was reduced by converging route warmup and heavy-page entry through explicit app-shell and lazy-route owners rather than repeated background prefetch fan-out,
+4. high-fragility domains still require owner-safe, evidence-first iteration and two-user runtime evidence before tag claims.
 
 ## Workstream Order (Canonical)
 
@@ -58,7 +59,7 @@ Goals:
 ### E. UX and Performance
 
 Goals:
-1. prevent freeze/blank-page regressions,
+1. prevent freeze/blank-page regressions and keep route warmup bounded to explicit owners,
 2. keep large-list and media-heavy interactions responsive,
 3. preserve mobile and desktop layout quality while protecting runtime budgets.
 
