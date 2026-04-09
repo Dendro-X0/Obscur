@@ -67,9 +67,17 @@ const main = async () => {
 
   const layoutPath = path.join(repoRoot, "apps/pwa/app/layout.tsx");
   const layoutText = await fs.readFile(layoutPath, "utf8");
+  const globalsCssPath = path.join(repoRoot, "apps/pwa/app/globals.css");
+  const globalsCssText = await fs.readFile(globalsCssPath, "utf8");
 
-  if (!layoutText.includes('from "next/font/google"')) {
-    errors.push("[layout-font-owner-missing] apps/pwa/app/layout.tsx (expected next/font/google owner import)");
+  if (layoutText.includes('from "next/font/google"')) {
+    errors.push("[layout-font-owner-remote] apps/pwa/app/layout.tsx (unexpected next/font/google import in offline shell)");
+  }
+
+  const hasLocalSansOwner = globalsCssText.includes("--font-geist-sans:");
+  const hasLocalMonoOwner = globalsCssText.includes("--font-geist-mono:");
+  if (!hasLocalSansOwner || !hasLocalMonoOwner) {
+    errors.push("[layout-font-owner-missing] apps/pwa/app/globals.css (expected local --font-geist-sans and --font-geist-mono owners)");
   }
 
   if (!layoutText.includes('manifest: "/manifest.webmanifest"')) {
@@ -103,7 +111,7 @@ const main = async () => {
   if (!swText.includes("obscur-app-shell-")) {
     errors.push("[service-worker-cache-owner] apps/pwa/public/sw.js (expected obscur-app-shell cache owner)");
   }
-  if (!swText.includes("request.mode === \"navigate\"")) {
+  if (!swText.includes('request.mode === "navigate"')) {
     errors.push("[service-worker-navigation-handler] apps/pwa/public/sw.js (expected navigation fetch handling)");
   }
 

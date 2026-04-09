@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-08T16:13:35Z
+- Last Updated (UTC): 2026-04-09T03:31:29Z
 - Session Status: in-progress
 - Active Owner: Messaging two-user convergence recovery (B -> A receive visibility regression)
 
@@ -201,7 +201,9 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
 
 ## Next Atomic Step
 
-Investigate a native-branded Windows notification click bridge instead of WebView/browser notifications; user should retest that call/message toasts are back to normal Obscur branding while in-app card copy stays simplified.
+Commit and push the release-gate script/doc fixes, then rerun the remote CI push workflow to confirm Preflight Checks and reliability-gates both stay green in GitHub Actions.
+
+
 
 
 
@@ -835,4 +837,14 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Investigate a native-branded Windows notification click bridge instead of WebView/browser notifications; user should retest that call/message toasts are back to normal Obscur branding while in-app card copy stays simplified.
+### 2026-04-08T17:56:04Z checkpoint
+- Summary: Cut and pushed release v1.3.10 from main. Root/package/version contracts were aligned to 1.3.10, CHANGELOG gained a v1.3.10 entry, release commit 395e7fdb was created (elease: v1.3.10), and tag v1.3.10 was pushed to origin.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Monitor the v1.3.10 remote release flow and validate packaged/runtime behavior on the next install pass, with special attention to Windows native notification click behavior which remains limited under the current adapter.
+### 2026-04-09T03:31:29Z checkpoint
+- Summary: Cleared the failing release gates by updating the offline asset policy to validate the actual local font owner path in apps/pwa/app/globals.css instead of a stale next/font/google contract, and by hardening release-preflight branch/command resolution for Windows and GitHub Actions detached checkouts (git.exe on Windows plus GITHUB_REF_NAME/GITHUB_HEAD_REF fallback before git branch probing).
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Commit and push the release-gate script/doc fixes, then rerun the remote CI push workflow to confirm Preflight Checks and reliability-gates both stay green in GitHub Actions.
 <!-- CONTEXT_CHECKPOINTS_END -->

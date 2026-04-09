@@ -8,8 +8,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
 
 const resolveCommand = (cmd) => {
-  if (process.platform === "win32" && cmd === "pnpm") {
-    return "pnpm.cmd";
+  if (process.platform === "win32") {
+    if (cmd === "pnpm") {
+      return "pnpm.cmd";
+    }
+    if (cmd === "git") {
+      return "git.exe";
+    }
   }
   return cmd;
 };
@@ -26,12 +31,10 @@ const run = (cmd, args, options = {}) => {
     encoding: "utf8",
     stdio: options.capture ? "pipe" : "inherit",
   };
-  const result = process.platform === "win32"
-    ? spawnSync([command, ...args].map(quoteShellArg).join(" "), {
-      ...baseOptions,
-      shell: true,
-    })
-    : spawnSync(command, args, baseOptions);
+  const result = spawnSync(command, args, {
+    ...baseOptions,
+    shell: process.platform === "win32" && command.toLowerCase().endsWith(".cmd"),
+  });
   if (result.status !== 0) {
     const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
     throw new Error(output || `${cmd} ${args.join(" ")} failed`);
@@ -63,10 +66,39 @@ const verifyRequiredPaths = () => {
   }
 };
 
-const verifyBranchContext = () => {
+const resolveBranchContext = () => {
+  const candidates = [
+    process.env.GITHUB_REF_NAME,
+    process.env.GITHUB_HEAD_REF,
+    process.env.BRANCH_NAME,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
   const branch = run("git", ["branch", "--show-current"], { capture: true }).trim();
+  if (branch) {
+    return branch;
+  }
+
+  try {
+    const symbolic = run("git", ["symbolic-ref", "--short", "HEAD"], { capture: true }).trim();
+    if (symbolic) {
+      return symbolic;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+};
+
+const verifyBranchContext = () => {
+  const branch = resolveBranchContext();
   if (!branch) {
-    throw new Error("Detached HEAD is not allowed for release preflight.");
+    throw new Error("Unable to resolve branch context for release preflight.");
   }
   if (branch !== "main") {
     throw new Error(`Release preflight requires main branch. Current branch: ${branch}`);
@@ -228,3 +260,5 @@ try {
   console.error(`[release:preflight] Failed: ${message}`);
   process.exit(1);
 }
+
+
