@@ -2654,23 +2654,6 @@ const mergeIncomingRestorePayload = async (
   const existingLedgerEntries = loadCommunityMembershipLedger(publicKeyHex);
   const existingRoomKeySnapshots = await loadLocalRoomKeySnapshots();
   const includeHydratedLocalMessages = options?.includeHydratedLocalMessages !== false;
-  const currentPayloadCandidate = includeHydratedLocalMessages
-    ? await buildBackupPayloadWithHydratedChatState(publicKeyHex)
-    : buildBackupPayload(publicKeyHex);
-  const existingScopedRoomKeySnapshots = filterRoomKeySnapshotsToJoinedEvidence({
-    roomKeys: existingRoomKeySnapshots,
-    explicitLedgerEntries: existingLedgerEntries,
-    chatState: currentPayloadCandidate.chatState,
-  });
-  const hasHydratedLocalReplayableHistory = hasReplayableChatHistory(currentPayloadCandidate.chatState);
-  const hasExplicitLocalLedgerEvidence = (
-    parseCommunityMembershipLedgerSnapshot(currentPayloadCandidate.communityMembershipLedger).length > 0
-    || existingLedgerEntries.length > 0
-  );
-  const hasExplicitLocalRoomKeyEvidence = (
-    parseRoomKeySnapshots(currentPayloadCandidate.roomKeys).length > 0
-    || existingScopedRoomKeySnapshots.length > 0
-  );
   const recoverySnapshot = loadRecoverySnapshot(publicKeyHex);
   const recoverySnapshotHasReplayableHistory = hasReplayableChatHistory(recoverySnapshot?.chatState ?? null);
   const recoverySnapshotHasExplicitLedgerEvidence = (
@@ -2686,6 +2669,34 @@ const mergeIncomingRestorePayload = async (
       || recoverySnapshotHasExplicitLedgerEvidence
       || recoverySnapshotHasExplicitRoomKeyEvidence
     ),
+  );
+  const canTrustIncomingPortableState = hasPortablePrivateStateEvidence(sanitizedIncomingPayload);
+  const shouldHydrateLocalMessages = (
+    includeHydratedLocalMessages
+    && (
+      !freshDevice
+      || !canTrustIncomingPortableState
+      || shouldUseRecoverySnapshot
+    )
+  );
+  const currentPayloadCandidate = includeHydratedLocalMessages
+    ? (shouldHydrateLocalMessages
+      ? await buildBackupPayloadWithHydratedChatState(publicKeyHex)
+      : buildBackupPayload(publicKeyHex))
+    : buildBackupPayload(publicKeyHex);
+  const existingScopedRoomKeySnapshots = filterRoomKeySnapshotsToJoinedEvidence({
+    roomKeys: existingRoomKeySnapshots,
+    explicitLedgerEntries: existingLedgerEntries,
+    chatState: currentPayloadCandidate.chatState,
+  });
+  const hasHydratedLocalReplayableHistory = hasReplayableChatHistory(currentPayloadCandidate.chatState);
+  const hasExplicitLocalLedgerEvidence = (
+    parseCommunityMembershipLedgerSnapshot(currentPayloadCandidate.communityMembershipLedger).length > 0
+    || existingLedgerEntries.length > 0
+  );
+  const hasExplicitLocalRoomKeyEvidence = (
+    parseRoomKeySnapshots(currentPayloadCandidate.roomKeys).length > 0
+    || existingScopedRoomKeySnapshots.length > 0
   );
   const currentPayload = (
     existingLocalPrivateState
@@ -2830,6 +2841,8 @@ const mergeIncomingRestorePayload = async (
       publicKeySuffix: publicKeyHex.slice(-8),
       freshDevice,
       includeHydratedLocalMessages,
+      shouldHydrateLocalMessages,
+      canTrustIncomingPortableState,
       localPayloadMerged: currentPayload !== null,
       hasHydratedLocalReplayableHistory,
       hasExplicitLocalLedgerEvidence,

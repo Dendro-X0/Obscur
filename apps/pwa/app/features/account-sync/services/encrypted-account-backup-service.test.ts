@@ -3823,6 +3823,107 @@ describe("encryptedAccountBackupService", () => {
     queueSpy.mockRestore();
   });
 
+  it("skips local message hydration during fresh-device restore when incoming backup already has private history", async () => {
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([]);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+    const appendCanonicalEvents = vi.fn(async () => undefined);
+    const dmConversationId = [publicKeyHex, acceptedPeerPublicKeyHex].sort().join(":");
+    const fetchSpy = vi.spyOn(
+      encryptedAccountBackupService,
+      "fetchLatestEncryptedAccountBackupPayload",
+    ).mockResolvedValue({
+      event: {
+        id: "backup-event-fresh-device-fast-path",
+        pubkey: publicKeyHex,
+        kind: ACCOUNT_BACKUP_EVENT_KIND,
+        created_at: 101,
+        tags: [["d", ACCOUNT_BACKUP_D_TAG]],
+        content: "encrypted:stub",
+        sig: "sig",
+      },
+      payload: {
+        version: 1,
+        publicKeyHex,
+        createdAtUnixMs: 42_000,
+        profile: {
+          username: "Recovered",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: {
+          acceptedPeers: [acceptedPeerPublicKeyHex],
+          mutedPeers: [],
+        },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        chatState: {
+          version: 2,
+          createdConnections: [{
+            id: dmConversationId,
+            displayName: "Peer",
+            pubkey: acceptedPeerPublicKeyHex,
+            lastMessage: "restored",
+            unreadCount: 0,
+            lastMessageTimeMs: 2_000,
+          }],
+          createdGroups: [],
+          unreadByConversationId: {},
+          connectionOverridesByConnectionId: {},
+          messagesByConversationId: {
+            [dmConversationId]: [{
+              id: "m-restore-1",
+              content: "restored",
+              timestampMs: 2_000,
+              isOutgoing: false,
+              status: "delivered",
+              pubkey: acceptedPeerPublicKeyHex,
+            }],
+          },
+          groupMessages: {},
+          connectionRequests: [],
+          pinnedChatIds: [],
+          hiddenChatIds: [],
+        },
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      },
+      hasBackup: true,
+      degradedReason: undefined,
+    });
+
+    await encryptedAccountBackupService.restoreEncryptedAccountBackup({
+      publicKeyHex,
+      privateKeyHex,
+      pool: {
+        connections: [],
+        waitForConnection: vi.fn(async () => true),
+        sendToOpen: vi.fn(),
+        subscribeToMessages: () => () => undefined,
+      } as any,
+      profileId: "default",
+      appendCanonicalEvents,
+    });
+
+    expect(hydrateSpy).not.toHaveBeenCalled();
+    expect(getAllByIndexSpy).not.toHaveBeenCalled();
+    expect(queueSpy).not.toHaveBeenCalled();
+    expect(chatStateStoreService.load(publicKeyHex)?.messagesByConversationId[dmConversationId]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "m-restore-1",
+        isOutgoing: false,
+      }),
+    ]));
+
+    hydrateSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
   it("skips encrypted backup publish for pending-only request state", async () => {
     requestFlowEvidenceStoreInternals.writeState({
       byPeer: {
