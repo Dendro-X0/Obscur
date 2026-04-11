@@ -1,12 +1,12 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-09T16:13:59Z
+- Last Updated (UTC): 2026-04-11T08:52:59Z
 - Session Status: in-progress
-- Active Owner: Messaging two-user convergence recovery (B -> A receive visibility regression)
+- Active Owner: Messaging late-restore backup hydration recovery
 
 ## Active Objective
 
-Restore deterministic two-user DM visibility (especially `B -> A`) and keep blocker evidence explicit while preserving the canonical incoming transport owner path.
+Finish the late-restore recovery slice so backup-restored contacts and conversation history repopulate deterministically through the canonical chat-state owner path, without requiring reloads or parallel hydration owners.
 
 ## Current Snapshot
 
@@ -23,7 +23,9 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
   - Incoming transport now has a safety-sync watchdog (15s interval + tab-visibility resume trigger) so silent subscription stalls cannot leave DM/delete state stale indefinitely without refresh.
   - DM online indicators now resolve through a canonical owner path in `main-shell`: relay presence first, then bounded recent inbound peer-activity evidence to prevent active-chat false `OFFLINE`.
   - Encrypted account backup restore/hydration now quarantines delete-command DM rows and their targeted historical rows before chat-state restore/import, and chat preview rows no longer keep command payload snippets as `lastMessage`.
+  - Late backup-restore refresh now covers both surfaces that were staying blank on fresh devices: `MessagingProvider` rehydrates scoped DM/contact state when `CHAT_STATE_REPLACED_EVENT` lands, and `useConversationMessages` rehydrates already-open conversations on that same replace event so restored history appears without a reload.
   - Phase M1 now has a canonical offline UI asset inventory (`docs/roadmap/v1.3.8-offline-ui-asset-inventory.md`) and an executable guard (`pnpm offline:asset-policy:check`) wired into `pwa-ci-scan` and `release:test-pack`.
+  - Vault media now retains source conversation ownership and exposes source-specific origin copy for DM vs community media without inventing a detached media route or second routing owner.
 - What changed in this thread:
   - Published v1.3.8 release to origin:
     - release commit `92c4b29d` (`release: v1.3.8`) pushed to `main`,
@@ -84,6 +86,8 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
   - Added `pnpm offline:asset-policy:check` and wired it into `scripts/pwa-ci-scan.mjs` and `scripts/run-release-test-pack.mjs`.
   - Added a v1.3.8 Phase M1 inventory doc and updated roadmap/docs index references; marked two M1 checklist items complete in `docs/roadmap/v1.3.8-hybrid-offline-streaming-update-plan.md`.
   - Added a canonical voice-call connect-timeout policy (`apps/pwa/app/features/messaging/services/realtime-voice-timeout-policy.ts`) and integrated bounded timeout extensions into `apps/pwa/app/features/main-shell/main-shell.tsx` for `connecting` sessions with transport-progress evidence, with explicit diagnostics (`messaging.realtime_voice.connect_timeout_extended`) and bounded end-of-call fallback.
+  - VaultMediaGrid now surfaces explicit source badges and source-specific open actions (`Open Direct Message` / `Open Community`) derived from the canonical stored `sourceConversationId`, and preview/footer copy now makes DM vs community origin explicit.
+  - Added localized Vault origin/source-action strings in `en`/`es`/`zh` and expanded focused Vault tests to lock badge visibility, source-specific action labels, and preview copy.
 
 ## Evidence
 
@@ -124,12 +128,16 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
 - extended production replay script (Node + Playwright via `@playwright/test`; artifacts include `pwa-offline-settings.png`, `pwa-reconnect.png`, updated replay JSON)
 - `.\\node_modules\\.bin\\vitest.CMD run app/features/messaging/services/realtime-voice-timeout-policy.test.ts app/features/messaging/services/realtime-voice-session-lifecycle.test.ts app/features/messaging/services/realtime-voice-session-owner.test.ts` (from `apps/pwa`, 22/22 passing; executed with escalation due sandbox `spawn EPERM`)
 - `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing after timeout-policy integration)
+- `.\\node_modules\\.bin\\vitest.CMD run app/features/vault/components/vault-media-grid.test.tsx` (from `apps/pwa`, 4/4 passing after origin-copy/source-action coverage)
+- `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing after Vault origin-copy polish)
 
 ## Changed Files
 
 - `apps/pwa/app/features/account-sync/services/history-reset-cutoff-store.ts`
 - `apps/pwa/app/features/account-sync/services/account-event-bootstrap-service.ts`
 - `apps/pwa/app/features/account-sync/services/account-event-bootstrap-service.test.ts`
+- `apps/pwa/app/features/vault/components/vault-media-grid.tsx`
+- `apps/pwa/app/features/vault/components/vault-media-grid.test.tsx`
 - `apps/pwa/app/features/messaging/services/local-history-reset-service.ts`
 - `apps/pwa/app/features/messaging/services/local-history-reset-service.test.ts`
 - `apps/pwa/app/features/messaging/providers/runtime-messaging-transport-owner-provider.tsx`
@@ -137,6 +145,8 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
 - `apps/pwa/app/features/messaging/components/chat-view.tsx`
 - `apps/pwa/app/features/messaging/components/chat-view.test.tsx`
 - `apps/pwa/app/lib/i18n/locales/en.json`
+- `apps/pwa/app/lib/i18n/locales/es.json`
+- `apps/pwa/app/lib/i18n/locales/zh.json`
 - `apps/pwa/app/features/messaging/hooks/use-conversation-messages.ts`
 - `apps/pwa/app/features/messaging/hooks/use-conversation-messages.integration.test.ts`
 - `apps/pwa/app/features/messaging/controllers/dm-event-builder.ts`
@@ -186,6 +196,8 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
 
 ## Open Risks Or Blockers
 
+- Vault manual verification is still open: the source-specific copy/action polish is test-covered, but desktop/PWA runtime replay still needs to confirm real DM vs community media surfaces show the right origin copy and keep `Open Source` routing aligned with the originating conversation.
+- Fresh-device backup-restore replay is still open: focused provider/persistence/conversation-hook coverage now locks the late-restore owner path, and durable DM delete tombstones now flow through encrypted backup publish/restore, but desktop/PWA runtime replay still needs to confirm the real restore flow emits `messaging.chat_state_replaced`, migrates history, repopulates the DM sidebar, refreshes an already-open conversation without a reload, and does not resurrect delete-for-everyone text or voice-call invite history.
 - New release-blocker (2026-04-06): two-user runtime replay reports `B -> A` DM visibility failure (A cannot see B messages consistently), which blocks reliable interaction QA and has not yet been reproduced by focused deterministic suites.
 - Evidence gap: focused owner-path suites are green, so the regression currently appears runtime/manual only and likely tied to a lifecycle/identity-state combination not covered by existing tests.
 - New voice-call blocker (2026-04-08): runtime reports ongoing call setup timeouts under real two-user conditions; timeout policy is now hardened with bounded extensions for connecting sessions with transport progress evidence, and connected-call waveform decay/dynamics were tightened to avoid a sticky reused voiceprint, but manual replay evidence is still required to confirm timeout-frequency reduction, live voiceprint motion, and no stuck-call regressions.
@@ -201,7 +213,22 @@ Restore deterministic two-user DM visibility (especially `B -> A`) and keep bloc
 
 ## Next Atomic Step
 
-Retest the desktop runtime by switching Chats -> Network -> Discover -> Settings repeatedly. Confirm whether Discover/Settings now stay interactive with only the local loading shell delay. If any hard freeze remains, capture navigation diagnostics plus desktop WebView logs to determine whether the remaining stall is inside the lazy client page body or below the route owner.
+Install the production desktop artifact at apps/desktop/src-tauri/target/release/bundle/nsis/Obscur_1.3.12_x64-setup.exe, run fresh-device A/B sanity replays against the packaged build, then commit/tag/push v1.3.12 if runtime behavior matches the latest production artifact.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -895,4 +922,79 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Retest the desktop runtime by switching Chats -> Network -> Discover -> Settings repeatedly. Confirm whether Discover/Settings now stay interactive with only the local loading shell delay. If any hard freeze remains, capture navigation diagnostics plus desktop WebView logs to determine whether the remaining stall is inside the lazy client page body or below the route owner.
+### 2026-04-10T04:40:53Z checkpoint
+- Summary: Implemented the first Vault manageability recovery slice through the existing local-only Vault owner path. Hidden media no longer disappears irreversibly: Vault now supports a dedicated Hidden filter with counts, per-item Restore, bulk Restore in selection mode, and a clearer empty-state message. Hide remains a Vault-only organization action, separate from Delete Local/cache flush and separate from chat/community message truth. Added focused component coverage in vault-media-grid.test.tsx and revalidated apps/pwa typecheck.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Retest the Vault UX manually with a mixed media set: hide several items, confirm they disappear from All/Local/Remote/Favorites, reappear under Hidden, and can be restored individually or in bulk without affecting the original chat/community media surfaces. Then decide the next Vault management slice: search/sort/source filters or a conversation-origin drill-down.
+### 2026-04-10T04:52:18Z checkpoint
+- Summary: Extended the Vault manageability slice beyond reversible hiding. VaultMediaGrid now includes lightweight search and sort controls (filename/content-type/URL/kind search plus newest/oldest/file-name sort) while preserving the existing owner boundary: Vault manages aggregated library presentation and local cache only, not chat/community message truth. Hidden items remain recoverable through the Hidden filter and restore actions. Added focused component coverage for both hide/restore and search/sort browsing behavior, and apps/pwa typecheck still passes.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually retest Vault with a larger mixed media set in desktop/PWA: confirm search narrows by filename/type, sort changes the card order predictably, Hidden items stay excluded from normal filters until restored, and Delete Local still only affects cache state. Then choose the next Vault pre-release slice: origin drill-down back to the source conversation/community, or richer metadata filters (date range / file kind chips / only cached).
+### 2026-04-10T04:58:39Z checkpoint
+- Summary: Completed the next Vault release slice by wiring origin drill-down into the existing aggregated media owner path. Vault media items now retain sourceConversationId from the original message record, and VaultMediaGrid exposes Open Source actions in both the per-item menu and preview footer, routing back through the canonical /?convId=... conversation path instead of inventing a detached media route. Search, sort, hidden recovery, and local cache actions remain Vault-only. Focused Vault component coverage now verifies hide/restore, search/sort, and source-chat routing; apps/pwa typecheck still passes.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually retest Vault with real DM and community media: confirm Open Source from a Vault tile and preview returns to the correct conversation, hidden items remain reversible, and search/sort still behave predictably. Then decide the final pre-release Vault polish slice: richer filters (date range / only cached / only hidden), or explicit source badges/copy that distinguish DM vs community origin.
+### 2026-04-10T06:45:20Z checkpoint
+- Summary: Vault now exposes explicit origin labels and source-specific open actions in the aggregated media owner path, distinguishing DM vs community media without adding a separate routing owner. Added focused Vault tests and localized source-copy keys.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually retest Vault with real DM and community media in desktop/PWA: confirm DM items show direct-message origin copy, community items show community origin copy, Open Source actions still route to the correct conversation, and hidden/search/sort behavior remains intact. Then decide whether the final pre-release Vault slice should be richer origin metadata (participant/community naming) or additional filters.
+### 2026-04-10T07:04:28Z checkpoint
+- Summary: Fixed Vault browsing polish issues in the existing aggregated media owner path: item action menus are no longer clipped by tile overflow, and the Sort control now uses an app-owned themed dropdown that renders consistently in light and dark modes. Updated focused Vault tests and revalidated apps/pwa typecheck.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually verify the Vault grid in desktop/PWA: open an item menu near tile edges to confirm it fully escapes the card bounds, and open the Sort dropdown in both light and dark themes to confirm contrast/readability. Then continue the remaining real-media Vault replay for DM vs community origin copy and source routing.
+### 2026-04-10T10:34:21Z checkpoint
+- Summary: Optimized fresh-device encrypted backup restore so account sync no longer hydrates local IndexedDB/message-queue history before showing remote contacts/chat state when the incoming backup already has durable private-state evidence. Added a focused restore regression test locking the fast path while preserving the existing local-evidence hydration path for sparse/invite-recovery cases.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually verify new-device login on desktop/PWA with a populated account: confirm contacts and message history appear sooner, measure whether the empty sidebar/history notice clears promptly, and capture account_sync.backup_restore_merge_diagnostics to confirm freshDevice=true uses shouldHydrateLocalMessages=false on the fast path. If users still wait too long, inspect relay fetch timing and consider staging UI status/notice policy next.
+### 2026-04-10T12:37:35Z checkpoint
+- Summary: Fixed the late-restore hydration regression keeping new-device contacts/history blank after backup restore. MessagingProvider now refreshes from scoped chat-state when CHAT_STATE_REPLACED_EVENT fires, so restored DM/contact rows appear even if the provider already hydrated an empty state on mount. MessagePersistenceService now prefers the in-memory replaced chat-state over stale IndexedDB chatState during replace-triggered migration, closing the race where restored history never migrated into the messages store because the replace event fired before the deferred chatState DB write landed. Added focused provider and message-persistence regression tests; apps/pwa targeted vitest and typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually retest new-device login on desktop/PWA with a populated account. Verify that after restore completes the DM sidebar populates without a reload and selecting a restored conversation shows migrated history. Capture messaging.chat_state_replaced, messaging.legacy_migration_diagnostics, and account_sync.backup_restore_apply_diagnostics. If history is still missing after the sidebar repopulates, patch the conversation-history hook to refresh directly on late restore for already-open conversations.
+### 2026-04-10T13:19:29Z checkpoint
+- Summary: Patched late-restore messaging refresh end-to-end: MessagingProvider scoped refresh plus useConversationMessages late chat-state replace rehydrate now cover both sidebar contacts and already-open conversations after backup restore; added focused provider, persistence, and conversation-hook regression coverage; apps/pwa targeted vitest and typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually retest new-device login on desktop/PWA with a populated account. Verify that after restore completes the DM sidebar populates without a reload and an already-open restored conversation shows migrated history. Capture messaging.chat_state_replaced, messaging.legacy_migration_diagnostics, and account_sync.backup_restore_apply_diagnostics. If history still lags after those events, inspect whether the selected conversation id or route state is stale rather than the chat-state refresh owner path.
+### 2026-04-10T13:59:29Z checkpoint
+- Summary: Identified and subtracted a second DM-contact owner that was wiping or hiding restored contacts on fresh devices. Removed the main-shell bridge that rewrote MessagingProvider.createdConnections from peerTrust.acceptedPeers, and taught usePeerTrust to rehydrate accepted peers explicitly when CHAT_STATE_REPLACED_EVENT lands so restored chat-state can make DM conversations visible without waiting on unrelated rerenders. Added focused peer-trust and main-shell regression coverage; apps/pwa targeted vitest and typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Retest fresh-device login in Chrome guest window and desktop. Verify that after backup restore the DM sidebar repopulates on its own, the history-sync notice clears once restored chats are visible, and an already-open restored conversation shows migrated history. Capture messaging.chat_state_replaced, account_sync.backup_restore_apply_diagnostics, messaging.legacy_migration_diagnostics, and messaging.history_sync_notice_visible. If contacts still stay hidden, inspect whether projection-read authority or request/peer acceptance evidence is masking restored chats despite the repaired legacy owner path.
+### 2026-04-10T15:10:05Z checkpoint
+- Summary: Added durable DM delete tombstones to encrypted backup publish/restore and bootstrap filtering so stale deleted messages or call-log invite rows cannot resurrect on fresh-device login even when only tombstone evidence remains. Local delete-for-everyone now stores canonical target aliases before backup fast-follow publish.
+- Evidence: `.\node_modules\.bin\vitest.CMD run app/features/account-sync/services/encrypted-account-backup-service.test.ts app/features/account-sync/services/account-event-bootstrap-service.test.ts app/features/messaging/services/message-delete-tombstone-store.test.ts app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts` (from `apps/pwa`, 72/72 passing); `.\node_modules\.bin\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing).
+- Uncertainty: Manual two-user fresh-device replay is still required to confirm relay-backed encrypted backup selection plus mutation fast-follow publish prevent deleted text rows and deleted voice-call invite cards from resurfacing on real desktop/PWA login.
+- Next: Run a fresh-device two-user login replay in Chrome guest window and desktop with historical delete-for-everyone text and voice-call invite rows. Verify no deleted history or ghost call-log cards return after restore, and capture account_sync.backup_restore_merge_diagnostics, account_sync.backup_restore_apply_diagnostics, account_sync.backup_restore_delete_target_unresolved, and messaging.delete_for_everyone_remote_result.
+### 2026-04-10T15:43:45Z checkpoint
+- Summary: Hardened local DM delete convergence against self-authored alias drift. Message delete bus events now carry identity aliases, useConversationMessages removes rows by id or eventId, MessagePersistenceService persists alias suppressions, and local delete-for-me / local delete-for-everyone emit alias-aware deletes so fresh-window restore cannot keep A-authored rows just because they rehydrate under canonical eventId instead of the original wrapper id.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Replay the exact A/B fresh-window login case the user reported. On account A, locally delete mixed A-authored and B-authored DM history, open a fresh Chrome guest window and desktop window, wait for restore, and verify both authors' deleted rows stay absent. Capture account_sync.backup_restore_merge_diagnostics, account_sync.backup_restore_apply_diagnostics, account_sync.backup_restore_delete_target_unresolved, messaging.delete_for_everyone_remote_result, and any surviving row's id/eventId pair from dev tools if resurrection still occurs.
+### 2026-04-10T16:02:52Z checkpoint
+- Summary: Connected local delete tombstones to account-sync mutation publishing. Incoming-message Delete for me was already writing durable tombstones, but those writes did not trigger encrypted backup refresh. Tombstone store updates now emit account-sync mutation signals, so backup fast-follow publish can carry delete-for-me history suppression to fresh logins. Focused delete/persistence/restore suites and apps/pwa typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Replay the user's exact scenario: on account A, delete incoming messages from B (including call-log cards), wait briefly for backup fast-follow publish, then log into a fresh Chrome/desktop window and verify those deleted incoming rows stay gone. Capture account_sync.backup_publish_attempt/result, account_sync.backup_restore_merge_diagnostics, account_sync.backup_restore_apply_diagnostics, and account_sync.backup_restore_delete_target_unresolved. If rows still resurrect, inspect whether the fresh window is selecting an older remote backup event despite the local tombstone-triggered publish.
+### 2026-04-10T17:02:13Z checkpoint
+- Summary: Fixed a stale DM-history owner path that could republish deleted incoming rows. Delete-for-me and local delete-for-everyone now subtract message identities from the canonical chat-state blob via chatStateStoreService.removeMessageIdentities, so encrypted backup hydration no longer starts from stale chatState messages that survived only in the chatState IndexedDB blob after message-store deletion. Focused chat-state/delete/persistence/restore suites and apps/pwa typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Replay the user's exact incoming-message delete case again. Delete B-authored DM rows on A, wait for the tombstone-triggered backup publish, then open a fresh window and verify the rows stay gone. If anything still resurrects, capture account_sync.backup_publish_attempt/result, account_sync.backup_restore_selection, account_sync.backup_restore_merge_diagnostics, and the surviving row's id/eventId from dev tools to confirm whether restore is still selecting an older backup event rather than replaying stale local chatState.
+### 2026-04-11T04:07:57Z checkpoint
+- Summary: Added a canonical DM removal event to the account projection owner path. Local delete-for-me/delete-for-everyone now append DM_REMOVED_LOCALLY events, bootstrap import emits the same event from durable tombstones, and the account-event reducer subtracts deleted messages from projection replay. Also narrowed backup projection fallback to recover only outgoing history, not incoming messages. Focused projection/delete/restore suites and apps/pwa typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Replay the user's fresh-device restore again with deleted incoming rows that previously resurfaced as Unknown sender. If any still appear, capture account_sync.backup_publish_attempt/result, account_sync.backup_restore_selection, account_sync.backup_restore_merge_diagnostics, and whether projectionReadAuthority/useProjectionReads is active for that conversation so we can verify whether the fresh device is still selecting an older backup or whether live relay/account-event ingestion is reintroducing messages after restore.
+### 2026-04-11T08:52:59Z checkpoint
+- Summary: Prepared release v1.3.12 for install/promotion. Updated README/CHANGELOG/docs to reflect cross-device DM history hardening and metadata hydration recovery, synced release-tracked versions to 1.3.12, rebuilt the desktop production installer, and reran release:test-pack successfully after the final DM-history and metadata fixes.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Install the production desktop artifact at apps/desktop/src-tauri/target/release/bundle/nsis/Obscur_1.3.12_x64-setup.exe, run fresh-device A/B sanity replays against the packaged build, then commit/tag/push v1.3.12 if runtime behavior matches the latest production artifact.
 <!-- CONTEXT_CHECKPOINTS_END -->

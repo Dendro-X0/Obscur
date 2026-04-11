@@ -78,4 +78,48 @@ describe("chat-state-store replace event", () => {
     await chatStateStoreService.flush(PK as any, { profileId: scopeA });
     await chatStateStoreService.flush(PK as any, { profileId: scopeB });
   });
+
+  it("removes message identities from persisted conversation history and updates preview", () => {
+    chatStateStoreService.replace(PK as any, {
+      ...createState(),
+      createdConnections: [{
+        id: "dm:test",
+        displayName: "Peer",
+        pubkey: "b".repeat(64),
+        lastMessage: "stale preview",
+        unreadCount: 0,
+        lastMessageTimeMs: 3_000,
+      }],
+      messagesByConversationId: {
+        "dm:test": [{
+          id: "legacy-wrapper",
+          eventId: "evt-delete-me",
+          content: "delete me",
+          timestampMs: 2_000,
+          isOutgoing: false,
+          status: "delivered",
+        }, {
+          id: "keep-row",
+          content: "keep me",
+          timestampMs: 3_000,
+          isOutgoing: true,
+          status: "delivered",
+        }],
+      },
+    }, { emitMutationSignal: false });
+
+    chatStateStoreService.removeMessageIdentities(PK as any, "dm:test", ["evt-delete-me"]);
+
+    expect(chatStateStoreService.load(PK as any)?.messagesByConversationId["dm:test"]).toEqual([
+      expect.objectContaining({ id: "keep-row" }),
+    ]);
+    expect(chatStateStoreService.load(PK as any)?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "dm:test",
+        lastMessage: "keep me",
+        lastMessageTimeMs: 3_000,
+      }),
+    ]));
+    expect(emitMutationMock).toHaveBeenCalledWith("chat_state_changed");
+  });
 });

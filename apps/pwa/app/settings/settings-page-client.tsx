@@ -413,18 +413,99 @@ function SettingsToggle({ checked, onChange, id }: { checked: boolean; onChange:
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500",
-        checked ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
+        "group relative inline-flex min-h-9 min-w-[5.5rem] shrink-0 cursor-pointer items-center justify-center rounded-2xl border px-2.5 py-1.5 transition-all duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950 active:scale-[0.97] md:h-[clamp(1.7rem,4.2vw,1.95rem)] md:w-[clamp(3.15rem,9vw,3.7rem)] md:min-h-0 md:min-w-0 md:justify-start md:rounded-full md:p-[3px]",
+        checked
+          ? "border-violet-400/35 bg-[linear-gradient(135deg,rgba(88,28,135,0.28),rgba(99,102,241,0.18))] text-violet-100 shadow-[0_10px_24px_-18px_rgba(139,92,246,0.9)] md:border-violet-400/55 md:bg-[linear-gradient(135deg,rgba(168,85,247,0.95),rgba(99,102,241,0.88))]"
+          : "border-white/10 bg-[linear-gradient(135deg,rgba(39,39,42,0.82),rgba(24,24,27,0.9))] text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:bg-[linear-gradient(135deg,rgba(51,51,58,0.96),rgba(35,35,42,0.94))]"
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-          checked ? "translate-x-4" : "translate-x-0"
+          "flex items-center gap-2 md:hidden",
+          checked ? "text-violet-100" : "text-zinc-300"
+        )}
+      >
+        <span
+          className={cn(
+            "inline-flex h-5 w-5 items-center justify-center rounded-full border transition-all duration-300",
+            checked
+              ? "border-white/20 bg-white text-violet-600"
+              : "border-white/10 bg-zinc-100 text-zinc-500"
+          )}
+        >
+          {checked ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+        </span>
+        <span className="text-[11px] font-black uppercase tracking-[0.16em]">
+          {checked ? "Enabled" : "Disabled"}
+        </span>
+      </span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-[3px] hidden rounded-full transition-all duration-300 md:block",
+          checked
+            ? "bg-[radial-gradient(circle_at_35%_50%,rgba(255,255,255,0.18),transparent_58%)] opacity-100"
+            : "bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.05),transparent_65%)] opacity-75"
         )}
       />
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute left-2 top-1/2 hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full transition-all duration-300 md:block",
+          checked
+            ? "scale-0 opacity-0"
+            : "bg-zinc-400/70 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+        )}
+      />
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute right-2 top-1/2 hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full transition-all duration-300 md:block",
+          checked
+            ? "bg-white/90 shadow-[0_0_10px_rgba(255,255,255,0.45)]"
+            : "scale-0 opacity-0"
+        )}
+      />
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none relative z-[1] hidden h-[calc(clamp(1.6rem,4vw,1.85rem)-6px)] w-[calc(clamp(1.6rem,4vw,1.85rem)-6px)] transform items-center justify-center rounded-full border shadow-lg ring-0 transition-all duration-300 ease-out md:inline-flex",
+          checked
+            ? "translate-x-[calc(clamp(3.15rem,9vw,3.7rem)-clamp(1.6rem,4vw,1.85rem))] border-white/25 bg-white text-violet-600 shadow-[0_10px_22px_-14px_rgba(255,255,255,0.9)]"
+            : "translate-x-0 border-white/8 bg-zinc-100 text-zinc-500 shadow-[0_8px_18px_-14px_rgba(0,0,0,0.75)]"
+        )}
+      >
+        {checked ? <Check className="h-3 w-3" /> : <div className="h-2 w-2 rounded-full bg-zinc-500/70" />}
+      </span>
     </button>
+  );
+}
+
+function SettingsToggleCard(props: Readonly<{
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  highlighted?: boolean;
+}>) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 rounded-2xl border p-4 sm:p-5",
+        props.highlighted
+          ? "border-blue-500/20 bg-blue-500/5 dark:border-blue-400/20"
+          : "border-black/5 bg-zinc-50/50 dark:border-white/5 dark:bg-zinc-900/50"
+      )}
+    >
+      <div className="min-w-0 space-y-1">
+        <Label className="block text-sm font-semibold leading-snug sm:text-base">{props.title}</Label>
+        <p className="text-xs leading-relaxed text-zinc-500">{props.description}</p>
+      </div>
+      <div className="flex h-full items-start justify-end pt-0.5">
+        <SettingsToggle checked={props.checked} onChange={props.onChange} />
+      </div>
+    </div>
   );
 }
 
@@ -3760,119 +3841,78 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
               )}>
                 {translateStorageMode(storageMode)}
               </span>
-            </div>
+              </div>
 
               {/* Chat Performance Mode */}
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.performanceModeTitle", "Chat Performance Mode (Phase 1)")}</Label>
-                  <p className="text-xs text-zinc-500">
-                    {t("settings.storage.performanceModeDesc", "Enable batched chat updates and adaptive rendering for smoother scrolling on large chats.")}
-                  </p>
-                </div>
-                <SettingsToggle
-                  checked={privacySettings.chatPerformanceV2}
-                  onChange={(checked) => handleSavePrivacy({ ...privacySettings, chatPerformanceV2: checked })}
-                />
-              </div>
+              <SettingsToggleCard
+                title={t("settings.storage.performanceModeTitle", "Chat Performance Mode (Phase 1)")}
+                description={t("settings.storage.performanceModeDesc", "Enable batched chat updates and adaptive rendering for smoother scrolling on large chats.")}
+                checked={privacySettings.chatPerformanceV2}
+                onChange={(checked) => handleSavePrivacy({ ...privacySettings, chatPerformanceV2: checked })}
+              />
 
               {/* v0.8.3 UX rollout */}
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.chatUxV083Title", "Media & Chat UX Refresh (v0.8.3)")}</Label>
-                  <p className="text-xs text-zinc-500">
-                    {t("settings.storage.chatUxV083Desc", "Enable the new media viewer and chat interaction polish. Disable to use the stable v0.8.2 UX path.")}
-                  </p>
-                </div>
-                <SettingsToggle
-                  checked={privacySettings.chatUxV083}
-                  onChange={(checked) => handleSavePrivacy({ ...privacySettings, chatUxV083: checked })}
-                />
-              </div>
+              <SettingsToggleCard
+                title={t("settings.storage.chatUxV083Title", "Media & Chat UX Refresh (v0.8.3)")}
+                description={t("settings.storage.chatUxV083Desc", "Enable the new media viewer and chat interaction polish. Disable to use the stable v0.8.2 UX path.")}
+                checked={privacySettings.chatUxV083}
+                onChange={(checked) => handleSavePrivacy({ ...privacySettings, chatUxV083: checked })}
+              />
 
               {/* v0.8.7 reliability core rollout */}
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.reliabilityCoreV087Title", "Reliability Core (v0.8.7)")}</Label>
-                  <p className="text-xs text-zinc-500">
-                    {t("settings.storage.reliabilityCoreV087Desc", "Adaptive relay scoring + quorum publishing, sync checkpoint/backfill controls, and storage resilience diagnostics.")}
-                  </p>
-                </div>
-                <SettingsToggle
-                  checked={privacySettings.reliabilityCoreV087}
-                  onChange={(checked) => handleSavePrivacy({ ...privacySettings, reliabilityCoreV087: checked })}
-                />
-              </div>
+              <SettingsToggleCard
+                title={t("settings.storage.reliabilityCoreV087Title", "Reliability Core (v0.8.7)")}
+                description={t("settings.storage.reliabilityCoreV087Desc", "Adaptive relay scoring + quorum publishing, sync checkpoint/backfill controls, and storage resilience diagnostics.")}
+                checked={privacySettings.reliabilityCoreV087}
+                onChange={(checked) => handleSavePrivacy({ ...privacySettings, reliabilityCoreV087: checked })}
+              />
 
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-blue-500/20 p-5 dark:border-blue-400/20 bg-blue-500/5">
-                <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.stabilityModeV090Title", "Stability Mode (v0.9 recovery)")}</Label>
-                  <p className="text-xs text-zinc-500">
-                    {t("settings.storage.stabilityModeV090Desc", "Forces the safe Add Friend path (contact card/npub/pubkey) and hides unstable discovery UI.")}
-                  </p>
-                </div>
-                <SettingsToggle
-                  checked={privacySettings.stabilityModeV090}
-                  onChange={(checked) => handleSavePrivacy({
-                    ...privacySettings,
-                    stabilityModeV090: checked,
-                    deterministicDiscoveryV090: checked ? false : privacySettings.deterministicDiscoveryV090,
-                  })}
-                />
-              </div>
+              <SettingsToggleCard
+                title={t("settings.storage.stabilityModeV090Title", "Stability Mode (v0.9 recovery)")}
+                description={t("settings.storage.stabilityModeV090Desc", "Forces the safe Add Friend path (contact card/npub/pubkey) and hides unstable discovery UI.")}
+                checked={privacySettings.stabilityModeV090}
+                onChange={(checked) => handleSavePrivacy({
+                  ...privacySettings,
+                  stabilityModeV090: checked,
+                  deterministicDiscoveryV090: checked ? false : privacySettings.deterministicDiscoveryV090,
+                })}
+                highlighted
+              />
 
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.deterministicDiscoveryV090Title", "Deterministic Discovery (v0.9 Wave B)")}</Label>
-                  <p className="text-xs text-zinc-500">
-                    {t("settings.storage.deterministicDiscoveryV090Desc", "Resolver + request outbox experimental flow. Requires Rust protocol core and stability mode disabled.")}
-                  </p>
-                </div>
-                <SettingsToggle
-                  checked={privacySettings.deterministicDiscoveryV090}
-                  onChange={(checked) => handleSavePrivacy({
-                    ...privacySettings,
-                    deterministicDiscoveryV090: checked,
-                    stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
-                  })}
-                />
-              </div>
+              <SettingsToggleCard
+                title={t("settings.storage.deterministicDiscoveryV090Title", "Deterministic Discovery (v0.9 Wave B)")}
+                description={t("settings.storage.deterministicDiscoveryV090Desc", "Resolver + request outbox experimental flow. Requires Rust protocol core and stability mode disabled.")}
+                checked={privacySettings.deterministicDiscoveryV090}
+                onChange={(checked) => handleSavePrivacy({
+                  ...privacySettings,
+                  deterministicDiscoveryV090: checked,
+                  stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
+                })}
+              />
 
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.protocolCoreRustV090Title", "Rust Protocol Core (v0.9 Wave B)")}</Label>
-                  <p className="text-xs text-zinc-500">
-                    {t("settings.storage.protocolCoreRustV090Desc", "Enables runtime adapters backed by Rust protocol contracts for identity/session/outbox paths.")}
-                  </p>
-                </div>
-                <SettingsToggle
-                  checked={privacySettings.protocolCoreRustV090}
-                  onChange={(checked) => handleSavePrivacy({
-                    ...privacySettings,
-                    protocolCoreRustV090: checked,
-                    x3dhRatchetV090: checked ? privacySettings.x3dhRatchetV090 : false,
-                    stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
-                  })}
-                />
-              </div>
+              <SettingsToggleCard
+                title={t("settings.storage.protocolCoreRustV090Title", "Rust Protocol Core (v0.9 Wave B)")}
+                description={t("settings.storage.protocolCoreRustV090Desc", "Enables runtime adapters backed by Rust protocol contracts for identity/session/outbox paths.")}
+                checked={privacySettings.protocolCoreRustV090}
+                onChange={(checked) => handleSavePrivacy({
+                  ...privacySettings,
+                  protocolCoreRustV090: checked,
+                  x3dhRatchetV090: checked ? privacySettings.x3dhRatchetV090 : false,
+                  stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
+                })}
+              />
 
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.x3dhRatchetV090Title", "X3DH + Ratchet (v0.9 Wave C)")}</Label>
-                  <p className="text-xs text-zinc-500">
-                    {t("settings.storage.x3dhRatchetV090Desc", "Enables the full rewritten E2EE handshake/session path. Keep off until Wave C gates pass.")}
-                  </p>
-                </div>
-                <SettingsToggle
-                  checked={privacySettings.x3dhRatchetV090}
-                  onChange={(checked) => handleSavePrivacy({
-                    ...privacySettings,
-                    x3dhRatchetV090: checked,
-                    protocolCoreRustV090: checked ? true : privacySettings.protocolCoreRustV090,
-                    stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
-                  })}
-                />
-              </div>
+              <SettingsToggleCard
+                title={t("settings.storage.x3dhRatchetV090Title", "X3DH + Ratchet (v0.9 Wave C)")}
+                description={t("settings.storage.x3dhRatchetV090Desc", "Enables the full rewritten E2EE handshake/session path. Keep off until Wave C gates pass.")}
+                checked={privacySettings.x3dhRatchetV090}
+                onChange={(checked) => handleSavePrivacy({
+                  ...privacySettings,
+                  x3dhRatchetV090: checked,
+                  protocolCoreRustV090: checked ? true : privacySettings.protocolCoreRustV090,
+                  stabilityModeV090: checked ? false : privacySettings.stabilityModeV090,
+                })}
+              />
 
               <div className="rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20 space-y-4">
                 <div className="space-y-1">

@@ -4,6 +4,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { AccountEvent } from "../account-event-contracts";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { accountProjectionRuntime } from "./account-projection-runtime";
 
 type ContactEventType =
@@ -105,6 +106,7 @@ export const appendCanonicalContactEvent = async (params: Readonly<{
     events: [event],
     operation: params.type,
   });
+  emitAccountSyncMutation("dm_history_changed");
 };
 
 export const appendCanonicalDmEvent = async (params: Readonly<{
@@ -137,6 +139,33 @@ export const appendCanonicalDmEvent = async (params: Readonly<{
     events: [event],
     operation: params.type,
   });
+};
+
+export const appendCanonicalDmRemovedEvent = async (params: Readonly<{
+  profileId?: string;
+  accountPublicKeyHex: PublicKeyHex;
+  messageId: string;
+  conversationId?: string;
+  observedAtUnixMs?: number;
+  idempotencySuffix?: string;
+  source?: AccountEvent["source"];
+}>): Promise<void> => {
+  const event = accountProjectionRuntime.createDmRemovedEvent({
+    profileId: params.profileId ?? getActiveProfileIdSafe(),
+    accountPublicKeyHex: params.accountPublicKeyHex,
+    messageId: params.messageId,
+    conversationId: params.conversationId,
+    observedAtUnixMs: params.observedAtUnixMs,
+    idempotencySuffix: resolveSuffix(params.idempotencySuffix, params.messageId),
+    source: params.source,
+  });
+  await appendEventsSafely({
+    profileId: params.profileId,
+    accountPublicKeyHex: params.accountPublicKeyHex,
+    events: [event],
+    operation: "DM_REMOVED_LOCALLY",
+  });
+  emitAccountSyncMutation("dm_history_changed");
 };
 
 export const appendCanonicalDecryptFailedEvent = async (params: Readonly<{

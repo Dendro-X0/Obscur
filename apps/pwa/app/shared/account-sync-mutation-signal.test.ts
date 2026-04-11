@@ -25,6 +25,20 @@ describe("account-sync-mutation-signal", () => {
       atUnixMs: 456,
     });
     expect(accountSyncMutationSignalInternals.toMutationDetail({
+      reason: "dm_history_changed",
+      atUnixMs: 567,
+    })).toEqual({
+      reason: "dm_history_changed",
+      atUnixMs: 567,
+    });
+    expect(accountSyncMutationSignalInternals.toMutationDetail({
+      reason: "message_delete_tombstones_changed",
+      atUnixMs: 654,
+    })).toEqual({
+      reason: "message_delete_tombstones_changed",
+      atUnixMs: 654,
+    });
+    expect(accountSyncMutationSignalInternals.toMutationDetail({
       reason: "identity_unlock_changed",
       atUnixMs: 789,
     })).toEqual({

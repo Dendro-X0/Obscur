@@ -2,6 +2,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { loadSuppressedMessageDeleteIds } from "@/app/features/messaging/services/message-delete-tombstone-store";
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
@@ -143,6 +144,31 @@ const pushMessageEvent = (
   });
 };
 
+const pushRemovedMessageEvent = (
+  result: AccountEvent[],
+  params: Readonly<{
+    profileId: string;
+    accountPublicKeyHex: PublicKeyHex;
+    messageId: string;
+    observedAtUnixMs: number;
+    source: AccountEventSource;
+    idempotencyPrefix: string;
+  }>
+): void => {
+  result.push({
+    ...createCommonEvent({
+      type: "DM_REMOVED_LOCALLY",
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      idempotencyKey: `${params.idempotencyPrefix}:dm_removed:${params.messageId}`,
+      eventId: `DM_REMOVED_LOCALLY:${params.messageId}`,
+      source: params.source,
+      observedAtUnixMs: params.observedAtUnixMs,
+    }),
+    messageId: params.messageId,
+  });
+};
+
 const inferPeerFromConversationId = (params: Readonly<{
   conversationId: string;
   accountPublicKeyHex: PublicKeyHex;
@@ -230,21 +256,57 @@ const isCommandMessage = (message: Readonly<{
   || (typeof message.content === "string" && parseCommandMessage(message.content) !== null)
 );
 
+const toMessageIdentityKeys = (message: Readonly<{
+  id?: unknown;
+  eventId?: unknown;
+}>): ReadonlyArray<string> => {
+  const keys = new Set<string>();
+  const id = typeof message.id === "string" ? message.id.trim() : "";
+  const eventId = typeof message.eventId === "string" ? message.eventId.trim() : "";
+  if (id.length > 0) {
+    keys.add(id);
+  }
+  if (eventId.length > 0) {
+    keys.add(eventId);
+  }
+  return Array.from(keys);
+};
+
 const toDeleteTargetMessageIds = (messages: ReadonlyArray<Readonly<{
+  id?: unknown;
+  eventId?: unknown;
+  deletedAtMs?: unknown;
   content?: unknown;
-}>>): ReadonlySet<string> => {
-  const ids = new Set<string>();
+}>>, durableDeleteIds?: ReadonlySet<string>): ReadonlySet<string> => {
+  const ids = new Set<string>(durableDeleteIds ?? []);
   messages.forEach((message) => {
     if (typeof message.content !== "string") {
+      if (
+        typeof message.deletedAtMs === "number"
+        && Number.isFinite(message.deletedAtMs)
+        && message.deletedAtMs > 0
+      ) {
+        toMessageIdentityKeys(message).forEach((identityKey) => {
+          ids.add(identityKey);
+        });
+      }
       return;
     }
     const parsed = parseCommandMessage(message.content);
-    if (!parsed || parsed.type !== "delete") {
-      return;
+    if (parsed?.type === "delete") {
+      const targetMessageId = parsed.targetMessageId.trim();
+      if (targetMessageId.length > 0) {
+        ids.add(targetMessageId);
+      }
     }
-    const targetMessageId = parsed.targetMessageId.trim();
-    if (targetMessageId.length > 0) {
-      ids.add(targetMessageId);
+    if (
+      typeof message.deletedAtMs === "number"
+      && Number.isFinite(message.deletedAtMs)
+      && message.deletedAtMs > 0
+    ) {
+      toMessageIdentityKeys(message).forEach((identityKey) => {
+        ids.add(identityKey);
+      });
     }
   });
   return ids;
@@ -258,6 +320,7 @@ const collectFromChatState = (params: Readonly<{
   source: AccountEventSource;
   idempotencyPrefix: string;
   historyResetCutoffUnixMs?: number | null;
+  durableDeleteIds?: ReadonlySet<string>;
 }>): void => {
   const chatState = params.chatState;
   if (!chatState) {
@@ -286,7 +349,10 @@ const collectFromChatState = (params: Readonly<{
     });
   });
   Object.entries(chatState.messagesByConversationId).forEach(([conversationId, messages]) => {
-    const deleteTargetMessageIds = toDeleteTargetMessageIds(messages as ReadonlyArray<Readonly<{ content?: unknown }>>);
+    const deleteTargetMessageIds = toDeleteTargetMessageIds(
+      messages as ReadonlyArray<Readonly<{ id?: unknown; eventId?: unknown; deletedAtMs?: unknown; content?: unknown }>>,
+      params.durableDeleteIds,
+    );
     const inferredConversationPeer = messages.reduce<PublicKeyHex | null>((resolved, message) => {
       if (resolved) {
         return resolved;
@@ -379,6 +445,25 @@ const collectFromBackupPayload = (params: Readonly<{
     source: params.source,
     idempotencyPrefix: params.idempotencyPrefix,
     historyResetCutoffUnixMs: params.historyResetCutoffUnixMs,
+    durableDeleteIds: new Set(
+      (params.payload.messageDeleteTombstones ?? [])
+        .map((entry) => entry.id.trim())
+        .filter((entry) => entry.length > 0)
+    ),
+  });
+  (params.payload.messageDeleteTombstones ?? []).forEach((entry) => {
+    const messageId = entry.id.trim();
+    if (!messageId) {
+      return;
+    }
+    pushRemovedMessageEvent(params.events, {
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      messageId,
+      observedAtUnixMs: entry.deletedAtUnixMs,
+      source: params.source,
+      idempotencyPrefix: params.idempotencyPrefix,
+    });
   });
   params.payload.syncCheckpoints.forEach((checkpoint) => {
     if (
@@ -441,6 +526,7 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
   const peerTrust = peerTrustInternals.loadFromStorage(params.accountPublicKeyHex);
   const chatState = chatStateStoreService.load(params.accountPublicKeyHex);
   const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState().values());
+  const durableDeleteIds = loadSuppressedMessageDeleteIds();
 
   peerTrust.acceptedPeers.forEach((peerPublicKeyHex) => {
     events.push({
@@ -464,6 +550,17 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
     source: "local_bootstrap",
     idempotencyPrefix: "legacy",
     historyResetCutoffUnixMs,
+    durableDeleteIds,
+  });
+  Array.from(durableDeleteIds).forEach((messageId) => {
+    pushRemovedMessageEvent(events, {
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      messageId,
+      observedAtUnixMs: Date.now(),
+      source: "local_bootstrap",
+      idempotencyPrefix: "legacy",
+    });
   });
 
   checkpoints.forEach((checkpoint) => {

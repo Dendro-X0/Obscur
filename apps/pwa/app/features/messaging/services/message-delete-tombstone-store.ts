@@ -1,6 +1,7 @@
 "use client";
 
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 
 type MessageDeleteTombstoneEntry = Readonly<{
   id: string;
@@ -38,6 +39,11 @@ const normalizeState = (
     .slice(-MAX_ENTRIES);
   return { entries: nextEntries };
 };
+
+export const normalizeMessageDeleteTombstoneEntries = (
+  entries: ReadonlyArray<MessageDeleteTombstoneEntry>,
+  nowMs: number = Date.now()
+): ReadonlyArray<MessageDeleteTombstoneEntry> => normalizeState({ entries }, nowMs).entries;
 
 const readState = (nowMs: number = Date.now()): MessageDeleteTombstoneState => {
   if (typeof window === "undefined") return createEmptyState();
@@ -92,13 +98,46 @@ export const suppressMessageDeleteTombstone = (
       deletedAtUnixMs: atUnixMs,
     })),
   }, deletedAtUnixMs);
+  const changed = next.entries.length !== current.entries.length
+    || next.entries.some((entry, index) => (
+      entry.id !== current.entries[index]?.id
+      || entry.deletedAtUnixMs !== current.entries[index]?.deletedAtUnixMs
+    ));
   writeState(next);
+  if (changed) {
+    emitAccountSyncMutation("message_delete_tombstones_changed");
+  }
 };
 
 export const loadSuppressedMessageDeleteIds = (nowMs: number = Date.now()): ReadonlySet<string> => {
   const state = readState(nowMs);
   writeState(state);
   return new Set(state.entries.map((entry) => entry.id));
+};
+
+export const loadMessageDeleteTombstoneEntries = (
+  nowMs: number = Date.now()
+): ReadonlyArray<MessageDeleteTombstoneEntry> => {
+  const state = readState(nowMs);
+  writeState(state);
+  return state.entries;
+};
+
+export const replaceMessageDeleteTombstones = (
+  entries: ReadonlyArray<MessageDeleteTombstoneEntry>,
+  nowMs: number = Date.now()
+): void => {
+  const current = readState(nowMs);
+  const nextEntries = normalizeMessageDeleteTombstoneEntries(entries, nowMs);
+  writeState({ entries: nextEntries });
+  const changed = nextEntries.length !== current.entries.length
+    || nextEntries.some((entry, index) => (
+      entry.id !== current.entries[index]?.id
+      || entry.deletedAtUnixMs !== current.entries[index]?.deletedAtUnixMs
+    ));
+  if (changed) {
+    emitAccountSyncMutation("message_delete_tombstones_changed");
+  }
 };
 
 export const isMessageDeleteSuppressed = (
@@ -112,10 +151,15 @@ export const isMessageDeleteSuppressed = (
 };
 
 export const clearMessageDeleteTombstones = (): void => {
+  const current = readState();
   writeState(createEmptyState());
+  if (current.entries.length > 0) {
+    emitAccountSyncMutation("message_delete_tombstones_changed");
+  }
 };
 
 export const messageDeleteTombstoneStoreInternals = {
+  createEmptyState,
   STORAGE_KEY,
   MAX_ENTRIES,
   RETENTION_MS,
@@ -123,4 +167,3 @@ export const messageDeleteTombstoneStoreInternals = {
   writeState,
   normalizeState,
 };
-

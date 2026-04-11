@@ -10,6 +10,10 @@ import { resetIncomingRequestAntiAbuseState } from "../services/incoming-request
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../utils/commands";
 
+const { isMessageDeleteSuppressedMock } = vi.hoisted(() => ({
+    isMessageDeleteSuppressedMock: vi.fn(() => false),
+}));
+
 const MY_PUBLIC_KEY = "a".repeat(64) as PublicKeyHex;
 const SENDER_PUBLIC_KEY = "b".repeat(64);
 const { getPrivacySettingsMock } = vi.hoisted(() => ({
@@ -85,12 +89,17 @@ vi.mock("../services/peer-relay-evidence-store", () => ({
     peerRelayEvidenceStore: peerRelayEvidenceStoreMock,
 }));
 
+vi.mock("../services/message-delete-tombstone-store", () => ({
+    isMessageDeleteSuppressed: isMessageDeleteSuppressedMock,
+}));
+
 describe("incoming-dm-event-handler", () => {
   beforeEach(() => {
         vi.restoreAllMocks();
         failedIncomingEventStore.clear();
         requestEventTombstoneStore.clear();
         resetIncomingRequestAntiAbuseState();
+        isMessageDeleteSuppressedMock.mockReturnValue(false);
         getPrivacySettingsMock.mockReturnValue({ dmPrivacy: "everyone" });
         requestFlowEvidenceStoreMock.get.mockReturnValue({ receiptAckSeen: false, acceptSeen: false } as any);
         requestFlowEvidenceStoreMock.markRequestPublished.mockReset();
@@ -105,6 +114,53 @@ describe("incoming-dm-event-handler", () => {
             x3dhRatchetEnabled: false,
         });
   });
+
+    it("suppresses incoming relay replay when the message id is already tombstoned locally", async () => {
+        const event = {
+            id: "event-tombstoned",
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1400,
+            content: "encrypted",
+            tags: [["p", MY_PUBLIC_KEY]],
+        } as unknown as NostrEvent;
+
+        isMessageDeleteSuppressedMock.mockReturnValueOnce(true);
+
+        const onNewMessage = vi.fn();
+        const persistMessage = vi.fn(async () => undefined);
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                peerTrust: {
+                    isAccepted: () => true,
+                    acceptPeer: vi.fn(),
+                },
+                onNewMessage,
+            },
+            messageQueue: {
+                getMessage: vi.fn(async () => null),
+                persistMessage,
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) }
+        });
+
+        expect(persistMessage).not.toHaveBeenCalled();
+        expect(onNewMessage).not.toHaveBeenCalled();
+    });
 
     it("does not let one runtime instance suppress another runtime's inbound event", async () => {
         const event = {

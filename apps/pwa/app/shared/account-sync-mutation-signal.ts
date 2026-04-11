@@ -4,6 +4,8 @@ export type AccountSyncMutationReason =
   | "requests_inbox_status_changed"
   | "peer_trust_changed"
   | "chat_state_changed"
+  | "dm_history_changed"
+  | "message_delete_tombstones_changed"
   | "identity_unlock_changed"
   | "community_membership_changed";
 
@@ -24,6 +26,8 @@ const toMutationDetail = (value: unknown): AccountSyncMutationDetail | null => {
     record.reason !== "requests_inbox_status_changed"
     && record.reason !== "peer_trust_changed"
     && record.reason !== "chat_state_changed"
+    && record.reason !== "dm_history_changed"
+    && record.reason !== "message_delete_tombstones_changed"
     && record.reason !== "identity_unlock_changed"
     && record.reason !== "community_membership_changed"
   ) {

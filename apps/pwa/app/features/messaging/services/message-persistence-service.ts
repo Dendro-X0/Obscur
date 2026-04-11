@@ -5,7 +5,7 @@ import { PrivacySettingsService } from "../../settings/services/privacy-settings
 import { performanceMonitor } from "../lib/performance-monitor";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
-import { CHAT_STATE_REPLACED_EVENT } from "./chat-state-store";
+import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "./chat-state-store";
 import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -251,7 +251,7 @@ export class MessagePersistenceService {
                         // Handled by chatStateStoreService.deleteConversationMessages usually,
                         // but we can also handle it here if we want absolute decoupling.
                     } else {
-                        this.deleteMessage(event.messageId);
+                        this.deleteMessage(event.messageId, event.messageIdentityIds);
                     }
                     break;
             }
@@ -321,6 +321,24 @@ export class MessagePersistenceService {
     private markMessageDeleted(messageId: string, deletedAtMs: number = Date.now()): void {
         this.pruneDeleteTombstones(deletedAtMs);
         this.recentlyDeletedMessageIds.set(messageId, deletedAtMs);
+    }
+
+    private normalizeDeletedMessageIds(
+        messageId: string,
+        messageIdentityIds?: ReadonlyArray<string>,
+    ): ReadonlyArray<string> {
+        const ids = new Set<string>();
+        const primaryId = messageId.trim();
+        if (primaryId.length > 0) {
+            ids.add(primaryId);
+        }
+        (messageIdentityIds ?? []).forEach((value) => {
+            const normalized = value.trim();
+            if (normalized.length > 0) {
+                ids.add(normalized);
+            }
+        });
+        return Array.from(ids);
     }
 
     private isRecentlyDeleted(messageId: string, nowMs: number = Date.now()): boolean {
@@ -464,16 +482,21 @@ export class MessagePersistenceService {
         }
     }
 
-    private async deleteMessage(messageId: string) {
-        suppressMessageDeleteTombstone(messageId);
-        this.markMessageDeleted(messageId);
+    private async deleteMessage(messageId: string, messageIdentityIds?: ReadonlyArray<string>) {
+        const deleteIds = this.normalizeDeletedMessageIds(messageId, messageIdentityIds);
+        deleteIds.forEach((deleteId) => {
+            suppressMessageDeleteTombstone(deleteId);
+            this.markMessageDeleted(deleteId);
+        });
         if (this.chatPerformanceV2Enabled) {
-            this.queueMessageDelete(messageId);
+            deleteIds.forEach((deleteId) => {
+                this.queueMessageDelete(deleteId);
+            });
             return;
         }
 
         try {
-            await messagingDB.delete("messages", messageId);
+            await Promise.all(deleteIds.map((deleteId) => messagingDB.delete("messages", deleteId)));
         } catch (e) {
             console.error("[MessagePersistenceService] Failed to delete message:", e);
         }
@@ -489,7 +512,8 @@ export class MessagePersistenceService {
             if (!normalizedPublicKeyHex) {
                 return;
             }
-            const dbState = await messagingDB.get<any>("chatState", normalizedPublicKeyHex);
+            const dbState = chatStateStoreService.load(normalizedPublicKeyHex as PublicKeyHex)
+                ?? await messagingDB.get<any>("chatState", normalizedPublicKeyHex);
             if (!dbState) return;
 
             const allMessages: Array<Record<string, unknown>> = [];

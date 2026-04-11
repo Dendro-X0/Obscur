@@ -9,6 +9,11 @@ import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { IdentityRecord } from "@dweb/core/identity-record";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import {
+  loadMessageDeleteTombstoneEntries,
+  normalizeMessageDeleteTombstoneEntries,
+  replaceMessageDeleteTombstones,
+} from "@/app/features/messaging/services/message-delete-tombstone-store";
 import type { Attachment, PersistedChatState, PersistedGroupMessage, PersistedMessage } from "@/app/features/messaging/types";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
@@ -58,6 +63,7 @@ import type {
   EncryptedAccountBackupEnvelope,
   EncryptedAccountBackupPayload,
   IdentityUnlockSnapshot,
+  MessageDeleteTombstoneSnapshotEntry,
   PortableAccountBundle,
   RelayListSnapshot,
   RequestFlowEvidenceStateSnapshot,
@@ -641,13 +647,40 @@ const toPersistedMessageIdentityKeys = (message: Readonly<{
   return Array.from(keys);
 };
 
+const toMessageDeleteTombstoneIdSet = (
+  tombstones: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> | undefined
+): ReadonlySet<string> => new Set(
+  (tombstones ?? [])
+    .map((entry) => entry.id.trim())
+    .filter((entry) => entry.length > 0)
+);
+
+const mergeMessageDeleteTombstones = (
+  current: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> | undefined,
+  incoming: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> | undefined,
+): ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> => normalizeMessageDeleteTombstoneEntries([
+  ...(current ?? []),
+  ...(incoming ?? []),
+]);
+
+const isPersistedMessageDeleted = (message: Readonly<{
+  deletedAtMs?: unknown;
+}>): boolean => (
+  typeof message.deletedAtMs === "number"
+  && Number.isFinite(message.deletedAtMs)
+  && message.deletedAtMs > 0
+);
+
 const sanitizePersistedMessagesByDeleteContract = (
   messages: ReadonlyArray<PersistedMessage>,
+  options?: Readonly<{
+    durableDeleteIds?: ReadonlySet<string>;
+  }>
 ): ReadonlyArray<PersistedMessage> => {
   if (messages.length === 0) {
     return messages;
   }
-  const deleteTargetMessageIds = new Set<string>();
+  const deleteTargetMessageIds = new Set<string>(options?.durableDeleteIds ?? []);
   const commandMessageIds = new Set<string>();
   messages.forEach((message) => {
     const messageId = typeof message.id === "string" ? message.id.trim() : "";
@@ -657,6 +690,11 @@ const sanitizePersistedMessagesByDeleteContract = (
     const targetMessageId = resolveDeleteCommandTargetMessageId(message);
     if (targetMessageId) {
       deleteTargetMessageIds.add(targetMessageId);
+    }
+    if (isPersistedMessageDeleted(message)) {
+      toPersistedMessageIdentityKeys(message).forEach((identityKey) => {
+        deleteTargetMessageIds.add(identityKey);
+      });
     }
   });
   if (deleteTargetMessageIds.size > 0) {
@@ -687,6 +725,9 @@ const sanitizePersistedMessagesByDeleteContract = (
     if (identityKeys.length === 0) {
       return false;
     }
+    if (isPersistedMessageDeleted(message)) {
+      return false;
+    }
     if (identityKeys.some((identityKey) => deleteTargetMessageIds.has(identityKey))) {
       return false;
     }
@@ -700,6 +741,9 @@ const sanitizePersistedMessagesByDeleteContract = (
 
 const sanitizePersistedChatStateMessagesByDeleteContract = (
   chatState: EncryptedAccountBackupPayload["chatState"],
+  options?: Readonly<{
+    durableDeleteIds?: ReadonlySet<string>;
+  }>
 ): EncryptedAccountBackupPayload["chatState"] => {
   if (!chatState) {
     return chatState;
@@ -707,7 +751,7 @@ const sanitizePersistedChatStateMessagesByDeleteContract = (
 
   const sanitizedMessagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {};
   Object.entries(chatState.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
-    const sanitizedMessages = sanitizePersistedMessagesByDeleteContract(messages ?? []);
+    const sanitizedMessages = sanitizePersistedMessagesByDeleteContract(messages ?? [], options);
     if (sanitizedMessages.length > 0) {
       sanitizedMessagesByConversationId[conversationId] = sanitizedMessages;
     }
@@ -1242,13 +1286,16 @@ const mergePersistedGroupConversations = (
 
 const mergeChatState = (
   current: EncryptedAccountBackupPayload["chatState"],
-  incoming: EncryptedAccountBackupPayload["chatState"]
+  incoming: EncryptedAccountBackupPayload["chatState"],
+  options?: Readonly<{
+    durableDeleteIds?: ReadonlySet<string>;
+  }>
 ): EncryptedAccountBackupPayload["chatState"] => {
   if (!current) {
-    return sanitizePersistedChatStateMessagesByDeleteContract(incoming);
+    return sanitizePersistedChatStateMessagesByDeleteContract(incoming, options);
   }
   if (!incoming) {
-    return sanitizePersistedChatStateMessagesByDeleteContract(current);
+    return sanitizePersistedChatStateMessagesByDeleteContract(current, options);
   }
   return sanitizePersistedChatStateMessagesByDeleteContract({
     ...incoming,
@@ -1281,7 +1328,7 @@ const mergeChatState = (
       incoming.messagesByConversationId,
     ),
     groupMessages: mergeGroupMessageMaps(current.groupMessages, incoming.groupMessages),
-  });
+  }, options);
 };
 
 const normalizeMessageStatus = (value: unknown): PersistedMessage["status"] => {
@@ -2245,7 +2292,9 @@ const hydrateChatStateFromIndexedMessages = async (
     }
   }
 
-  nextState = sanitizePersistedChatStateMessagesByDeleteContract(nextState) ?? nextState;
+  nextState = sanitizePersistedChatStateMessagesByDeleteContract(nextState, {
+    durableDeleteIds: toMessageDeleteTombstoneIdSet(loadMessageDeleteTombstoneEntries()),
+  }) ?? nextState;
 
   const hydratedChatStateDiagnostics = summarizePersistedChatStateMessages(nextState, publicKeyHex);
   logAppEvent({
@@ -2297,14 +2346,32 @@ const loadRecoverySnapshot = (publicKeyHex: PublicKeyHex): EncryptedAccountBacku
   }
 };
 
+const parseMessageDeleteTombstones = (
+  value: unknown,
+): ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return normalizeMessageDeleteTombstoneEntries(
+    value.filter((entry): entry is MessageDeleteTombstoneSnapshotEntry => (
+      !!entry
+      && typeof entry === "object"
+      && typeof (entry as { id?: unknown }).id === "string"
+      && typeof (entry as { deletedAtUnixMs?: unknown }).deletedAtUnixMs === "number"
+    )),
+  );
+};
+
 const buildBackupPayload = (
   publicKeyHex: PublicKeyHex,
   chatStateOverride?: EncryptedAccountBackupPayload["chatState"],
   roomKeyOverride?: ReadonlyArray<RoomKeySnapshot>,
 ): EncryptedAccountBackupPayload => {
   const profileId = getActiveProfileIdSafe();
+  const messageDeleteTombstones = loadMessageDeleteTombstoneEntries();
   const chatState = sanitizePersistedChatStateMessagesByDeleteContract(
-    chatStateOverride ?? chatStateStoreService.load(publicKeyHex)
+    chatStateOverride ?? chatStateStoreService.load(publicKeyHex),
+    { durableDeleteIds: toMessageDeleteTombstoneIdSet(messageDeleteTombstones) }
   );
   const communityMembershipLedger = loadCommunityMembershipLedger(publicKeyHex);
   const roomKeys = filterRoomKeySnapshotsToJoinedEvidence({
@@ -2321,6 +2388,7 @@ const buildBackupPayload = (
     requestFlowEvidence: requestFlowEvidenceStoreInternals.readState(),
     requestOutbox: contactRequestOutboxInternals.readState(),
     syncCheckpoints: Array.from(syncCheckpointInternals.loadPersistedCheckpointState().values()),
+    ...(messageDeleteTombstones.length > 0 ? { messageDeleteTombstones } : {}),
     chatState,
     privacySettings: PrivacySettingsService.getSettings(),
     relayList: relayListInternals.loadRelayListFromStorage(publicKeyHex),
@@ -2380,7 +2448,10 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
   );
   const communityMembershipLedger = parseCommunityMembershipLedgerSnapshot(parsed.communityMembershipLedger);
   const roomKeys = parseRoomKeySnapshots(parsed.roomKeys);
-  const chatState = sanitizePersistedChatStateMessagesByDeleteContract(parsed.chatState ?? null);
+  const messageDeleteTombstones = parseMessageDeleteTombstones(parsed.messageDeleteTombstones);
+  const chatState = sanitizePersistedChatStateMessagesByDeleteContract(parsed.chatState ?? null, {
+    durableDeleteIds: toMessageDeleteTombstoneIdSet(messageDeleteTombstones),
+  });
   const payload: EncryptedAccountBackupPayload = {
     version: 1,
     publicKeyHex: parsed.publicKeyHex as PublicKeyHex,
@@ -2391,6 +2462,7 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
     requestFlowEvidence: parsed.requestFlowEvidence ?? { byPeer: {} },
     requestOutbox: parsed.requestOutbox ?? { records: [] },
     syncCheckpoints: Array.isArray(parsed.syncCheckpoints) ? parsed.syncCheckpoints : [],
+    ...(messageDeleteTombstones.length > 0 ? { messageDeleteTombstones } : {}),
     chatState,
     privacySettings: parsed.privacySettings ?? defaultPrivacySettings,
     relayList: Array.isArray(parsed.relayList) ? parsed.relayList : [],
@@ -2633,20 +2705,28 @@ const mergeIncomingRestorePayload = async (
     includeHydratedLocalMessages?: boolean;
   }>,
 ): Promise<EncryptedAccountBackupPayload> => {
-  const sanitizedIncomingChatState = sanitizePersistedChatStateMessagesByDeleteContract(payload.chatState);
+  const incomingMessageDeleteTombstones = normalizeMessageDeleteTombstoneEntries(
+    payload.messageDeleteTombstones ?? []
+  );
+  const sanitizedIncomingChatState = sanitizePersistedChatStateMessagesByDeleteContract(payload.chatState, {
+    durableDeleteIds: toMessageDeleteTombstoneIdSet(incomingMessageDeleteTombstones),
+  });
   const sanitizedIncomingPayload: EncryptedAccountBackupPayload = hasReplayableChatHistory(sanitizedIncomingChatState)
     ? {
       ...payload,
+      ...(incomingMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: incomingMessageDeleteTombstones } : {}),
       chatState: sanitizedIncomingChatState,
     }
     : {
       ...payload,
+      ...(incomingMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: incomingMessageDeleteTombstones } : {}),
       chatState: sanitizedIncomingChatState,
       syncCheckpoints: [],
     };
   const {
     communityMembershipLedger: _incomingCommunityMembershipLedger,
     roomKeys: _incomingRoomKeys,
+    messageDeleteTombstones: _incomingMessageDeleteTombstones,
     ...sanitizedIncomingPayloadWithoutCommunityState
   } = sanitizedIncomingPayload;
   const existingLocalPrivateState = isExistingLocalPrivateState(publicKeyHex);
@@ -2698,11 +2778,15 @@ const mergeIncomingRestorePayload = async (
     parseRoomKeySnapshots(currentPayloadCandidate.roomKeys).length > 0
     || existingScopedRoomKeySnapshots.length > 0
   );
+  const hasExplicitLocalMessageDeleteEvidence = (
+    (currentPayloadCandidate.messageDeleteTombstones?.length ?? 0) > 0
+  );
   const currentPayload = (
     existingLocalPrivateState
     || hasHydratedLocalReplayableHistory
     || hasExplicitLocalLedgerEvidence
     || hasExplicitLocalRoomKeyEvidence
+    || hasExplicitLocalMessageDeleteEvidence
   )
     ? currentPayloadCandidate
     : shouldUseRecoverySnapshot
@@ -2721,9 +2805,14 @@ const mergeIncomingRestorePayload = async (
   const localExplicitRoomKeySnapshotsRaw = currentRoomKeySnapshots.length > 0
     ? currentRoomKeySnapshots
     : existingScopedRoomKeySnapshots;
+  const mergedMessageDeleteTombstones = mergeMessageDeleteTombstones(
+    currentPayload?.messageDeleteTombstones,
+    sanitizedIncomingPayload.messageDeleteTombstones,
+  );
+  const durableDeleteIds = toMessageDeleteTombstoneIdSet(mergedMessageDeleteTombstones);
   const mergedChatState = currentPayload
-    ? mergeChatState(currentPayload.chatState, sanitizedIncomingPayload.chatState)
-    : sanitizedIncomingPayload.chatState;
+    ? mergeChatState(currentPayload.chatState, sanitizedIncomingPayload.chatState, { durableDeleteIds })
+    : sanitizePersistedChatStateMessagesByDeleteContract(sanitizedIncomingPayload.chatState, { durableDeleteIds });
   const reconstructedIncomingLedgerEntries = reconstructCommunityMembershipFromChatState(sanitizedIncomingPayload.chatState);
   const reconstructedMergedLedgerEntries = reconstructCommunityMembershipFromChatState(mergedChatState);
   const reconciledIncomingLedgerEntries = reconcileIncomingLedgerWithReconstructedJoinedEvidence({
@@ -2772,6 +2861,7 @@ const mergeIncomingRestorePayload = async (
       requestFlowEvidence: mergeRequestFlowEvidence(currentPayload.requestFlowEvidence, sanitizedIncomingPayload.requestFlowEvidence),
       requestOutbox: mergeOutbox(currentPayload.requestOutbox, sanitizedIncomingPayload.requestOutbox),
       syncCheckpoints: mergeCheckpoints(currentPayload.syncCheckpoints, sanitizedIncomingPayload.syncCheckpoints),
+      ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
       chatState: mergedChatState,
       privacySettings: {
         ...sanitizedIncomingPayload.privacySettings,
@@ -2802,6 +2892,7 @@ const mergeIncomingRestorePayload = async (
       mergedCommunityMembershipLedger.length > 0 || mergedRoomKeys.length > 0
         ? {
           ...sanitizedIncomingPayloadWithoutCommunityState,
+          ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
           chatState: mergedChatState,
           ...(mergedCommunityMembershipLedger.length > 0
             ? { communityMembershipLedger: mergedCommunityMembershipLedger }
@@ -2812,6 +2903,7 @@ const mergeIncomingRestorePayload = async (
         }
         : {
           ...sanitizedIncomingPayloadWithoutCommunityState,
+          ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
           chatState: mergedChatState,
         }
     );
@@ -2847,6 +2939,7 @@ const mergeIncomingRestorePayload = async (
       hasHydratedLocalReplayableHistory,
       hasExplicitLocalLedgerEvidence,
       hasExplicitLocalRoomKeyEvidence,
+      hasExplicitLocalMessageDeleteEvidence,
       recoverySnapshotAvailable: recoverySnapshot !== null,
       recoverySnapshotUsed: (
         currentPayload !== null
@@ -2856,6 +2949,9 @@ const mergeIncomingRestorePayload = async (
       recoverySnapshotHasReplayableHistory,
       recoverySnapshotHasExplicitLedgerEvidence,
       recoverySnapshotHasExplicitRoomKeyEvidence,
+      incomingMessageDeleteTombstoneCount: sanitizedIncomingPayload.messageDeleteTombstones?.length ?? 0,
+      localMessageDeleteTombstoneCount: currentPayload?.messageDeleteTombstones?.length ?? 0,
+      mergedMessageDeleteTombstoneCount: mergedMessageDeleteTombstones.length,
       incomingLedgerEntryCount: incomingLedgerEntries.length,
       incomingLedgerReconciledEntryCount: reconciledIncomingLedgerEntries.length,
       mergedChatReconstructedLedgerEntryCount: reconstructedMergedLedgerEntries.length,
@@ -2907,6 +3003,7 @@ const applyBackupPayload = async (
   syncCheckpointInternals.persistCheckpointState(new Map(
     mergedPayload.syncCheckpoints.map((checkpoint) => [checkpoint.timelineKey, checkpoint])
   ));
+  replaceMessageDeleteTombstones(mergedPayload.messageDeleteTombstones ?? []);
   const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
   if (mergedPayload.chatState) {
     // Backup restore should not immediately trigger mutation-driven backup publish.
@@ -2932,6 +3029,7 @@ const applyBackupPayload = async (
       publicKeySuffix: publicKeyHex.slice(-8),
       restorePath: "full_v1",
       appliedRoomKeyCount: parseRoomKeySnapshots(mergedPayload.roomKeys).length,
+      appliedMessageDeleteTombstoneCount: mergedPayload.messageDeleteTombstones?.length ?? 0,
       ...toPrefixedChatStateDiagnosticsContext(
         "applied",
         mergedPayloadChatDiagnostics,
@@ -2964,6 +3062,7 @@ const applyBackupPayloadNonV1Domains = async (
   useProfileInternals.saveToStorage({ profile: mergedPayload.profile });
   useProfileInternals.setState({ profile: mergedPayload.profile });
   useProfileInternals.notify();
+  replaceMessageDeleteTombstones(mergedPayload.messageDeleteTombstones ?? []);
   saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
   await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
   PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
@@ -2997,6 +3096,7 @@ const applyBackupPayloadNonV1Domains = async (
       restorePath: "non_v1_domains",
       restoreChatStateDomains: options?.restoreChatStateDomains === true,
       appliedRoomKeyCount: parseRoomKeySnapshots(mergedPayload.roomKeys).length,
+      appliedMessageDeleteTombstoneCount: mergedPayload.messageDeleteTombstones?.length ?? 0,
       ...toPrefixedChatStateDiagnosticsContext(
         "applied",
         mergedPayloadChatDiagnostics,
@@ -3090,7 +3190,13 @@ const mergeBackupPayloadForPublishConvergence = (
   localPayload: EncryptedAccountBackupPayload,
   remotePayload: EncryptedAccountBackupPayload,
 ): EncryptedAccountBackupPayload => {
-  const mergedChatState = mergeChatState(localPayload.chatState, remotePayload.chatState);
+  const mergedMessageDeleteTombstones = mergeMessageDeleteTombstones(
+    localPayload.messageDeleteTombstones,
+    remotePayload.messageDeleteTombstones,
+  );
+  const mergedChatState = mergeChatState(localPayload.chatState, remotePayload.chatState, {
+    durableDeleteIds: toMessageDeleteTombstoneIdSet(mergedMessageDeleteTombstones),
+  });
   const remoteLedgerEntries = parseCommunityMembershipLedgerSnapshot(remotePayload.communityMembershipLedger);
   const localLedgerEntries = parseCommunityMembershipLedgerSnapshot(localPayload.communityMembershipLedger);
   const reconstructedRemoteLedgerEntries = reconstructCommunityMembershipFromChatState(remotePayload.chatState);
@@ -3130,6 +3236,7 @@ const mergeBackupPayloadForPublishConvergence = (
     requestFlowEvidence: mergeRequestFlowEvidence(localPayload.requestFlowEvidence, remotePayload.requestFlowEvidence),
     requestOutbox: mergeOutbox(localPayload.requestOutbox, remotePayload.requestOutbox),
     syncCheckpoints: mergeCheckpoints(localPayload.syncCheckpoints, remotePayload.syncCheckpoints),
+    ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
     chatState: mergedChatState,
     relayList: mergeRelayList(localPayload.relayList, remotePayload.relayList),
     ...(mergedCommunityMembershipLedger.length > 0

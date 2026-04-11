@@ -483,6 +483,27 @@ export const accountProjectionRuntime = {
       idempotencyKey: `${params.type}:${params.accountPublicKeyHex}:${params.messageId}:${params.idempotencySuffix}`,
     };
   },
+  createDmRemovedEvent(params: Readonly<{
+    profileId: string;
+    accountPublicKeyHex: PublicKeyHex;
+    messageId: string;
+    conversationId?: string;
+    observedAtUnixMs?: number;
+    idempotencySuffix: string;
+    source?: AccountEvent["source"];
+  }>): AccountEvent {
+    return {
+      type: "DM_REMOVED_LOCALLY",
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      messageId: params.messageId,
+      ...(params.conversationId ? { conversationId: params.conversationId } : {}),
+      source: params.source ?? "legacy_bridge",
+      observedAtUnixMs: params.observedAtUnixMs ?? Date.now(),
+      eventId: `DM_REMOVED_LOCALLY:${params.messageId}`,
+      idempotencyKey: `DM_REMOVED_LOCALLY:${params.accountPublicKeyHex}:${params.messageId}:${params.idempotencySuffix}`,
+    };
+  },
   createSyncCheckpointEvent(params: Readonly<{
     profileId: string;
     accountPublicKeyHex: PublicKeyHex;

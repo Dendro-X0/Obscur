@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MessagingProvider, useMessaging } from "./messaging-provider";
 
 const identityState = vi.hoisted(() => ({
@@ -53,6 +53,7 @@ vi.mock("@/app/features/account-sync/services/account-projection-selectors", () 
 }));
 
 vi.mock("../services/chat-state-store", () => ({
+  CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
   chatStateStoreService: chatStateStoreMocks,
 }));
 
@@ -201,6 +202,49 @@ describe("messaging-provider hydration scope resets", () => {
       expect(screen.getByTestId("hydrated").textContent).toBe("true");
       expect(screen.getByTestId("connections").textContent).toContain("Work Scope Contact");
       expect(screen.getByTestId("connections").textContent).not.toContain("Account A Contact");
+    });
+  });
+
+  it("refreshes hydrated connections when chat state is replaced after initial empty mount", async () => {
+    const accountA = "a".repeat(64);
+    chatStateStoreMocks.load.mockImplementation((publicKeyHex: string, options?: { profileId?: string }) => {
+      const scope = `${options?.profileId ?? "default"}::${publicKeyHex}`;
+      if (scope === `default::${accountA}`) {
+        return null;
+      }
+      return null;
+    });
+
+    render(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hydrated").textContent).toBe("true");
+      expect(screen.getByTestId("connections").textContent).toBe("");
+    });
+
+    chatStateStoreMocks.load.mockImplementation((publicKeyHex: string, options?: { profileId?: string }) => {
+      const scope = `${options?.profileId ?? "default"}::${publicKeyHex}`;
+      if (scope === `default::${accountA}`) {
+        return buildPersistedState({
+          displayName: "Restored Contact",
+          peerPublicKeyHex: "4".repeat(64),
+        });
+      }
+      return null;
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:chat-state-replaced", {
+        detail: { publicKeyHex: accountA },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("connections").textContent).toContain("Restored Contact");
     });
   });
 });

@@ -223,6 +223,58 @@ describe("useAccountSync convergence orchestration", () => {
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("ok");
   });
 
+  it("publishes immediately for delete tombstone mutations (no mutation cooldown)", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.subscribeMutationMock).toHaveBeenCalledTimes(1);
+    });
+    mocks.publishBackupMock.mockClear();
+
+    act(() => {
+      mocks.triggerMutation("message_delete_tombstones_changed");
+    });
+
+    await waitFor(() => {
+      expect(mocks.publishBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("message_delete_tombstones_changed");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("ok");
+  });
+
+  it("publishes immediately for DM history mutations (no mutation cooldown)", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.subscribeMutationMock).toHaveBeenCalledTimes(1);
+    });
+    mocks.publishBackupMock.mockClear();
+
+    act(() => {
+      mocks.triggerMutation("dm_history_changed");
+    });
+
+    await waitFor(() => {
+      expect(mocks.publishBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("dm_history_changed");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("ok");
+  });
+
   it("runs startup restore before startup publish even when convergence guard is disabled", async () => {
     mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
     mocks.rehydrateAccountMock.mockResolvedValue({

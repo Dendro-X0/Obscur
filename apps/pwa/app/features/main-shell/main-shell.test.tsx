@@ -425,4 +425,11 @@ describe("main-shell hook stability", () => {
       )
     ).toBeInTheDocument();
   });
+
+  it("does not overwrite restored messaging connections from peer-trust on mount", async () => {
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(testFns.setCreatedConnections).not.toHaveBeenCalled();
+  });
 });

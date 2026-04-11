@@ -260,63 +260,6 @@ function NostrMessengerContent() {
   const dmController = useRuntimeMessagingTransportOwnerController();
   const peerLastActiveByPeerPubkey = usePeerLastActiveByPeer(myPublicKeyHex as PublicKeyHex | null);
 
-  useEffect(() => {
-    if (!myPublicKeyHex) {
-      return;
-    }
-    setCreatedConnections((prev) => {
-      const acceptedPeers = peerTrust.state.acceptedPeers
-        .filter((pubkey) => pubkey !== myPublicKeyHex)
-        .sort();
-      const previousByPubkey = new Map(prev.map((connection) => [connection.pubkey, connection] as const));
-      const derivedConnections = acceptedPeers
-        .map((pubkey) => {
-          const existing = previousByPubkey.get(pubkey);
-          const derived = createDmConversation({
-            myPublicKeyHex,
-            peerPublicKeyHex: pubkey,
-            displayName: existing?.displayName || PRIVATE_CONTACT_DISPLAY_NAME,
-          });
-          if (!derived) {
-            return null;
-          }
-          return existing ? { ...existing, id: derived.id, pubkey } : derived;
-        })
-        .filter((connection): connection is DmConversation => connection !== null)
-        .sort((left, right) => {
-          const byTime = right.lastMessageTime.getTime() - left.lastMessageTime.getTime();
-          if (byTime !== 0) {
-            return byTime;
-          }
-          return left.id.localeCompare(right.id);
-        });
-
-      if (derivedConnections.length !== prev.length) {
-        return derivedConnections;
-      }
-
-      for (let index = 0; index < derivedConnections.length; index += 1) {
-        const nextConnection = derivedConnections[index];
-        const previousConnection = prev[index];
-        if (!previousConnection) {
-          return derivedConnections;
-        }
-        if (
-          previousConnection.id !== nextConnection.id
-          || previousConnection.pubkey !== nextConnection.pubkey
-          || previousConnection.displayName !== nextConnection.displayName
-          || previousConnection.lastMessage !== nextConnection.lastMessage
-          || previousConnection.unreadCount !== nextConnection.unreadCount
-          || previousConnection.lastMessageTime.getTime() !== nextConnection.lastMessageTime.getTime()
-        ) {
-          return derivedConnections;
-        }
-      }
-
-      return prev;
-    });
-  }, [myPublicKeyHex, peerTrust.state.acceptedPeers, setCreatedConnections]);
-
   const { state: groupState, members: groupMembers } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',

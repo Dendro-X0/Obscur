@@ -3,7 +3,7 @@ import type { Message } from "../types";
 export type MessageBusEvent =
     | { type: 'new_message'; conversationId: string; message: Message }
     | { type: 'message_updated'; conversationId: string; message: Message }
-    | { type: 'message_deleted'; conversationId: string; messageId: string; conversationIdOriginal?: string };
+    | { type: 'message_deleted'; conversationId: string; messageId: string; messageIdentityIds?: ReadonlyArray<string>; conversationIdOriginal?: string };
 
 type MessageBusHandler = (event: MessageBusEvent) => void;
 
@@ -57,8 +57,19 @@ class MessageBus {
     /**
      * Helper to emit a message deletion event.
      */
-    emitMessageDeleted(conversationId: string, messageId: string): void {
-        this.emit({ type: 'message_deleted', conversationId, messageId });
+    emitMessageDeleted(
+        conversationId: string,
+        messageId: string,
+        options?: Readonly<{ messageIdentityIds?: ReadonlyArray<string> }>
+    ): void {
+        this.emit({
+            type: 'message_deleted',
+            conversationId,
+            messageId,
+            ...(options?.messageIdentityIds && options.messageIdentityIds.length > 0
+                ? { messageIdentityIds: options.messageIdentityIds }
+                : {}),
+        });
     }
 }
 

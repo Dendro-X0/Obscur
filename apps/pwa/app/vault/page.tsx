@@ -50,7 +50,7 @@ export default function VaultPage(): React.JSX.Element {
                             <Lock className="h-10 w-10 text-white" />
                         </div>
                         <div className="space-y-1">
-                            <h2 className="text-3xl font-black tracking-tight">{t("nav.vault", "The Vault")}</h2>
+                            <h2 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-white">{t("nav.vault", "The Vault")}</h2>
                             <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md font-medium">
                                 {t("vault.headerDesc", "Your decentralized, E2EE media storage. Locally aggregated and securely synced.")}
                             </p>

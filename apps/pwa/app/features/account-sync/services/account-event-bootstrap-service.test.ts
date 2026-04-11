@@ -12,6 +12,7 @@ const PROFILE_ID = "default";
 const basePayload = (params: Readonly<{
   createdAtUnixMs?: number;
   chatState: EncryptedAccountBackupPayload["chatState"];
+  messageDeleteTombstones?: EncryptedAccountBackupPayload["messageDeleteTombstones"];
 }>): EncryptedAccountBackupPayload => ({
   version: 1,
   publicKeyHex: ACCOUNT,
@@ -34,6 +35,7 @@ const basePayload = (params: Readonly<{
     records: [],
   },
   syncCheckpoints: [],
+  ...(params.messageDeleteTombstones ? { messageDeleteTombstones: params.messageDeleteTombstones } : {}),
   chatState: params.chatState,
   privacySettings: defaultPrivacySettings,
   relayList: [],
@@ -413,6 +415,72 @@ describe("account-event-bootstrap-service", () => {
     expect(dmEvents).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ messageId: "legacy-delete-cmd" }),
       expect.objectContaining({ messageId: "legacy-target" }),
+    ]));
+  });
+
+  it("does not restore tombstoned historical call-log rows from backup payloads", () => {
+    const payload = basePayload({
+      messageDeleteTombstones: [{
+        id: "evt-deleted-call",
+        deletedAtUnixMs: 51_000,
+      }],
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          [PEER]: [
+            {
+              id: "legacy-call-row",
+              eventId: "evt-deleted-call",
+              content: "{\"type\":\"voice-call-invite\",\"version\":1,\"roomId\":\"ghost-room\"}",
+              timestampMs: 50_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+            {
+              id: "legacy-keep-after-call",
+              content: "keep me",
+              timestampMs: 52_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+          ],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+    });
+
+    const events = buildCanonicalBackupImportEvents({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT,
+      payload,
+      source: "relay_sync",
+      idempotencyPrefix: "restore:test",
+    });
+
+    const dmEvents = events.filter((event) => event.type === "DM_SENT_CONFIRMED" || event.type === "DM_RECEIVED");
+    expect(dmEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "DM_SENT_CONFIRMED",
+        messageId: "legacy-keep-after-call",
+      }),
+    ]));
+    expect(dmEvents).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ messageId: "legacy-call-row" }),
+    ]));
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "DM_REMOVED_LOCALLY",
+        messageId: "evt-deleted-call",
+      }),
     ]));
   });
 });

@@ -16,7 +16,7 @@ import type {
     PersistedGroupMessage,
     PublicKeyHex
 } from "../types";
-import { chatStateStoreService } from "../services/chat-state-store";
+import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "../services/chat-state-store";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
@@ -154,6 +154,37 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const selectedConversation = selectedConversationState;
     const [hasHydrated, setHasHydrated] = useState(false);
+    const hydrateStoredMessagingState = useCallback((params: Readonly<{
+        publicKeyHex: string;
+        profileId: string;
+    }>): void => {
+        const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
+        if (persisted) {
+            const nextCreatedConnections: ReadonlyArray<DmConversation> = persisted.createdConnections
+                .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
+                .filter((c: DmConversation | null): c is DmConversation => c !== null);
+
+            setCreatedConnections(nextCreatedConnections);
+            setUnreadByConversationId(persisted.unreadByConversationId);
+            setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
+
+            if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
+            if (persisted.hiddenChatIds) {
+                const sanitizedHiddenChatIds = removeGroupConversationIdsFromHidden(persisted.hiddenChatIds);
+                setHiddenChatIds(sanitizedHiddenChatIds);
+                if (sanitizedHiddenChatIds.length !== persisted.hiddenChatIds.length) {
+                    chatStateStoreService.updateHiddenChats(params.publicKeyHex, sanitizedHiddenChatIds);
+                }
+            }
+
+            // Trigger migration to new messages store.
+            void messagePersistenceService.migrateFromLegacy(params.publicKeyHex);
+        }
+        const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex);
+        lastSeenByConversationIdRef.current = loadedLastSeen;
+        setLastViewedByConversationId(loadedLastSeen);
+        setHasHydrated(true);
+    }, []);
 
     // Attachments
     const [pendingAttachments, setPendingAttachments] = useState<ReadonlyArray<File>>([]);
@@ -252,34 +283,34 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (hasHydrated) return;
         if (!publicKeyHex) return;
 
-        const persisted = chatStateStoreService.load(publicKeyHex, { profileId: activeProfileId });
-        if (persisted) {
-            const nextCreatedConnections: ReadonlyArray<DmConversation> = persisted.createdConnections
-                .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
-                .filter((c: DmConversation | null): c is DmConversation => c !== null);
+        hydrateStoredMessagingState({
+            publicKeyHex,
+            profileId: activeProfileId,
+        });
+    }, [publicKeyHex, hasHydrated, activeProfileId, hydrateStoredMessagingState]);
 
-            setCreatedConnections(nextCreatedConnections);
-            setUnreadByConversationId(persisted.unreadByConversationId);
-            setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
-
-            if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
-            if (persisted.hiddenChatIds) {
-                const sanitizedHiddenChatIds = removeGroupConversationIdsFromHidden(persisted.hiddenChatIds);
-                setHiddenChatIds(sanitizedHiddenChatIds);
-                if (sanitizedHiddenChatIds.length !== persisted.hiddenChatIds.length) {
-                    chatStateStoreService.updateHiddenChats(publicKeyHex, sanitizedHiddenChatIds);
-                }
-            }
-
-            // Trigger migration to new messages store
-            messagePersistenceService.migrateFromLegacy(publicKeyHex);
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
         }
-        const loadedLastSeen = loadLastSeen(publicKeyHex as PublicKeyHex);
-        lastSeenByConversationIdRef.current = loadedLastSeen;
-        setLastViewedByConversationId(loadedLastSeen);
-
-        setHasHydrated(true);
-    }, [publicKeyHex, hasHydrated, activeProfileId]);
+        const onScopedRefresh = (event: Event): void => {
+            if (!publicKeyHex) {
+                return;
+            }
+            const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+            if (detail?.publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
+                return;
+            }
+            hydrateStoredMessagingState({
+                publicKeyHex,
+                profileId: activeProfileId,
+            });
+        };
+        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
+        return () => {
+            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
+        };
+    }, [activeProfileId, hydrateStoredMessagingState, publicKeyHex]);
 
     useEffect(() => {
         if (!publicKeyHex || typeof window === "undefined") {

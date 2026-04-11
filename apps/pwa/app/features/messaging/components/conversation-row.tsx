@@ -45,7 +45,7 @@ export const ConversationRow = React.memo(function ConversationRow({
     onViewProfile,
 }: ConversationRowProps) {
     const { t } = useTranslation();
-    const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null, { live: false });
+    const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
     const resolvedName = metadata?.displayName || conversation.displayName;
     const isDeletedConversationRecipient = conversation.kind === "dm" && metadata?.isDeleted === true;
     const effectiveIsOnline = Boolean(isOnline) && !isDeletedConversationRecipient;

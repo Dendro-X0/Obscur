@@ -1,8 +1,8 @@
 # 17 DM Delete/Restore Divergence Incident (`v1.3.7` Blocker)
 
-_Last reviewed: 2026-04-05 (baseline commit 67ce73ee)._
+_Last reviewed: 2026-04-10 (baseline commit 02f0ff7a)._
 
-Status: Open, mitigation in progress. Release-blocking until two-account replay converges.
+Status: Mitigation landed for `v1.3.12`; continue runtime replay on fresh-device restore and relay catch-up paths.
 
 ## Incident Summary
 
@@ -40,20 +40,45 @@ Findings from code-level investigation:
 
 Together, these create a mismatch window where delete evidence cannot reliably converge across devices.
 
-## Landed Mitigation (This Thread)
+## Landed Mitigation
 
-1. Backup hydration now prefers canonical `eventId` as persisted message identity when available.
-2. Persisted message contract now carries optional `eventId`.
-3. Delete-command quarantine now checks both message `id` and `eventId` identity keys.
-4. Restore merge dedupe now converges by canonical identity aliases (`eventId` + `id`) instead of local `id` only.
-5. Added diagnostics event for unresolved delete targets:
-   - `account_sync.backup_restore_delete_target_unresolved`
-6. Added focused regression tests in:
-   - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
+Mitigation now spans every known owner that could re-materialize deleted DM
+history:
+
+1. Backup hydration prefers canonical `eventId` as persisted message identity
+   when available.
+2. Persisted message contract carries optional `eventId`.
+3. Delete-command quarantine checks both message `id` and `eventId` identity
+   keys.
+4. Restore merge dedupes by canonical identity aliases (`eventId` + `id`)
+   instead of local `id` only.
+5. Encrypted backup payload now carries durable DM delete tombstones.
+6. Local delete actions remove message identities from the canonical
+   `chatState` blob so backup hydration does not start from stale retained rows.
+7. Local delete actions append canonical `DM_REMOVED_LOCALLY` account events,
+   and bootstrap import emits the same event from durable tombstones, so
+   account-projection replay subtracts deleted rows instead of replaying adds
+   only.
+8. Incoming relay replay suppresses tombstoned message ids before persistence,
+   projection append, and UI apply.
+9. Backup projection fallback now recovers legitimate incoming history again,
+   but later canonical DM-removal events keep deleted rows suppressed.
+10. Added diagnostics event for unresolved delete targets:
+    - `account_sync.backup_restore_delete_target_unresolved`
+11. Added focused regression coverage across:
+    - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
+    - `apps/pwa/app/features/account-sync/services/account-event-bootstrap-service.test.ts`
+    - `apps/pwa/app/features/account-sync/services/account-event-reducer.test.ts`
+    - `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
 
 ## Remaining Risk
 
-Legacy payload rows that never stored canonical `eventId` can still be ambiguous if delete targets reference event identity only. Those rows are not always safely mappable after the fact.
+1. Legacy payload rows that never stored canonical `eventId` can still be
+   ambiguous if delete targets reference event identity only.
+2. Relay-side physical erasure is not guaranteed on third-party append-only
+   relays; the practical privacy goal is client-side non-resurrection.
+3. Runtime replay still matters because ordering between restore selection and
+   live relay catch-up can reveal issues that focused unit tests do not see.
 
 ## Investigation and Reflection
 
@@ -64,14 +89,15 @@ What this incident shows:
 3. Backup/restore paths must preserve canonical transport identity, or replay semantics drift over time.
 4. “Looks correct locally” is insufficient for cross-device DM invariants.
 
-## `v1.3.7` Exit Criteria
+## Exit Criteria
 
-Release cannot close until all pass:
+Release-quality confidence requires:
 
 1. Two-account replay (`A/B`) with historical deletes does not resurrect deleted DM rows after login+restore.
 2. `Delete for everyone` convergence is symmetric after restore on both sides.
 3. No command payload leak (`__dweb_cmd__`) into DM timeline or sidebar preview.
 4. Diagnostic sweep confirms no unresolved delete-target bursts in nominal replay.
+5. Legitimate fresh incoming DMs remain visible after new-device login on the receiver side.
 
 ## Required Manual Replay (`A/B`)
 
@@ -86,6 +112,9 @@ Release cannot close until all pass:
    - `Delete for everyone` on a fresh outgoing message,
    - local-only delete of peer-authored row.
 5. Re-login both sides and confirm convergence remains stable.
+6. Send a fresh `A -> B` DM, then sign `B` into a new device/window and verify
+   the new incoming row survives restore while deleted historical rows remain
+   absent.
 
 Evidence capture (required):
 

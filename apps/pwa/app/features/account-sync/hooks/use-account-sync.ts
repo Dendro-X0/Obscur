@@ -70,6 +70,12 @@ const resolvePublishCooldownMs = (reason: AccountSyncBackupPublishReason): numbe
   if (reason === "pagehide" || reason === "startup") {
     return 0;
   }
+  if (reason === "dm_history_changed") {
+    return 0;
+  }
+  if (reason === "message_delete_tombstones_changed") {
+    return 0;
+  }
   if (reason === "community_membership_changed") {
     return 0;
   }
@@ -470,6 +476,10 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
       lastObservedMutationSignalAtUnixMsRef.current = detail.atUnixMs;
       const publishReason: AccountSyncBackupPublishReason = detail.reason === "community_membership_changed"
         ? "community_membership_changed"
+        : detail.reason === "dm_history_changed"
+          ? "dm_history_changed"
+        : detail.reason === "message_delete_tombstones_changed"
+          ? "message_delete_tombstones_changed"
         : "mutation";
       queueMicrotask(() => {
         if (restoreInFlightRef.current) {
@@ -506,6 +516,8 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         }
         if (
           publishReason !== "community_membership_changed"
+          && publishReason !== "dm_history_changed"
+          && publishReason !== "message_delete_tombstones_changed"
           && Date.now() < suppressMutationPublishUntilUnixMsRef.current
         ) {
           logAppEvent({

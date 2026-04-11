@@ -23,6 +23,7 @@ import { failedIncomingEventStore } from "../services/failed-incoming-event-stor
 import { readInvitationSenderProfileFromTags } from "../services/invitation-sender-profile-tag";
 import { peerRelayEvidenceStore } from "../services/peer-relay-evidence-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
+import { isMessageDeleteSuppressed } from "../services/message-delete-tombstone-store";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { resolveUiPerformancePolicy } from "../lib/ui-performance";
 import { parseCommandMessage } from "../utils/commands";
@@ -1036,6 +1037,15 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       encryptedContent: event.content,
       attachments: extractAttachmentsFromContent(plaintext)
     };
+
+    if (isMessageDeleteSuppressed(usedEventId)) {
+      logRuntimeEvent(
+        "incoming_dm.tombstoned_message_suppressed",
+        "degraded",
+        ["Ignoring incoming DM because local tombstone already suppresses it:", usedEventId],
+      );
+      return;
+    }
 
     if (message.attachments && message.attachments.length > 0) {
       const cacheableAttachments = message.attachments.filter((attachment) => shouldCacheAttachmentInVault(attachment));

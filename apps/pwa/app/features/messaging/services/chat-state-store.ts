@@ -34,6 +34,13 @@ type PendingSave = {
 const DEFAULT_DEBOUNCE_MS = 250;
 const toPublicKeySuffix = (publicKeyHex: PublicKeyHex): string => publicKeyHex.slice(-8);
 const toScopedCacheKey = (publicKeyHex: PublicKeyHex, profileId: string): string => `${profileId}::${publicKeyHex}`;
+const toPreview = (value: string): string => {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (normalized.length <= 140) {
+        return normalized;
+    }
+    return `${normalized.slice(0, 140)}...`;
+};
 
 /**
  * ChatStateStore Service
@@ -167,6 +174,66 @@ class ChatStateStore {
 
     updateHiddenChats(publicKeyHex: PublicKeyHex, hiddenChatIds: ReadonlyArray<string>): void {
         this.update(publicKeyHex, prev => ({ ...prev, hiddenChatIds }));
+    }
+
+    removeMessageIdentities(
+        publicKeyHex: PublicKeyHex,
+        conversationId: string,
+        messageIdentityIds: ReadonlyArray<string>,
+    ): void {
+        const deleteIds = new Set(
+            messageIdentityIds
+                .map((value) => value.trim())
+                .filter((value) => value.length > 0)
+        );
+        if (deleteIds.size === 0) {
+            return;
+        }
+        this.update(publicKeyHex, (prev) => {
+            const existingMessages = prev.messagesByConversationId[conversationId] ?? [];
+            const filteredMessages = existingMessages.filter((message) => {
+                const messageId = String(message.id ?? "").trim();
+                const eventId = String(message.eventId ?? "").trim();
+                return !deleteIds.has(messageId) && !deleteIds.has(eventId);
+            });
+            const existingGroupMessages = prev.groupMessages?.[conversationId] ?? [];
+            const filteredGroupMessages = existingGroupMessages.filter((message) => {
+                const messageId = String(message.id ?? "").trim();
+                return !deleteIds.has(messageId);
+            });
+            const nextMessagesByConversationId = {
+                ...prev.messagesByConversationId,
+                [conversationId]: filteredMessages,
+            };
+            const nextGroupMessages = {
+                ...(prev.groupMessages ?? {}),
+                [conversationId]: filteredGroupMessages,
+            };
+            const latestMessage = filteredMessages[filteredMessages.length - 1];
+            const nextCreatedConnections = prev.createdConnections.map((connection) => {
+                if (connection.id !== conversationId) {
+                    return connection;
+                }
+                if (!latestMessage) {
+                    return {
+                        ...connection,
+                        lastMessage: "",
+                        lastMessageTimeMs: 0,
+                    };
+                }
+                return {
+                    ...connection,
+                    lastMessage: toPreview(latestMessage.content ?? ""),
+                    lastMessageTimeMs: latestMessage.timestampMs,
+                };
+            });
+            return {
+                ...prev,
+                createdConnections: nextCreatedConnections,
+                messagesByConversationId: nextMessagesByConversationId,
+                groupMessages: nextGroupMessages,
+            };
+        });
     }
 
     replace(publicKeyHex: PublicKeyHex, nextState: PersistedChatState, options?: ReplaceOptions): void {

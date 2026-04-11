@@ -2207,7 +2207,7 @@ function MessageAttachmentLayout({
  * Sub-component to resolve and display sender name with badges
  */
 function SenderName({ pubkey, admins }: { pubkey: string, admins?: MessageListProps['admins'] }) {
-    const metadata = useProfileMetadata(pubkey, { live: false });
+    const metadata = useProfileMetadata(pubkey);
 
     const admin = admins?.find(a => a.pubkey === pubkey);
     const rolesLower = admin?.roles.map(r => r.toLowerCase()) || [];

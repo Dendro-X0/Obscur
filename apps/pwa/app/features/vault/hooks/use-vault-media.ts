@@ -14,6 +14,7 @@ export type VaultMediaItem = Readonly<MediaItem & {
     remoteUrl: string;
     isLocalCached: boolean;
     localRelativePath: string | null;
+    sourceConversationId: string | null;
 }>;
 
 /**
@@ -55,7 +56,10 @@ export function useVaultMedia() {
                     timestamp: new Date(msg.timestamp),
                     remoteUrl: attachment.url,
                     isLocalCached: !!localUrl,
-                    localRelativePath: indexEntry?.relativePath ?? null
+                    localRelativePath: indexEntry?.relativePath ?? null,
+                    sourceConversationId: typeof msg.conversationId === "string" && msg.conversationId.trim().length > 0
+                        ? msg.conversationId
+                        : null,
                 } as VaultMediaItem;
             }));
 

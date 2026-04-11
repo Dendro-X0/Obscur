@@ -12,6 +12,7 @@ const emptySnapshot = (profileId: string, accountPublicKeyHex: string): AccountP
   contactsByPeer: {},
   conversationsById: {},
   messagesByConversationId: {},
+  removedMessageIds: {},
   sync: {
     checkpointsByTimelineKey: {},
     bootstrapImportApplied: false,
@@ -82,6 +83,10 @@ const upsertMessage = (
     source: AccountEventSource;
   }>
 ): AccountProjectionSnapshot => {
+  const tombstonedAtUnixMs = current.removedMessageIds?.[params.message.messageId] ?? 0;
+  if (tombstonedAtUnixMs > 0) {
+    return current;
+  }
   const existingConversationMessages = current.messagesByConversationId[params.message.conversationId] ?? [];
   const byMessageId = new Map(existingConversationMessages.map((entry) => [entry.messageId, entry] as const));
   const wasMessageKnown = byMessageId.has(params.message.messageId);
@@ -119,6 +124,64 @@ const upsertMessage = (
     messagesByConversationId: {
       ...current.messagesByConversationId,
       [params.message.conversationId]: nextMessages,
+    },
+  };
+};
+
+const removeMessage = (
+  current: AccountProjectionSnapshot,
+  params: Readonly<{
+    messageId: string;
+    conversationId?: string;
+    observedAtUnixMs: number;
+  }>
+): AccountProjectionSnapshot => {
+  const targetConversationIds = params.conversationId
+    ? [params.conversationId]
+    : Object.keys(current.messagesByConversationId);
+  let nextMessagesByConversationId = current.messagesByConversationId;
+  let nextConversationsById = current.conversationsById;
+
+  targetConversationIds.forEach((conversationId) => {
+    const existingConversationMessages = nextMessagesByConversationId[conversationId] ?? [];
+    if (existingConversationMessages.length === 0) {
+      return;
+    }
+    const removedMessages = existingConversationMessages.filter((entry) => entry.messageId === params.messageId);
+    if (removedMessages.length === 0) {
+      return;
+    }
+    const remainingMessages = existingConversationMessages.filter((entry) => entry.messageId !== params.messageId);
+    const currentConversation = nextConversationsById[conversationId];
+    const latestMessage = remainingMessages[remainingMessages.length - 1];
+    const removedIncomingCount = removedMessages.filter((entry) => entry.direction === "incoming").length;
+    nextMessagesByConversationId = {
+      ...nextMessagesByConversationId,
+      [conversationId]: remainingMessages,
+    };
+    if (currentConversation) {
+      nextConversationsById = {
+        ...nextConversationsById,
+        [conversationId]: {
+          ...currentConversation,
+          lastMessagePreview: latestMessage ? toConversationPreview(latestMessage.plaintextPreview) : "",
+          lastMessageAtUnixMs: latestMessage ? latestMessage.eventCreatedAtUnixSeconds * 1000 : 0,
+          unreadCount: Math.max(0, currentConversation.unreadCount - removedIncomingCount),
+        },
+      };
+    }
+  });
+
+  return {
+    ...current,
+    conversationsById: nextConversationsById,
+    messagesByConversationId: nextMessagesByConversationId,
+    removedMessageIds: {
+      ...(current.removedMessageIds ?? {}),
+      [params.messageId]: Math.max(
+        current.removedMessageIds?.[params.messageId] ?? 0,
+        params.observedAtUnixMs,
+      ),
     },
   };
 };
@@ -186,6 +249,14 @@ export const reduceAccountEvent = (
       });
       break;
     }
+    case "DM_REMOVED_LOCALLY": {
+      next = removeMessage(next, {
+        messageId: accountEvent.messageId,
+        conversationId: accountEvent.conversationId,
+        observedAtUnixMs: accountEvent.observedAtUnixMs,
+      });
+      break;
+    }
     case "DM_DECRYPT_FAILED_QUARANTINED":
       // Quarantined decrypt failures are diagnostics-only for projection v1.
       break;
@@ -241,4 +312,5 @@ export const replayAccountEvents = (
 export const accountEventReducerInternals = {
   emptySnapshot,
   upsertMessage,
+  removeMessage,
 };

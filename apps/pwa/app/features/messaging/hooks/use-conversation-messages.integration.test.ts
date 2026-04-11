@@ -41,6 +41,10 @@ vi.mock("@/app/features/account-sync/services/account-projection-read-authority"
     }),
 }));
 
+vi.mock("../services/chat-state-store", () => ({
+    CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
+}));
+
 const createMessage = (params: Readonly<{ id: string; timestampMs: number; content?: string; eventId?: string }>) => ({
     id: params.id,
     kind: "user" as const,
@@ -786,6 +790,51 @@ describe("useConversationMessages integration (perf mode)", () => {
             .map((call) => (call[2] as any)?.lower?.[0])
             .filter((value): value is string => typeof value === "string");
         expect(requestedConversationIds).toContain(canonicalConversationId);
+        unmount();
+    });
+
+    it("rehydrates an already-open conversation when restore replaces chat state after an empty first load", async () => {
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        let restoreApplied = false;
+
+        vi.stubGlobal("IDBKeyRange", {
+            bound: (lower: ReadonlyArray<unknown>, upper: ReadonlyArray<unknown>) => ({ lower, upper }),
+        });
+        vi.mocked(messagingDB.getAllByIndex).mockImplementation(async (_store, _index, range: any) => {
+            const requestedConversationId = range?.lower?.[0];
+            if (requestedConversationId !== conversationId) {
+                return [];
+            }
+            if (!restoreApplied) {
+                return [];
+            }
+            return [{
+                id: "late-restore-1",
+                conversationId,
+                senderPubkey: peerPublicKeyHex,
+                recipientPubkey: myPublicKeyHex,
+                content: "restored after replace",
+                timestampMs: 50_000,
+                isOutgoing: false,
+                status: "delivered",
+            }] as any;
+        });
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        expect(result.current.messages).toHaveLength(0);
+
+        restoreApplied = true;
+        act(() => {
+            window.dispatchEvent(new CustomEvent("obscur:chat-state-replaced", {
+                detail: { publicKeyHex: myPublicKeyHex },
+            }));
+        });
+
+        await waitFor(() => expect(result.current.messages.some((message) => message.id === "late-restore-1")).toBe(true));
+        expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBeGreaterThanOrEqual(2);
         unmount();
     });
 });

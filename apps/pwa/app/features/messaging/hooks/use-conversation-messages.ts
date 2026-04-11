@@ -20,6 +20,7 @@ import {
     loadSuppressedMessageDeleteIds,
     suppressMessageDeleteTombstone,
 } from "../services/message-delete-tombstone-store";
+import { CHAT_STATE_REPLACED_EVENT } from "../services/chat-state-store";
 
 interface UseConversationMessagesResult {
     messages: ReadonlyArray<Message>;
@@ -452,6 +453,39 @@ const dedupeMessagesByIdentity = (messages: ReadonlyArray<Message>): ReadonlyArr
     return Array.from(byMessageKey.values()).sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
 };
 
+const toDeletedMessageIdentityIds = (event: Extract<MessageBusEvent, { type: "message_deleted" }>): ReadonlyArray<string> => {
+    const ids = new Set<string>();
+    const primaryId = event.messageId.trim();
+    if (primaryId.length > 0) {
+        ids.add(primaryId);
+    }
+    (event.messageIdentityIds ?? []).forEach((value) => {
+        const normalized = value.trim();
+        if (normalized.length > 0) {
+            ids.add(normalized);
+        }
+    });
+    return Array.from(ids);
+};
+
+const removeMessagesByIdentityIds = (
+    messagesById: Map<string, Message>,
+    identityIds: ReadonlyArray<string>,
+): void => {
+    if (identityIds.length === 0) {
+        return;
+    }
+    const toDelete = new Set(identityIds);
+    Array.from(messagesById.entries()).forEach(([messageId, message]) => {
+        if (
+            toDelete.has(messageId)
+            || (!!message.eventId && toDelete.has(message.eventId))
+        ) {
+            messagesById.delete(messageId);
+        }
+    });
+};
+
 export const applyBufferedEvents = (
     previous: ReadonlyArray<Message>,
     events: ReadonlyArray<MessageBusEvent>,
@@ -481,8 +515,11 @@ export const applyBufferedEvents = (
                 byId.clear();
                 tombstones?.clear();
             } else {
-                byId.delete(event.messageId);
-                tombstones?.set(event.messageId, nowMs);
+                const deleteIds = toDeletedMessageIdentityIds(event);
+                removeMessagesByIdentityIds(byId, deleteIds);
+                deleteIds.forEach((deleteId) => {
+                    tombstones?.set(deleteId, nowMs);
+                });
             }
             return;
         }
@@ -798,6 +835,39 @@ export function useConversationMessages(
     }, [conversationAliasIds, conversationId, hydrateHistory, publicKeyHex]);
 
     useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        if (!conversationId || !normalizedPublicKeyHex) {
+            return;
+        }
+        const onChatStateReplaced = (event: Event): void => {
+            const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+            const restoredPublicKeyHex = normalizePublicKeyHex(detail?.publicKeyHex);
+            if (restoredPublicKeyHex && restoredPublicKeyHex !== normalizedPublicKeyHex) {
+                return;
+            }
+
+            if (rafFlushRef.current !== null) {
+                cancelAnimationFrame(rafFlushRef.current);
+                rafFlushRef.current = null;
+            }
+            eventQueueRef.current = [];
+            setPendingEventCount(0);
+            expandedHistoryRef.current = false;
+            projectionFallbackHydrationRef.current = false;
+            deletedTombstonesRef.current.clear();
+            persistedDeletedIdsRef.current = new Set(loadSuppressedMessageDeleteIds());
+
+            void hydrateHistory(conversationId, conversationAliasIds);
+        };
+        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+        return () => {
+            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+        };
+    }, [conversationAliasIds, conversationId, hydrateHistory, normalizedPublicKeyHex]);
+
+    useEffect(() => {
         if (!conversationId || !projectionReadAuthority.useProjectionReads) {
             return;
         }
@@ -919,9 +989,12 @@ export function useConversationMessages(
 
             if (event.type === "message_deleted" && event.messageId !== "all") {
                 const nowMs = Date.now();
-                deletedTombstonesRef.current.set(event.messageId, nowMs);
-                persistedDeletedIdsRef.current.add(event.messageId);
-                suppressMessageDeleteTombstone(event.messageId, nowMs);
+                const deleteIds = toDeletedMessageIdentityIds(event);
+                deleteIds.forEach((deleteId) => {
+                    deletedTombstonesRef.current.set(deleteId, nowMs);
+                    persistedDeletedIdsRef.current.add(deleteId);
+                    suppressMessageDeleteTombstone(deleteId, nowMs);
+                });
             }
 
             if (!chatPerformanceV2Enabled) {

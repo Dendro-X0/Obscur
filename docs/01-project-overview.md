@@ -22,10 +22,14 @@ As of 2026-03-29:
 2. no unresolved severe blocker is currently identified in active tracking,
 3. architecture remains fragile under uncontrolled changes, so owner and evidence contracts stay mandatory.
 
-Update (2026-04-04, v1.3.4 release prep):
-1. realtime DM convergence hardening is landed (canonical delete-for-everyone IDs, transport safety-sync watchdog, outgoing send auto-scroll),
-2. active release posture has no unresolved severe blocker recorded for the v1.3.4 lane,
-3. two-user runtime replay evidence remains mandatory before tag publication claims.
+Update (2026-04-10, v1.3.12 release prep):
+1. cross-device DM history hardening is landed across backup restore, chat-state hydration, projection replay, and live relay replay:
+: durable DM delete tombstones,
+: canonical local DM removal events,
+: incoming replay tombstone suppression,
+: fresh-device history recovery for legitimate incoming DMs after restore,
+2. metadata hydration after restore is improved on core chat surfaces so usernames/avatars do not require a full page reload to become visible in normal recovery flows,
+3. the privacy guarantee strengthened by this lane is client-side non-resurrection of deleted DM history; relay-side physical erasure remains outside the guarantees of third-party append-only relay infrastructure.
 
 ## Platform Surfaces
 
@@ -38,7 +42,7 @@ Update (2026-04-04, v1.3.4 release prep):
 ## Active Engineering Focus
 
 1. Runtime and transport determinism (single owner per window, no duplicate lifecycle owners).
-2. Account-sync convergence with explicit profile scope.
+2. Account-sync convergence with explicit profile scope and non-resurrecting DM history across fresh-device restore.
 3. Relay resilience and scoped publish/subscribe correctness.
 4. Community and realtime-voice reliability without introducing parallel owner paths.
 5. Documentation as architecture contract.

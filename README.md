@@ -10,12 +10,19 @@ Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communica
 
 Project phase: pre-launch stabilization.
 
-Release prep status (`v1.3.11`):
+Release prep status (`v1.3.12`):
 
-- Desktop/dev page switching is now guarded by a bounded navigation warmup policy so Discover and Settings no longer repeatedly re-prefetch and freeze weak hardware during basic route switching.
-- Discover and Settings route entry points now load through lightweight wrappers with local loading shells, reducing blank-page pressure while their heavy client surfaces prepare.
-- Settings localization coverage was extended across remaining security and rollout-status copy for English, Spanish, and Chinese parity.
-- Chat history voice-call cards now present clearer missed/completed/timeout states instead of leaking raw control payload behavior into the timeline.
+- Cross-device DM history restore is significantly hardened for fresh-device login:
+  - encrypted account backup now carries durable DM delete tombstones,
+  - local delete actions remove stale rows from the canonical chat-state blob,
+  - canonical account-event replay now records sticky local DM removals so deleted rows are not re-added by later restore/projection replay,
+  - incoming relay catch-up now suppresses tombstoned message ids before persistence/apply.
+- Fresh-device history restore now better preserves legitimate recent incoming DM history while still honoring tombstones for deleted rows.
+- Chat surfaces now update profile metadata more responsively after restore:
+  - DM sidebar rows and sender labels no longer wait for a full page refresh before resolving usernames/avatars when live metadata becomes available.
+- The release remains a privacy-first hardening cut:
+  - relay-side physical erasure is still not claimable on third-party append-only relays,
+  - the client-side guarantee strengthened in this release is non-resurrection of deleted DM history across restore/replay owners.
 
 ## Core Positioning
 

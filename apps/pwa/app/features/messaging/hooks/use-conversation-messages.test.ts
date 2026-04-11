@@ -71,6 +71,24 @@ describe("applyBufferedEvents", () => {
         expect(next.map((m) => m.id)).toEqual(["z2"]);
         expect(tombstones.has("z1")).toBe(true);
     });
+
+    it("removes rows when delete event targets a canonical eventId alias", () => {
+        const previous: Message[] = [{
+            ...createMessage({ id: "wrapper-1", timestampMs: 1_000, content: "alias" }),
+            eventId: "canonical-evt-1",
+        }];
+        const events: MessageBusEvent[] = [
+            {
+                type: "message_deleted",
+                conversationId: "c1",
+                messageId: "wrapper-1",
+                messageIdentityIds: ["canonical-evt-1"],
+            },
+        ];
+
+        const next = applyBufferedEvents(previous, events, true, false, new Map(), 2_000);
+        expect(next).toEqual([]);
+    });
 });
 
 describe("filterMessagesByLocalRetention", () => {

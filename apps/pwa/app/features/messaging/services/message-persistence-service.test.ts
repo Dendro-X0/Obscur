@@ -18,6 +18,15 @@ vi.mock("@dweb/storage/indexed-db", () => ({
     }
 }));
 
+const chatStateStoreMocks = vi.hoisted(() => ({
+    load: vi.fn(),
+}));
+
+vi.mock("./chat-state-store", () => ({
+    CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
+    chatStateStoreService: chatStateStoreMocks,
+}));
+
 const createMessage = (id: string, content: string): Message => ({
     id,
     kind: "user",
@@ -39,6 +48,7 @@ describe("MessagePersistenceService batching", () => {
         vi.useRealTimers();
         vi.restoreAllMocks();
         vi.clearAllMocks();
+        chatStateStoreMocks.load.mockReset();
     });
 
     it("deduplicates rapid updates into one bulk upsert when performance mode is enabled", async () => {
@@ -143,6 +153,34 @@ describe("MessagePersistenceService batching", () => {
         const deleted = vi.mocked(messagingDB.bulkDelete).mock.calls[0]?.[1] as Array<string>;
         expect(deleted).toContain("ghost-1");
         expect(messagingDB.bulkPut).not.toHaveBeenCalled();
+
+        service.dispose();
+    });
+
+    it("suppresses alias ids when a delete event includes canonical identity keys", async () => {
+        vi.spyOn(PrivacySettingsService, "getSettings").mockReturnValue({
+            ...defaultPrivacySettings,
+            chatPerformanceV2: true
+        });
+
+        const service = new MessagePersistenceService();
+        service.init();
+
+        messageBus.emit({
+            type: "message_deleted",
+            conversationId: "c1",
+            messageId: "wrapper-delete-1",
+            messageIdentityIds: ["canonical-delete-1"],
+        });
+
+        await vi.advanceTimersByTimeAsync(40);
+        await Promise.resolve();
+
+        expect(messagingDB.bulkDelete).toHaveBeenCalledTimes(1);
+        const deleted = [...(vi.mocked(messagingDB.bulkDelete).mock.calls[0]?.[1] ?? [])].sort();
+        expect(deleted).toEqual(["canonical-delete-1", "wrapper-delete-1"]);
+        expect(isMessageDeleteSuppressed("wrapper-delete-1")).toBe(true);
+        expect(isMessageDeleteSuppressed("canonical-delete-1")).toBe(true);
 
         service.dispose();
     });
@@ -281,6 +319,45 @@ describe("MessagePersistenceService batching", () => {
         await Promise.resolve();
 
         expect(messagingDB.bulkPut).toHaveBeenCalled();
+        service.dispose();
+    });
+
+    it("prefers in-memory replaced chat state over stale indexed chat-state during replace migration", async () => {
+        const myPublicKeyHex = "f".repeat(64);
+        const peerPublicKeyHex = "e".repeat(64);
+        chatStateStoreMocks.load.mockReturnValue({
+            messagesByConversationId: {
+                [peerPublicKeyHex]: [{
+                    id: "restore-msg-memory-1",
+                    content: "restored from memory cache",
+                    timestampMs: 5_000,
+                    isOutgoing: true,
+                    status: "delivered",
+                }],
+            },
+            groupMessages: {},
+            createdConnections: [],
+            createdGroups: [],
+        });
+        vi.mocked(messagingDB.get).mockResolvedValue(null);
+
+        const service = new MessagePersistenceService();
+        service.init();
+
+        window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
+            detail: { publicKeyHex: myPublicKeyHex },
+        }));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(chatStateStoreMocks.load).toHaveBeenCalledWith(myPublicKeyHex);
+        expect(messagingDB.get).not.toHaveBeenCalled();
+        expect(messagingDB.bulkPut).toHaveBeenCalledWith("messages", expect.arrayContaining([
+            expect.objectContaining({
+                id: "restore-msg-memory-1",
+            }),
+        ]));
+
         service.dispose();
     });
 });

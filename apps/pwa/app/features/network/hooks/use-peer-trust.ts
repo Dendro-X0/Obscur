@@ -12,6 +12,7 @@ import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionAcceptedPeers } from "@/app/features/account-sync/services/account-projection-selectors";
 import { shouldWriteLegacyContactsDm } from "@/app/features/account-sync/services/account-sync-migration-policy";
+import { CHAT_STATE_REPLACED_EVENT } from "@/app/features/messaging/services/chat-state-store";
 
 type PeerTrustState = Readonly<{
   acceptedPeers: ReadonlyArray<PublicKeyHex>;
@@ -168,6 +169,29 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   const didLoadRef = useRef(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const contactMutationNonceRef = useRef(0);
+  const hydrateAcceptedPeersFromChatState = useCallback((): void => {
+    const currentPublicKeyHex = publicKeyHexRef.current;
+    if (!currentPublicKeyHex) {
+      return;
+    }
+    setStored((prev: StoredPeerTrust): StoredPeerTrust => {
+      if (prev.acceptedPeers.length > 0) {
+        return prev;
+      }
+      const persisted = chatStateStore.load(currentPublicKeyHex);
+      const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(persisted);
+      if (acceptedFromChat.length === 0) {
+        return prev;
+      }
+      const merged = Array.from(new Set([...prev.acceptedPeers, ...acceptedFromChat]));
+      const next: StoredPeerTrust = removeSelfFromTrustState(
+        currentPublicKeyHex,
+        { acceptedPeers: merged, mutedPeers: prev.mutedPeers }
+      );
+      saveToStorage(currentPublicKeyHex, next);
+      return next;
+    });
+  }, []);
 
   const nextContactMutationSuffix = useCallback((params: Readonly<{
     action: "accept" | "unaccept";
@@ -200,28 +224,28 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     if (stored.acceptedPeers.length > 0) {
       return;
     }
-    const persisted = chatStateStore.load(params.publicKeyHex);
-    const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(persisted);
+    queueMicrotask(() => {
+      hydrateAcceptedPeersFromChatState();
+    });
+  }, [hydrateAcceptedPeersFromChatState, params.publicKeyHex, stored.acceptedPeers.length]);
 
-    if (acceptedFromChat.length === 0) {
+  useEffect(() => {
+    if (typeof window === "undefined" || !params.publicKeyHex) {
       return;
     }
-
-    queueMicrotask(() => {
-      setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-        if (prev.acceptedPeers.length > 0) {
-          return prev;
-        }
-        const merged = Array.from(new Set([...prev.acceptedPeers, ...acceptedFromChat]));
-        const next: StoredPeerTrust = removeSelfFromTrustState(
-          params.publicKeyHex as PublicKeyHex,
-          { acceptedPeers: merged, mutedPeers: prev.mutedPeers }
-        );
-        saveToStorage(params.publicKeyHex as PublicKeyHex, next);
-        return next;
-      });
-    });
-  }, [params.publicKeyHex, stored.acceptedPeers.length]);
+    const onChatStateReplaced = (event: Event): void => {
+      const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+      const restoredPublicKeyHex = normalizePublicKeyHex(detail?.publicKeyHex);
+      if (restoredPublicKeyHex && restoredPublicKeyHex !== params.publicKeyHex) {
+        return;
+      }
+      hydrateAcceptedPeersFromChatState();
+    };
+    window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+    return () => {
+      window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+    };
+  }, [hydrateAcceptedPeersFromChatState, params.publicKeyHex]);
 
   useEffect((): void => {
     if (!params.publicKeyHex || !hasHydrated) {

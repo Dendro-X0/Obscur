@@ -189,6 +189,93 @@ describe("account-event-reducer", () => {
     expect(projection?.conversationsById[conversationId]?.lastMessagePreview).toBe("live-updated");
   });
 
+  it("removes messages from projection when local delete events replay later", () => {
+    const conversationId = `${ACCOUNT}:${PEER}`;
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        type: "DM_RECEIVED",
+        eventId: "dm-in-del-1",
+        idempotencyKey: "dm-in-del-1",
+        observedAtUnixMs: 1_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "msg-delete-me",
+        eventCreatedAtUnixSeconds: 10,
+        plaintextPreview: "incoming",
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        type: "DM_SENT_CONFIRMED",
+        eventId: "dm-out-keep-1",
+        idempotencyKey: "dm-out-keep-1",
+        observedAtUnixMs: 2_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "msg-keep",
+        eventCreatedAtUnixSeconds: 20,
+        plaintextPreview: "keep",
+      }, 2),
+      createEvent({
+        ...baseMeta,
+        type: "DM_REMOVED_LOCALLY",
+        eventId: "dm-remove-1",
+        idempotencyKey: "dm-remove-1",
+        observedAtUnixMs: 3_000,
+        messageId: "msg-delete-me",
+        conversationId,
+      }, 3),
+    ]);
+
+    expect(projection?.messagesByConversationId[conversationId]).toEqual([
+      expect.objectContaining({ messageId: "msg-keep" }),
+    ]);
+    expect(projection?.conversationsById[conversationId]?.lastMessagePreview).toBe("keep");
+    expect(projection?.conversationsById[conversationId]?.unreadCount).toBe(0);
+  });
+
+  it("keeps tombstoned projection messages removed even if stale receive events replay later", () => {
+    const conversationId = `${ACCOUNT}:${PEER}`;
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        type: "DM_RECEIVED",
+        eventId: "dm-in-initial",
+        idempotencyKey: "dm-in-initial",
+        observedAtUnixMs: 1_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "msg-tombstoned",
+        eventCreatedAtUnixSeconds: 10,
+        plaintextPreview: "first copy",
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        type: "DM_REMOVED_LOCALLY",
+        eventId: "dm-remove-sticky",
+        idempotencyKey: "dm-remove-sticky",
+        observedAtUnixMs: 2_000,
+        messageId: "msg-tombstoned",
+        conversationId,
+      }, 2),
+      createEvent({
+        ...baseMeta,
+        type: "DM_RECEIVED",
+        eventId: "dm-in-stale-replay",
+        idempotencyKey: "dm-in-stale-replay",
+        observedAtUnixMs: 3_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "msg-tombstoned",
+        eventCreatedAtUnixSeconds: 10,
+        plaintextPreview: "stale replay",
+      }, 3),
+    ]);
+
+    expect(projection?.messagesByConversationId[conversationId]).toEqual([]);
+    expect(projection?.removedMessageIds?.["msg-tombstoned"]).toBe(2_000);
+  });
+
   it("does not regress accepted contact back to pending from stale request replay", () => {
     const projection = replayAccountEvents([
       createEvent({

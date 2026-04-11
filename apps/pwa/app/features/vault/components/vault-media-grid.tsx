@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@dweb/ui-kit";
 import {
     LoaderIcon,
@@ -21,7 +22,9 @@ import {
     Download,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     EyeOff,
+    Search,
     ZoomIn,
     ZoomOut,
     RotateCcw,
@@ -33,6 +36,7 @@ import { cn } from "@/app/lib/utils";
 import type { VaultMediaItem } from "../hooks/use-vault-media";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 
 type VaultMediaGridProps = Readonly<{
     mediaItems: ReadonlyArray<VaultMediaItem>;
@@ -42,7 +46,9 @@ type VaultMediaGridProps = Readonly<{
     deleteLocalCopy: (remoteUrl: string) => Promise<void>;
 }>;
 
-type VisibilityFilter = "all" | "local" | "remote" | "favorites";
+type VisibilityFilter = "all" | "local" | "remote" | "favorites" | "hidden";
+type SortMode = "newest" | "oldest" | "file_name";
+type VaultSourceKind = "direct" | "community" | "unknown";
 
 const FILTER_STORAGE_KEY = "obscur.vault.filter.preference";
 const FAVORITES_STORAGE_KEY = "obscur.vault.favorites";
@@ -72,7 +78,7 @@ const persistHidden = (ids: ReadonlySet<string>): void => {
 const readFilterPreference = (): VisibilityFilter => {
     if (typeof window === "undefined") return "all";
     const raw = localStorage.getItem(scopedFilterStorageKey()) ?? localStorage.getItem(FILTER_STORAGE_KEY);
-    if (raw === "local" || raw === "remote" || raw === "favorites") return raw;
+    if (raw === "local" || raw === "remote" || raw === "favorites" || raw === "hidden") return raw;
     return "all";
 };
 
@@ -110,16 +116,31 @@ const isPdfAttachment = (attachment: VaultMediaItem["attachment"]): boolean => {
     return name.endsWith(".pdf");
 };
 
+const resolveVaultSourceKind = (item: VaultMediaItem): VaultSourceKind => {
+    const conversationId = item.sourceConversationId?.trim() ?? "";
+    if (conversationId.length === 0) {
+        return "unknown";
+    }
+    if (isGroupConversationId(conversationId)) {
+        return "community";
+    }
+    return "direct";
+};
+
 export function VaultMediaGrid(props: VaultMediaGridProps) {
     const { t } = useTranslation();
+    const router = useRouter();
     const [selectedItem, setSelectedItem] = React.useState<VaultMediaItem | null>(null);
     const [visibilityFilter, setVisibilityFilter] = React.useState<VisibilityFilter>(() => readFilterPreference());
     const [typeFilter, setTypeFilter] = React.useState<"all" | "image" | "video" | "audio" | "file">("all");
     const [favorites, setFavorites] = React.useState<ReadonlySet<string>>(() => readFavorites());
     const [hiddenIds, setHiddenIds] = React.useState<ReadonlySet<string>>(() => readHidden());
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [sortMode, setSortMode] = React.useState<SortMode>("newest");
     const [selectionMode, setSelectionMode] = React.useState(false);
     const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(new Set());
     const [openMenuItemId, setOpenMenuItemId] = React.useState<string | null>(null);
+    const [isSortMenuOpen, setIsSortMenuOpen] = React.useState(false);
     const [currentPage, setCurrentPage] = React.useState(1);
     const [itemsPerPage, setItemsPerPage] = React.useState(25);
 
@@ -134,7 +155,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
 
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [visibilityFilter, typeFilter]);
+    }, [visibilityFilter, typeFilter, searchQuery, sortMode]);
 
     React.useEffect(() => {
         if (typeof window === "undefined") return;
@@ -142,28 +163,55 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     }, [visibilityFilter]);
 
     React.useEffect(() => {
-        const closeMenu = () => setOpenMenuItemId(null);
-        window.addEventListener("click", closeMenu);
-        return () => window.removeEventListener("click", closeMenu);
+        const closeMenus = () => {
+            setOpenMenuItemId(null);
+            setIsSortMenuOpen(false);
+        };
+        window.addEventListener("click", closeMenus);
+        return () => window.removeEventListener("click", closeMenus);
     }, []);
 
     const localCount = props.mediaItems.filter((item) => item.isLocalCached).length;
     const remoteCount = props.mediaItems.length - localCount;
     const favoritesCount = props.mediaItems.filter((item) => favorites.has(item.remoteUrl)).length;
+    const hiddenCount = props.mediaItems.filter((item) => hiddenIds.has(item.id)).length;
+
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
     const filteredItems = props.mediaItems.filter((item) => {
-        if (hiddenIds.has(item.id)) return false;
+        const isHidden = hiddenIds.has(item.id);
+        if (visibilityFilter === "hidden") return isHidden;
+        if (isHidden) return false;
         if (visibilityFilter === "local" && !item.isLocalCached) return false;
         if (visibilityFilter === "remote" && item.isLocalCached) return false;
         if (visibilityFilter === "favorites" && !favorites.has(item.remoteUrl)) return false;
         if (typeFilter !== "all" && item.attachment.kind !== typeFilter) return false;
+        if (normalizedSearchQuery.length > 0) {
+            const contentType = (item.attachment.contentType ?? "").toLowerCase();
+            const fileName = (item.attachment.fileName ?? "").toLowerCase();
+            const remoteUrl = item.remoteUrl.toLowerCase();
+            const kind = item.attachment.kind.toLowerCase();
+            const haystack = `${fileName}\n${contentType}\n${remoteUrl}\n${kind}`;
+            if (!haystack.includes(normalizedSearchQuery)) {
+                return false;
+            }
+        }
         return true;
     });
 
     const visibleItems = [...filteredItems].sort((a, b) => {
         const aFav = favorites.has(a.remoteUrl) ? 1 : 0;
         const bFav = favorites.has(b.remoteUrl) ? 1 : 0;
-        return bFav - aFav;
+        if (bFav !== aFav) {
+            return bFav - aFav;
+        }
+        if (sortMode === "oldest") {
+            return a.timestamp.getTime() - b.timestamp.getTime();
+        }
+        if (sortMode === "file_name") {
+            return a.attachment.fileName.localeCompare(b.attachment.fileName, undefined, { sensitivity: "base" });
+        }
+        return b.timestamp.getTime() - a.timestamp.getTime();
     });
     const selectedItemIndex = selectedItem
         ? visibleItems.findIndex((item) => item.id === selectedItem.id)
@@ -222,6 +270,61 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         setHiddenIds(next);
         persistHidden(next);
     };
+
+    const handleRestoreItem = (itemId: string): void => {
+        const next = new Set(hiddenIds);
+        next.delete(itemId);
+        setHiddenIds(next);
+        persistHidden(next);
+    };
+
+    const handleBulkRestore = (): void => {
+        const next = new Set(hiddenIds);
+        selectedIds.forEach((id) => next.delete(id));
+        setHiddenIds(next);
+        persistHidden(next);
+        clearSelection();
+    };
+
+    const openSourceConversation = React.useCallback((item: VaultMediaItem): void => {
+        if (!item.sourceConversationId) {
+            return;
+        }
+        void router.push(`/?convId=${encodeURIComponent(item.sourceConversationId)}`);
+    }, [router]);
+
+    const getSourceLabel = React.useCallback((item: VaultMediaItem): string => {
+        const sourceKind = resolveVaultSourceKind(item);
+        if (sourceKind === "community") {
+            return t("vault.origin.community", "Community");
+        }
+        if (sourceKind === "direct") {
+            return t("vault.origin.direct", "Direct message");
+        }
+        return t("vault.origin.chat", "Chat");
+    }, [t]);
+
+    const getSourceDescription = React.useCallback((item: VaultMediaItem): string => {
+        const sourceKind = resolveVaultSourceKind(item);
+        if (sourceKind === "community") {
+            return t("vault.origin.communitySource", "Community source");
+        }
+        if (sourceKind === "direct") {
+            return t("vault.origin.directSource", "Direct message source");
+        }
+        return t("vault.origin.chatSource", "Chat source");
+    }, [t]);
+
+    const getOpenSourceLabel = React.useCallback((item: VaultMediaItem): string => {
+        const sourceKind = resolveVaultSourceKind(item);
+        if (sourceKind === "community") {
+            return t("vault.actions.openCommunity", "Open Community");
+        }
+        if (sourceKind === "direct") {
+            return t("vault.actions.openDirectMessage", "Open Direct Message");
+        }
+        return t("vault.actions.openSourceChat", "Open Source Chat");
+    }, [t]);
 
     const handleBulkDeleteLocal = async (): Promise<void> => {
         const localSelected = selectedItems.filter((item) => item.isLocalCached);
@@ -383,6 +486,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         <Button type="button" variant={visibilityFilter === "local" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("local")} className="h-6 px-2 text-[10px]">Local ({localCount})</Button>
                         <Button type="button" variant={visibilityFilter === "remote" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("remote")} className="h-6 px-2 text-[10px]">Remote ({remoteCount})</Button>
                         <Button type="button" variant={visibilityFilter === "favorites" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("favorites")} className="h-6 px-2 text-[10px]">Favorites ({favoritesCount})</Button>
+                        <Button type="button" variant={visibilityFilter === "hidden" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("hidden")} className="h-6 px-2 text-[10px]">Hidden ({hiddenCount})</Button>
                     </div>
                 </div>
 
@@ -406,6 +510,71 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                 </div>
             </div>
 
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <label className="relative w-full md:max-w-sm">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
+                    <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder={visibilityFilter === "hidden" ? "Search hidden Vault media" : "Search Vault media"}
+                        className="h-11 w-full rounded-2xl border border-zinc-300/70 bg-white/85 pl-10 pr-4 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
+                    />
+                </label>
+
+                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    Sort
+                    <div className="relative" data-no-preview="true">
+                        <button
+                            type="button"
+                            aria-haspopup="listbox"
+                            aria-expanded={isSortMenuOpen}
+                            aria-label={`Sort Vault media: ${sortMode === "newest" ? "Newest first" : sortMode === "oldest" ? "Oldest first" : "File name"}`}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setIsSortMenuOpen((current) => !current);
+                            }}
+                            className="flex h-11 min-w-[132px] items-center justify-between gap-3 rounded-2xl border border-zinc-300/70 bg-white/90 px-4 text-sm font-semibold normal-case tracking-normal text-zinc-900 shadow-sm outline-none transition hover:bg-white focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-white/10 dark:bg-white/8 dark:text-zinc-100 dark:hover:bg-white/12"
+                        >
+                            <span>{sortMode === "newest" ? "Newest first" : sortMode === "oldest" ? "Oldest first" : "File name"}</span>
+                            <ChevronDown className={cn("h-4 w-4 text-zinc-500 transition-transform dark:text-zinc-300", isSortMenuOpen && "rotate-180")} />
+                        </button>
+                        {isSortMenuOpen ? (
+                            <div
+                                role="listbox"
+                                className="absolute right-0 top-full z-40 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-zinc-200 bg-white/98 p-1.5 shadow-2xl backdrop-blur-2xl dark:border-white/10 dark:bg-zinc-950/96"
+                            >
+                                {([
+                                    { value: "newest", label: "Newest first" },
+                                    { value: "oldest", label: "Oldest first" },
+                                    { value: "file_name", label: "File name" },
+                                ] as const).map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={sortMode === option.value}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            setSortMode(option.value);
+                                            setIsSortMenuOpen(false);
+                                        }}
+                                        className={cn(
+                                            "flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors",
+                                            sortMode === option.value
+                                                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
+                                                : "text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-white/8"
+                                        )}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+                </label>
+            </div>
+
             {selectionMode && selectedIds.size > 0 && (
                 <div className="rounded-2xl border border-border bg-muted/20 p-3 flex items-center gap-2 flex-wrap">
                     <div className="text-sm font-bold mr-2 ml-2">{selectedIds.size} selected</div>
@@ -413,10 +582,17 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         <Star className="h-4 w-4 mr-1.5" />
                         Favorite
                     </Button>
-                    <Button type="button" variant="secondary" size="sm" onClick={handleBulkHide} className="rounded-xl">
-                        <EyeOff className="h-4 w-4 mr-1.5" />
-                        Hide
-                    </Button>
+                    {visibilityFilter === "hidden" ? (
+                        <Button type="button" variant="secondary" size="sm" onClick={handleBulkRestore} className="rounded-xl">
+                            <EyeOff className="h-4 w-4 mr-1.5" />
+                            Restore
+                        </Button>
+                    ) : (
+                        <Button type="button" variant="secondary" size="sm" onClick={handleBulkHide} className="rounded-xl">
+                            <EyeOff className="h-4 w-4 mr-1.5" />
+                            Hide
+                        </Button>
+                    )}
                     <Button type="button" variant="outline" size="sm" onClick={() => void handleBulkDeleteLocal()} disabled={selectedLocalCount === 0} className="rounded-xl">
                         <Trash2 className="h-4 w-4 mr-1.5" />
                         Delete Local ({selectedLocalCount})
@@ -427,7 +603,9 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
 
             {paginatedItems.length === 0 ? (
                 <div className="rounded-2xl border border-border/50 bg-muted/20 p-12 text-center text-sm text-muted-foreground font-medium">
-                    No items found in this section.
+                    {visibilityFilter === "hidden"
+                        ? "No hidden items. Hidden Vault media will appear here until restored."
+                        : "No items found in this section."}
                 </div>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
@@ -435,6 +613,8 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         const isFavorite = favorites.has(item.remoteUrl);
                         const isSelected = selectedIds.has(item.id);
                         const showMenu = openMenuItemId === item.id;
+                        const sourceLabel = getSourceLabel(item);
+                        const openSourceLabel = getOpenSourceLabel(item);
 
                         return (
                             <motion.div
@@ -460,32 +640,51 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     }
                                 }}
                                 className={cn(
-                                    "group relative aspect-square rounded-[24px] overflow-hidden bg-muted border border-border/50 hover:shadow-2xl hover:shadow-primary/5 transition-all text-left outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                    "group relative aspect-square rounded-[24px] bg-muted border border-border/50 hover:shadow-2xl hover:shadow-primary/5 transition-all text-left outline-none focus-visible:ring-2 focus-visible:ring-primary overflow-visible",
                                     isSelected && "ring-2 ring-primary border-primary/50"
                                 )}
                             >
-                                <div className="absolute inset-0 z-0">
-                                    {item.attachment.kind === "image" ? (
-                                        <VaultImageTile item={item} />
-                                    ) : item.attachment.kind === "video" ? (
-                                        <VaultVideoTile item={item} />
-                                    ) : item.attachment.kind === "audio" ? (
-                                        <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/5 transition-colors group-hover:bg-emerald-500/10">
-                                            <Music2 className="h-8 w-8 text-emerald-500/50" />
-                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/50 mt-2">AUDIO</span>
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center bg-amber-500/5 transition-colors group-hover:bg-amber-500/10 text-center p-4">
-                                            <FileIcon className="h-8 w-8 text-amber-500/50" />
-                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/50 mt-2">
-                                                {isPdfAttachment(item.attachment) ? "PDF" : "OTHER"}
-                                            </span>
-                                        </div>
-                                    )}
+                                <div className="absolute inset-0 overflow-hidden rounded-[24px]">
+                                    <div className="absolute inset-0 z-0">
+                                        {item.attachment.kind === "image" ? (
+                                            <VaultImageTile item={item} />
+                                        ) : item.attachment.kind === "video" ? (
+                                            <VaultVideoTile item={item} />
+                                        ) : item.attachment.kind === "audio" ? (
+                                            <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/5 transition-colors group-hover:bg-emerald-500/10">
+                                                <Music2 className="h-8 w-8 text-emerald-500/50" />
+                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/50 mt-2">AUDIO</span>
+                                            </div>
+                                        ) : (
+                                            <div className="w-full h-full flex flex-col items-center justify-center bg-amber-500/5 transition-colors group-hover:bg-amber-500/10 text-center p-4">
+                                                <FileIcon className="h-8 w-8 text-amber-500/50" />
+                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/50 mt-2">
+                                                    {isPdfAttachment(item.attachment) ? "PDF" : "OTHER"}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-5">
+                                        <div className="text-[10px] text-white font-black truncate drop-shadow-lg">{item.attachment.fileName}</div>
+                                        <div className="text-[9px] text-white/50 font-medium">{item.timestamp.toLocaleDateString()}</div>
+                                    </div>
                                 </div>
 
-                                <div className="absolute top-3 left-3 rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-widest bg-black/60 text-white backdrop-blur-md border border-white/5 z-10">
-                                    {item.isLocalCached ? "Local" : "Remote"}
+                                <div className="absolute left-3 top-3 z-10 flex max-w-[70%] flex-col gap-1.5">
+                                    <div className="rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-widest bg-black/60 text-white backdrop-blur-md border border-white/5">
+                                        {item.isLocalCached ? "Local" : "Remote"}
+                                    </div>
+                                    {item.sourceConversationId ? (
+                                        <div
+                                            className="rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-widest bg-white/88 text-zinc-900 backdrop-blur-md border border-white/40"
+                                            aria-label={t("vault.origin.badgeAria", "Source: {{label}}", { label: sourceLabel })}
+                                        >
+                                            {sourceLabel}
+                                        </div>
+                                    ) : (
+                                        null
+                                    )}
                                 </div>
 
                                 {isFavorite && (
@@ -517,6 +716,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 e.stopPropagation();
                                                 setOpenMenuItemId(prev => prev === item.id ? null : item.id);
                                             }}
+                                            aria-label={`Vault item actions for ${item.attachment.fileName}`}
                                             className="h-9 w-9 rounded-xl bg-black/40 text-white flex items-center justify-center backdrop-blur-md border border-white/5 hover:bg-black/60 transition-colors"
                                         >
                                             <MoreVertical className="h-4 w-4" />
@@ -533,19 +733,37 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                     <Star className={cn("h-3.5 w-3.5", isFavorite && "fill-current text-amber-400")} />
                                                     {isFavorite ? "Unfavorite" : "Favorite"}
                                                 </button>
-                                                <button
-                                                    onClick={() => { handleHideItem(item.id); setOpenMenuItemId(null); }}
-                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
-                                                >
-                                                    <EyeOff className="h-3.5 w-3.5" />
-                                                    Hide
-                                                </button>
+                                                {hiddenIds.has(item.id) ? (
+                                                    <button
+                                                        onClick={() => { handleRestoreItem(item.id); setOpenMenuItemId(null); }}
+                                                        className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                    >
+                                                        <EyeOff className="h-3.5 w-3.5" />
+                                                        Restore
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => { handleHideItem(item.id); setOpenMenuItemId(null); }}
+                                                        className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                    >
+                                                        <EyeOff className="h-3.5 w-3.5" />
+                                                        Hide
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => { setSelectionMode(true); setSelected(item.id, true); setOpenMenuItemId(null); }}
                                                     className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
                                                 >
                                                     <CheckSquare className="h-3.5 w-3.5" />
                                                     Select
+                                                </button>
+                                                <button
+                                                    onClick={() => { openSourceConversation(item); setOpenMenuItemId(null); }}
+                                                    disabled={!item.sourceConversationId}
+                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 disabled:opacity-30 transition-colors flex items-center gap-2"
+                                                >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                    {openSourceLabel}
                                                 </button>
                                                 <div className="h-px bg-zinc-200 my-1 mx-2" />
                                                 <button
@@ -561,10 +779,6 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     </div>
                                 )}
 
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-5">
-                                    <div className="text-[10px] text-white font-black truncate drop-shadow-lg">{item.attachment.fileName}</div>
-                                    <div className="text-[9px] text-white/50 font-medium">{item.timestamp.toLocaleDateString()}</div>
-                                </div>
                             </motion.div>
                         );
                     })}
@@ -630,12 +844,12 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3">
                                         <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                                        <h3 className="text-xl font-black text-white tracking-tight truncate max-w-md md:max-w-xl">
+                                        <h3 className="max-w-md truncate text-xl font-black tracking-tight text-zinc-950 md:max-w-xl dark:text-white">
                                             {selectedItem.attachment.fileName}
                                         </h3>
                                     </div>
-                                    <p className="text-[10px] text-white/40 font-black tracking-[0.3em] uppercase ml-5">
-                                        {selectedItem.isLocalCached ? "Locally Synchronized" : "Decentralized Relay"} - {selectedItem.timestamp.toLocaleString()}
+                                    <p className="ml-5 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 dark:text-white/40">
+                                        {selectedItem.isLocalCached ? "Locally Synchronized" : "Decentralized Relay"} - {getSourceDescription(selectedItem)} - {selectedItem.timestamp.toLocaleString()}
                                     </p>
                                 </div>
                                 <button
@@ -664,9 +878,24 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.2 }}
-                                className="flex justify-center pt-8 w-full z-10"
+                                className="flex w-full flex-col items-center gap-3 pt-8 z-10"
                             >
+                                {selectedItem.sourceConversationId ? (
+                                    <div className="rounded-full border border-zinc-300/70 bg-white/78 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-700 shadow-lg backdrop-blur-2xl dark:border-white/15 dark:bg-black/35 dark:text-white/70">
+                                        {getSourceDescription(selectedItem)}
+                                    </div>
+                                ) : null}
                                 <div className="flex items-center gap-2 rounded-[32px] border border-zinc-300/70 dark:border-white/20 bg-white/90 dark:bg-black/55 p-2 backdrop-blur-3xl shadow-2xl">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => openSourceConversation(selectedItem)}
+                                        disabled={!selectedItem.sourceConversationId}
+                                        className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30"
+                                    >
+                                        <ExternalLink className="h-4 w-4 mr-3" />
+                                        {getOpenSourceLabel(selectedItem)}
+                                    </Button>
+                                    <div className="mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20" />
                                     <Button
                                         variant="ghost"
                                         onClick={() => window.open(selectedItem.remoteUrl, "_blank")}
@@ -806,12 +1035,12 @@ function VaultVideoTile({ item }: { item: VaultMediaItem }) {
 
 function MediaUnavailableStage(props: Readonly<{ icon: React.ReactNode; title: string; note: string }>) {
     return (
-        <div className="w-full max-w-xl bg-white/5 backdrop-blur-3xl rounded-[40px] p-10 border border-white/10 shadow-2xl flex flex-col items-center text-center">
-            <div className="h-24 w-24 rounded-[28px] bg-white/5 border border-white/10 flex items-center justify-center mb-6">
+        <div className="flex w-full max-w-xl flex-col items-center rounded-[40px] border border-zinc-300/55 bg-white/72 p-10 text-center shadow-2xl backdrop-blur-3xl dark:border-white/10 dark:bg-white/5">
+            <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] border border-zinc-300/60 bg-white/70 dark:border-white/10 dark:bg-white/5">
                 {props.icon}
             </div>
-            <div className="text-lg font-black text-white">{props.title}</div>
-            <div className="text-xs text-white/60 mt-2">{props.note}</div>
+            <div className="text-lg font-black text-zinc-900 dark:text-white">{props.title}</div>
+            <div className="mt-2 text-xs text-zinc-600 dark:text-white/60">{props.note}</div>
         </div>
     );
 }
@@ -834,13 +1063,13 @@ function MediaStage({ item }: { item: VaultMediaItem }) {
     }
 
     return (
-        <div className="w-full max-w-md bg-white/5 backdrop-blur-3xl rounded-[48px] p-12 border border-white/10 flex flex-col items-center text-center space-y-10 shadow-2xl">
+        <div className="flex w-full max-w-md flex-col items-center space-y-10 rounded-[48px] border border-zinc-300/55 bg-white/72 p-12 text-center shadow-2xl backdrop-blur-3xl dark:border-white/10 dark:bg-white/5">
             <div className="h-32 w-32 rounded-[40px] bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center border border-amber-500/20 shadow-inner">
                 <FileText className="h-16 w-16 text-amber-500" />
             </div>
             <div className="space-y-3">
-                <h4 className="text-2xl font-black text-white">{item.attachment.fileName}</h4>
-                <p className="text-[11px] text-white/30 uppercase tracking-[0.3em] font-black">{item.attachment.contentType || "Binary Asset"}</p>
+                <h4 className="text-2xl font-black text-zinc-900 dark:text-white">{item.attachment.fileName}</h4>
+                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500 dark:text-white/30">{item.attachment.contentType || "Binary Asset"}</p>
             </div>
             <Button
                 onClick={() => window.open(item.attachment.url, "_blank")}
@@ -1116,13 +1345,13 @@ function AudioStage({
     }
 
     return (
-        <div className="w-full max-w-xl bg-white/5 backdrop-blur-3xl rounded-[48px] p-12 border border-white/10 shadow-2xl flex flex-col items-center">
+        <div className="flex w-full max-w-xl flex-col items-center rounded-[48px] border border-zinc-300/55 bg-white/72 p-12 shadow-2xl backdrop-blur-3xl dark:border-white/10 dark:bg-white/5">
             <div className="h-32 w-32 rounded-[40px] bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center border border-emerald-500/20 mb-8 shadow-inner">
                 <Music2 className="h-16 w-16 text-emerald-400" />
             </div>
             <div className="text-center mb-10 space-y-2">
-                <div className="text-xl font-black text-white">{fileName}</div>
-                <div className="text-[10px] text-white/30 font-black tracking-widest uppercase italic tracking-[0.3em]">HIFI-AUDIO.DAT</div>
+                <div className="text-xl font-black text-zinc-900 dark:text-white">{fileName}</div>
+                <div className="text-[10px] font-black uppercase italic tracking-[0.3em] text-zinc-500 dark:text-white/30">HIFI-AUDIO.DAT</div>
             </div>
             <audio src={currentUrl} controls className="w-full" onError={handleAudioError} />
         </div>

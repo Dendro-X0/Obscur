@@ -1,5 +1,36 @@
 ## [Unreleased]
 
+## [v1.3.12] - 2026-04-10
+
+### Fixed
+
+- Hardened cross-device DM history convergence for fresh-device login and
+  restore:
+  - encrypted backup payloads now carry durable DM delete tombstones,
+  - local DM deletion now removes matching message identities from the
+    canonical `chatState` owner path instead of only from the transient/live
+    message store,
+  - local DM deletion now appends canonical `DM_REMOVED_LOCALLY` account
+    events so projection replay subtracts deleted rows instead of only
+    replaying adds,
+  - incoming relay replay now suppresses tombstoned message ids before
+    persistence and projection append,
+  - backup/bootstrap replay now imports canonical DM removal events from
+    durable tombstones,
+  - fresh-device backup restore no longer needs a page refresh to keep tombstoned
+    incoming DM rows suppressed across backup restore, chat-state restore,
+    projection replay, and live relay catch-up.
+- Restored legitimate incoming DM history on new-device login after the above
+  privacy hardening:
+  - backup projection fallback can again recover valid incoming history for
+    sparse restores,
+  - later canonical DM removal events still prevent those recovered rows from
+    resurfacing if they were locally deleted.
+- Improved metadata hydration after restore:
+  - DM sidebar conversation rows now use live profile metadata resolution,
+  - in-chat sender labels now refresh without a manual page reload when
+    usernames/avatars become available after restore.
+
 ## [v1.3.11] - 2026-04-09
 
 ### Fixed

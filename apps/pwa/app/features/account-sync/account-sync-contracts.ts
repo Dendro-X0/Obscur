@@ -19,6 +19,8 @@ export type AccountSyncBackupPublishReason =
   | "visible"
   | "pagehide"
   | "mutation"
+  | "dm_history_changed"
+  | "message_delete_tombstones_changed"
   | "community_membership_changed";
 
 export type AccountSyncBackupRestoreReason =
@@ -107,6 +109,11 @@ export type RoomKeySnapshot = Readonly<{
   createdAt: number;
 }>;
 
+export type MessageDeleteTombstoneSnapshotEntry = Readonly<{
+  id: string;
+  deletedAtUnixMs: number;
+}>;
+
 export type EncryptedAccountBackupPayload = Readonly<{
   version: 1;
   publicKeyHex: PublicKeyHex;
@@ -119,6 +126,7 @@ export type EncryptedAccountBackupPayload = Readonly<{
   syncCheckpoints: SyncCheckpointSnapshot;
   communityMembershipLedger?: ReadonlyArray<CommunityMembershipLedgerEntry>;
   roomKeys?: ReadonlyArray<RoomKeySnapshot>;
+  messageDeleteTombstones?: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry>;
   chatState: PersistedChatState | null;
   privacySettings: PrivacySettings;
   relayList: RelayListSnapshot;

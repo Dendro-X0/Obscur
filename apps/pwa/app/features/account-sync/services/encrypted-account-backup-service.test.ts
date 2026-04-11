@@ -22,6 +22,10 @@ import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
 import { accountEventStore } from "./account-event-store";
 import { loadCommunityMembershipLedger, saveCommunityMembershipLedger } from "@/app/features/groups/services/community-membership-ledger";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
+import {
+  loadMessageDeleteTombstoneEntries,
+  replaceMessageDeleteTombstones,
+} from "@/app/features/messaging/services/message-delete-tombstone-store";
 
 vi.mock("@/app/features/crypto/crypto-service", () => ({
   cryptoService: {
@@ -125,6 +129,60 @@ describe("encryptedAccountBackupService", () => {
       expect.objectContaining({ timelineKey: "dm:test", lastProcessedAtUnixSeconds: 777 }),
     ]);
     expect(payload.relayList).toEqual([{ url: "wss://relay.example", enabled: true }]);
+  });
+
+  it("includes durable delete tombstones in backup payload and filters matching stale rows", () => {
+    const nowMs = Date.now();
+    replaceMessageDeleteTombstones([
+      { id: "deleted-canonical-event", deletedAtUnixMs: nowMs - 1_000 },
+      { id: "deleted-local-row", deletedAtUnixMs: nowMs - 1_000 },
+    ], nowMs);
+    chatStateStoreService.replace(publicKeyHex, {
+      version: 2,
+      createdConnections: [{
+        id: "dm:peer",
+        displayName: "Peer",
+        pubkey: acceptedPeerPublicKeyHex,
+        lastMessage: "keep me",
+        unreadCount: 0,
+        lastMessageTimeMs: 8_000,
+      }],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {
+        "dm:peer": [{
+          id: "deleted-local-row",
+          eventId: "deleted-canonical-event",
+          content: "{\"type\":\"voice-call-invite\",\"version\":1}",
+          timestampMs: 7_500,
+          isOutgoing: true,
+          status: "delivered",
+          pubkey: publicKeyHex,
+        }, {
+          id: "keep-row",
+          content: "keep me",
+          timestampMs: 8_000,
+          isOutgoing: false,
+          status: "delivered",
+          pubkey: acceptedPeerPublicKeyHex,
+        }],
+      },
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    }, { emitMutationSignal: false });
+
+    const payload = encryptedAccountBackupService.buildBackupPayload(publicKeyHex);
+
+    expect(payload.messageDeleteTombstones).toEqual(expect.arrayContaining([
+      { id: "deleted-canonical-event", deletedAtUnixMs: nowMs - 1_000 },
+      { id: "deleted-local-row", deletedAtUnixMs: nowMs - 1_000 },
+    ]));
+    expect(payload.chatState?.messagesByConversationId["dm:peer"]).toEqual([
+      expect.objectContaining({ id: "keep-row" }),
+    ]);
   });
 
   it("exports and imports a portable account bundle via canonical append path", async () => {
@@ -1910,6 +1968,87 @@ describe("encryptedAccountBackupService", () => {
     ]));
   });
 
+  it("keeps stale deleted call-log rows suppressed when restore only has durable tombstone evidence", async () => {
+    const nowMs = Date.now();
+    const conversationId = "dm:deleted-call-thread";
+    replaceMessageDeleteTombstones([
+      { id: "evt-deleted-call", deletedAtUnixMs: nowMs - 2_000 },
+    ], nowMs);
+
+    const mergedPayload = await encryptedAccountBackupServiceInternals.mergeIncomingRestorePayload(publicKeyHex, {
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: nowMs - 1_000,
+      profile: {
+        username: "Recovered",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: { acceptedPeers: [acceptedPeerPublicKeyHex], mutedPeers: [] },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      chatState: {
+        version: 2,
+        createdConnections: [{
+          id: conversationId,
+          displayName: "Peer",
+          pubkey: acceptedPeerPublicKeyHex,
+          lastMessage: "surviving text",
+          unreadCount: 0,
+          lastMessageTimeMs: nowMs - 800,
+        }],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          [conversationId]: [{
+            id: "legacy-call-row",
+            eventId: "evt-deleted-call",
+            content: "{\"type\":\"voice-call-invite\",\"version\":1,\"roomId\":\"ghost-room\"}",
+            timestampMs: nowMs - 900,
+            isOutgoing: true,
+            status: "delivered",
+            pubkey: publicKeyHex,
+          }, {
+            id: "surviving-row",
+            content: "surviving text",
+            timestampMs: nowMs - 800,
+            isOutgoing: false,
+            status: "delivered",
+            pubkey: acceptedPeerPublicKeyHex,
+          }],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: [],
+    });
+
+    expect(mergedPayload.messageDeleteTombstones).toEqual(expect.arrayContaining([
+      { id: "evt-deleted-call", deletedAtUnixMs: nowMs - 2_000 },
+    ]));
+    expect(mergedPayload.chatState?.messagesByConversationId[conversationId]).toEqual([
+      expect.objectContaining({ id: "surviving-row" }),
+    ]);
+
+    await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, mergedPayload, "default", {
+      restoreChatStateDomains: true,
+    });
+
+    expect(chatStateStoreService.load(publicKeyHex)?.messagesByConversationId[conversationId]).toEqual([
+      expect.objectContaining({ id: "surviving-row" }),
+    ]);
+    expect(loadMessageDeleteTombstoneEntries(nowMs + 1)).toEqual(expect.arrayContaining([
+      { id: "evt-deleted-call", deletedAtUnixMs: nowMs - 2_000 },
+    ]));
+  });
+
   it("deduplicates persisted DM messages by canonical eventId during restore merge", () => {
     const mergedMessages = encryptedAccountBackupServiceInternals.mergePersistedMessages(
       [{
@@ -2978,6 +3117,10 @@ describe("encryptedAccountBackupService", () => {
         isOutgoing: true,
         pubkey: publicKeyHex,
       }),
+      expect.objectContaining({
+        id: "indexed-inbound-only",
+        isOutgoing: false,
+      }),
     ]));
 
     hydrateSpy.mockRestore();
@@ -3085,6 +3228,116 @@ describe("encryptedAccountBackupService", () => {
       expect.objectContaining({
         id: "projection2-in-1",
         isOutgoing: false,
+      }),
+    ]));
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+    accountEventsSpy.mockRestore();
+    PrivacySettingsService.saveSettings(currentSettings);
+  });
+
+  it("does not re-add incoming projection history when a later canonical removal event exists", async () => {
+    const currentSettings = PrivacySettingsService.getSettings();
+    PrivacySettingsService.saveSettings({
+      ...currentSettings,
+      accountSyncConvergenceV091: false,
+    });
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([
+      {
+        id: "indexed-projection3-inbound-only",
+        conversationId: "projection-thread-3",
+        senderPubkey: acceptedPeerPublicKeyHex,
+        recipientPubkey: publicKeyHex,
+        content: "indexed inbound",
+        isOutgoing: false,
+        status: "delivered",
+        timestampMs: 40_000,
+        ownerPubkey: publicKeyHex,
+      },
+    ] as any);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+    const accountEventsSpy = vi.spyOn(accountEventStore, "loadEvents").mockResolvedValue([
+      {
+        sequence: 1,
+        event: {
+          type: "DM_RECEIVED",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "relay_sync",
+          observedAtUnixMs: 41_000,
+          eventId: "projection3-in-1",
+          idempotencyKey: "projection3-in-1",
+          peerPublicKeyHex: acceptedPeerPublicKeyHex,
+          conversationId: "projection-thread-3",
+          messageId: "projection3-in-1",
+          eventCreatedAtUnixSeconds: 41,
+          plaintextPreview: "projection inbound",
+        },
+      },
+      {
+        sequence: 2,
+        event: {
+          type: "DM_REMOVED_LOCALLY",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "legacy_bridge",
+          observedAtUnixMs: 42_000,
+          eventId: "DM_REMOVED_LOCALLY:projection3-in-1",
+          idempotencyKey: "DM_REMOVED_LOCALLY:projection3-in-1",
+          conversationId: "projection-thread-3",
+          messageId: "projection3-in-1",
+        },
+      },
+      {
+        sequence: 3,
+        event: {
+          type: "DM_SENT_CONFIRMED",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "legacy_bridge",
+          observedAtUnixMs: 43_000,
+          eventId: "projection3-out-1",
+          idempotencyKey: "projection3-out-1",
+          peerPublicKeyHex: acceptedPeerPublicKeyHex,
+          conversationId: "projection-thread-3",
+          messageId: "projection3-out-1",
+          eventCreatedAtUnixSeconds: 43,
+          plaintextPreview: "projection outbound",
+        },
+      },
+    ] as any);
+
+    const payload = await encryptedAccountBackupServiceInternals.buildBackupPayloadWithHydratedChatState(publicKeyHex);
+
+    expect(payload.chatState?.messagesByConversationId["projection-thread-3"]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "indexed-projection3-inbound-only",
+        isOutgoing: false,
+      }),
+      expect.objectContaining({
+        id: "projection3-out-1",
+        isOutgoing: true,
+      }),
+    ]));
+    expect(payload.chatState?.messagesByConversationId["projection-thread-3"]).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "projection3-in-1",
       }),
     ]));
 

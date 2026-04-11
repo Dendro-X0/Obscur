@@ -9,6 +9,7 @@ export type AccountEventType =
   | "CONTACT_REMOVED"
   | "DM_RECEIVED"
   | "DM_SENT_CONFIRMED"
+  | "DM_REMOVED_LOCALLY"
   | "DM_DECRYPT_FAILED_QUARANTINED"
   | "SYNC_CHECKPOINT_ADVANCED"
   | "BOOTSTRAP_IMPORT_APPLIED";
@@ -91,6 +92,12 @@ export type DmSentConfirmedEvent = AccountEventBase & Readonly<{
   plaintextPreview: string;
 }>;
 
+export type DmRemovedLocallyEvent = AccountEventBase & Readonly<{
+  type: "DM_REMOVED_LOCALLY";
+  messageId: string;
+  conversationId?: string;
+}>;
+
 export type DmDecryptFailedQuarantinedEvent = AccountEventBase & Readonly<{
   type: "DM_DECRYPT_FAILED_QUARANTINED";
   peerPublicKeyHex: PublicKeyHex;
@@ -119,6 +126,7 @@ export type AccountEvent =
   | ContactRemovedEvent
   | DmReceivedEvent
   | DmSentConfirmedEvent
+  | DmRemovedLocallyEvent
   | DmDecryptFailedQuarantinedEvent
   | SyncCheckpointAdvancedEvent
   | BootstrapImportAppliedEvent;
@@ -168,6 +176,7 @@ export type AccountProjectionSnapshot = Readonly<{
   contactsByPeer: Readonly<Record<string, ContactProjection>>;
   conversationsById: Readonly<Record<string, ConversationProjection>>;
   messagesByConversationId: Readonly<Record<string, ReadonlyArray<MessageProjection>>>;
+  removedMessageIds?: Readonly<Record<string, number>>;
   sync: SyncProjection;
   lastSequence: number;
   updatedAtUnixMs: number;
