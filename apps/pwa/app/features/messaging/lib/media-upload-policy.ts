@@ -15,6 +15,14 @@ export const MEDIA_COMPRESSION_TARGETS = {
     videoCompressAboveBytes: 10 * 1024 * 1024,
 } as const;
 
+export const MEDIA_RUNTIME_SAFETY_LIMITS = {
+    imagePreprocessBytes: 24 * 1024 * 1024,
+    videoPreprocessBytes: 64 * 1024 * 1024,
+    nativeDirectUploadBytes: 160 * 1024 * 1024,
+    inMemorySentCacheBytes: 16 * 1024 * 1024,
+    pendingAttachmentBatchBytes: 384 * 1024 * 1024,
+} as const;
+
 export const BEST_EFFORT_STORAGE_NOTE =
     "Uploads use public NIP-96 providers (best effort). For important files, use a smaller file or paste an external link.";
 
@@ -55,4 +63,41 @@ export const shouldCompressByPolicy = (file: File): boolean => {
     if (kind === "image") return file.size > MEDIA_COMPRESSION_TARGETS.imageCompressAboveBytes;
     if (kind === "video") return file.size > MEDIA_COMPRESSION_TARGETS.videoCompressAboveBytes;
     return false;
+};
+
+export const shouldSkipPreprocessForRuntimeSafety = (file: File): boolean => {
+    const kind = getMediaKindForPolicy(file);
+    if (kind === "image") {
+        return file.size > MEDIA_RUNTIME_SAFETY_LIMITS.imagePreprocessBytes;
+    }
+    if (kind === "video") {
+        return file.size > MEDIA_RUNTIME_SAFETY_LIMITS.videoPreprocessBytes;
+    }
+    return false;
+};
+
+export const shouldPreferBrowserUploadForRuntimeSafety = (file: File, isNativeRuntime: boolean): boolean => {
+    if (!isNativeRuntime) {
+        return false;
+    }
+    const kind = getMediaKindForPolicy(file);
+    return (
+        (kind === "video" || kind === "audio" || kind === "file")
+        && file.size > MEDIA_RUNTIME_SAFETY_LIMITS.nativeDirectUploadBytes
+    );
+};
+
+export const shouldAvoidInMemoryAttachmentCaching = (file: File): boolean => (
+    file.size > MEDIA_RUNTIME_SAFETY_LIMITS.inMemorySentCacheBytes
+);
+
+export const validateAttachmentBatchForRuntimeSafety = (
+    files: ReadonlyArray<File>,
+    currentPendingFiles: ReadonlyArray<File> = [],
+): string | null => {
+    const totalBytes = [...currentPendingFiles, ...files].reduce((sum, file) => sum + file.size, 0);
+    if (totalBytes <= MEDIA_RUNTIME_SAFETY_LIMITS.pendingAttachmentBatchBytes) {
+        return null;
+    }
+    return `Selected attachments exceed ${formatMb(MEDIA_RUNTIME_SAFETY_LIMITS.pendingAttachmentBatchBytes)} total. For stability, send fewer or smaller files at once. ${BEST_EFFORT_STORAGE_NOTE}`;
 };

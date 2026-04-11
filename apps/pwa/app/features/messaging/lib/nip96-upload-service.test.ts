@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Nip96UploadService, nip96UploadInternals } from "./nip96-upload-service";
 import { UploadError, UploadErrorCode } from "../types";
+import { MEDIA_RUNTIME_SAFETY_LIMITS } from "./media-upload-policy";
 
 describe("nip96-upload-service internals", () => {
   afterEach(() => {
@@ -60,5 +61,39 @@ describe("nip96-upload-service internals", () => {
     await vi.advanceTimersByTimeAsync(nip96UploadInternals.wellKnownDiscoveryTimeoutMs + 200);
     await expect(resolvePromise).resolves.toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers browser upload for oversized native files to avoid byte-buffer pressure", async () => {
+    const service = new Nip96UploadService(["https://upload.example"], null, null);
+    const uploadViaBrowser = vi.fn(async () => ({
+      kind: "video" as const,
+      url: "https://upload.example/video.mp4",
+      contentType: "video/mp4",
+      fileName: "large-video.mp4",
+    }));
+    const uploadViaTauri = vi.fn(async () => ({
+      kind: "video" as const,
+      url: "https://upload.example/video.mp4",
+      contentType: "video/mp4",
+      fileName: "large-video.mp4",
+    }));
+
+    (service as any).isTauri = () => true;
+    (service as any).resolveFallbackPrivateKeyHex = vi.fn(async () => "f".repeat(64));
+    (service as any).uploadViaBrowser = uploadViaBrowser;
+    (service as any).uploadViaTauri = uploadViaTauri;
+    (service as any).withTimeout = async (promise: Promise<unknown>) => await promise;
+
+    const file = new File(
+      [new Uint8Array(MEDIA_RUNTIME_SAFETY_LIMITS.nativeDirectUploadBytes + 1)],
+      "large-video.mp4",
+      { type: "video/mp4" }
+    );
+
+    const attachment = await service.uploadFile(file);
+
+    expect(uploadViaBrowser).toHaveBeenCalledTimes(1);
+    expect(uploadViaTauri).not.toHaveBeenCalled();
+    expect(attachment.url).toBe("https://upload.example/video.mp4");
   });
 });

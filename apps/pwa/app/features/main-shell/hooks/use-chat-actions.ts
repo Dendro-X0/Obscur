@@ -12,7 +12,10 @@ import { GroupService } from "@/app/features/groups/services/group-service";
 import { useUploadService } from "../../messaging/lib/upload-service";
 import { messageBus } from "../../messaging/services/message-bus";
 import { chatStateStoreService } from "../../messaging/services/chat-state-store";
-import { BEST_EFFORT_STORAGE_NOTE } from "../../messaging/lib/media-upload-policy";
+import {
+    BEST_EFFORT_STORAGE_NOTE,
+    shouldAvoidInMemoryAttachmentCaching,
+} from "../../messaging/lib/media-upload-policy";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-storage-policy";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
@@ -290,7 +293,9 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                     try {
                         const uploaded = await uploadService.uploadFile(file);
                         attachments.push(uploaded);
-                        fileBytesMap.set(uploaded.url, new Uint8Array(await file.arrayBuffer()));
+                        if (!shouldAvoidInMemoryAttachmentCaching(file)) {
+                            fileBytesMap.set(uploaded.url, new Uint8Array(await file.arrayBuffer()));
+                        }
                     } catch (error) {
                         const uploadError = error instanceof UploadError
                             ? error

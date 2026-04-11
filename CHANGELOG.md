@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+### Changed
+
+- Added runtime-safe large media upload guardrails:
+  - attachment selection now rejects oversized batches before local processing
+    begins,
+  - browser-side image/video preprocessing is skipped above bounded
+    stability budgets to reduce RAM/disk spikes,
+  - oversized desktop/native uploads now prefer the browser upload path instead
+    of the byte-buffer-heavy native path when possible,
+  - sent-file local caching now skips in-memory byte duplication for large
+    attachments to reduce post-upload memory pressure.
+
 ## [v1.3.12] - 2026-04-10
 
 ### Fixed

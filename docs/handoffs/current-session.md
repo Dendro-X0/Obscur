@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-11T08:52:59Z
+- Last Updated (UTC): 2026-04-11T14:32:02Z
 - Session Status: in-progress
 - Active Owner: Messaging late-restore backup hydration recovery
 
@@ -213,7 +213,8 @@ Finish the late-restore recovery slice so backup-restored contacts and conversat
 
 ## Next Atomic Step
 
-Install the production desktop artifact at apps/desktop/src-tauri/target/release/bundle/nsis/Obscur_1.3.12_x64-setup.exe, run fresh-device A/B sanity replays against the packaged build, then commit/tag/push v1.3.12 if runtime behavior matches the latest production artifact.
+Manually test production and dev builds with large media files near and above the new safety budgets: verify oversized selections fail early with a clear message instead of hanging/crashing, mid-sized videos still attach/upload, and large successful uploads no longer spike memory as sharply during post-upload sent-file caching. If needed after runtime replay, tune the native-direct-upload and preprocess budgets.
+
 
 
 
@@ -997,4 +998,9 @@ Keep edits scoped to that step and update docs/handoffs/current-session.md befor
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Install the production desktop artifact at apps/desktop/src-tauri/target/release/bundle/nsis/Obscur_1.3.12_x64-setup.exe, run fresh-device A/B sanity replays against the packaged build, then commit/tag/push v1.3.12 if runtime behavior matches the latest production artifact.
+### 2026-04-11T14:32:02Z checkpoint
+- Summary: Added runtime-safe large media upload guardrails. Attachment selection now rejects oversized batches before processing, skips heavyweight image/video preprocessing above bounded safety budgets, native/Tauri uploads prefer the browser upload path for oversized files to avoid arrayBuffer byte-buffer pressure, and sent-file caching skips in-memory byte duplication for large attachments. Focused upload/media suites and apps/pwa typecheck pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manually test production and dev builds with large media files near and above the new safety budgets: verify oversized selections fail early with a clear message instead of hanging/crashing, mid-sized videos still attach/upload, and large successful uploads no longer spike memory as sharply during post-upload sent-file caching. If needed after runtime replay, tune the native-direct-upload and preprocess budgets.
 <!-- CONTEXT_CHECKPOINTS_END -->

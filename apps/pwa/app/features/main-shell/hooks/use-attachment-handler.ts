@@ -10,6 +10,8 @@ import {
 import {
     BEST_EFFORT_STORAGE_NOTE,
     shouldCompressByPolicy,
+    shouldSkipPreprocessForRuntimeSafety,
+    validateAttachmentBatchForRuntimeSafety,
     validateMediaFileForBestEffortUpload
 } from "../../messaging/lib/media-upload-policy";
 
@@ -47,6 +49,7 @@ const createPerFileProgress = (params: Readonly<{
  */
 export function useAttachmentHandler() {
     const {
+        pendingAttachments,
         setPendingAttachments,
         setPendingAttachmentPreviewUrls,
         pendingAttachmentPreviewUrls,
@@ -130,6 +133,11 @@ export function useAttachmentHandler() {
 
     const handleFilesSelected = useCallback(async (files: FileList | File[]) => {
         const fileList = Array.from(files);
+        const batchValidationError = validateAttachmentBatchForRuntimeSafety(fileList, pendingAttachments);
+        if (batchValidationError) {
+            setAttachmentError(batchValidationError);
+            return;
+        }
 
         const processedFiles: File[] = [];
         const newPreviewUrls: string[] = [];
@@ -155,7 +163,7 @@ export function useAttachmentHandler() {
 
                 let previewUrl = URL.createObjectURL(file);
 
-                if (shouldCompressByPolicy(file)) {
+                if (shouldCompressByPolicy(file) && !shouldSkipPreprocessForRuntimeSafety(file)) {
                     if (file.type.startsWith("image/")) {
                         const originalUrl = previewUrl;
                         file = await compressImage(file);
@@ -224,6 +232,7 @@ export function useAttachmentHandler() {
             setMediaProcessingProgress(0);
         }
     }, [
+        pendingAttachments,
         publishProcessingProgress,
         setPendingAttachments,
         setPendingAttachmentPreviewUrls,

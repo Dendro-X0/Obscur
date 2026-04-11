@@ -3,6 +3,7 @@ import { UploadService, getAttachmentKind, getMimeType } from "./upload-service"
 import { compressImage } from "./media-processor";
 import {
     BEST_EFFORT_STORAGE_NOTE,
+    shouldPreferBrowserUploadForRuntimeSafety,
     shouldCompressByPolicy,
     validateMediaFileForBestEffortUpload
 } from "./media-upload-policy";
@@ -429,6 +430,7 @@ export class Nip96UploadService implements UploadService {
 
         let uploadFile = file;
         const kind = getAttachmentKind(uploadFile);
+        const preferBrowserForRuntimeSafety = shouldPreferBrowserUploadForRuntimeSafety(uploadFile, this.isTauri());
         if (kind === "image" && shouldCompressByPolicy(uploadFile)) {
             uploadFile = await compressImage(uploadFile);
         }
@@ -477,7 +479,25 @@ export class Nip96UploadService implements UploadService {
             try {
                 let attachment: Attachment;
                 if (this.isTauri()) {
-                    if (this.shouldPreferBrowserPathInDev()) {
+                    if (preferBrowserForRuntimeSafety) {
+                        const browserKey = await this.resolveFallbackPrivateKeyHex();
+                        if (!browserKey) {
+                            throw new UploadError(
+                                UploadErrorCode.FILE_TOO_LARGE,
+                                `${uploadFile.name} is too large for the native upload path on this runtime. Use a smaller file or external link. ${BEST_EFFORT_STORAGE_NOTE}`
+                            );
+                        }
+                        this.logTelemetry("upload.attempt", {
+                            providerUrl,
+                            path: "browser-runtime-safety",
+                            timeoutMs: BROWSER_PROVIDER_TIMEOUT_MS
+                        });
+                        attachment = await this.withTimeout(
+                            this.uploadViaBrowser(uploadFile, providerUrl, browserKey),
+                            BROWSER_PROVIDER_TIMEOUT_MS,
+                            `browser runtime-safe provider ${providerUrl}`
+                        );
+                    } else if (this.shouldPreferBrowserPathInDev()) {
                         this.logTelemetry("upload.attempt", {
                             providerUrl,
                             path: "browser-dev",
