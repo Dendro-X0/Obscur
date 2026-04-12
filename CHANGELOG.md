@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [v1.3.13] - 2026-04-11
+
 ### Changed
 
 - Added runtime-safe large media upload guardrails:

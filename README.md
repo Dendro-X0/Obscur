@@ -10,7 +10,7 @@ Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communica
 
 Project phase: pre-launch stabilization.
 
-Release prep status (`v1.3.12`):
+Release prep status (`v1.3.13`):
 
 - Cross-device DM history restore is significantly hardened for fresh-device login:
   - encrypted account backup now carries durable DM delete tombstones,
@@ -20,6 +20,11 @@ Release prep status (`v1.3.12`):
 - Fresh-device history restore now better preserves legitimate recent incoming DM history while still honoring tombstones for deleted rows.
 - Chat surfaces now update profile metadata more responsively after restore:
   - DM sidebar rows and sender labels no longer wait for a full page refresh before resolving usernames/avatars when live metadata becomes available.
+- Large media upload behavior is now bounded more explicitly for stability:
+  - oversized attachment batches fail early with a clear message,
+  - browser-side media preprocessing is skipped above safety budgets,
+  - large desktop/native uploads prefer a lower-memory browser upload path when possible,
+  - sent-file caching avoids duplicating very large file bytes in memory after upload.
 - The release remains a privacy-first hardening cut:
   - relay-side physical erasure is still not claimable on third-party append-only relays,
   - the client-side guarantee strengthened in this release is non-resurrection of deleted DM history across restore/replay owners.
