@@ -5,6 +5,7 @@ const isNonEmptyString = (value: unknown): value is string => {
 };
 
 const PROTOCOL_VERSION = "community-v2";
+const HASHED_COMMUNITY_ID_PATTERN = /^v2_[0-9a-f]{64}$/i;
 
 // Synchronous SHA-256 for deterministic ID derivation in both browser and test runtime.
 // Adapted from a minimal public-domain implementation.
@@ -106,6 +107,26 @@ export const deriveCommunityId = (params: Readonly<{
   }
   const relayUrl = normalizeRelayUrl(params.relayUrl);
   return `${params.groupId}:${relayUrl}`;
+};
+
+export const isHashedCommunityId = (communityId: string | null | undefined): boolean => {
+  const trimmed = communityId?.trim() ?? "";
+  return HASHED_COMMUNITY_ID_PATTERN.test(trimmed);
+};
+
+export const pickPreferredCommunityId = (
+  primaryCommunityId: string | null | undefined,
+  secondaryCommunityId: string | null | undefined,
+): string | undefined => {
+  const primary = primaryCommunityId?.trim() ?? "";
+  const secondary = secondaryCommunityId?.trim() ?? "";
+  if (isHashedCommunityId(primary) && !isHashedCommunityId(secondary)) {
+    return primary;
+  }
+  if (isHashedCommunityId(secondary) && !isHashedCommunityId(primary)) {
+    return secondary;
+  }
+  return primary || secondary || undefined;
 };
 
 export const toCommunityConversationId = (communityId: string): string => {

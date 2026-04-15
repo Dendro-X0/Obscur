@@ -21,6 +21,7 @@ export const MEDIA_RUNTIME_SAFETY_LIMITS = {
     nativeDirectUploadBytes: 160 * 1024 * 1024,
     inMemorySentCacheBytes: 16 * 1024 * 1024,
     pendingAttachmentBatchBytes: 384 * 1024 * 1024,
+    maxVideoAttachmentsPerMessage: 1,
 } as const;
 
 export const BEST_EFFORT_STORAGE_NOTE =
@@ -95,7 +96,12 @@ export const validateAttachmentBatchForRuntimeSafety = (
     files: ReadonlyArray<File>,
     currentPendingFiles: ReadonlyArray<File> = [],
 ): string | null => {
-    const totalBytes = [...currentPendingFiles, ...files].reduce((sum, file) => sum + file.size, 0);
+    const combinedFiles = [...currentPendingFiles, ...files];
+    const videoCount = combinedFiles.filter((file) => getMediaKindForPolicy(file) === "video").length;
+    if (videoCount > MEDIA_RUNTIME_SAFETY_LIMITS.maxVideoAttachmentsPerMessage) {
+        return `Only ${MEDIA_RUNTIME_SAFETY_LIMITS.maxVideoAttachmentsPerMessage} video can be attached per message right now. Send additional videos in separate messages for a more reliable upload. ${BEST_EFFORT_STORAGE_NOTE}`;
+    }
+    const totalBytes = combinedFiles.reduce((sum, file) => sum + file.size, 0);
     if (totalBytes <= MEDIA_RUNTIME_SAFETY_LIMITS.pendingAttachmentBatchBytes) {
         return null;
     }

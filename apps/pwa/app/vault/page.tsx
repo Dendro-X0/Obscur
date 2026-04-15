@@ -18,7 +18,7 @@ export default function VaultPage(): React.JSX.Element {
     const { t } = useTranslation();
     const router = useRouter();
     const identity = useIdentity();
-    const { mediaItems, isLoading, stats, refresh, deleteLocalCopy } = useVaultMedia();
+    const { mediaItems, isLoading, stats, refresh, downloadToLocalPath, deleteLocalCopy } = useVaultMedia();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
 
     const publicKeyHex: string | null = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
@@ -95,6 +95,7 @@ export default function VaultPage(): React.JSX.Element {
                         isLoading={isLoading}
                         stats={stats}
                         refresh={refresh}
+                        downloadToLocalPath={downloadToLocalPath}
                         deleteLocalCopy={deleteLocalCopy}
                     />
                 </div>

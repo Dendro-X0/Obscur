@@ -9,6 +9,7 @@ import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { IdentityRecord } from "@dweb/core/identity-record";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import {
   loadMessageDeleteTombstoneEntries,
   normalizeMessageDeleteTombstoneEntries,
@@ -3074,6 +3075,7 @@ const applyBackupPayloadNonV1Domains = async (
     // (group timelines/membership views and legacy message surfaces). Restore chat
     // state domains directly so new-device rehydrate cannot drop self-authored history.
     chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, { emitMutationSignal: false });
+    await messagePersistenceService.migrateFromLegacy(publicKeyHex);
     const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
       chatStateStoreService.load(publicKeyHex),
       publicKeyHex,

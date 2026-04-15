@@ -55,6 +55,8 @@ import { toGroupConversationId } from "@/app/features/groups/utils/group-convers
 import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { filterVisibleGroupMembers } from "@/app/features/groups/services/community-visible-members";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { collectGroupMessageAuthorPubkeys } from "@/app/features/groups/services/community-message-author-evidence";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -164,20 +166,27 @@ export default function GroupHomePage() {
         initialMembers: group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined
     });
 
-    const activeMembers = React.useMemo(() => {
-        if (discoveredMembers && discoveredMembers.length > 0) {
-            return discoveredMembers;
-        }
-        return group?.memberPubkeys || [];
-    }, [discoveredMembers, group?.memberPubkeys]);
-
     const allKnownMembers = React.useMemo(() => {
+        const identityPublicKeyHex = (identityState.publicKeyHex ?? identityState.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
+        const authorEvidence = identityPublicKeyHex && group?.id
+            ? collectGroupMessageAuthorPubkeys({
+                chatState: chatStateStoreService.load(identityPublicKeyHex),
+                conversationId: group.id,
+            })
+            : [];
         const merged = new Set<PublicKeyHex>([
             ...((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []),
-            ...activeMembers
+            ...(discoveredMembers ?? []),
+            ...authorEvidence,
         ]);
         return Array.from(merged);
-    }, [activeMembers, group?.memberPubkeys]);
+    }, [discoveredMembers, group?.id, group?.memberPubkeys, identityState.publicKeyHex, identityState.stored?.publicKeyHex]);
+    const activeMembers = React.useMemo(() => {
+        if (allKnownMembers.length > 0) {
+            return allKnownMembers;
+        }
+        return ((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []);
+    }, [allKnownMembers, group?.memberPubkeys]);
     const fallbackGroupIdFromRoute = React.useMemo(() => {
         const routeToken = (id ?? "").trim();
         if (!routeToken) {
@@ -278,9 +287,9 @@ export default function GroupHomePage() {
 
     // Sync live member list back to the group provider so persistence stays current
     React.useEffect(() => {
-        if (!group || discoveredMembers.length === 0) return;
+        if (!group || allKnownMembers.length === 0) return;
         const current = group.memberPubkeys ?? [];
-        const merged = Array.from(new Set([...current, ...discoveredMembers]));
+        const merged = Array.from(new Set([...current, ...allKnownMembers]));
         const nextMembers = filterVisibleGroupMembers(merged.filter((pubkey) => (
             !groupState.leftMembers.includes(pubkey) && !groupState.expelledMembers.includes(pubkey)
         )), (pubkey) => discoveryCache.getProfile(pubkey));
@@ -297,7 +306,7 @@ export default function GroupHomePage() {
                 }
             });
         }
-    }, [discoveredMembers, group?.groupId, group?.id, group?.relayUrl, group?.memberPubkeys, groupState.expelledMembers, groupState.leftMembers, updateGroup]);
+    }, [allKnownMembers, group?.groupId, group?.id, group?.relayUrl, group?.memberPubkeys, groupState.expelledMembers, groupState.leftMembers, updateGroup]);
 
     React.useEffect(() => {
         if (typeof window === "undefined") {

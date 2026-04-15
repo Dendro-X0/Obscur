@@ -223,6 +223,43 @@ describe("useAccountSync convergence orchestration", () => {
     expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("ok");
   });
 
+  it("defers community membership backup publish until sync becomes ready", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+    mocks.setSnapshot(createSnapshot({
+      phase: "restoring_account_data",
+      status: "identity_only",
+      message: "restoring",
+    }));
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.subscribeMutationMock).toHaveBeenCalledTimes(1);
+    });
+    mocks.publishBackupMock.mockClear();
+
+    act(() => {
+      mocks.triggerMutation("community_membership_changed");
+    });
+
+    expect(mocks.publishBackupMock).not.toHaveBeenCalled();
+
+    act(() => {
+      mocks.setSnapshot(createSnapshot());
+    });
+
+    await waitFor(() => {
+      expect(mocks.publishBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).toBe("community_membership_changed");
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishResult).toBe("ok");
+  });
+
   it("publishes immediately for delete tombstone mutations (no mutation cooldown)", async () => {
     mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
 
@@ -409,6 +446,31 @@ describe("useAccountSync convergence orchestration", () => {
       });
       await Promise.resolve();
     });
+  });
+
+  it("does not publish immediately on mount from stale mutation history alone", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.subscribeMutationMock).toHaveBeenCalled();
+      expect(mocks.restoreBackupMock).toHaveBeenCalledTimes(1);
+    });
+
+    const publishCallsAfterStartup = mocks.publishBackupMock.mock.calls.length;
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mocks.publishBackupMock.mock.calls.length).toBe(publishCallsAfterStartup);
+    expect(mocks.snapshot.convergenceDiagnostics?.lastBackupPublishReason).not.toBe("mutation");
   });
 
   it("keeps startup recoverable when initial rehydrate fails and later restore applies", async () => {

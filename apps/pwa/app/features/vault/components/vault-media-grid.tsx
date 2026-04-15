@@ -43,24 +43,26 @@ type VaultMediaGridProps = Readonly<{
     isLoading: boolean;
     stats: Readonly<{ imageCount: number; videoCount: number; audioCount: number; fileCount: number; total: number }>;
     refresh: () => void;
+    downloadToLocalPath: (item: VaultMediaItem) => Promise<boolean>;
     deleteLocalCopy: (remoteUrl: string) => Promise<void>;
 }>;
 
-type VisibilityFilter = "all" | "local" | "remote" | "favorites" | "hidden";
+type VisibilityFilter = "all" | "local" | "remote" | "favorites" | "removed";
 type SortMode = "newest" | "oldest" | "file_name";
 type VaultSourceKind = "direct" | "community" | "unknown";
 
 const FILTER_STORAGE_KEY = "obscur.vault.filter.preference";
 const FAVORITES_STORAGE_KEY = "obscur.vault.favorites";
-const HIDDEN_STORAGE_KEY = "obscur.vault.hidden";
+const LEGACY_HIDDEN_STORAGE_KEY = "obscur.vault.hidden";
+const REMOVED_STORAGE_KEY = "obscur.vault.removed";
 const scopedFilterStorageKey = (): string => getScopedStorageKey(FILTER_STORAGE_KEY);
 const scopedFavoritesStorageKey = (): string => getScopedStorageKey(FAVORITES_STORAGE_KEY);
-const scopedHiddenStorageKey = (): string => getScopedStorageKey(HIDDEN_STORAGE_KEY);
+const scopedRemovedStorageKey = (): string => getScopedStorageKey(REMOVED_STORAGE_KEY);
 
-const readHidden = (): ReadonlySet<string> => {
+const readLegacyHidden = (): ReadonlySet<string> => {
     if (typeof window === "undefined") return new Set<string>();
     try {
-        const raw = localStorage.getItem(scopedHiddenStorageKey()) ?? localStorage.getItem(HIDDEN_STORAGE_KEY);
+        const raw = localStorage.getItem(getScopedStorageKey(LEGACY_HIDDEN_STORAGE_KEY)) ?? localStorage.getItem(LEGACY_HIDDEN_STORAGE_KEY);
         if (!raw) return new Set<string>();
         const parsed = JSON.parse(raw) as unknown;
         if (!Array.isArray(parsed)) return new Set<string>();
@@ -70,15 +72,32 @@ const readHidden = (): ReadonlySet<string> => {
     }
 };
 
-const persistHidden = (ids: ReadonlySet<string>): void => {
+const readRemoved = (): ReadonlySet<string> => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+        const raw = localStorage.getItem(scopedRemovedStorageKey()) ?? localStorage.getItem(REMOVED_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) as unknown : [];
+        const removed = Array.isArray(parsed)
+            ? parsed.filter((v): v is string => typeof v === "string")
+            : [];
+        return new Set<string>([...removed, ...readLegacyHidden()]);
+    } catch {
+        return readLegacyHidden();
+    }
+};
+
+const persistRemoved = (ids: ReadonlySet<string>): void => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(scopedHiddenStorageKey(), JSON.stringify(Array.from(ids)));
+    localStorage.setItem(scopedRemovedStorageKey(), JSON.stringify(Array.from(ids)));
+    localStorage.removeItem(getScopedStorageKey(LEGACY_HIDDEN_STORAGE_KEY));
+    localStorage.removeItem(LEGACY_HIDDEN_STORAGE_KEY);
 };
 
 const readFilterPreference = (): VisibilityFilter => {
     if (typeof window === "undefined") return "all";
     const raw = localStorage.getItem(scopedFilterStorageKey()) ?? localStorage.getItem(FILTER_STORAGE_KEY);
-    if (raw === "local" || raw === "remote" || raw === "favorites" || raw === "hidden") return raw;
+    if (raw === "hidden") return "removed";
+    if (raw === "local" || raw === "remote" || raw === "favorites" || raw === "removed") return raw;
     return "all";
 };
 
@@ -134,7 +153,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     const [visibilityFilter, setVisibilityFilter] = React.useState<VisibilityFilter>(() => readFilterPreference());
     const [typeFilter, setTypeFilter] = React.useState<"all" | "image" | "video" | "audio" | "file">("all");
     const [favorites, setFavorites] = React.useState<ReadonlySet<string>>(() => readFavorites());
-    const [hiddenIds, setHiddenIds] = React.useState<ReadonlySet<string>>(() => readHidden());
+    const [removedIds, setRemovedIds] = React.useState<ReadonlySet<string>>(() => readRemoved());
     const [searchQuery, setSearchQuery] = React.useState("");
     const [sortMode, setSortMode] = React.useState<SortMode>("newest");
     const [selectionMode, setSelectionMode] = React.useState(false);
@@ -174,14 +193,14 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     const localCount = props.mediaItems.filter((item) => item.isLocalCached).length;
     const remoteCount = props.mediaItems.length - localCount;
     const favoritesCount = props.mediaItems.filter((item) => favorites.has(item.remoteUrl)).length;
-    const hiddenCount = props.mediaItems.filter((item) => hiddenIds.has(item.id)).length;
+    const removedCount = props.mediaItems.filter((item) => removedIds.has(item.id)).length;
 
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
     const filteredItems = props.mediaItems.filter((item) => {
-        const isHidden = hiddenIds.has(item.id);
-        if (visibilityFilter === "hidden") return isHidden;
-        if (isHidden) return false;
+        const isRemoved = removedIds.has(item.id);
+        if (visibilityFilter === "removed") return isRemoved;
+        if (isRemoved) return false;
         if (visibilityFilter === "local" && !item.isLocalCached) return false;
         if (visibilityFilter === "remote" && item.isLocalCached) return false;
         if (visibilityFilter === "favorites" && !favorites.has(item.remoteUrl)) return false;
@@ -256,33 +275,25 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         persistFavorites(next);
     };
 
-    const handleBulkHide = (): void => {
-        const next = new Set(hiddenIds);
-        selectedIds.forEach((id) => next.add(id));
-        setHiddenIds(next);
-        persistHidden(next);
-        clearSelection();
-    };
-
-    const handleHideItem = (itemId: string): void => {
-        const next = new Set(hiddenIds);
+    const handleRemoveFromVault = (itemId: string): void => {
+        const next = new Set(removedIds);
         next.add(itemId);
-        setHiddenIds(next);
-        persistHidden(next);
+        setRemovedIds(next);
+        persistRemoved(next);
     };
 
-    const handleRestoreItem = (itemId: string): void => {
-        const next = new Set(hiddenIds);
+    const handleRestoreRemovedItem = (itemId: string): void => {
+        const next = new Set(removedIds);
         next.delete(itemId);
-        setHiddenIds(next);
-        persistHidden(next);
+        setRemovedIds(next);
+        persistRemoved(next);
     };
 
     const handleBulkRestore = (): void => {
-        const next = new Set(hiddenIds);
+        const next = new Set(removedIds);
         selectedIds.forEach((id) => next.delete(id));
-        setHiddenIds(next);
-        persistHidden(next);
+        setRemovedIds(next);
+        persistRemoved(next);
         clearSelection();
     };
 
@@ -486,7 +497,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         <Button type="button" variant={visibilityFilter === "local" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("local")} className="h-6 px-2 text-[10px]">Local ({localCount})</Button>
                         <Button type="button" variant={visibilityFilter === "remote" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("remote")} className="h-6 px-2 text-[10px]">Remote ({remoteCount})</Button>
                         <Button type="button" variant={visibilityFilter === "favorites" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("favorites")} className="h-6 px-2 text-[10px]">Favorites ({favoritesCount})</Button>
-                        <Button type="button" variant={visibilityFilter === "hidden" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("hidden")} className="h-6 px-2 text-[10px]">Hidden ({hiddenCount})</Button>
+                        <Button type="button" variant={visibilityFilter === "removed" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("removed")} className="h-6 px-2 text-[10px]">Removed ({removedCount})</Button>
                     </div>
                 </div>
 
@@ -517,7 +528,9 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         type="search"
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder={visibilityFilter === "hidden" ? "Search hidden Vault media" : "Search Vault media"}
+                        placeholder={visibilityFilter === "removed"
+                            ? "Search removed Vault media"
+                            : "Search Vault media"}
                         className="h-11 w-full rounded-2xl border border-zinc-300/70 bg-white/85 pl-10 pr-4 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
                     />
                 </label>
@@ -582,15 +595,27 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         <Star className="h-4 w-4 mr-1.5" />
                         Favorite
                     </Button>
-                    {visibilityFilter === "hidden" ? (
-                        <Button type="button" variant="secondary" size="sm" onClick={handleBulkRestore} className="rounded-xl">
+                    {visibilityFilter === "removed" ? (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleBulkRestore}
+                            className="rounded-xl"
+                        >
                             <EyeOff className="h-4 w-4 mr-1.5" />
-                            Restore
+                            Restore to Vault
                         </Button>
                     ) : (
-                        <Button type="button" variant="secondary" size="sm" onClick={handleBulkHide} className="rounded-xl">
+                        <Button type="button" variant="secondary" size="sm" onClick={() => {
+                            const next = new Set(removedIds);
+                            selectedIds.forEach((id) => next.add(id));
+                            setRemovedIds(next);
+                            persistRemoved(next);
+                            clearSelection();
+                        }} className="rounded-xl">
                             <EyeOff className="h-4 w-4 mr-1.5" />
-                            Hide
+                            Remove from Vault
                         </Button>
                     )}
                     <Button type="button" variant="outline" size="sm" onClick={() => void handleBulkDeleteLocal()} disabled={selectedLocalCount === 0} className="rounded-xl">
@@ -601,10 +626,16 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                 </div>
             )}
 
+            {visibilityFilter === "removed" && (
+                <div className="rounded-2xl border border-border/50 bg-muted/15 px-4 py-3 text-xs font-medium text-muted-foreground">
+                    {"Removed keeps items out of the Vault library until you explicitly restore them. Original chat and community history are unchanged."}
+                </div>
+            )}
+
             {paginatedItems.length === 0 ? (
                 <div className="rounded-2xl border border-border/50 bg-muted/20 p-12 text-center text-sm text-muted-foreground font-medium">
-                    {visibilityFilter === "hidden"
-                        ? "No hidden items. Hidden Vault media will appear here until restored."
+                    {visibilityFilter === "removed"
+                        ? "No removed Vault items. Items removed from the Vault library will appear here until restored."
                         : "No items found in this section."}
                 </div>
             ) : (
@@ -733,23 +764,30 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                     <Star className={cn("h-3.5 w-3.5", isFavorite && "fill-current text-amber-400")} />
                                                     {isFavorite ? "Unfavorite" : "Favorite"}
                                                 </button>
-                                                {hiddenIds.has(item.id) ? (
+                                                {removedIds.has(item.id) ? (
                                                     <button
-                                                        onClick={() => { handleRestoreItem(item.id); setOpenMenuItemId(null); }}
+                                                        onClick={() => { handleRestoreRemovedItem(item.id); setOpenMenuItemId(null); }}
                                                         className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
                                                     >
                                                         <EyeOff className="h-3.5 w-3.5" />
-                                                        Restore
+                                                        Restore to Vault
                                                     </button>
                                                 ) : (
                                                     <button
-                                                        onClick={() => { handleHideItem(item.id); setOpenMenuItemId(null); }}
+                                                        onClick={() => { handleRemoveFromVault(item.id); setOpenMenuItemId(null); }}
                                                         className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
                                                     >
                                                         <EyeOff className="h-3.5 w-3.5" />
-                                                        Hide
+                                                        Remove from Vault
                                                     </button>
                                                 )}
+                                                <button
+                                                    onClick={async () => { await props.downloadToLocalPath(item); setOpenMenuItemId(null); }}
+                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                >
+                                                    <Download className="h-3.5 w-3.5" />
+                                                    Download
+                                                </button>
                                                 <button
                                                     onClick={() => { setSelectionMode(true); setSelected(item.id, true); setOpenMenuItemId(null); }}
                                                     className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
@@ -894,6 +932,15 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     >
                                         <ExternalLink className="h-4 w-4 mr-3" />
                                         {getOpenSourceLabel(selectedItem)}
+                                    </Button>
+                                    <div className="mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20" />
+                                    <Button
+                                        variant="ghost"
+                                        onClick={async () => { await props.downloadToLocalPath(selectedItem); }}
+                                        className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white"
+                                    >
+                                        <Download className="h-4 w-4 mr-3" />
+                                        Download
                                     </Button>
                                     <div className="mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20" />
                                     <Button

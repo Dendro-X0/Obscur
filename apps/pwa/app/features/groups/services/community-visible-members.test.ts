@@ -3,7 +3,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { filterVisibleGroupMembers } from "./community-visible-members";
 
 describe("community-visible-members", () => {
-    it("filters deleted-account members", () => {
+    it("keeps canonical members visible even when cached profile looks deleted", () => {
         const members = [
             "member-a",
             "member-b",
@@ -20,10 +20,7 @@ describe("community-visible-members", () => {
             return { displayName: "Active member" };
         });
 
-        expect(visible).toEqual([
-            "member-a",
-            "member-c",
-        ]);
+        expect(visible).toEqual(members);
     });
 
     it("keeps members without cached profile metadata", () => {

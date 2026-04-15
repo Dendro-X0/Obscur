@@ -360,4 +360,68 @@ describe("MessagePersistenceService batching", () => {
 
         service.dispose();
     });
+
+    it("falls back to indexed chat-state when scoped cache only has metadata and misses restored group timelines", async () => {
+        const myPublicKeyHex = "1".repeat(64);
+        const restoredGroupConversationId = "community:alpha:wss://relay.example";
+        chatStateStoreMocks.load.mockReturnValue({
+            messagesByConversationId: {},
+            groupMessages: {},
+            createdConnections: [],
+            createdGroups: [{
+                id: restoredGroupConversationId,
+                communityId: "alpha:wss://relay.example",
+                groupId: "alpha",
+                relayUrl: "wss://relay.example",
+                displayName: "Alpha",
+                memberPubkeys: [myPublicKeyHex],
+                lastMessage: "metadata only",
+                unreadCount: 0,
+                lastMessageTimeMs: 6_000,
+                access: "invite-only",
+                memberCount: 1,
+                adminPubkeys: [myPublicKeyHex],
+            }],
+        });
+        vi.mocked(messagingDB.get).mockResolvedValue({
+            messagesByConversationId: {},
+            groupMessages: {
+                [restoredGroupConversationId]: [{
+                    id: "restored-group-msg-1",
+                    pubkey: myPublicKeyHex,
+                    content: "restored group timeline",
+                    created_at: 6_000,
+                }],
+            },
+            createdConnections: [],
+            createdGroups: [{
+                id: restoredGroupConversationId,
+                communityId: "alpha:wss://relay.example",
+                groupId: "alpha",
+                relayUrl: "wss://relay.example",
+                displayName: "Alpha",
+                memberPubkeys: [myPublicKeyHex],
+                lastMessage: "restored group timeline",
+                unreadCount: 0,
+                lastMessageTimeMs: 6_000,
+                access: "invite-only",
+                memberCount: 1,
+                adminPubkeys: [myPublicKeyHex],
+            }],
+        });
+
+        const service = new MessagePersistenceService();
+        await service.migrateFromLegacy(myPublicKeyHex);
+
+        expect(chatStateStoreMocks.load).toHaveBeenCalledWith(myPublicKeyHex);
+        expect(messagingDB.get).toHaveBeenCalledWith("chatState", myPublicKeyHex);
+        expect(messagingDB.bulkPut).toHaveBeenCalledWith("messages", expect.arrayContaining([
+            expect.objectContaining({
+                id: "restored-group-msg-1",
+                conversationId: restoredGroupConversationId,
+                content: "restored group timeline",
+                senderPubkey: myPublicKeyHex,
+            }),
+        ]));
+    });
 });

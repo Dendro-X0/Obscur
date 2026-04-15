@@ -11,6 +11,7 @@ export type ProjectionReadAuthorityReason =
   | "drift_gate_not_promoted"
   | "projection_not_ready"
   | "projection_scope_mismatch"
+  | "legacy_richer_than_projection"
   | "rollback_on_critical_drift"
   | "read_cutover_enabled";
 
@@ -35,6 +36,7 @@ export const resolveProjectionReadAuthority = (params: Readonly<{
   policy?: AccountSyncMigrationPolicy;
   expectedProfileId?: string | null;
   expectedAccountPublicKeyHex?: string | null;
+  legacyChatStateHasRicherDmContent?: boolean;
 }>): ProjectionReadAuthority => {
   const policy = params.policy ?? getAccountSyncMigrationPolicy(resolveMigrationScope(params.projectionSnapshot));
   const criticalDriftCount = getCriticalDriftCount(params.projectionSnapshot);
@@ -66,6 +68,15 @@ export const resolveProjectionReadAuthority = (params: Readonly<{
     return {
       useProjectionReads: false,
       reason: "projection_scope_mismatch",
+      policy,
+      criticalDriftCount,
+    };
+  }
+
+  if (params.legacyChatStateHasRicherDmContent) {
+    return {
+      useProjectionReads: false,
+      reason: "legacy_richer_than_projection",
       policy,
       criticalDriftCount,
     };

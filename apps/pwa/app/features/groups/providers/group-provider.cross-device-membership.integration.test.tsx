@@ -86,7 +86,7 @@ describe("group-provider cross-device membership integration", () => {
     chatStateStoreService.replace(PUBLIC_KEY_B, createEmptyState(), { emitMutationSignal: false });
   });
 
-  it("reconstructs receiver membership on a new device from missing-ledger invite-accept evidence", async () => {
+  it("reconstructs receiver membership on a new device when sender-local invite-accept evidence is paired with room-key invite evidence", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
     );
@@ -143,19 +143,35 @@ describe("group-provider cross-device membership integration", () => {
           chatState: {
             ...createEmptyState(),
             messagesByConversationId: {
-              "dm:invite": [{
-                id: "m-accepted",
-                content: JSON.stringify({
-                  type: "community-invite-response",
-                  status: "accepted",
-                  groupId: "sigma",
-                  relayUrl: "wss://relay.sigma",
-                  communityId: "sigma:wss://relay.sigma",
-                }),
-                timestampMs: 2_000,
-                isOutgoing: true,
-                status: "delivered",
-              }],
+              "dm:invite": [
+                {
+                  id: "m-invite",
+                  content: JSON.stringify({
+                    type: "community-invite",
+                    groupId: "sigma",
+                    roomKey: "rk-sigma-1",
+                    relayUrl: "wss://relay.sigma",
+                    communityId: "sigma:wss://relay.sigma",
+                    metadata: { name: "Sigma" },
+                  }),
+                  timestampMs: 1_500,
+                  isOutgoing: false,
+                  status: "delivered",
+                },
+                {
+                  id: "m-accepted",
+                  content: JSON.stringify({
+                    type: "community-invite-response",
+                    status: "accepted",
+                    groupId: "sigma",
+                    relayUrl: "wss://relay.sigma",
+                    communityId: "sigma:wss://relay.sigma",
+                  }),
+                  timestampMs: 2_000,
+                  isOutgoing: true,
+                  status: "delivered",
+                },
+              ],
             },
           },
         }),
@@ -277,6 +293,63 @@ describe("group-provider cross-device membership integration", () => {
     ]));
   });
 
+  it("reconstructs receiver membership from restored group message history when createdGroups are absent", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_B;
+    await act(async () => {
+      await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(
+        PUBLIC_KEY_B,
+        createRestorePayload({
+          publicKeyHex: PUBLIC_KEY_B,
+          username: "receiver-b-history-only",
+          chatState: {
+            ...createEmptyState(),
+            groupMessages: {
+              "community:upsilon:wss://relay.upsilon": [
+                {
+                  id: "g-history-1",
+                  pubkey: PUBLIC_KEY_B,
+                  content: "restored group history",
+                  created_at: 9_000,
+                },
+                {
+                  id: "g-history-2",
+                  pubkey: PUBLIC_KEY_A,
+                  content: "peer-authored community message",
+                  created_at: 9_100,
+                },
+              ],
+            },
+          },
+        }),
+      );
+    });
+
+    const accountBHook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(accountBHook.result.current.createdGroups).toHaveLength(1);
+    });
+    expect(accountBHook.result.current.createdGroups[0]).toEqual(expect.objectContaining({
+      groupId: "upsilon",
+      relayUrl: "wss://relay.upsilon",
+      communityId: "upsilon:wss://relay.upsilon",
+    }));
+    expect(accountBHook.result.current.createdGroups[0]?.memberPubkeys).toEqual(expect.arrayContaining([
+      PUBLIC_KEY_A,
+      PUBLIC_KEY_B,
+    ]));
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_B)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        groupId: "upsilon",
+        relayUrl: "wss://relay.upsilon",
+        status: "joined",
+      }),
+    ]));
+  });
+
   it("keeps group visibility isolated by profile scope before profile rebind", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
@@ -315,4 +388,5 @@ describe("group-provider cross-device membership integration", () => {
     // Current behavior can leak resolved-scope chat-state groups through pubkey-only cache.
     expect(hook.result.current.createdGroups).toHaveLength(0);
   });
+
 });

@@ -64,6 +64,8 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { collectGroupMessageAuthorPubkeys } from "../services/community-message-author-evidence";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -223,8 +225,20 @@ export function GroupManagementDialog({
     }, [state.metadata, group.displayName]);
 
     const memberRegistry = React.useMemo<ReadonlyArray<PublicKeyHex>>(
-        () => (members.length > 0 ? members : group.memberPubkeys) as ReadonlyArray<PublicKeyHex>,
-        [group.memberPubkeys, members]
+        () => {
+            const authorEvidence = myPublicKeyHex
+                ? collectGroupMessageAuthorPubkeys({
+                    chatState: chatStateStoreService.load(myPublicKeyHex),
+                    conversationId: group.id,
+                })
+                : [];
+            return Array.from(new Set([
+                ...((group.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []),
+                ...(members ?? []),
+                ...authorEvidence,
+            ]));
+        },
+        [group.id, group.memberPubkeys, members, myPublicKeyHex]
     );
     const visibleMemberRegistry = React.useMemo(
         () => filterVisibleGroupMembers(memberRegistry, (pubkey) => discoveryCache.getProfile(pubkey)),
@@ -303,7 +317,7 @@ export function GroupManagementDialog({
 
     // Metadata subscription for member names
     useEffect(() => {
-        const activeMemberList = members.length > 0 ? members : group.memberPubkeys;
+        const activeMemberList = memberRegistry;
         if (!isOpen || !activeMemberList.length || !pool) return;
         const subId = `mgmt-names-${Math.random().toString(36).substring(7)}`;
         const filter = { kinds: [0], authors: activeMemberList as string[] };
@@ -328,7 +342,7 @@ export function GroupManagementDialog({
         return () => {
             try { pool.sendToOpen(JSON.stringify(["CLOSE", subId])); cleanup(); } catch (e) { }
         };
-    }, [isOpen, members, group.memberPubkeys, pool]);
+    }, [isOpen, memberRegistry, pool]);
 
     if (!isOpen) return null;
 

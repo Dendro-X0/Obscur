@@ -74,6 +74,15 @@ describe("use-sealed-community integration", () => {
             ...params.members.map((pubkey) => ["p", pubkey])
         ]
     });
+    const createNip29LeaveEvent = (params: Readonly<{ id: string; createdAt: number; pubkey: PublicKeyHex }>): NostrEvent => ({
+        id: params.id,
+        pubkey: params.pubkey,
+        kind: 9022,
+        created_at: params.createdAt,
+        sig: "sig",
+        content: "",
+        tags: [["h", groupId]]
+    });
 
     const createPool = () => ({
         sendToOpen: vi.fn(),
@@ -205,6 +214,29 @@ describe("use-sealed-community integration", () => {
             .filter((evt) => evt instanceof CustomEvent && evt.type === "obscur:group-remove");
         expect(removeCalls).toHaveLength(0);
         expect(result.current.state.disbandedAt).toBeUndefined();
+    });
+
+    it("subtracts a member when scoped relay leave evidence arrives without sealed leave payload", async () => {
+        const pool = createPool();
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor, peer]
+        }));
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createNip29LeaveEvent({ id: "nip29-leave-peer", createdAt: 250, pubkey: peer }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect(result.current.state.leftMembers).toContain(peer);
+            expect(result.current.members).toEqual(expect.not.arrayContaining([peer]));
+        });
     });
 
     it("ignores disband replay from non-scope relay or wrong community tag", async () => {
@@ -466,6 +498,30 @@ describe("use-sealed-community integration", () => {
 
         await waitFor(() => {
             expect([...result.current.members].sort()).toEqual([actor, another, peer].sort());
+        });
+    });
+
+    it("removes stale active members when newer relay roster omits them", async () => {
+        const pool = createPool();
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor, peer]
+        }));
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createMembersEvent({ id: "members-pruned", createdAt: 702, members: [actor] }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor].sort());
+            expect(result.current.state.leftMembers).toContain(peer);
         });
     });
 

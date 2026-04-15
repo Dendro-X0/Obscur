@@ -41,7 +41,8 @@ _Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
   - `apps/relay-gateway/src/index.ts`
 
 - `apps/website`
-: Website surface.
+: Community-maintained website surface for product overview, release notes,
+: demo GIFs, and downloadable artifacts.
 : Current runtime entry:
   - `apps/website/src/app/page.tsx`
 

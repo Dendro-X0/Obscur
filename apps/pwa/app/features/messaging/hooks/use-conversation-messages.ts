@@ -20,7 +20,7 @@ import {
     loadSuppressedMessageDeleteIds,
     suppressMessageDeleteTombstone,
 } from "../services/message-delete-tombstone-store";
-import { CHAT_STATE_REPLACED_EVENT } from "../services/chat-state-store";
+import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "../services/chat-state-store";
 
 interface UseConversationMessagesResult {
     messages: ReadonlyArray<Message>;
@@ -570,13 +570,28 @@ export function useConversationMessages(
 ): UseConversationMessagesResult {
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const activeProfileId = getActiveProfileIdSafe();
+    const legacyChatStateHasRicherDmContent = useMemo(() => {
+        if (!conversationId || !publicKeyHex) {
+            return false;
+        }
+        if (conversationId.startsWith("community:") || conversationId.startsWith("group:") || conversationId.includes("@")) {
+            return false;
+        }
+        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex);
+        const persistedMessages = persistedState?.messagesByConversationId?.[conversationId] ?? [];
+        return persistedMessages.some((message) => (
+            (typeof message.content === "string" && message.content.trim().length > 0)
+            || (Array.isArray(message.attachments) && message.attachments.length > 0)
+        ));
+    }, [conversationId, publicKeyHex]);
     const projectionReadAuthority = useMemo(() => (
         resolveProjectionReadAuthority({
             projectionSnapshot: accountProjectionSnapshot,
             expectedProfileId: activeProfileId,
             expectedAccountPublicKeyHex: publicKeyHex,
+            legacyChatStateHasRicherDmContent,
         })
-    ), [accountProjectionSnapshot, activeProfileId, publicKeyHex]);
+    ), [accountProjectionSnapshot, activeProfileId, legacyChatStateHasRicherDmContent, publicKeyHex]);
     const [messages, setMessages] = useState<ReadonlyArray<Message>>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasEarlier, setHasEarlier] = useState(false);

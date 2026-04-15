@@ -125,6 +125,30 @@ describe("community-membership-recovery", () => {
     expect(result.diagnostics.placeholderDisplayNameRecoveredCount).toBe(1);
   });
 
+  it("preserves hashed community identity when joined-ledger fallback is weaker", () => {
+    const hashedCommunityId = "v2_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const result = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      persistedGroups: [createGroup({
+        id: `community:${hashedCommunityId}`,
+        communityId: hashedCommunityId,
+        displayName: "Alpha Canonical",
+      })],
+      membershipLedger: [createLedgerEntry({
+        communityId: "alpha:wss://relay.alpha",
+        updatedAtUnixMs: 2_000,
+      })],
+      tombstones: new Set<string>(),
+    });
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]).toEqual(expect.objectContaining({
+      id: `community:${hashedCommunityId}`,
+      communityId: hashedCommunityId,
+      displayName: "Alpha Canonical",
+    }));
+  });
+
   it("backfills local member coverage when joined-ledger evidence exists", () => {
     const otherMember = "1".repeat(64);
     const result = resolveCommunityMembershipRecovery({
@@ -169,5 +193,32 @@ describe("community-membership-recovery", () => {
     expect(result.groups[0]?.displayName).toBe("Alpha Rich");
     expect(result.groups[0]?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, "2".repeat(64)]));
     expect(result.diagnostics.persistedDuplicateMergeCount).toBe(1);
+  });
+
+  it("preserves richer persisted member roster when joined-ledger recovery is rebuilt", () => {
+    const otherMember = "3".repeat(64);
+    const result = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      persistedGroups: [createGroup({
+        groupId: "sigma",
+        relayUrl: "wss://relay.sigma",
+        communityId: "sigma:wss://relay.sigma",
+        displayName: "Sigma",
+        memberPubkeys: [PUBLIC_KEY, otherMember],
+        memberCount: 2,
+      })],
+      membershipLedger: [createLedgerEntry({
+        groupId: "sigma",
+        relayUrl: "wss://relay.sigma",
+        communityId: "sigma:wss://relay.sigma",
+        displayName: "Sigma",
+        updatedAtUnixMs: 5_000,
+      })],
+      tombstones: new Set<string>(),
+    });
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, otherMember]));
+    expect(result.groups[0]?.memberCount).toBeGreaterThanOrEqual(2);
   });
 });

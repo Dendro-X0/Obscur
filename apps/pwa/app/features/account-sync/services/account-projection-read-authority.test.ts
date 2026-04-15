@@ -64,6 +64,16 @@ describe("resolveProjectionReadAuthority", () => {
     expect(authority.reason).toBe("projection_scope_mismatch");
   });
 
+  it("keeps reads on legacy when local chat state is richer than projection content", () => {
+    const authority = resolveProjectionReadAuthority({
+      projectionSnapshot: createProjectionSnapshot(),
+      policy: createPolicy("read_cutover"),
+      legacyChatStateHasRicherDmContent: true,
+    });
+    expect(authority.useProjectionReads).toBe(false);
+    expect(authority.reason).toBe("legacy_richer_than_projection");
+  });
+
   it("enables projection reads at cutover when drift is clean", () => {
     const authority = resolveProjectionReadAuthority({
       projectionSnapshot: createProjectionSnapshot({

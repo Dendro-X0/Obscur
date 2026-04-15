@@ -22,20 +22,25 @@ As of 2026-03-29:
 2. no unresolved severe blocker is currently identified in active tracking,
 3. architecture remains fragile under uncontrolled changes, so owner and evidence contracts stay mandatory.
 
-Update (2026-04-10, v1.3.12 release prep):
-1. cross-device DM history hardening is landed across backup restore, chat-state hydration, projection replay, and live relay replay:
-: durable DM delete tombstones,
-: canonical local DM removal events,
-: incoming replay tombstone suppression,
-: fresh-device history recovery for legitimate incoming DMs after restore,
-2. metadata hydration after restore is improved on core chat surfaces so usernames/avatars do not require a full page reload to become visible in normal recovery flows,
-3. the privacy guarantee strengthened by this lane is client-side non-resurrection of deleted DM history; relay-side physical erasure remains outside the guarantees of third-party append-only relay infrastructure.
+Update (2026-04-14, v1.3.14 release prep):
+1. community recovery hardening is the dominant release lane:
+: fresh-device restore no longer fabricates placeholder one-member groups from bare local accept history,
+: legitimate joined communities still reconstruct when matching invite room-key evidence exists,
+: hashed canonical community identity is preserved through recovery merges,
+: member-list convergence now accepts both direct scoped leave evidence and newer roster omission.
+2. fresh-device DM restore remains a privacy-critical focus:
+: durable DM delete tombstones and canonical local removal events remain the non-resurrection contract,
+: restore now re-materializes restored chat-state into indexed message storage,
+: conversation reads can stay on legacy chat-state when it is richer than projection immediately after restore.
+3. release-facing surfaces are being aligned for public distribution:
+: production GIF captures now live under `docs/assets/gifs/`,
+: `apps/website` is the planned community-maintained surface for demos, changelogs, and downloadable artifacts.
 
 ## Platform Surfaces
 
 1. `apps/pwa`: primary product surface and most feature logic.
 2. `apps/desktop`: Tauri shell, native runtime bridge, updater, and mobile build path.
-3. `apps/website`: web-facing product/landing surface.
+3. `apps/website`: web-facing product and release surface for demos, changelogs, and downloadable artifacts.
 4. `apps/relay-gateway`: optional relay edge proxy (PoW gate + upstream forwarder).
 5. `apps/coordination`: Cloudflare Worker for invite coordination and upload endpoints.
 

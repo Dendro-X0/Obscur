@@ -28,6 +28,7 @@ const coreMocks = vi.hoisted(() => ({
 
 const dialogMocks = vi.hoisted(() => ({
   open: vi.fn(),
+  save: vi.fn(),
 }));
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
@@ -58,6 +59,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: dialogMocks.open,
+  save: dialogMocks.save,
 }));
 
 import { nativeLocalMediaAdapter } from "./native-local-media-adapter";
@@ -87,6 +89,7 @@ describe("native-local-media-adapter", () => {
     coreMocks.invoke.mockResolvedValue(undefined);
     coreMocks.convertFileSrc.mockReturnValue("asset://vault-media/file.png");
     dialogMocks.open.mockResolvedValue("C:/picked");
+    dialogMocks.save.mockResolvedValue("C:/picked/file.png");
 
     await expect(nativeLocalMediaAdapter.joinPaths("C:/data", "vault-media")).resolves.toBe("C:/data/vault-media");
     await expect(nativeLocalMediaAdapter.getAppDataDirPath()).resolves.toBe("C:/data");
@@ -100,6 +103,7 @@ describe("native-local-media-adapter", () => {
     expect(coreMocks.invoke).not.toHaveBeenCalled();
     await expect(nativeLocalMediaAdapter.convertAbsolutePathToFileSrc("C:/data/vault-media/file.png")).resolves.toBe("asset://vault-media/file.png");
     await expect(nativeLocalMediaAdapter.pickDirectory()).resolves.toBe("C:/picked");
+    await expect(nativeLocalMediaAdapter.pickSavePath({ defaultPath: "C:/picked/file.png" })).resolves.toBe("C:/picked/file.png");
   });
 
   it("falls back to native command when plugin-shell open fails", async () => {

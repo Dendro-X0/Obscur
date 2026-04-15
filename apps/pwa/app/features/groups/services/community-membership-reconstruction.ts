@@ -36,6 +36,11 @@ export type ReconstructedRoomKeySnapshot = Readonly<{
   createdAt: number;
 }>;
 
+type InviteMetadataSnapshot = Readonly<{
+  displayName?: string;
+  avatar?: string;
+}>;
+
 const HASHED_COMMUNITY_ID_PATTERN = /^v2_[0-9a-f]{64}$/i;
 
 const normalizeRelayForIdentity = (relayUrl: string): string => {
@@ -145,18 +150,27 @@ const resolveLatestGroupMessageUnixMs = (messages: ReadonlyArray<PersistedGroupM
   return latestUnixMs;
 };
 
+const parseInvitePayload = (
+  content: string,
+): InvitePayload | InviteResponsePayload | null => {
+  try {
+    const parsed = JSON.parse(content) as InvitePayload | InviteResponsePayload;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 const toInviteEvidenceEntry = (
   message: PersistedMessage,
+  options?: Readonly<{
+    allowOutgoingAcceptedResponse?: boolean;
+  }>,
 ): CommunityMembershipLedgerEntry | null => {
   if (typeof message.content !== "string" || message.content.trim().length === 0) {
     return null;
   }
-  let parsed: InvitePayload | InviteResponsePayload | null = null;
-  try {
-    parsed = JSON.parse(message.content) as InvitePayload | InviteResponsePayload;
-  } catch {
-    return null;
-  }
+  const parsed = parseInvitePayload(message.content);
   if (!parsed || typeof parsed !== "object") {
     return null;
   }
@@ -195,6 +209,9 @@ const toInviteEvidenceEntry = (
     if (parsed.status !== "accepted") {
       return null;
     }
+    if (message.isOutgoing && options?.allowOutgoingAcceptedResponse !== true) {
+      return null;
+    }
     const identity = sanitizeMembershipIdentity({
       groupId: parsed.groupId,
       relayUrl: parsed.relayUrl,
@@ -211,6 +228,63 @@ const toInviteEvidenceEntry = (
   }
 
   return null;
+};
+
+const toInviteRoomKeyIdentityKey = (
+  message: PersistedMessage,
+): string | null => {
+  if (typeof message.content !== "string" || message.content.trim().length === 0) {
+    return null;
+  }
+  const parsed = parseInvitePayload(message.content);
+  if (!parsed || typeof parsed !== "object" || parsed.type !== "community-invite") {
+    return null;
+  }
+  if (typeof parsed.roomKey !== "string" || parsed.roomKey.trim().length === 0) {
+    return null;
+  }
+  const identity = sanitizeMembershipIdentity({
+    groupId: parsed.groupId,
+    relayUrl: parsed.relayUrl,
+    communityId: parsed.communityId,
+  });
+  if (!identity) {
+    return null;
+  }
+  return toCommunityMembershipLedgerKey(identity);
+};
+
+const toInviteMetadataSnapshot = (
+  message: PersistedMessage,
+): Readonly<{ identityKey: string; metadata: InviteMetadataSnapshot }> | null => {
+  if (typeof message.content !== "string" || message.content.trim().length === 0) {
+    return null;
+  }
+  const parsed = parseInvitePayload(message.content);
+  if (!parsed || parsed.type !== "community-invite") {
+    return null;
+  }
+  const identity = sanitizeMembershipIdentity({
+    groupId: parsed.groupId,
+    relayUrl: parsed.relayUrl,
+    communityId: parsed.communityId,
+  });
+  if (!identity) {
+    return null;
+  }
+  const displayName = typeof parsed.metadata?.name === "string" && parsed.metadata.name.trim().length > 0
+    ? parsed.metadata.name.trim()
+    : undefined;
+  const avatar = typeof parsed.metadata?.picture === "string" && parsed.metadata.picture.trim().length > 0
+    ? parsed.metadata.picture.trim()
+    : undefined;
+  return {
+    identityKey: toCommunityMembershipLedgerKey(identity),
+    metadata: {
+      displayName,
+      avatar,
+    },
+  };
 };
 
 const toInviteRoomKeyEntry = (
@@ -287,6 +361,8 @@ export const reconstructCommunityMembershipFromChatState = (
     return [];
   }
   const candidates: CommunityMembershipLedgerEntry[] = [];
+  const roomKeyInviteIdentityKeys = new Set<string>();
+  const inviteMetadataByIdentityKey = new Map<string, InviteMetadataSnapshot>();
 
   for (const persistedGroup of chatState.createdGroups ?? []) {
     try {
@@ -306,9 +382,50 @@ export const reconstructCommunityMembershipFromChatState = (
 
   for (const timeline of Object.values(chatState.messagesByConversationId ?? {})) {
     for (const message of timeline) {
-      const inviteEvidence = toInviteEvidenceEntry(message);
+      const roomKeyInviteIdentityKey = toInviteRoomKeyIdentityKey(message);
+      if (roomKeyInviteIdentityKey) {
+        roomKeyInviteIdentityKeys.add(roomKeyInviteIdentityKey);
+      }
+      const inviteMetadataSnapshot = toInviteMetadataSnapshot(message);
+      if (inviteMetadataSnapshot) {
+        const existingMetadata = inviteMetadataByIdentityKey.get(inviteMetadataSnapshot.identityKey);
+        inviteMetadataByIdentityKey.set(inviteMetadataSnapshot.identityKey, {
+          displayName: inviteMetadataSnapshot.metadata.displayName ?? existingMetadata?.displayName,
+          avatar: inviteMetadataSnapshot.metadata.avatar ?? existingMetadata?.avatar,
+        });
+      }
+    }
+  }
+
+  for (const timeline of Object.values(chatState.messagesByConversationId ?? {})) {
+    for (const message of timeline) {
+      const parsed = typeof message.content === "string"
+        ? parseInvitePayload(message.content)
+        : null;
+      const inviteEvidence = toInviteEvidenceEntry(message, {
+        allowOutgoingAcceptedResponse: (
+          !!parsed
+          && parsed.type === "community-invite-response"
+          && parsed.status === "accepted"
+          && (() => {
+            const identity = sanitizeMembershipIdentity({
+              groupId: parsed.groupId,
+              relayUrl: parsed.relayUrl,
+              communityId: parsed.communityId,
+            });
+            return identity ? roomKeyInviteIdentityKeys.has(toCommunityMembershipLedgerKey(identity)) : false;
+          })()
+        ),
+      });
       if (inviteEvidence) {
-        candidates.push(inviteEvidence);
+        const matchedInviteMetadata = inviteMetadataByIdentityKey.get(
+          toCommunityMembershipLedgerKey(inviteEvidence),
+        );
+        candidates.push({
+          ...inviteEvidence,
+          displayName: inviteEvidence.displayName ?? matchedInviteMetadata?.displayName,
+          avatar: inviteEvidence.avatar ?? matchedInviteMetadata?.avatar,
+        });
       }
     }
   }

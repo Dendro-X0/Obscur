@@ -552,6 +552,73 @@ describe("group-provider membership ledger integration", () => {
     });
   });
 
+  it("does not downgrade hashed community identity when runtime membership evidence is weaker", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    const hashedCommunityId = "v2_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: `community:${hashedCommunityId}`,
+        communityId: hashedCommunityId,
+        genesisEventId: "genesis-canonical",
+        creatorPubkey: PUBLIC_KEY_A,
+        groupId: "canonical-group",
+        relayUrl: "wss://relay.canonical",
+        displayName: "Canonical Group",
+        memberPubkeys: [PUBLIC_KEY_A],
+        lastMessage: "canonical",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [PUBLIC_KEY_A],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-membership-confirmed", {
+        detail: {
+          groupId: "canonical-group",
+          relayUrl: "wss://relay.canonical",
+          communityId: "canonical-group:wss://relay.canonical",
+          displayName: "Private Group",
+          memberPubkeys: [PUBLIC_KEY_B],
+          memberCount: 2,
+          lastMessageTimeUnixMs: 2_000,
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+    expect(hook.result.current.createdGroups[0]).toEqual(expect.objectContaining({
+      id: `community:${hashedCommunityId}`,
+      communityId: hashedCommunityId,
+      displayName: "Canonical Group",
+    }));
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        groupId: "canonical-group",
+        relayUrl: "wss://relay.canonical",
+        communityId: hashedCommunityId,
+      }),
+    ]));
+  });
+
   it("keeps restored groups visible after profile scope rebinding on a fresh device", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
@@ -648,5 +715,57 @@ describe("group-provider membership ledger integration", () => {
         status: "joined",
       }),
     ]));
+  });
+
+  it("does not materialize a placeholder private group from sender-local accepted invite response restore", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_B;
+    await act(async () => {
+      await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(PUBLIC_KEY_B, {
+        version: 1,
+        publicKeyHex: PUBLIC_KEY_B,
+        createdAtUnixMs: Date.now(),
+        profile: {
+          username: "receiver-b-local-accept-only",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: { acceptedPeers: [], mutedPeers: [] },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        chatState: {
+          ...createEmptyState(),
+          messagesByConversationId: {
+            "dm:invite": [{
+              id: "m-local-accept-only",
+              content: JSON.stringify({
+                type: "community-invite-response",
+                status: "accepted",
+                groupId: "testclub1",
+                relayUrl: "wss://relay.testclub",
+                communityId: "testclub1:wss://relay.testclub",
+              }),
+              timestampMs: 12_000,
+              isOutgoing: true,
+              status: "delivered",
+            }],
+          },
+        },
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      });
+    });
+
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_B)).toEqual([]);
   });
 });

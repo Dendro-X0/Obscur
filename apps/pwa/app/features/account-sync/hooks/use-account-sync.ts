@@ -110,6 +110,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   const lastMutationPublishAtUnixMsRef = useRef<number | null>(null);
   const lastObservedMutationSignalAtUnixMsRef = useRef<number>(0);
   const pendingCommunityMembershipPublishRef = useRef(false);
+  const pendingDeferredMutationPublishReasonRef = useRef<AccountSyncBackupPublishReason | null>(null);
   const suppressMutationPublishUntilUnixMsRef = useRef<number>(0);
   const convergenceGuardEnabled = PrivacySettingsService.getSettings().accountSyncConvergenceV091 === true;
 
@@ -451,23 +452,37 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   ]);
 
   useEffect(() => {
-    if (!params.publicKeyHex || !params.privateKeyHex || snapshot.phase !== "ready") {
+    if (!params.publicKeyHex || !params.privateKeyHex) {
+      pendingDeferredMutationPublishReasonRef.current = null;
       return;
     }
-
-    const intervalId = window.setInterval(() => {
-      void maybePublishBackup("interval");
-    }, AUTO_BACKUP_INTERVAL_MS);
-
-    const handleVisibilityChange = (): void => {
-      if (document.visibilityState === "visible") {
-        void maybePublishBackup("visible");
+    if (snapshot.phase !== "ready") {
+      return;
+    }
+    const deferredReason = pendingDeferredMutationPublishReasonRef.current;
+    if (!deferredReason) {
+      return;
+    }
+    pendingDeferredMutationPublishReasonRef.current = null;
+    void (async () => {
+      await maybePublishBackup(deferredReason);
+      if (convergenceGuardEnabled) {
+        await maybeRestoreBackup("mutation_fast_follow");
       }
-    };
+    })();
+  }, [
+    convergenceGuardEnabled,
+    maybePublishBackup,
+    maybeRestoreBackup,
+    params.privateKeyHex,
+    params.publicKeyHex,
+    snapshot.phase,
+  ]);
 
-    const handlePageHide = (): void => {
-      void maybePublishBackup("pagehide");
-    };
+  useEffect(() => {
+    if (!params.publicKeyHex || !params.privateKeyHex) {
+      return;
+    }
 
     const unsubscribeMutation = subscribeAccountSyncMutation((detail) => {
       if (detail.atUnixMs <= lastObservedMutationSignalAtUnixMsRef.current) {
@@ -481,6 +496,21 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         : detail.reason === "message_delete_tombstones_changed"
           ? "message_delete_tombstones_changed"
         : "mutation";
+      if (snapshot.phase !== "ready") {
+        pendingDeferredMutationPublishReasonRef.current = publishReason;
+        logAppEvent({
+          name: "account_sync.backup_publish_mutation_deferred_until_ready",
+          level: "info",
+          scope: { feature: "account_sync", action: "backup_publish" },
+          context: {
+            mutationReason: detail.reason,
+            deferredPublishReason: publishReason,
+            phase: snapshot.phase,
+            guardEnabled: convergenceGuardEnabled,
+          },
+        });
+        return;
+      }
       queueMicrotask(() => {
         if (restoreInFlightRef.current) {
           if (publishReason === "community_membership_changed" && !pendingCommunityMembershipPublishRef.current) {
@@ -540,6 +570,26 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         })();
       });
     });
+
+    if (snapshot.phase !== "ready") {
+      return () => {
+        unsubscribeMutation();
+      };
+    }
+
+    const intervalId = window.setInterval(() => {
+      void maybePublishBackup("interval");
+    }, AUTO_BACKUP_INTERVAL_MS);
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === "visible") {
+        void maybePublishBackup("visible");
+      }
+    };
+
+    const handlePageHide = (): void => {
+      void maybePublishBackup("pagehide");
+    };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pagehide", handlePageHide);

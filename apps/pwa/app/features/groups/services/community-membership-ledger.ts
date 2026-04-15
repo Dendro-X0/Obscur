@@ -2,7 +2,7 @@ import type { GroupConversation } from "@/app/features/messaging/types";
 import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { deriveCommunityId } from "../utils/community-identity";
+import { deriveCommunityId, pickPreferredCommunityId } from "../utils/community-identity";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 
 const MEMBERSHIP_LEDGER_STORAGE_PREFIX = "obscur.group.membership_ledger.v1";
@@ -97,9 +97,20 @@ const dedupeCommunityMembershipLedger = (
     }
     const key = toCommunityMembershipLedgerKey(normalized);
     const existing = byKey.get(key);
-    if (!existing || normalized.updatedAtUnixMs >= existing.updatedAtUnixMs) {
+    if (!existing) {
       byKey.set(key, normalized);
+      continue;
     }
+    const newer = normalized.updatedAtUnixMs >= existing.updatedAtUnixMs ? normalized : existing;
+    const older = newer === normalized ? existing : normalized;
+    byKey.set(key, {
+      ...older,
+      ...newer,
+      communityId: pickPreferredCommunityId(newer.communityId, older.communityId) ?? newer.communityId,
+      displayName: newer.displayName ?? older.displayName,
+      avatar: newer.avatar ?? older.avatar,
+      lastEvidenceEventId: newer.lastEvidenceEventId ?? older.lastEvidenceEventId,
+    });
   }
   return Array.from(byKey.values()).sort((left, right) => right.updatedAtUnixMs - left.updatedAtUnixMs);
 };

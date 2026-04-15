@@ -91,6 +91,34 @@ describe("community-membership-ledger", () => {
     }));
   });
 
+  it("preserves hashed community identity and richer metadata when newer fallback evidence arrives", () => {
+    const hashedCommunityId = "v2_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const hashedEntry: CommunityMembershipLedgerEntry = {
+      ...BASE_ENTRY,
+      communityId: hashedCommunityId,
+      updatedAtUnixMs: 100,
+      displayName: "Canonical Writers",
+      avatar: "https://cdn.example/canonical.png",
+    };
+    const newerFallback: CommunityMembershipLedgerEntry = {
+      ...BASE_ENTRY,
+      communityId: "group-1:wss://relay.example",
+      updatedAtUnixMs: 200,
+      displayName: undefined,
+      avatar: undefined,
+    };
+
+    const merged = mergeCommunityMembershipLedgerEntries([hashedEntry], [newerFallback]);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toEqual(expect.objectContaining({
+      communityId: hashedCommunityId,
+      updatedAtUnixMs: 200,
+      displayName: "Canonical Writers",
+      avatar: "https://cdn.example/canonical.png",
+    }));
+  });
+
   it("tracks lifecycle transitions through setCommunityMembershipStatus", () => {
     setCommunityMembershipStatus(PUBLIC_KEY, {
       groupId: BASE_ENTRY.groupId,

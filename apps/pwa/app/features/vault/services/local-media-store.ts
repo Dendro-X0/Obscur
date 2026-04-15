@@ -529,6 +529,56 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
     return true;
 };
 
+export const downloadAttachmentToUserPath = async (params: Readonly<{
+    attachment: Attachment;
+    sourceUrl?: string;
+}>): Promise<boolean> => {
+    const sourceUrl = params.sourceUrl?.trim() || params.attachment.url.trim();
+    if (!sourceUrl) return false;
+
+    if (isTauriRuntime()) {
+        try {
+            const defaultPath = params.attachment.fileName && params.attachment.fileName.trim().length > 0
+                ? params.attachment.fileName.trim()
+                : buildPreferredLocalFileName(params.attachment);
+            const targetPath = await nativeLocalMediaAdapter.pickSavePath({ defaultPath });
+            if (!targetPath) return false;
+            const bytes = await fetchBytes(sourceUrl);
+            await nativeLocalMediaAdapter.writeBytes({
+                path: targetPath,
+                bytes,
+            });
+            return true;
+        } catch (error) {
+            logRuntimeEvent(
+                "local_media_store.download_attachment_failed",
+                "degraded",
+                ["[LocalMediaStore] Failed to download attachment to user-selected path.", {
+                    sourceUrl,
+                    fileName: params.attachment.fileName,
+                    error: error instanceof Error ? error.message : String(error),
+                }],
+                { windowMs: 15_000, maxPerWindow: 2, summaryEverySuppressed: 10 }
+            );
+            return false;
+        }
+    }
+
+    if (typeof window === "undefined" || typeof document === "undefined") {
+        return false;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = sourceUrl;
+    anchor.download = params.attachment.fileName || "download";
+    anchor.rel = "noopener";
+    anchor.target = "_blank";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    return true;
+};
+
 export const pickLocalMediaStorageRootPath = async (): Promise<string | null> => {
     if (!isTauriRuntime()) return null;
     try {

@@ -354,7 +354,7 @@ export function NetworkDashboard() {
                                     t("network.noGroupsFound"),
                                     t("network.noGroupsDesc"),
                                     Users,
-                                    { label: t("messaging.newGroup"), onClick: () => setIsNewGroupOpen(true) }
+                                    { label: t("groups.actions.browseCommunities", "Browse Communities"), onClick: () => setActiveTab("discovery") }
                                 )
                             ) : (
                                 <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col"}>

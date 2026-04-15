@@ -53,12 +53,44 @@ describe("community-membership-reconstruction", () => {
     ]);
   });
 
-  it("reconstructs joined entries from accepted community invite responses in dm history", () => {
+  it("reconstructs joined entries from incoming accepted community invite responses in dm history", () => {
     const chatState: PersistedChatState = {
       ...createEmptyChatState(),
       messagesByConversationId: {
         "dm:peer": [{
           id: "m-accepted",
+          content: JSON.stringify({
+            type: "community-invite-response",
+            status: "accepted",
+            groupId: "beta",
+            relayUrl: "wss://relay.beta",
+            communityId: "beta:wss://relay.beta",
+          }),
+          timestampMs: 2_000,
+          isOutgoing: false,
+          status: "delivered",
+        }],
+      },
+    };
+
+    const reconstructed = reconstructCommunityMembershipFromChatState(chatState);
+    expect(reconstructed).toEqual([
+      expect.objectContaining({
+        groupId: "beta",
+        relayUrl: "wss://relay.beta",
+        communityId: "beta:wss://relay.beta",
+        status: "joined",
+        updatedAtUnixMs: 2_000,
+      }),
+    ]);
+  });
+
+  it("does not reconstruct joined entries from sender-local accepted invite responses", () => {
+    const chatState: PersistedChatState = {
+      ...createEmptyChatState(),
+      messagesByConversationId: {
+        "dm:peer": [{
+          id: "m-accepted-local",
           content: JSON.stringify({
             type: "community-invite-response",
             status: "accepted",
@@ -73,14 +105,54 @@ describe("community-membership-reconstruction", () => {
       },
     };
 
-    const reconstructed = reconstructCommunityMembershipFromChatState(chatState);
-    expect(reconstructed).toEqual([
+    expect(reconstructCommunityMembershipFromChatState(chatState)).toEqual([]);
+  });
+
+  it("reconstructs joined entries from sender-local accepted response when matching room-key invite evidence exists", () => {
+    const chatState: PersistedChatState = {
+      ...createEmptyChatState(),
+      messagesByConversationId: {
+        "dm:peer": [{
+          id: "m-invite",
+          content: JSON.stringify({
+            type: "community-invite",
+            groupId: "beta",
+            roomKey: "rk-beta-1",
+            relayUrl: "wss://relay.beta",
+            communityId: "beta:wss://relay.beta",
+            metadata: {
+              name: "TestClub1",
+              picture: "https://cdn.example.testclub/avatar.png",
+            },
+          }),
+          timestampMs: 1_000,
+          isOutgoing: false,
+          status: "delivered",
+        }, {
+          id: "m-accepted-local",
+          content: JSON.stringify({
+            type: "community-invite-response",
+            status: "accepted",
+            groupId: "beta",
+            relayUrl: "wss://relay.beta",
+            communityId: "beta:wss://relay.beta",
+          }),
+          timestampMs: 2_000,
+          isOutgoing: true,
+          status: "delivered",
+        }],
+      },
+    };
+
+    expect(reconstructCommunityMembershipFromChatState(chatState)).toEqual([
       expect.objectContaining({
         groupId: "beta",
         relayUrl: "wss://relay.beta",
         communityId: "beta:wss://relay.beta",
         status: "joined",
         updatedAtUnixMs: 2_000,
+        displayName: "TestClub1",
+        avatar: "https://cdn.example.testclub/avatar.png",
       }),
     ]);
   });

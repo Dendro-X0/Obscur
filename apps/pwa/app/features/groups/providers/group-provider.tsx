@@ -6,7 +6,7 @@ import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "@/app/features
 import { fromPersistedGroupConversation, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
-import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
+import { deriveCommunityId, pickPreferredCommunityId } from "@/app/features/groups/utils/community-identity";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import {
     addGroupTombstone,
@@ -140,7 +140,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return sanitizeGroup({
             ...secondary,
             ...primary,
-            communityId: primary.communityId || secondary.communityId,
+            communityId: pickPreferredCommunityId(primary.communityId, secondary.communityId),
             displayName: pickPreferredDisplayName(primary.displayName, secondary.displayName),
             memberPubkeys: mergedMemberPubkeys,
             adminPubkeys: mergedAdminPubkeys,
@@ -228,8 +228,37 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             persistedGroups,
             membershipLedger: loadCommunityMembershipLedger(pk),
             tombstones,
+            groupMessageAuthorsByConversationId: Object.fromEntries(
+                Object.entries(persisted?.groupMessages ?? {}).map(([conversationId, messages]) => ([
+                    conversationId,
+                    Array.from(new Set(
+                        messages
+                            .map((message) => message.pubkey?.trim() ?? "")
+                            .filter((pubkey) => pubkey.length > 0)
+                    )),
+                ]))
+            ),
         });
-        const groups = dedupeGroups(recovery.groups)
+        const groups = dedupeGroups(recovery.groups.map((group) => {
+            const messageAuthorPubkeys = Array.from(new Set(
+                (persisted?.groupMessages?.[group.id] ?? [])
+                    .map((message) => message.pubkey?.trim() ?? "")
+                    .filter((pubkey) => pubkey.length > 0)
+            ));
+            const mergedMemberPubkeys = dedupePubkeys([
+                ...(group.memberPubkeys ?? []),
+                ...messageAuthorPubkeys,
+                pk,
+            ]);
+            if (mergedMemberPubkeys.join(",") === (group.memberPubkeys ?? []).join(",")) {
+                return group;
+            }
+            return {
+                ...group,
+                memberPubkeys: mergedMemberPubkeys,
+                memberCount: Math.max(group.memberCount ?? 0, mergedMemberPubkeys.length, 1),
+            };
+        }))
             .filter((group) => !tombstones.has(toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })));
         queueMicrotask(() => {
             const activePublicKey = getPublicKeyHex();
@@ -612,7 +641,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     ]);
                     const mergedGroup = sanitizeGroup({
                         ...existing,
-                        communityId: existing.communityId || candidateGroup.communityId,
+                        communityId: pickPreferredCommunityId(existing.communityId, candidateGroup.communityId),
                         displayName: (
                             existing.displayName?.trim().length ?? 0
                         ) > 0 && existing.displayName !== "Private Group"

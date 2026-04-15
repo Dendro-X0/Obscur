@@ -32,6 +32,12 @@ Use this folder as the canonical engineering contract for architecture, roadmap,
 4. [v1.3.8 Streaming Update Contract](./roadmap/v1.3.8-streaming-update-contract.md)
 4. [Release Closeout Guide](./releases/release-closeout-guide.md)
 
+### Release and Demo Assets
+
+1. [Release Closeout Guide](./releases/release-closeout-guide.md)
+2. Production GIF library: `docs/assets/gifs/`
+3. Release evidence bundles: `docs/assets/demo/`
+
 ### Continuation and Handoffs
 
 1. [Maintainer Playbook](./08-maintainer-playbook.md)
@@ -64,10 +70,11 @@ Legacy version docs can remain in `docs/archive/versioned/` for audit history, b
 
 1. Keep canonical docs synchronized with owner boundaries and release gates.
 2. Keep runtime evidence bundles under `docs/assets/demo/`.
-3. Keep archive docs read-only unless doing historical correction.
-4. When architecture meaningfully changes, update:
+3. Keep curated production GIF captures under `docs/assets/gifs/` so README and website surfaces reuse the same release-facing assets.
+4. Keep archive docs read-only unless doing historical correction.
+5. When architecture meaningfully changes, update:
 : `core doc` + `roadmap/release doc` + `CHANGELOG.md` in the same change set.
-5. When work spans multiple Codex threads, update:
+6. When work spans multiple Codex threads, update:
 : `docs/handoffs/current-session.md` before ending the thread.
 
 ## Mandatory Check

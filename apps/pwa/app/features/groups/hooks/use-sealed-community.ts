@@ -153,6 +153,8 @@ const GROUP_KIND_SEALED = 10105;
 const GROUP_KIND_DELETE = 5;
 const GROUP_KIND_METADATA = 39000;
 const GROUP_KIND_MEMBERS = 39002;
+const GROUP_KIND_REQUEST_JOIN = 9021;
+const GROUP_KIND_LEAVE = 9022;
 const MAX_GROUP_MESSAGES = 200;
 const GROUP_DELETE_TOMBSTONE_TTL_MS = 2 * 60 * 1000;
 const JOIN_REQUEST_PENDING_PREFIX = "obscur:groups:join-request-pending:v1";
@@ -944,15 +946,44 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         ) {
           rosterMembers.push(params.myPublicKeyHex);
         }
+        const rosterTimestamp = event.created_at;
+        const rosterMemberSet = new Set(rosterMembers);
+        const currentlyActiveMembers = membersRef.current.filter((pubkey) => (
+          !leftMembersRef.current.includes(pubkey)
+          && !expelledMembersRef.current.includes(pubkey)
+        ));
         rosterMembers.forEach((pubkey) => {
-          applyLedgerEvent({ type: "MEMBER_JOINED", pubkey, timestamp: 0 });
+          applyLedgerEvent({ type: "MEMBER_JOINED", pubkey, timestamp: rosterTimestamp });
         });
+        currentlyActiveMembers.forEach((pubkey) => {
+          if (rosterMemberSet.has(pubkey)) {
+            return;
+          }
+          if (params.myPublicKeyHex && pubkey === params.myPublicKeyHex && localMembershipEvidenceRef.current) {
+            return;
+          }
+          applyLedgerEvent({ type: "MEMBER_LEFT", pubkey, timestamp: rosterTimestamp });
+        });
+        return;
+      }
+
+      if (event.kind === GROUP_KIND_LEAVE) {
+        const leaveTimestamp = event.created_at;
+        const leavingPubkey = event.pubkey as PublicKeyHex;
+        applyLedgerEvent({ type: "MEMBER_LEFT", pubkey: leavingPubkey, timestamp: leaveTimestamp });
         return;
       }
     };
 
     const timelineSubId = params.pool.subscribe([{
-      kinds: [GROUP_KIND_SEALED, GROUP_KIND_DELETE, GROUP_KIND_METADATA, GROUP_KIND_MEMBERS],
+      kinds: [
+        GROUP_KIND_SEALED,
+        GROUP_KIND_DELETE,
+        GROUP_KIND_METADATA,
+        GROUP_KIND_MEMBERS,
+        GROUP_KIND_REQUEST_JOIN,
+        GROUP_KIND_LEAVE,
+      ],
       "#h": [params.groupId],
       limit: 100
     }], onEvent);

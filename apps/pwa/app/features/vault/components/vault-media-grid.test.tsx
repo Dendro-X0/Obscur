@@ -63,13 +63,13 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-describe("VaultMediaGrid hidden item recovery", () => {
+describe("VaultMediaGrid management actions", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vaultGridRoutingMocks.push.mockReset();
   });
 
-  it("shows hidden items in a dedicated filter and allows restoring them", () => {
+  it("removes an item into the dedicated Removed filter and allows restoring it", () => {
     const item = createMediaItem();
 
     render(
@@ -78,6 +78,7 @@ describe("VaultMediaGrid hidden item recovery", () => {
         isLoading={false}
         stats={{ imageCount: 1, videoCount: 0, audioCount: 0, fileCount: 0, total: 1 }}
         refresh={() => undefined}
+        downloadToLocalPath={async () => true}
         deleteLocalCopy={async () => undefined}
       />,
     );
@@ -85,19 +86,40 @@ describe("VaultMediaGrid hidden item recovery", () => {
     expect(screen.getByText("Direct message")).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`Vault item actions for ${item.attachment.fileName}`));
-    fireEvent.click(screen.getByText("Hide"));
+    fireEvent.click(screen.getByText("Remove from Vault"));
 
-    expect(screen.getByText("Hidden (1)")).toBeInTheDocument();
+    expect(screen.getByText("Removed (1)")).toBeInTheDocument();
     expect(screen.getByText("No items found in this section.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Hidden (1)"));
+    fireEvent.click(screen.getByText("Removed (1)"));
     expect(screen.getByText(item.attachment.fileName)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`Vault item actions for ${item.attachment.fileName}`));
-    fireEvent.click(screen.getByText("Restore"));
+    fireEvent.click(screen.getByText("Restore to Vault"));
 
-    expect(screen.getByText("Hidden (0)")).toBeInTheDocument();
+    expect(screen.getByText("Removed (0)")).toBeInTheDocument();
     fireEvent.click(screen.getByText("All (1)"));
+    expect(screen.getByText(item.attachment.fileName)).toBeInTheDocument();
+  });
+
+  it("migrates legacy hidden items into the Removed filter", () => {
+    const item = createMediaItem();
+    window.localStorage.setItem("obscur.vault.hidden", JSON.stringify([item.id]));
+    window.localStorage.setItem("obscur.vault.filter.preference", "hidden");
+
+    render(
+      <VaultMediaGrid
+        mediaItems={[item]}
+        isLoading={false}
+        stats={{ imageCount: 1, videoCount: 0, audioCount: 0, fileCount: 0, total: 1 }}
+        refresh={() => undefined}
+        downloadToLocalPath={async () => true}
+        deleteLocalCopy={async () => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Removed (1)")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search removed Vault media")).toBeInTheDocument();
     expect(screen.getByText(item.attachment.fileName)).toBeInTheDocument();
   });
 
@@ -131,6 +153,7 @@ describe("VaultMediaGrid hidden item recovery", () => {
         isLoading={false}
         stats={{ imageCount: 1, videoCount: 0, audioCount: 1, fileCount: 0, total: 2 }}
         refresh={() => undefined}
+        downloadToLocalPath={async () => true}
         deleteLocalCopy={async () => undefined}
       />,
     );
@@ -158,6 +181,7 @@ describe("VaultMediaGrid hidden item recovery", () => {
         isLoading={false}
         stats={{ imageCount: 1, videoCount: 0, audioCount: 0, fileCount: 0, total: 1 }}
         refresh={() => undefined}
+        downloadToLocalPath={async () => true}
         deleteLocalCopy={async () => undefined}
       />,
     );
@@ -179,6 +203,7 @@ describe("VaultMediaGrid hidden item recovery", () => {
         isLoading={false}
         stats={{ imageCount: 1, videoCount: 0, audioCount: 0, fileCount: 0, total: 1 }}
         refresh={() => undefined}
+        downloadToLocalPath={async () => true}
         deleteLocalCopy={async () => undefined}
       />,
     );
@@ -192,5 +217,28 @@ describe("VaultMediaGrid hidden item recovery", () => {
       expect(screen.getByText("Open Direct Message")).toBeInTheDocument();
     });
     expect(screen.getAllByText("Direct message source").length).toBeGreaterThan(0);
+  });
+
+  it("downloads a Vault item from the action menu", async () => {
+    const item = createMediaItem();
+    const downloadToLocalPath = vi.fn(async () => true);
+
+    render(
+      <VaultMediaGrid
+        mediaItems={[item]}
+        isLoading={false}
+        stats={{ imageCount: 1, videoCount: 0, audioCount: 0, fileCount: 0, total: 1 }}
+        refresh={() => undefined}
+        downloadToLocalPath={downloadToLocalPath}
+        deleteLocalCopy={async () => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText(`Vault item actions for ${item.attachment.fileName}`));
+    fireEvent.click(screen.getByText("Download"));
+
+    await waitFor(() => {
+      expect(downloadToLocalPath).toHaveBeenCalledWith(expect.objectContaining({ id: item.id }));
+    });
   });
 });

@@ -1,6 +1,6 @@
 # Version Context
 
-_Last reviewed: 2026-03-29._
+_Last reviewed: 2026-04-14._
 
 This file defines how version history is represented after consolidating version-specific planning docs into canonical, general docs.
 
@@ -43,7 +43,10 @@ When a milestone or release closes:
 
 ## Current Project State Note
 
-As of 2026-03-29:
-1. project is in good operational health,
-2. no unresolved severe blocker is currently identified,
-3. the project remains sensitive to owner-boundary drift, so evidence-first workflow is mandatory for all major changes.
+As of 2026-04-14:
+1. active release prep is centered on `v1.3.14` owner-path hardening for
+   community recovery and fresh-device DM restore integrity,
+2. the project remains sensitive to owner-boundary drift, so evidence-first
+   workflow is mandatory for all major changes,
+3. release claims still require runtime replay for fragile cross-device flows
+   even when focused suites are green.

@@ -194,6 +194,22 @@ const collectPersistedConversationIds = (dbState: Record<string, unknown>): Read
     return collected;
 };
 
+const hasLegacyChatTimelineDomains = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+    const candidate = value as Readonly<{
+        messagesByConversationId?: Readonly<Record<string, unknown>>;
+        groupMessages?: Readonly<Record<string, unknown>>;
+    }>;
+    const dmConversationCount = Object.keys(candidate.messagesByConversationId ?? {}).length;
+    if (dmConversationCount > 0) {
+        return true;
+    }
+    const groupConversationCount = Object.keys(candidate.groupMessages ?? {}).length;
+    return groupConversationCount > 0;
+};
+
 /**
  * MessagePersistenceService
  * 
@@ -512,8 +528,10 @@ export class MessagePersistenceService {
             if (!normalizedPublicKeyHex) {
                 return;
             }
-            const dbState = chatStateStoreService.load(normalizedPublicKeyHex as PublicKeyHex)
-                ?? await messagingDB.get<any>("chatState", normalizedPublicKeyHex);
+            const cachedChatState = chatStateStoreService.load(normalizedPublicKeyHex as PublicKeyHex);
+            const dbState = hasLegacyChatTimelineDomains(cachedChatState)
+                ? cachedChatState
+                : (await messagingDB.get<any>("chatState", normalizedPublicKeyHex) ?? cachedChatState);
             if (!dbState) return;
 
             const allMessages: Array<Record<string, unknown>> = [];

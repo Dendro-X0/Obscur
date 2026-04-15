@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bump version in version.json
+ * Bump version using root package.json as the source of truth.
  * Usage: node scripts/bump-version.js [major|minor|patch]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -10,11 +10,9 @@ import { execSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
+const rootPackagePath = resolve(rootDir, 'package.json');
 const versionPath = resolve(rootDir, 'version.json');
 
-/**
- * Parse semantic version
- */
 function parseVersion(version) {
     const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
     if (!match) {
@@ -27,9 +25,6 @@ function parseVersion(version) {
     };
 }
 
-/**
- * Bump version based on type
- */
 function bumpVersion(version, type) {
     const parts = parseVersion(version);
 
@@ -52,44 +47,41 @@ function bumpVersion(version, type) {
     return `${parts.major}.${parts.minor}.${parts.patch}`;
 }
 
-/**
- * Main bump function
- */
 function main() {
     const bumpType = process.argv[2] || 'patch';
 
     if (!['major', 'minor', 'patch'].includes(bumpType)) {
-        console.error('❌ Invalid bump type. Use: major, minor, or patch');
+        console.error('Invalid bump type. Use: major, minor, or patch');
         process.exit(1);
     }
 
     try {
-        // Read current version
+        const rootPackageData = JSON.parse(readFileSync(rootPackagePath, 'utf-8'));
         const versionData = JSON.parse(readFileSync(versionPath, 'utf-8'));
-        const currentVersion = versionData.version;
-
-        // Bump version
+        const currentVersion = rootPackageData.version;
         const newVersion = bumpVersion(currentVersion, bumpType);
 
-        console.log(`📦 Bumping version: ${currentVersion} → ${newVersion} (${bumpType})\n`);
+        console.log(`Bumping version: ${currentVersion} -> ${newVersion} (${bumpType})\n`);
 
-        // Update version.json
+        rootPackageData.version = newVersion;
+        writeFileSync(rootPackagePath, JSON.stringify(rootPackageData, null, 2) + '\n', 'utf-8');
+        console.log(`Updated package.json to v${newVersion}`);
+
         versionData.version = newVersion;
         writeFileSync(versionPath, JSON.stringify(versionData, null, 2) + '\n', 'utf-8');
-        console.log(`✅ Updated version.json to v${newVersion}`);
+        console.log(`Updated version.json to v${newVersion}`);
 
-        // Sync to all files
-        console.log('\n🔄 Syncing versions across workspace...\n');
+        console.log('\nSyncing versions across workspace...\n');
         execSync('node scripts/sync-versions.mjs', { stdio: 'inherit', cwd: rootDir });
 
-        console.log(`\n✨ Version bumped to v${newVersion}`);
-        console.log(`\n💡 Next steps:`);
-        console.log(`   1. Review changes: git diff`);
-        console.log(`   2. Commit: git add . && git commit -m "v${newVersion} release"`);
-        console.log(`   3. Tag: git tag v${newVersion}`);
-        console.log(`   4. Push: git push origin main && git push origin v${newVersion}`);
+        console.log(`\nVersion bumped to v${newVersion}`);
+        console.log('\nNext steps:');
+        console.log('  1. Review changes: git diff');
+        console.log(`  2. Commit: git add . && git commit -m "v${newVersion} release"`);
+        console.log(`  3. Tag: git tag v${newVersion}`);
+        console.log(`  4. Push: git push origin main && git push origin v${newVersion}`);
     } catch (error) {
-        console.error('❌ Error bumping version:', error.message);
+        console.error('Error bumping version:', error instanceof Error ? error.message : String(error));
         process.exit(1);
     }
 }

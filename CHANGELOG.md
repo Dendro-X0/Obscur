@@ -1,5 +1,49 @@
 ## [Unreleased]
 
+## [v1.3.14] - 2026-04-14
+
+### Fixed
+
+- Hardened community recovery and cross-device membership convergence:
+  - restore no longer reconstructs joined community membership from bare
+    sender-local `community-invite-response` acceptance history alone,
+  - legitimate joined communities still restore when matching room-key invite
+    evidence exists in restored DM history,
+  - hashed canonical community identity now survives membership-ledger and
+    recovery merges instead of degrading into placeholder private-group shells,
+  - sealed-community membership now subtracts stale active members both from
+    newer relay roster omission and from direct scoped relay leave (`9022`)
+    evidence, reducing stale invite-block/member-list drift after leave,
+  - empty-state recovery in Discovery and Network now routes through the
+    canonical community preview/join flow rather than dead-ending on an empty
+    Groups surface.
+- Hardened fresh-device restore and DM delete/restore owner paths:
+  - account-sync mutation subscribers no longer immediately replay stale local
+    mutation history on mount,
+  - non-v1 backup restore now re-materializes restored chat-state into the
+    indexed message store so post-restore reads can converge on the same
+    message owner path,
+  - legacy migration now falls back to IndexedDB chat-state when scoped cache
+    only contains metadata and misses restored timelines,
+  - DM reads stay on legacy chat-state when it is richer than projection
+    immediately after restore, reducing thin or misleading post-restore
+    conversation windows.
+- Improved media and Vault reliability in the current release lane:
+  - Vault media now preserves source-conversation ownership with explicit DM
+    vs community badges/copy and source-specific actions,
+  - upload flow now retries transient provider/network failures once with a
+    bounded delay before surfacing failure.
+
+### Changed
+
+- Refreshed release-facing docs for `v1.3.14`:
+  - root `README.md` now uses the current production GIF captures under
+    `docs/assets/gifs/` instead of placeholder assets,
+  - canonical docs now describe the website lane as the future surface for
+    demos, changelogs, and downloadable artifacts,
+  - `apps/website/README.md` now documents the intended Obscur website scope
+    rather than the stock Next.js scaffold text.
+
 ## [v1.3.13] - 2026-04-11
 
 ### Changed

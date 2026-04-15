@@ -61,6 +61,15 @@ const toLocalDeleteIdentityIds = (message: Message): ReadonlyArray<string> => {
     return Array.from(ids);
 };
 
+const isRetryableUploadError = (error: UploadError): boolean => (
+    error.code === UploadErrorCode.NETWORK_ERROR
+    || error.code === UploadErrorCode.PROVIDER_ERROR
+);
+
+const delay = async (ms: number): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 const fallbackDigestHex = (payload: string): string => {
     let hash = 0x811c9dc5;
     for (let i = 0; i < payload.length; i += 1) {
@@ -291,7 +300,19 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 // Upload sequentially to reduce provider rate-limit contention in dev mode.
                 for (const file of pendingAttachments) {
                     try {
-                        const uploaded = await uploadService.uploadFile(file);
+                        let uploaded;
+                        try {
+                            uploaded = await uploadService.uploadFile(file);
+                        } catch (firstError) {
+                            const normalizedFirstError = firstError instanceof UploadError
+                                ? firstError
+                                : new UploadError(UploadErrorCode.UNKNOWN, String(firstError));
+                            if (!isRetryableUploadError(normalizedFirstError)) {
+                                throw normalizedFirstError;
+                            }
+                            await delay(700);
+                            uploaded = await uploadService.uploadFile(file);
+                        }
                         attachments.push(uploaded);
                         if (!shouldAvoidInMemoryAttachmentCaching(file)) {
                             fileBytesMap.set(uploaded.url, new Uint8Array(await file.arrayBuffer()));

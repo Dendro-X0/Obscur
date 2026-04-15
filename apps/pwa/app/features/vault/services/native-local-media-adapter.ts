@@ -90,6 +90,15 @@ const pickDirectory = async (): Promise<string | null> => {
   return typeof selected === "string" && selected.trim().length > 0 ? selected : null;
 };
 
+const pickSavePath = async (params: Readonly<{ defaultPath: string }>): Promise<string | null> => {
+  if (!isSupported()) return null;
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  const selected = await save({
+    defaultPath: params.defaultPath,
+  });
+  return typeof selected === "string" && selected.trim().length > 0 ? selected : null;
+};
+
 export const nativeLocalMediaAdapter = {
   isSupported,
   joinPaths,
@@ -101,4 +110,5 @@ export const nativeLocalMediaAdapter = {
   openPath,
   convertAbsolutePathToFileSrc,
   pickDirectory,
+  pickSavePath,
 };

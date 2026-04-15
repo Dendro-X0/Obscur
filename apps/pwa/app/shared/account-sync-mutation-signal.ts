@@ -71,9 +71,6 @@ export const subscribeAccountSyncMutation = (
     listener(detail);
   };
   window.addEventListener(ACCOUNT_SYNC_MUTATION_EVENT, onEvent as EventListener);
-  if (latestMutationDetail) {
-    listener(latestMutationDetail);
-  }
   return () => {
     window.removeEventListener(ACCOUNT_SYNC_MUTATION_EVENT, onEvent as EventListener);
   };

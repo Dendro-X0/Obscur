@@ -6,6 +6,7 @@ import {
   toGroupConversationFromMembershipLedgerEntry,
 } from "./community-membership-ledger";
 import { toGroupTombstoneKey } from "./group-tombstone-store";
+import { pickPreferredCommunityId } from "../utils/community-identity";
 
 export const COMMUNITY_MEMBERSHIP_RECOVERY_PRECEDENCE = Object.freeze([
   "tombstone",
@@ -160,7 +161,7 @@ const mergePersistedGroupWithLedger = (
   const mergedMemberPubkeys = uniqueNonEmptyStrings([...(group.memberPubkeys ?? []), localPublicKeyHex]);
   return {
     ...group,
-    communityId: entry.communityId || group.communityId,
+    communityId: pickPreferredCommunityId(group.communityId, entry.communityId) ?? group.communityId,
     displayName: pickPreferredDisplayName(group.displayName, entry.displayName),
     memberPubkeys: mergedMemberPubkeys,
     memberCount: Math.max(group.memberCount ?? 0, mergedMemberPubkeys.length, 1),
@@ -173,6 +174,7 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
   persistedGroups: ReadonlyArray<GroupConversation>;
   membershipLedger: ReadonlyArray<CommunityMembershipLedgerEntry>;
   tombstones: ReadonlySet<string>;
+  groupMessageAuthorsByConversationId?: Readonly<Record<string, ReadonlyArray<string>>>;
 }>): CommunityMembershipRecoveryResult => {
   const persistedDedupe = dedupePersistedGroupsByKey(params.persistedGroups);
   const persistedByKey = persistedDedupe.byKey;
@@ -239,8 +241,21 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
       hiddenByLedgerStatusCount += 1;
       continue;
     }
+    const persistedMemberFallback = params.persistedGroups
+      .filter((group) => (
+        group.groupId === membershipEntry.groupId
+        && group.relayUrl === membershipEntry.relayUrl
+      ))
+      .flatMap((group) => group.memberPubkeys ?? []);
+    const conversationId = `community:${membershipEntry.communityId}`;
+    const groupMessageAuthorFallback = params.groupMessageAuthorsByConversationId?.[conversationId] ?? [];
+    const fallbackMemberPubkeys = uniqueNonEmptyStrings([
+      ...persistedMemberFallback,
+      ...groupMessageAuthorFallback,
+      params.publicKeyHex,
+    ]);
     groups.push(toGroupConversationFromMembershipLedgerEntry(membershipEntry, {
-      fallbackMemberPubkeys: [params.publicKeyHex],
+      fallbackMemberPubkeys,
     }));
     hydratedFromLedgerOnlyCount += 1;
   }

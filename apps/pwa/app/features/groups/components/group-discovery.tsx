@@ -19,7 +19,6 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { toast } from "@dweb/ui-kit";
-import type { GroupConversation } from "@/app/features/messaging/types";
 import { useGroups } from "../providers/group-provider";
 import { cn } from "@dweb/ui-kit";
 import { toGroupConversationId } from "../utils/group-conversation-id";
@@ -43,7 +42,7 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { relayPool } = useRelay();
-    const { addGroup, createdGroups } = useGroups();
+    const { createdGroups } = useGroups();
     const [searchRelay, setSearchRelay] = useState("wss://relay.nostr.band");
     const [groups, setGroups] = useState<DiscoveredGroup[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -131,32 +130,20 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
         setCurrentPage(1);
     }, [searchQuery, searchRelay]);
 
-    const handleJoin = (group: DiscoveredGroup) => {
-        const newGroup: GroupConversation = {
-            kind: 'group',
-            id: toGroupConversationId({ groupId: group.groupId, relayUrl: group.relayUrl }),
-            groupId: group.groupId,
-            relayUrl: group.relayUrl,
-            displayName: group.name || group.groupId,
-            memberPubkeys: [],
-            lastMessage: 'Joined via discovery',
-            unreadCount: 0,
-            lastMessageTime: new Date(),
-            access: group.access || "open",
-            memberCount: group.memberCount || 0,
-            adminPubkeys: [], // Will be hydrated from relay
-            avatar: group.avatar
-        };
-        addGroup(newGroup, { allowRevive: true });
-        toast.success(t("groups.notifications.joined", { name: group.name || group.groupId }));
-    };
-
     const handlePreview = (group: DiscoveredGroup): void => {
         const groupToken = toGroupConversationId({
             groupId: group.groupId,
             relayUrl: group.relayUrl,
         });
         router.push(getPublicGroupHref(groupToken, group.relayUrl));
+    };
+
+    const handleJoin = (group: DiscoveredGroup): void => {
+        handlePreview(group);
+        toast.info(t(
+            "groups.discovery.joinViaPreview",
+            "Open the community preview to join through the canonical community flow."
+        ));
     };
 
     return (
@@ -234,19 +221,23 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
 
                                 <Button
                                     onClick={() => handleJoin(group)}
-                                    disabled={isJoined}
                                     className={cn(
                                         "w-full h-12 rounded-2xl font-black uppercase tracking-widest text-xs gap-2 shadow-xl transition-all",
                                         isJoined
-                                            ? "bg-muted text-muted-foreground cursor-default"
+                                            ? "bg-muted text-muted-foreground hover:bg-muted"
                                             : "bg-primary hover:bg-primary/90 text-primary-foreground shadow-primary/20"
                                     )}
                                 >
                                     {isJoined ? (
-                                        t("groups.status.member", "Member")
+                                        <>
+                                            {t("groups.actions.openCommunity", "Open Community")}
+                                            <ArrowRight className="h-4 w-4" />
+                                        </>
                                     ) : (
                                         <>
-                                            {group.access === "invite-only" ? "Request Access" : t("groups.actions.joinCommunity", "Join Community")}
+                                            {group.access === "invite-only"
+                                                ? t("groups.actions.requestAccess", "Request Access")
+                                                : t("groups.actions.joinCommunity", "Join Community")}
                                             <ArrowRight className="h-4 w-4" />
                                         </>
                                     )}

@@ -3,8 +3,10 @@
 import { useEffect, useState, useMemo } from "react";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import type { Message, MediaItem } from "../../messaging/types";
+import { CHAT_STATE_REPLACED_EVENT } from "../../messaging/services/chat-state-store";
 import {
     deleteLocalMediaCacheItem,
+    downloadAttachmentToUserPath,
     getLocalMediaIndexEntryByRemoteUrl,
     resolveLocalMediaUrl
 } from "../services/local-media-store";
@@ -82,6 +84,19 @@ export function useVaultMedia() {
         refresh();
     }, []);
 
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const onChatStateReplaced = (): void => {
+            void refresh();
+        };
+        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+        return () => {
+            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+        };
+    }, []);
+
     const stats = useMemo(() => {
         const imageCount = mediaItems.filter(item => item.attachment.kind === "image").length;
         const videoCount = mediaItems.filter(item => item.attachment.kind === "video").length;
@@ -95,6 +110,12 @@ export function useVaultMedia() {
         isLoading,
         error,
         refresh,
+        downloadToLocalPath: async (item: VaultMediaItem) => {
+            return downloadAttachmentToUserPath({
+                attachment: item.attachment,
+                sourceUrl: item.attachment.url || item.remoteUrl,
+            });
+        },
         deleteLocalCopy: async (remoteUrl: string) => {
             await deleteLocalMediaCacheItem(remoteUrl);
             await refresh();

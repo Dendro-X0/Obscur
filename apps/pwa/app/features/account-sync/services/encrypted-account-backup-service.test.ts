@@ -3998,7 +3998,7 @@ describe("encryptedAccountBackupService", () => {
     getAllByIndexSpy.mockRestore();
   });
 
-  it("hydrates indexed invite-accept evidence for non-v1 chat-state domain restore", async () => {
+  it("does not hydrate sender-local invite-accept evidence into joined community membership during non-v1 restore", async () => {
     const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
     const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([{
       id: "local-invite-accept-1",
@@ -4057,13 +4057,7 @@ describe("encryptedAccountBackupService", () => {
 
     expect(hydrateSpy).toHaveBeenCalledWith(publicKeyHex);
     expect(getAllByIndexSpy).toHaveBeenCalled();
-    expect(loadCommunityMembershipLedger(publicKeyHex)).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        groupId: "omega",
-        relayUrl: "wss://relay.omega",
-        status: "joined",
-      }),
-    ]));
+    expect(loadCommunityMembershipLedger(publicKeyHex)).toEqual([]);
     expect(chatStateStoreService.load(publicKeyHex)?.messagesByConversationId["dm:invite"]).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "local-invite-accept-1",
@@ -4074,6 +4068,170 @@ describe("encryptedAccountBackupService", () => {
     hydrateSpy.mockRestore();
     getAllByIndexSpy.mockRestore();
     queueSpy.mockRestore();
+  });
+
+  it("materializes restored attachment-bearing dm history into the indexed messages store during non-v1 restore", async () => {
+    const bulkPutSpy = vi.spyOn(messagingDB, "bulkPut").mockResolvedValue(undefined as any);
+    const getChatStateSpy = vi.spyOn(messagingDB, "get").mockResolvedValue(null as any);
+
+    await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: Date.now(),
+      profile: {
+        username: "",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: {
+        acceptedPeers: [],
+        mutedPeers: [],
+      },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      chatState: {
+        version: 2,
+        createdConnections: [{
+          id: "attachment-restore-thread",
+          displayName: "Peer",
+          pubkey: acceptedPeerPublicKeyHex,
+          lastMessage: "restored media message",
+          unreadCount: 0,
+          lastMessageTimeMs: 12_000,
+        }],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          "attachment-restore-thread": [{
+            id: "attachment-restore-message",
+            content: "restored media message",
+            timestampMs: 12_000,
+            isOutgoing: false,
+            status: "delivered",
+            pubkey: acceptedPeerPublicKeyHex,
+            attachments: [{
+              kind: "image",
+              url: "https://image.nostr.build/restored-image.jpg",
+              contentType: "image/jpeg",
+              fileName: "restored-image.jpg",
+            }],
+          }],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+    }, "default", {
+      restoreChatStateDomains: true,
+    });
+
+    expect(bulkPutSpy).toHaveBeenCalledWith("messages", expect.arrayContaining([
+      expect.objectContaining({
+        id: "attachment-restore-message",
+        conversationId: "attachment-restore-thread",
+        attachments: expect.arrayContaining([
+          expect.objectContaining({
+            kind: "image",
+            url: "https://image.nostr.build/restored-image.jpg",
+          }),
+        ]),
+      }),
+    ]));
+
+    bulkPutSpy.mockRestore();
+    getChatStateSpy.mockRestore();
+  });
+
+  it("re-publishes restored attachment-bearing dm history from existing state without requiring new messages", async () => {
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const bulkPutSpy = vi.spyOn(messagingDB, "bulkPut").mockResolvedValue(undefined as any);
+    const getChatStateSpy = vi.spyOn(messagingDB, "get").mockResolvedValue(null as any);
+
+    await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: Date.now(),
+      profile: {
+        username: "",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: {
+        acceptedPeers: [],
+        mutedPeers: [],
+      },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      chatState: {
+        version: 2,
+        createdConnections: [{
+          id: "existing-history-thread",
+          displayName: "Peer",
+          pubkey: acceptedPeerPublicKeyHex,
+          lastMessage: "older restored media message",
+          unreadCount: 0,
+          lastMessageTimeMs: 20_000,
+        }],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          "existing-history-thread": [{
+            id: "existing-history-message",
+            content: "older restored media message",
+            timestampMs: 20_000,
+            isOutgoing: false,
+            status: "delivered",
+            pubkey: acceptedPeerPublicKeyHex,
+            attachments: [{
+              kind: "image",
+              url: "https://image.nostr.build/existing-history-image.jpg",
+              contentType: "image/jpeg",
+              fileName: "existing-history-image.jpg",
+            }],
+          }],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+    }, "default", {
+      restoreChatStateDomains: true,
+    });
+
+    const payload = await encryptedAccountBackupServiceInternals.buildBackupPayloadWithHydratedChatState(publicKeyHex);
+    const restoredMessages = payload.chatState?.messagesByConversationId["existing-history-thread"] ?? [];
+
+    expect(hydrateSpy).toHaveBeenCalledWith(publicKeyHex);
+    expect(bulkPutSpy).toHaveBeenCalled();
+    expect(restoredMessages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "existing-history-message",
+        attachments: expect.arrayContaining([
+          expect.objectContaining({
+            kind: "image",
+            url: "https://image.nostr.build/existing-history-image.jpg",
+          }),
+        ]),
+      }),
+    ]));
+
+    hydrateSpy.mockRestore();
+    bulkPutSpy.mockRestore();
+    getChatStateSpy.mockRestore();
   });
 
   it("skips local message hydration during fresh-device restore when incoming backup already has private history", async () => {

@@ -43,23 +43,39 @@ describe("media-upload-policy runtime safety", () => {
 
   it("rejects oversized attachment batches before processing begins", () => {
     const first = createFile({
-      name: "clip-a.mp4",
-      type: "video/mp4",
+      name: "archive-a.bin",
+      type: "application/octet-stream",
       sizeBytes: MEDIA_RUNTIME_SAFETY_LIMITS.pendingAttachmentBatchBytes / 2,
     });
     const second = createFile({
-      name: "clip-b.mp4",
-      type: "video/mp4",
+      name: "archive-b.bin",
+      type: "application/octet-stream",
       sizeBytes: MEDIA_RUNTIME_SAFETY_LIMITS.pendingAttachmentBatchBytes / 2,
     });
     const third = createFile({
-      name: "clip-c.mp4",
-      type: "video/mp4",
+      name: "archive-c.bin",
+      type: "application/octet-stream",
       sizeBytes: 10,
     });
 
     const error = validateAttachmentBatchForRuntimeSafety([third], [first, second]);
     expect(error).toContain("Selected attachments exceed");
+  });
+
+  it("rejects multiple video attachments in one message", () => {
+    const first = createFile({
+      name: "clip-a.mp4",
+      type: "video/mp4",
+      sizeBytes: 20 * 1024 * 1024,
+    });
+    const second = createFile({
+      name: "clip-b.mp4",
+      type: "video/mp4",
+      sizeBytes: 12 * 1024 * 1024,
+    });
+
+    const error = validateAttachmentBatchForRuntimeSafety([second], [first]);
+    expect(error).toContain("Only 1 video can be attached per message");
   });
 
   it("skips in-memory sent-file caching for large uploads", () => {

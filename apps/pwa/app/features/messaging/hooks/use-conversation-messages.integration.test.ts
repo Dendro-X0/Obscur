@@ -18,6 +18,10 @@ const accountProjectionSnapshot = {
     updatedAtUnixMs: Date.now(),
 };
 
+const chatStateStoreMocks = vi.hoisted(() => ({
+    load: vi.fn(() => null),
+}));
+
 vi.mock("@dweb/storage/indexed-db", () => ({
     messagingDB: {
         getAllByIndex: vi.fn(async () => []),
@@ -43,6 +47,7 @@ vi.mock("@/app/features/account-sync/services/account-projection-read-authority"
 
 vi.mock("../services/chat-state-store", () => ({
     CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
+    chatStateStoreService: chatStateStoreMocks,
 }));
 
 const createMessage = (params: Readonly<{ id: string; timestampMs: number; content?: string; eventId?: string }>) => ({
@@ -64,6 +69,8 @@ describe("useConversationMessages integration (perf mode)", () => {
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
         clearMessageDeleteTombstones();
         accountProjectionSnapshot.projection = null;
+        chatStateStoreMocks.load.mockReset();
+        chatStateStoreMocks.load.mockReturnValue(null);
 
         vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback): number => {
             return setTimeout(() => cb(performance.now()), 0) as unknown as number;

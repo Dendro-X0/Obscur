@@ -96,4 +96,34 @@ describe("nip96-upload-service internals", () => {
     expect(uploadViaTauri).not.toHaveBeenCalled();
     expect(attachment.url).toBe("https://upload.example/video.mp4");
   });
+
+  it("rotates provider priority across sequential uploads", async () => {
+    const service = new Nip96UploadService([
+      "https://provider-one.example",
+      "https://provider-two.example",
+    ], null, null);
+    const attemptedTargets: string[] = [];
+
+    (service as any).isTauri = () => false;
+    (service as any).resolveBrowserUploadTargets = vi.fn(async (providerUrl: string) => [providerUrl]);
+    (service as any).uploadViaBrowser = vi.fn(async (file: File, targetUrl: string) => {
+      attemptedTargets.push(targetUrl);
+      return {
+        kind: "video" as const,
+        url: `${targetUrl}/${file.name}`,
+        contentType: "video/mp4",
+        fileName: file.name,
+      };
+    });
+    (service as any).withTimeout = async (promise: Promise<unknown>) => await promise;
+
+    const fileA = new File([new Uint8Array(1024)], "clip-a.mp4", { type: "video/mp4" });
+    const fileB = new File([new Uint8Array(1024)], "clip-b.mp4", { type: "video/mp4" });
+
+    await service.uploadFile(fileA);
+    await service.uploadFile(fileB);
+
+    expect(attemptedTargets[0]).toBe("https://provider-one.example");
+    expect(attemptedTargets[1]).toBe("https://provider-two.example");
+  });
 });

@@ -144,6 +144,7 @@ const getUrlFromNip96Response = (obj: Nip96Response): string | null => {
 export class Nip96UploadService implements UploadService {
     private resolvedFallbackPrivateKeyHex: string | null | undefined = undefined;
     private providerUploadTargetCache = new Map<string, ReadonlyArray<string>>();
+    private providerRotationCursor = 0;
 
     constructor(
         private readonly apiUrls: ReadonlyArray<string>,
@@ -155,6 +156,21 @@ export class Nip96UploadService implements UploadService {
         return this.apiUrls
             .map((value: string): string => value.trim())
             .filter((value: string): boolean => value.length > 0);
+    }
+
+    private rotateProvidersForAttempt(providers: ReadonlyArray<string>): ReadonlyArray<string> {
+        if (providers.length <= 1) {
+            return providers;
+        }
+        const offset = this.providerRotationCursor % providers.length;
+        this.providerRotationCursor += 1;
+        if (offset === 0) {
+            return providers;
+        }
+        return [
+            ...providers.slice(offset),
+            ...providers.slice(0, offset),
+        ];
     }
 
     private isTauri(): boolean {
@@ -462,6 +478,7 @@ export class Nip96UploadService implements UploadService {
                 return 0;
             });
         }
+        providers = [...this.rotateProvidersForAttempt(providers)];
 
         const errors: UploadError[] = [];
         const startTime = Date.now();
