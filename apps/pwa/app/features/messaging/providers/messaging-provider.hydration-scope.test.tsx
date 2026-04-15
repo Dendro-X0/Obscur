@@ -280,4 +280,54 @@ describe("messaging-provider hydration scope resets", () => {
     });
     expect(messagingDbMocks.get).toHaveBeenCalledWith("chatState", accountA);
   });
+
+  it("hydrates the switched-to account from indexed chat-state without retaining prior-account connections", async () => {
+    const accountA = "a".repeat(64);
+    const accountB = "b".repeat(64);
+    chatStateStoreMocks.load.mockImplementation((publicKeyHex: string, options?: { profileId?: string }) => {
+      const scope = `${options?.profileId ?? "default"}::${publicKeyHex}`;
+      if (scope === `default::${accountA}`) {
+        return buildPersistedState({
+          displayName: "Account A Contact",
+          peerPublicKeyHex: "1".repeat(64),
+        });
+      }
+      if (scope === `default::${accountB}`) {
+        return null;
+      }
+      return null;
+    });
+    messagingDbMocks.get.mockImplementation(async (_store: string, publicKeyHex: string) => {
+      if (publicKeyHex === accountB) {
+        return buildPersistedState({
+          displayName: "Indexed Account B Contact",
+          peerPublicKeyHex: "6".repeat(64),
+        });
+      }
+      return null;
+    });
+
+    const view = render(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("connections").textContent).toContain("Account A Contact");
+    });
+
+    identityState.publicKeyHex = accountB;
+    view.rerender(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hydrated").textContent).toBe("true");
+      expect(screen.getByTestId("connections").textContent).toContain("Indexed Account B Contact");
+      expect(screen.getByTestId("connections").textContent).not.toContain("Account A Contact");
+    });
+  });
 });

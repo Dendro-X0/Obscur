@@ -9,6 +9,10 @@ const vaultHookMocks = vi.hoisted(() => ({
   getAll: vi.fn(),
 }));
 
+const identityState = vi.hoisted(() => ({
+  publicKeyHex: "a".repeat(64) as string | null,
+}));
+
 vi.mock("@dweb/storage/indexed-db", () => ({
   messagingDB: {
     getAll: vaultHookMocks.getAll,
@@ -18,7 +22,7 @@ vi.mock("@dweb/storage/indexed-db", () => ({
 vi.mock("../../auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: {
-      publicKeyHex: "a".repeat(64),
+      publicKeyHex: identityState.publicKeyHex,
       stored: null,
     },
   }),
@@ -34,6 +38,7 @@ vi.mock("../services/local-media-store", () => ({
 describe("useVaultMedia", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    identityState.publicKeyHex = "a".repeat(64);
   });
 
   it("refreshes aggregated media when chat state is replaced", async () => {
@@ -108,5 +113,77 @@ describe("useVaultMedia", () => {
       expect(result.current.mediaItems).toHaveLength(1);
     });
     expect(result.current.mediaItems[0]?.attachment.fileName).toBe("voice.wav");
+  });
+
+  it("clears aggregated media when the active identity signs out", async () => {
+    vaultHookMocks.getAll.mockResolvedValue([{
+      id: "m-3",
+      conversationId: "dm:a:d",
+      timestamp: new Date("2026-04-14T00:00:00.000Z"),
+      attachments: [{
+        kind: "image",
+        url: "https://cdn.example.com/photo.png",
+        contentType: "image/png",
+        fileName: "photo.png",
+      }],
+    }]);
+
+    const { result, rerender } = renderHook(() => useVaultMedia());
+
+    await waitFor(() => {
+      expect(result.current.mediaItems).toHaveLength(1);
+    });
+
+    identityState.publicKeyHex = null;
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.mediaItems).toHaveLength(0);
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
+
+  it("reloads media for the next active account instead of retaining the previous account's set", async () => {
+    vaultHookMocks.getAll.mockImplementation(async () => {
+      if (identityState.publicKeyHex === "b".repeat(64)) {
+        return [{
+          id: "m-b-1",
+          conversationId: "dm:c:d",
+          timestamp: new Date("2026-04-14T00:00:00.000Z"),
+          attachments: [{
+            kind: "audio",
+            url: "https://cdn.example.com/account-b.wav",
+            contentType: "audio/wav",
+            fileName: "account-b.wav",
+          }],
+        }];
+      }
+      return [{
+        id: "m-a-1",
+        conversationId: "dm:a:b",
+        timestamp: new Date("2026-04-14T00:00:00.000Z"),
+        attachments: [{
+          kind: "image",
+          url: "https://cdn.example.com/account-a.png",
+          contentType: "image/png",
+          fileName: "account-a.png",
+        }],
+      }];
+    });
+
+    const { result, rerender } = renderHook(() => useVaultMedia());
+
+    await waitFor(() => {
+      expect(result.current.mediaItems).toHaveLength(1);
+    });
+    expect(result.current.mediaItems[0]?.attachment.fileName).toBe("account-a.png");
+
+    identityState.publicKeyHex = "b".repeat(64);
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.mediaItems).toHaveLength(1);
+    });
+    expect(result.current.mediaItems[0]?.attachment.fileName).toBe("account-b.wav");
   });
 });

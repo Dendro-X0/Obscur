@@ -1,12 +1,12 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-15T09:40:00Z
+- Last Updated (UTC): 2026-04-15T15:33:37Z
 - Session Status: in-progress
-- Active Owner: Release-blocker recovery (account-switch isolation + discovery friend-code regression)
+- Active Owner: Core regression test hardening (uncommitted)
 
 ## Active Objective
 
-Close the current production release blockers before any further release publication: account-switch data-source corruption and deterministic friend-code lookup regression in Discovery.
+Expand local regression coverage around the recent core blockers without committing or pushing until the test suites are explicitly approved.
 
 ## Current Snapshot
 
@@ -228,7 +228,8 @@ Close the current production release blockers before any further release publica
 
 ## Next Atomic Step
 
-Create the \u000b1.3.14 release commit and tag from the validated tree, publish it to origin, then begin the website lane in \u0007pps/website using docs/assets/gifs/, CHANGELOG.md, and GitHub release artifacts as the canonical content sources.
+Commit and push the approved post-release hardening patch to main, then return to monitoring the published v1.3.15 workflow/artifacts and planning the website lane.
+
 
 
 
@@ -1123,4 +1124,19 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: `.\\node_modules\\.bin\\vitest.CMD run app/features/search/components/search-result-card.test.tsx app/features/search/services/identity-resolver.test.ts app/features/search/services/discovery-engine.test.ts app/search/search-page-client.test.ts` (from `apps/pwa`, 16/16 passing); `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing)
 - Uncertainty: Runtime replay is still required to confirm the exact first-click misroute no longer appears in the real Discovery surface, especially under partial-search rerender timing.
 - Next: Replay the Discover surface end to end with a real person result: click the result card body, the chevron-side area, and the quick-add button on first render, and confirm all person-entry navigation stays on the contact's public profile page rather than opening an empty chat shell. Then continue the remaining logout -> login previous-account replay before any new tag attempt.
+### 2026-04-15T10:02:00Z checkpoint
+- Summary: Published the `v1.3.15` release commit and tag after folding in the release-blocker fixes and recurrence-prevention docs. Version alignment, docs checks, release test pack, and strict clean-tree preflight all passed on the final tree; commit `73a7ec79` (`release: v1.3.15`) is on `main`, and tag `v1.3.15` was pushed to `origin`.
+- Evidence: `pnpm.cmd version:check` (passed); `pnpm.cmd docs:check` (passed after adding the required review stamp to `docs/18-account-scope-and-discovery-guardrails.md`); `pnpm.cmd release:test-pack -- --skip-preflight` (passed); `pnpm.cmd release:preflight -- --tag v1.3.15` (passed); `git push origin main` (passed); `git push origin v1.3.15` (passed)
+- Uncertainty: Post-push workflow monitoring is not yet confirmed from this machine because `pnpm.cmd release:workflow-status -- --tag v1.3.15` hit a GitHub API rate limit (403). Release publication likely triggered, but artifact verification still needs a follow-up check once API quota or authenticated access is available.
+- Next: Monitor the GitHub release workflow/artifacts for `v1.3.15` once API quota allows, confirm the published artifact set is complete, then begin the website lane in `apps/website` using `CHANGELOG.md`, `docs/assets/gifs/`, and the GitHub release artifacts as canonical content sources.
+### 2026-04-15T15:05:00Z checkpoint
+- Summary: Added more local-only regression coverage for the recent core blockers after release publication, per user request to require explicit approval before any future commit/push. Expanded `use-vault-media.test.tsx` to cover sign-out clearing and account-switch refresh behavior, and expanded `messaging-provider.hydration-scope.test.tsx` to cover switching into an account whose messaging state only exists in IndexedDB fallback. Revalidated the surrounding core suites for messaging/Vault/discovery/profile routing. Also documented the environment-specific test runner trap: `C:` was out of space, so focused validation only succeeded after redirecting `TEMP`/`TMP` into the repo workspace.
+- Evidence: `vitest` with `TEMP`/`TMP` set to `E:\\Web Project\\experimental-workspace\\newstart\\.tmp\\win-temp`: `app/features/messaging/providers/messaging-provider.hydration-scope.test.tsx app/features/messaging/services/message-persistence-service.test.ts app/features/vault/hooks/use-vault-media.test.tsx app/features/search/services/identity-resolver.test.ts app/features/search/components/search-result-card.test.tsx app/search/search-page-client.test.ts` (from `apps/pwa`, 30/30 passing); `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` with redirected `TEMP`/`TMP` (from `apps/pwa`, passing)
+- Uncertainty: The new test coverage is local and uncommitted by design. No further git publication has happened after `v1.3.15`; approval is still required before committing these additional suites.
+- Next: Review the uncommitted test-only changes in `messaging-provider.hydration-scope.test.tsx` and `use-vault-media.test.tsx`. If approved, decide whether to keep them as a local-only approval patch set for the next release lane or commit them in a separate post-release hardening change.
+### 2026-04-15T15:33:37Z checkpoint
+- Summary: User approved the previously local-only regression-suite additions after rerunning them successfully on the normal Windows temp path. Keeping the slice narrow to post-release hardening only: expanded messaging-provider hydration-scope coverage for account-switch IndexedDB fallback, expanded Vault hook coverage for sign-out/account-switch media isolation, and updated the session handoff to reflect that these suites are now approved for publication on main.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Commit and push the approved post-release hardening patch to main, then return to monitoring the published v1.3.15 workflow/artifacts and planning the website lane.
 <!-- CONTEXT_CHECKPOINTS_END -->
