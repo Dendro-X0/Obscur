@@ -97,16 +97,25 @@ describe("identity-resolver", () => {
     }
   });
 
-  it("rejects legacy invite code when invite-code lane is disabled", async () => {
+  it("still resolves legacy invite code when callers pass a disabled flag", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        pubkey: "e".repeat(64),
+        display: "Eve",
+        inviteCode: "OBSCUR-ABCDE",
+      }),
+    })));
     const result = await resolveIdentity({
       query: "OBSCUR-ABCDE",
       pool: createMockPool(),
+      indexBaseUrl: "https://index.example",
       allowLegacyInviteCode: false,
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("unsupported_token");
-      expect(result.message).toContain("Invite code lookup is currently disabled");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.identity.pubkey).toBe("e".repeat(64));
+      expect(["legacy_code", "friend_code_v3"]).toContain(result.identity.source);
     }
   });
 });

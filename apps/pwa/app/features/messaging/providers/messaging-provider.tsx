@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useMemo, useEffect, useCall
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { messageBus } from "../services/message-bus";
 import { messagePersistenceService } from "../services/message-persistence-service";
+import { messagingDB } from "@dweb/storage/indexed-db";
 import type {
     Conversation,
     UnreadByConversationId,
@@ -12,6 +13,7 @@ import type {
     ReplyTo,
     DmConversation,
     Message,
+    PersistedChatState,
     PersistedDmConversation,
     PersistedGroupMessage,
     PublicKeyHex
@@ -38,6 +40,19 @@ import {
     removeConversationIdFromHidden,
     removeGroupConversationIdsFromHidden,
 } from "../utils/conversation-visibility";
+
+const hasMeaningfulMessagingState = (value: PersistedChatState | null | undefined): value is PersistedChatState => {
+    if (!value) {
+        return false;
+    }
+    return (
+        value.createdConnections.length > 0
+        || value.createdGroups.length > 0
+        || Object.keys(value.messagesByConversationId ?? {}).length > 0
+        || Object.keys(value.groupMessages ?? {}).length > 0
+        || (value.connectionRequests?.length ?? 0) > 0
+    );
+};
 
 interface MessagingContextType {
     createdConnections: ReadonlyArray<DmConversation>;
@@ -154,11 +169,17 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const selectedConversation = selectedConversationState;
     const [hasHydrated, setHasHydrated] = useState(false);
-    const hydrateStoredMessagingState = useCallback((params: Readonly<{
+    const hydrateStoredMessagingState = useCallback(async (params: Readonly<{
         publicKeyHex: string;
         profileId: string;
-    }>): void => {
-        const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
+    }>): Promise<void> => {
+        let persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
+        if (!hasMeaningfulMessagingState(persisted)) {
+            const indexedPersisted = await messagingDB.get<PersistedChatState>("chatState", params.publicKeyHex);
+            if (hasMeaningfulMessagingState(indexedPersisted)) {
+                persisted = indexedPersisted;
+            }
+        }
         if (persisted) {
             const nextCreatedConnections: ReadonlyArray<DmConversation> = persisted.createdConnections
                 .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
@@ -176,10 +197,8 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     chatStateStoreService.updateHiddenChats(params.publicKeyHex, sanitizedHiddenChatIds);
                 }
             }
-
-            // Trigger migration to new messages store.
-            void messagePersistenceService.migrateFromLegacy(params.publicKeyHex);
         }
+        await messagePersistenceService.migrateFromLegacy(params.publicKeyHex);
         const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex);
         lastSeenByConversationIdRef.current = loadedLastSeen;
         setLastViewedByConversationId(loadedLastSeen);
@@ -283,7 +302,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (hasHydrated) return;
         if (!publicKeyHex) return;
 
-        hydrateStoredMessagingState({
+        void hydrateStoredMessagingState({
             publicKeyHex,
             profileId: activeProfileId,
         });
@@ -301,7 +320,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (detail?.publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
                 return;
             }
-            hydrateStoredMessagingState({
+            void hydrateStoredMessagingState({
                 publicKeyHex,
                 profileId: activeProfileId,
             });

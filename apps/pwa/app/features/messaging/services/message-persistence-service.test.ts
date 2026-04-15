@@ -14,6 +14,7 @@ vi.mock("@dweb/storage/indexed-db", () => ({
         delete: vi.fn(async () => undefined),
         bulkPut: vi.fn(async () => undefined),
         bulkDelete: vi.fn(async () => undefined),
+        clear: vi.fn(async () => undefined),
         get: vi.fn(async () => null),
     }
 }));
@@ -22,9 +23,19 @@ const chatStateStoreMocks = vi.hoisted(() => ({
     load: vi.fn(),
 }));
 
+const profileScopeState = vi.hoisted(() => ({
+    activeProfileId: "default",
+}));
+
 vi.mock("./chat-state-store", () => ({
     CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
     chatStateStoreService: chatStateStoreMocks,
+}));
+
+vi.mock("@/app/features/profiles/services/profile-scope", () => ({
+    getActiveProfileIdSafe: () => profileScopeState.activeProfileId,
+    getScopedStorageKey: (baseKey: string, profileId?: string) =>
+        `${baseKey}::${profileId ?? profileScopeState.activeProfileId}`,
 }));
 
 const createMessage = (id: string, content: string): Message => ({
@@ -41,6 +52,7 @@ describe("MessagePersistenceService batching", () => {
         vi.useFakeTimers();
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
         clearMessageDeleteTombstones();
+        profileScopeState.activeProfileId = "default";
     });
 
     afterEach(() => {
@@ -423,5 +435,28 @@ describe("MessagePersistenceService batching", () => {
                 senderPubkey: myPublicKeyHex,
             }),
         ]));
+    });
+
+    it("clears the derived messages index when the active hydration scope changes", async () => {
+        const accountA = "a".repeat(64);
+        const accountB = "b".repeat(64);
+        vi.mocked(messagingDB.get).mockResolvedValue(null);
+
+        const service = new MessagePersistenceService();
+
+        await service.migrateFromLegacy(accountA);
+        expect(messagingDB.clear).toHaveBeenCalledWith("messages");
+
+        vi.mocked(messagingDB.clear).mockClear();
+        await service.migrateFromLegacy(accountA);
+        expect(messagingDB.clear).not.toHaveBeenCalled();
+
+        await service.migrateFromLegacy(accountB);
+        expect(messagingDB.clear).toHaveBeenCalledWith("messages");
+
+        vi.mocked(messagingDB.clear).mockClear();
+        profileScopeState.activeProfileId = "work";
+        await service.migrateFromLegacy(accountB);
+        expect(messagingDB.clear).toHaveBeenCalledWith("messages");
     });
 });

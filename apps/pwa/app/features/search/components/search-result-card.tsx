@@ -47,7 +47,7 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
         if (onAdd) {
             onAdd(result);
         } else if (result.display.pubkey) {
-            router.push(`/?pubkey=${result.display.pubkey}`);
+            router.push(getPublicProfileHref(result.display.pubkey));
         }
     };
 

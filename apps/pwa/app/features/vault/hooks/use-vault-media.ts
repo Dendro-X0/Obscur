@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import type { Message, MediaItem } from "../../messaging/types";
 import { CHAT_STATE_REPLACED_EVENT } from "../../messaging/services/chat-state-store";
+import { MESSAGES_INDEX_REBUILT_EVENT } from "../../messaging/services/message-persistence-service";
+import { useIdentity } from "../../auth/hooks/use-identity";
 import {
     deleteLocalMediaCacheItem,
     downloadAttachmentToUserPath,
@@ -26,11 +28,19 @@ export type VaultMediaItem = Readonly<MediaItem & {
  * This is the core data provider for "The Vault".
  */
 export function useVaultMedia() {
+    const identity = useIdentity();
+    const publicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
     const [mediaItems, setMediaItems] = useState<ReadonlyArray<VaultMediaItem>>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
     const refresh = async () => {
+        if (!publicKeyHex) {
+            setMediaItems([]);
+            setError(null);
+            setIsLoading(false);
+            return;
+        }
         setIsLoading(true);
         try {
             // Get all messages from IndexedDB
@@ -81,21 +91,27 @@ export function useVaultMedia() {
     };
 
     useEffect(() => {
-        refresh();
-    }, []);
+        void refresh();
+    }, [publicKeyHex]);
 
     useEffect(() => {
         if (typeof window === "undefined") {
             return;
         }
-        const onChatStateReplaced = (): void => {
+        const onScopedRefresh = (event: Event): void => {
+            const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+            if (detail?.publicKeyHex && publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
+                return;
+            }
             void refresh();
         };
-        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
+        window.addEventListener(MESSAGES_INDEX_REBUILT_EVENT, onScopedRefresh as EventListener);
         return () => {
-            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
+            window.removeEventListener(MESSAGES_INDEX_REBUILT_EVENT, onScopedRefresh as EventListener);
         };
-    }, []);
+    }, [publicKeyHex]);
 
     const stats = useMemo(() => {
         const imageCount = mediaItems.filter(item => item.attachment.kind === "image").length;

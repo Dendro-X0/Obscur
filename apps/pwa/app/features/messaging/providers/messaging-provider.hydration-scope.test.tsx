@@ -13,12 +13,17 @@ const profileScopeState = vi.hoisted(() => ({
 
 const chatStateStoreMocks = vi.hoisted(() => ({
   load: vi.fn(),
+  replace: vi.fn(),
   updateConnections: vi.fn(),
   updateUnreadCounts: vi.fn(),
   updateConnectionOverrides: vi.fn(),
   updatePinnedChats: vi.fn(),
   updateHiddenChats: vi.fn(),
   deleteConversationMessages: vi.fn(),
+}));
+
+const messagingDbMocks = vi.hoisted(() => ({
+  get: vi.fn(),
 }));
 
 vi.mock("../../auth/hooks/use-identity", () => ({
@@ -55,6 +60,10 @@ vi.mock("@/app/features/account-sync/services/account-projection-selectors", () 
 vi.mock("../services/chat-state-store", () => ({
   CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
   chatStateStoreService: chatStateStoreMocks,
+}));
+
+vi.mock("@dweb/storage/indexed-db", () => ({
+  messagingDB: messagingDbMocks,
 }));
 
 vi.mock("../services/message-persistence-service", () => ({
@@ -109,12 +118,15 @@ describe("messaging-provider hydration scope resets", () => {
     identityState.publicKeyHex = "a".repeat(64);
     profileScopeState.activeProfileId = "default";
     chatStateStoreMocks.load.mockReset();
+    chatStateStoreMocks.replace.mockReset();
     chatStateStoreMocks.updateConnections.mockReset();
     chatStateStoreMocks.updateUnreadCounts.mockReset();
     chatStateStoreMocks.updateConnectionOverrides.mockReset();
     chatStateStoreMocks.updatePinnedChats.mockReset();
     chatStateStoreMocks.updateHiddenChats.mockReset();
     chatStateStoreMocks.deleteConversationMessages.mockReset();
+    messagingDbMocks.get.mockReset();
+    messagingDbMocks.get.mockResolvedValue(null);
 
     const accountA = "a".repeat(64);
     const accountB = "b".repeat(64);
@@ -246,5 +258,26 @@ describe("messaging-provider hydration scope resets", () => {
     await waitFor(() => {
       expect(screen.getByTestId("connections").textContent).toContain("Restored Contact");
     });
+  });
+
+  it("falls back to indexed chat-state when scoped cache is empty for the active account", async () => {
+    const accountA = "a".repeat(64);
+    chatStateStoreMocks.load.mockReturnValue(null);
+    messagingDbMocks.get.mockResolvedValue(buildPersistedState({
+      displayName: "Indexed Fallback Contact",
+      peerPublicKeyHex: "5".repeat(64),
+    }));
+
+    render(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hydrated").textContent).toBe("true");
+      expect(screen.getByTestId("connections").textContent).toContain("Indexed Fallback Contact");
+    });
+    expect(messagingDbMocks.get).toHaveBeenCalledWith("chatState", accountA);
   });
 });

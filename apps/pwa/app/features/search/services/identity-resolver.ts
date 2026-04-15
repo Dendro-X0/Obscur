@@ -168,12 +168,8 @@ export const resolveIdentity = async (params: ResolveIdentityParams): Promise<Re
   // 5) Legacy OBSCUR code bridge (+ optional index resolve)
   const upper = raw.toUpperCase();
   if (isValidInviteCode(upper)) {
-    if (params.allowLegacyInviteCode === false) {
-      return fail(
-        "unsupported_token",
-        "Invite code lookup is currently disabled. Use QR/contact card/Friend Code/npub."
-      );
-    }
+    // Legacy invite-code lookup remains a compatibility contract for existing
+    // users and should not silently disappear behind rollout drift.
     const cachedLegacy = resolvedIdentityCache.getByLegacyInviteCode(upper);
     if (cachedLegacy) {
       return ok(cachedLegacy);

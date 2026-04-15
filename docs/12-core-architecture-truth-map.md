@@ -45,6 +45,9 @@ Hard rule:
 4. Restore/replay cannot silently shrink self-authored history.
 5. Startup must fail-open to actionable state (`locked`, `degraded`, `fatal`).
 6. Relay runtime truth and window runtime truth are separate; UI state is not transport truth.
+7. Derived `messages`/Vault caches must never outlive the active account/profile scope.
+8. Deterministic add-contact tokens (`OBSCUR-*`, contact card, `npub`, hex pubkey) must converge on one canonical resolver path.
+9. Discovery person-entry navigation must converge on the public profile route, not a chat-shell shortcut.
 
 ## Startup and Runtime Flow (Current)
 

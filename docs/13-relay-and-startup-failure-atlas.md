@@ -87,6 +87,31 @@ Primary boundaries:
 - `community-membership-reconstruction.ts`
 - `group-provider.tsx`
 
+## 6) Account switch shows empty chats but previous-account Vault/media
+
+Primary boundaries:
+- `messaging-provider.tsx`
+- `chat-state-store.ts`
+- `message-persistence-service.ts`
+- `use-vault-media.ts`
+- `local-media-store.ts`
+
+Signal:
+- active account/profile changed, but derived message/media caches did not rebuild.
+
+## 7) Discover cannot resolve `OBSCUR-*` or routes people into empty chat
+
+Primary boundaries:
+- `search-page-client.tsx`
+- `search-page-helpers.ts`
+- `identity-resolver.ts`
+- `search-result-card.tsx`
+
+Signal:
+- deterministic add-contact token is treated like generic search input, or a
+  person-result action routes into chat-shell navigation instead of the public
+  profile page.
+
 ## Minimal Runtime Capture (Copy-Safe)
 
 ```js

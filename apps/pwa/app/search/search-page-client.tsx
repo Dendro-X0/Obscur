@@ -41,6 +41,7 @@ import {
   encodeContactCard,
   extractContactCardFromQuery
 } from "@/app/features/search/services/contact-card";
+import { isDeterministicDirectQuery } from "./search-page-helpers";
 import { encodeFriendCodeV2 } from "@/app/features/search/services/friend-code-v2";
 import { encodeFriendCodeV3 } from "@/app/features/search/services/friend-code-v3";
 import type {
@@ -85,18 +86,6 @@ const mapSurfaceToIntent = (surface: DiscoverySurface): DiscoveryIntent => {
   if (surface === "global") return "search_people";
   if (surface === "communities") return "search_communities";
   return "add_friend";
-};
-
-const isDeterministicDirectQuery = (
-  value: string,
-  options?: Readonly<{ allowLegacyInviteCode?: boolean }>
-): boolean => {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (parsePublicKeyInput(trimmed).ok) return true;
-  if (Boolean(extractContactCardFromQuery(trimmed))) return true;
-  if (options?.allowLegacyInviteCode !== false && isValidInviteCode(trimmed.toUpperCase())) return true;
-  return false;
 };
 
 const statusLabelFromReason = (reason: string | undefined): string | null => {
@@ -433,13 +422,6 @@ export default function SearchPage() {
     const trimmed = input.trim();
     const normalized = trimmed.toUpperCase();
     if (isValidInviteCode(normalized)) {
-      if (!allowLegacyInviteCode) {
-        return {
-          ok: false,
-          reason: "unsupported_token",
-          message: "Invite code lookup is disabled. Use QR/contact card/Friend Code/npub.",
-        };
-      }
       const resolvedInvite = await inviteResolver.resolveCode(normalized);
       if (resolvedInvite) {
         return {
@@ -450,7 +432,7 @@ export default function SearchPage() {
             source: "legacy_code",
             confidence: "relay_confirmed",
           },
-        };
+};
       }
       return {
         ok: false,

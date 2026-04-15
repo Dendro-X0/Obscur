@@ -1,12 +1,12 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-15T05:40:18Z
+- Last Updated (UTC): 2026-04-15T09:40:00Z
 - Session Status: in-progress
-- Active Owner: DM delete/restore release-blocker investigation
+- Active Owner: Release-blocker recovery (account-switch isolation + discovery friend-code regression)
 
 ## Active Objective
 
-Close the privacy-critical fresh-device DM delete/restore regression before the next release tag by proving the canonical backup/restore, tombstone, and read-owner paths do not resurrect deleted history on login or new-device restore.
+Close the current production release blockers before any further release publication: account-switch data-source corruption and deterministic friend-code lookup regression in Discovery.
 
 ## Current Snapshot
 
@@ -1108,4 +1108,19 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: `pnpm.cmd version:check` (passed); `pnpm.cmd docs:check` (passed); `pnpm.cmd release:test-pack -- --skip-preflight` (passed); `pnpm.cmd release:preflight -- --tag v1.3.14 --allow-dirty 1` (passed)
 - Uncertainty: Validation is green, but the tree still needs to be committed before strict clean-tree preflight/tagging can be claimed complete.
 - Next: Create the `v1.3.14` release commit and tag from the validated tree, publish it to origin, then begin the website lane in `apps/website` using `docs/assets/gifs/`, `CHANGELOG.md`, and GitHub release artifacts as the canonical content sources.
+### 2026-04-15T09:17:00Z checkpoint
+- Summary: Investigated the production account-switch corruption reported after logout/login and landed a focused owner-path repair. The root split matched the screenshots: messaging sidebar hydration trusted scoped cache/local metadata only, the derived IndexedDB `messages` store could retain prior-account rows across scope changes, and Vault refreshed from that derived store without following active identity changes. MessagingProvider now falls back to the active account's IndexedDB chat-state when scoped metadata is empty, MessagePersistenceService now rebuilds the derived `messages` index when the active account/profile scope changes, and useVaultMedia now refreshes against active-identity changes plus message-index rebuild events so previous-account media does not linger after switching.
+- Evidence: `.\\node_modules\\.bin\\vitest.CMD run app/features/messaging/services/message-persistence-service.test.ts app/features/messaging/providers/messaging-provider.hydration-scope.test.tsx app/features/vault/hooks/use-vault-media.test.tsx` (from `apps/pwa`, 18/18 passing); `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing)
+- Uncertainty: This closes the exact owner split seen in the screenshots, but runtime replay is still required on the real logout -> login previous-account path to confirm contacts/groups/chat history repopulate from IndexedDB fallback and Vault no longer shows prior-account media during or after scope transition.
+- Next: Replay the real production failure path locally: log out, log into the previous account, and verify the sidebar/groups/history repopulate from the active account while Vault either clears or repopulates only with that same account's media. Capture the active public key, any `messaging.chat_state_replaced` / `messaging.legacy_migration_diagnostics` events, and whether Vault tiles ever show a conversation source that does not belong to the active account if drift persists.
+### 2026-04-15T09:40:00Z checkpoint
+- Summary: Fixed the resurfaced Discover friend-code regression. The deterministic resolver path for legacy `OBSCUR-*` friend codes still existed, but the page-level query classification and Add Friend resolution path were gating those codes behind rollout drift, so Discovery could silently treat them as generic text or disabled tokens. Extracted deterministic-query detection into `search-page-helpers.ts`, made `OBSCUR-*` codes deterministic regardless of rollout drift, and removed the legacy invite-code disable branch from `identity-resolver.ts` so friend-code lookup remains a compatibility contract.
+- Evidence: `.\\node_modules\\.bin\\vitest.CMD run app/features/search/services/identity-resolver.test.ts app/features/search/services/discovery-engine.test.ts app/search/search-page-client.test.ts` (from `apps/pwa`, 14/14 passing); `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing)
+- Uncertainty: Code-level coverage is green, but runtime replay is still required on the real Discover page to confirm `OBSCUR-*` queries route back into exact-match add-friend resolution and no longer fall through to the generic no-results state.
+- Next: Replay both production blockers in runtime before any new tag attempt: 1. logout -> login previous-account path to confirm contacts/groups/history/Vault stay on one account scope, and 2. Discover page friend-code lookup using a real `OBSCUR-*` code to confirm exact-match resolution works again alongside `npub`.
+### 2026-04-15T09:55:00Z checkpoint
+- Summary: Fixed the remaining Discovery user-entry navigation regression. `SearchResultCard` already routed primary card clicks to the public profile page, but its fallback add-action path still pointed to the chat shell via `/?pubkey=...`, which could produce the empty-chat first-click behavior. The fallback route now uses `getPublicProfileHref(...)`, and focused tests lock both default card clicks and fallback quick actions to the public profile page.
+- Evidence: `.\\node_modules\\.bin\\vitest.CMD run app/features/search/components/search-result-card.test.tsx app/features/search/services/identity-resolver.test.ts app/features/search/services/discovery-engine.test.ts app/search/search-page-client.test.ts` (from `apps/pwa`, 16/16 passing); `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing)
+- Uncertainty: Runtime replay is still required to confirm the exact first-click misroute no longer appears in the real Discovery surface, especially under partial-search rerender timing.
+- Next: Replay the Discover surface end to end with a real person result: click the result card body, the chevron-side area, and the quick-add button on first render, and confirm all person-entry navigation stays on the contact's public profile page rather than opening an empty chat shell. Then continue the remaining logout -> login previous-account replay before any new tag attempt.
 <!-- CONTEXT_CHECKPOINTS_END -->

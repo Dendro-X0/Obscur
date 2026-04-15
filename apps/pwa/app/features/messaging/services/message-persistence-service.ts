@@ -10,6 +10,9 @@ import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { suppressMessageDeleteTombstone } from "./message-delete-tombstone-store";
+import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+
+export const MESSAGES_INDEX_REBUILT_EVENT = "obscur:messages-index-rebuilt";
 
 const toConversationIdDiagnosticLabel = (value: string): string => {
     const trimmed = value.trim();
@@ -228,6 +231,7 @@ export class MessagePersistenceService {
     private isFlushing = false;
     private batchedEventCount = 0;
     private currentBatchStartMs: number | null = null;
+    private activeMessageStoreScopeKey: string | null = null;
     private unsubscribeMessageBus: (() => void) | null = null;
     private readonly onVisibilityChange = (): void => {
         if (typeof document === "undefined") return;
@@ -528,11 +532,27 @@ export class MessagePersistenceService {
             if (!normalizedPublicKeyHex) {
                 return;
             }
+            const activeScopeKey = `${getActiveProfileIdSafe()}::${normalizedPublicKeyHex}`;
+            if (this.activeMessageStoreScopeKey !== activeScopeKey) {
+                await messagingDB.clear("messages");
+                this.activeMessageStoreScopeKey = activeScopeKey;
+            }
             const cachedChatState = chatStateStoreService.load(normalizedPublicKeyHex as PublicKeyHex);
             const dbState = hasLegacyChatTimelineDomains(cachedChatState)
                 ? cachedChatState
                 : (await messagingDB.get<any>("chatState", normalizedPublicKeyHex) ?? cachedChatState);
-            if (!dbState) return;
+            if (!dbState) {
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent(MESSAGES_INDEX_REBUILT_EVENT, {
+                        detail: {
+                            publicKeyHex: normalizedPublicKeyHex,
+                            profileId: getActiveProfileIdSafe(),
+                            messageCount: 0,
+                        },
+                    }));
+                }
+                return;
+            }
 
             const allMessages: Array<Record<string, unknown>> = [];
 
@@ -574,6 +594,15 @@ export class MessagePersistenceService {
             if (allMessages.length > 0) {
                 await messagingDB.bulkPut("messages", allMessages);
                 console.info(`[MessagePersistenceService] Migrated ${allMessages.length} messages to 'messages' store.`);
+            }
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent(MESSAGES_INDEX_REBUILT_EVENT, {
+                    detail: {
+                        publicKeyHex: normalizedPublicKeyHex,
+                        profileId: getActiveProfileIdSafe(),
+                        messageCount: allMessages.length,
+                    },
+                }));
             }
 
             const sourceDmDiagnostics = summarizeSourceDmConversationIds(

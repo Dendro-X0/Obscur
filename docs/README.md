@@ -23,6 +23,7 @@ Use this folder as the canonical engineering contract for architecture, roadmap,
 15. [15 Relay Foundation Hardening Spec](./15-relay-foundation-hardening-spec.md)
 16. [16 Cross-Device Group Visibility Incident](./16-cross-device-group-visibility-incident.md)
 17. [17 DM Delete/Restore Divergence Incident](./17-dm-delete-restore-divergence-incident.md)
+18. [18 Account-Scope and Discovery Guardrails](./18-account-scope-and-discovery-guardrails.md)
 
 ### Roadmap and Release
 

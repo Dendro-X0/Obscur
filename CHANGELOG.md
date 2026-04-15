@@ -1,5 +1,36 @@
 ## [Unreleased]
 
+## [v1.3.15] - 2026-04-15
+
+### Fixed
+
+- Hardened account-switch data-source isolation after a production regression:
+  - messaging hydration now falls back to the active account's IndexedDB
+    chat-state when scoped metadata cache is empty,
+  - the derived IndexedDB `messages` cache now rebuilds when the active
+    account/profile scope changes instead of leaving prior-account rows behind,
+  - Vault refresh now follows the active identity and rebuilt message index so
+    previous-account media does not remain visible after logout/login account
+    switches.
+- Restored deterministic friend-code discovery in the Discover page:
+  - legacy `OBSCUR-*` friend codes are treated as deterministic add-contact
+    tokens again even if rollout flags drift,
+  - Discovery page resolution no longer silently disables legacy invite-code
+    lookup on the Add Friend surface.
+- Discovery result-card navigation now prefers the public profile route:
+  - the remaining fallback add-action route no longer jumps to the chat shell
+    via `/?pubkey=...`,
+  - person-result card clicks and fallback quick actions both resolve to the
+    public profile page.
+
+### Changed
+
+- Added recurrence-prevention docs for recent production regressions:
+  - `docs/18-account-scope-and-discovery-guardrails.md`,
+  - updated architecture/failure-atlas docs so future iterations have an
+    explicit contract against reintroducing account-scope leakage and
+    deterministic discovery drift.
+
 ## [v1.3.14] - 2026-04-14
 
 ### Fixed
