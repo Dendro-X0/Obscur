@@ -82,8 +82,14 @@ export function AuthScreen() {
         || authError?.toLowerCase().includes("does not match stored identity") === true;
     const [acknowledged, setAcknowledged] = useState(false);
     const [retiredKeyReuseAcknowledged, setRetiredKeyReuseAcknowledged] = useState(false);
-    const keyOwnershipReminder = "You own your private key. Obscur cannot recover accounts for lost keys or forgotten passwords.";
-    const keyRecoveryReminder = "Back up your private key now and verify export in Settings > Identity after login.";
+    const keyOwnershipReminder = t(
+        "auth.keyOwnershipReminder",
+        "You own your private key. Obscur cannot recover accounts for lost keys or forgotten passwords."
+    );
+    const keyRecoveryReminder = t(
+        "auth.keyRecoveryReminder",
+        "Back up your private key now and verify export in Settings > Identity after login."
+    );
 
     // Form states
     const [username, setUsername] = useState("");
@@ -211,16 +217,16 @@ export function AuthScreen() {
 
     const handleResetNativeSecureStorage = useCallback(async () => {
         if (!identity.resetNativeSecureStorage) {
-            setAuthError("Secure storage reset is not available in this runtime.");
+            setAuthError(t("auth.error.secureStorageResetUnavailable", "Secure storage reset is not available in this runtime."));
             return;
         }
         setIsLoading(true);
         setAuthError(null);
         try {
             await identity.resetNativeSecureStorage();
-            toast.success("Secure storage reset. You can now unlock this profile manually.");
+            toast.success(t("auth.secureStorageResetSuccess", "Secure storage reset. You can now unlock this profile manually."));
         } catch (error) {
-            setAuthError(error instanceof Error ? error.message : "Failed to reset secure storage");
+            setAuthError(error instanceof Error ? error.message : t("auth.error.secureStorageResetFailed", "Failed to reset secure storage"));
         } finally {
             setIsLoading(false);
         }
@@ -241,11 +247,11 @@ export function AuthScreen() {
         setAuthError(null);
         const keyToUse = decodedImportPrivateKey;
         if (!keyToUse) {
-            setAuthError("Invalid private key. Enter a valid `nsec` or 64-character hex key.");
+            setAuthError(t("auth.error.invalidPrivateKeyFormat", "Invalid private key. Enter a valid `nsec` or 64-character hex key."));
             return;
         }
         if (isRetiredImportKey && !retiredKeyReuseAcknowledged) {
-            setAuthError("This private key was previously retired on this device. Confirm reactivation before continuing.");
+            setAuthError(t("auth.error.retiredKeyRequiresAcknowledgement", "This private key was previously retired on this device. Confirm reactivation before continuing."));
             return;
         }
         setStep(2);
@@ -254,11 +260,11 @@ export function AuthScreen() {
     const handleCreateFinal = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!password || password !== confirmPassword) {
-            setAuthError("Passwords do not match");
+            setAuthError(t("auth.error.passwordsDoNotMatch", "Passwords do not match"));
             return;
         }
         if (password.length < 8) {
-            setAuthError("Password must be at least 8 characters");
+            setAuthError(t("auth.error.passwordTooShort", "Password must be at least 8 characters"));
             return;
         }
 
@@ -280,9 +286,9 @@ export function AuthScreen() {
             profile.setInviteCode({ inviteCode });
             profile.save();
 
-            toast.success("Identity Secured!");
+            toast.success(t("auth.identitySecured", "Identity Secured!"));
         } catch (error) {
-            setAuthError(error instanceof Error ? error.message : "Failed to create account");
+            setAuthError(error instanceof Error ? error.message : t("auth.error.createAccountFailed", "Failed to create account"));
         } finally {
             setIsLoading(false);
         }
@@ -292,7 +298,7 @@ export function AuthScreen() {
         e?.preventDefault();
         const enteredUsername = username.trim();
         if (!enteredUsername || !password) {
-            setAuthError("Please fill in all fields");
+            setAuthError(t("auth.error.fillAllFields", "Please fill in all fields"));
             return;
         }
 
@@ -300,7 +306,7 @@ export function AuthScreen() {
         try {
             const stored = identity.state.stored;
             if (!stored) {
-                setAuthError("No local account exists on this device yet. Import your private key first, then you can use username/password unlock locally.");
+                setAuthError(t("auth.error.noLocalAccountYet", "No local account exists on this device yet. Import your private key first, then you can use username/password unlock locally."));
                 setLoginTab("key");
                 setIsLoading(false);
                 return;
@@ -322,9 +328,9 @@ export function AuthScreen() {
                 return;
             }
             persistRememberMe({ remember: rememberMe, token: password });
-            toast.success("Welcome Back!");
+            toast.success(t("auth.welcomeBackToast", "Welcome Back!"));
         } catch (error) {
-            setAuthError(error instanceof Error ? error.message : "Invalid password or account error");
+            setAuthError(error instanceof Error ? error.message : t("auth.error.invalidPasswordOrAccount", "Invalid password or account error"));
         } finally {
             setIsLoading(false);
         }
@@ -338,12 +344,12 @@ export function AuthScreen() {
         const importPassphrase = shouldGenerateDevicePassphrase ? generateSecurePassword() : providedPassword;
 
         if (!privateKey) {
-            setAuthError("Private key is required");
+            setAuthError(t("auth.error.privateKeyRequired", "Private key is required"));
             return;
         }
 
         if (!skipPassword && !password) {
-            setAuthError("Please enter a password or skip");
+            setAuthError(t("auth.error.enterPasswordOrSkip", "Please enter a password or skip"));
             return;
         }
 
@@ -351,13 +357,13 @@ export function AuthScreen() {
         try {
             const keyToUse = decodePrivateKey(privateKey);
             if (!keyToUse) {
-                setAuthError("Invalid key format");
+                setAuthError(t("auth.error.invalidKeyFormat", "Invalid key format"));
                 setIsLoading(false);
                 return;
             }
             const importPublicKeyHex = derivePublicKeyHex(keyToUse as PrivateKeyHex);
             if (isRetiredIdentityPublicKey(importPublicKeyHex) && !retiredKeyReuseAcknowledged) {
-                setAuthError("This private key was previously retired on this device. Confirm reactivation before importing.");
+                setAuthError(t("auth.error.retiredKeyImportRequiresAcknowledgement", "This private key was previously retired on this device. Confirm reactivation before importing."));
                 setStep(1);
                 setIsLoading(false);
                 return;
@@ -383,12 +389,12 @@ export function AuthScreen() {
                         rememberRequested: rememberMe,
                     },
                 });
-                toast.info("Key accepted. Device-only unlock was created for this profile.");
+                toast.info(t("auth.keyAcceptedDeviceUnlock", "Key accepted. Device-only unlock was created for this profile."));
             } else {
-                toast.info("Key accepted. Restoring account data...");
+                toast.info(t("auth.keyAcceptedRestoringData", "Key accepted. Restoring account data..."));
             }
         } catch (error) {
-            setAuthError(error instanceof Error ? error.message : "Failed to import key");
+            setAuthError(error instanceof Error ? error.message : t("auth.error.importKeyFailed", "Failed to import key"));
         } finally {
             setIsLoading(false);
         }
@@ -449,10 +455,10 @@ export function AuthScreen() {
                                 <div className="min-w-0 flex-1 space-y-3">
                                     <div>
                                         <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
-                                            Secure Storage Needs Recovery
+                                            {t("auth.secureStorageRecoveryTitle", "Secure Storage Needs Recovery")}
                                         </p>
                                         <p className="mt-2 text-sm font-medium leading-relaxed text-amber-700 dark:text-amber-200">
-                                            {identityDiagnostics?.message ?? "Native auto-unlock was skipped for this profile."}
+                                            {identityDiagnostics?.message ?? t("auth.secureStorageRecoveryDesc", "Native auto-unlock was skipped for this profile.")}
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap gap-3">
@@ -463,10 +469,10 @@ export function AuthScreen() {
                                             disabled={isLoading}
                                             className="rounded-2xl border-amber-500/30 bg-white/70 text-amber-700 hover:bg-white dark:bg-zinc-950/30 dark:text-amber-300"
                                         >
-                                            Reset Secure Storage
+                                            {t("auth.resetSecureStorage", "Reset Secure Storage")}
                                         </Button>
                                         <p className="self-center text-xs font-semibold text-amber-700/80 dark:text-amber-300/80">
-                                            You can also continue with your password or private key below.
+                                            {t("auth.secureStorageRecoveryHint", "You can also continue with your password or private key below.")}
                                         </p>
                                     </div>
                                 </div>
@@ -480,14 +486,14 @@ export function AuthScreen() {
                                 <div className="min-w-0 flex-1 space-y-3">
                                     <div>
                                         <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-600 dark:text-orange-400">
-                                            Private Key Mismatch
+                                            {t("auth.privateKeyMismatchTitle", "Private Key Mismatch")}
                                         </p>
                                         <p className="mt-2 text-sm font-medium leading-relaxed text-orange-700 dark:text-orange-200">
-                                            {identityDiagnostics?.message ?? authError ?? "The entered private key does not match the account stored on this profile."}
+                                            {identityDiagnostics?.message ?? authError ?? t("auth.privateKeyMismatchDesc", "The entered private key does not match the account stored on this profile.")}
                                         </p>
                                     </div>
                                     <p className="text-xs font-semibold text-orange-700/80 dark:text-orange-300/80">
-                                        Import the correct key for this profile, or switch to the intended account before continuing.
+                                        {t("auth.privateKeyMismatchHint", "Import the correct key for this profile, or switch to the intended account before continuing.")}
                                     </p>
                                 </div>
                             </div>
@@ -532,7 +538,7 @@ export function AuthScreen() {
                                         Obscur
                                     </h1>
                                     <p className="text-zinc-500 dark:text-zinc-400 text-lg font-medium tracking-tight max-w-[300px] mx-auto leading-relaxed">
-                                        The most private way to communicate. Decentralized & anonymous.
+                                        {t("auth.welcome.subtitle", "The most private way to communicate. Decentralized & anonymous.")}
                                     </p>
                                 </div>
 
@@ -541,7 +547,7 @@ export function AuthScreen() {
                                         onClick={() => setMode("create")}
                                         className="h-16 rounded-[24px] bg-zinc-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black text-lg font-bold group shadow-xl shadow-zinc-500/10"
                                     >
-                                        Create New Identity
+                                        {t("auth.welcome.createIdentity", "Create New Identity")}
                                         <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                                     </Button>
                                     <Button
@@ -549,12 +555,12 @@ export function AuthScreen() {
                                         onClick={() => setMode("login")}
                                         className="h-16 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-lg font-bold transition-all"
                                     >
-                                        Log In with Key
+                                        {t("auth.welcome.loginWithKey", "Log In with Key")}
                                     </Button>
                                     <div className="flex items-center justify-center gap-2 pt-4">
                                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                                         <p className="text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-black">
-                                            End-to-End Encrypted Identity
+                                            {t("auth.welcome.encryptedIdentity", "End-to-End Encrypted Identity")}
                                         </p>
                                     </div>
                                 </div>
@@ -574,24 +580,26 @@ export function AuthScreen() {
                             >
                                 <div className="text-center space-y-3">
                                     <h2 className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-white">
-                                        {step === 1 ? "Pick a Name" : "Secure It"}
+                                        {step === 1
+                                            ? t("auth.create.pickNameTitle", "Pick a Name")
+                                            : t("auth.create.secureItTitle", "Secure It")}
                                     </h2>
                                     <p className="text-zinc-500 dark:text-zinc-400 font-medium">
                                         {step === 1
-                                            ? "This will be your visible profile name."
-                                            : "Set a password to protect your keys."}
+                                            ? t("auth.create.pickNameDesc", "This will be your visible profile name.")
+                                            : t("auth.create.secureItDesc", "Set a password to protect your keys.")}
                                     </p>
                                 </div>
 
                                 {step === 1 ? (
                                     <div className="space-y-6">
                                         <div className="space-y-3">
-                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Username</Label>
+                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.usernameLabel", "Username")}</Label>
                                             <div className="relative group">
                                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-purple-500 transition-colors" />
                                                 <Input
                                                     autoFocus
-                                                    placeholder="e.g. Satoshi"
+                                                    placeholder={t("auth.usernamePlaceholder", "e.g. Satoshi")}
                                                     value={username}
                                                     onChange={e => setUsername(e.target.value)}
                                                     className="pl-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-purple-500/10 text-lg transition-all"
@@ -603,7 +611,7 @@ export function AuthScreen() {
                                             onClick={() => setStep(2)}
                                             className="w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20"
                                         >
-                                            Continue
+                                            {t("common.continue", "Continue")}
                                             <ArrowRight className="h-5 w-5 ml-2" />
                                         </Button>
                                     </div>
@@ -612,25 +620,25 @@ export function AuthScreen() {
                                         <div className="space-y-4">
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Master Password</Label>
+                                                    <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel", "Master Password")}</Label>
                                                     <button
                                                         type="button"
                                                         onClick={() => {
                                                             const gen = generateSecurePassword();
                                                             setPassword(gen);
                                                             setConfirmPassword(gen);
-                                                            toast.success("Password generated. Please save it securely.");
+                                                            toast.success(t("auth.passwordGenerated", "Password generated. Please save it securely."));
                                                         }}
                                                         className="text-[11px] font-black uppercase tracking-widest text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
                                                     >
-                                                        Generate Code
+                                                        {t("auth.generatePassword", "Generate Code")}
                                                     </button>
                                                 </div>
                                                 <div className="relative group">
                                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-purple-500 transition-colors" />
                                                     <Input
                                                         type={showPassword ? "text" : "password"}
-                                                        placeholder="Create a strong password"
+                                                        placeholder={t("auth.createPasswordPlaceholder", "Create a strong password")}
                                                         value={password}
                                                         onChange={e => setPassword(e.target.value)}
                                                         className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-purple-500/10 text-lg transition-all"
@@ -647,12 +655,12 @@ export function AuthScreen() {
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Confirm</Label>
+                                                <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.confirmPasswordLabel", "Confirm")}</Label>
                                                 <div className="relative group">
                                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-purple-500 transition-colors" />
                                                     <Input
                                                         type={showPassword ? "text" : "password"}
-                                                        placeholder="Repeat your password"
+                                                        placeholder={t("auth.confirmPasswordPlaceholder", "Repeat your password")}
                                                         value={confirmPassword}
                                                         onChange={e => setConfirmPassword(e.target.value)}
                                                         className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-purple-500/10 text-lg transition-all"
@@ -669,7 +677,7 @@ export function AuthScreen() {
                                                 className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-purple-600"
                                             />
                                             <label htmlFor="remember-create" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                                Keep me logged in on this device
+                                                {t("auth.rememberMe", "Keep me logged in on this device")}
                                             </label>
                                         </div>
 
@@ -677,7 +685,7 @@ export function AuthScreen() {
                                             <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
                                             <div className="space-y-3">
                                                 <p className="text-xs text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
-                                                    There is no password recovery. If you lose this password and device, your account may be unrecoverable. You can log in from any device using your private key, so never lose it.
+                                                    {t("auth.passwordRecoveryWarning", "There is no password recovery. If you lose this password and device, your account may be unrecoverable. You can log in from any device using your private key, so never lose it.")}
                                                 </p>
                                                 <p className="text-xs text-amber-700 dark:text-amber-300 font-semibold leading-relaxed">
                                                     {keyOwnershipReminder} {keyRecoveryReminder}
@@ -690,7 +698,7 @@ export function AuthScreen() {
                                                         className="h-4 w-4 rounded border-amber-500/50 data-[state=checked]:bg-amber-500 -ml-1"
                                                     />
                                                     <label htmlFor="acknowledge-create" className="text-[10px] font-black uppercase tracking-wider text-amber-600/80 dark:text-amber-400/80 cursor-pointer leading-tight">
-                                                        I understand I am responsible for my keys
+                                                        {t("auth.acknowledgeKeyResponsibility", "I understand I am responsible for my keys")}
                                                     </label>
                                                 </div>
                                             </div>
@@ -715,10 +723,11 @@ export function AuthScreen() {
                                                     >
                                                         <Sparkles className="h-5 w-5" />
                                                     </motion.div>
-                                                    <span>Generating...</span>
+                                                    <span>{t("auth.generating", "Generating...")}</span>
+                                                    
                                                 </div>
                                             ) : (
-                                                "Generate Safe Identity"
+                                                t("auth.generateSafeIdentity", "Generate Safe Identity")
                                             )}
 
                                             {isLoading && (
@@ -749,12 +758,14 @@ export function AuthScreen() {
                             >
                                 <div className="text-center space-y-3">
                                     <h2 className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-white">
-                                        {step === 1 ? "Welcome Back" : "Secure Your Session"}
+                                        {step === 1
+                                            ? t("auth.login.welcomeBackTitle", "Welcome Back")
+                                            : t("auth.login.secureSessionTitle", "Secure Your Session")}
                                     </h2>
                                     <p className="text-zinc-500 dark:text-zinc-400 font-medium text-balance">
                                         {step === 1
-                                            ? "Log in or import your identity."
-                                            : "You can set a password now, or skip and use your key directly."}
+                                            ? t("auth.login.welcomeBackDesc", "Log in or import your identity.")
+                                            : t("auth.login.secureSessionDesc", "You can set a password now, or skip and use your key directly.")}
                                     </p>
                                 </div>
 
@@ -773,28 +784,28 @@ export function AuthScreen() {
                                                     !hasStoredIdentity ? "cursor-not-allowed opacity-50 hover:text-zinc-500 dark:hover:text-zinc-500" : "",
                                                 )}
                                             >
-                                                Log In
+                                                {t("auth.login.tabPassword", "Log In")}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => setLoginTab("key")}
                                                 className={cn("flex-1 py-3 text-sm font-bold rounded-xl transition-all", loginTab === "key" ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300")}
                                             >
-                                                Import Key
+                                                {t("auth.login.tabImportKey", "Import Key")}
                                             </button>
                                         </div>
                                         {!hasStoredIdentity && (
                                             <p className="px-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                                Username/password unlock is device-local. Import your private key once on this device to enable it.
+                                                {t("auth.login.deviceLocalHint", "Username/password unlock is device-local. Import your private key once on this device to enable it.")}
                                             </p>
                                         )}
 
                                         {loginTab === "key" ? (
                                             <>
                                                 <div className="space-y-3 mt-4">
-                                                    <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Private Key</Label>
+                                                    <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("identity.privateKey", "Private Key")}</Label>
                                                     <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                        Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.
+                                                        {t("auth.import.privateKeyHelp", "Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.")}
                                                     </p>
                                                     <div className="relative group">
                                                         <Key className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
@@ -828,8 +839,8 @@ export function AuthScreen() {
                                                             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                                                             <div className="space-y-3">
                                                                 <p className="text-xs font-semibold leading-relaxed text-amber-700 dark:text-amber-300">
-                                                                    This key was previously marked as retired on this device. Reactivating it can restore prior identity links from relays.
-                                                                </p>
+                                                                        {t("auth.import.retiredKeyWarning", "This key was previously marked as retired on this device. Reactivating it can restore prior identity links from relays.")}
+                                                                    </p>
                                                                 <div className="flex items-start space-x-3">
                                                                     <Checkbox
                                                                         id="acknowledge-retired-import"
@@ -838,7 +849,7 @@ export function AuthScreen() {
                                                                         className="mt-0.5 h-4 w-4 rounded border-amber-500/50 data-[state=checked]:bg-amber-500"
                                                                     />
                                                                     <label htmlFor="acknowledge-retired-import" className="cursor-pointer text-[11px] font-black uppercase tracking-wider text-amber-700/90 dark:text-amber-300/90">
-                                                                        I understand and want to reactivate this identity on this device
+                                                                        {t("auth.import.retiredKeyAcknowledge", "I understand and want to reactivate this identity on this device")}
                                                                     </label>
                                                                 </div>
                                                             </div>
@@ -850,7 +861,7 @@ export function AuthScreen() {
                                                     onClick={handleContinueImportKey}
                                                     className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
                                                 >
-                                                    Continue
+                                                    {t("common.continue", "Continue")}
                                                     <ArrowRight className="h-5 w-5 ml-2" />
                                                 </Button>
                                                 <FlashMessage
@@ -864,12 +875,12 @@ export function AuthScreen() {
                                                 <form onSubmit={handleLoginUsername} className="space-y-6">
                                                     <div className="space-y-5">
                                                         <div className="space-y-2">
-                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Username</Label>
+                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.usernameLabel", "Username")}</Label>
                                                             <div className="relative group">
                                                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
                                                                 <Input
                                                                     autoFocus
-                                                                    placeholder="e.g. Satoshi"
+                                                                    placeholder={t("auth.usernamePlaceholder", "e.g. Satoshi")}
                                                                     value={username}
                                                                     onChange={e => setUsername(e.target.value)}
                                                                     className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
@@ -877,12 +888,12 @@ export function AuthScreen() {
                                                             </div>
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Master Password</Label>
+                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel", "Master Password")}</Label>
                                                             <div className="relative group">
                                                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
                                                                 <Input
                                                                     type={showPassword ? "text" : "password"}
-                                                                    placeholder="Enter your password"
+                                                                    placeholder={t("auth.enterPasswordPlaceholder", "Enter your password")}
                                                                     value={password}
                                                                     onChange={e => setPassword(e.target.value)}
                                                                     className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
@@ -929,7 +940,7 @@ export function AuthScreen() {
                                                                 <Sparkles className="h-5 w-5" />
                                                             </motion.div>
                                                         ) : (
-                                                            "Log In"
+                                                            t("auth.login.submit", "Log In")
                                                         )}
                                                     </Button>
                                                 </form>
@@ -940,13 +951,13 @@ export function AuthScreen() {
                                     <form onSubmit={handleLoginFinal} className="space-y-6">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">Master Password</Label>
+                                                <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel", "Master Password")}</Label>
                                             </div>
                                             <div className="relative group">
                                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
                                                 <Input
                                                     type={showPassword ? "text" : "password"}
-                                                    placeholder="Optional: create a new password"
+                                                    placeholder={t("auth.optionalCreatePasswordPlaceholder", "Optional: create a new password")}
                                                     value={password}
                                                     onChange={e => setPassword(e.target.value)}
                                                     className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
@@ -960,7 +971,7 @@ export function AuthScreen() {
                                                 </button>
                                             </div>
                                             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest ml-1 mt-2">
-                                                Leave blank to use key-only login. If Remember Me is enabled, a device-only unlock will be created.
+                                                {t("auth.optionalPasswordHelp", "Leave blank to use key-only login. If Remember Me is enabled, a device-only unlock will be created.")}
                                             </p>
                                         </div>
 
@@ -978,14 +989,14 @@ export function AuthScreen() {
                                                 disabled={isLoading}
                                                 className="h-16 rounded-[24px] border-black/10 dark:border-white/10"
                                             >
-                                                Skip Password
+                                                {t("auth.skipPassword", "Skip Password")}
                                             </Button>
                                             <Button
                                                 type="submit"
                                                 disabled={isLoading || !password}
                                                 className="h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xl shadow-blue-500/20"
                                             >
-                                                Secure Account
+                                                {t("auth.secureAccount", "Secure Account")}
                                             </Button>
                                         </div>
                                     </form>
@@ -998,12 +1009,13 @@ export function AuthScreen() {
                 <div className="px-12 py-8 bg-black/5 dark:bg-white/5 border-t border-black/[0.03] dark:border-white/[0.03] flex items-center justify-center gap-6">
                     <div className="flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity cursor-help group/tip">
                         <Shield className="h-4 w-4 text-emerald-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Self-Custody</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{t("auth.footer.selfCustody", "Self-Custody")}</span>
+                        
                     </div>
                     <div className="h-4 w-px bg-zinc-300 dark:bg-zinc-700" />
                     <div className="flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity cursor-help group/tip">
                         <UserCheck className="h-4 w-4 text-purple-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Anonymous</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{t("auth.footer.anonymous", "Anonymous")}</span>
                     </div>
                 </div>
             </Card>

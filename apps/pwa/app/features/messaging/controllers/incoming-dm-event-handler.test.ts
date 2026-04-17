@@ -1131,6 +1131,106 @@ describe("incoming-dm-event-handler", () => {
         expect(persistMessage).not.toHaveBeenCalled();
     });
 
+    it("keeps inbound DMs for historically-known peers while projection readiness is still catching up", async () => {
+        const upsertIncoming = vi.fn();
+        const persistMessage = vi.fn(async () => undefined);
+        const event = {
+            id: "event-history-fallback",
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1456,
+            content: "cipher-history",
+            tags: [["p", MY_PUBLIC_KEY]],
+        } as unknown as NostrEvent;
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                accountProjectionReady: false,
+                peerTrust: {
+                    isAccepted: () => false,
+                    acceptPeer: vi.fn(),
+                },
+                requestsInbox: {
+                    upsertIncoming,
+                    getRequestStatus: () => null,
+                    setStatus: vi.fn(),
+                },
+            },
+            messageQueue: {
+                getMessage: vi.fn(async () => null),
+                getLastMessageTimestamp: vi.fn(async () => new Date(1450 * 1000)),
+                persistMessage,
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+        });
+
+        expect(persistMessage).toHaveBeenCalledTimes(1);
+        expect(upsertIncoming).not.toHaveBeenCalled();
+    });
+
+    it("does not bypass unknown-sender drop in ready state based on stale history alone", async () => {
+        const upsertIncoming = vi.fn();
+        const persistMessage = vi.fn(async () => undefined);
+        const event = {
+            id: "event-history-ready",
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1457,
+            content: "cipher-history-ready",
+            tags: [["p", MY_PUBLIC_KEY]],
+        } as unknown as NostrEvent;
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                accountProjectionReady: true,
+                peerTrust: {
+                    isAccepted: () => false,
+                    acceptPeer: vi.fn(),
+                },
+                requestsInbox: {
+                    upsertIncoming,
+                    getRequestStatus: () => null,
+                    setStatus: vi.fn(),
+                },
+            },
+            messageQueue: {
+                getMessage: vi.fn(async () => null),
+                getLastMessageTimestamp: vi.fn(async () => new Date(1450 * 1000)),
+                persistMessage,
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+        });
+
+        expect(persistMessage).not.toHaveBeenCalled();
+        expect(upsertIncoming).not.toHaveBeenCalled();
+    });
+
     it("deduplicates repeated connection-request events to avoid request inbox churn", async () => {
         const upsertIncoming = vi.fn();
         const sharedHandled = new Set<string>();

@@ -9,7 +9,7 @@ import type { MediaItem } from "../types";
 import { cn } from "@/app/lib/utils";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
-import { ChevronLeft, ChevronRight, Download, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, Minus, Plus, RotateCcw, X } from "lucide-react";
 import {
   MEDIA_VIEWER_MIN_ZOOM,
   MEDIA_VIEWER_MAX_ZOOM,
@@ -26,6 +26,8 @@ interface LightboxProps {
   readonly onNext?: () => void;
   readonly hasPrev?: boolean;
   readonly hasNext?: boolean;
+  readonly activeIndex?: number;
+  readonly totalItems?: number;
 }
 
 type TouchListLike = Readonly<{
@@ -43,6 +45,12 @@ const touchListToPoints = (touches: TouchListLike): ReadonlyArray<Readonly<{ x: 
     });
   }
   return points;
+};
+
+const isPdfAttachment = (attachment: MediaItem["attachment"]): boolean => {
+  const contentType = (attachment.contentType ?? "").toLowerCase();
+  const fileName = (attachment.fileName ?? "").toLowerCase();
+  return contentType.includes("pdf") || fileName.endsWith(".pdf");
 };
 
 export function Lightbox(props: LightboxProps) {
@@ -97,6 +105,14 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
                 voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item.attachment)}
               />
             </div>
+          ) : (kind === "file" && isPdfAttachment(item.attachment)) ? (
+            <div className="h-[90vh] w-full bg-white p-3 dark:bg-zinc-950">
+              <iframe
+                src={item.attachment.url}
+                title={`PDF preview: ${item.attachment.fileName}`}
+                className="h-full w-full rounded-xl border border-zinc-300/60 dark:border-white/10"
+              />
+            </div>
           ) : (
             <VideoPlayer src={item.attachment.url} isOutgoing={false} className="max-h-[90vh]" />
           )}
@@ -106,7 +122,7 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
   );
 }
 
-function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: LightboxProps) {
+function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeIndex, totalItems }: LightboxProps) {
   const { t } = useTranslation();
   const kind = inferAttachmentKind(item!.attachment);
   const [zoom, setZoom] = React.useState(1);
@@ -122,6 +138,16 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
     pan: { x: x.get(), y: y.get() },
     isPinching,
   });
+  const hasSequence = typeof totalItems === "number" && totalItems > 1;
+  const currentItemNumber = typeof activeIndex === "number" ? activeIndex + 1 : null;
+  const previewPositionLabel = currentItemNumber !== null && hasSequence
+    ? `${currentItemNumber} / ${totalItems}`
+    : null;
+  const previewTypeLabel = kind === "voice_note"
+    ? t("messaging.voiceNotes", "Voice Notes")
+    : kind === "file"
+      ? "PDF"
+      : t(`common.${kind}`, kind.charAt(0).toUpperCase() + kind.slice(1));
 
   const resetView = React.useCallback(() => {
     setZoom(1);
@@ -170,6 +196,27 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
         onPointerDown={onClose}
       >
         <div aria-hidden className="media-preview-depth-layer absolute inset-0" />
+        <div
+          className="absolute left-5 top-5 z-[120] max-w-[min(70vw,24rem)] rounded-[28px] border border-zinc-300/70 bg-white/88 px-4 py-3 shadow-xl backdrop-blur-xl dark:border-white/15 dark:bg-black/45"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-zinc-300/70 bg-zinc-100/90 px-2 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-zinc-700 dark:border-white/10 dark:bg-white/10 dark:text-white/75">
+              {previewTypeLabel}
+            </span>
+            {previewPositionLabel ? (
+              <span
+                aria-live="polite"
+                className="rounded-full border border-zinc-300/70 bg-zinc-100/90 px-2 py-1 text-[10px] font-black tracking-[0.2em] text-zinc-700 dark:border-white/10 dark:bg-white/10 dark:text-white/70"
+              >
+                {previewPositionLabel}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            {item!.attachment.fileName}
+          </p>
+        </div>
         <div
           className="absolute top-5 right-5 z-[120] flex items-center gap-2 rounded-2xl border border-zinc-300/70 bg-white/85 p-2 shadow-xl backdrop-blur-xl dark:border-white/15 dark:bg-black/45"
           onPointerDown={(e) => e.stopPropagation()}
@@ -269,6 +316,18 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
               voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item!.attachment)}
             />
           </div>
+        ) : (kind === "file" && isPdfAttachment(item!.attachment)) ? (
+          <div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/70 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/70 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+              <FileText className="h-4 w-4" />
+              <span>{item!.attachment.fileName}</span>
+            </div>
+            <iframe
+              src={item!.attachment.url}
+              title={`PDF preview: ${item!.attachment.fileName}`}
+              className="h-[78vh] w-full rounded-2xl border border-zinc-300/60 bg-white dark:border-white/10 dark:bg-zinc-950"
+            />
+          </div>
         ) : (
           <div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/70 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/70 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
             <VideoPlayer src={item!.attachment.url} isOutgoing={false} className="max-h-[90vh]" />
@@ -280,8 +339,8 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={onPrev}
-            className="media-viewer-nav media-viewer-nav-left"
-            aria-label={t("common.previous", "Previous")}
+            className="media-viewer-nav media-viewer-nav-left hidden md:inline-flex"
+            aria-label={t("messaging.preview.previousItem", "Previous item")}
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -292,11 +351,40 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext }: Light
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={onNext}
-            className="media-viewer-nav media-viewer-nav-right"
-            aria-label={t("common.next", "Next")}
+            className="media-viewer-nav media-viewer-nav-right hidden md:inline-flex"
+            aria-label={t("messaging.preview.nextItem", "Next item")}
           >
             <ChevronRight className="h-5 w-5" />
           </button>
+        ) : null}
+
+        {hasSequence ? (
+          <div
+            className="absolute bottom-5 left-1/2 z-[120] flex w-[min(calc(100vw-2rem),28rem)] -translate-x-1/2 items-center gap-2 rounded-[28px] border border-zinc-300/70 bg-white/90 p-2 shadow-2xl backdrop-blur-2xl dark:border-white/15 dark:bg-black/50"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-[20px] border border-zinc-300/70 bg-zinc-100/90 px-4 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200/90 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              onClick={onPrev}
+              disabled={!hasPrev || !onPrev}
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+              <span className="truncate">{t("common.previous", "Previous")}</span>
+            </button>
+            <div className="min-w-[4.75rem] rounded-[20px] border border-zinc-300/70 bg-white/95 px-3 py-3 text-center text-[11px] font-black tracking-[0.24em] text-zinc-700 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+              {previewPositionLabel}
+            </div>
+            <button
+              type="button"
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-[20px] border border-zinc-300/70 bg-zinc-100/90 px-4 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200/90 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              onClick={onNext}
+              disabled={!hasNext || !onNext}
+            >
+              <span className="truncate">{t("common.next", "Next")}</span>
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            </button>
+          </div>
         ) : null}
       </motion.div>
     </AnimatePresence>

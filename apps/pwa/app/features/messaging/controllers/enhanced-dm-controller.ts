@@ -919,6 +919,10 @@ export const useEnhancedDMController = (
         ingestSource,
         transportOwnerId,
         controllerInstanceId,
+        accountProjectionReady: (
+          projectionRuntimeSnapshot.accountProjectionReady
+          && projectionRuntimeSnapshot.accountPublicKeyHex === p.myPublicKeyHex
+        ),
       },
       messageQueue,
       processingEvents: processingEvents.current,
@@ -934,7 +938,17 @@ export const useEnhancedDMController = (
       messageMemoryManager,
       uiPerformanceMonitor
     });
-  }, [controllerInstanceId, incomingTransportEnabled, isProjectionAcceptedPeer, messageQueue, sendConnectionReceiptAck, state.messages, transportOwnerId]);
+  }, [
+    controllerInstanceId,
+    incomingTransportEnabled,
+    isProjectionAcceptedPeer,
+    messageQueue,
+    projectionRuntimeSnapshot.accountProjectionReady,
+    projectionRuntimeSnapshot.accountPublicKeyHex,
+    sendConnectionReceiptAck,
+    state.messages,
+    transportOwnerId,
+  ]);
   handleIncomingEventRef.current = handleIncomingEvent;
 
   useEffect(() => {

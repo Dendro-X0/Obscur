@@ -3,7 +3,7 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
-import { Play, Headphones } from "lucide-react";
+import { Play, Headphones, FileText } from "lucide-react";
 import type { MediaItem } from "../types";
 import { inferAttachmentKind } from "../utils/logic";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
@@ -148,6 +148,13 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                                                         {voiceNoteMetadata.durationLabel}
                                                     </div>
                                                 ) : null}
+                                            </div>
+                                        ) : kind === "file" ? (
+                                            <div className="flex h-full w-full flex-col items-center justify-center bg-amber-500/15 text-amber-900 dark:text-amber-100">
+                                                <FileText className="h-8 w-8 mb-2" />
+                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-70">
+                                                    PDF
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="relative flex h-full w-full flex-col items-center justify-center bg-zinc-900 text-white">

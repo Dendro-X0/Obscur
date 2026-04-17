@@ -70,6 +70,31 @@ history:
     - `apps/pwa/app/features/account-sync/services/account-event-bootstrap-service.test.ts`
     - `apps/pwa/app/features/account-sync/services/account-event-reducer.test.ts`
     - `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
+12. Bootstrap import now keeps full normalized DM plaintext previews (no 140-char clipping), so projection replay does not lose long attachment markdown links during restore.
+13. Projection fallback attachment extraction now has a bounded permissive mode for replay hydration, keeping extensionless markdown links as media/file attachments instead of dropping them silently.
+
+## Durability Standards (Canonical Contract)
+
+These standards are now mandatory for delete/restore work touching DM history:
+
+1. Message identity aliasing is explicit and two-keyed:
+   - local row id (`id`)
+   - canonical transport identity (`eventId`) when present
+2. Local delete actions must suppress all known aliases, not just the currently rendered id.
+3. Restore sanitization must evaluate delete suppression against alias keys (`id` + `eventId`) before hydration into UI-facing state.
+4. Canonical `eventId` remains preferred for cross-device convergence, but fallback local ids must stay in the suppression set for legacy rows.
+5. Attachment-bearing legacy rows with sparse metadata must normalize deterministically during restore parsing (kind/contentType/fileName), so delete derivation and replay behavior are stable.
+6. Any new delete/restore patch is incomplete unless the same alias contract is validated in both action-path tests and restore-path tests.
+
+## Focused Test Suites (Contract Gate)
+
+At minimum, keep these suites green for DM delete/restore durability changes:
+
+1. `apps/pwa/app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts`
+2. `apps/pwa/app/features/messaging/services/message-identity-alias-contract.test.ts`
+3. `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
+4. `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts`
+5. `apps/pwa/app/features/messaging/utils/persistence.attachments.test.ts`
 
 ## Remaining Risk
 

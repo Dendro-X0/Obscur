@@ -40,7 +40,7 @@ export const applyConnectionOverrides = (
 export const isVisibleUserMessage = (m: Message): boolean => m.kind === "user" && !m.deletedAt;
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', '.ogv'];
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', '.ogv', '.avi', '.mkv', '.3gp'];
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.opus'];
 const DOCUMENT_EXTENSIONS = ['.pdf', '.txt', '.csv', '.rtf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp'];
 const IMAGE_HOSTS = ['image.nostr.build', 'nostr.build', 'blossom.', 'imgprxy.', 'void.cat'];
@@ -98,7 +98,39 @@ export const inferAttachmentKind = (attachment: Attachment): Attachment["kind"] 
     return attachment.kind;
 };
 
-export const extractAttachmentsFromContent = (content: string): Attachment[] => {
+export const isPreviewableMediaAttachment = (attachment: Attachment): boolean => {
+    const kind = inferAttachmentKind(attachment);
+    if (kind === "image" || kind === "video" || kind === "audio" || kind === "voice_note") {
+        return true;
+    }
+    if (kind !== "file") {
+        return false;
+    }
+    const lowerContentType = attachment.contentType.toLowerCase();
+    const lowerFileName = attachment.fileName.toLowerCase();
+    return lowerContentType.includes("pdf") || lowerFileName.endsWith(".pdf");
+};
+
+const inferKindFromLooseHint = (value: string): Attachment["kind"] => {
+    const probe = value.toLowerCase();
+    if (probe.includes("voice-note") || probe.includes("voice_note")) return "voice_note";
+    if (probe.includes("video")) return "video";
+    if (probe.includes("audio") || probe.includes("voice")) return "audio";
+    if (probe.includes("image") || probe.includes("photo") || probe.includes("img")) return "image";
+    return "file";
+};
+
+const toContentTypeForAttachmentKind = (kind: Attachment["kind"]): string => {
+    if (kind === "image") return "image/*";
+    if (kind === "video") return "video/*";
+    if (kind === "audio" || kind === "voice_note") return "audio/*";
+    return "application/octet-stream";
+};
+
+export const extractAttachmentsFromContent = (
+    content: string,
+    options?: Readonly<{ includeGenericLinksAsFiles?: boolean }>
+): Attachment[] => {
     // Match either [filename](url) or just url
     const urlRegex = /(?:\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\))|(https?:\/\/[^\s]+|\/uploads\/[^\s]+)/g;
     const matches = Array.from(content.matchAll(urlRegex));
@@ -106,12 +138,14 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
     if (matches.length === 0) return [];
 
     const attachments: Attachment[] = [];
+    const includeGenericLinksAsFiles = options?.includeGenericLinksAsFiles === true;
 
     for (const match of matches) {
         const rawUrl = match[2] || match[3];
         if (!rawUrl) continue;
 
         const providedName = match[1]; // from markdown [name](url)
+        const isMarkdownLink = Boolean(match[1] && match[2]);
 
         // Clean trailing punctuation that might be captured in plain URLs
         const cleanUrl = match[3] ? rawUrl.replace(/[.,;:!?)]+$/, '') : rawUrl;
@@ -157,7 +191,10 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
 
         // 3. Image check (Extension or Host)
         const isImageExt = hasKnownExtension(lowerFileName, IMAGE_EXTENSIONS) || hasKnownExtension(lowerUrl, IMAGE_EXTENSIONS);
-        const isKnownImageHost = IMAGE_HOSTS.some(host => lowerUrl.includes(host));
+        const isKnownImageHost = (
+            !lowerUrl.includes("video.")
+            && IMAGE_HOSTS.some(host => lowerUrl.includes(host))
+        );
 
         if (isImageExt || isKnownImageHost) {
             attachments.push({
@@ -177,6 +214,17 @@ export const extractAttachmentsFromContent = (content: string): Attachment[] => 
                 kind: "file",
                 url: cleanUrl,
                 contentType: "application/octet-stream",
+                fileName: finalName
+            });
+            continue;
+        }
+
+        if (includeGenericLinksAsFiles && (isMarkdownLink || cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://"))) {
+            const inferredKind = inferKindFromLooseHint(`${finalName} ${cleanUrl}`);
+            attachments.push({
+                kind: inferredKind,
+                url: cleanUrl,
+                contentType: toContentTypeForAttachmentKind(inferredKind),
                 fileName: finalName
             });
         }

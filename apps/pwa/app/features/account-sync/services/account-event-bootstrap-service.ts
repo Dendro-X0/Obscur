@@ -12,11 +12,9 @@ import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
 import type { AccountEvent, AccountEventSource } from "../account-event-contracts";
 
 const toPreview = (value: string): string => {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 140) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 140)}...`;
+  // Keep full normalized plaintext so bootstrap replay can deterministically
+  // reconstruct attachment-bearing messages without losing long markdown URLs.
+  return value.replace(/\s+/g, " ").trim();
 };
 
 const toSourceCounts = (

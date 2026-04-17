@@ -33,6 +33,7 @@ import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversati
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { extractAttachmentsFromContent } from "@/app/features/messaging/utils/logic";
 import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
+import { collectMessageIdentityAliases } from "@/app/features/messaging/services/message-identity-alias-contract";
 import {
   loadCommunityMembershipLedger,
   mergeCommunityMembershipLedgerEntries,
@@ -636,16 +637,7 @@ const toPersistedMessageIdentityKeys = (message: Readonly<{
   id?: unknown;
   eventId?: unknown;
 }>): ReadonlyArray<string> => {
-  const keys = new Set<string>();
-  const id = typeof message.id === "string" ? message.id.trim() : "";
-  const eventId = typeof message.eventId === "string" ? message.eventId.trim() : "";
-  if (id.length > 0) {
-    keys.add(id);
-  }
-  if (eventId.length > 0) {
-    keys.add(eventId);
-  }
-  return Array.from(keys);
+  return collectMessageIdentityAliases(message);
 };
 
 const toMessageDeleteTombstoneIdSet = (
@@ -681,9 +673,10 @@ const sanitizePersistedMessagesByDeleteContract = (
   if (messages.length === 0) {
     return messages;
   }
+  const normalizedMessages = messages.map((message) => normalizePersistedMessageAttachments(message));
   const deleteTargetMessageIds = new Set<string>(options?.durableDeleteIds ?? []);
   const commandMessageIds = new Set<string>();
-  messages.forEach((message) => {
+  normalizedMessages.forEach((message) => {
     const messageId = typeof message.id === "string" ? message.id.trim() : "";
     if (messageId.length > 0 && isCommandDmMessage(message)) {
       commandMessageIds.add(messageId);
@@ -700,7 +693,7 @@ const sanitizePersistedMessagesByDeleteContract = (
   });
   if (deleteTargetMessageIds.size > 0) {
     const knownIdentityKeys = new Set<string>();
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       toPersistedMessageIdentityKeys(message).forEach((identityKey) => {
         knownIdentityKeys.add(identityKey);
       });
@@ -721,7 +714,7 @@ const sanitizePersistedMessagesByDeleteContract = (
       });
     }
   }
-  const filtered = messages.filter((message) => {
+  const filtered = normalizedMessages.filter((message) => {
     const identityKeys = toPersistedMessageIdentityKeys(message);
     if (identityKeys.length === 0) {
       return false;
@@ -1464,23 +1457,110 @@ const toAttachmentKind = (value: unknown): Attachment["kind"] | null => {
   return null;
 };
 
+const extractAttachmentFileNameFromUrl = (url: string): string | null => {
+  const trimmed = url.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const withoutQuery = trimmed.split("#")[0]?.split("?")[0] ?? trimmed;
+  const segment = withoutQuery.split("/").pop()?.trim() ?? "";
+  if (!segment) {
+    return null;
+  }
+  try {
+    const decoded = decodeURIComponent(segment).trim();
+    return decoded.length > 0 ? decoded : null;
+  } catch {
+    return segment;
+  }
+};
+
+const inferAttachmentKindFromCandidate = (params: Readonly<{
+  kindHint: Attachment["kind"] | null;
+  contentType: string;
+  fileName: string;
+  url: string;
+}>): Attachment["kind"] => {
+  if (params.kindHint) {
+    return params.kindHint;
+  }
+  const probe = `${params.contentType} ${params.fileName} ${params.url}`.toLowerCase();
+  if (probe.includes("voice-note") || probe.includes("voice_note")) {
+    return "voice_note";
+  }
+  if (probe.includes("image/") || /\.(png|jpe?g|webp|gif|bmp|avif|svg)$/i.test(probe)) {
+    return "image";
+  }
+  if (probe.includes("video/") || /\.(mp4|mov|m4v|mkv|webm|avi)$/i.test(probe)) {
+    return "video";
+  }
+  if (probe.includes("audio/") || /\.(mp3|wav|m4a|ogg|opus|aac|flac|weba)$/i.test(probe)) {
+    return "audio";
+  }
+  return "file";
+};
+
+const inferAttachmentContentTypeFromCandidate = (params: Readonly<{
+  explicit: string;
+  kind: Attachment["kind"];
+  fileName: string;
+  url: string;
+}>): string => {
+  if (params.explicit.length > 0) {
+    return params.explicit;
+  }
+  const probe = `${params.fileName} ${params.url}`.toLowerCase();
+  if (params.kind === "voice_note") return "audio/webm";
+  if (params.kind === "image") {
+    if (probe.includes(".png")) return "image/png";
+    if (probe.includes(".gif")) return "image/gif";
+    if (probe.includes(".webp")) return "image/webp";
+    return "image/jpeg";
+  }
+  if (params.kind === "video") {
+    if (probe.includes(".webm")) return "video/webm";
+    if (probe.includes(".mov")) return "video/quicktime";
+    return "video/mp4";
+  }
+  if (params.kind === "audio") {
+    if (probe.includes(".wav")) return "audio/wav";
+    if (probe.includes(".ogg")) return "audio/ogg";
+    if (probe.includes(".m4a")) return "audio/mp4";
+    return "audio/mpeg";
+  }
+  if (probe.includes(".pdf")) return "application/pdf";
+  return "application/octet-stream";
+};
+
 const parseAttachmentCandidate = (value: unknown): Attachment | null => {
   if (!value || typeof value !== "object") {
     return null;
   }
   const candidate = value as Partial<Attachment>;
-  const kind = toAttachmentKind(candidate.kind);
+  const kindHint = toAttachmentKind(candidate.kind);
   const url = typeof candidate.url === "string" ? candidate.url.trim() : "";
   const contentType = typeof candidate.contentType === "string" ? candidate.contentType.trim() : "";
   const fileName = typeof candidate.fileName === "string" ? candidate.fileName.trim() : "";
-  if (!kind || !url || !contentType || !fileName) {
+  if (!url) {
     return null;
   }
+  const normalizedFileName = fileName || extractAttachmentFileNameFromUrl(url) || "attachment";
+  const kind = inferAttachmentKindFromCandidate({
+    kindHint,
+    contentType,
+    fileName: normalizedFileName,
+    url,
+  });
   return {
     kind,
     url,
-    contentType,
-    fileName,
+    contentType: inferAttachmentContentTypeFromCandidate({
+      explicit: contentType,
+      kind,
+      fileName: normalizedFileName,
+      url,
+    }),
+    fileName: normalizedFileName,
   };
 };
 
@@ -1500,6 +1580,28 @@ const dedupeAttachments = (attachments: ReadonlyArray<Attachment>): ReadonlyArra
     });
   });
   return Array.from(byUrl.values());
+};
+
+const normalizePersistedMessageAttachments = (message: PersistedMessage): PersistedMessage => {
+  const candidateRecord = message as unknown as Readonly<Record<string, unknown>>;
+  const fromArray = Array.isArray(message.attachments)
+    ? message.attachments
+      .map((attachment) => parseAttachmentCandidate(attachment))
+      .filter((attachment): attachment is Attachment => attachment !== null)
+    : [];
+  const fromLegacySingle = parseAttachmentCandidate(candidateRecord.attachment);
+  const normalizedAttachments = dedupeAttachments([
+    ...fromArray,
+    ...(fromLegacySingle ? [fromLegacySingle] : []),
+  ]);
+  if (normalizedAttachments.length === 0) {
+    const { attachments: _attachments, ...rest } = message as PersistedMessage & Readonly<{ attachments?: ReadonlyArray<Attachment> }>;
+    return rest;
+  }
+  return {
+    ...message,
+    attachments: normalizedAttachments,
+  };
 };
 
 const extractPersistedAttachmentsFromRecord = (
@@ -2220,7 +2322,9 @@ const hydrateChatStateFromIndexedMessages = async (
           }
           const mappedMessages: ReadonlyArray<PersistedMessage> = timeline.map((entry) => {
             const isOutgoing = entry.direction === "outgoing";
-            const fallbackAttachments = extractAttachmentsFromContent(entry.plaintextPreview);
+            const fallbackAttachments = extractAttachmentsFromContent(entry.plaintextPreview, {
+              includeGenericLinksAsFiles: true,
+            });
             return {
               id: entry.messageId,
               content: entry.plaintextPreview,

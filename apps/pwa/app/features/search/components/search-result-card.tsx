@@ -7,6 +7,7 @@ import { Button } from "@dweb/ui-kit";
 import Image from "next/image";
 import { cn } from "@dweb/ui-kit";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import type { DiscoveryResult } from "@/app/features/search/types/discovery";
 import { getPublicGroupHref, getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
@@ -19,9 +20,10 @@ interface SearchResultCardProps {
 }
 
 export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardProps) {
+    const { t } = useTranslation();
     const router = useRouter();
     const resolvedMetadata = useResolvedProfileMetadata(result.display.pubkey ?? null);
-    const resolvedTitle = resolvedMetadata.displayName || result.display.title || result.display.pubkey || "Unknown";
+    const resolvedTitle = resolvedMetadata.displayName || result.display.title || result.display.pubkey || t("search.discovery.identity.unknownContact", "Unknown contact");
     const resolvedPicture = resolvedMetadata.avatarUrl || result.display.picture;
     const resolvedDescription = resolvedMetadata.about || result.display.description;
     const resolvedSubtitle = result.kind === "community"
@@ -107,7 +109,7 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
                     </h4>
                     {result.confidence === "direct" && (
                         <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-primary/70">
-                            Direct
+                            {t("search.discovery.badge.direct", "Direct")}
                         </span>
                     )}
                 </div>
@@ -150,7 +152,9 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
                     "rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.2em]",
                     result.kind === "community" ? "bg-amber-500/10 text-amber-600 dark:text-amber-300" : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"
                 )}>
-                    {result.kind === "community" ? "Community" : "Profile"}
+                    {result.kind === "community"
+                        ? t("search.discovery.badge.community", "Community")
+                        : t("search.discovery.badge.profile", "Profile")}
                 </span>
             </div>
         </div>

@@ -4,6 +4,7 @@ import { useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import { useConversationMessages } from "../../messaging/hooks/use-conversation-messages";
+import { isPreviewableMediaAttachment } from "../../messaging/utils/logic";
 import type {
     Conversation,
     Message,
@@ -57,7 +58,7 @@ export function useChatViewProps({
         messages.forEach(m => {
             if (m.attachments) {
                 m.attachments.forEach(a => {
-                    if (a.kind === 'image' || a.kind === 'video') {
+                    if (isPreviewableMediaAttachment(a)) {
                         items.push({
                             attachment: a,
                             messageId: m.id,

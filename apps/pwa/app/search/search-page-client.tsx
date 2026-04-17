@@ -88,55 +88,6 @@ const mapSurfaceToIntent = (surface: DiscoverySurface): DiscoveryIntent => {
   return "add_friend";
 };
 
-const statusLabelFromReason = (reason: string | undefined): string | null => {
-  switch (reason) {
-    case "relay_degraded":
-      return "Relay network is degraded. Showing partial results.";
-    case "offline":
-      return "Offline mode: only cached and local results are available.";
-    case "no_match":
-      return "No matching results found.";
-    case "unsupported_token":
-      return "Use deterministic add tokens: QR, contact card, Friend Code, npub, or pubkey.";
-    case "invalid_code":
-      return "Invalid code format. Ask for a new code, QR, or contact link.";
-    case "expired_code":
-      return "Code expired. Ask for a new short code.";
-    case "code_used":
-      return "Code already used. Ask for a new short code.";
-    case "legacy_code_unresolvable":
-      return "Legacy code could not be resolved. Ask for QR/contact link/Friend Code.";
-    case "index_unavailable_fallback":
-      return "Index unavailable and relay fallback degraded. Use QR/contact card/npub.";
-    case "index_unavailable":
-      return "Optional index service is unavailable.";
-    default:
-      return null;
-  }
-};
-
-const relaySearchStatusCopy = (readiness: RelayReadinessState): string | null => {
-  switch (readiness) {
-    case "recovering":
-      return "Obscur is rebuilding relay connections. Search is using direct, cached, and index results first.";
-    case "degraded":
-      return "Relay connections are degraded. Search may return partial results while recovery continues.";
-    case "offline":
-      return "No relay connection is available. Search is limited to direct, cached, and local results.";
-    default:
-      return null;
-  }
-};
-
-const sourceStatusLabel = (state: string): string => {
-  if (state === "running") return "running";
-  if (state === "success") return "ok";
-  if (state === "error") return "error";
-  if (state === "timeout") return "timeout";
-  if (state === "skipped") return "skipped";
-  return "idle";
-};
-
 const invitationToneClassName = (tone: InvitationTone): string => {
   if (tone === "success") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   if (tone === "warning") return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
@@ -161,10 +112,16 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMe
   }
 };
 
-const resolveStableIdentity = (input: string): ResolveResult => {
+const resolveStableIdentity = (
+  input: string,
+  messages: Readonly<{
+    invalidInput: string;
+    unsupportedToken: string;
+  }>
+): ResolveResult => {
   const trimmed = input.trim();
   if (!trimmed) {
-    return { ok: false, reason: "invalid_input", message: "Input is required." };
+    return { ok: false, reason: "invalid_input", message: messages.invalidInput };
   }
 
   const contactCard = extractContactCardFromQuery(trimmed);
@@ -198,7 +155,7 @@ const resolveStableIdentity = (input: string): ResolveResult => {
   return {
     ok: false,
     reason: "unsupported_token",
-    message: "Use a contact card, npub, or hex pubkey for Add Friend.",
+    message: messages.unsupportedToken,
   };
 };
 
@@ -252,7 +209,7 @@ const mapResolvedIdentityToPublicDiscoveryProfile = (identity: ResolvedIdentity)
   return {
     id: `resolved:${identity.pubkey}`,
     kind: "person",
-    title: identity.display || "Unknown contact",
+    title: identity.display || "",
     subtitle: identity.source.replace("_", " "),
     pubkey: identity.pubkey,
     npub,
@@ -335,6 +292,7 @@ export default function SearchPage() {
   const [previewProfile, setPreviewProfile] = useState<PublicDiscoveryProfile | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [diagnosticsTick, setDiagnosticsTick] = useState(0);
+  const unknownContactLabel = t("search.discovery.identity.unknownContact", "Unknown contact");
   const resolvedMetadata = useResolvedProfileMetadata(resolvedIdentity?.pubkey ?? null);
   const isResolvedIdentitySelf = Boolean(resolvedIdentity && publicKeyHex && resolvedIdentity.pubkey === publicKeyHex);
   const navigateToProfile = React.useCallback((targetPubkey: string): void => {
@@ -355,7 +313,7 @@ export default function SearchPage() {
 
     return {
       ...base,
-      title: resolvedMetadata?.displayName || identity.display || (isSelf ? localUsername : "") || "Unknown contact",
+      title: resolvedMetadata?.displayName || identity.display || (isSelf ? localUsername : "") || unknownContactLabel,
       subtitle: resolvedMetadata?.nip05 || (isSelf ? localNip05 : "") || identity.source.replace("_", " "),
       description: resolvedMetadata?.about || (isSelf ? localAbout : "") || undefined,
       picture: resolvedMetadata?.avatarUrl || (isSelf ? localAvatar : "") || undefined,
@@ -370,6 +328,7 @@ export default function SearchPage() {
     resolvedMetadata?.avatarUrl,
     resolvedMetadata?.displayName,
     resolvedMetadata?.nip05,
+    unknownContactLabel,
   ]);
 
   const {
@@ -437,11 +396,14 @@ export default function SearchPage() {
       return {
         ok: false,
         reason: "legacy_code_unresolvable",
-        message: "Invite code could not be resolved. Ask for QR/contact link/npub.",
+        message: t("search.discovery.identity.legacyUnresolvable", "Invite code could not be resolved. Ask for QR/contact link/npub."),
       };
     }
-    return resolveStableIdentity(trimmed);
-  }, [allowLegacyInviteCode, inviteResolver]);
+    return resolveStableIdentity(trimmed, {
+      invalidInput: t("search.discovery.identity.invalidInput", "Input is required."),
+      unsupportedToken: t("search.discovery.identity.unsupportedToken", "Use a contact card, npub, or hex pubkey for Add Friend."),
+    });
+  }, [inviteResolver, t]);
 
   const lastSearchedRef = useRef("");
 
@@ -563,7 +525,7 @@ export default function SearchPage() {
       if (record.status === "sent_quorum") {
         emitDeliveryToast({
           status: "sent_quorum",
-          message: "Delivered to quorum relays.",
+          message: t("search.discovery.invitation.deliveredToQuorum", "Delivered to quorum relays."),
           relaySuccessCount: record.publishReport?.successCount,
           relayTotal: record.publishReport?.totalRelays,
         });
@@ -572,7 +534,10 @@ export default function SearchPage() {
         const totalRelays = record.publishReport?.totalRelays ?? 0;
         emitDeliveryToast({
           status: "sent_partial",
-          message: `Partially delivered (${successCount}/${totalRelays || "?"}).`,
+          message: t("search.discovery.invitation.partiallyDelivered", "Partially delivered ({{success}}/{{total}}).", {
+            success: successCount,
+            total: totalRelays || "?",
+          }),
           relaySuccessCount: successCount,
           relayTotal: totalRelays,
         });
@@ -580,13 +545,13 @@ export default function SearchPage() {
         if (record.nextRetryAtUnixMs && record.nextRetryAtUnixMs > Date.now()) {
           emitDeliveryToast({
             status: "queued_retrying",
-            message: "Request queued; retrying automatically.",
+            message: t("search.discovery.invitation.queuedRetrying", "Request queued; retrying automatically."),
             retryAtUnixMs: record.nextRetryAtUnixMs,
           });
         } else {
           emitDeliveryToast({
             status: "failed",
-            message: record.error || "Connection request failed.",
+            message: record.error || t("search.discovery.invitation.requestFailed", "Connection request failed."),
           });
         }
       }
@@ -689,8 +654,52 @@ export default function SearchPage() {
     requestsInbox.state.items,
   ]);
 
-  const reasonLabel = statusLabelFromReason(queryState.reasonCode);
-  const relaySearchLabel = relaySearchStatusCopy(relayRecovery.readiness);
+  const reasonLabel = useMemo(() => {
+    switch (queryState.reasonCode) {
+      case "relay_degraded":
+        return t("search.discovery.reason.relayDegraded", "Relay network is degraded. Showing partial results.");
+      case "offline":
+        return t("search.discovery.reason.offline", "Offline mode: only cached and local results are available.");
+      case "no_match":
+        return t("search.discovery.reason.noMatch", "No matching results found.");
+      case "unsupported_token":
+        return t("search.discovery.reason.unsupportedToken", "Use deterministic add tokens: QR, contact card, Friend Code, npub, or pubkey.");
+      case "invalid_code":
+        return t("search.discovery.reason.invalidCode", "Invalid code format. Ask for a new code, QR, or contact link.");
+      case "expired_code":
+        return t("search.discovery.reason.expiredCode", "Code expired. Ask for a new short code.");
+      case "code_used":
+        return t("search.discovery.reason.codeUsed", "Code already used. Ask for a new short code.");
+      case "legacy_code_unresolvable":
+        return t("search.discovery.reason.legacyUnresolvable", "Legacy code could not be resolved. Ask for QR/contact link/Friend Code.");
+      case "index_unavailable_fallback":
+        return t("search.discovery.reason.indexFallback", "Index unavailable and relay fallback degraded. Use QR/contact card/npub.");
+      case "index_unavailable":
+        return t("search.discovery.reason.indexUnavailable", "Optional index service is unavailable.");
+      default:
+        return null;
+    }
+  }, [queryState.reasonCode, t]);
+  const relaySearchLabel = useMemo(() => {
+    switch (relayRecovery.readiness) {
+      case "recovering":
+        return t("search.discovery.relay.recovering", "Obscur is rebuilding relay connections. Search is using direct, cached, and index results first.");
+      case "degraded":
+        return t("search.discovery.relay.degraded", "Relay connections are degraded. Search may return partial results while recovery continues.");
+      case "offline":
+        return t("search.discovery.relay.offline", "No relay connection is available. Search is limited to direct, cached, and local results.");
+      default:
+        return null;
+    }
+  }, [relayRecovery.readiness, t]);
+  const sourceStatusLabel = React.useCallback((state: string): string => {
+    if (state === "running") return t("search.discovery.source.running", "running");
+    if (state === "success") return t("search.discovery.source.ok", "ok");
+    if (state === "error") return t("search.discovery.source.error", "error");
+    if (state === "timeout") return t("search.discovery.source.timeout", "timeout");
+    if (state === "skipped") return t("search.discovery.source.skipped", "skipped");
+    return t("search.discovery.source.idle", "idle");
+  }, [t]);
   const hasDeterministicQuery = isDeterministicDirectQuery(query, { allowLegacyInviteCode });
   const showResolvedState = (
     surface === "add_friend"
@@ -710,7 +719,7 @@ export default function SearchPage() {
       await navigator.clipboard.writeText(value);
       toast.success(successLabel);
     } catch {
-      toast.error("Unable to copy");
+      toast.error(t("search.discovery.copy.failed", "Unable to copy"));
     }
   };
 
@@ -724,7 +733,7 @@ export default function SearchPage() {
     }
 
     setDirectRequestPhase("sending");
-    setDirectRequestMessage("Obscur is trying to deliver your invitation.");
+    setDirectRequestMessage(t("search.discovery.invitation.attemptingDelivery", "Obscur is trying to deliver your invitation."));
     try {
       const report = await withTimeout(
         requestTransport.sendRequest({
@@ -732,19 +741,19 @@ export default function SearchPage() {
           introMessage: buildInvitationRequestMessage(values),
         }),
         REQUEST_SEND_TIMEOUT_MS,
-        "Request timed out. Relay quality is degraded; please retry."
+        t("search.discovery.invitation.timeout", "Request timed out. Relay quality is degraded; please retry.")
       );
 
       if (report.status === "ok") {
         setDirectRequestPhase("ok");
-        setDirectRequestMessage("Invitation delivered.");
+        setDirectRequestMessage(t("search.discovery.invitation.delivered", "Invitation delivered."));
         toast.success(getDirectInvitationToastCopy("ok").message);
         return true;
       }
 
       if (report.status === "partial") {
         setDirectRequestPhase("partial");
-        setDirectRequestMessage("Invitation reached part of the network.");
+        setDirectRequestMessage(t("search.discovery.invitation.partial", "Invitation reached part of the network."));
         toast.warning(getDirectInvitationToastCopy("partial", {
           relaySuccessCount: report.relaySuccessCount,
           relayTotal: report.relayTotal,
@@ -754,7 +763,7 @@ export default function SearchPage() {
 
       if (report.status === "queued") {
         setDirectRequestPhase("queued");
-        setDirectRequestMessage(report.message || "Delivery is waiting for a healthier relay connection.");
+        setDirectRequestMessage(report.message || t("search.discovery.invitation.waitingForRelay", "Delivery is waiting for a healthier relay connection."));
         toast.warning(getDirectInvitationToastCopy("queued", {
           message: report.message,
         }).message);
@@ -762,13 +771,13 @@ export default function SearchPage() {
       }
 
       setDirectRequestPhase(report.status);
-      setDirectRequestMessage(report.message || "Obscur could not confirm delivery.");
+      setDirectRequestMessage(report.message || t("search.discovery.invitation.deliveryUnconfirmed", "Obscur could not confirm delivery."));
       toast.error(getDirectInvitationToastCopy(report.status, {
         message: report.message,
       }).message);
       return false;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Obscur could not confirm delivery.";
+      const message = error instanceof Error ? error.message : t("search.discovery.invitation.deliveryUnconfirmed", "Obscur could not confirm delivery.");
       setDirectRequestPhase("failed");
       setDirectRequestMessage(message);
       toast.error(getDirectInvitationToastCopy("failed", { message }).message);
@@ -808,10 +817,10 @@ export default function SearchPage() {
                   <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full bg-indigo-500/20 blur-3xl dark:bg-indigo-400/20" />
                   <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-400/15" />
                   <div className="relative mx-auto max-w-4xl text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600 dark:text-zinc-400">Discovery</p>
-                    <h1 className="mx-auto mt-2.5 max-w-[16ch] text-[1.55rem] font-black leading-[1.06] tracking-tight text-zinc-950 dark:text-zinc-100 sm:mt-3 sm:max-w-none sm:text-4xl">One search box for your network</h1>
+                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600 dark:text-zinc-400">{t("search.discovery.hero.eyebrow", "Discovery")}</p>
+                    <h1 className="mx-auto mt-2.5 max-w-[16ch] text-[1.55rem] font-black leading-[1.06] tracking-tight text-zinc-950 dark:text-zinc-100 sm:mt-3 sm:max-w-none sm:text-4xl">{t("search.discovery.hero.title", "One search box for your network")}</h1>
                     <p className="mx-auto mt-2.5 max-w-[30ch] text-[0.95rem] leading-relaxed text-zinc-700 dark:text-zinc-300 sm:mt-3 sm:max-w-3xl sm:text-base">
-                      Find people and communities, then open their public profile or switch to direct add when you already have a private contact token.
+                      {t("search.discovery.hero.desc", "Find people and communities, then open their public profile or switch to direct add when you already have a private contact token.")}
                     </p>
                   </div>
 
@@ -827,18 +836,18 @@ export default function SearchPage() {
                               deterministicDiscoveryEnabled
                                 ? (
                                     allowLegacyInviteCode
-                                      ? "Paste a contact card, short code, invite code, npub, or pubkey"
-                                      : "Paste a contact card, short code, npub, or pubkey"
+                                      ? t("search.discovery.placeholder.addFriendDeterministicLegacy", "Paste a contact card, short code, invite code, npub, or pubkey")
+                                      : t("search.discovery.placeholder.addFriendDeterministic", "Paste a contact card, short code, npub, or pubkey")
                                   )
                                 : (
                                     allowLegacyInviteCode
-                                      ? "Paste a contact card, invite code, npub, or pubkey"
-                                      : "Paste a contact card, npub, or pubkey"
+                                      ? t("search.discovery.placeholder.addFriendLegacy", "Paste a contact card, invite code, npub, or pubkey")
+                                      : t("search.discovery.placeholder.addFriend", "Paste a contact card, npub, or pubkey")
                                   )
                             )
                             : surface === "communities"
-                              ? "Search communities by name or relay'group"
-                              : "Search people, communities, npubs, nip-05 handles, or public keys"
+                              ? t("search.discovery.placeholder.communities", "Search communities by name or relay'group")
+                              : t("search.discovery.placeholder.global", "Search people, communities, npubs, nip-05 handles, or public keys")
                         }
                         className="h-9 flex-1 border-none bg-transparent p-0 text-[0.95rem] sm:h-12 sm:text-base focus-visible:ring-0"
                       />
@@ -854,8 +863,10 @@ export default function SearchPage() {
                       className="h-9 rounded-xl px-3 text-xs font-bold sm:h-11 sm:rounded-2xl sm:px-5 sm:text-sm"
                     >
                       {surface === "add_friend" && deterministicDiscoveryEnabled
-                        ? (identityResolver.phase === "resolving" ? "Resolving..." : "Resolve")
-                        : (isSearching ? "Searching..." : "Search")}
+                        ? (identityResolver.phase === "resolving"
+                            ? t("search.discovery.action.resolving", "Resolving...")
+                            : t("search.discovery.action.resolve", "Resolve"))
+                        : (isSearching ? t("common.searching", "Searching...") : t("search.discovery.action.search", "Search"))}
                     </Button>
                   </form>
 
@@ -898,7 +909,11 @@ export default function SearchPage() {
                     : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
                 )}
               >
-                  {target === "global" ? "Everything" : target === "add_friend" ? "Add Friend" : "Communities"}
+                  {target === "global"
+                    ? t("search.discovery.surface.global", "Everything")
+                    : target === "add_friend"
+                      ? t("search.discovery.surface.addFriend", "Add Friend")
+                      : t("search.discovery.surface.communities", "Communities")}
               </button>
             ))}
                   </div>
@@ -906,13 +921,17 @@ export default function SearchPage() {
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600 sm:mt-5 sm:gap-2 sm:text-[10px] sm:tracking-[0.18em] dark:text-muted-foreground">
                     <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">
                       {surface === "add_friend"
-                        ? (stabilityModeEnabled ? "Safe mode" : (deterministicDiscoveryEnabled ? "Deterministic add" : "Direct resolve"))
-                        : `Search ${queryState.phase}`}
+                        ? (stabilityModeEnabled
+                            ? t("search.discovery.phase.safeMode", "Safe mode")
+                            : (deterministicDiscoveryEnabled
+                                ? t("search.discovery.phase.deterministicAdd", "Deterministic add")
+                                : t("search.discovery.phase.directResolve", "Direct resolve")))
+                        : t("search.discovery.phase.search", "Search {{phase}}", { phase: queryState.phase })}
                     </span>
                     {surface === "global" && (
                       <>
-                        <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">People</span>
-                        <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">Communities</span>
+                        <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">{t("search.discovery.kind.people", "People")}</span>
+                        <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">{t("search.discovery.kind.communities", "Communities")}</span>
                       </>
                     )}
                   </div>
@@ -928,27 +947,27 @@ export default function SearchPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Direct Add</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{t("search.discovery.directAdd.eyebrow", "Direct Add")}</p>
                       <div className="rounded-full border border-border px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                         {deterministicDiscoveryEnabled ? identityResolver.phase : "ready"}
                       </div>
                       {stabilityModeEnabled && (
                         <div className="rounded-full border border-blue-500/30 bg-blue-500/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
-                          Safe mode
+                          {t("search.discovery.phase.safeMode", "Safe mode")}
                         </div>
                       )}
                     </div>
-                    <h3 className="mt-3 text-2xl font-black tracking-tight">Resolve one exact account</h3>
+                    <h3 className="mt-3 text-2xl font-black tracking-tight">{t("search.discovery.directAdd.title", "Resolve one exact account")}</h3>
                     <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
                       {allowLegacyInviteCode
-                        ? "Paste a contact card, invite code, npub, or public key. Obscur should resolve one exact person here, not bury you under a fuzzy discovery list."
-                        : "Paste a contact card, npub, or public key. Obscur should resolve one exact person here, not bury you under a fuzzy discovery list."}
+                        ? t("search.discovery.directAdd.descLegacy", "Paste a contact card, invite code, npub, or public key. Obscur should resolve one exact person here, not bury you under a fuzzy discovery list.")
+                        : t("search.discovery.directAdd.desc", "Paste a contact card, npub, or public key. Obscur should resolve one exact person here, not bury you under a fuzzy discovery list.")}
                     </p>
                   </div>
 
                   <Button onClick={() => setShareDialogOpen(true)} className="shrink-0">
                     <QrCode className="mr-2 h-4 w-4" />
-                    Show My Contact
+                    {t("search.discovery.directAdd.showMyContact", "Show My Contact")}
                   </Button>
                 </div>
               </div>
@@ -956,10 +975,10 @@ export default function SearchPage() {
               <div className="rounded-3xl border border-border/60 bg-card/70 p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Discovery Diagnostics</p>
-                    <h3 className="mt-2 text-lg font-black tracking-tight">Rollout visibility</h3>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{t("search.discovery.diagnostics.eyebrow", "Discovery Diagnostics")}</p>
+                    <h3 className="mt-2 text-lg font-black tracking-tight">{t("search.discovery.diagnostics.title", "Rollout visibility")}</h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Local diagnostics for discovery lookup quality and conversion events in this session.
+                      {t("search.discovery.diagnostics.desc", "Local diagnostics for discovery lookup quality and conversion events in this session.")}
                     </p>
                   </div>
                   <Button
@@ -970,18 +989,18 @@ export default function SearchPage() {
                       setDiagnosticsTick((prev) => prev + 1);
                     }}
                   >
-                    Clear
+                    {t("common.clear", "Clear")}
                   </Button>
                 </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
                   <div className="rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-xs">
-                    Lookups: <span className="font-semibold">{discoveryDiagnosticsSnapshot.lookupCount}</span>
+                    {t("search.discovery.diagnostics.lookups", "Lookups")}: <span className="font-semibold">{discoveryDiagnosticsSnapshot.lookupCount}</span>
                   </div>
                   <div className="rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-xs">
-                    Conversions: <span className="font-semibold">{discoveryDiagnosticsSnapshot.addConversionCount}</span>
+                    {t("search.discovery.diagnostics.conversions", "Conversions")}: <span className="font-semibold">{discoveryDiagnosticsSnapshot.addConversionCount}</span>
                   </div>
                   <div className="rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-xs">
-                    Last source: <span className="font-semibold">{discoveryDiagnosticsSnapshot.lastLookup?.primaryMatchSource ?? "none"}</span>
+                    {t("search.discovery.diagnostics.lastSource", "Last source")}: <span className="font-semibold">{discoveryDiagnosticsSnapshot.lastLookup?.primaryMatchSource ?? t("search.discovery.none", "none")}</span>
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.16em]">
@@ -989,24 +1008,28 @@ export default function SearchPage() {
                     "rounded-full border px-3 py-1",
                     discoveryFeatureFlags.inviteCodeV1 ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-300" : "border-border text-muted-foreground"
                   )}>
-                    invite-code:{discoveryFeatureFlags.inviteCodeV1 ? "on" : "off"}
+                    {t("search.discovery.diagnostics.inviteCode", "invite-code")}:{discoveryFeatureFlags.inviteCodeV1 ? t("search.discovery.toggle.on", "on") : t("search.discovery.toggle.off", "off")}
                   </span>
                   <span className={cn(
                     "rounded-full border px-3 py-1",
                     discoveryFeatureFlags.deepLinkV1 ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-300" : "border-border text-muted-foreground"
                   )}>
-                    deep-link:{discoveryFeatureFlags.deepLinkV1 ? "on" : "off"}
+                    {t("search.discovery.diagnostics.deepLink", "deep-link")}:{discoveryFeatureFlags.deepLinkV1 ? t("search.discovery.toggle.on", "on") : t("search.discovery.toggle.off", "off")}
                   </span>
                   <span className={cn(
                     "rounded-full border px-3 py-1",
                     discoveryFeatureFlags.suggestionsV1 ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-300" : "border-border text-muted-foreground"
                   )}>
-                    suggestions:{discoveryFeatureFlags.suggestionsV1 ? "on" : "off"}
+                    {t("search.discovery.diagnostics.suggestions", "suggestions")}:{discoveryFeatureFlags.suggestionsV1 ? t("search.discovery.toggle.on", "on") : t("search.discovery.toggle.off", "off")}
                   </span>
                 </div>
                 {discoveryDiagnosticsSnapshot.lastLookup ? (
                   <p className="mt-3 text-xs text-muted-foreground">
-                    Last lookup: {discoveryDiagnosticsSnapshot.lastLookup.latencyMs ?? 0} ms, {discoveryDiagnosticsSnapshot.lastLookup.resultCount} result(s), phase {discoveryDiagnosticsSnapshot.lastLookup.phase}.
+                    {t("search.discovery.diagnostics.lastLookup", "Last lookup: {{latency}} ms, {{count}} result(s), phase {{phase}}.", {
+                      latency: discoveryDiagnosticsSnapshot.lastLookup.latencyMs ?? 0,
+                      count: discoveryDiagnosticsSnapshot.lastLookup.resultCount,
+                      phase: discoveryDiagnosticsSnapshot.lastLookup.phase,
+                    })}
                   </p>
                 ) : null}
               </div>
@@ -1014,8 +1037,8 @@ export default function SearchPage() {
               <div className="rounded-3xl border border-border/60 bg-card/70 p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Exact Match</p>
-                    <h3 className="mt-2 text-lg font-black tracking-tight">Use this person or reject the token</h3>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{t("search.discovery.exactMatch.eyebrow", "Exact Match")}</p>
+                    <h3 className="mt-2 text-lg font-black tracking-tight">{t("search.discovery.exactMatch.title", "Use this person or reject the token")}</h3>
                   </div>
                   {resolverMessage ? (
                     <div className="max-w-sm rounded-2xl border border-border/50 bg-background/50 px-4 py-2 text-right text-xs text-muted-foreground">
@@ -1046,12 +1069,12 @@ export default function SearchPage() {
                             className="object-cover"
                           />
                           <AvatarFallback className="font-black">
-                            {getProfileInitials(resolvedMetadata?.displayName || resolvedIdentity.display || "Unknown contact")}
+                            {getProfileInitials(resolvedMetadata?.displayName || resolvedIdentity.display || unknownContactLabel)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <p className="truncate text-lg font-black text-foreground">
-                            {resolvedMetadata?.displayName || resolvedIdentity.display || "Unknown contact"}
+                            {resolvedMetadata?.displayName || resolvedIdentity.display || unknownContactLabel}
                           </p>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                             {resolvedMetadata?.nip05 || resolvedIdentity.source.replace("_", " ")}
@@ -1073,7 +1096,9 @@ export default function SearchPage() {
                               openInvitationDialog(resolvedIdentity);
                             }}
                           >
-                            {directRequestPhase === "sending" ? "Sending Invitation..." : "Send Invitation"}
+                            {directRequestPhase === "sending"
+                              ? t("search.discovery.action.sendingInvitation", "Sending Invitation...")
+                              : t("search.discovery.action.sendInvitation", "Send Invitation")}
                           </Button>
                           <Button
                             variant="outline"
@@ -1083,7 +1108,7 @@ export default function SearchPage() {
                               navigateToProfile(resolvedIdentity.pubkey);
                             }}
                           >
-                            View Profile
+                            {t("search.discovery.action.viewProfile", "View Profile")}
                           </Button>
                           <Button
                             variant="outline"
@@ -1093,18 +1118,18 @@ export default function SearchPage() {
                               void copyText(resolvedIdentity.pubkey, "Pubkey copied");
                             }}
                           >
-                            Copy Pubkey
+                            {t("search.discovery.action.copyPubkey", "Copy Pubkey")}
                           </Button>
                         </div>
                       </div>
 
                       <div className="mt-4 grid gap-3 md:grid-cols-2">
                         <div className="rounded-2xl border border-border/50 bg-background/40 px-4 py-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Public Key</p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{t("search.discovery.preview.publicKey", "Public Key")}</p>
                           <p className="mt-1 break-all font-mono text-xs text-foreground">{resolvedIdentity.pubkey}</p>
                         </div>
                         <div className="rounded-2xl border border-border/50 bg-background/40 px-4 py-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Resolver Source</p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{t("search.discovery.preview.resolverSource", "Resolver Source")}</p>
                           <p className="mt-1 text-sm font-semibold text-foreground">{resolvedIdentity.source.replace("_", " ")}</p>
                         </div>
                       </div>
@@ -1130,27 +1155,29 @@ export default function SearchPage() {
                   ) : showResolvedState ? (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-background/30 px-5 py-6">
                       <p className="text-sm font-semibold text-foreground">
-                        {identityResolver.phase === "resolving" ? "Resolving token..." : "No exact account resolved"}
+                        {identityResolver.phase === "resolving"
+                          ? t("search.discovery.exactMatch.resolvingTitle", "Resolving token...")
+                          : t("search.discovery.exactMatch.noExactTitle", "No exact account resolved")}
                       </p>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                         {identityResolver.phase === "resolving"
-                          ? "Obscur is resolving the token against deterministic identity paths."
+                          ? t("search.discovery.exactMatch.resolvingDesc", "Obscur is resolving the token against deterministic identity paths.")
                           : (
                               resolverMessage || (
                                 allowLegacyInviteCode
-                                  ? "Paste a contact card, invite code, npub, or public key in the search bar above."
-                                  : "Paste a contact card, npub, or public key in the search bar above."
+                                  ? t("search.discovery.exactMatch.noExactDescLegacy", "Paste a contact card, invite code, npub, or public key in the search bar above.")
+                                  : t("search.discovery.exactMatch.noExactDesc", "Paste a contact card, npub, or public key in the search bar above.")
                               )
                             )}
                       </p>
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-background/30 px-5 py-6 text-center">
-                      <p className="text-sm font-semibold text-foreground">No contact loaded yet</p>
+                      <p className="text-sm font-semibold text-foreground">{t("search.discovery.exactMatch.emptyTitle", "No contact loaded yet")}</p>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                         {allowLegacyInviteCode
-                          ? "Paste a contact card, invite code, npub, or public key and the exact account will appear here."
-                          : "Paste a contact card, npub, or public key and the exact account will appear here."}
+                          ? t("search.discovery.exactMatch.emptyDescLegacy", "Paste a contact card, invite code, npub, or public key and the exact account will appear here.")
+                          : t("search.discovery.exactMatch.emptyDesc", "Paste a contact card, npub, or public key and the exact account will appear here.")}
                       </p>
                     </div>
                   )}
@@ -1161,13 +1188,13 @@ export default function SearchPage() {
                 <div className="rounded-3xl border border-border/60 bg-card/70 p-5">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-black uppercase tracking-[0.16em]">Invitation Delivery</h3>
+                      <h3 className="text-sm font-black uppercase tracking-[0.16em]">{t("search.discovery.invitation.title", "Invitation Delivery")}</h3>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        This timeline shows what Obscur has actually confirmed so far.
+                        {t("search.discovery.invitation.timelineDesc", "This timeline shows what Obscur has actually confirmed so far.")}
                       </p>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => requestOutbox.clearTerminal()}>
-                      Clear Done
+                      {t("search.discovery.invitation.clearDone", "Clear Done")}
                     </Button>
                   </div>
                   <div className="space-y-2">
@@ -1189,7 +1216,7 @@ export default function SearchPage() {
                           <p className="mt-2 truncate font-mono text-[11px] text-muted-foreground">{record.peerPubkey}</p>
                           {record.publishReport && (
                             <p className="text-[11px] text-muted-foreground">
-                              Relay confirmations: {record.publishReport.successCount}/{record.publishReport.totalRelays}
+                              {t("search.discovery.invitation.relayConfirmations", "Relay confirmations")}: {record.publishReport.successCount}/{record.publishReport.totalRelays}
                             </p>
                           )}
                           {record.error && (
@@ -1203,7 +1230,7 @@ export default function SearchPage() {
                             disabled={!!record.blockReason && record.blockReason !== "cooldown_active"}
                             onClick={() => requestOutbox.retryNow(record.id)}
                           >
-                            Retry
+                            {t("common.retry", "Retry")}
                           </Button>
                         )}
                       </div>
@@ -1216,13 +1243,13 @@ export default function SearchPage() {
                 <div className="rounded-3xl border border-border/60 bg-card/70 p-5">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <div>
-                      <h3 className="text-sm font-black uppercase tracking-[0.16em]">Friend Suggestions</h3>
+                      <h3 className="text-sm font-black uppercase tracking-[0.16em]">{t("search.discovery.suggestions.title", "Friend Suggestions")}</h3>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Local suggestions from recent identity metadata. Nothing new is published when viewing this list.
+                        {t("search.discovery.suggestions.desc", "Local suggestions from recent identity metadata. Nothing new is published when viewing this list.")}
                       </p>
                     </div>
                     <span className="rounded-full border border-border/60 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                      local cache
+                      {t("search.discovery.suggestions.localCache", "local cache")}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -1237,7 +1264,7 @@ export default function SearchPage() {
                           </Avatar>
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-foreground">{suggestion.displayName}</p>
-                            <p className="truncate text-xs text-muted-foreground">{suggestion.subtitle || "Identity hidden"}</p>
+                            <p className="truncate text-xs text-muted-foreground">{suggestion.subtitle || t("search.discovery.suggestions.identityHidden", "Identity hidden")}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1359,7 +1386,12 @@ export default function SearchPage() {
           {surface !== "add_friend" && query && filteredResults.length > 0 && (
             <div className="space-y-3">
               <div className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                {isSearching ? "Searching..." : `${filteredResults.length} result${filteredResults.length === 1 ? "" : "s"}`}
+                {isSearching
+                  ? t("common.searching", "Searching...")
+                  : t("search.discovery.resultsCount", "{{count}} result", {
+                      count: filteredResults.length,
+                      defaultValue: `${filteredResults.length} result${filteredResults.length === 1 ? "" : "s"}`,
+                    })}
               </div>
               <div className="flex flex-col gap-3">
                 {filteredResults.map((result) => (
@@ -1386,7 +1418,7 @@ export default function SearchPage() {
                         confidence: entry.confidence === "direct" ? "direct" : "relay_confirmed",
                       };
                       setResolvedIdentity(identity);
-                      setResolverMessage("Resolved via public preview");
+                      setResolverMessage(t("search.discovery.resolvedViaPublicPreview", "Resolved via public preview"));
                     }}
                   />
                 ))}
@@ -1397,9 +1429,9 @@ export default function SearchPage() {
           {surface !== "add_friend" && query && !isSearching && filteredResults.length === 0 && (
             <div className="flex min-h-[28vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-border/70 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.1),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.65),rgba(255,255,255,0.25))] p-6 text-center sm:min-h-[35vh] sm:p-8 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_52%),linear-gradient(180deg,rgba(10,16,34,0.55),rgba(6,10,22,0.45))]">
               <SearchX className="mb-4 h-9 w-9 text-muted-foreground/60" />
-              <h4 className="text-lg font-black sm:text-xl">No Results</h4>
+              <h4 className="text-lg font-black sm:text-xl">{t("search.discovery.empty.title", "No Results")}</h4>
               <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-                Try a name, a nip-05 handle, an npub, a public key, or a community identifier like <code>relay.example'group</code>.
+                {t("search.discovery.empty.descPrefix", "Try a name, a nip-05 handle, an npub, a public key, or a community identifier like")} <code>relay.example'group</code>.
               </p>
             </div>
           )}
@@ -1407,14 +1439,14 @@ export default function SearchPage() {
           {surface !== "add_friend" && !query && recentSearches.length === 0 && (
             <div className="flex min-h-[28vh] flex-col items-center justify-center rounded-[28px] border border-border/60 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.1),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.65),rgba(255,255,255,0.25))] p-6 text-center sm:min-h-[35vh] sm:p-8 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_52%),linear-gradient(180deg,rgba(10,16,34,0.55),rgba(6,10,22,0.45))]">
               <UserPlus className="mb-4 h-10 w-10 text-primary/70" />
-              <h4 className="text-xl font-black sm:text-2xl">Start with a global search</h4>
+              <h4 className="text-xl font-black sm:text-2xl">{t("search.discovery.start.title", "Start with a global search")}</h4>
               <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-                Look up people and communities from one place, then open a profile, send an invitation, or switch to direct add when someone shares a private contact token.
+                {t("search.discovery.start.desc", "Look up people and communities from one place, then open a profile, send an invitation, or switch to direct add when someone shares a private contact token.")}
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
-                <span className="rounded-full border border-border px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">People</span>
-                <span className="rounded-full border border-border px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Communities</span>
-                <span className="rounded-full border border-border px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Direct add when needed</span>
+                <span className="rounded-full border border-border px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.kind.people", "People")}</span>
+                <span className="rounded-full border border-border px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.kind.communities", "Communities")}</span>
+                <span className="rounded-full border border-border px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.start.directAddChip", "Direct add when needed")}</span>
               </div>
             </div>
           )}
@@ -1445,7 +1477,9 @@ export default function SearchPage() {
                 ) : null}
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                    {previewProfile.kind === "community" ? "Public Community Preview" : "Public Profile Preview"}
+                    {previewProfile.kind === "community"
+                      ? t("search.discovery.preview.communityEyebrow", "Public Community Preview")
+                      : t("search.discovery.preview.profileEyebrow", "Public Profile Preview")}
                   </p>
                   <h3 className="mt-1 text-2xl font-black">{previewProfile.title}</h3>
                   {previewProfile.subtitle ? (
@@ -1453,10 +1487,10 @@ export default function SearchPage() {
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
                     <span className="rounded-full border border-border px-2 py-1 text-muted-foreground">
-                      confidence: {previewProfile.confidence}
+                      {t("search.discovery.preview.confidence", "confidence")}: {previewProfile.confidence}
                     </span>
                     <span className="rounded-full border border-border px-2 py-1 text-muted-foreground">
-                      sources: {previewProfile.sources.join(", ")}
+                      {t("search.discovery.preview.sources", "sources")}: {previewProfile.sources.join(", ")}
                     </span>
                   </div>
                 </div>
@@ -1477,32 +1511,32 @@ export default function SearchPage() {
               ) : null}
               {previewProfile.description ? (
                 <div className="rounded-xl border border-border/60 bg-background/60 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">About</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.preview.about", "About")}</p>
                   <p className="mt-1 text-muted-foreground">{previewProfile.description}</p>
                 </div>
               ) : null}
               {previewProfile.pubkey ? (
                 <div className="rounded-xl border border-border/60 bg-background/60 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Public Key</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.preview.publicKey", "Public Key")}</p>
                   <p className="mt-1 break-all font-mono text-xs">{previewProfile.pubkey}</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">Short: {compactKey(previewProfile.pubkey)}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{t("search.discovery.preview.shortKey", "Short")}: {compactKey(previewProfile.pubkey)}</p>
                 </div>
               ) : null}
               {previewProfile.npub ? (
                 <div className="rounded-xl border border-border/60 bg-background/60 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Npub</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.preview.npub", "Npub")}</p>
                   <p className="mt-1 break-all font-mono text-xs">{previewProfile.npub}</p>
                 </div>
               ) : null}
               {previewProfile.communityId ? (
                 <div className="rounded-xl border border-border/60 bg-background/60 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Community</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.preview.community", "Community")}</p>
                   <p className="mt-1 break-all font-mono text-xs">{previewProfile.communityId}</p>
                 </div>
               ) : null}
               {previewProfile.relayUrl ? (
                 <div className="rounded-xl border border-border/60 bg-background/60 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Declared Relay</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("search.discovery.preview.declaredRelay", "Declared Relay")}</p>
                   <p className="mt-1 break-all font-mono text-xs">{previewProfile.relayUrl}</p>
                 </div>
               ) : null}
@@ -1513,9 +1547,9 @@ export default function SearchPage() {
                 <>
                   <Button
                     className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-400 hover:to-blue-400"
-                    onClick={() => void copyText(previewProfile.pubkey || "", "Pubkey copied")}
+                    onClick={() => void copyText(previewProfile.pubkey || "", t("search.discovery.copy.pubkey", "Pubkey copied"))}
                   >
-                    Copy Contact
+                    {t("search.discovery.action.copyContact", "Copy Contact")}
                   </Button>
                   <Button
                     variant="outline"
@@ -1531,12 +1565,12 @@ export default function SearchPage() {
                       setSurface("add_friend");
                       setQuery(previewProfile.pubkey);
                       setResolvedIdentity(target);
-                      setResolverMessage("Resolved via public preview");
+                      setResolverMessage(t("search.discovery.resolvedViaPublicPreview", "Resolved via public preview"));
                       setPreviewProfile(null);
                       openInvitationDialog(target);
                     }}
                   >
-                    Send Invitation
+                    {t("search.discovery.action.sendInvitation", "Send Invitation")}
                   </Button>
                   <Button
                     variant="outline"
@@ -1551,11 +1585,11 @@ export default function SearchPage() {
                         source: "hex",
                         confidence: previewProfile.confidence === "direct" ? "direct" : "relay_confirmed",
                       });
-                      setResolverMessage("Resolved via public preview");
+                      setResolverMessage(t("search.discovery.resolvedViaPublicPreview", "Resolved via public preview"));
                       setPreviewProfile(null);
                     }}
                   >
-                    Open In Add Friend
+                    {t("search.discovery.action.openInAddFriend", "Open In Add Friend")}
                   </Button>
                 </>
               ) : null}
@@ -1569,7 +1603,7 @@ export default function SearchPage() {
                     router.push(getPublicGroupHref(communityId, previewProfile.relayUrl ?? undefined));
                   }}
                 >
-                  Open Full Public Profile
+                  {t("search.discovery.action.openFullPublicProfile", "Open Full Public Profile")}
                 </Button>
               ) : null}
             </div>
@@ -1580,15 +1614,17 @@ export default function SearchPage() {
         isOpen={Boolean(invitationDialogTarget)}
         recipientName={
           invitationDialogTarget
-            ? (resolvedMetadata?.displayName || invitationDialogTarget.display || "Unknown contact")
-            : "this person"
+            ? (resolvedMetadata?.displayName || invitationDialogTarget.display || unknownContactLabel)
+            : t("search.discovery.identity.thisPerson", "this person")
         }
         recipientPubkey={invitationDialogTarget?.pubkey || ""}
-        submitLabel={deterministicDiscoveryEnabled ? "Queue Invitation" : "Send Invitation"}
+        submitLabel={deterministicDiscoveryEnabled
+          ? t("search.discovery.action.queueInvitation", "Queue Invitation")
+          : t("search.discovery.action.sendInvitation", "Send Invitation")}
         deliveryHint={
           deterministicDiscoveryEnabled
-            ? "Obscur will queue this invitation if relays are not ready yet, and the delivery timeline below will show confirmed progress."
-            : "Obscur will only mark this invitation as delivered after relay evidence comes back."
+            ? t("search.discovery.invitation.queueHint", "Obscur will queue this invitation if relays are not ready yet, and the delivery timeline below will show confirmed progress.")
+            : t("search.discovery.invitation.deliveryHint", "Obscur will only mark this invitation as delivered after relay evidence comes back.")
         }
         defaults={{
           intro: requestIntroText,
@@ -1606,9 +1642,9 @@ export default function SearchPage() {
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Private Share Surface</p>
-                <h3 className="mt-1 text-xl font-black">Share My Contact</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Use short code, contact link/card, npub/pubkey, or QR.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{t("search.discovery.share.eyebrow", "Private Share Surface")}</p>
+                <h3 className="mt-1 text-xl font-black">{t("search.discovery.share.title", "Share My Contact")}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{t("search.discovery.share.desc", "Use short code, contact link/card, npub/pubkey, or QR.")}</p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setShareDialogOpen(false)} className="h-8 w-8">
                 <X className="h-4 w-4" />
@@ -1620,70 +1656,70 @@ export default function SearchPage() {
                 {deterministicDiscoveryEnabled ? (
                   <>
                     <div className="rounded-2xl border border-border/50 bg-muted/40 p-3 font-mono text-xs break-all">
-                      {friendCodeV3 || "Short code unavailable"}
+                      {friendCodeV3 || t("search.discovery.share.shortCodeUnavailable", "Short code unavailable")}
                     </div>
                     <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 text-[11px] text-muted-foreground">
-                      Expires: {friendCodeV3ExpiryUnixMs ? new Date(friendCodeV3ExpiryUnixMs).toLocaleTimeString() : "n/a"}
+                      {t("search.discovery.share.expires", "Expires")}: {friendCodeV3ExpiryUnixMs ? new Date(friendCodeV3ExpiryUnixMs).toLocaleTimeString() : t("search.discovery.na", "n/a")}
                     </div>
                     <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
-                      Compatibility code: {friendCodeV2 || "none"}
+                      {t("search.discovery.share.compatibilityCode", "Compatibility code")}: {friendCodeV2 || t("search.discovery.none", "none")}
                     </div>
                     <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
-                      Legacy alias: {profile.state.profile.inviteCode || "none"}
+                      {t("search.discovery.share.legacyAlias", "Legacy alias")}: {profile.state.profile.inviteCode || t("search.discovery.none", "none")}
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="rounded-2xl border border-border/50 bg-muted/30 p-3 font-mono text-xs break-all">
-                      {profile.state.profile.inviteCode || "Invite code unavailable"}
+                      {profile.state.profile.inviteCode || t("search.discovery.share.inviteCodeUnavailable", "Invite code unavailable")}
                     </div>
                     <div className="rounded-2xl border border-border/50 bg-muted/40 p-3 font-mono text-xs break-all">
-                      {myNpub || "npub unavailable"}
+                      {myNpub || t("search.discovery.share.npubUnavailable", "npub unavailable")}
                     </div>
                     <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
-                      {publicKeyHex || "pubkey unavailable"}
+                      {publicKeyHex || t("search.discovery.share.pubkeyUnavailable", "pubkey unavailable")}
                     </div>
                   </>
                 )}
                 <div className="flex flex-wrap gap-2">
                   {deterministicDiscoveryEnabled ? (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV2, "Friend Code copied")}>
+                      <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV2, t("search.discovery.copy.friendCode", "Friend Code copied"))}>
                         <Copy className="mr-1 h-3 w-3" />
-                        Copy Compatibility Code
+                        {t("search.discovery.action.copyCompatibilityCode", "Copy Compatibility Code")}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV3, "Short code copied")}>
+                      <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV3, t("search.discovery.copy.shortCode", "Short code copied"))}>
                         <Copy className="mr-1 h-3 w-3" />
-                        Copy Short Code
+                        {t("search.discovery.action.copyShortCode", "Copy Short Code")}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(profile.state.profile.inviteCode ?? "", "Legacy code copied")}>
+                      <Button variant="outline" size="sm" onClick={() => void copyText(profile.state.profile.inviteCode ?? "", t("search.discovery.copy.legacyAlias", "Legacy code copied"))}>
                         <Copy className="mr-1 h-3 w-3" />
-                        Copy Legacy Alias
+                        {t("search.discovery.action.copyLegacyAlias", "Copy Legacy Alias")}
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(profile.state.profile.inviteCode ?? "", "Invite code copied")}>
+                      <Button variant="outline" size="sm" onClick={() => void copyText(profile.state.profile.inviteCode ?? "", t("search.discovery.copy.inviteCode", "Invite code copied"))}>
                         <Copy className="mr-1 h-3 w-3" />
-                        Copy Invite Code
+                        {t("search.discovery.action.copyInviteCode", "Copy Invite Code")}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(myNpub, "npub copied")}>
+                      <Button variant="outline" size="sm" onClick={() => void copyText(myNpub, t("search.discovery.copy.npub", "npub copied"))}>
                         <Copy className="mr-1 h-3 w-3" />
-                        Copy npub
+                        {t("search.discovery.action.copyNpub", "Copy npub")}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(publicKeyHex ?? "", "Pubkey copied")}>
+                      <Button variant="outline" size="sm" onClick={() => void copyText(publicKeyHex ?? "", t("search.discovery.copy.pubkey", "Pubkey copied"))}>
                         <Copy className="mr-1 h-3 w-3" />
-                        Copy Pubkey
+                        {t("search.discovery.action.copyPubkey", "Copy Pubkey")}
                       </Button>
                     </>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => void copyText(shareLink, "Contact link copied")}>
+                  <Button variant="outline" size="sm" onClick={() => void copyText(shareLink, t("search.discovery.copy.contactLink", "Contact link copied"))}>
                     <Copy className="mr-1 h-3 w-3" />
-                    Copy Link
+                    {t("search.discovery.action.copyLink", "Copy Link")}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => void copyText(shareCardEncoded, "Contact card copied")}>
+                  <Button variant="outline" size="sm" onClick={() => void copyText(shareCardEncoded, t("search.discovery.copy.contactCard", "Contact card copied"))}>
                     <Copy className="mr-1 h-3 w-3" />
-                    Copy Card
+                    {t("search.discovery.action.copyCard", "Copy Card")}
                   </Button>
                 </div>
               </div>
@@ -1691,13 +1727,13 @@ export default function SearchPage() {
               <div className="rounded-2xl border border-border/60 bg-card/70 p-4">
                 <div className="mb-3 flex items-center gap-2">
                   <QrCode className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-black uppercase tracking-[0.16em]">QR Contact</h3>
+                  <h3 className="text-sm font-black uppercase tracking-[0.16em]">{t("search.discovery.share.qrTitle", "QR Contact")}</h3>
                 </div>
                 {shareQrDataUrl ? (
                   <img src={shareQrDataUrl} alt="Contact QR" className="h-52 w-52 rounded-2xl border border-border/50 bg-white p-3" />
                 ) : (
                   <div className="flex h-52 w-52 items-center justify-center rounded-2xl border border-dashed border-border/70 text-xs text-muted-foreground">
-                    QR unavailable
+                    {t("search.discovery.share.qrUnavailable", "QR unavailable")}
                   </div>
                 )}
               </div>

@@ -135,4 +135,36 @@ describe("use-chat-actions delete target derivation", () => {
     expect(result[0]).toBe("canonical-rumor-id-1");
     expect(result).toEqual(expect.arrayContaining(["gift-wrap-event-id-1", "canonical-rumor-id-1"]));
   });
+
+  it("derives canonical aliases for delete-for-me on incoming DM rows when eventId is missing", async () => {
+    const message = buildMessage({
+      id: "giftwrap-incoming-1",
+      content: JSON.stringify({
+        type: "voice-call-invite",
+        version: 1,
+        roomId: "room-1",
+        invitedAtUnixMs: 1_700_300_000_000,
+      }),
+      eventCreatedAtMs: 1_700_300_000_000,
+      timestampMs: 1_700_300_123_000,
+      isOutgoing: false,
+    });
+
+    const result = await useChatActionsInternals.buildLocalDeleteIdentityIdsForDm({
+      message,
+      myPublicKeyHex: "a".repeat(64),
+      peerPublicKeyHex: "b".repeat(64),
+    });
+
+    const expectedCanonicalId = await useChatActionsInternals.deriveNip17RumorId({
+      senderPubkey: "b".repeat(64),
+      recipientPubkey: "a".repeat(64),
+      plaintext: message.content,
+      createdAtUnixSeconds: Math.floor(1_700_300_000_000 / 1000),
+      replyToMessageId: null,
+    });
+
+    expect(result).toContain("giftwrap-incoming-1");
+    expect(result).toContain(expectedCanonicalId);
+  });
 });

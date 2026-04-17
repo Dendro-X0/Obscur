@@ -10,26 +10,19 @@ Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communica
 
 Project phase: community-maintained release hardening.
 
-Release prep status (`v1.3.14`):
+Release prep status (`v1.3.16`):
 
-- Community recovery and cross-device durability are the main focus of this cut:
-  - fresh-device restore now avoids fabricating phantom one-member private groups from bare sender-local invite-accept history,
-  - legitimate joined communities still restore when matching invite room-key evidence exists,
-  - sealed community membership now converges faster after leave through direct `9022` relay-leave evidence and newer roster omission handling,
-  - empty-state recovery paths in Discovery and Network now route through the canonical community preview and join flow.
-- Fresh-device DM history restore remains a privacy-first release lane:
-  - account-sync mutation replay is hardened against stale mount-time publish triggers,
-  - restored chat-state is re-materialized into indexed message storage so post-restore reads do not fall back to a thinner owner path,
-  - DM reads stay on legacy chat-state when it is richer than projection,
-  - durable delete tombstones and canonical removal events remain the non-resurrection contract for deleted DM history.
-- Vault and media workflows are more release-ready:
-  - Vault tiles now preserve source-conversation ownership with DM/community-specific copy and actions,
-  - transient media upload failures retry through a bounded second attempt instead of failing immediately on the first provider/network hiccup,
-  - existing large-upload safety budgets remain in place.
-- Release-facing documentation is now aligned for the next public lane:
-  - production GIF captures live under `docs/assets/gifs/`,
-  - the website lane is documented as the future home for demos, changelogs, and downloadable artifacts,
-  - the project remains independently developed and community-maintained.
+- Desktop update distribution is now hardened around real release truth:
+  - the app can fall back deterministically to platform-specific installers when direct streaming install is unavailable,
+  - the release workflow now generates a signed Tauri `latest.json` updater feed alongside `streaming-update-policy.json`,
+  - true in-app streaming install still requires a tagged release run to confirm feed publication end to end.
+- The official website is now a real public release surface:
+  - `apps/website` renders current release highlights from `CHANGELOG.md`,
+  - `/download` resolves current platform download targets from release metadata,
+  - the site remains aligned to canonical repo/docs inputs rather than separate hand-maintained copy.
+- Core recovery work remains active:
+  - fresh-device DM restore and `B -> A` visibility convergence still require live runtime replay evidence before broader stability claims,
+  - the project remains independently developed, community-maintained, privacy-first, and local-first.
 
 ## Core Positioning
 

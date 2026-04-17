@@ -26,6 +26,7 @@ import { suppressMessageDeleteTombstone } from "../../messaging/services/message
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { canDeleteMessageForEveryone, getDeleteForEveryoneRejectionReason } from "../../messaging/services/message-delete-permissions";
 import { appendCanonicalDmRemovedEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
+import { collectMessageIdentityAliases } from "../../messaging/services/message-identity-alias-contract";
 
 type MultiRelayPublishResult = Readonly<{
     success: boolean;
@@ -49,16 +50,7 @@ const toIdHint = (value: string | null | undefined): string | null => {
 };
 
 const toLocalDeleteIdentityIds = (message: Message): ReadonlyArray<string> => {
-    const ids = new Set<string>();
-    const messageId = message.id.trim();
-    const eventId = message.eventId?.trim() ?? "";
-    if (messageId.length > 0) {
-        ids.add(messageId);
-    }
-    if (eventId.length > 0) {
-        ids.add(eventId);
-    }
-    return Array.from(ids);
+    return collectMessageIdentityAliases(message);
 };
 
 const isRetryableUploadError = (error: UploadError): boolean => (
@@ -207,6 +199,30 @@ const buildDeleteTargetIdsForDm = async (params: Readonly<{
     }
 
     return Array.from(deleteTargetIds);
+};
+
+const buildLocalDeleteIdentityIdsForDm = async (params: Readonly<{
+    message: Message;
+    myPublicKeyHex: string | null;
+    peerPublicKeyHex: string | null;
+}>): Promise<ReadonlyArray<string>> => {
+    const directIds = toLocalDeleteIdentityIds(params.message);
+    if (!params.myPublicKeyHex || !params.peerPublicKeyHex) {
+        return directIds;
+    }
+
+    const senderPubkey = params.message.isOutgoing
+        ? params.myPublicKeyHex
+        : params.peerPublicKeyHex;
+    const recipientPubkey = params.message.isOutgoing
+        ? params.peerPublicKeyHex
+        : params.myPublicKeyHex;
+
+    return buildDeleteTargetIdsForDm({
+        message: params.message,
+        senderPubkey,
+        recipientPubkey,
+    });
 };
 
 const toScopedRelayUrl = (relayUrl: string): string | null => {
@@ -495,8 +511,16 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         isDeletedRecipient
     ]);
 
-    const deleteMessageForMe = useCallback((params: { conversationId: string; message: Message }) => {
-        const deleteIds = toLocalDeleteIdentityIds(params.message);
+    const deleteMessageForMe = useCallback(async (params: { conversationId: string; message: Message }) => {
+        const deleteIds = (
+            selectedConversation?.kind === "dm"
+                ? await buildLocalDeleteIdentityIdsForDm({
+                    message: params.message,
+                    myPublicKeyHex: identity.state.publicKeyHex ?? null,
+                    peerPublicKeyHex: selectedConversation.pubkey,
+                })
+                : toLocalDeleteIdentityIds(params.message)
+        );
         if (identity.state.publicKeyHex) {
             chatStateStoreService.removeMessageIdentities(
                 identity.state.publicKeyHex,
@@ -519,7 +543,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 });
             });
         }
-    }, [identity.state.publicKeyHex]);
+    }, [identity.state.publicKeyHex, selectedConversation]);
 
     const deleteMessageForEveryone = useCallback(async (params: { conversationId: string; message: Message }) => {
         if (!selectedConversation) {
@@ -835,6 +859,7 @@ export const useChatActionsInternals = {
     buildDeletePlaintextCandidates,
     buildDeleteCreatedAtCandidates,
     buildDeleteTargetIdsForDm,
+    buildLocalDeleteIdentityIdsForDm,
     deriveNip17RumorId,
     canDeleteMessageForEveryone,
     getDeleteForEveryoneRejectionReason,

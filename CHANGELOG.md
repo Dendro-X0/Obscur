@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+## [v1.3.16] - 2026-04-16
+
+### Changed
+
+- Hardened desktop update distribution for the current release channel:
+  - desktop bundle config now enables updater artifact generation for release workflow publication,
+  - release workflow now generates and uploads a signed Tauri `latest.json` updater feed alongside `streaming-update-policy.json`,
+  - in-app desktop updater now falls back deterministically to current platform download targets when streaming feed availability or eligibility blocks direct install.
+- Expanded the official website release surface:
+  - `/download` now renders latest platform download targets from release metadata,
+  - website version and release cards stay aligned with canonical repo inputs at build time instead of manual constants.
+
 ## [v1.3.15] - 2026-04-15
 
 ### Fixed

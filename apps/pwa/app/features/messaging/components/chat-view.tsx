@@ -1004,6 +1004,8 @@ export function ChatView(props: ChatViewProps) {
                     onNext={() => props.setLightboxIndex(props.lightboxIndex! + 1)}
                     hasPrev={props.lightboxIndex > 0}
                     hasNext={props.lightboxIndex < props.selectedConversationMediaItems.length - 1}
+                    activeIndex={props.lightboxIndex}
+                    totalItems={props.selectedConversationMediaItems.length}
                 />
             )}
 

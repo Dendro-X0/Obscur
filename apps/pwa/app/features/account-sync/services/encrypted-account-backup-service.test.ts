@@ -3429,6 +3429,86 @@ describe("encryptedAccountBackupService", () => {
     PrivacySettingsService.saveSettings(currentSettings);
   });
 
+  it("keeps extensionless projection media links as attachments during fallback replay", async () => {
+    const currentSettings = PrivacySettingsService.getSettings();
+    PrivacySettingsService.saveSettings({
+      ...currentSettings,
+      accountSyncConvergenceV091: false,
+    });
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([
+      {
+        id: "indexed-media-inbound-only-2",
+        conversationId: "projection-thread-media-2",
+        senderPubkey: acceptedPeerPublicKeyHex,
+        recipientPubkey: publicKeyHex,
+        content: "indexed inbound only",
+        isOutgoing: false,
+        status: "delivered",
+        timestampMs: 50_000,
+        ownerPubkey: publicKeyHex,
+      },
+    ]);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+    const accountEventsSpy = vi.spyOn(accountEventStore, "loadEvents").mockResolvedValue([
+      {
+        sequence: 1,
+        event: {
+          type: "DM_SENT_CONFIRMED",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "legacy_bridge",
+          observedAtUnixMs: 51_000,
+          eventId: "projection-media-out-2",
+          idempotencyKey: "projection-media-out-2",
+          peerPublicKeyHex: acceptedPeerPublicKeyHex,
+          conversationId: "projection-thread-media-2",
+          messageId: "projection-media-out-2",
+          eventCreatedAtUnixSeconds: 51,
+          plaintextPreview: "clip [watch](https://video.nostr.build/i/abcdef123456)",
+        },
+      },
+    ] as any);
+
+    const payload = await encryptedAccountBackupServiceInternals.buildBackupPayloadWithHydratedChatState(publicKeyHex);
+    const projectionMessages = payload.chatState?.messagesByConversationId["projection-thread-media-2"] ?? [];
+    const outboundProjectionMessage = projectionMessages.find((message) => message.id === "projection-media-out-2");
+
+    expect(hydrateSpy).toHaveBeenCalledWith(publicKeyHex);
+    expect(getAllByIndexSpy).toHaveBeenCalled();
+    expect(queueSpy).toHaveBeenCalledTimes(1);
+    expect(accountEventsSpy).toHaveBeenCalledTimes(1);
+    expect(outboundProjectionMessage).toEqual(expect.objectContaining({
+      id: "projection-media-out-2",
+      isOutgoing: true,
+      attachments: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "video",
+          url: "https://video.nostr.build/i/abcdef123456",
+        }),
+      ]),
+    }));
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+    accountEventsSpy.mockRestore();
+    PrivacySettingsService.saveSettings(currentSettings);
+  });
+
   it("skips encrypted backup publish when private state is empty", async () => {
     const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
     const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
@@ -4073,6 +4153,7 @@ describe("encryptedAccountBackupService", () => {
   it("materializes restored attachment-bearing dm history into the indexed messages store during non-v1 restore", async () => {
     const bulkPutSpy = vi.spyOn(messagingDB, "bulkPut").mockResolvedValue(undefined as any);
     const getChatStateSpy = vi.spyOn(messagingDB, "get").mockResolvedValue(null as any);
+    const clearMessagesSpy = vi.spyOn(messagingDB, "clear").mockResolvedValue(undefined as any);
 
     await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
       version: 1,
@@ -4147,12 +4228,14 @@ describe("encryptedAccountBackupService", () => {
 
     bulkPutSpy.mockRestore();
     getChatStateSpy.mockRestore();
+    clearMessagesSpy.mockRestore();
   });
 
   it("re-publishes restored attachment-bearing dm history from existing state without requiring new messages", async () => {
     const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
     const bulkPutSpy = vi.spyOn(messagingDB, "bulkPut").mockResolvedValue(undefined as any);
     const getChatStateSpy = vi.spyOn(messagingDB, "get").mockResolvedValue(null as any);
+    const clearMessagesSpy = vi.spyOn(messagingDB, "clear").mockResolvedValue(undefined as any);
 
     await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
       version: 1,
@@ -4232,6 +4315,7 @@ describe("encryptedAccountBackupService", () => {
     hydrateSpy.mockRestore();
     bulkPutSpy.mockRestore();
     getChatStateSpy.mockRestore();
+    clearMessagesSpy.mockRestore();
   });
 
   it("skips local message hydration during fresh-device restore when incoming backup already has private history", async () => {

@@ -65,4 +65,19 @@ describe("messaging logic attachment inference", () => {
       }),
     ]);
   });
+
+  it("retains extensionless markdown links as media/file attachments when permissive fallback is enabled", () => {
+    const extracted = extractAttachmentsFromContent(
+      "clip [watch](https://video.nostr.build/i/abcdef123456)",
+      { includeGenericLinksAsFiles: true }
+    );
+
+    expect(extracted).toEqual([
+      expect.objectContaining({
+        kind: "video",
+        fileName: "watch",
+        url: "https://video.nostr.build/i/abcdef123456",
+      }),
+    ]);
+  });
 });

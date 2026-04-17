@@ -402,15 +402,115 @@ export const normalizePersistedGroupState = (state: PersistedChatState): Persist
 };
 
 // Parsing functions
+const extractFileNameFromUrl = (url: string): string | null => {
+    const trimmed = url.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+    const withoutQuery = trimmed.split("#")[0]?.split("?")[0] ?? trimmed;
+    const segment = withoutQuery.split("/").pop()?.trim() ?? "";
+    if (!segment) {
+        return null;
+    }
+    try {
+        const decoded = decodeURIComponent(segment).trim();
+        return decoded.length > 0 ? decoded : null;
+    } catch {
+        return segment;
+    }
+};
+
+const inferAttachmentKind = (params: Readonly<{
+    kindHint: string;
+    contentType: string;
+    fileName: string;
+    url: string;
+}>): Attachment["kind"] => {
+    if (
+        params.kindHint === "image"
+        || params.kindHint === "video"
+        || params.kindHint === "audio"
+        || params.kindHint === "voice_note"
+        || params.kindHint === "file"
+    ) {
+        return params.kindHint;
+    }
+    const probe = `${params.contentType} ${params.fileName} ${params.url}`.toLowerCase();
+    if (probe.includes("voice-note") || probe.includes("voice_note")) {
+        return "voice_note";
+    }
+    if (probe.includes("image/") || /\.(png|jpe?g|webp|gif|bmp|avif|svg)$/i.test(probe)) {
+        return "image";
+    }
+    if (probe.includes("video/") || /\.(mp4|mov|m4v|mkv|webm|avi)$/i.test(probe)) {
+        return "video";
+    }
+    if (probe.includes("audio/") || /\.(mp3|wav|m4a|ogg|opus|aac|flac|weba)$/i.test(probe)) {
+        return "audio";
+    }
+    return "file";
+};
+
+const inferAttachmentContentType = (params: Readonly<{
+    explicit: string;
+    kind: Attachment["kind"];
+    fileName: string;
+    url: string;
+}>): string => {
+    if (params.explicit.length > 0) {
+        return params.explicit;
+    }
+    const probe = `${params.fileName} ${params.url}`.toLowerCase();
+    if (params.kind === "voice_note") return "audio/webm";
+    if (params.kind === "image") {
+        if (probe.includes(".png")) return "image/png";
+        if (probe.includes(".gif")) return "image/gif";
+        if (probe.includes(".webp")) return "image/webp";
+        return "image/jpeg";
+    }
+    if (params.kind === "video") {
+        if (probe.includes(".webm")) return "video/webm";
+        if (probe.includes(".mov")) return "video/quicktime";
+        return "video/mp4";
+    }
+    if (params.kind === "audio") {
+        if (probe.includes(".wav")) return "audio/wav";
+        if (probe.includes(".ogg")) return "audio/ogg";
+        if (probe.includes(".m4a")) return "audio/mp4";
+        return "audio/mpeg";
+    }
+    if (probe.includes(".pdf")) return "application/pdf";
+    return "application/octet-stream";
+};
+
 const parseAttachment = (value: unknown): Attachment | null => {
     if (!isRecord(value)) return null;
-    const kind: unknown = value.kind;
-    const url: unknown = value.url;
-    const contentType: unknown = value.contentType;
-    const fileName: unknown = value.fileName;
-    if (kind !== "image" && kind !== "video" && kind !== "audio" && kind !== "file") return null;
-    if (!isString(url) || !isString(contentType) || !isString(fileName)) return null;
-    return { kind, url, contentType, fileName };
+    const url = isString(value.url) ? value.url.trim() : "";
+    if (url.length === 0) return null;
+
+    const contentType = isString(value.contentType) ? value.contentType.trim().toLowerCase() : "";
+    const explicitFileName = isString(value.fileName) ? value.fileName.trim() : "";
+    const fallbackFileName = extractFileNameFromUrl(url);
+    const kindHint = isString(value.kind) ? value.kind.trim().toLowerCase() : "";
+    const fileName = explicitFileName || fallbackFileName || "attachment";
+    const kind = inferAttachmentKind({
+        kindHint,
+        contentType,
+        fileName,
+        url,
+    });
+
+    return {
+        kind,
+        url,
+        contentType: inferAttachmentContentType({
+            explicit: contentType,
+            kind,
+            fileName,
+            url,
+        }),
+        fileName,
+    };
 };
 
 const parseReplyTo = (value: unknown): ReplyTo | null => {

@@ -69,6 +69,9 @@ const validateTauriUpdater = (config) => {
   if (!isObject(config)) {
     return ["tauri config must be an object"];
   }
+  if (config.bundle?.createUpdaterArtifacts !== true) {
+    problems.push("bundle.createUpdaterArtifacts must be true");
+  }
   const updater = config.plugins?.updater;
   if (!isObject(updater)) {
     return ["plugins.updater is missing"];

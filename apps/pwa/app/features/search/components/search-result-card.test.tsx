@@ -13,6 +13,12 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (_key: string, fallback?: string) => fallback ?? _key,
+  }),
+}));
+
 vi.mock("@/app/features/profile/hooks/use-resolved-profile-metadata", () => ({
   useResolvedProfileMetadata: () => ({
     displayName: "",

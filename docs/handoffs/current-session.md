@@ -1,12 +1,12 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-15T15:33:37Z
+- Last Updated (UTC): 2026-04-16T17:04:15Z
 - Session Status: in-progress
-- Active Owner: Core regression test hardening (uncommitted)
+- Active Owner: v1.3.16 release cut and tag prep (uncommitted)
 
 ## Active Objective
 
-Expand local regression coverage around the recent core blockers without committing or pushing until the test suites are explicitly approved.
+Ship the current worktree as `v1.3.16` with updater/download hardening, website release surface completion, and the current recovery fixes after passing release gates.
 
 ## Current Snapshot
 
@@ -26,6 +26,7 @@ Expand local regression coverage around the recent core blockers without committ
   - Late backup-restore refresh now covers both surfaces that were staying blank on fresh devices: `MessagingProvider` rehydrates scoped DM/contact state when `CHAT_STATE_REPLACED_EVENT` lands, and `useConversationMessages` rehydrates already-open conversations on that same replace event so restored history appears without a reload.
   - Phase M1 now has a canonical offline UI asset inventory (`docs/roadmap/v1.3.8-offline-ui-asset-inventory.md`) and an executable guard (`pnpm offline:asset-policy:check`) wired into `pwa-ci-scan` and `release:test-pack`.
   - Vault media now retains source conversation ownership and exposes source-specific origin copy for DM vs community media without inventing a detached media route or second routing owner.
+  - Messaging lightbox preview now keeps previous/next browsing explicit with persistent bottom controls, preview position context, and filename/type metadata while staying on the existing chat-view preview owner path.
 - What changed in this thread:
   - Investigated the user-reported DM delete/restore regression before the next tag and identified two likely owner-path risks in the current worktree: stale account-sync mutation replay publishing old local state on mount before startup restore, and restore/materialization drift leaving restored DM history richer in legacy chat-state than in projection/indexed reads.
   - Revalidated the current in-progress repair path with focused tests and typecheck: `use-account-sync`, encrypted backup restore, projection read authority, incoming-DM tombstone suppression, conversation hydration, account-event bootstrap/reducer, and message-persistence suites are green in `apps/pwa`.
@@ -92,6 +93,16 @@ Expand local regression coverage around the recent core blockers without committ
   - Added a canonical voice-call connect-timeout policy (`apps/pwa/app/features/messaging/services/realtime-voice-timeout-policy.ts`) and integrated bounded timeout extensions into `apps/pwa/app/features/main-shell/main-shell.tsx` for `connecting` sessions with transport-progress evidence, with explicit diagnostics (`messaging.realtime_voice.connect_timeout_extended`) and bounded end-of-call fallback.
   - VaultMediaGrid now surfaces explicit source badges and source-specific open actions (`Open Direct Message` / `Open Community`) derived from the canonical stored `sourceConversationId`, and preview/footer copy now makes DM vs community origin explicit.
   - Added localized Vault origin/source-action strings in `en`/`es`/`zh` and expanded focused Vault tests to lock badge visibility, source-specific action labels, and preview copy.
+  - Finished the interrupted messaging media-preview slice by upgrading `Lightbox` to show persistent previous/next controls, active-item position, and attachment metadata, while keeping the existing `ChatView -> Lightbox` owner path and adding focused lightbox navigation tests.
+  - Standardized DM delete/restore alias handling behind a shared `message-identity-alias-contract` used by both delete action paths and restore sanitization, and documented canonical durability standards plus gate suites in `docs/17-dm-delete-restore-divergence-incident.md`.
+  - Fixed a restore-materialization test harness gap in `encrypted-account-backup-service.test.ts` by stubbing `messagingDB.clear` in the two attachment-bearing non-v1 restore tests, so the suite validates restore behavior instead of failing on IndexedDB mock plumbing (`store.clear is not a function`).
+  - Addressed a new runtime regression report where test account B lost non-deleted DM video media after fresh-device sync: bootstrap import now keeps full plaintext previews, projection fallback attachment extraction now preserves extensionless markdown links via bounded permissive mode, and media-host inference no longer misclassifies `video.nostr.build` links as images.
+  - Hardened incoming DM routing during projection catch-up so historically-known accepted conversations are not dropped as unknown-sender noise while `accountProjectionReady` is still false. The fallback only activates during projection lag, checks for existing conversation evidence before accepting, and leaves steady-state unknown-sender filtering unchanged.
+  - Replaced the scaffolded `apps/website` placeholder with a release-facing official website that pulls its narrative from canonical repo truth: current release highlights, platform coverage, verification status, docs/release links, and GIF evidence cards sourced from the maintained demo library paths.
+  - Added a durable audit note for incomplete or gated tests/scripts (`docs/releases/website-and-test-audit-2026-04-16.md`), calling out the explicit placeholder encryption test, the env-gated real-relay Playwright test, and older invite utility TODO surfaces that still deserve cleanup.
+  - Removed manual release/version drift from the website content layer: the site now reads the canonical current version from `version.json`/root `package.json` fallback and derives the release highlight cards directly from `CHANGELOG.md` at build time.
+  - Hardened the desktop updater for the current release reality: when the native streaming feed is unavailable, the updater now resolves the latest GitHub release assets, surfaces the best platform download target, and offers deterministic fallback actions instead of treating updater failure as "no update".
+  - Added a first-class website `/download` route that renders current platform download targets from release metadata, and introduced a shared typed release-download contract in `@dweb/core` so the updater and website can resolve installers consistently.
 
 ## Evidence
 
@@ -134,6 +145,30 @@ Expand local regression coverage around the recent core blockers without committ
 - `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing after timeout-policy integration)
 - `.\\node_modules\\.bin\\vitest.CMD run app/features/vault/components/vault-media-grid.test.tsx` (from `apps/pwa`, 4/4 passing after origin-copy/source-action coverage)
 - `.\\node_modules\\.bin\\tsc.CMD --noEmit --pretty false` (from `apps/pwa`, passing after Vault origin-copy polish)
+- `.\\node_modules\\.bin\\vitest.cmd run app/features/messaging/components/lightbox.test.tsx` (from `apps/pwa`, 2/2 passing)
+- `.\\node_modules\\.bin\\vitest.cmd run app/features/main-shell/hooks/use-chat-view-props.test.ts` (from `apps/pwa`, 1/1 passing)
+- `.\\node_modules\\.bin\\vitest.cmd run app/features/messaging/components/chat-view.test.tsx` (from `apps/pwa`, 7/7 passing)
+- `.\\node_modules\\.bin\\tsc.cmd --noEmit --pretty false` (from `apps/pwa`, passing after lightbox UI polish)
+- `pnpm.cmd -C apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/services/message-identity-alias-contract.test.ts app/features/messaging/utils/persistence.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts` (from repo root, 13/13 passing)
+- `pnpm.cmd -C apps/pwa exec vitest run app/features/account-sync/services/encrypted-account-backup-service.test.ts -t "materializes restored attachment-bearing dm history into the indexed messages store during non-v1 restore|re-publishes restored attachment-bearing dm history from existing state without requiring new messages"` (from repo root, 2/2 passing after explicit `messagingDB.clear` stubs in test harness)
+- `pnpm.cmd -C apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/services/message-identity-alias-contract.test.ts app/features/messaging/utils/persistence.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.test.ts` (from repo root, 73/73 passing; backup suite still emits some pre-existing IndexedDB-mock warning logs)
+- `pnpm.cmd -C apps/pwa exec vitest run app/features/messaging/utils/logic.test.ts app/features/account-sync/services/account-event-bootstrap-service.test.ts app/features/account-sync/services/encrypted-account-backup-service.test.ts -t "reconstructs media attachments from projection fallback plaintext previews|keeps extensionless projection media links as attachments during fallback replay|keeps full plaintext previews for long attachment-bearing bootstrap messages|retains extensionless markdown links as media/file attachments when permissive fallback is enabled"` (from repo root, 4 targeted tests passing)
+- `pnpm.cmd -C apps/pwa exec vitest run app/features/messaging/utils/logic.test.ts app/features/messaging/utils/persistence.attachments.test.ts app/features/account-sync/services/account-event-bootstrap-service.test.ts app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.test.ts` (from repo root, 79/79 passing; backup suite still emits known non-fatal IndexedDB mock warnings)
+- `pnpm.cmd -C apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts app/features/messaging/controllers/enhanced-dm-controller.test.ts app/features/messaging/providers/runtime-messaging-transport-owner-provider.test.tsx` (from repo root, 48/48 passing after projection-catch-up receive fallback)
+- `pnpm.cmd -C apps/website lint` (passed after replacing raw `<img>` usage with `next/image`)
+- `pnpm.cmd -C apps/website build` (passed; static marketing surface prerenders successfully)
+- `pnpm.cmd -C apps/website exec tsc --noEmit` (passed)
+- `pnpm.cmd -C apps/website lint` (passed after canonical release/version data binding)
+- `pnpm.cmd -C apps/website exec tsc --noEmit` (passed after canonical release/version data binding)
+- `pnpm.cmd -C apps/website build` (passed after canonical release/version data binding)
+- `pnpm.cmd install` (passed after adding `@dweb/core` as a website workspace dependency)
+- `pnpm.cmd -C apps/pwa exec vitest run app/features/updates/services/streaming-update-policy.test.ts app/features/updates/services/release-download-targets.test.ts` (11/11 passing)
+- `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false` (passed after updater fallback changes)
+- `pnpm.cmd -C apps/website lint` (passed after adding `/download` route and release asset plumbing)
+- `pnpm.cmd -C apps/website exec tsc --noEmit` (passed after adding `/download` route and release asset plumbing)
+- `pnpm.cmd -C apps/website build` (passed; `/` and `/download` prerender successfully with release metadata fetch)
+- `pnpm.cmd docs:check` (passed after delete/restore standards doc update)
+- `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false` (passed after alias-contract integration)
 
 ## Changed Files
 
@@ -161,6 +196,8 @@ Expand local regression coverage around the recent core blockers without committ
 - `apps/pwa/app/features/messaging/controllers/outgoing-dm-publisher.test.ts`
 - `apps/pwa/app/features/messaging/services/dm-delivery-deterministic.integration.test.ts`
 - `apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts`
+- `apps/pwa/app/features/messaging/services/message-identity-alias-contract.ts`
+- `apps/pwa/app/features/messaging/services/message-identity-alias-contract.test.ts`
 - `apps/pwa/app/features/messaging/lib/media-upload-policy.ts`
 - `apps/pwa/app/features/messaging/lib/media-upload-policy.test.ts`
 - `apps/pwa/app/features/messaging/lib/nip96-upload-service.ts`
@@ -175,8 +212,26 @@ Expand local regression coverage around the recent core blockers without committ
 - `apps/pwa/app/features/messaging/controllers/enhanced-dm-controller.test.ts`
 - `apps/pwa/app/features/network/services/presence-evidence.ts`
 - `apps/pwa/app/features/network/services/presence-evidence.test.ts`
+- `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.ts`
+- `apps/pwa/app/features/messaging/controllers/incoming-dm-event-handler.test.ts`
 - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
 - `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.test.ts`
+- `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts`
+- `apps/pwa/app/features/messaging/utils/logic.ts`
+- `apps/pwa/app/features/messaging/utils/logic.test.ts`
+- `apps/pwa/app/features/messaging/utils/persistence.ts`
+- `apps/pwa/app/features/messaging/utils/persistence.attachments.test.ts`
+- `apps/pwa/app/components/desktop-updater.tsx`
+- `apps/pwa/app/features/updates/services/release-download-targets.test.ts`
+- `packages/dweb-core/src/release-download-targets.ts`
+- `packages/dweb-core/package.json`
+- `apps/website/src/app/layout.tsx`
+- `apps/website/src/app/page.tsx`
+- `apps/website/src/app/site-content.ts`
+- `apps/website/src/app/download/page.tsx`
+- `apps/website/package.json`
+- `apps/website/next.config.ts`
+- `apps/website/src/app/globals.css`
 - `apps/pwa/app/features/vault/hooks/use-vault-media.ts`
 - `apps/pwa/app/features/vault/services/local-media-store.ts`
 - `apps/pwa/app/features/vault/services/native-local-media-adapter.ts`
@@ -196,6 +251,8 @@ Expand local regression coverage around the recent core blockers without committ
 - `docs/roadmap/v1.3.8-hybrid-offline-streaming-update-plan.md`
 - `docs/roadmap/current-roadmap.md`
 - `docs/07-operations-and-release-flow.md`
+- `docs/17-dm-delete-restore-divergence-incident.md`
+- `docs/releases/website-and-test-audit-2026-04-16.md`
 - `docs/README.md`
 - `docs/handoffs/current-session.md`
 - `apps/desktop/release/streaming-update-policy.example.json`
@@ -210,11 +267,17 @@ Expand local regression coverage around the recent core blockers without committ
 ## Open Risks Or Blockers
 
 - Release-blocker: the user-reported fresh-device DM delete/restore privacy regression is still runtime-open. Focused owner-path suites are green, but we still need live A/B replay to prove deleted-for-everyone rows and local tombstoned rows do not resurrect after login+restore and that startup does not publish stale local state from old mutation history before restore completes.
+- New runtime blocker (2026-04-16): test account B reports non-deleted DM video history disappearing after fresh-device sync. Owner-path hardening landed (full bootstrap plaintext previews + permissive projection attachment fallback + video-host misclassification fix), but manual replay evidence is still required to confirm videos survive restore and appear in both chat timeline and Vault on the fresh device.
 - Vault browser runtime replay is now green for source badges, `Removed` round-trip behavior, and browser download artifacts, but native desktop replay is still open: verify the Tauri save dialog path writes image/video/audio/file assets to user-chosen filesystem locations and that the saved files open correctly through the desktop runtime rather than browser download fallback.
 - Messaging upload browser runtime replay is partially green: the real composer now shows the expected single-video-per-message and 384MB batch-size guardrails, but desktop/native runtime replay is still open for actual upload success/retry behavior, large successful upload stability, and post-send memory behavior.
 - Fresh-device backup-restore replay is still open: focused provider/persistence/conversation-hook coverage now locks the late-restore owner path, and durable DM delete tombstones now flow through encrypted backup publish/restore, but desktop/PWA runtime replay still needs to confirm the real restore flow emits `messaging.chat_state_replaced`, migrates history, repopulates the DM sidebar, refreshes an already-open conversation without a reload, and does not resurrect delete-for-everyone text or voice-call invite history.
 - New release-blocker (2026-04-06): two-user runtime replay reports `B -> A` DM visibility failure (A cannot see B messages consistently), which blocks reliable interaction QA and has not yet been reproduced by focused deterministic suites.
+- Focused owner-path mitigation landed for the `B -> A` receive gap: during projection catch-up only, incoming DM routing now treats durable historical conversation evidence as acceptance evidence so known-peer messages are not dropped before projection acceptance catches up. Runtime replay is still required to confirm the live symptom is resolved.
 - Evidence gap: focused owner-path suites are green, so the regression currently appears runtime/manual only and likely tied to a lifecycle/identity-state combination not covered by existing tests.
+- Website follow-up: the official website surface is now implemented and validated, but demo coverage still lacks a dedicated community/discovery GIF and the current release verification panel remains intentionally candid about pending desktop/updater/manual evidence.
+- Website data follow-up: the site now resolves latest release assets and exposes a `/download` surface, but it still depends on GitHub release API availability at build/revalidate time rather than a repo-owned artifact manifest tailored for the website.
+- Streaming updater blocker: the live GitHub release channel still does not publish `latest.json`, so true Tauri streaming install remains unavailable despite the updater contract/policy work. The new app-side fallback covers this gap, but the release pipeline still needs a real updater feed artifact before direct in-app streaming updates can be considered working.
+- Test-harness hygiene follow-up: `encrypted-account-backup-service.test.ts` now passes after targeted clear stubs for attachment materialization cases, but unrelated cases in the same suite still emit non-fatal IndexedDB mock warnings (`store.clear is not a function`), which can obscure true diagnostics and should be normalized in a later cleanup slice.
 - New voice-call blocker (2026-04-08): runtime reports ongoing call setup timeouts under real two-user conditions; timeout policy is now hardened with bounded extensions for connecting sessions with transport progress evidence, and connected-call waveform decay/dynamics were tightened to avoid a sticky reused voiceprint, but manual replay evidence is still required to confirm timeout-frequency reduction, live voiceprint motion, and no stuck-call regressions.
 - Notification follow-up polish (2026-04-08): desktop/browser notification payloads now deep-link to exact conversations for DM follow-up, and call notifications were simplified to a chat-follow-up owner path with no room IDs and no misleading accept/decline system-toast affordances; runtime verification is still required on Windows native to confirm which click/open-chat affordances the OS toast surface actually honors beyond the existing in-app and service-worker paths.
 - M2 manual replay evidence is still open:
@@ -228,7 +291,10 @@ Expand local regression coverage around the recent core blockers without committ
 
 ## Next Atomic Step
 
-Commit and push the approved post-release hardening patch to main, then return to monitoring the published v1.3.15 workflow/artifacts and planning the website lane.
+Decide the next updater-distribution lane: either 1. extend the release workflow to publish a real Tauri `latest.json` feed (with the required signed desktop artifacts), or 2. keep the new download fallback as the canonical path and wire a repo-owned website artifact manifest so `/download` no longer depends on the GitHub API at runtime.
+
+
+
 
 
 
@@ -1139,4 +1205,69 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Commit and push the approved post-release hardening patch to main, then return to monitoring the published v1.3.15 workflow/artifacts and planning the website lane.
+### 2026-04-15T18:13:45Z checkpoint
+- Summary: Started the reusable localization-template pass. Localized the Auth screen and a large visible slice of Discovery into structured \u0007uth.* and search.discovery.* keys across en/es/zh, including hero/placeholder/state/empty/preview/share-dialog copy, and fixed the broken zh auth entries that were rendering as question marks. Revalidated focused Auth + Discovery suites plus apps/pwa typecheck; all passed. Changes remain local and uncommitted for review.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Continue the template pass on the next highest-value surfaces: 1. finish the remaining hardcoded Discovery diagnostics/preview/share strings if any remain, 2. localize Vault (\u000bault-media-grid.tsx) using the same namespaced-key pattern, then 3. move into settings-page-client.tsx with grouped settings.* section keys.
+### 2026-04-16T09:02:14Z checkpoint
+- Summary: Improved messaging lightbox browsing UI with persistent previous/next controls, preview position context, and preview metadata while preserving the existing preview owner path.
+- Evidence: `.\\node_modules\\.bin\\vitest.cmd run app/features/messaging/components/lightbox.test.tsx` (from `apps/pwa`, 2/2 passing); `.\\node_modules\\.bin\\vitest.cmd run app/features/main-shell/hooks/use-chat-view-props.test.ts` (from `apps/pwa`, 1/1 passing); `.\\node_modules\\.bin\\vitest.cmd run app/features/messaging/components/chat-view.test.tsx` (from `apps/pwa`, 7/7 passing); `.\\node_modules\\.bin\\tsc.cmd --noEmit --pretty false` (from `apps/pwa`, passing)
+- Uncertainty: This is a UI-only owner-path improvement and the touched suites are green, but manual runtime replay is still useful on a narrow mobile viewport to confirm the persistent bottom control bar feels balanced with zoom/download controls and does not crowd tall PDF previews.
+- Next: Continue the UI pass from messaging media surfaces into the next high-value visual polish target, starting with the remaining discovery/search preview cards and their localization cleanup.
+### 2026-04-16T11:13:11Z checkpoint
+- Summary: Hardened DM Delete for me against fresh-window restore resurrection by deriving canonical DM identity aliases for local deletes, so rows deleted under a wrapper/local id also suppress the canonical event id that restore may materialize later (especially old voice-call invite cards).
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Run a manual two-window replay on the reported account-switch/login scenario and capture whether deleted call-log or DM rows still resurface after restore; if any do, compare the surviving row's id/eventId against the new derived local delete alias set.
+### 2026-04-16T13:49:37Z checkpoint
+- Summary: Converted DM delete/restore alias handling into an explicit shared contract. Added `message-identity-alias-contract` and wired it into both `use-chat-actions` local delete identity derivation and encrypted backup restore sanitization. Also normalized sparse legacy attachment metadata during restore sanitization to keep delete derivation/replay behavior deterministic, and documented canonical durability standards + contract gate suites in the DM delete/restore incident doc.
+- Evidence: `pnpm.cmd -C apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/services/message-identity-alias-contract.test.ts app/features/messaging/utils/persistence.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts` (13/13 passing); `pnpm.cmd docs:check` (passed); `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false` (passed)
+- Uncertainty: Runtime truth is still pending; focused suites now lock the alias contract but we still need the live two-window account-switch/login replay to confirm no deleted DM/call-log rows reappear under real restore + relay timing.
+- Next: Run the manual two-window account-switch/login replay and capture whether deleted DM/call-log rows resurface; if they do, record each survivor `id`/`eventId` pair and diff them against the shared alias contract suppression set.
+### 2026-04-16T13:57:42Z checkpoint
+- Summary: Resolved two attachment-bearing restore regression tests that were failing due test harness plumbing, not owner logic. Added explicit `messagingDB.clear` stubs in the non-v1 restore materialization tests so migration no longer aborts on `store.clear is not a function`, and the tests now assert real indexed materialization + republish behavior.
+- Evidence: `pnpm.cmd -C apps/pwa exec vitest run app/features/account-sync/services/encrypted-account-backup-service.test.ts -t "materializes restored attachment-bearing dm history into the indexed messages store during non-v1 restore|re-publishes restored attachment-bearing dm history from existing state without requiring new messages"` (2/2 passing)
+- Uncertainty: Runtime two-window replay is still required for the release blocker; these fixes and tests reduce alias/restore drift risk but do not replace live account-switch/login evidence.
+- Next: Run the manual two-window account-switch/login replay and capture whether deleted DM/call-log rows resurface; if they do, record each survivor `id`/`eventId` pair and diff them against the shared alias contract suppression set.
+### 2026-04-16T14:00:25Z checkpoint
+- Summary: Revalidated the broader focused gate set after alias-contract and harness updates. `use-chat-actions` delete-target derivation, alias-contract unit tests, persistence/backup attachment compatibility suites, and the full encrypted backup service suite all pass together in one run.
+- Evidence: `pnpm.cmd -C apps/pwa exec vitest run app/features/main-shell/hooks/use-chat-actions.delete-targets.test.ts app/features/messaging/services/message-identity-alias-contract.test.ts app/features/messaging/utils/persistence.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.test.ts` (73/73 passing)
+- Uncertainty: Full suite pass still includes non-fatal IndexedDB mock warning logs (`store.clear is not a function`) in unrelated backup tests; this is test-harness noise rather than failing behavior and should be cleaned separately.
+- Next: Run the manual two-window account-switch/login replay and capture whether deleted DM/call-log rows resurface; if they do, record each survivor `id`/`eventId` pair and diff them against the shared alias contract suppression set.
+### 2026-04-16T14:36:24Z checkpoint
+- Summary: Investigated a new runtime report that account B loses non-deleted DM videos after fresh-device sync. Landed owner-path hardening in attachment reconstruction: bootstrap import no longer truncates long DM plaintext previews, projection fallback now keeps extensionless markdown links via bounded permissive attachment extraction, and host inference no longer misclassifies `video.nostr.build` URLs as images.
+- Evidence: `pnpm.cmd -C apps/pwa exec vitest run app/features/messaging/utils/logic.test.ts app/features/messaging/utils/persistence.attachments.test.ts app/features/account-sync/services/account-event-bootstrap-service.test.ts app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.test.ts` (79/79 passing); `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false` (passed); `pnpm.cmd docs:check` (passed)
+- Uncertainty: This patch closes likely owner-path media-drop vectors in restore/projection paths, but runtime confirmation is still required on the exact B scenario to prove historical videos now survive real account-sync restore and Vault aggregation.
+- Next: Run a two-window fresh-device replay for account B and verify the previously missing non-deleted videos appear in both chat history and Vault; if not, capture row-level `attachments` shape plus `account_sync.backup_restore_merge_diagnostics` and `account_sync.backup_restore_apply_diagnostics` for the affected conversation.
+### 2026-04-16T15:15:06Z checkpoint
+- Summary: Shifted focus to the older `B -> A` DM visibility blocker and landed a narrow owner-path mitigation. Incoming DM routing now uses historical conversation evidence only while `accountProjectionReady` is still false, so accepted-peer messages are not discarded as unknown-sender traffic during projection catch-up. The fallback is evidence-based, bounded to restore lag, and leaves normal ready-state stranger filtering intact.
+- Evidence: `pnpm.cmd -C apps/pwa exec vitest run app/features/messaging/controllers/incoming-dm-event-handler.test.ts app/features/messaging/controllers/enhanced-dm-controller.test.ts app/features/messaging/providers/runtime-messaging-transport-owner-provider.test.tsx` (48/48 passing); `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false` (passed); `pnpm.cmd docs:check` (passed)
+- Uncertainty: This likely covers the live symptom if A was dropping B messages during projection lag, but runtime replay is still required to confirm the real lifecycle/relay timing now converges and that the fallback does not mask a deeper acceptance-state bug.
+- Next: Run a two-user runtime replay for `B -> A` while A is still restoring. If A still misses B’s messages, capture whether the event was ignored before decrypt, routed to requests, or dropped after decrypt using `messaging.transport.*`, `messaging.incoming.accepted_via_history_fallback`, and `account_sync.backup_restore_*` diagnostics.
+### 2026-04-16T15:35:34Z checkpoint
+- Summary: Completed the official website implementation pass. Replaced the scaffolded page with a release-facing static site that reflects canonical repo truth: release highlights from `CHANGELOG.md`, platform coverage, docs/release links, verification status, and GIF evidence cards referencing the maintained demo library. Also added a durable audit note listing the explicit placeholder encryption test, the env-gated real-relay e2e, and older invite TODO surfaces that still look incomplete.
+- Evidence: `pnpm.cmd -C apps/website lint` (passed); `pnpm.cmd -C apps/website build` (passed); `pnpm.cmd -C apps/website exec tsc --noEmit` (passed); `pnpm.cmd docs:check` (passed)
+- Uncertainty: The site is release-ready as a static surface, but it still depends on manually curated content data and the current demo library; community/discovery GIF coverage is still missing and download/version data is not yet auto-fed from release artifacts.
+- Next: Choose the next website follow-up lane: either add the missing community/discovery production GIF to the site, or wire release-artifact/version data into the website so download/version sections update from canonical release inputs rather than manual content constants.
+### 2026-04-16T15:54:32Z checkpoint
+- Summary: Removed manual release/version drift from the website content layer. The site now reads the canonical current version from `version.json` with root `package.json` fallback and derives the release highlight cards directly from `CHANGELOG.md` at build time, so the headline release surface stays aligned without hand-editing website constants.
+- Evidence: `pnpm.cmd -C apps/website lint` (passed); `pnpm.cmd -C apps/website exec tsc --noEmit` (passed); `pnpm.cmd -C apps/website build` (passed); `pnpm.cmd docs:check` (passed)
+- Uncertainty: Version and release notes are now canonical, but the website still does not expose per-platform artifact links from workflow-generated release metadata.
+- Next: Add release-artifact metadata plumbing to the website so it can render current download targets per platform from canonical release inputs rather than linking only to the GitHub releases overview page.
+### 2026-04-16T17:04:15Z checkpoint
+- Summary: Hardened the updater distribution path for the current release reality. Added a shared typed release-download contract in `@dweb/core`, updated `DesktopUpdater` to resolve latest release assets and offer deterministic fallback actions when the native updater feed is unavailable, and added a website `/download` route that renders platform download targets from release metadata. Also confirmed the live GitHub release channel still lacks `latest.json`, so true Tauri streaming updates are not yet available from the current published artifacts.
+- Evidence: `pnpm.cmd install` (passed after adding `@dweb/core` to `apps/website`); `pnpm.cmd -C apps/pwa exec vitest run app/features/updates/services/streaming-update-policy.test.ts app/features/updates/services/release-download-targets.test.ts` (11/11 passing); `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false` (passed); `pnpm.cmd -C apps/website lint` (passed); `pnpm.cmd -C apps/website exec tsc --noEmit` (passed); `pnpm.cmd -C apps/website build` (passed, `/` and `/download` prerender); `pnpm.cmd docs:check` (passed); verified live updater feed URL `https://github.com/Dendro-X0/Obscur/releases/latest/download/latest.json` returns 404 while the release page still serves installers and `streaming-update-policy.json`
+- Uncertainty: The app-side fallback is now solid, but full in-app streaming install still requires release-pipeline work to publish a valid Tauri updater feed instead of only the streaming policy manifest.
+- Next: Choose the next updater-distribution lane: either publish a real `latest.json` updater feed from the release workflow, or keep the new download fallback as canonical and add a repo-owned website artifact manifest so `/download` does not depend on GitHub API availability.
+### 2026-04-17T04:57:20Z checkpoint
+- Summary: Completed the release-pipeline side of the streaming updater lane. Enabled updater artifact generation in Tauri desktop config, added `scripts/build-tauri-updater-feed.mjs` to generate a signed `latest.json` feed from release assets, updated the GitHub release workflow to publish `latest.json` alongside `streaming-update-policy.json`, and tightened release contract/matrix checks so future tags cannot silently omit the updater feed again.
+- Evidence: `pnpm.cmd release:tauri-updater-feed:build -- --assets-dir .tmp/updater-feed-fixture --output .tmp/updater-feed-fixture/latest.json --base-url https://example.com/download` (passed; generated valid fixture feed); `pnpm.cmd release:streaming-update-contract:check` (passed); `pnpm.cmd release:artifact-matrix-check` (passed); `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false` (passed); `pnpm.cmd -C apps/website lint` (passed); `pnpm.cmd -C apps/website build` (passed); `pnpm.cmd docs:check` (passed)
+- Uncertainty: The code and workflow now support real streaming updates, but runtime truth still requires a future tagged release run to confirm GitHub Releases actually publishes `latest.json` and that the desktop app can install from it end to end.
+- Next: On the next release tag, verify that GitHub Releases publishes `latest.json` with signed desktop platform entries, then run the in-app updater success path against that live feed. If feed publication still fails, keep the current download fallback as the temporary canonical path.
+### 2026-04-16T17:04:15Z release-prep checkpoint
+- Summary: Promoted the current worktree to the `v1.3.16` release lane. Bumped and synced versions to `1.3.16`, moved the updater/website distribution work into the release notes, and passed the core release gate set plus `release:test-pack -- --skip-preflight` on the staged tree.
+- Evidence: `pnpm.cmd version:check` (passed); `pnpm.cmd docs:check` (passed); `pnpm.cmd release:integrity-check` (passed); `pnpm.cmd release:streaming-update-contract:check` (passed); `pnpm.cmd release:ci-signal-check` (passed); `pnpm.cmd release:artifact-matrix-check` (passed); `pnpm.cmd release:artifact-version-contract-check` (passed); `pnpm.cmd release:test-pack -- --skip-preflight` (passed)
+- Uncertainty: Strict clean-tree preflight plus commit/tag/push are still pending before `v1.3.16` is actually cut.
+- Next: Commit the `v1.3.16` release tree, run strict `pnpm.cmd release:preflight -- --tag v1.3.16` on the clean tree, then create and push the `v1.3.16` tag if preflight passes.
 <!-- CONTEXT_CHECKPOINTS_END -->

@@ -483,4 +483,46 @@ describe("account-event-bootstrap-service", () => {
       }),
     ]));
   });
+
+  it("keeps full plaintext previews for long attachment-bearing bootstrap messages", () => {
+    const longAttachmentText = "clip [very-long-video-file-name-that-exceeds-old-preview-limit.mp4](https://video.nostr.build/i/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890)";
+    const payload = basePayload({
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          [PEER]: [
+            {
+              id: "legacy-long-media",
+              content: longAttachmentText,
+              timestampMs: 60_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+          ],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+    });
+
+    const events = buildCanonicalBackupImportEvents({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT,
+      payload,
+      source: "relay_sync",
+      idempotencyPrefix: "restore:test",
+    });
+
+    const dmEvent = events.find((event) => event.type === "DM_SENT_CONFIRMED" && event.messageId === "legacy-long-media");
+    expect(dmEvent).toBeDefined();
+    expect((dmEvent as { plaintextPreview?: string }).plaintextPreview).toBe(longAttachmentText);
+    expect((dmEvent as { plaintextPreview?: string }).plaintextPreview?.endsWith("...")).toBe(false);
+  });
 });

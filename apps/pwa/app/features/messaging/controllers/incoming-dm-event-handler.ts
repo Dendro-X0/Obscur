@@ -120,6 +120,7 @@ export type IncomingDmParams = Readonly<{
   ingestSource?: "relay_live" | "relay_sync";
   transportOwnerId?: string | null;
   controllerInstanceId?: string;
+  accountProjectionReady?: boolean;
 }>;
 
 export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: ReadonlyArray<Message> }>>(params: Readonly<{
@@ -622,6 +623,41 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     const requestState = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });
     const hasAcceptedRequestState = requestState?.status === "accepted";
     const requestEvidence = requestFlowEvidenceStore.get(actualSenderPubkey);
+    const conversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(":");
+    const shouldCheckHistoricalConversationEvidence = (
+      currentParams.accountProjectionReady === false
+      && !isAcceptedByTrust
+      && !isAcceptedByProjection
+      && !hasAcceptedRequestState
+    );
+    let hasHistoricalConversationEvidence = false;
+    if (shouldCheckHistoricalConversationEvidence) {
+      hasHistoricalConversationEvidence = params.existingMessages.some((entry) => (
+        entry.conversationId === conversationId
+      ));
+      if (!hasHistoricalConversationEvidence && params.messageQueue && typeof params.messageQueue.getLastMessageTimestamp === "function") {
+        try {
+          const lastConversationMessageAt = await params.messageQueue.getLastMessageTimestamp(conversationId);
+          hasHistoricalConversationEvidence = lastConversationMessageAt instanceof Date;
+        } catch {
+          // Best effort only; do not fail incoming processing on history probe errors.
+        }
+      }
+      if (hasHistoricalConversationEvidence) {
+        logAppEvent({
+          name: "messaging.incoming.accepted_via_history_fallback",
+          level: "info",
+          scope: { feature: "messaging", action: "receive_dm" },
+          context: {
+            eventIdHint: usedEventId.slice(0, 16),
+            senderPubkeyHint: actualSenderPubkey.slice(0, 16),
+            conversationIdHint: conversationId.slice(0, 16),
+            projectionReady: Boolean(currentParams.accountProjectionReady),
+            ingestSource: canonicalIngestSource,
+          },
+        });
+      }
+    }
     const hasDurableAcceptEvidence = Boolean(
       requestEvidence.acceptSeen
       && (
@@ -637,7 +673,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     const isAcceptedContact = isAcceptedByTrust
       || hasAcceptedRequestState
       || isAcceptedByProjection
-      || hasDurableAcceptEvidence;
+      || hasDurableAcceptEvidence
+      || hasHistoricalConversationEvidence;
     if ((hasAcceptedRequestState || isAcceptedByProjection || hasDurableAcceptEvidence) && !isAcceptedByTrust) {
       currentParams.peerTrust?.acceptPeer({ publicKeyHex: actualSenderPubkey });
     }
@@ -1009,8 +1046,6 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         return;
       }
     }
-
-    const conversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(":");
 
     if (deleteCommandTargetIds.length > 0) {
       await applyDeleteCommand({
