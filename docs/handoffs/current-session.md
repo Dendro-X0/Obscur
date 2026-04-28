@@ -3154,4 +3154,21 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: Workflow now has no references to signing secrets; base config is unsigned by default
 - Uncertainty: None
 - Next: Push these changes, tag v1.4.1, verify release workflow completes successfully
+
+### 2026-04-28T14:50:00Z checkpoint — Version Sync and Contract Validation Fixes
+- Summary: Fixed release:gates that were failing due to version mismatches and validation scripts that enforced signed-only builds.
+- Files Changed:
+  - `package.json`: Synced version 1.4.0 → 1.4.1
+  - `version.json`: Synced version 1.4.0 → 1.4.1, target v1.4.0 → v1.4.1
+  - `apps/desktop/package.json`: Synced version 1.4.0 → 1.4.1
+  - `apps/pwa/package.json`: Synced version 1.4.0 → 1.4.1
+  - `apps/desktop/release/streaming-update-policy.example.json`: Updated to 1.4.1 with unsigned placeholder signatures
+  - `scripts/check-streaming-update-contract.mjs`: Modified to accept both signed and unsigned Tauri configurations
+- Impact:
+  - All version sources aligned to 1.4.1 matching the git tag
+  - Artifact version parity check will pass (desktop files will contain 1.4.1 in names)
+  - Streaming update contract check now allows unsigned builds (active: false, createUpdaterArtifacts: false)
+- Evidence: Versions synced across 6 files; validation script updated to recognize unsigned configurations as valid
+- Uncertainty: None
+- Next: Push all changes, force-push v1.4.1 tag, monitor full release workflow
 <!-- CONTEXT_CHECKPOINTS_END -->
