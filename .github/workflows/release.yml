@@ -51,9 +51,32 @@ jobs:
           RELEASE_TEST_PACK_SKIP_PREFLIGHT: "1"
         run: pnpm release:test-pack -- --skip-preflight
 
+  desktop-signing-precheck:
+    name: Desktop Signing Precheck
+    runs-on: ubuntu-latest
+    outputs:
+      desktop_signing_state: ${{ steps.check.outputs.desktop_signing_state }}
+    steps:
+      - name: Check desktop signing secrets
+        id: check
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          signing_state="unsigned"
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            signing_state="signed"
+          fi
+          echo "desktop_signing_state=${signing_state}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Desktop Signing Status"
+            echo "- desktop_signing_state: ${signing_state}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build-desktop:
     name: Build Desktop (${{ matrix.os }})
-    needs: preflight-checks
+    needs: [preflight-checks, desktop-signing-precheck]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -83,6 +106,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Configure unsigned desktop CI mode
+        if: ${{ needs.desktop-signing-precheck.outputs.desktop_signing_state != 'signed' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'EOF'
+          const fs = require('node:fs');
+          const path = 'apps/desktop/src-tauri/tauri.conf.json';
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (config.bundle) {
+            config.bundle.createUpdaterArtifacts = false;
+          }
+          if (config.plugins?.updater) {
+            config.plugins.updater.pubkey = '';
+          }
+          fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+          EOF
+
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
         run: |
@@ -109,6 +150,8 @@ jobs:
         run: pnpm -C apps/desktop tauri build
         env:
           TAURI_BUILD: true
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Upload Artifacts (Windows)
         if: matrix.os == 'windows-latest'
@@ -158,6 +201,24 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Configure unsigned desktop CI mode
+        if: ${{ needs.desktop-signing-precheck.outputs.desktop_signing_state != 'signed' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'EOF'
+          const fs = require('node:fs');
+          const path = 'apps/desktop/src-tauri/tauri.conf.json';
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (config.bundle) {
+            config.bundle.createUpdaterArtifacts = false;
+          }
+          if (config.plugins?.updater) {
+            config.plugins.updater.pubkey = '';
+          }
+          fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+          EOF
 
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
@@ -469,7 +530,7 @@ jobs:
 
   verify-artifacts:
     name: Verify Artifacts
-    needs: [preflight-checks, build-desktop, build-web-pwa, build-android, ios-precheck]
+    needs: [preflight-checks, desktop-signing-precheck, build-desktop, build-web-pwa, build-android, ios-precheck]
     if: ${{ always() && needs.preflight-checks.result == 'success' && needs.build-desktop.result == 'success' && needs.build-web-pwa.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
@@ -534,10 +595,16 @@ jobs:
       
       - name: Build streaming update assets from downloaded artifacts
         shell: bash
+        env:
+          DESKTOP_SIGNING_STATE: ${{ needs.desktop-signing-precheck.outputs.desktop_signing_state }}
         run: |
           mkdir -p release-assets/streaming-update
           pnpm release:streaming-update-manifest:build -- --assets-dir release-assets --output release-assets/streaming-update/streaming-update-policy.json --release-notes-url "https://github.com/${{ github.repository }}/releases/latest"
-          pnpm release:tauri-updater-feed:build -- --assets-dir release-assets --output release-assets/streaming-update/latest.json --base-url "https://github.com/${{ github.repository }}/releases/latest/download"
+          if [ "${DESKTOP_SIGNING_STATE}" = "signed" ]; then
+            pnpm release:tauri-updater-feed:build -- --assets-dir release-assets --output release-assets/streaming-update/latest.json --base-url "https://github.com/${{ github.repository }}/releases/latest/download"
+          else
+            echo "Skipping latest.json generation because desktop signing is unavailable in this CI run."
+          fi
 
       - name: Upload streaming update assets
         uses: actions/upload-artifact@v4
@@ -561,6 +628,7 @@ jobs:
             echo "### Release Lane Summary";
             echo "- android_job_result: ${{ needs.build-android.result }}";
             echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state != '' && needs.build-android.outputs.android_signing_state || 'unavailable' }}";
+            echo "- desktop_signing_state: ${{ needs.desktop-signing-precheck.outputs.desktop_signing_state }}";
             echo "- ios_lane_state: ${{ needs.ios-precheck.outputs.ios_lane_state }}";
             echo "- android_version_parity: check non-blocking (see step status)";
           } >> "$GITHUB_STEP_SUMMARY"
@@ -569,6 +637,7 @@ jobs:
         shell: bash
         env:
           ANDROID_JOB_RESULT: ${{ needs.build-android.result }}
+          DESKTOP_SIGNING_STATE: ${{ needs.desktop-signing-precheck.outputs.desktop_signing_state }}
         run: |
           set -euo pipefail
 
@@ -644,9 +713,13 @@ jobs:
             echo "Missing required Web/PWA static bundle (.tar.gz)." >&2
             exit 1
           fi
-          if ! find release-assets/streaming-update -type f -iname "latest.json" | grep -q .; then
-            echo "Missing required Tauri updater feed latest.json." >&2
-            exit 1
+          if [ "${DESKTOP_SIGNING_STATE}" = "signed" ]; then
+            if ! find release-assets/streaming-update -type f -iname "latest.json" | grep -q .; then
+              echo "Missing required Tauri updater feed latest.json." >&2
+              exit 1
+            fi
+          else
+            echo "Desktop signing unavailable; latest.json is optional for this CI run."
           fi
 
           echo "Required artifact matrix verified."
